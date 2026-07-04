@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三力選股儀表板|產業 × 基本面 × 籌碼 × 技術</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+<style>
+:root{
+  --bg:#0C111D; --panel:#141B2B; --panel2:#1A2337; --line:#232D42;
+  --up:#E5484D; --down:#21A466; --amber:#E8B44A;
+  --txt:#E9EDF5; --mut:#8B95AB; --dim:#5A6478;
+  --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:15px;line-height:1.6}
+a{color:var(--amber)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
+
+/* ── 頂部 ── */
+header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#111828 0%,var(--bg) 100%)}
+.head-in{max-width:1180px;margin:0 auto;padding:28px 20px 22px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between}
+h1{font-size:26px;font-weight:900;letter-spacing:.04em}
+h1 .tri{color:var(--amber)}
+.sub{color:var(--mut);font-size:13px;margin-top:4px}
+.meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.badge{font-family:var(--mono);font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--line);color:var(--mut)}
+.badge.demo{border-color:var(--amber);color:var(--amber)}
+.badge.live{border-color:var(--down);color:#4BD695}
+
+/* ── 控制列 ── */
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:22px 0 14px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:none;border:none;color:var(--mut);padding:8px 16px;font-family:var(--sans);font-size:14px;cursor:pointer}
+.seg button.on{background:var(--panel2);color:var(--txt);font-weight:700}
+select,input[type=search]{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 12px;font-family:var(--sans);font-size:14px}
+input[type=search]{flex:1;min-width:180px}
+select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+
+/* ── 產業膠囊 ── */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.chip{background:var(--panel);border:1px solid var(--line);color:var(--mut);border-radius:20px;padding:6px 14px;font-size:13px;cursor:pointer;transition:all .15s}
+.chip:hover{color:var(--txt);border-color:var(--dim)}
+.chip.on{background:var(--amber);border-color:var(--amber);color:#1A1206;font-weight:700}
+
+/* ── 產業分析面板 ── */
+.sector-panel{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;padding:20px 22px;margin-bottom:22px}
+.sector-panel h2{font-size:18px;font-weight:900;margin-bottom:8px}
+.sector-panel .tagline{color:var(--amber);font-size:13px;font-family:var(--mono);margin-bottom:10px}
+.sector-panel p{color:#C4CBDA;font-size:14px;margin-bottom:8px}
+.sp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+.sp-box{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.sp-box h3{font-size:13px;color:var(--mut);font-weight:700;margin-bottom:6px;letter-spacing:.08em}
+.sp-box ul{list-style:none}
+.sp-box li{font-size:13px;color:#C4CBDA;padding-left:14px;position:relative;margin-bottom:4px}
+.sp-box li::before{content:'·';position:absolute;left:2px;color:var(--amber);font-weight:900}
+@media(max-width:720px){.sp-grid{grid-template-columns:1fr}}
+
+/* ── 卡片格 ── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;cursor:pointer;transition:border-color .15s,transform .15s}
+.card:hover{border-color:var(--amber);transform:translateY(-2px)}
+.c-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.c-name{font-weight:700;font-size:16px}
+.c-full{color:var(--mut);font-size:12px;margin-top:1px}
+.c-code{font-family:var(--mono);font-size:13px;color:var(--amber)}
+.c-sector{display:inline-block;font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:4px;padding:1px 6px;margin-top:5px}
+.score-ring{flex-shrink:0;width:56px;height:56px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);background:
+  conic-gradient(var(--amber) calc(var(--sc)*1%), var(--panel2) 0)}
+.score-in{width:46px;height:46px;border-radius:50%;background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.score-in b{font-size:16px;line-height:1}
+.score-in span{font-size:9px;color:var(--mut)}
+.c-price{display:flex;gap:10px;align-items:baseline;margin:10px 0 4px;font-family:var(--mono)}
+.c-price .px{font-size:20px;font-weight:600}
+.pos{color:var(--up)} .neg{color:var(--down)} .flat{color:var(--mut)}
+.bars{margin-top:8px}
+.bar-row{display:grid;grid-template-columns:52px 1fr 34px;gap:8px;align-items:center;margin-bottom:5px;font-size:12px}
+.bar-row .lb{color:var(--mut)}
+.bar-track{height:7px;background:var(--panel2);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#8a6a1f,var(--amber))}
+.bar-row .vl{font-family:var(--mono);color:#C4CBDA;text-align:right}
+.c-note{font-size:12.5px;color:var(--mut);margin-top:9px;border-top:1px dashed var(--line);padding-top:8px}
+
+/* ── 明細彈窗 ── */
+.overlay{position:fixed;inset:0;background:rgba(5,8,15,.75);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:50}
+.overlay.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:680px;width:100%;padding:24px 26px;position:relative}
+.modal .close{position:absolute;top:14px;right:14px;background:var(--panel2);border:1px solid var(--line);color:var(--mut);border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:15px}
+.m-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:6px}
+.m-head h2{font-size:21px;font-weight:900}
+.dim-block{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-top:12px}
+.dim-block h3{font-size:14px;font-weight:700;display:flex;justify-content:space-between;margin-bottom:8px}
+.dim-block h3 .ds{font-family:var(--mono);color:var(--amber)}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}
+.kv div{display:flex;justify-content:space-between;font-size:13px;border-bottom:1px dashed var(--line);padding:3px 0}
+.kv dt{color:var(--mut)} .kv dd{font-family:var(--mono)}
+.dim-note{font-size:13px;color:#C4CBDA;margin-top:8px}
+.thesis{margin-top:14px;font-size:14px;color:#C4CBDA;background:var(--bg);border-left:3px solid var(--amber);border-radius:0 8px 8px 0;padding:12px 14px}
+@media(max-width:720px){.kv{grid-template-columns:1fr}}
+
+/* ── 更新按鈕 / 市場總覽 / 匯率 / 新聞 ── */
+.btn-upd{background:var(--amber);border:none;color:#1A1206;font-weight:700;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:var(--sans);font-size:14px}
+.btn-upd:disabled{opacity:.55;cursor:wait}
+.sec-title{font-size:15px;font-weight:900;letter-spacing:.06em;color:var(--mut);margin:26px 0 10px;display:flex;align-items:center;gap:10px}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--line)}
+.idx-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.idx-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.idx-card .nm{font-size:12px;color:var(--mut)}
+.idx-card .vl{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:2px}
+.idx-card .ch{font-family:var(--mono);font-size:12.5px}
+.fx-note{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;padding:13px 16px;margin-top:10px;font-size:13.5px;color:#C4CBDA;line-height:1.75}
+.fx-note b{color:var(--amber)}
+.news{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 16px}
+.news a{display:flex;gap:12px;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px dashed var(--line);color:var(--txt);text-decoration:none;font-size:14px}
+.news a:last-child{border-bottom:none}
+.news a:hover{color:var(--amber)}
+.news .src{flex-shrink:0;font-size:12px;color:var(--mut);font-family:var(--mono)}
+/* ── 個股頁 ── */
+.back{background:none;border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:14px;margin:22px 0 14px;font-family:var(--sans)}
+.back:hover{color:var(--txt);border-color:var(--amber)}
+.chart-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px}
+.chart-box h3{font-size:12.5px;color:var(--mut);margin-bottom:6px;font-weight:500}
+.links{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.links a{border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;text-decoration:none;color:var(--mut)}
+.links a:hover{color:var(--amber);border-color:var(--amber)}
+.detail-wrap{max-width:760px;margin:0 auto}
+
+/* ── 機會雷達 ── */
+.radar{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.r-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:4px}
+.r-card:hover{border-color:var(--amber)}
+.r-tag{align-self:flex-start;font-size:11px;font-weight:700;border-radius:4px;padding:2px 8px;letter-spacing:.05em}
+.tg-break{background:rgba(229,72,77,.15);color:#FF8A8E;border:1px solid rgba(229,72,77,.4)}
+.tg-dip{background:rgba(232,180,74,.12);color:var(--amber);border:1px solid rgba(232,180,74,.4)}
+.tg-strong{background:rgba(127,180,255,.12);color:#9CC4FF;border:1px solid rgba(127,180,255,.35)}
+.r-name{font-weight:700;font-size:15px}
+.r-name .c-code{font-size:12px}
+.r-desc{font-size:12.5px;color:var(--mut)}
+.r-empty{grid-column:1/-1;color:var(--mut);background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:16px;text-align:center;font-size:13.5px}
+.radar-note{font-size:12px;color:var(--dim);margin-top:8px}
+
+.tg-whale{background:rgba(199,146,234,.12);color:#D9B8F5;border:1px solid rgba(199,146,234,.4)}
+.ind-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.ind-seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.ind-seg button{background:none;border:none;color:var(--mut);padding:5px 12px;font-size:12.5px;cursor:pointer;font-family:var(--mono)}
+.ind-seg button.on{background:var(--panel2);color:var(--amber);font-weight:600}
+.diag{display:none;font-family:var(--mono);font-size:12px;color:var(--mut);margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 14px;line-height:1.9}
+.diag.show{display:block}
+.diag .ok{color:#4BD695} .diag .bad{color:#FF8A8E}
+
+.more{grid-column:1/-1;background:var(--panel);border:1px dashed var(--line);color:var(--mut);border-radius:10px;padding:14px;cursor:pointer;font-size:14px;font-family:var(--sans)}
+.more:hover{color:var(--amber);border-color:var(--amber)}
+
+.foot{margin-top:34px;border-top:1px solid var(--line);padding-top:16px;color:var(--dim);font-size:12.5px}
+.empty{color:var(--mut);text-align:center;padding:50px 0;grid-column:1/-1}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-in">
+    <div>
+      <h1><span class="tri">三力</span>選股儀表板</h1>
+      <div class="sub">產業前景 × 基本面 × 籌碼面 × 技術線型|台股為主、美股為輔</div>
+    </div>
+    <div class="meta">
+      <span class="badge" id="updBadge">更新:—</span>
+      <span class="badge demo" id="srcBadge">範例資料(尚未接入即時數據)</span>
+      <button class="btn-upd" id="updBtn">↻ 更新資訊</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="diag" id="diag"></div>
+
+  <div id="homeView">
+
+  <div class="sec-title">機會雷達</div>
+  <div class="radar" id="radar"></div>
+  <div class="radar-note">雷達為規則化訊號(價格型態 × 三力評分),用途是縮小觀察範圍,不構成投資建議;實際進出請依自己的紀律與停損計畫。</div>
+
+  <div class="sec-title">市場總覽</div>
+  <div class="idx-row" id="idxRow"></div>
+
+  <div class="sec-title">匯率</div>
+  <div class="idx-row" id="fxRow"></div>
+  <div class="fx-note" id="fxNote"></div>
+
+  <div class="sec-title">重大新聞</div>
+  <div class="news" id="newsBox"></div>
+
+  <div class="sec-title">選股清單</div>
+  <div class="controls">
+    <div class="seg" id="mktSeg" role="tablist" aria-label="市場">
+      <button data-m="ALL" class="on">全部</button>
+      <button data-m="TW">台股</button>
+      <button data-m="US">美股</button>
+    </div>
+    <select id="sortSel" aria-label="排序方式">
+      <option value="total">綜合評分 高→低</option>
+      <option value="fund">基本面 高→低</option>
+      <option value="chip">籌碼面 高→低</option>
+      <option value="tech">技術面 高→低</option>
+      <option value="chg">今日漲跌幅</option>
+    </select>
+    <input type="search" id="q" placeholder="搜尋名稱或代號,例如 3665、貿聯">
+  </div>
+
+  <div class="chips" id="chips"></div>
+  <div id="sectorPanel"></div>
+  <div class="grid" id="grid"></div>
+
+  </div><!-- /homeView -->
+
+  <div id="detailView" style="display:none"></div>
+
+  <div class="foot">
+    綜合評分 = 基本面 40% + 籌碼面 35% + 技術面 25%(規則化計分,細項見個股明細)。<br>
+    本頁為個人研究工具,所有內容僅為資料整理與規則化篩選結果,不構成任何投資建議;投資一定有風險,買賣前請自行judge並詳閱公開說明書。資料來源:FinMind / 公開資訊觀測站 / TWSE。
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   資料:優先讀取 data.json(由 update_data.py 每日產生)。
+   讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
+   ============================================================ */
+const SECTOR_INFO = {
+"半導體業":{tag:"台股的心臟,AI 循環的震央",
+ body:"從晶圓代工、IC 設計、封測到設備材料,台灣半導體聚落是全球 AI 算力的產能核心。族群內部分化大:先進製程與 AI 相關個股享受高成長,成熟製程與消費性晶片則跟隨庫存循環。",
+ drivers:["AI 加速器投片持續放大","先進製程與先進封裝供不應求","矽含量提升的長期趨勢"],
+ risks:["AI 資本支出若降溫首當其衝","成熟製程供過於求","地緣政治與出口管制"],
+ watch:["台積電月營收與資本支出","費城半導體指數","北美 CSP 財測"]},
+"電腦及週邊設備業":{tag:"AI 伺服器組裝主力",
+ body:"廣達、緯創、緯穎、鴻海等 AI 伺服器 ODM 全數落在此類,台灣囊括全球九成以上 AI 伺服器組裝。營收動能極強但毛利率偏低,行情由機櫃出貨量與新平台過渡節奏主導。",
+ drivers:["GB 系列機櫃放量","主權 AI 與企業自建接棒","液冷滲透率拉高單櫃價值"],
+ risks:["組裝毛利易受議價壓縮","新舊平台過渡的出貨空窗","客戶集中於少數 CSP"],
+ watch:["月營收 YoY 與 AI 佔比","機櫃出貨指引","毛利率走勢"]},
+"光電業":{tag:"光通訊與面板的兩個世界",
+ body:"此分類同時包含 AI 光通訊(CPO、光模組、雷射元件)與傳統面板/LED,體質差異極大。操作上應聚焦光通訊次族群:800G→1.6T 升級與 CPO 導入是明確的多年成長線。",
+ drivers:["1.6T 光模組放量","CPO 交換器導入","矽光子封測新需求"],
+ risks:["面板供需仍疲弱","題材股波動劇烈","技術路線變數(LPO/CPO)"],
+ watch:["大廠 CPO 時程","光通訊個股營收兌現","法人買超持續性"]},
+"通信網路業":{tag:"AI 資料中心的網路層",
+ body:"交換器、網通設備與零組件受惠 800G 世代升級與資料中心互連需求。台廠多為國際大廠代工或次系統供應,行情與北美網通資本支出高度連動。",
+ drivers:["800G/1.6T 交換器換代","AI 集群互連需求","低軌衛星第二題材"],
+ risks:["客戶集中","代工毛利偏低","庫存循環波動"],
+ watch:["Arista/思科財測","交換器出貨量","個股網通營收佔比"]},
+"電子零組件業":{tag:"PCB、被動元件與散熱的大本營",
+ body:"AI 板材(CCL/玻纖布/銅箔)、散熱、連接器、被動元件都在此類,是這輪 AI 行情中「材料漲價+規格升級」故事最密集的族群,也是主力著墨最深的區塊之一。",
+ drivers:["M8 級 CCL 與上游材料漲價","液冷與高速連接規格升級","被動元件漲價循環醞釀"],
+ risks:["漲價循環見頂修正劇烈","擴產潮的中期供給風險","題材股籌碼過熱"],
+ watch:["CCL/玻纖布報價","族群月營收動能","大戶持股比變化"]},
+"電機機械":{tag:"重電與自動化的長訂單",
+ body:"重電三雄(華城、士電、中興電)與工具機、自動化設備同屬此類。重電受惠 AI 用電與電網汰換,訂單能見度長達三年以上,屬於慢但穩的成長;工具機則仍在景氣底部徘徊。",
+ drivers:["台電強韌電網計畫","美國變壓器出口需求","資料中心電力建設"],
+ risks:["原物料成本波動","交期長、認列不穩","工具機需求疲弱拖累分類"],
+ watch:["重電在手訂單","美國接單動向","銅價與矽鋼價格"]},
+"電子通路業":{tag:"景氣的溫度計",
+ body:"IC 通路與電子零件通路商,營收直接反映下游拉貨力道,是觀察電子業景氣的先行溫度計。毛利薄、賺周轉,行情通常跟隨升息環境與庫存循環。",
+ drivers:["AI 零組件備貨需求","庫存回補循環","利差環境改善"],
+ risks:["毛利率極薄","匯率與利息成本敏感","上下游擠壓"],
+ watch:["通路商庫存天數","月營收轉折","應收帳款品質"]},
+"其他電子業":{tag:"藏著隱形冠軍的雜項類",
+ body:"分類上的「其他」,實際藏著不少利基型隱形冠軍(如工業電腦、特殊零組件)。選股重於選族群,直接用綜合評分與籌碼訊號從中挑體質最強者。",
+ drivers:["工業電腦邊緣 AI 化","利基市場寡佔定價權","車用與軍工外溢需求"],
+ risks:["個股差異極大","流動性參差","題材輪動快"],
+ watch:["個股月營收","大戶持股集中度","法人新建部位"]},
+"資訊服務業":{tag:"AI 軟體應用的台股入口",
+ body:"系統整合、資安、雲端服務代理等,是台股少數的軟體暴露。AI 導入企業的趨勢帶來長期需求,但個股規模小、波動大,適合小部位參與。",
+ drivers:["企業 AI 導入與雲端遷移","資安法規要求提升","政府數位預算"],
+ risks:["規模小、籌碼輕","題材先行獲利落後","人力成本上升"],
+ watch:["合約負債與在手訂單","毛利率結構","大型標案得標"]},
+"生技醫療":{tag:"與電子低相關的第二戰場",
+ body:"新藥、醫材、CDMO 與通路,行情節奏與電子股低相關,常在電子修正期成為資金避風港。事件驅動特性強(解盲、藥證、授權),風險與報酬都極端。",
+ drivers:["新藥授權與取證事件","CDMO 產能外溢台灣","高齡化長期需求"],
+ risks:["解盲失敗即重挫","燒錢公司財務風險","題材炒作籌碼混亂"],
+ watch:["臨床時程表","營收是否兌現","大戶與內部人持股"]},
+"鋼鐵工業":{tag:"景氣循環的傳產代表",
+ body:"鋼價循環主導行情,與中國供給、全球基建需求連動。AI 題材外溢有限,主要作為資產配置中的循環部位與高股息選擇。",
+ drivers:["鋼價落底回升循環","碳關稅重塑競爭格局","基建與軍工需求"],
+ risks:["中國供給壓力","需求疲弱期漫長","能源成本波動"],
+ watch:["國際鋼價","中鋼盤價政策","庫存水位"]},
+"航運業":{tag:"高波動的景氣風向球",
+ body:"貨櫃三雄與散裝航運,運價指數直接決定獲利,波動極大。屬於事件與循環驅動的交易型族群,長抱風險高、順勢操作為主。",
+ drivers:["運價指數反彈","地緣事件推升運距","新船交付趨緩"],
+ risks:["運價急跌風險","供給過剩壓力","獲利高點即估值陷阱"],
+ watch:["SCFI/BDI 指數","閒置運力","公司股利政策"]},
+"金融保險":{tag:"殖利率與升降息的函數",
+ body:"銀行、保險、證券行情由利差、資本市場行情與匯率避險成本主導。台股大多頭時證券股受惠、壽險淨值回升,是指數行情的放大器與高股息來源。",
+ drivers:["台股量能放大","利差維持高檔","壽險淨值回升"],
+ risks:["降息壓縮利差","匯率避險成本","資本市場修正衝擊"],
+ watch:["央行利率決策","單月獲利公告","台股成交量"]},
+"美股·資訊科技":{tag:"AI 主戰場",
+ body:"NVIDIA、微軟、博通、AMD 等 AI 核心全數在此,是全球資金配置的重心。與台股電子高度連動——這個分類的財測直接決定台鏈拉貨力道。",
+ drivers:["AI 資本支出循環","軟體 AI 變現加速","自研晶片生態擴大"],
+ risks:["估值對利率敏感","集中度風險","財測不如預期即重挫"],
+ watch:["巨頭財報與指引","費半指數","台股連動驗證"]},
+"美股·通訊服務":{tag:"Google 與 Meta 的家",
+ body:"Alphabet、Meta 等平台巨頭,同時是 AI 最大投資者與最快變現者。廣告業務改善驗證 AI 投資回報,資本支出則直接餵養台股供應鏈。",
+ drivers:["AI 廣告變現","資本支出續創高","自研 TPU/MTIA 放量"],
+ risks:["反壟斷監管","廣告景氣循環","AI 投資回報質疑"],
+ watch:["資本支出指引","廣告營收成長","自研晶片進度"]},
+"美股·非必需消費":{tag:"亞馬遜與特斯拉領軍",
+ body:"含亞馬遜(AWS 雲端巨頭)與特斯拉等,消費與科技的混合體。AWS 資本支出是台鏈需求來源之一,其餘個股則反映美國消費力。",
+ drivers:["AWS 資本支出","美國消費韌性","電動車與機器人題材"],
+ risks:["消費降溫風險","利率敏感","個股故事驅動波動大"],
+ watch:["AWS 成長率","美國零售數據","消費信心指數"]},
+"美股·工業":{tag:"AI 基建與軍工",
+ body:"含資料中心基建(如 Vertiv 類)、航太軍工與傳統工業。AI 用電與電網投資讓部分工業股搭上成長列車,與台股重電族群同一條邏輯線。",
+ drivers:["資料中心電力建設","軍工預算擴張","製造業回流美國"],
+ risks:["循環性需求波動","原物料成本","訂單認列節奏"],
+ watch:["基建訂單","國防預算","PMI 指數"]},
+"美股·醫療保健":{tag:"防禦與創新並存",
+ body:"大型藥廠、醫療設備與保險,傳統防禦類股;減重藥與 AI 製藥是其中的成長支線。與 AI 硬體低相關,適合作組合的防禦部位。",
+ drivers:["減重藥市場擴張","AI 加速新藥開發","高齡化需求"],
+ risks:["藥價政策壓力","專利懸崖","臨床失敗風險"],
+ watch:["大藥廠財報","FDA 審批","藥價立法動向"]},
+"美股·金融":{tag:"利率環境的直接反映",
+ body:"銀行、券商、資產管理與支付,獲利由利差與資本市場活動決定。降息週期中利差收斂,但交易與投行業務回溫可部分抵銷。",
+ drivers:["資本市場活動回溫","信貸品質穩定","支付數位化"],
+ risks:["利差收斂","信用循環轉差","監管資本要求"],
+ watch:["Fed 利率路徑","銀行財報 NIM","信用卡壞帳率"]},
+"美股·能源":{tag:"油價與 AI 用電的交叉點",
+ body:"傳統油氣為主,AI 資料中心用電暴增讓天然氣與電力供應鏈重獲關注。與科技股低相關,是通膨與地緣避險部位。",
+ drivers:["AI 用電推升天然氣需求","地緣供給風險","資本紀律下的高股息"],
+ risks:["油價下行循環","能源轉型長期壓力","景氣衰退需求萎縮"],
+ watch:["油價與天然氣價","OPEC 決策","資料中心購電協議"]},
+"美股·原物料":{tag:"銅是新的石油",
+ body:"化工、金屬與礦業。AI 資料中心與電網建設拉動銅需求,「電力化」是這個傳統類股的新故事。",
+ drivers:["銅供需長期緊俏","電網與資料中心用銅","製造業回流"],
+ risks:["中國需求疲弱","景氣循環下行","成本通膨"],
+ watch:["銅價","中國經濟數據","礦業資本支出"]},
+"美股·必需消費":{tag:"防禦型現金流",
+ body:"食品飲料與日用品巨頭,穩定現金流與股息,經濟下行期的資金避風港。與 AI 行情低相關,純防禦配置。",
+ drivers:["定價權與品牌護城河","新興市場滲透","股息穩定成長"],
+ risks:["成長率低","成本轉嫁受阻","自有品牌競爭"],
+ watch:["同店銷售","毛利率","美元走勢"]},
+"美股·房地產":{tag:"REITs 與資料中心地產",
+ body:"REITs 為主,其中資料中心 REITs(如 Equinix、Digital Realty)直接受惠 AI 機房需求,是類股中少數的成長線。整體對利率高度敏感。",
+ drivers:["資料中心租金上漲","降息帶動估值修復","供給受限的物流地產"],
+ risks:["利率维持高檔","商辦空置壓力","再融資成本"],
+ watch:["美債殖利率","資料中心簽約量","REITs 股息覆蓋"]},
+"美股·公用事業":{tag:"AI 用電的最終受惠者",
+ body:"電力公司因 AI 資料中心用電需求重估,從純防禦股變成「有成長故事的防禦股」。核電重啟與電網投資是主要題材。",
+ drivers:["資料中心購電協議","核電重啟題材","電網現代化投資"],
+ risks:["利率敏感","監管電價限制","資本支出負擔"],
+ watch:["用電成長預測","購電協議簽訂","利率走勢"]},
+"半導體製造":{tag:"AI 運算的產能咽喉",
+ body:"先進製程(3nm/2nm)供不應求是這輪 AI 資本支出循環的核心瓶頸,CoWoS 先進封裝產能同樣是 GPU 出貨的限制條件。台灣在全球晶圓代工市占超過六成、先進製程接近獨占,議價能力與資本支出規模持續拉開與對手的差距。",
+ drivers:["AI 加速器(GPU/ASIC)投片持續放大","2nm 量產與 A16 路線圖領先","CoWoS/SoIC 產能逐季擴充"],
+ risks:["地緣政治與海外建廠稀釋毛利","AI 資本支出若降溫,砍單風險集中","電力與人才供給限制擴產速度"],
+ watch:["每月營收 YoY","CoWoS 月產能爬坡進度","北美雲端四雄資本支出指引"]},
+"AI伺服器與ODM":{tag:"從代工到系統整合的價值升級",
+ body:"AI 伺服器單櫃價值量是通用伺服器的十倍以上,GB 系列機櫃出貨放量帶動 ODM 營收結構質變。台灣 ODM 囊括全球九成以上 AI 伺服器組裝,議題已從「有沒有單」轉向「毛利率能否隨液冷、機櫃級整合而提升」。",
+ drivers:["GB300/下一代機櫃平台放量","主權 AI 與企業自建需求接棒","液冷滲透率提升拉高單櫃價值"],
+ risks:["組裝毛利率偏低、易受議價壓縮","客戶集中於少數 CSP","零組件缺料影響出貨節奏"],
+ watch:["月營收動能與 AI 佔比","機櫃出貨量法說指引","毛利率變化趨勢"]},
+"CPO與矽光子":{tag:"頻寬牆的下一個解法",
+ body:"AI 集群規模化後,銅互連的距離與功耗限制浮現,800G→1.6T 光模組升級與 CPO(共同封裝光學)是明確的技術路線。台灣光通訊供應鏈卡位雷射二極體、光引擎、連接器與封測環節,屬於「滲透率從低基期起漲」的題材,波動大但空間大。",
+ drivers:["1.6T 光模組 2026 放量","NVIDIA/博通 CPO 交換器導入","矽光子整合帶動封測新需求"],
+ risks:["技術路線仍有變數(LPO/CPO 之爭)","題材先行、獲利兌現需時間","競爭者眾、良率是關鍵門檻"],
+ watch:["大廠 CPO 產品時程","個股營收是否跟上題材","法人買超是否持續"]},
+"PCB與上游材料":{tag:"AI 板材規格升級的隱形冠軍",
+ body:"AI 伺服器與交換器帶動 CCL(銅箔基板)往 M8 等級以上升級,玻纖布、銅箔等上游材料同步漲價。低介電玻纖布(Low-Dk)供給集中在少數台廠手中,供需缺口使這一段在 2025–2026 具備罕見的漲價循環,是典型「上游材料議價權」行情。",
+ drivers:["M8/M9 高階 CCL 需求爆發","Low-Dk 玻纖布供給高度集中","800G 交換器與 HDI 板放量"],
+ risks:["漲價循環見頂後修正劇烈","擴產潮可能在 2027 造成供過於求","中國同業低價競爭"],
+ watch:["玻纖布/銅箔報價走勢","月營收 YoY 是否加速","股價與大戶持股比變化"]},
+"先進封裝與設備":{tag:"摩爾定律的接棒者",
+ body:"當製程微縮趨緩,效能提升的重心轉向 CoWoS、SoIC、面板級封裝(FOPLP)等先進封裝,設備與委外封測(OSAT)直接受惠。台灣封測與濕製程、檢測設備廠在這條供應鏈的能見度高,資本支出週期尚在上升段。",
+ drivers:["CoWoS 產能持續翻倍擴充","HBM 帶動測試時間與設備需求","FOPLP 為下一階段擴張題材"],
+ risks:["設備業訂單波動大、認列時點不穩","客戶資本支出若遞延影響大","封測毛利受稼動率牽動"],
+ watch:["台積電資本支出指引","設備廠在手訂單","封測稼動率"]},
+"ASIC與IP設計":{tag:"雲端巨頭自研晶片的軍火商",
+ body:"CSP 自研 AI ASIC(TPU、Trainium、MTIA 等)出貨量快速追趕 GPU,台灣設計服務與 IP 廠獨佔先進製程後段設計、封裝整合的關鍵位置。這一段的商業模式是「按案收費+量產分潤」,案子能見度可看兩到三年。",
+ drivers:["CSP 自研晶片案量倍增","3nm/2nm 案子單價跳升","BMC、高速介面 IP 隨伺服器放量"],
+ risks:["估值偏高、對利率與風險偏好敏感","單一大案延遲影響顯著","客戶自建設計團隊的長期威脅"],
+ watch:["新案 tape-out 消息","營收認列節奏","外資持股與買賣超"]},
+"記憶體":{tag:"HBM 排擠效應下的循環反轉",
+ body:"HBM 大量佔用 DRAM 產能,擠壓傳統 DRAM/NAND 供給,2025 下半年起合約價進入強勁上升循環,2026 供需依然緊俏。台廠雖非 HBM 主力,但直接受惠利基型與標準型記憶體的漲價循環,模組廠亦受惠庫存增值。",
+ drivers:["DRAM/NAND 合約價續漲","HBM 排擠一般產能","AI 終端裝置拉高單機容量"],
+ risks:["循環股:反轉時跌幅同樣劇烈","三大原廠擴產恢復供給","模組廠獲利與價格高度連動"],
+ watch:["DRAM 現貨/合約價","原廠資本支出動向","個股庫存水位"]},
+"散熱":{tag:"從氣冷到液冷的規格躍遷",
+ body:"單顆 GPU 功耗突破千瓦後,液冷從選配變成標配,水冷板、CDU、快接頭的單櫃價值量是氣冷的數倍。台灣散熱雙雄在 NVIDIA 供應鏈卡位深,2026 年液冷滲透率仍在快速爬升段。",
+ drivers:["機櫃功率密度持續上升","液冷滲透率 2026 過半","CDU/機櫃級方案單價高"],
+ risks:["競爭者湧入侵蝕毛利","客戶導入自製或第二供應商","估值已反映高成長"],
+ watch:["液冷營收佔比","新平台認證進度","毛利率走勢"]},
+"電源與重電":{tag:"AI 用電荒的長線受惠者",
+ body:"AI 資料中心把電力需求推升到電網等級,從伺服器電源(PSU/BBU)到變壓器、配電盤形成長短線兼具的需求。台灣重電三雄在手訂單能見度普遍達三年以上,屬於「訂單看得到、獲利兌現慢但穩」的類型,與高波動 AI 股形成互補。",
+ drivers:["資料中心+台電強韌電網雙需求","800V HVDC 電源架構升級","美國電網汰換的出口機會"],
+ risks:["原物料(銅、矽鋼)成本波動","交期長、認列時點影響單季數字","漲多後評價偏高"],
+ watch:["在手訂單金額","毛利率與交付進度","美國市場接單"]},
+"連接與線束":{tag:"機櫃裡的高速神經",
+ body:"AI 機櫃內部高速銅纜、電源線束與連接器用量倍增,225G 世代銅連接仍是機櫃內主流,與光通訊並非零和。利基在於認證門檻高、換供應商成本大,一旦進入平台供應鏈便有數年能見度。",
+ drivers:["GB 機櫃銅纜/線束含量倍增","高速連接器規格升級","車用+資料中心雙引擎"],
+ risks:["下一代平台若改光互連影響銅纜","匯率與原料成本波動","客戶集中風險"],
+ watch:["月營收與資料中心佔比","新平台料號認證","法人籌碼動向"]},
+"美股AI晶片":{tag:"價值鏈利潤最厚的一段",
+ body:"GPU、ASIC、記憶體三條晶片主軸的美股核心。NVIDIA 定義整個市場的節奏,博通吃下 CSP 自研 ASIC 大餅,美光是 HBM 三強之一;台積電 ADR 則是外資對台股熱度的溫度計。這一段的財測直接決定台鏈拉貨力道,是台股部位的上游訊號燈。",
+ drivers:["四大 CSP 資本支出續創高","自研 ASIC 出貨快速追趕 GPU","HBM 供不應求延續"],
+ risks:["估值對利率敏感","出口管制與地緣風險","單一財測不如預期即重挫"],
+ watch:["NVDA/AVGO 財測與指引","HBM 報價","台股供應鏈連動驗證"]},
+"美股雲端巨頭":{tag:"整條供應鏈的水源",
+ body:"微軟、Google、亞馬遜、Meta 的資本支出就是 AI 硬體需求的總開關,四家合計年資本支出已達數千億美元等級。同時它們也是 AI 變現能力的驗證樣本——雲端營收與廣告改善的速度,決定這輪資本支出循環能走多遠。",
+ drivers:["資本支出指引持續上修","AI 雲端服務營收放量","自研晶片降低算力成本"],
+ risks:["AI 投資回報遭市場質疑","反壟斷與監管風險","資本支出若轉向即衝擊台鏈"],
+ watch:["每季資本支出指引","雲端部門營收成長率","自研晶片出貨進度"]},
+"美股AI基建":{tag:"資料中心的電與網",
+ body:"AI 資料中心的瓶頸從晶片延伸到電力與網路:Vertiv 做電力與液冷系統整合,Arista 是 800G 交換器龍頭。這兩檔與台股散熱、重電、CCL、光通訊族群走同一條邏輯線,適合作為台股相關部位的趨勢驗證。",
+ drivers:["資料中心電力需求爆發","液冷滲透率快速拉升","800G/1.6T 網路升級"],
+ risks:["高 Beta、回檔劇烈","競爭者進入壓縮毛利","訂單認列節奏波動"],
+ watch:["在手訂單與交付進度","與台股散熱/重電的連動","交換器出貨量"]}
+};
+
+const DEMO = {
+updated:"範例資料(執行 update_data.py 後顯示真實日期)", source:"demo",
+macro:{
+ idx:[{name:"加權指數",val:28650,chg:0.8},{name:"S&P 500",val:6890,chg:0.3},
+      {name:"那斯達克",val:23150,chg:0.5},{name:"費城半導體",val:6420,chg:1.1}],
+ fx:{USDTWD:32.45,JPYTWD:0.2145,EURTWD:35.60,USDJPY:151.3}},
+news:[
+ {title:"【範例】台積電法說釋出樂觀資本支出指引,AI 供應鏈同步走揚",source:"範例",link:"#",time:""},
+ {title:"【範例】DRAM 合約價連三季上漲,記憶體族群獲利上修",source:"範例",link:"#",time:""},
+ {title:"【範例】新台幣升破 32 元關卡,外資單週匯入創今年新高",source:"範例",link:"#",time:""},
+ {title:"【範例】北美雲端大廠上調資本支出,散熱與電源族群受惠",source:"範例",link:"#",time:""},
+ {title:"【範例】執行 update_data.py 後,此處會自動帶入 Google News 財經頭條",source:"說明",link:"#",time:""}],
+stocks:[
+{id:"2330",name:"台積電",full:"台灣積體電路製造股份有限公司",market:"TW",sector:"半導體製造",price:1085,chg:1.4,
+ f:{score:92,kv:{"月營收YoY":"+38%","近四季EPS":"58.4元","毛利率":"59%","本益比":"約22倍"},note:"AI 需求貫穿先進製程與 CoWoS,營收動能為全市場定錨。"},
+ c:{score:85,kv:{"外資5日":"買超 +18,420張","投信5日":"買超 +1,250張","400張大戶":"78.9%(週+0.2)","融資變化":"-1.2%"},note:"外資回補、大戶持股比緩步上升,籌碼安定。"},
+ t:{score:80,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+3.1%","量能":"5日均量放大"},note:"沿 20 日線多頭排列,創高後量價結構健康。"},
+ thesis:"護城河最深的 AI 核心持股:先進製程近乎獨占+先進封裝瓶頸掌握在手,是整個儀表板其他個股的景氣領先指標。"},
+{id:"3665",name:"貿聯-KY",full:"BizLink Holding Inc.(貿聯控股)",market:"TW",sector:"連接與線束",price:512,chg:2.2,
+ f:{score:80,kv:{"月營收YoY":"+31%","近四季EPS":"21.8元","毛利率":"31%","資料中心佔比":"上升中"},note:"AI 機櫃線束與高速銅纜放量,車用穩定貢獻基本盤。"},
+ c:{score:76,kv:{"外資5日":"買超 +860張","投信5日":"買超 +410張","400張大戶":"71.2%(週+0.4)","融資變化":"-3.5%"},note:"投信連續佈局、融資下降,籌碼朝大戶集中。"},
+ t:{score:74,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+4.8%","量能":"沿均線量增"},note:"突破整理區後沿 20 日線推升,拉回量縮屬健康換手。"},
+ thesis:"GB 機櫃世代銅纜與線束含量倍增的直接受惠者,認證門檻構成護城河;資料中心+車用雙引擎讓成長品質優於單一題材股。"},
+{id:"2382",name:"廣達",full:"廣達電腦股份有限公司",market:"TW",sector:"AI伺服器與ODM",price:342,chg:0.9,
+ f:{score:84,kv:{"月營收YoY":"+52%","近四季EPS":"18.9元","毛利率":"8.4%","AI伺服器佔比":">60%"},note:"AI 伺服器佔比過半後營收動能全市場前段班。"},
+ c:{score:72,kv:{"外資5日":"買超 +5,200張","投信5日":"賣超 -320張","400張大戶":"64.5%(週持平)","融資變化":"+0.8%"},note:"外資主導、投信小幅調節,融資略增需留意。"},
+ t:{score:70,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+2.2%","量能":"均量持平"},note:"高檔箱型整理,等待放量表態。"},
+ thesis:"AI 伺服器 ODM 龍頭,機櫃級整合與液冷導入拉升單櫃價值;看點在毛利率能否隨系統整合比重走升。"},
+{id:"6669",name:"緯穎",full:"緯穎科技服務股份有限公司",market:"TW",sector:"AI伺服器與ODM",price:2890,chg:-1.1,
+ f:{score:86,kv:{"月營收YoY":"+88%","近四季EPS":"142元","毛利率":"7.9%","客戶":"北美CSP直供"},note:"直供 CSP 模式營收爆發力最強,EPS 絕對值台股前列。"},
+ c:{score:68,kv:{"外資5日":"賣超 -420張","投信5日":"買超 +180張","400張大戶":"82.1%(週-0.3)","融資變化":"+1.5%"},note:"高價股籌碼輕,外資短線調節中。"},
+ t:{score:62,kv:{"站上20MA":"否","20/60MA":"20MA下彎","乖離(20MA)":"-2.8%","量能":"量縮整理"},note:"回測 60 日線支撐,技術面等待止穩訊號。"},
+ thesis:"白牌伺服器直供模式受惠 CSP 自建潮,成長斜率最陡;但客戶集中度高,波動也最大,適合搭配拉回分批策略。"},
+{id:"3081",name:"聯亞",full:"聯亞光電工業股份有限公司",market:"TW",sector:"CPO與矽光子",price:388,chg:4.6,
+ f:{score:62,kv:{"月營收YoY":"+45%","近四季EPS":"5.2元","毛利率":"38%","主力產品":"雷射磊晶/EML"},note:"EML 磊晶片受惠光模組升級,營收自低基期回升。"},
+ c:{score:78,kv:{"外資5日":"買超 +920張","投信5日":"買超 +260張","400張大戶":"55.8%(週+0.9)","融資變化":"+2.1%"},note:"大戶比重明顯上升,惟融資同步增,籌碼偏熱。"},
+ t:{score:82,kv:{"站上20MA":"是","20/60MA":"黃金交叉後多頭","乖離(20MA)":"+9.5%","量能":"爆量突破"},note:"帶量突破前高,乖離偏大宜留意短線震盪。"},
+ thesis:"1.6T 光模組與 CPO 路線的上游雷射磊晶卡位股,題材與基本面正在銜接;屬高波動題材股,籌碼與量能是操作主軸。"},
+{id:"3363",name:"上詮",full:"上詮光纖通信股份有限公司",market:"TW",sector:"CPO與矽光子",price:196,chg:3.2,
+ f:{score:55,kv:{"月營收YoY":"+28%","近四季EPS":"2.1元","毛利率":"27%","主力產品":"光纖陣列/FAU"},note:"FAU 為 CPO 必要元件,實質出貨尚在爬坡初期。"},
+ c:{score:74,kv:{"外資5日":"買超 +510張","投信5日":"持平","400張大戶":"48.2%(週+1.1)","融資變化":"+4.8%"},note:"大戶吸籌明顯,但融資增速快,短線籌碼兩面性。"},
+ t:{score:76,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+7.2%","量能":"量增價漲"},note:"強勢股走勢,回測 10 日線不破前偏多操作。"},
+ thesis:"CPO 供應鏈中 FAU(光纖陣列)寡佔者之一,是「滲透率從零起漲」的純度最高標的;獲利兌現需時間,倉位宜控。"},
+{id:"2383",name:"台光電",full:"台光電子材料股份有限公司",market:"TW",sector:"PCB與上游材料",price:965,chg:1.8,
+ f:{score:88,kv:{"月營收YoY":"+61%","近四季EPS":"45.6元","毛利率":"29%","主力產品":"M8等級CCL"},note:"高階 CCL 市占龍頭,漲價+放量雙引擎,獲利連季創高。"},
+ c:{score:80,kv:{"外資5日":"買超 +2,100張","投信5日":"買超 +680張","400張大戶":"69.4%(週+0.5)","融資變化":"-2.0%"},note:"三大法人同步佈局,融資降、大戶增,籌碼優。"},
+ t:{score:78,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+4.0%","量能":"沿均線量增"},note:"創高後強勢整理,均線多頭排列未破壞。"},
+ thesis:"AI 板材規格升級的最大受惠者,M8 以上 CCL 幾乎獨供;基本面、籌碼、技術三力俱佳的攻擊型核心。"},
+{id:"1815",name:"富喬",full:"富喬工業股份有限公司",market:"TW",sector:"PCB與上游材料",price:88.5,chg:5.8,
+ f:{score:70,kv:{"月營收YoY":"+74%","近四季EPS":"3.8元","毛利率":"32%","主力產品":"Low-Dk玻纖布"},note:"Low-Dk 玻纖布供不應求,漲價循環中獲利跳升。"},
+ c:{score:82,kv:{"外資5日":"買超 +12,400張","投信5日":"買超 +3,100張","400張大戶":"52.6%(週+1.4)","融資變化":"+6.2%"},note:"法人與大戶同步搶籌,融資急增顯示散戶亦湧入。"},
+ t:{score:84,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+12.1%","量能":"連日爆量"},note:"噴出段走勢,乖離過大,追高風險與動能並存。"},
+ thesis:"玻纖布漲價循環的高 Beta 代表,供給集中+需求爆發的教科書行情;循環股屬性強,務必設好停損停利紀律。"},
+{id:"6213",name:"聯茂",full:"聯茂電子股份有限公司",market:"TW",sector:"PCB與上游材料",price:142,chg:2.5,
+ f:{score:66,kv:{"月營收YoY":"+42%","近四季EPS":"6.4元","毛利率":"22%","主力產品":"CCL(伺服器/網通)"},note:"高階佔比提升中,漲價循環的二線受惠者。"},
+ c:{score:70,kv:{"外資5日":"買超 +1,850張","投信5日":"買超 +420張","400張大戶":"58.3%(週+0.3)","融資變化":"+1.9%"},note:"法人回補中,籌碼結構改善。"},
+ t:{score:72,kv:{"站上20MA":"是","20/60MA":"黃金交叉","乖離(20MA)":"+5.5%","量能":"溫和放大"},note:"突破半年整理區,型態轉多初期。"},
+ thesis:"CCL 二線廠的補漲邏輯:估值低於龍頭、高階佔比爬升,適合作為台光電的衛星配置。"},
+{id:"8358",name:"金居",full:"金居開發股份有限公司",market:"TW",sector:"PCB與上游材料",price:171,chg:3.9,
+ f:{score:64,kv:{"月營收YoY":"+55%","近四季EPS":"5.1元","毛利率":"25%","主力產品":"RTF/HVLP銅箔"},note:"高階銅箔通過 AI 板材認證,產品組合升級中。"},
+ c:{score:75,kv:{"外資5日":"買超 +2,900張","投信5日":"買超 +510張","400張大戶":"49.7%(週+0.8)","融資變化":"+3.4%"},note:"大戶持股比連四週上升,主力吸籌跡象。"},
+ t:{score:79,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+8.8%","量能":"量增價漲"},note:"強勢多頭結構,沿 10 日線推升。"},
+ thesis:"HVLP 高階銅箔國產替代+漲價雙題材,與富喬同屬材料漲價鏈,波動大、順勢操作為主。"},
+{id:"3711",name:"日月光投控",full:"日月光投資控股股份有限公司",market:"TW",sector:"先進封裝與設備",price:172,chg:0.6,
+ f:{score:75,kv:{"月營收YoY":"+19%","近四季EPS":"10.8元","毛利率":"17%","先進封裝營收":"倍增中"},note:"先進封裝與測試營收快速拉升,傳統封測穩定復甦。"},
+ c:{score:71,kv:{"外資5日":"買超 +6,800張","投信5日":"持平","400張大戶":"70.1%(週+0.1)","融資變化":"-0.5%"},note:"外資長線買盤穩定,籌碼大型股結構。"},
+ t:{score:68,kv:{"站上20MA":"是","20/60MA":"糾結轉多","乖離(20MA)":"+1.8%","量能":"均量"},note:"均線糾結後緩步墊高,落後補漲候選。"},
+ thesis:"OSAT 龍頭吃下 CoWoS 委外與測試外溢訂單,估值相對設計股便宜,屬先進封裝題材的穩健打法。"},
+{id:"3131",name:"弘塑",full:"弘塑科技股份有限公司",market:"TW",sector:"先進封裝與設備",price:1240,chg:-0.8,
+ f:{score:72,kv:{"月營收YoY":"+36%","近四季EPS":"52.3元","毛利率":"41%","主力產品":"濕製程設備"},note:"CoWoS 擴產直接受惠,在手訂單能見度高。"},
+ c:{score:66,kv:{"外資5日":"賣超 -120張","投信5日":"買超 +90張","400張大戶":"61.5%(週-0.2)","融資變化":"+0.9%"},note:"股本小、籌碼輕,法人小幅換手。"},
+ t:{score:60,kv:{"站上20MA":"否","20/60MA":"20MA走平","乖離(20MA)":"-1.5%","量能":"量縮"},note:"高檔整理近兩個月,等待新訂單催化。"},
+ thesis:"先進封裝濕製程設備隱形冠軍,跟著台積電 CoWoS 資本支出走;設備股認列波動大,適合訂單消息面搭配技術面操作。"},
+{id:"3661",name:"世芯-KY",full:"Alchip Technologies(世芯電子)",market:"TW",sector:"ASIC與IP設計",price:3150,chg:-2.4,
+ f:{score:78,kv:{"月營收YoY":"+41%","近四季EPS":"98元","毛利率":"33%","主力業務":"CSP AI ASIC"},note:"北美 CSP 訓練晶片量產案貢獻,2nm 新案接續。"},
+ c:{score:58,kv:{"外資5日":"賣超 -350張","投信5日":"賣超 -110張","400張大戶":"75.4%(週-0.6)","融資變化":"+2.8%"},note:"法人調節、融資逆勢增,籌碼短線轉弱。"},
+ t:{score:52,kv:{"站上20MA":"否","20/60MA":"空頭排列","乖離(20MA)":"-6.2%","量能":"跌時量增"},note:"跌破季線後反彈無力,等待底部型態。"},
+ thesis:"ASIC 設計服務純度最高標的,長線案量邏輯未變,但短線估值消化+籌碼鬆動,屬於「基本面好、時機未到」的觀察名單。"},
+{id:"5274",name:"信驊",full:"信驊科技股份有限公司",market:"TW",sector:"ASIC與IP設計",price:4980,chg:1.2,
+ f:{score:83,kv:{"月營收YoY":"+48%","近四季EPS":"152元","毛利率":"65%","主力產品":"BMC晶片"},note:"伺服器 BMC 近乎獨占,毛利率結構全台股頂級。"},
+ c:{score:73,kv:{"外資5日":"買超 +85張","投信5日":"買超 +40張","400張大戶":"80.2%(週+0.2)","融資變化":"-1.1%"},note:"千金股籌碼極輕,大戶高度鎖籌。"},
+ t:{score:75,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+3.5%","量能":"穩定"},note:"創高後沿月線推升,籌碼安定型多頭。"},
+ thesis:"每台伺服器都需要的 BMC 獨占者,是「賣鏟子中的賣鏟子」;高毛利+高市占讓它成為 AI 伺服器出貨量的純度指標。"},
+{id:"8299",name:"群聯",full:"群聯電子股份有限公司",market:"TW",sector:"記憶體",price:785,chg:3.1,
+ f:{score:76,kv:{"月營收YoY":"+58%","近四季EPS":"38.2元","毛利率":"34%","主力業務":"NAND控制IC/模組"},note:"NAND 漲價循環+企業級 SSD 放量,獲利跳升段。"},
+ c:{score:77,kv:{"外資5日":"買超 +1,650張","投信5日":"買超 +720張","400張大戶":"63.8%(週+0.7)","融資變化":"+1.2%"},note:"投信連買、大戶加碼,漲價題材資金持續卡位。"},
+ t:{score:81,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+6.9%","量能":"量價齊揚"},note:"突破前高後強勢,循環股主升段特徵。"},
+ thesis:"記憶體漲價循環中台股最直接的受惠者之一,企業級 SSD 打開第二成長曲線;循環股操作紀律優先,關注合約價轉折。"},
+{id:"2408",name:"南亞科",full:"南亞科技股份有限公司",market:"TW",sector:"記憶體",price:96.2,chg:2.8,
+ f:{score:60,kv:{"月營收YoY":"+82%","近四季EPS":"轉虧為盈","毛利率":"回升至28%","主力產品":"DDR4/利基DRAM"},note:"DRAM 漲價循環反轉受惠,獲利自谷底翻正。"},
+ c:{score:72,kv:{"外資5日":"買超 +21,300張","投信5日":"買超 +1,900張","400張大戶":"57.2%(週+0.5)","融資變化":"+4.1%"},note:"外資大幅回補循環股,融資同步升溫。"},
+ t:{score:74,kv:{"站上20MA":"是","20/60MA":"黃金交叉","乖離(20MA)":"+5.2%","量能":"放大"},note:"底部型態完成後突破頸線,循環反轉走勢。"},
+ thesis:"純 DRAM 循環股:HBM 排擠讓傳統 DRAM 供給緊俏,彈性大但務必記得循環股「買在虧損、賣在大賺」的節奏。"},
+{id:"3017",name:"奇鋐",full:"奇鋐科技股份有限公司",market:"TW",sector:"散熱",price:1420,chg:1.6,
+ f:{score:85,kv:{"月營收YoY":"+64%","近四季EPS":"46.8元","毛利率":"22%","液冷佔比":"快速拉升"},note:"氣冷+液冷雙吃,3D VC 與水冷板同步放量。"},
+ c:{score:79,kv:{"外資5日":"買超 +1,420張","投信5日":"買超 +380張","400張大戶":"72.6%(週+0.4)","融資變化":"-0.8%"},note:"法人持續加碼,籌碼向大戶集中。"},
+ t:{score:77,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+4.4%","量能":"沿均線放量"},note:"多頭排列創高走勢,拉回月線皆有買盤。"},
+ thesis:"散熱規格躍遷的龍頭受惠者,液冷滲透率爬升期業績能見度高;三力均衡,屬攻守兼備的 AI 核心成分。"},
+{id:"1519",name:"華城",full:"華城電機股份有限公司",market:"TW",sector:"電源與重電",price:890,chg:-0.4,
+ f:{score:79,kv:{"月營收YoY":"+35%","近四季EPS":"32.5元","毛利率":"35%","在手訂單":">3年能見度"},note:"美國變壓器訂單續強,毛利率因產品組合走升。"},
+ c:{score:69,kv:{"外資5日":"買超 +310張","投信5日":"賣超 -150張","400張大戶":"66.9%(週持平)","融資變化":"-1.6%"},note:"投信高檔調節,外資接手,籌碼換手中。"},
+ t:{score:63,kv:{"站上20MA":"否","20/60MA":"20MA走平","乖離(20MA)":"-0.9%","量能":"量縮"},note:"高檔箱型整理,等待季線支撐確認。"},
+ thesis:"AI 用電荒+電網汰換的長線訂單型公司,成長沒有 AI 硬體股快、但確定性高,適合作為組合中的穩定器。"},
+{id:"2308",name:"台達電",full:"台達電子工業股份有限公司",market:"TW",sector:"電源與重電",price:498,chg:1.0,
+ f:{score:82,kv:{"月營收YoY":"+29%","近四季EPS":"17.6元","毛利率":"31%","AI電源佔比":"上升中"},note:"AI 伺服器電源+散熱+被動元件多引擎,800V HVDC 卡位領先。"},
+ c:{score:78,kv:{"外資5日":"買超 +8,900張","投信5日":"買超 +540張","400張大戶":"81.3%(週+0.1)","融資變化":"-0.7%"},note:"外資長線核心持股,籌碼極為安定。"},
+ t:{score:72,kv:{"站上20MA":"是","20/60MA":"多頭排列","乖離(20MA)":"+2.6%","量能":"穩定"},note:"大型股多頭步調,沿月線緩漲。"},
+ thesis:"AI 電源架構升級(含 800V HVDC)最大市值受惠者,兼具權值股流動性與題材純度,適合作為核心持股。"},
+{id:"NVDA",name:"輝達",full:"NVIDIA Corporation",market:"US",sector:"美股AI晶片",price:212.5,chg:1.9,
+ f:{score:94,kv:{"季營收YoY":"+55%","毛利率":"73%","資料中心營收":"佔比近9成","前瞻本益比":"約30倍"},note:"AI 運算平台霸主,軟硬體生態系構成最深護城河。"},
+ c:{score:80,kv:{"機構持股":">65%","近月資金流":"淨流入","賣方評等":"壓倒性買進","空單比":"低檔"},note:"機構配置比重續升,籌碼由長線資金主導。"},
+ t:{score:76,kv:{"站上50日線":"是","50/200日線":"多頭排列","距離年高":"-4%","量能":"正常"},note:"沿 50 日線多頭推進,回檔皆獲承接。"},
+ thesis:"整條 AI 供應鏈的定價者:財測與出貨節奏直接決定台鏈行情,持有它等於持有產業鏈利潤最厚的一段。"},
+{id:"AVGO",name:"博通",full:"Broadcom Inc.",market:"US",sector:"美股AI晶片",price:385.2,chg:0.7,
+ f:{score:88,kv:{"季營收YoY":"+38%","AI營收YoY":"+70%","毛利率":"77%","主力業務":"ASIC+網通+軟體"},note:"CSP 自研 ASIC 最大代工設計方,AI 營收指引持續上修。"},
+ c:{score:78,kv:{"機構持股":">70%","近月資金流":"淨流入","賣方評等":"買進為主","空單比":"低"},note:"ASIC 敘事吸引長線資金持續加碼。"},
+ t:{score:74,kv:{"站上50日線":"是","50/200日線":"多頭排列","距離年高":"-6%","量能":"正常"},note:"高檔強勢整理,型態未破壞。"},
+ thesis:"「GPU 之外的另一條路」:自研 ASIC 趨勢的最大贏家,與台股世芯、創意的邏輯互為印證,可作為 ASIC 賽道的旗艦配置。"},
+{id:"VRT",name:"Vertiv",full:"Vertiv Holdings Co",market:"US",sector:"美股AI基建",price:148.6,chg:-1.3,
+ f:{score:80,kv:{"季營收YoY":"+26%","訂單YoY":"+30%","主力業務":"資料中心電力/冷卻","利潤率":"擴張中"},note:"資料中心基礎設施(電力+液冷)純度最高的美股標的。"},
+ c:{score:70,kv:{"機構持股":">85%","近月資金流":"小幅流出","賣方評等":"買進為主","空單比":"中低"},note:"高 Beta 屬性,資金隨 AI 情緒進出。"},
+ t:{score:64,kv:{"站上50日線":"否","50/200日線":"糾結","距離年高":"-15%","量能":"縮"},note:"回檔整理中,觀察 200 日線支撐。"},
+ thesis:"與台股散熱、重電族群同一條邏輯線的美股對照組:資料中心電力與冷卻的系統整合商,適合用來驗證台股相關族群的趨勢強度。"},
+{id:"TSM",name:"台積電ADR",full:"Taiwan Semiconductor Mfg. Co. (ADR)",market:"US",sector:"美股AI晶片",price:248.9,chg:1.5,
+ f:{score:92,kv:{"季營收YoY":"+38%","毛利率":"59%","先進製程佔比":">75%","股息":"穩定成長"},note:"同 2330,美元計價之 ADR。"},
+ c:{score:82,kv:{"機構持股":"持續增加","近月資金流":"淨流入","賣方評等":"買進","空單比":"低"},note:"外資透過 ADR 加碼台積電的主要通道。"},
+ t:{score:78,kv:{"站上50日線":"是","50/200日線":"多頭排列","距離年高":"-3%","量能":"正常"},note:"與台股 2330 走勢連動,溢價率為短線情緒指標。"},
+ thesis:"用美元部位持有台積電的工具,ADR 溢價率本身就是外資對台股熱度的溫度計,值得每日順手記錄。"}
+]};
+
+/* ── 狀態 ── */
+let DATA=null, mkt="ALL", sector="全部", q="", sortBy="total", page=1;
+const W={f:.40,c:.35,t:.25};
+const total=s=>Math.round(s.f.score*W.f+s.c.score*W.c+s.t.score*W.t);
+
+async function boot(){
+  try{
+    const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+    if(r.ok){ DATA=await r.json(); DATA.source='live'; }
+  }catch(e){}
+  if(!DATA) DATA=DEMO;
+  setBadges(); renderAll(); route();
+}
+function setBadges(extra){
+  const intr=DATA.intraday?` · 盤中 ${DATA.intraday}`:'';
+  document.getElementById('updBadge').textContent='更新:'+DATA.updated+intr+(extra||'');
+  const sb=document.getElementById('srcBadge');
+  if(DATA.source==='live'){ sb.textContent='即時數據'; sb.className='badge live'; }
+}
+function renderAll(){ renderRadar(); renderMacro(); renderNews(); renderChips(); render(); }
+
+function renderMacro(){
+  const m=DATA.macro||{};
+  document.getElementById('idxRow').innerHTML=(m.idx&&m.idx.length)?m.idx.map(i=>
+    `<div class="idx-card"><div class="nm">${i.name}</div><div class="vl">${Number(i.val).toLocaleString()}</div><div class="ch">${chgHtml(i.chg??0)}</div></div>`).join('')
+    :'<div class="idx-card"><div class="nm">尚無指數資料,按「更新資訊」或執行 update_data.py</div></div>';
+  const fx=m.fx||{};
+  const items=[["美元/台幣",fx.USDTWD],["日圓/台幣",fx.JPYTWD],["歐元/台幣",fx.EURTWD],["美元/日圓",fx.USDJPY]];
+  document.getElementById('fxRow').innerHTML=items.map(([n,v])=>
+    `<div class="idx-card"><div class="nm">${n}</div><div class="vl">${v??'—'}</div></div>`).join('');
+  const tone=fx.USDTWD?(fx.USDTWD>=32.8?'台幣偏弱':fx.USDTWD<=31.5?'台幣偏強':'台幣區間震盪'):null;
+  document.getElementById('fxNote').innerHTML=
+    `<b>怎麼看匯率:</b>${tone?`目前美元兌台幣 ${fx.USDTWD},屬 <b>${tone}</b> 格局。`:''}`+
+    `台幣<b>升值</b>通常伴隨外資匯入,台股容易走資金行情;台幣<b>貶值</b>代表外資匯出壓力,電子出口商有匯兌收益但指數易承壓。`+
+    `日圓則牽動套利交易——日圓急升時全球風險資產常同步震盪,是操作 AI 股的重要風向球。`;
+}
+function renderNews(){
+  const n=DATA.news||[];
+  document.getElementById('newsBox').innerHTML=n.length?n.map(x=>
+    `<a href="${x.link||'#'}" ${x.link&&x.link!=='#'?'target="_blank" rel="noopener"':''}><span>${x.title}</span><span class="src">${x.source||''}${x.time?' · '+x.time:''}</span></a>`).join('')
+    :'<a href="#">尚無新聞,執行 update_data.py 後自動帶入財經頭條</a>';
+}
+
+/* ── 更新資訊:重抓 data.json + 證交所/櫃買 OpenAPI 收盤 + 即時匯率 ── */
+async function refreshLive(auto){
+  const btn=document.getElementById('updBtn');
+  if(!auto){ btn.disabled=true; btn.textContent='更新中…'; }
+  const diag=[];
+  try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+      if(r.ok){DATA=await r.json();DATA.source='live';
+        diag.push(`<span class="ok">✓ data.json</span> 資料日期 ${DATA.updated}${DATA.intraday?' · 盤中 '+DATA.intraday:''}`);}
+      else diag.push(`<span class="bad">✗ data.json</span> HTTP ${r.status}(repo 裡還沒有 data.json?到 Actions 手動 Run daily-update)`);
+  }catch(e){diag.push(`<span class="bad">✗ data.json</span> 讀取失敗(本機直接開檔案會這樣,請用 github.io 網址或 python -m http.server)`);}
+  DATA.macro=DATA.macro||{};
+  try{ // 匯率(open.er-api.com,免金鑰、允許跨網域)
+    const j=await (await fetch('https://open.er-api.com/v6/latest/USD')).json();
+    const r=j.rates;
+    DATA.macro.fx={USDTWD:+r.TWD.toFixed(3),JPYTWD:+(r.TWD/r.JPY).toFixed(4),
+                   EURTWD:+(r.TWD/r.EUR).toFixed(3),USDJPY:+r.JPY.toFixed(2)};
+    diag.push('<span class="ok">✓ 匯率</span> open.er-api.com');
+  }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
+  diag.push('<span class="ok">ⓘ 股價/新聞</span> 由 GitHub 每 5 分鐘自動寫入 data.json(開盤時段),本頁每 3 分鐘自動重抓');
+  const dg=document.getElementById('diag');
+  dg.innerHTML=diag.join('<br>'); dg.classList.add('show');
+  setBadges(auto?' · 盤中自動更新':' · 已更新報價與匯率');
+  btn.disabled=false; btn.textContent='↻ 更新資訊';
+  renderAll(); route();
+}
+document.getElementById('updBtn').onclick=()=>refreshLive(false);
+
+/* ── 開盤時段自動更新:台北週一至五 08:55–13:40,每 3 分鐘 ── */
+function marketOpen(){
+  const tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const d=tp.getDay(), m=tp.getHours()*60+tp.getMinutes();
+  return d>=1&&d<=5&&m>=535&&m<=820;
+}
+setInterval(()=>{ if(marketOpen()) refreshLive(true); }, 180000);
+
+function renderChips(){
+  const pool=DATA.stocks.filter(s=>mkt==='ALL'||s.market===mkt);
+  const secs=['全部',...[...new Set(pool.map(s=>s.sector))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))];
+  document.getElementById('chips').innerHTML=secs.map(s=>
+    `<button class="chip ${s===sector?'on':''}" data-s="${s}">${s}</button>`).join('');
+  document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{sector=b.dataset.s;page=1;renderChips();render();});
+}
+
+function sectorPanel(){
+  const el=document.getElementById('sectorPanel');
+  if(sector==='全部'){ el.innerHTML=''; return; }
+  const pool=DATA.stocks.filter(s=>(mkt==='ALL'||s.market===mkt)&&s.sector===sector);
+  const withP=pool.filter(s=>s.price!=null);
+  const upN=withP.filter(s=>s.chg>0).length;
+  const avgT=pool.length?Math.round(pool.reduce((a,s)=>a+total(s),0)/pool.length):0;
+  const top=pool.slice().sort((a,b)=>total(b)-total(a)).slice(0,3)
+    .map(s=>`${s.name} ${s.id}(${total(s)}分)`).join('、');
+  const statsBox=`<div class="sp-box"><h3>族群即時概況</h3><ul>
+    <li>共 ${pool.length} 檔|今日上漲 ${upN} 檔</li>
+    <li>平均綜合評分 ${avgT} 分</li>
+    <li>評分前三:${top||'—'}</li></ul></div>`;
+  const info=SECTOR_INFO[sector];
+  if(info){
+    el.innerHTML=`<div class="sector-panel">
+      <h2>${sector}</h2><div class="tagline">${info.tag}</div>
+      <p>${info.body}</p>
+      <div class="sp-grid">
+        ${statsBox}
+        <div class="sp-box"><h3>成長驅動</h3><ul>${info.drivers.map(d=>`<li>${d}</li>`).join('')}</ul></div>
+        <div class="sp-box"><h3>主要風險</h3><ul>${info.risks.map(d=>`<li>${d}</li>`).join('')}</ul></div>
+        <div class="sp-box"><h3>關鍵觀察指標</h3><ul>${info.watch.map(d=>`<li>${d}</li>`).join('')}</ul></div>
+      </div></div>`;
+  }else{
+    el.innerHTML=`<div class="sector-panel">
+      <h2>${sector}</h2><div class="tagline">族群數據總覽</div>
+      <div class="sp-grid">${statsBox}</div></div>`;
+  }
+}
+
+function chgHtml(c){
+  if(c===null||c===undefined||isNaN(c)) return '<span class="flat">–</span>';
+  const cls=c>0?'pos':c<0?'neg':'flat', sign=c>0?'▲':c<0?'▼':'–';
+  return `<span class="${cls}">${sign} ${Math.abs(c).toFixed(2)}%</span>`;
+}
+
+function render(){
+  sectorPanel();
+  let list=DATA.stocks.filter(s=>
+    (mkt==='ALL'||s.market===mkt)&&
+    (sector==='全部'||s.sector===sector)&&
+    (q===''||s.name.includes(q)||s.id.toLowerCase().includes(q.toLowerCase())||(s.full||'').includes(q)));
+  const key={total:s=>total(s),fund:s=>s.f.score,chip:s=>s.c.score,tech:s=>s.t.score,chg:s=>s.chg};
+  list.sort((a,b)=>key[sortBy](b)-key[sortBy](a));
+  const g=document.getElementById('grid');
+  if(!list.length){ g.innerHTML='<div class="empty">沒有符合條件的個股,換個關鍵字或產業試試。</div>'; return; }
+  const shown=list.slice(0,page*60);
+  g.innerHTML=shown.map(s=>{
+    const T=total(s);
+    return `<div class="card" data-id="${s.id}" tabindex="0" role="button" aria-label="查看 ${s.name} 明細">
+      <div class="c-top">
+        <div>
+          <div class="c-name">${s.name} <span class="c-code">${s.id}</span></div>
+          <div class="c-full">${s.full||''}</div>
+          <span class="c-sector">${s.market==='US'?'美股':'台股'}|${s.sector}</span>
+        </div>
+        <div class="score-ring" style="--sc:${T}"><div class="score-in"><b>${T}</b><span>綜合</span></div></div>
+      </div>
+      <div class="c-price"><span class="px">${s.price??'—'}</span>${chgHtml(s.chg)}</div>
+      <div class="bars">
+        ${[['基本面',s.f.score],['籌碼面',s.c.score],['技術面',s.t.score]].map(([lb,v])=>
+          `<div class="bar-row"><span class="lb">${lb}</span><div class="bar-track"><div class="bar-fill" style="width:${v}%"></div></div><span class="vl">${v}</span></div>`).join('')}
+      </div>
+      <div class="c-note">${s.thesis?s.thesis.slice(0,52)+'…點開看完整分析':'點開看 K 線、關鍵價位與三面向明細'}</div>
+    </div>`;
+  }).join('')+(list.length>shown.length?
+    `<button class="more" id="moreBtn">顯示更多(已顯示 ${shown.length} / 共 ${list.length} 檔)</button>`:'');
+  const mb=document.getElementById('moreBtn');
+  if(mb) mb.onclick=()=>{page++;render();};
+  document.querySelectorAll('.card').forEach(c=>{
+    c.onclick=()=>{location.hash='#stock/'+c.dataset.id;};
+    c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();location.hash='#stock/'+c.dataset.id;}};
+  });
+}
+
+function dimBlock(title,d){
+  return `<div class="dim-block"><h3>${title}<span class="ds">${d.score} 分</span></h3>
+    <div class="kv">${Object.entries(d.kv).map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</div>
+    <div class="dim-note">${d.note}</div></div>`;
+}
+
+/* ── 個股專頁 ── */
+function seeded(id){let h=1779033703;for(let i=0;i<id.length;i++){h=Math.imul(h^id.charCodeAt(i),3432918353);h=h<<13|h>>>19;}
+  return()=> (h=Math.imul(h^h>>>16,2246822507),h=Math.imul(h^h>>>13,3266489909),((h^=h>>>16)>>>0)/4294967296);}
+function demoOHLC(s){ // 範例 K 線(依評分產生突破/回檔/隨機型態,僅示意)
+  const r=seeded(s.id), n=120, closes=[];
+  const shape=s.t.score>=78?'break':(s.f.score>=74&&s.t.score<=64?'dip':'walk');
+  if(shape==='break'){                 // 長期整理 → 末段帶量突破
+    const lo=s.price*0.82;
+    for(let i=0;i<n-15;i++) closes.push(lo*(1+(r()-0.5)*0.05));
+    let v=closes[n-16];
+    for(let i=n-15;i<n;i++){ v*=1+0.012+(r()-0.4)*0.02; closes.push(v); }
+  }else if(shape==='dip'){             // 波段上漲 → 回檔測季線
+    let v=s.price*0.70;
+    for(let i=0;i<90;i++){ v*=1+0.007+(r()-0.45)*0.018; closes.push(v); }
+    for(let i=90;i<n;i++){ v*=1-0.004+(r()-0.5)*0.014; closes.push(v); }
+  }else{
+    let v=s.price*(0.85+r()*0.2);
+    for(let i=0;i<n;i++){ v*=1+(r()-0.48)*0.022; closes.push(v); }
+  }
+  const k=s.price/closes[n-1];
+  return closes.map((c0,i)=>{
+    const c=c0*k, o=i?closes[i-1]*k:c*(1+(r()-0.5)*0.01);
+    const hi=Math.max(o,c)*(1+r()*0.012), lo=Math.min(o,c)*(1-r()*0.012);
+    const vol=Math.round(1000+r()*9000*(Math.abs(c-o)/c*60+0.5));
+    return [+o.toFixed(2),+hi.toFixed(2),+lo.toFixed(2),+c.toFixed(2),vol];
+  });
+}
+function demoDates(n){ // 往回推 n 個平日
+  const out=[], cur=new Date();
+  while(out.length<n){
+    if(cur.getDay()!==0&&cur.getDay()!==6) out.unshift(cur.toISOString().slice(0,10));
+    cur.setDate(cur.getDate()-1);
+  }
+  return out;
+}
+/* ── 技術指標 ── */
+function ema(arr,p){const k=2/(p+1);let e=arr[0];return arr.map((v,i)=>i?(e=v*k+e*(1-k)):e);}
+function macd(c){const e12=ema(c,12),e26=ema(c,26);
+  const dif=e12.map((v,i)=>v-e26[i]); const dea=ema(dif,9);
+  return {dif,dea,bar:dif.map((v,i)=>(v-dea[i])*2)};}
+function kdCalc(o){const K=[],D=[];let pk=50,pd=50;
+  for(let i=0;i<o.length;i++){const s0=Math.max(0,i-8);
+    const hh=Math.max(...o.slice(s0,i+1).map(x=>x[1])), ll=Math.min(...o.slice(s0,i+1).map(x=>x[2]));
+    const rsv=hh===ll?50:(o[i][3]-ll)/(hh-ll)*100;
+    pk=pk*2/3+rsv/3; pd=pd*2/3+pk/3; K.push(pk); D.push(pd);}
+  return {K,D};}
+function rsiCalc(c,p=14){const r=[50];let g=0,l=0;
+  for(let i=1;i<c.length;i++){const ch=c[i]-c[i-1],up=Math.max(ch,0),dn=Math.max(-ch,0);
+    if(i<p){g+=up;l+=dn;r.push(50);}
+    else if(i===p){g=(g+up)/p;l=(l+dn)/p;r.push(l===0?100:100-100/(1+g/l));}
+    else{g=(g*(p-1)+up)/p;l=(l*(p-1)+dn)/p;r.push(l===0?100:100-100/(1+g/l));}}
+  return r;}
+
+/* ── 關鍵價位:規則化計算(非投資建議)── */
+let curLevels=null;
+function keyLevels(o){
+  const closes=o.map(x=>x[3]), highs=o.map(x=>x[1]), lows=o.map(x=>x[2]);
+  const h20=Math.max(...highs.slice(-20)), l20=Math.min(...lows.slice(-20));
+  const h60=Math.max(...highs.slice(-60)), l60=Math.min(...lows.slice(-60));
+  const ma20=avg(closes.slice(-20)), ma60=avg(closes.slice(-60));
+  const bull=ma20>ma60;
+  // 參考買進區:多頭排列 → 月線~季線「均線帶」;空頭排列 → 底部支撐帶(觀望為主)
+  const zone=bull?[Math.min(ma20,ma60),Math.max(ma20,ma60)]:[l60,l20];
+  // 當日樞紐點(以最後一根 K 的高低收):P=(H+L+C)/3
+  const p=o[o.length-1], P=(p[1]+p[2]+p[3])/3;
+  return {h20,l20,h60,l60,ma20,ma60,bull,zone,
+    r1:+(2*P-p[2]).toFixed(2), s1:+(2*P-p[1]).toFixed(2),
+    stop:+(zone[0]*0.97).toFixed(2)};
+}
+
+/* ── ECharts 專業 K 線圖(MA 可開關、MACD/KD/RSI 副圖切換、縮放)── */
+let curOhlc=null,curDates=null,chartInst=null,indMode='MACD';
+const UPC='#E5484D', DNC='#21A466';
+function drawKChart(){
+  const box=document.getElementById('kbox');
+  if(!box||!curOhlc) return;
+  if(!window.echarts){ box.innerHTML=kChart(curOhlc); return; } // 離線後備:簡易 SVG
+  if(chartInst){ chartInst.dispose(); }
+  chartInst=echarts.init(box);
+  const o=curOhlc, closes=o.map(x=>x[3]);
+  const maCfg=[['MA5',5,'#E8B44A'],['MA10',10,'#7FB4FF'],['MA20',20,'#C792EA'],['MA60',60,'#F2F2F2']];
+  const maSeries=maCfg.map(([nm,p,col])=>({name:nm,type:'line',xAxisIndex:0,yAxisIndex:0,
+    data:closes.map((_,i)=>i<p-1?null:+avg(closes.slice(i-p+1,i+1)).toFixed(2)),
+    showSymbol:false,lineStyle:{width:1.2,color:col},itemStyle:{color:col},smooth:true}));
+  const volSeries={name:'成交量',type:'bar',xAxisIndex:1,yAxisIndex:1,
+    data:o.map(x=>({value:x[4],itemStyle:{color:x[3]>=x[0]?UPC:DNC,opacity:.55}}))};
+  let indSeries=[];
+  const subLine=(nm,d,col)=>({name:nm,type:'line',xAxisIndex:2,yAxisIndex:2,
+    data:d.map(v=>+v.toFixed(2)),showSymbol:false,lineStyle:{width:1.1,color:col},itemStyle:{color:col}});
+  if(indMode==='MACD'){const m=macd(closes);
+    indSeries=[subLine('DIF',m.dif,'#E8B44A'),subLine('DEA',m.dea,'#7FB4FF'),
+      {name:'MACD柱',type:'bar',xAxisIndex:2,yAxisIndex:2,
+       data:m.bar.map(v=>({value:+v.toFixed(2),itemStyle:{color:v>=0?UPC:DNC}}))}];}
+  else if(indMode==='KD'){const m=kdCalc(o);
+    indSeries=[subLine('K9',m.K,'#E8B44A'),subLine('D9',m.D,'#7FB4FF')];}
+  else{indSeries=[subLine('RSI14',rsiCalc(closes),'#E8B44A'),
+    subLine('中線50',closes.map(()=>50),'#5A6478')];}
+  chartInst.setOption({
+    backgroundColor:'transparent',animation:false,
+    textStyle:{fontFamily:'IBM Plex Mono,monospace'},
+    legend:{top:0,textStyle:{color:'#8B95AB',fontSize:11},
+      data:['K線',...maCfg.map(m=>m[0])],inactiveColor:'#3A4358'},
+    tooltip:{trigger:'axis',axisPointer:{type:'cross'},
+      backgroundColor:'#1A2337',borderColor:'#232D42',textStyle:{color:'#E9EDF5',fontSize:12}},
+    axisPointer:{link:[{xAxisIndex:'all'}]},
+    grid:[{left:56,right:16,top:28,height:'44%'},
+          {left:56,right:16,top:'58%',height:'12%'},
+          {left:56,right:16,top:'74%',height:'17%'}],
+    xAxis:[0,1,2].map(i=>({type:'category',gridIndex:i,data:curDates,boundaryGap:true,
+      axisLine:{lineStyle:{color:'#232D42'}},axisLabel:{show:i===2,color:'#5A6478',fontSize:10},
+      axisTick:{show:false},splitLine:{show:false}})),
+    yAxis:[{gridIndex:0,scale:true,axisLabel:{color:'#5A6478',fontSize:10},
+        splitLine:{lineStyle:{color:'#1A2337'}}},
+      {gridIndex:1,scale:true,axisLabel:{show:false},splitLine:{show:false}},
+      {gridIndex:2,scale:true,axisLabel:{color:'#5A6478',fontSize:10},
+        splitLine:{lineStyle:{color:'#1A2337'}}}],
+    dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:30,end:100},
+      {type:'slider',xAxisIndex:[0,1,2],bottom:0,height:16,start:30,end:100,
+       borderColor:'#232D42',fillerColor:'rgba(232,180,74,.15)',
+       handleStyle:{color:'#E8B44A'},textStyle:{color:'#5A6478',fontSize:10}}],
+    series:[{name:'K線',type:'candlestick',xAxisIndex:0,yAxisIndex:0,
+        data:o.map(x=>[x[0],x[3],x[2],x[1]]),  // echarts 順序 [開,收,低,高]
+        itemStyle:{color:UPC,color0:DNC,borderColor:UPC,borderColor0:DNC},
+        ...(curLevels?{
+          markLine:{symbol:'none',silent:true,
+            label:{show:true,position:'insideEndTop',fontSize:10,color:'#8B95AB',
+              formatter:p=>`${p.name} ${(+p.value).toFixed(1)}`},
+            data:[
+              {name:'壓力·前波高',yAxis:+curLevels.h60.toFixed(2),
+               lineStyle:{color:UPC,type:'dashed',width:1}},
+              {name:'支撐·前波低',yAxis:+curLevels.l60.toFixed(2),
+               lineStyle:{color:DNC,type:'dashed',width:1}},
+              ...(Math.abs(curLevels.h20-curLevels.h60)/curLevels.h60>0.012?[
+                {name:'壓力·近月高',yAxis:+curLevels.h20.toFixed(2),
+                 lineStyle:{color:'#FF8A8E',type:'dotted',width:1}}]:[]),
+              ...(Math.abs(curLevels.l20-curLevels.l60)/curLevels.l60>0.012?[
+                {name:'支撐·近月低',yAxis:+curLevels.l20.toFixed(2),
+                 lineStyle:{color:'#4BD695',type:'dotted',width:1}}]:[])
+            ]},
+          markArea:{silent:true,itemStyle:{color:'rgba(232,180,74,.10)'},
+            label:{color:'#E8B44A',fontSize:10,position:'insideRight'},
+            data:[[{name:curLevels.bull?'參考買進區(均線帶)':'支撐帶(空頭·觀望)',
+                    yAxis:+curLevels.zone[0].toFixed(2)},
+                   {yAxis:+curLevels.zone[1].toFixed(2)}]]}
+        }:{})},
+      ...maSeries,volSeries,...indSeries]
+  });
+}
+window.addEventListener('resize',()=>{if(chartInst)chartInst.resize();});
+
+function kChart(ohlc){ // 後備用簡易 SVG(ECharts 載入失敗時)
+  const w=700,hP=190,hV=46,h=hP+8+hV,pad=8,n=ohlc.length;
+  const max=Math.max(...ohlc.map(x=>x[1])), min=Math.min(...ohlc.map(x=>x[2])), rg=(max-min)||1;
+  const vmax=Math.max(...ohlc.map(x=>x[4]||0))||1;
+  const bw=(w-2*pad)/n, cw=Math.max(2,bw*0.6);
+  const Y=v=>pad+(max-v)/rg*(hP-2*pad);
+  const closes=ohlc.map(x=>x[3]);
+  const ma=closes.map((_,i)=>{const seg=closes.slice(Math.max(0,i-19),i+1);
+    return seg.reduce((a,b)=>a+b,0)/seg.length;});
+  let out='';
+  ohlc.forEach((kk,i)=>{
+    const [o,hi,lo,c,v]=kk, x=pad+i*bw+bw/2;
+    const up=c>=o, col=up?'#E5484D':'#21A466';
+    out+=`<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${Y(hi).toFixed(1)}" y2="${Y(lo).toFixed(1)}" stroke="${col}" stroke-width="1"/>`;
+    const yT=Y(Math.max(o,c)), yB=Y(Math.min(o,c));
+    out+=`<rect x="${(x-cw/2).toFixed(1)}" y="${yT.toFixed(1)}" width="${cw.toFixed(1)}" height="${Math.max(1,yB-yT).toFixed(1)}" fill="${col}"/>`;
+    if(v){const vh=(v/vmax)*(hV-4);
+      out+=`<rect x="${(x-cw/2).toFixed(1)}" y="${(h-vh).toFixed(1)}" width="${cw.toFixed(1)}" height="${vh.toFixed(1)}" fill="${col}" opacity=".45"/>`;}
+  });
+  out+=`<polyline points="${ma.map((v,i)=>`${(pad+i*bw+bw/2).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="#E8B44A" stroke-width="1.3" stroke-dasharray="4 3" opacity=".9"/>`;
+  out+=`<text x="${pad+2}" y="15" font-size="11" fill="#8B95AB" font-family="monospace">高 ${max.toFixed(1)}</text>`;
+  out+=`<text x="${pad+2}" y="${hP-6}" font-size="11" fill="#8B95AB" font-family="monospace">低 ${min.toFixed(1)}</text>`;
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-label="近60個交易日K線圖">${out}</svg>`;
+}
+const KCACHE={};
+function shardOf(s){return s.market==='TW'?`k/tw${s.id[0]}.json`:`k/us_${s.id[0].toLowerCase()}.json`;}
+async function loadK(s){
+  if(DATA.source!=='live') return {ohlc:demoOHLC(s),dates:demoDates(120),demo:true};
+  const sh=shardOf(s);
+  if(!(sh in KCACHE)){
+    try{const r=await fetch(sh+'?v='+encodeURIComponent(DATA.updated||''),{cache:'no-store'});
+        KCACHE[sh]=r.ok?await r.json():{};}
+    catch(e){KCACHE[sh]={};}
+  }
+  const e=KCACHE[sh][s.id];
+  return (e&&Array.isArray(e.o)&&e.o.length>5)?{ohlc:e.o,dates:e.d}:null;
+}
+async function showDetail(id){
+  const s=DATA.stocks.find(x=>x.id===id);
+  const home=document.getElementById('homeView'), dv=document.getElementById('detailView');
+  if(!s){location.hash=''; return;}
+  home.style.display='none'; dv.style.display='block';
+  const isTW=s.market!=='US';
+  const links=isTW?[
+    ['Yahoo奇摩股市',`https://tw.stock.yahoo.com/quote/${s.id}`],
+    ['Goodinfo',`https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${s.id}`],
+    ['TradingView',`https://tw.tradingview.com/symbols/${s.id}/`]]
+   :[['Yahoo Finance',`https://finance.yahoo.com/quote/${s.id}`],
+     ['TradingView',`https://www.tradingview.com/symbols/${s.id}/`]];
+  dv.innerHTML=`<div class="detail-wrap">
+    <button class="back" id="backBtn">← 回選股清單</button>
+    <div class="m-head">
+      <div><h2 style="font-size:24px;font-weight:900">${s.name} <span class="c-code">${s.id}</span></h2>
+        <div class="c-full">${s.full||''}|${isTW?'台股':'美股'} · ${s.sector}</div>
+        <div class="c-price"><span class="px" style="font-size:26px">${s.price??'—'}</span>${chgHtml(s.chg)}</div></div>
+      <div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>
+    </div>
+    <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
+    ${dimBlock('基本面(權重40%)',s.f)}
+    ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',s.c)}
+    ${dimBlock('技術線型(權重25%)',s.t)}
+    ${s.thesis?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
+    <div class="links">${links.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}</div>
+  </div>`;
+  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  window.scrollTo({top:0});
+  const k=await loadK(s);
+  const kwrap=document.getElementById('kwrap');
+  if(!kwrap||location.hash!=='#stock/'+id) return;
+  if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
+  curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
+  const lv=curLevels;
+  const zoneName=lv.bull?'參考買進區|月線~季線均線帶':'支撐帶|空頭排列,先觀望';
+  kwrap.innerHTML=`<div class="chart-box">
+      <div class="ind-head">
+        <h3>K線圖 · 近 ${k.ohlc.length} 個交易日${k.demo?'(範例資料,部署後為真實K線)':''} · 點圖例可開關均線 · 下方滑桿縮放</h3>
+        <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
+          `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
+      </div>
+      <div id="kbox" style="height:520px"></div>
+    </div>
+    <div class="dim-block">
+      <h3>關鍵價位(規則化計算)<span class="ds">現價 ${s.price??'—'}</span></h3>
+      <div class="kv">
+        <div><dt>壓力 2|前波高(60日)</dt><dd class="pos">${lv.h60.toFixed(1)}</dd></div>
+        <div><dt>壓力 1|近月高(20日)</dt><dd class="pos">${lv.h20.toFixed(1)}</dd></div>
+        <div><dt>當日樞紐壓力 R1</dt><dd>${lv.r1}</dd></div>
+        <div><dt>當日樞紐支撐 S1</dt><dd>${lv.s1}</dd></div>
+        <div><dt>${zoneName}</dt><dd style="color:var(--amber)">${lv.zone[0].toFixed(1)} ~ ${lv.zone[1].toFixed(1)}</dd></div>
+        <div><dt>停損參考|買進區下緣 −3%</dt><dd>${lv.stop}</dd></div>
+        <div><dt>支撐 1|近月低(20日)</dt><dd class="neg">${lv.l20.toFixed(1)}</dd></div>
+        <div><dt>支撐 2|前波低(60日)</dt><dd class="neg">${lv.l60.toFixed(1)}</dd></div>
+      </div>
+      <div class="dim-note">規則:壓力/支撐取近 20、60 日高低點;參考買進區為多頭排列時「月線~季線」均線帶(拉回均線帶承接是常見打法),空頭排列時只標支撐帶、以觀望為主;樞紐點 P=(H+L+C)/3。以上為規則化參考價位,非投資建議——先想好停損再想獲利。</div>
+    </div>`;
+  document.querySelectorAll('#indSeg button').forEach(b=>b.onclick=()=>{
+    indMode=b.dataset.i;
+    document.querySelectorAll('#indSeg button').forEach(x=>x.classList.toggle('on',x===b));
+    drawKChart();
+  });
+  drawKChart();
+}
+function route(){
+  if(location.hash.startsWith('#stock/')) showDetail(decodeURIComponent(location.hash.slice(7)));
+  else{document.getElementById('detailView').style.display='none';
+       document.getElementById('homeView').style.display='block';}
+}
+window.addEventListener('hashchange',route);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&location.hash)location.hash='';});
+
+/* ── 機會雷達:規則化訊號(非投資建議)── */
+const avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
+function chipRaw(s){ // 取籌碼原始數值:優先用 raw(真實資料),否則解析文字(範例)
+  if(s.c&&s.c.raw) return s.c.raw;
+  const kv=(s.c&&s.c.kv)||{}, r={};
+  const big=kv['400張大戶']||kv['400張大戶持股']||'';
+  let m=/週([+-][\d.]+)/.exec(big); if(m) r.bigw=parseFloat(m[1]);
+  m=/([\d.]+)%/.exec(big); if(m) r.big=parseFloat(m[1]);
+  const t=String(kv['投信5日']||kv['投信5日買賣超']||'');
+  m=/([+-][\d,]+)/.exec(t); if(m) r.t5=parseFloat(m[1].replace(/,/g,''));
+  const f=String(kv['外資5日']||kv['外資5日買賣超']||'');
+  m=/([+-][\d,]+)/.exec(f); if(m) r.f5=parseFloat(m[1].replace(/,/g,''));
+  return r;
+}
+function signals(s){
+  const hasReal=Array.isArray(s.ohlc)&&s.ohlc.length>25;
+  const out=[];
+  // ⓪ 大戶進場(只靠籌碼,不需要K線)
+  const r0=chipRaw(s);
+  if(r0.bigw!==undefined && r0.bigw>=0.7)
+    out.push({type:'whale',label:'大戶進場',
+      desc:`400張大戶持股週增 +${r0.bigw.toFixed(2)} 個百分點`+
+        (r0.big?`,目前 ${r0.big}%`:'')+((r0.t5>0&&r0.f5>0)?',外資投信同步買超':r0.t5>0?',投信同步買超':'')});
+  if(!hasReal && DATA.source==='live') return out; // 真實模式缺K線 → 不做型態訊號
+  const ohlc=hasReal?s.ohlc:demoOHLC(s);
+  const closes=ohlc.map(x=>x[3]).slice(-60);
+  const last=s.price||closes[closes.length-1];
+  const ma20=avg(closes.slice(-20)), ma60=avg(closes);
+  const T=total(s);
+  // ① 突破整理區:突破近 40 日整理平台(排除最近 5 日),平台高低差 <15%
+  const prior=closes.slice(-45,-5);
+  const hi=Math.max(...prior), lo=Math.min(...prior);
+  if(last>hi && (hi-lo)/lo<0.15 && T>=65)
+    out.push({type:'break',label:'突破整理區',
+      desc:`站上平台高點 ${hi.toFixed(1)},整理區間僅 ${((hi-lo)/lo*100).toFixed(0)}%,綜合 ${T} 分`});
+  // ② 下殺近關鍵價:好股票自波段高點回檔 ≥7%,現價貼近季線(-2%~+4%)
+  const h20=Math.max(...closes.slice(-20));
+  const off=(last-h20)/h20*100, d60=(last-ma60)/ma60*100;
+  if(T>=64 && off<=-7 && d60>=-4 && d60<=4)
+    out.push({type:'dip',label:'下殺近關鍵價',
+      desc:`自波段高點回檔 ${Math.abs(off).toFixed(0)}%,回測季線 ${ma60.toFixed(1)} 附近,綜合 ${T} 分`});
+  // ③ 三力強勢:綜合 ≥78 且站上 20MA、均線多頭
+  if(T>=78 && last>ma20 && ma20>ma60)
+    out.push({type:'strong',label:'三力強勢',
+      desc:`綜合 ${T} 分,多頭排列沿 20MA 推進,基本/籌碼/技術同向`});
+  return out;
+}
+function renderRadar(){
+  const box=document.getElementById('radar');
+  const items=[];
+  if(DATA.source==='live'){
+    DATA.stocks.forEach(s=>(s.sig||[]).forEach(g=>items.push({s,g})));
+  }else{
+    DATA.stocks.forEach(s=>signals(s).forEach(g=>items.push({s,g})));
+  }
+  const order={whale:0,dip:1,break:2,strong:3};
+  items.sort((a,b)=>order[a.g.type]-order[b.g.type]||total(b.s)-total(a.s));
+  const cnt={};
+  const shown=items.filter(({g})=>{cnt[g.type]=(cnt[g.type]||0)+1;return cnt[g.type]<=12;});
+  box.innerHTML=shown.length?shown.map(({s,g})=>
+    `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
+       <span class="r-tag tg-${g.type}">${g.label}</span>
+       <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span></span>
+       <span class="r-desc">${g.desc}</span></div>`).join('')
+    +(items.length>shown.length?`<div class="r-empty">每類只顯示評分最高的 12 檔,共 ${items.length} 個訊號;其餘請用排序與搜尋檢視。</div>`:'')
+    :'<div class="r-empty">今日沒有觸發訊號的個股 —— 沒有訊號也是一種訊號,空手等待也是部位。</div>';
+  box.querySelectorAll('.r-card').forEach(c=>{
+    c.onclick=()=>{location.hash='#stock/'+c.dataset.id;};
+    c.onkeydown=e=>{if(e.key==='Enter'){location.hash='#stock/'+c.dataset.id;}};
+  });
+}
+
+document.querySelectorAll('#mktSeg button').forEach(b=>b.onclick=()=>{
+  mkt=b.dataset.m; sector='全部'; page=1;
+  document.querySelectorAll('#mktSeg button').forEach(x=>x.classList.toggle('on',x===b));
+  renderChips(); render();
+});
+document.getElementById('sortSel').onchange=e=>{sortBy=e.target.value;page=1;render();};
+document.getElementById('q').oninput=e=>{q=e.target.value.trim();page=1;render();};
+
+boot();
+</script>
+</body>
+</html>
