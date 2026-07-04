@@ -1,0 +1,30 @@
+# 放到 repo 的 .github/workflows/update_quotes.yml
+# 開盤時段(台北 09:00–13:50,週一至五)每 10 分鐘更新盤中報價
+# 注意:GitHub Actions 排程可能延遲數分鐘,實際間隔約 10–15 分鐘
+name: intraday-quotes
+on:
+  schedule:
+    - cron: "*/5 1-5 * * 1-5"   # UTC 01–05 時 = 台北 09:00–13:55,每 5 分鐘(Actions 實際會延遲數分鐘)
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: quotes
+  cancel-in-progress: true
+jobs:
+  quotes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests pandas yfinance
+      - run: python update_quotes.py
+      - name: commit
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git pull --rebase || true
+          git add data.json
+          git commit -m "quotes: $(TZ=Asia/Taipei date +%H:%M)" || echo "no changes"
+          git push

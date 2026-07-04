@@ -92,6 +92,31 @@ def _pick(fields, *needles):
 
 # ═══════════════ 名單:台股全上市上櫃 + S&P 500 ═══════════════
 def fetch_tw_companies():
+    """主要來源:GitHub 開放資料集(twstock codes,含產業別);備援:官方 OpenAPI。
+    註:證交所/櫃買官方 API 會封鎖海外雲端 IP,GitHub Actions 機房常被擋。"""
+    out = []
+    for url, ex in (("https://raw.githubusercontent.com/mlouielu/twstock/master/twstock/codes/twse_equities.csv", "tse"),
+                    ("https://raw.githubusercontent.com/mlouielu/twstock/master/twstock/codes/tpex_equities.csv", "otc")):
+        try:
+            df = pd.read_csv(StringIO(requests.get(url, headers=UA, timeout=40).text))
+            df = df[(df["type"] == "股票")]
+            n = 0
+            for _, r in df.iterrows():
+                sid = str(r["code"]).strip()
+                if not (sid.isdigit() and len(sid) == 4): continue
+                grp = str(r.get("group", "")).strip()
+                out.append({"id": sid, "name": str(r["name"]).strip(),
+                            "full": str(r["name"]).strip(),
+                            "market": "TW", "ex": ex,
+                            "sector": grp if grp and grp != "nan" else "未分類"})
+                n += 1
+            print(f"  {'上市' if ex=='tse' else '上櫃'}(開放資料集):{n} 檔")
+        except Exception as e:
+            print(f"  [warn] 名單資料集 {ex}: {e}")
+    if len(out) > 500:
+        return out
+    # 備援:官方 OpenAPI(在台灣本機執行時可用)
+    print("  → 改用官方 OpenAPI 名單")
     out = []
     for url, ex in (("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", "tse"),
                     ("https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O", "otc")):
@@ -100,21 +125,16 @@ def fetch_tw_companies():
             keys = list(arr[0].keys())
             k_id  = next((k for k in keys if "代號" in k), None)
             k_ab  = next((k for k in keys if "簡稱" in k), None)
-            k_full= next((k for k in keys if k.endswith("名稱") and "簡稱" not in k), k_ab)
             k_ind = next((k for k in keys if "產業" in k), None)
-            n = 0
             for r in arr:
                 sid = str(r.get(k_id, "")).strip()
                 if not (sid.isdigit() and len(sid) == 4): continue
                 ind = str(r.get(k_ind, "")).strip()
-                sector = TW_IND.get(ind, ind if ind else "未分類")
                 out.append({"id": sid, "name": str(r.get(k_ab, sid)).strip(),
-                            "full": str(r.get(k_full, "")).strip(),
-                            "market": "TW", "ex": ex, "sector": sector})
-                n += 1
-            print(f"  {'上市' if ex=='tse' else '上櫃'}公司:{n} 檔")
+                            "full": str(r.get(k_ab, sid)).strip(), "market": "TW", "ex": ex,
+                            "sector": TW_IND.get(ind, ind if ind else "未分類")})
         except Exception as e:
-            print(f"  [warn] 公司名單 {ex}: {e}")
+            print(f"  [warn] 官方名單 {ex}: {e}")
     return out
 
 def fetch_us_companies():
@@ -164,127 +184,60 @@ def append_bar(hist, sid, date, o, h, l, c, v):
     if len(e["d"]) > KEEP_BARS:
         e["d"] = e["d"][-KEEP_BARS:]; e["o"] = e["o"][-KEEP_BARS:]
 
-# ═══════════════ 台股整市場日行情 ═══════════════
-def twse_day_all(d):
-    """證交所 MI_INDEX:單一日期、全部上市個股。回傳 {sid:(o,h,l,c,v張)}"""
-    try:
-        j = get_json("https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX",
-                     {"date": d.strftime("%Y%m%d"), "type": "ALLBUT0999", "response": "json"})
-        if j.get("stat") != "OK": return {}
-        for tb in j.get("tables", []):
-            flds = tb.get("fields", [])
-            if _pick(flds, "證券代號") is not None and _pick(flds, "收盤價") is not None:
-                i_id, i_v = _pick(flds, "證券代號"), _pick(flds, "成交股數")
-                i_o, i_h = _pick(flds, "開盤價"), _pick(flds, "最高價")
-                i_l, i_c = _pick(flds, "最低價"), _pick(flds, "收盤價")
-                out = {}
-                for r in tb.get("data", []):
-                    sid = str(r[i_id]).strip()
-                    o, h, l, c = numf(r[i_o]), numf(r[i_h]), numf(r[i_l]), numf(r[i_c])
-                    if None in (o, h, l, c): continue
-                    out[sid] = (o, h, l, c, int((numf(r[i_v]) or 0) // 1000))
-                return out
-        return {}
-    except Exception as e:
-        print(f"  [warn] MI_INDEX {d}: {e}")
-        return {}
-
-def tpex_day_all(d):
-    """櫃買日行情:單一日期、全部上櫃。回傳 {sid:(o,h,l,c,v張)}"""
-    out = {}
-    try:  # 新版
-        j = get_json("https://www.tpex.org.tw/www/zh-tw/afterTrading/otc",
-                     {"date": d.strftime("%Y/%m/%d"), "type": "EW", "response": "json"})
-        for tb in j.get("tables", []):
-            flds = tb.get("fields", [])
-            i_id = _pick(flds, "代號")
-            i_c, i_o = _pick(flds, "收盤"), _pick(flds, "開盤")
-            i_h, i_l = _pick(flds, "最高"), _pick(flds, "最低")
-            i_v = _pick(flds, "成交股數")
-            if None in (i_id, i_c, i_o, i_h, i_l): continue
-            for r in tb.get("data", []):
-                sid = str(r[i_id]).strip()
-                if not (sid.isdigit() and len(sid) == 4): continue
-                o, h, l, c = numf(r[i_o]), numf(r[i_h]), numf(r[i_l]), numf(r[i_c])
-                if None in (o, h, l, c): continue
-                v = numf(r[i_v]) if i_v is not None else 0
-                out[sid] = (o, h, l, c, int((v or 0) // 1000))
-        if out: return out
-    except Exception: pass
-    try:  # 舊版 stk_wn1430:欄位順序 [代號,名稱,收盤,漲跌,開盤,最高,最低,均價,成交股數,...]
-        j = get_json("https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php",
-                     {"l": "zh-tw", "d": f"{d.year-1911}/{d.month:02d}/{d.day:02d}", "se": "EW"})
-        for r in j.get("aaData", []):
-            sid = str(r[0]).strip()
-            if not (sid.isdigit() and len(sid) == 4): continue
-            c, o, h, l = numf(r[2]), numf(r[4]), numf(r[5]), numf(r[6])
-            if None in (o, h, l, c): continue
-            out[sid] = (o, h, l, c, int((numf(r[8]) or 0) // 1000))
-    except Exception as e:
-        print(f"  [warn] 櫃買日行情 {d}: {e}")
-    return out
-
-def update_tw_prices(hist):
-    """回補/增量:找出缺少的交易日,一天兩個呼叫補齊全市場。"""
-    last = max((v["d"][-1] for v in hist.values() if v["d"]), default=None)
-    if last:
-        start = dt.datetime.strptime(last, "%Y-%m-%d").date() + dt.timedelta(days=1)
-        lookback = (TODAY - start).days + 1
-        print(f"  增量模式:自 {start} 起補")
-    else:
-        lookback = 190
-        print("  首次執行:回補約 130 個交易日(需 10~15 分鐘,只有第一次)")
-    dates = [TODAY - dt.timedelta(days=i) for i in range(lookback)][::-1]
-    got = 0
-    for d in dates:
-        if d.weekday() >= 5: continue
-        tw = twse_day_all(d)
-        if not tw:
-            time.sleep(1.2); continue
-        ds = d.strftime("%Y-%m-%d")
-        for sid, (o, h, l, c, v) in tw.items():
-            append_bar(hist, sid, ds, o, h, l, c, v)
-        time.sleep(1.0)
-        otc = tpex_day_all(d)
-        for sid, (o, h, l, c, v) in otc.items():
-            append_bar(hist, sid, ds, o, h, l, c, v)
-        got += 1
-        print(f"  {ds}:上市 {len(tw)} 檔、上櫃 {len(otc)} 檔")
+# ═══════════════ 台股價格:Yahoo 批次(GitHub 機房可達)═══════════════
+def _yahoo_batch(tickers, hist, idmap):
+    """批次下載日K,寫入 hist。idmap: yahoo代碼 → 我們的代號。回傳成功集合。"""
+    import yfinance as yf
+    ok = set()
+    for i in range(0, len(tickers), 100):
+        chunk = tickers[i:i+100]
+        try:
+            df = yf.download(chunk, period="7mo", interval="1d",
+                             group_by="ticker", threads=True, progress=False,
+                             auto_adjust=False)
+            for tk in chunk:
+                try:
+                    sub = (df[tk] if len(chunk) > 1 else df).dropna(subset=["Close"])
+                    if len(sub) < 15: continue
+                    e = {"d": [], "o": []}
+                    for idx, r in sub.tail(KEEP_BARS).iterrows():
+                        e["d"].append(str(idx)[:10])
+                        e["o"].append([round(float(r["Open"]),2), round(float(r["High"]),2),
+                                       round(float(r["Low"]),2), round(float(r["Close"]),2),
+                                       int((r.get("Volume") or 0) // (1000 if tk.endswith((".TW",".TWO")) else 1))])
+                    hist[idmap[tk]] = e; ok.add(tk)
+                except Exception: continue
+        except Exception as e:
+            print(f"  [warn] Yahoo 批次: {e}")
         time.sleep(1.5)
-    print(f"  台股價格:本次補 {got} 個交易日")
+    return ok
+
+def update_tw_prices(hist, tw_comps):
+    idmap = {}
+    tickers = []
+    for c in tw_comps:
+        tk = f"{c['id']}.{'TW' if c['ex']=='tse' else 'TWO'}"
+        idmap[tk] = c["id"]; tickers.append(tk)
+    ok = _yahoo_batch(tickers, hist, idmap)
+    # 失敗者換另一個字尾再試(上市/上櫃標記偶有出入)
+    retry, rmap = [], {}
+    for c in tw_comps:
+        tk = f"{c['id']}.{'TW' if c['ex']=='tse' else 'TWO'}"
+        if tk in ok: continue
+        alt = f"{c['id']}.{'TWO' if c['ex']=='tse' else 'TW'}"
+        retry.append(alt); rmap[alt] = c["id"]
+    if retry:
+        ok2 = _yahoo_batch(retry, hist, rmap)
+        print(f"  台股價格:{len(ok)+len(ok2)}/{len(tw_comps)} 檔(重試補回 {len(ok2)})")
+    else:
+        print(f"  台股價格:{len(ok)}/{len(tw_comps)} 檔")
 
 # ═══════════════ 美股價格(批次)═══════════════
 def update_us_prices(hist, us_comps):
-    syms = [c["id"] for c in us_comps]
-    ok = set()
-    try:
-        import yfinance as yf
-        for i in range(0, len(syms), 100):
-            chunk = syms[i:i+100]
-            try:
-                df = yf.download(chunk, period="7mo", interval="1d",
-                                 group_by="ticker", threads=True, progress=False)
-                for sym in chunk:
-                    try:
-                        sub = df[sym].dropna() if len(chunk) > 1 else df.dropna()
-                        if len(sub) < 20: continue
-                        e = {"d": [], "o": []}
-                        for idx, r in sub.tail(KEEP_BARS).iterrows():
-                            e["d"].append(str(idx)[:10])
-                            e["o"].append([round(float(r["Open"]),2), round(float(r["High"]),2),
-                                           round(float(r["Low"]),2), round(float(r["Close"]),2),
-                                           int(r.get("Volume") or 0)])
-                        hist[sym] = e; ok.add(sym)
-                    except Exception: continue
-                print(f"  美股批次 {i//100+1}:累計 {len(ok)} 檔")
-            except Exception as e:
-                print(f"  [warn] yfinance 批次: {e}")
-            time.sleep(2)
-    except Exception as e:
-        print(f"  [warn] yfinance: {e}")
-    # Stooq 只救少量缺漏,避免觸發它的每日上限
-    missing = [s for s in syms if s not in ok][:40]
-    for sym in missing:
+    idmap = {c["id"]: c["id"] for c in us_comps}
+    ok = _yahoo_batch(list(idmap), hist, idmap)
+    missing = [s for s in idmap if s not in ok][:40]
+    for sym in missing:  # Stooq 只救少量缺漏
         try:
             d1 = (TODAY - dt.timedelta(days=230)).strftime("%Y%m%d")
             df = pd.read_csv(StringIO(requests.get(
@@ -300,7 +253,7 @@ def update_us_prices(hist, us_comps):
             hist[sym] = e; ok.add(sym)
             time.sleep(0.6)
         except Exception: continue
-    print(f"  美股價格:{len(ok)}/{len(syms)} 檔")
+    print(f"  美股價格:{len(ok)}/{len(us_comps)} 檔")
 
 # ═══════════════ 官方彙總:營收 / 法人 / 大戶 ═══════════════
 def fetch_rev_bulk():
@@ -499,17 +452,23 @@ def stooq_index(sym):
 def fetch_macro():
     idx = []
     try:
-        arr = get_json("https://openapi.twse.com.tw/v1/exchangeReport/FMTQIK", timeout=30)
-        if len(arr) >= 2:
-            v, p = numf(arr[-1].get("TAIEX")), numf(arr[-2].get("TAIEX"))
-            if v and p: idx.append({"name": "加權指數", "val": v, "chg": round(pct(v, p), 2)})
-    except Exception as e:
-        print(f"  [warn] 加權指數: {e}")
-    for name, sym in [("S&P 500", "^spx"), ("那斯達克", "^ndq"), ("費城半導體", "^sox")]:
-        try:
-            r = stooq_index(sym)
-            if r: idx.append({"name": name, "val": r[0], "chg": r[1]})
-        except Exception: pass
+        import yfinance as yf
+        for name, tkr in [("加權指數", "^TWII"), ("S&P 500", "^GSPC"),
+                          ("那斯達克", "^IXIC"), ("費城半導體", "^SOX")]:
+            try:
+                h = yf.Ticker(tkr).history(period="5d")["Close"].dropna()
+                if len(h) >= 2:
+                    v, p = float(h.iloc[-1]), float(h.iloc[-2])
+                    idx.append({"name": name, "val": round(v, 2), "chg": round(pct(v, p), 2)})
+            except Exception as e:
+                print(f"  [warn] 指數 {tkr}: {e}")
+    except Exception: pass
+    if not any(i["name"] == "S&P 500" for i in idx):  # Stooq 備援
+        for name, sym in [("S&P 500", "^spx"), ("那斯達克", "^ndq"), ("費城半導體", "^sox")]:
+            try:
+                r = stooq_index(sym)
+                if r: idx.append({"name": name, "val": r[0], "chg": r[1]})
+            except Exception: pass
     fx = {}
     try:
         r = requests.get("https://open.er-api.com/v6/latest/USD", timeout=20).json()["rates"]
@@ -546,11 +505,11 @@ def main():
     prev = load_prev()
 
     print("② 更新價格(台股逐日累積 / 美股批次)...")
-    update_tw_prices(hist)
+    update_tw_prices(hist, [c for c in comps if c["market"] == "TW"])
     update_us_prices(hist, [c for c in comps if c["market"] == "US"])
     save_hist(hist, comps)
 
-    print("③ 官方彙總:營收 / 法人 / 大戶 ...")
+    print("③ 官方彙總:營收 / 法人 / 大戶(台灣官方站可能封鎖海外IP,抓不到則以中性計分)...")
     rev_bulk = fetch_rev_bulk()
     inst = fetch_inst_bulk()
     tdcc, tdcc_date = fetch_tdcc_bulk()
@@ -580,7 +539,8 @@ def main():
         stocks.append(d)
 
     print("⑤ 市場總覽與新聞 ...")
-    out = {"updated": TODAY.strftime("%Y-%m-%d"), "source": "live",
+    taipei = (dt.datetime.utcnow() + dt.timedelta(hours=8)).strftime("%Y-%m-%d")
+    out = {"updated": taipei, "source": "live",
            "macro": fetch_macro(), "news": fetch_news(), "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
