@@ -1,0 +1,36 @@
+# 每日完整更新(基本面+籌碼+K線+新聞+匯率)
+# 觸發時機:
+#   1. 每次 push(所以第一次推上 GitHub 就會自動生成 data.json,不用本機跑 Python)
+#   2. 每個交易日台北 19:30(盤後籌碼資料出爐)
+#   3. Actions 頁面手動觸發
+name: daily-update
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["data.json", "k/**"]
+  schedule:
+    - cron: "30 11 * * 1-5"   # 11:30 UTC = 19:30 台北
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: daily
+  cancel-in-progress: true
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests pandas yfinance
+      - run: python update_data.py
+        timeout-minutes: 45
+      - name: commit
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git pull --rebase || true
+          git add data.json k
+          git commit -m "data: $(TZ=Asia/Taipei date +%F)" || echo "no changes"
+          git push
