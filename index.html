@@ -177,6 +177,10 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .idx-row.compact .vl{font-size:15.5px}
 .idx-row.compact .ch{font-size:11.5px}
 @media(max-width:900px){.macro-grid{grid-template-columns:1fr}}
+.cal-date{flex-shrink:0;font-family:var(--mono);font-size:12px;color:var(--mut);width:86px}
+.cal-soon{color:var(--amber);font-weight:700}
+.cal-star{color:var(--amber);letter-spacing:1px;font-size:11px}
+.cal-why{display:block;font-size:12px;color:var(--dim);margin-top:1px}
 .ps-card{cursor:pointer;transition:border-color .15s}
 .ps-card:hover{border-color:var(--amber)}
 .ps-card .lead{font-size:11.5px;color:var(--mut);margin-top:3px}
@@ -190,6 +194,42 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 
 .foot{margin-top:34px;border-top:1px solid var(--line);padding-top:16px;color:var(--dim);font-size:12.5px}
 .empty{color:var(--mut);text-align:center;padding:50px 0;grid-column:1/-1}
+/* ── 手機版重排(≤640px)── */
+.sec-title.tap{cursor:pointer;user-select:none}
+.sec-title.tap::before{content:'▾';color:var(--amber);margin-right:2px;display:inline-block;transition:transform .15s}
+.sec-title.tap.closed::before{transform:rotate(-90deg)}
+.sec-body.closed{display:none}
+@media(max-width:640px){
+  body{font-size:14px}
+  .wrap{padding:0 12px 60px}
+  .head-in{padding:16px 12px 12px;gap:8px}
+  h1{font-size:20px}
+  .sub{font-size:11px}
+  #updBadge{display:none}
+  .badge{font-size:11px;padding:3px 8px}
+  .btn-upd{padding:7px 12px;font-size:13px}
+  .sec-title{font-size:14px;margin:18px 0 8px}
+  .sec-title span{display:none}
+  /* 產業膠囊改橫向滑動,不再佔滿版面 */
+  .chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex-shrink:0}
+  /* 圖表高度縮減 */
+  #idxChart{height:200px!important}
+  #kbox{height:400px!important}
+  #intraChart{height:185px!important}
+  .idx-row.compact{grid-template-columns:repeat(2,1fr)}
+  .idx-row{grid-template-columns:repeat(2,1fr)}
+  .controls{gap:8px}
+  .seg button{padding:7px 12px;font-size:13px}
+  select,input[type=search]{padding:7px 10px;font-size:13px}
+  .m-head h2{font-size:19px!important}
+  .c-price .px{font-size:18px}
+  .diag{font-size:11px;line-height:1.7}
+  .fx-note{font-size:12.5px;padding:11px 12px}
+  .cal-date{width:74px;font-size:11px}
+  .foot{font-size:11px}
+}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -221,7 +261,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 
   <div id="homeView">
 
-  <div class="sec-title">總經環境 <span style="font-weight:400;font-size:12px;letter-spacing:0">大盤走勢與指標即時更新</span></div>
+  <div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:12px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
       <div class="ind-head">
@@ -241,18 +281,26 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
   </div>
   <div class="fx-note" id="macroNote">總經判讀載入中…</div>
 
-  <div class="sec-title">盤面脈動 <span style="font-weight:400;font-size:12px;letter-spacing:0">強勢族群與焦點個股,依最新報價即時計算</span></div>
+  </div>
+  <div class="sec-title" data-sec="cal">總經行事曆 <span style="font-weight:400;font-size:12px;letter-spacing:0">近兩週為即時行事曆(自動更新,含預估值);較遠期為規則推算</span></div><div class="sec-body" id="sb-cal">
+  <div class="news" id="calBox"></div>
+
+  </div>
+  <div class="sec-title" data-sec="pulse">盤面脈動 <span style="font-weight:400;font-size:12px;letter-spacing:0">強勢族群與焦點個股,依最新報價即時計算</span></div><div class="sec-body" id="sb-pulse">
   <div class="idx-row" id="pulseSec"></div>
   <div class="radar" id="pulseStocks" style="margin-top:10px"></div>
 
-  <div class="sec-title">機會雷達</div>
+  </div>
+  <div class="sec-title" data-sec="radar">機會雷達</div><div class="sec-body" id="sb-radar">
   <div class="radar" id="radar"></div>
   <div class="radar-note">雷達為規則化訊號(價格型態 × 三力評分),用途是縮小觀察範圍,不構成投資建議;實際進出請依自己的紀律與停損計畫。</div>
 
-  <div class="sec-title">重大新聞</div>
+  </div>
+  <div class="sec-title" data-sec="news">重大新聞</div><div class="sec-body" id="sb-news">
   <div class="news" id="newsBox"></div>
 
-  <div class="sec-title">選股清單</div>
+  </div>
+  <div class="sec-title" data-sec="list">選股清單</div><div class="sec-body" id="sb-list">
   <div class="controls">
     <div class="seg" id="mktSeg" role="tablist" aria-label="市場">
       <button data-m="ALL" class="on">全部</button>
@@ -273,6 +321,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
   <div id="sectorPanel"></div>
   <div class="grid" id="grid"></div>
 
+  </div>
   </div><!-- /homeView -->
 
   <div id="detailView" style="display:none"></div>
@@ -643,7 +692,7 @@ function renderMacro(){
 function composeMacroNote(){
   const el=document.getElementById('macroNote');
   if(!el)return;
-  const parts=[window.__noteFx||'',window.__noteRisk||'',window.__noteInst||''].filter(Boolean);
+  const parts=[window.__noteFx||'',window.__noteRisk||'',window.__noteInst||'',window.__noteCal||''].filter(Boolean);
   el.innerHTML=parts.length?`<b>總經判讀:</b>${parts.join(' ')}`
     :'總經判讀載入中…';
 }
@@ -783,6 +832,171 @@ function pokeChart(ctx,price,statEl,unitFix){
     }
   }
 }
+/* ── 總經行事曆:重大數據與事件的規則推算引擎 ── */
+function nthWeekday(y,m,wd,n){ // m:1-12, wd:0日~6六, 第n個
+  const d=new Date(y,m-1,1);
+  let cnt=0;
+  while(d.getMonth()===m-1){
+    if(d.getDay()===wd){cnt++;if(cnt===n)return new Date(d);}
+    d.setDate(d.getDate()+1);
+  }
+  return null;
+}
+function lastWeekday(y,m,wd){
+  const d=new Date(y,m,0); // 該月最後一天
+  while(d.getDay()!==wd)d.setDate(d.getDate()-1);
+  return new Date(d);
+}
+const FOMC_2026=['2026-01-28','2026-03-18','2026-04-29','2026-06-17',
+                 '2026-07-29','2026-09-16','2026-10-28','2026-12-09'];
+/* 即時財經日曆(本週+下週,含確切時間/預估/前值),每4小時自動更新 */
+const FF_MAP=[['FOMC','FOMC 利率決議'],['Federal Funds','FOMC 利率決議'],
+ ['Non-Farm','非農就業報告'],['Nonfarm','非農就業報告'],['CPI','CPI 消費者物價'],
+ ['Core PCE','核心 PCE 物價'],['PCE','PCE 物價指數'],['PPI','PPI 生產者物價'],
+ ['GDP','GDP 經濟成長率'],['Retail Sales','零售銷售'],['Unemployment Rate','失業率'],
+ ['ISM Manufacturing','ISM 製造業指數'],['ISM Services','ISM 服務業指數'],
+ ['Powell','Fed 主席鮑爾談話'],['Jobless Claims','初領失業金人數'],['Unemployment Claims','初領失業金人數'],['Unemployment Rate','失業率'],['Nonfarm Employment','非農就業報告'],['Interest Rate','利率決議'],
+ ['Consumer Confidence','消費者信心指數'],['Michigan','密大消費者信心'],
+ ['Trade Balance','貿易帳'],['Industrial Production','工業生產']];
+function zhName(t){
+  for(const[k,v]of FF_MAP)if(t.includes(k))return v;
+  return t;
+}
+async function loadFFCal(){
+  const urls=['https://nfs.faireconomy.media/ff_calendar_thisweek.json',
+              'https://nfs.faireconomy.media/ff_calendar_nextweek.json'];
+  const routes=[x=>x,
+    x=>'https://corsproxy.io/?url='+encodeURIComponent(x),
+    x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x),
+    x=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(x)];
+  const out=[];
+  for(const u of urls){
+    for(const r of routes){
+      try{
+        const res=await fetch(r(u),{cache:'no-store'});
+        if(!res.ok)continue;
+        const arr=await res.json();
+        if(!Array.isArray(arr))continue;
+        arr.forEach(e=>{
+          if(e.impact!=='High')return;
+          if(!['USD','CNY','JPY','EUR'].includes(e.country))return;
+          const d=new Date(e.date);
+          if(isNaN(d))return;
+          out.push({d,country:e.country,title:zhName(String(e.title||'')),
+            time:d.toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit',timeZone:'Asia/Taipei'}),
+            fc:e.forecast||'',pv:e.previous||''});
+        });
+        break;
+      }catch(err){}
+    }
+  }
+  if(out.length){window.__ffEvents=out;renderCalendar();}
+}
+setTimeout(loadFFCal,4000);
+setInterval(loadFFCal,4*3600e3);
+function buildCalendar(){
+  const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  today.setHours(0,0,0,0);
+  const horizon=new Date(today);horizon.setDate(horizon.getDate()+35);
+  const ev=[];
+  const push=(d,tag,name,stars,why,approx)=>{
+    if(!d)return;
+    if(typeof d==='string')d=new Date(d+'T00:00:00');
+    if(d>=today&&d<=horizon)ev.push({d,tag,name,stars,why,approx:!!approx});
+  };
+  // 掃當月與下下月的規則事件
+  for(let off=0;off<=2;off++){
+    const base=new Date(today.getFullYear(),today.getMonth()+off,1);
+    const y=base.getFullYear(),m=base.getMonth()+1;
+    push(new Date(y,m-1,10),'台股','上市櫃月營收公布截止',2,
+      '10日前後營收密集出爐,營收爆發股常見題材行情',false);
+    push(nthWeekday(y,m,3,3),'台股','台指期結算日',2,
+      '第三個週三結算,尾盤與結算前波動常放大',false);
+    push(nthWeekday(y,m,5,1),'美國','非農就業報告(台北 20:30/21:30)',3,
+      '就業強弱直接改寫降息預期,美股與美債當晚必有反應',false);
+    push(new Date(y,m-1,12),'美國','CPI 消費者物價(約)',3,
+      '通膨數據牽動殖利率與 AI 股評價,首頁風險指標當晚必看',true);
+    push(new Date(y,m-1,6),'台灣','CPI 物價指數(約)',1,
+      '影響央行政策節奏',true);
+    push(new Date(y,m-1,20),'台灣','外銷訂單(約)',2,
+      '台灣接單的領先指標,電子業動能風向球',true);
+    push(lastWeekday(y,m,5),'美國','PCE 物價指數(約·月底週五)',2,
+      'Fed 最重視的通膨指標',true);
+    if([3,6,9,12].includes(m)){
+      push(nthWeekday(y,m,4,3),'台灣','央行理監事會(約·以央行公告為準)',2,
+        '利率與匯率政策定調,金融股與台幣直接反應',true);
+      push(nthWeekday(y,m,5,3),'美國','四巫日(期權同步到期)',2,
+        '衍生品到期日,美股量能與波動放大',false);
+    }
+    if([1,4,7,10].includes(m))
+      push(nthWeekday(y,m,4,3),'財報','台積電法說會(約·第三週四)',3,
+        '定調整個 AI 供應鏈的資本支出與展望,台股風向的錨',true);
+    if([2,5,8,11].includes(m))
+      push(lastWeekday(y,m,3),'財報','NVIDIA 財報(約·月底週三)',3,
+        'AI 行情的總開關,財測直接決定台鏈拉貨力道',true);
+  }
+  FOMC_2026.forEach(d=>push(d,'美國','FOMC 利率決議(台北翌日凌晨)',3,
+    '全球資金成本的源頭,決議與點陣圖牽動所有風險資產',false));
+  // 2027 起以規則估算 FOMC(單、雙月交替之慣例月份)
+  if(today.getFullYear()>=2027||horizon.getFullYear()>=2027){
+    const y=Math.max(2027,today.getFullYear());
+    [[1,'last',3],[3,'nth',3],[4,'last',3],[6,'nth',3],[7,'last',3],[9,'nth',3],[10,'last',3],[12,'nth',2]]
+      .forEach(([m,mode,n])=>{
+        const d=mode==='last'?lastWeekday(y,m,3):nthWeekday(y,m,3,n);
+        push(d,'美國','FOMC 利率決議(約·以Fed公告為準)',3,
+          '全球資金成本的源頭',true);
+      });
+  }
+  // 併入即時行事曆(真實時程),並讓真實事件取代規則猜測的同類事件
+  const real=(window.__ffEvents||[]).filter(e=>e.d>=today&&e.d<=horizon);
+  const KEY=['CPI','非農','FOMC','PCE','PPI','GDP','零售','失業'];
+  real.forEach(r=>{
+    const k=KEY.find(x=>r.title.includes(x));
+    if(k){
+      for(let i=ev.length-1;i>=0;i--){
+        if(ev[i].approx&&ev[i].name.includes(k)&&
+           Math.abs(ev[i].d-r.d)<5*86400000)ev.splice(i,1);
+      }
+    }
+    const cn={USD:'美國',CNY:'中國',JPY:'日本',EUR:'歐元區'}[r.country]||r.country;
+    ev.push({d:r.d,tag:cn,name:r.title,stars:3,real:true,time:r.time,
+      why:(r.fc?`市場預估 ${r.fc}`:'')+(r.fc&&r.pv?' / ':'')+(r.pv?`前值 ${r.pv}`:'')||'高影響力事件',
+      approx:false});
+  });
+  ev.sort((a,b)=>a.d-b.d);
+  // 去重(同日同名)
+  const seen=new Set();
+  return ev.filter(e=>{const k=e.name+e.d.toDateString();if(seen.has(k))return false;seen.add(k);return true;});
+}
+function renderCalendar(){
+  const box=document.getElementById('calBox');
+  if(!box)return;
+  const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  today.setHours(0,0,0,0);
+  const ev=buildCalendar().slice(0,12);
+  const wd=['日','一','二','三','四','五','六'];
+  box.innerHTML=ev.length?ev.map(e=>{
+    const days=Math.round((e.d-today)/86400000);
+    const soon=days<=3;
+    const dstr=`${e.d.getMonth()+1}/${String(e.d.getDate()).padStart(2,'0')}(${wd[e.d.getDay()]})`;
+    return `<a href="#" onclick="return false" style="cursor:default">
+      <span style="display:flex;gap:10px;align-items:baseline;min-width:0">
+        <span class="cal-date ${soon?'cal-soon':''}">${dstr}${soon?(days===0?' 今天':days===1?' 明天':` ${days}天後`):''}</span>
+        <span style="min-width:0"><span class="c-sector" style="margin:0 6px 0 0">${e.tag}</span>${e.name}${e.real?` <span style="font-family:var(--mono);font-size:11px;color:var(--mut)">${e.time}</span>`:''} <span class="cal-star">${'★'.repeat(e.stars)}</span>${e.real?' <span class="c-sector" style="border-color:#4BD695;color:#4BD695">已確認時程</span>':''}
+          <span class="cal-why">${e.why}${e.approx?'(日期為規則推估,以官方公告為準)':''}</span></span>
+      </span></a>`;
+  }).join(''):'<a href="#">近期無排定事件</a>';
+  // 最近的三星重磅倒數,併入總經判讀
+  const big=buildCalendar().find(e=>e.stars===3);
+  if(big){
+    const days=Math.round((big.d-today)/86400000);
+    window.__noteCal=`近期重磅:${days===0?'今天':days+'天後'} ${big.name.replace(/(約·[^)]*)/,'').replace('()','')}。`;
+    composeMacroNote();
+  }
+}
+setTimeout(renderCalendar,800);
+setInterval(renderCalendar,3600e3);
+
 /* ── 三大法人(集中市場,盤後公布;含近5日累計)── */
 async function fetchTWJSON(url){
   const routes=[x=>x,
@@ -1721,6 +1935,32 @@ document.querySelectorAll('#mktSeg button').forEach(b=>b.onclick=()=>{
 });
 document.getElementById('sortSel').onchange=e=>{sortBy=e.target.value;page=1;render();};
 document.getElementById('q').oninput=e=>{q=e.target.value.trim();page=1;render();};
+
+/* ── 手機版分區摺疊(≤640px):點標題展開/收合 ── */
+function setupMobileSections(){
+  const mob=window.matchMedia&&window.matchMedia('(max-width:640px)').matches;
+  document.querySelectorAll('.sec-title[data-sec]').forEach(t=>{
+    const body=document.getElementById('sb-'+t.dataset.sec);
+    if(!body)return;
+    if(!mob){t.classList.remove('tap','closed');body.classList.remove('closed');t.onclick=null;return;}
+    t.classList.add('tap');
+    if(['cal','radar','news'].includes(t.dataset.sec)&&!t.dataset.userTouched){
+      body.classList.add('closed');t.classList.add('closed');
+    }
+    t.onclick=()=>{
+      t.dataset.userTouched='1';
+      body.classList.toggle('closed');
+      t.classList.toggle('closed');
+      setTimeout(()=>{ // 重新展開後圖表重算尺寸
+        try{if(RT.idx&&RT.idx.ch)RT.idx.ch.resize();}catch(e){}
+        try{if(RT.intra&&RT.intra.ch)RT.intra.ch.resize();}catch(e){}
+        try{if(chartInst)chartInst.resize();}catch(e){}
+      },80);
+    };
+  });
+}
+window.addEventListener('resize',setupMobileSections);
+setTimeout(setupMobileSections,400);
 
 boot();
 </script>
