@@ -630,6 +630,82 @@ async function refreshLive(auto){
 }
 document.getElementById('updBtn').onclick=()=>refreshLive(false);
 
+/* ── 秒級即時報價:瀏覽器直連證交所 MIS 快照(每20秒,僅更新畫面上的個股)── */
+const RT={lastOk:0};
+function rtTargets(){
+  const ids=new Set();
+  const add=s=>{if(s&&s.market==='TW'&&s.id)ids.add(s.id);};
+  (DATA.stocks||[]).forEach(s=>{if(s.sig&&s.sig.length)add(s);});
+  (DATA.stocks||[]).forEach(s=>{
+    if(s.price!=null&&typeof s.chg==='number'&&
+       ((s.chg>=3.5&&total(s)>=58)||(s.chg<=-3.5&&total(s)>=68))) add(s);});
+  (window.__shownIds||[]).forEach(id=>add((DATA.stocks||[]).find(x=>x.id===id)));
+  if(location.hash.startsWith('#stock/'))
+    add((DATA.stocks||[]).find(x=>x.id===decodeURIComponent(location.hash.slice(7))));
+  return [...ids].slice(0,140);
+}
+async function fetchMIS(chans){
+  const mis='https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch='
+    +chans.join('|')+'&json=1&delay=0&_='+Date.now();
+  const routes=[u=>u,
+    u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
+    u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)];
+  for(const r of routes){
+    try{const res=await fetch(r(mis),{cache:'no-store'});
+        if(!res.ok)continue;
+        const j=await res.json();
+        if(j&&j.msgArray)return j.msgArray;}catch(e){}
+  }
+  return null;
+}
+function rtPx(m){
+  for(const k of ['z','b','y']){
+    const v=String(m[k]||'-').split('_')[0], f=parseFloat(v);
+    if(f>0)return f;
+  }
+  return null;
+}
+async function rtTick(){
+  if(!marketOpen()||!DATA)return;
+  const ids=rtTargets(); if(!ids.length)return;
+  const exOf=id=>{const s=DATA.stocks.find(x=>x.id===id);return (s&&s.ex==='otc')?'otc':'tse';};
+  const chans=['tse_t00.tw',...ids.map(id=>`${exOf(id)}_${id}.tw`)];
+  let arr=[];
+  for(let i=0;i<chans.length;i+=45){
+    const part=await fetchMIS(chans.slice(i,i+45));
+    if(!part){arr=null;break;}
+    arr=arr.concat(part);
+  }
+  if(!arr||!arr.length)return; // 通道暫時不通:維持5分鐘機制,不吵使用者
+  let n=0;
+  arr.forEach(m=>{
+    const last=rtPx(m), y=parseFloat(m.y);
+    if(!last||!y)return;
+    if(m.c==='t00'){
+      const idx=((DATA.macro||{}).idx||[]).find(x=>(x.name||'').includes('加權'));
+      if(idx){idx.val=+last.toFixed(2);idx.chg=+(((last-y)/y)*100).toFixed(2);}
+      return;
+    }
+    const s=DATA.stocks.find(x=>x.id===m.c);
+    if(s){s.price=+last.toFixed(2);s.chg=+(((last-y)/y)*100).toFixed(2);n++;}
+  });
+  if(!n)return;
+  RT.lastOk=Date.now();
+  const t=new Date().toLocaleTimeString('zh-TW',{hour12:false});
+  const sb=document.getElementById('srcBadge');
+  if(sb){sb.textContent=`● 即時 ${t}(${n}檔)`;sb.className='badge live';}
+  renderPulse(); renderMacro();
+  if(!location.hash.startsWith('#stock/')){ render(); renderRadar(); }
+  else{
+    const s=DATA.stocks.find(x=>x.id===decodeURIComponent(location.hash.slice(7)));
+    const px=document.getElementById('dPx'), ch=document.getElementById('dChg');
+    if(s&&px){px.textContent=s.price??'—';}
+    if(s&&ch){ch.innerHTML=chgHtml(s.chg);}
+  }
+}
+setInterval(rtTick,20000);
+setTimeout(rtTick,2500);
+
 /* ── 開盤時段自動更新:台北週一至五 08:55–13:40,每 3 分鐘 ── */
 function marketOpen(){
   const tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
@@ -694,6 +770,7 @@ function render(){
   const g=document.getElementById('grid');
   if(!list.length){ g.innerHTML='<div class="empty">沒有符合條件的個股,換個關鍵字或產業試試。</div>'; return; }
   const shown=list.slice(0,page*60);
+  window.__shownIds=shown.map(s=>s.id);
   g.innerHTML=shown.map(s=>{
     const T=total(s);
     return `<div class="card" data-id="${s.id}" tabindex="0" role="button" aria-label="查看 ${s.name} 明細">
@@ -983,7 +1060,7 @@ async function showDetail(id){
     <div class="m-head">
       <div><h2 style="font-size:24px;font-weight:900">${s.name} <span class="c-code">${s.id}</span></h2>
         <div class="c-full">${s.full||''}|${isTW?'台股':'美股'} · ${s.sector}</div>
-        <div class="c-price"><span class="px" style="font-size:26px">${s.price??'—'}</span>${chgHtml(s.chg)}</div></div>
+        <div class="c-price"><span class="px" id="dPx" style="font-size:26px">${s.price??'—'}</span><span id="dChg">${chgHtml(s.chg)}</span></div></div>
       <div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>
     </div>
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
