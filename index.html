@@ -231,6 +231,59 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
   .foot{font-size:11px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ── 籌碼深度圖表 ── */
+.chip-sum{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0 4px}
+.chip-sum div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.chip-sum dt{color:var(--mut);font-size:12px}
+.chip-sum dd{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:2px}
+
+/* ── AI 小幫手 ── */
+#aiFab{position:fixed;right:18px;bottom:18px;z-index:90;border:1px solid var(--line);
+  background:linear-gradient(135deg,var(--panel2),var(--panel));color:var(--amber);
+  font-family:var(--sans);font-weight:900;font-size:15px;letter-spacing:.05em;
+  padding:12px 18px;border-radius:26px;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.45)}
+#aiFab:hover{border-color:var(--amber)}
+#aiPanel{position:fixed;right:18px;bottom:18px;z-index:95;width:392px;max-width:calc(100vw - 24px);
+  height:600px;max-height:calc(100vh - 40px);display:flex;flex-direction:column;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  box-shadow:0 14px 48px rgba(0,0,0,.55)}
+#aiPanel[hidden]{display:none}
+.ai-head{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line);background:var(--hdr)}
+.ai-head b{font-size:15px}
+.ai-model{font-family:var(--mono);font-size:11px;color:var(--mut);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ai-hbtn{display:flex;gap:4px}
+.ai-hbtn button{background:none;border:1px solid var(--line);color:var(--mut);border-radius:7px;
+  width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1}
+.ai-hbtn button:hover{color:var(--txt);border-color:var(--amber)}
+.ai-set{padding:12px 14px;border-bottom:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column;gap:9px}
+.ai-set label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut)}
+.ai-set input[type=password],.ai-set select{background:var(--panel);border:1px solid var(--line);color:var(--txt);
+  border-radius:7px;padding:7px 10px;font-family:var(--mono);font-size:13px}
+.ai-chk{flex-direction:row!important;align-items:center;gap:7px!important;color:var(--txt2)!important;font-size:13px!important}
+.ai-note{font-size:11.5px;color:var(--dim);line-height:1.55}
+.ai-save{background:var(--amber);color:#151515;border:none;border-radius:8px;padding:8px;font-weight:700;cursor:pointer;font-size:13px}
+.ai-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.ai-m{max-width:88%;padding:9px 13px;border-radius:12px;font-size:14px;line-height:1.65;word-break:break-word}
+.ai-m.user{align-self:flex-end;background:var(--panel2);border:1px solid var(--line)}
+.ai-m.ai{align-self:flex-start;background:var(--hdr);border:1px solid var(--line)}
+.ai-m.sys{align-self:center;color:var(--mut);font-size:12.5px;background:none;text-align:center}
+.ai-m.thinking{color:var(--mut);font-style:italic}
+.ai-m pre{background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+  overflow-x:auto;font-family:var(--mono);font-size:12.5px;margin:6px 0}
+.ai-m code{font-family:var(--mono);font-size:.92em;background:rgba(127,127,127,.16);padding:1px 5px;border-radius:4px}
+.ai-m pre code{background:none;padding:0}
+.ai-m ul{padding-left:18px;margin:4px 0}
+.ai-inrow{display:flex;gap:8px;padding:11px 12px;border-top:1px solid var(--line);background:var(--hdr)}
+.ai-inrow textarea{flex:1;resize:none;background:var(--panel);border:1px solid var(--line);color:var(--txt);
+  border-radius:10px;padding:9px 12px;font-family:var(--sans);font-size:14px;line-height:1.5;max-height:120px}
+.ai-inrow button{background:var(--amber);color:#151515;border:none;border-radius:10px;width:44px;
+  font-size:17px;cursor:pointer;font-weight:700}
+.ai-inrow button:disabled{opacity:.45;cursor:default}
+@media(max-width:640px){
+  #aiPanel{right:0;bottom:0;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
+  .ai-m{max-width:94%}
+}
 </style>
 </head>
 <body>
@@ -325,6 +378,38 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
   </div><!-- /homeView -->
 
   <div id="detailView" style="display:none"></div>
+
+  <!-- ── AI 小幫手(自帶 Anthropic API 金鑰,只存本機瀏覽器)── -->
+  <button id="aiFab" aria-label="開啟 AI 小幫手">✦ AI 小幫手</button>
+  <div id="aiPanel" hidden role="dialog" aria-label="AI 小幫手">
+    <div class="ai-head">
+      <b>✦ AI 小幫手</b><span class="ai-model" id="aiModelTag"></span>
+      <div class="ai-hbtn">
+        <button id="aiClear" title="清除對話">⟲</button>
+        <button id="aiCfg" title="設定(API 金鑰/模型)">⚙</button>
+        <button id="aiCloseBtn" title="關閉">✕</button>
+      </div>
+    </div>
+    <div class="ai-set" id="aiSet" hidden>
+      <label>AI 引擎
+        <select id="aiProvSel">
+          <option value="gemini">Google Gemini|完全免費・免綁卡(建議)</option>
+          <option value="anthropic">Anthropic Claude|付費(需綁卡)</option>
+        </select></label>
+      <label>API Key
+        <input type="password" id="aiKey" placeholder="" autocomplete="off"></label>
+      <label>模型
+        <select id="aiModelSel"></select></label>
+      <label class="ai-chk"><input type="checkbox" id="aiWebChk"> 允許 AI 上網搜尋(時事更準;若報錯請關閉)</label>
+      <div class="ai-note" id="aiNote"></div>
+      <button class="ai-save" id="aiSaveBtn">儲存設定</button>
+    </div>
+    <div class="ai-msgs" id="aiMsgs"></div>
+    <div class="ai-inrow">
+      <textarea id="aiInput" rows="1" placeholder="問任何問題:這檔近三個月法人動向?世界盃賽程?都可以…"></textarea>
+      <button id="aiSendBtn" title="送出(Enter)">➤</button>
+    </div>
+  </div>
 
   <div class="foot">
     綜合評分 = 基本面 40% + 籌碼面 35% + 技術面 25%(規則化計分,細項見個股明細)。<br>
@@ -1564,6 +1649,7 @@ function applyTheme(t,redraw){
     try{drawKChart();}catch(e){}
     const s=DATA&&DATA.stocks.find(x=>x.id===decodeURIComponent(location.hash.slice(7)));
     if(s)try{loadIntraDetail(s);}catch(e){}
+    try{if(curChips)renderChipCharts(curChips.s,curChips.e);}catch(e){}
   }
 }
 try{applyTheme(localStorage.getItem('theme3l')||'navy',false);}catch(e){}
@@ -1727,12 +1813,14 @@ async function showDetail(id){
     </div>
     ${dimBlock('基本面(權重40%)',s.f)}
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',s.c)}
+    <div id="chipwrap"></div>
     ${dimBlock('技術線型(權重25%)',s.t)}
     ${s.thesis?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
     <div class="links">${links.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}</div>
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   window.scrollTo({top:0});
+  loadChipDetail(s);
   const k=await loadK(s);
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
@@ -1798,6 +1886,7 @@ function route(){
   if(location.hash.startsWith('#stock/')) showDetail(decodeURIComponent(location.hash.slice(7)));
   else{
     if(RT.dTimer){clearInterval(RT.dTimer);RT.dTimer=null;}
+    disposeChipCharts(); curChips=null;
     document.getElementById('detailView').style.display='none';
     document.getElementById('homeView').style.display='block';
   }
@@ -1959,8 +2048,359 @@ function setupMobileSections(){
     };
   });
 }
+window.addEventListener('resize',()=>chipCharts.forEach(c=>{try{c.resize()}catch(e){}}));
 window.addEventListener('resize',setupMobileSections);
 setTimeout(setupMobileSections,400);
+
+/* ══════════════ 籌碼深度追蹤(法人65日/大戶26週/營收13月)══════════════ */
+let curChips=null, chipCharts=[];
+const CCACHE={};
+function disposeChipCharts(){chipCharts.forEach(c=>{try{c.dispose()}catch(e){}});chipCharts=[];}
+async function loadChips(s){
+  if(s.market!=='TW'||DATA.source!=='live')return null;
+  const sh=`c/tw${s.id[0]}.json`;
+  if(!(sh in CCACHE)){
+    try{const r=await fetch(sh+'?v='+encodeURIComponent(DATA.updated||''),{cache:'no-store'});
+        CCACHE[sh]=r.ok?await r.json():{};}
+    catch(e){CCACHE[sh]={};}
+  }
+  return CCACHE[sh][s.id]||null;
+}
+function fmtLot(v){return (v>0?'+':'')+Math.round(v).toLocaleString('zh-TW');}
+async function loadChipDetail(s){
+  const box=document.getElementById('chipwrap');
+  if(!box)return;
+  if(s.market==='US'){box.innerHTML='';return;}
+  if(DATA.source!=='live'){
+    box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">部署後開始累積:三大法人買賣超近 65 個交易日、400張大戶 26 週、月營收 13 個月。</div></div>';return;}
+  box.innerHTML='<div class="chart-box"><h3>籌碼深度資料載入中…</h3></div>';
+  const e=await loadChips(s);
+  if(location.hash!=='#stock/'+s.id)return;
+  if(!e||!(e.d&&e.d.length)){
+    box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">此檔法人歷史累積中(每日自動更新後逐步補齊至 65 個交易日),先參考上方籌碼面摘要。</div></div>';return;}
+  curChips={s,e};
+  renderChipCharts(s,e);
+}
+function renderChipCharts(s,e){
+  const box=document.getElementById('chipwrap');
+  if(!box)return;
+  disposeChipCharts();
+  const sum=(a,n)=>a.slice(-n).reduce((x,y)=>x+(y||0),0);
+  const f=e.f||[],t=e.t||[],g=e.g||[];
+  let fst=0;for(let i=f.length-1;i>=0;i--){if(f[i]>0)fst++;else break;}
+  const big=(e.bp&&e.bp.length)?e.bp[e.bp.length-1]:null;
+  const bigw4=(e.bp&&e.bp.length>4)?(e.bp[e.bp.length-1]-e.bp[e.bp.length-5]):null;
+  const kvs=[
+    ['外資 5 / 20 / 60 日',`${fmtLot(sum(f,5))} / ${fmtLot(sum(f,20))} / ${fmtLot(sum(f,60))} 張`],
+    ['投信 5 / 20 / 60 日',`${fmtLot(sum(t,5))} / ${fmtLot(sum(t,20))} / ${fmtLot(sum(t,60))} 張`],
+    ['自營商 5 / 20 日',`${fmtLot(sum(g,5))} / ${fmtLot(sum(g,20))} 張`],
+    ['外資連買',fst>=2?fst+' 個交易日':'—'],
+    ['400張大戶',big!=null?big.toFixed(1)+'%'+(bigw4!=null?`(4週 ${bigw4>0?'+':''}${bigw4.toFixed(2)})`:''):'—'],
+  ];
+  box.innerHTML=`<div class="dim-block" style="border-left:4px solid #7FB4FF">
+    <h3>籌碼深度追蹤 <span class="ds">法人 ${e.d.length} 日 · 大戶 ${(e.bd||[]).length} 週 · 營收 ${(e.rm||[]).length} 月</span></h3>
+    <div class="chip-sum">${kvs.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</div>
+    <div class="chart-box" style="margin-top:10px"><h3 style="font-size:14px">三大法人買賣超(張)· 折線為外資累計 · 滾輪/雙指縮放</h3><div id="instBox" style="height:280px"></div></div>
+    ${(e.bd&&e.bd.length>1)?`<div class="chart-box"><h3 style="font-size:14px">400張以上大戶持股比(每週,近 ${e.bd.length} 週)</h3><div id="bigBox" style="height:190px"></div></div>`:''}
+    ${(e.rm&&e.rm.length>1)?`<div class="chart-box"><h3 style="font-size:14px">月營收年增率 YoY · 折線為當月營收(億)</h3><div id="revBox" style="height:210px"></div></div>`:''}
+    <div class="dim-note">單位:法人買賣超為「張」。來源:證交所 T86、櫃買法人日報表、集保 TDCC 股權分散表、月營收彙總。歷史自 v5 部署日起逐日累積,首月會逐步補齊。</div>
+  </div>`;
+  if(!window.echarts)return;
+  const ax={axisLabel:{color:CT.axis,fontSize:10},axisLine:{lineStyle:{color:CT.border}},splitLine:{lineStyle:{color:CT.split}}};
+  /* 法人買賣超 */
+  const ib=document.getElementById('instBox');
+  if(ib){
+    const ch=echarts.init(ib);chipCharts.push(ch);
+    let acc=0;const cum=f.map(v=>+(acc+=(v||0)));
+    ch.setOption({
+      tooltip:{trigger:'axis',axisPointer:{type:'shadow'},backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
+      legend:{data:['外資','投信','自營商','外資累計'],textStyle:{color:CT.legend,fontSize:11},top:0},
+      grid:{left:58,right:58,top:30,bottom:24},
+      xAxis:{type:'category',data:e.d.map(x=>x.slice(5)),...ax,axisLabel:{color:CT.axis,fontSize:10,interval:Math.ceil(e.d.length/9)}},
+      yAxis:[{type:'value',name:'張',...ax},{type:'value',name:'累計',...ax,splitLine:{show:false}}],
+      dataZoom:[{type:'inside'}],
+      series:[
+        {name:'外資',type:'bar',data:f,itemStyle:{color:'#7FB4FF'},barMaxWidth:9},
+        {name:'投信',type:'bar',data:t,itemStyle:{color:'#E8B44A'},barMaxWidth:9},
+        {name:'自營商',type:'bar',data:g,itemStyle:{color:'#9A9AA6'},barMaxWidth:9},
+        {name:'外資累計',type:'line',yAxisIndex:1,data:cum,showSymbol:false,lineStyle:{width:2,color:'#E5484D'}}
+      ]});
+  }
+  /* 大戶週趨勢 */
+  const bb=document.getElementById('bigBox');
+  if(bb){
+    const ch=echarts.init(bb);chipCharts.push(ch);
+    const bd=e.bd.map(x=>{const d=String(x);return d.length===8?d.slice(4,6)+'/'+d.slice(6):d;});
+    ch.setOption({
+      tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12},valueFormatter:v=>v+'%'},
+      grid:{left:52,right:16,top:14,bottom:24},
+      xAxis:{type:'category',data:bd,...ax},
+      yAxis:{type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10,formatter:'{value}%'},splitLine:{lineStyle:{color:CT.split}}},
+      series:[{type:'line',data:e.bp,showSymbol:e.bp.length<30,symbolSize:5,
+        lineStyle:{width:2,color:'#E8B44A'},itemStyle:{color:'#E8B44A'},
+        areaStyle:{color:'rgba(232,180,74,.12)'}}]});
+  }
+  /* 月營收 */
+  const rb=document.getElementById('revBox');
+  if(rb){
+    const ch=echarts.init(rb);chipCharts.push(ch);
+    const hasAmt=(e.ra||[]).some(x=>x!=null);
+    ch.setOption({
+      tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
+      legend:{data:hasAmt?['YoY%','營收(億)']:['YoY%'],textStyle:{color:CT.legend,fontSize:11},top:0},
+      grid:{left:52,right:hasAmt?56:16,top:30,bottom:24},
+      xAxis:{type:'category',data:e.rm.map(x=>String(x).slice(2)),...ax},
+      yAxis:[{type:'value',axisLabel:{color:CT.axis,fontSize:10,formatter:'{value}%'},splitLine:{lineStyle:{color:CT.split}}},
+             {type:'value',show:hasAmt,axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
+      series:[{name:'YoY%',type:'bar',data:e.ry,barMaxWidth:22,
+          itemStyle:{color:p=>p.value>=0?'#E5484D':'#21A466'}},
+        ...(hasAmt?[{name:'營收(億)',type:'line',yAxisIndex:1,showSymbol:false,
+          lineStyle:{width:2,color:'#7FB4FF'},
+          data:e.ra.map(x=>x==null?null:+(x/100000).toFixed(1))}]:[])
+      ]});
+  }
+}
+
+/* ══════════════ AI 小幫手(雙引擎:Gemini 免費 / Claude 付費,金鑰只存本機)══════════════ */
+const AIP={
+  gemini:{
+    label:'Gemini',keyPh:'AIzaSy...(免費申請,免綁卡)',
+    models:[
+      ['gemini-2.5-flash','Gemini 2.5 Flash|建議,免費約 250 次/日'],
+      ['gemini-2.5-flash-lite','Gemini 2.5 Flash-Lite|最快,免費約 1000 次/日'],
+      ['gemini-3-flash-preview','Gemini 3 Flash|較新較聰明(若報錯請換上面兩個)']],
+    note:'<b>完全免費、不用綁信用卡</b>:用 Google 帳號到 <b>aistudio.google.com/apikey</b> 按「Create API key」即可,一分鐘搞定。⚠ 不要在該 Google 專案啟用計費(billing),一開免費額度就會消失。金鑰只存在你這台裝置的瀏覽器,不經過任何第三方伺服器,切勿提交到 GitHub。額度每日重置(美西午夜)。'},
+  anthropic:{
+    label:'Claude',keyPh:'sk-ant-api03-...',
+    models:[
+      ['claude-sonnet-4-6','Claude Sonnet 4.6|建議,聰明且划算'],
+      ['claude-haiku-4-5-20251001','Claude Haiku 4.5|最快最省'],
+      ['claude-opus-4-8','Claude Opus 4.8|最強,較貴']],
+    note:'付費方案(需綁卡):console.anthropic.com → API Keys。金鑰只存在你這台裝置的瀏覽器,切勿提交到 GitHub。'}
+};
+const AI={
+  prov:localStorage.getItem('ai_prov')||'gemini',
+  keys:{gemini:localStorage.getItem('ai_key_gemini')||'',
+        anthropic:localStorage.getItem('ai_key_anthropic')||localStorage.getItem('ai_key')||''},
+  models:{gemini:localStorage.getItem('ai_model_gemini')||'gemini-2.5-flash',
+          anthropic:localStorage.getItem('ai_model_anthropic')||'claude-sonnet-4-6'},
+  web:localStorage.getItem('ai_web')==='1',
+  hist:[],busy:false,greeted:false
+};
+const $a=id=>document.getElementById(id);
+function aiKey(){return AI.keys[AI.prov]||'';}
+function aiModel(){return AI.models[AI.prov];}
+function aiEsc(x){return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function mdLite(t){
+  t=aiEsc(t);
+  t=t.replace(/```\w*\n?([\s\S]*?)```/g,(m,c)=>`<pre><code>${c.trim()}</code></pre>`);
+  t=t.replace(/`([^`\n]+)`/g,'<code>$1</code>');
+  t=t.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+  t=t.replace(/^#{1,4} (.+)$/gm,'<b>$1</b>');
+  t=t.split('\n').map(ln=>/^\s*[-•*] /.test(ln)?'<li>'+ln.replace(/^\s*[-•*] /,'')+'</li>':ln).join('\n');
+  t=t.replace(/(?:^|\n)((?:<li>[\s\S]*?<\/li>\n?)+)/g,m=>'<ul>'+m.replace(/\n/g,'')+'</ul>');
+  t=t.replace(/\n{2,}/g,'\n').replace(/\n/g,'<br>');
+  return t;
+}
+function aiModelTag(){
+  const names={'gemini-2.5-flash':'Gemini 2.5 Flash','gemini-2.5-flash-lite':'Gemini Flash-Lite',
+    'gemini-3-flash-preview':'Gemini 3 Flash',
+    'claude-sonnet-4-6':'Claude Sonnet 4.6','claude-haiku-4-5-20251001':'Claude Haiku 4.5','claude-opus-4-8':'Claude Opus 4.8'};
+  $a('aiModelTag').textContent=(names[aiModel()]||aiModel())
+    +(AI.prov==='gemini'?' · 免費':'')
+    +(AI.web?' · 可上網':'')
+    +(aiKey()?'':' · 未設定金鑰');
+}
+function aiFillCfg(){
+  const p=AIP[AI.prov];
+  $a('aiProvSel').value=AI.prov;
+  $a('aiKey').value=aiKey();
+  $a('aiKey').placeholder=p.keyPh;
+  $a('aiModelSel').innerHTML=p.models.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  $a('aiModelSel').value=aiModel();
+  $a('aiWebChk').checked=AI.web;
+  $a('aiNote').innerHTML=p.note;
+}
+function aiAddMsg(cls,html){
+  const el=document.createElement('div');
+  el.className='ai-m '+cls;
+  el.innerHTML=html;
+  $a('aiMsgs').appendChild(el);
+  aiScroll();
+  return el;
+}
+function aiScroll(){const m=$a('aiMsgs');m.scrollTop=m.scrollHeight;}
+function aiCtx(){
+  const L=[];
+  L.push('今天日期:'+new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric',weekday:'long'}));
+  if(!DATA)return L.join('\n');
+  const m=DATA.macro||{};
+  if(m.idx&&m.idx.length)L.push('大盤:'+m.idx.map(i=>`${i.name} ${i.val}(${i.chg>0?'+':''}${i.chg}%)`).join('、'));
+  if(m.fx&&m.fx.USDTWD)L.push('匯率:美元/台幣 '+m.fx.USDTWD+'、美元/日圓 '+(m.fx.USDJPY||'—'));
+  if(location.hash.startsWith('#stock/')){
+    const s=DATA.stocks.find(x=>x.id===decodeURIComponent(location.hash.slice(7)));
+    if(s){
+      const kv=o=>Object.entries(o.kv||{}).map(([k,v])=>k+':'+v).join('、');
+      L.push(`\n【使用者目前正在看的個股】${s.name}(${s.id})|${s.market==='TW'?'台股':'美股'} · ${s.sector} · 現價 ${s.price??'—'}(${s.chg>0?'+':''}${s.chg}%)`);
+      L.push(`三力評分:綜合 ${total(s)}(基本面 ${s.f.score} / 籌碼 ${s.c.score} / 技術 ${s.t.score})`);
+      L.push('基本面:'+kv(s.f)+';籌碼面:'+kv(s.c)+';技術面:'+kv(s.t));
+      if(s.thesis)L.push('投資論點:'+s.thesis);
+      if(curLevels)L.push(`關鍵價位:月高 ${curLevels.h20.toFixed(1)}、季高 ${curLevels.h60.toFixed(1)}、月低 ${curLevels.l20.toFixed(1)}、季低 ${curLevels.l60.toFixed(1)}`);
+      if(curChips&&curChips.s.id===s.id){
+        const e=curChips.e,n=Math.min(20,e.d.length);
+        L.push(`近 ${n} 個交易日法人買賣超(張,由舊到新):`);
+        L.push('日期:'+e.d.slice(-n).map(x=>x.slice(5)).join(','));
+        L.push('外資:'+e.f.slice(-n).join(',')+';投信:'+e.t.slice(-n).join(',')+';自營:'+(e.g||[]).slice(-n).join(','));
+        if(e.bd&&e.bd.length)L.push('400張大戶持股%(週):'+e.bd.map((d,i)=>d+'='+e.bp[i]).join(','));
+        if(e.rm&&e.rm.length)L.push('月營收YoY%:'+e.rm.map((d,i)=>d+'='+e.ry[i]).join(','));
+      }
+      if(Array.isArray(s.news)&&s.news.length)L.push('近期新聞標題:'+s.news.map(x=>x.t).join(' / '));
+    }
+  }else{
+    const sig=DATA.stocks.filter(x=>x.sig&&x.sig.length).slice(0,12);
+    if(sig.length)L.push('今日訊號股:'+sig.map(s=>`${s.name}(${s.id}):${s.sig.map(x=>x.label).join('+')}`).join('、'));
+  }
+  return L.join('\n');
+}
+function aiSys(){
+  return '你是「三力選股儀表板」網站內建的 AI 小幫手。你可以回答任何主題的問題(生活、科技、程式、運動、時事、投資……不限於本網站內容)。'
+  +'使用者在台灣,預設以繁體中文(台灣用語)回答。回覆精簡、口語、重點先講,適合在小視窗閱讀;需要條列時用短列點。'
+  +'涉及個股買賣判斷時依據資料客觀分析,結尾用一句話提醒風險即可,不要長篇免責聲明。'
+  +'\n\n以下是網站此刻的即時資料,回答站內相關問題時直接引用:\n'+aiCtx();
+}
+/* SSE 逐行讀取共用 */
+async function readSSE(res,onData){
+  const rd=res.body.getReader(),dec=new TextDecoder();
+  let buf='';
+  while(true){
+    const {done,value}=await rd.read();
+    if(done)break;
+    buf+=dec.decode(value,{stream:true});
+    let i;
+    while((i=buf.indexOf('\n'))>=0){
+      const line=buf.slice(0,i).trim();buf=buf.slice(i+1);
+      if(!line.startsWith('data:'))continue;
+      const payload=line.slice(5).trim();
+      if(payload==='[DONE]')continue;
+      try{onData(JSON.parse(payload));}catch(e){}
+    }
+  }
+}
+async function callGemini(paint){
+  const body={
+    system_instruction:{parts:[{text:aiSys()}]},
+    contents:AI.hist.slice(-16).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),
+    generationConfig:{maxOutputTokens:2048}
+  };
+  if(AI.web)body.tools=[{google_search:{}}];
+  const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(aiModel())}:streamGenerateContent?alt=sse&key=${encodeURIComponent(aiKey())}`,
+    {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  if(!res.ok){
+    let msg='';try{const j=await res.json();msg=(j.error&&j.error.message)||'';}catch(e){}
+    throw new Error(res.status+(msg?':'+msg.slice(0,180):''));
+  }
+  let out='',web=false;
+  await readSSE(res,ev=>{
+    const c=ev.candidates&&ev.candidates[0];
+    if(!c)return;
+    if(c.groundingMetadata)web=true;
+    const parts=(c.content&&c.content.parts)||[];
+    for(const p of parts)if(p.text)out+=p.text;
+    paint(out,web);
+  });
+  return {out,web};
+}
+async function callClaude(paint){
+  const body={model:aiModel(),max_tokens:2048,stream:true,system:aiSys(),messages:AI.hist.slice(-16)};
+  if(AI.web)body.tools=[{type:'web_search_20250305',name:'web_search',max_uses:3}];
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'content-type':'application/json','x-api-key':aiKey(),
+      'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify(body)});
+  if(!res.ok){
+    let msg='';try{const j=await res.json();msg=(j.error&&j.error.message)||'';}catch(e){}
+    throw new Error(res.status+(msg?':'+msg.slice(0,180):''));
+  }
+  let out='',web=false;
+  await readSSE(res,ev=>{
+    if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta')out+=ev.delta.text;
+    else if(ev.type==='content_block_start'&&ev.content_block&&ev.content_block.type==='server_tool_use')web=true;
+    paint(out,web);
+  });
+  return {out,web};
+}
+async function aiSend(){
+  const inp=$a('aiInput');
+  const txt=inp.value.trim();
+  if(!txt||AI.busy)return;
+  if(!aiKey()){
+    $a('aiSet').hidden=false;aiFillCfg();
+    aiAddMsg('sys','請先在 ⚙ 設定取得並貼上金鑰(Gemini 完全免費、免綁卡,一分鐘搞定)');
+    return;
+  }
+  inp.value='';inp.style.height='auto';
+  AI.hist.push({role:'user',content:txt});
+  aiAddMsg('user',mdLite(txt));
+  const el=aiAddMsg('ai thinking','思考中…');
+  AI.busy=true;$a('aiSendBtn').disabled=true;
+  const paint=(out,web)=>{
+    el.classList.remove('thinking');
+    el.innerHTML=(web?'<span style="color:var(--mut);font-size:12px">🔍 已上網查詢</span><br>':'')+mdLite(out);
+    aiScroll();
+  };
+  try{
+    const r=await (AI.prov==='gemini'?callGemini(paint):callClaude(paint));
+    const out=r.out||'(沒有收到回應,請重試)';
+    AI.hist.push({role:'assistant',content:out});
+    paint(out,r.web);
+  }catch(e){
+    el.classList.remove('thinking');
+    const m=String(e.message||e);
+    let hint='點 ⚙ 檢查設定。';
+    if(m.startsWith('400')||m.startsWith('401')||m.startsWith('403'))hint='金鑰無效或模型名稱不可用:點 ⚙ 重新貼上金鑰或換一個模型。';
+    else if(m.startsWith('429'))hint=AI.prov==='gemini'?'今日免費額度或每分鐘次數已達上限:稍等一下再問、換 Flash-Lite,或明天(美西午夜重置)再用。':'額度/頻率限制,稍後再試。';
+    else if(m.startsWith('404'))hint='此模型名稱不存在:點 ⚙ 換一個模型即可。';
+    el.innerHTML=mdLite('❌ 呼叫失敗:'+m+'\n\n'+hint);
+  }
+  AI.busy=false;$a('aiSendBtn').disabled=false;aiScroll();
+}
+function aiGreet(){
+  if(AI.greeted)return;AI.greeted=true;
+  aiAddMsg('ai','嗨,我是內建 AI 小幫手 ✦(免費 Gemini 驅動)<br>站內的事可以問:「<b>這檔近三個月外資在買還是賣?</b>」「幫我比較 2383 和 6213」。<br>站外的事也行:時事、程式、翻譯、運動賽事……都可以。'+(aiKey()?'':'<br><br>開始前請先點右上 ⚙:用 Google 帳號到 aistudio.google.com/apikey 免費領一組金鑰(免綁卡),貼上即可。'));
+}
+(function aiInit(){
+  const fab=$a('aiFab'),panel=$a('aiPanel');
+  if(!fab||!panel)return;
+  aiFillCfg();aiModelTag();
+  fab.onclick=()=>{panel.hidden=false;fab.style.display='none';aiGreet();
+    if(!aiKey()){$a('aiSet').hidden=false;aiFillCfg();}
+    setTimeout(()=>$a('aiInput').focus(),50);};
+  $a('aiCloseBtn').onclick=()=>{panel.hidden=true;fab.style.display='';};
+  $a('aiCfg').onclick=()=>{const s=$a('aiSet');s.hidden=!s.hidden;if(!s.hidden)aiFillCfg();};
+  $a('aiProvSel').onchange=e=>{AI.prov=e.target.value;aiFillCfg();};
+  $a('aiSaveBtn').onclick=()=>{
+    AI.prov=$a('aiProvSel').value;
+    AI.keys[AI.prov]=$a('aiKey').value.trim();
+    AI.models[AI.prov]=$a('aiModelSel').value;
+    AI.web=$a('aiWebChk').checked;
+    try{
+      localStorage.setItem('ai_prov',AI.prov);
+      localStorage.setItem('ai_key_'+AI.prov,AI.keys[AI.prov]);
+      localStorage.setItem('ai_model_'+AI.prov,AI.models[AI.prov]);
+      localStorage.setItem('ai_web',AI.web?'1':'0');
+    }catch(e){}
+    $a('aiSet').hidden=true;aiModelTag();
+    aiAddMsg('sys','設定已儲存 ✓('+AIP[AI.prov].label+' · '+aiModel()+')');
+  };
+  $a('aiClear').onclick=()=>{AI.hist=[];$a('aiMsgs').innerHTML='';AI.greeted=false;aiGreet();};
+  $a('aiSendBtn').onclick=aiSend;
+  const inp=$a('aiInput');
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();aiSend();}
+  });
+  inp.addEventListener('input',()=>{inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,120)+'px';});
+})();
 
 boot();
 </script>

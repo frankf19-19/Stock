@@ -3,7 +3,7 @@
 update_data.py v4 — 三力選股儀表板(全市場版)
 涵蓋:台股全部上市+上櫃(約1,800檔)+ 美股 S&P 500 全成分股(約500檔)
 產業:台股用證交所官方「產業別」、美股用 GICS 分類
-輸出:data.json(清單+評分+訊號)、k/*.json(K線分片,個股頁點開才載入)
+輸出:data.json(清單+評分+訊號)、k/*.json(K線分片)、c/*.json(籌碼歷史分片:法人65日/大戶26週/營收13月)
 
 ★ 全部免費、不需任何註冊或 token。資料來源:
   台股公司名單/產業別: 證交所+櫃買 OpenAPI 公司基本資料
@@ -25,6 +25,13 @@ TODAY = dt.date.today()
 UA = {"User-Agent": "Mozilla/5.0"}
 K_DIR = "k"
 KEEP_BARS = 130
+
+# ── 籌碼歷史(v5 新增):法人逐日 / 大戶逐週 / 營收逐月,分片存 c/*.json ──
+C_DIR = "c"            # 籌碼歷史分片資料夾
+CHIP_DAYS = 65         # 法人買賣超保留 65 個交易日(約 3 個月)
+BIG_WEEKS = 26         # 400張大戶保留 26 週(約半年)
+REV_MONTHS = 13        # 月營收保留 13 個月(可看年增趨勢)
+CHIP_BACKFILL = 70     # 單次執行最多回補幾個交易日的法人資料(首次執行約需 7 分鐘)
 
 # ── 台股官方產業別代碼(t187ap03 若回傳代碼時使用)──
 TW_IND = {"01":"水泥工業","02":"食品工業","03":"塑膠工業","04":"紡織纖維","05":"電機機械",
@@ -184,6 +191,150 @@ def append_bar(hist, sid, date, o, h, l, c, v):
     if len(e["d"]) > KEEP_BARS:
         e["d"] = e["d"][-KEEP_BARS:]; e["o"] = e["o"][-KEEP_BARS:]
 
+# ═══════════════ 籌碼歷史分片(法人日資料 / 大戶週資料 / 月營收)═══════════════
+# 每檔結構:{"d":[日期],"f":[外資張],"t":[投信張],"g":[自營張],
+#            "bd":[大戶週日期],"bp":[大戶持股%],
+#            "rm":[營收年月],"ry":[YoY%],"ra":[當月營收(千元)]}
+def load_chips():
+    chips, meta = {}, {"dates": []}
+    for fp in glob.glob(os.path.join(C_DIR, "*.json")):
+        try:
+            with open(fp, encoding="utf-8") as f:
+                obj = json.load(f)
+            if os.path.basename(fp) == "meta.json": meta = obj
+            else: chips.update(obj)
+        except Exception: pass
+    print(f"  既有籌碼歷史:{len(chips)} 檔、{len(meta.get('dates', []))} 個交易日")
+    return chips, meta
+
+def save_chips(chips, meta, comps):
+    os.makedirs(C_DIR, exist_ok=True)
+    tw_ids = {c["id"] for c in comps if c["market"] == "TW"}
+    shards = {}
+    for sid, v in chips.items():
+        if sid not in tw_ids: continue
+        shards.setdefault(f"tw{sid[0]}.json", {})[sid] = v
+    for fn, obj in shards.items():
+        with open(os.path.join(C_DIR, fn), "w", encoding="utf-8") as f:
+            json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
+    with open(os.path.join(C_DIR, "meta.json"), "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False)
+    print(f"  籌碼分片:寫出 {len(shards)} 個檔案")
+
+def fetch_inst_day(d):
+    """抓單一交易日全市場三大法人買賣超(單位:張)。回傳 {sid:[外資,投信,自營]};非交易日回 None。"""
+    ds = d.strftime("%Y%m%d")
+    day = {}
+    try:
+        j = get_json("https://www.twse.com.tw/rwd/zh/fund/T86",
+                     {"date": ds, "selectType": "ALLBUT0999", "response": "json"})
+    except Exception as e:
+        print(f"  [warn] T86 {ds}: {e}"); return None
+    if j.get("stat") != "OK" or not j.get("data"): return None
+    flds = j["fields"]
+    i_id = _pick(flds, "證券代號")
+    i_f  = _pick(flds, "外陸資買賣超", "不含")
+    if i_f is None: i_f = _pick(flds, "外陸資買賣超")
+    i_t  = _pick(flds, "投信買賣超")
+    i_g  = next((i for i, f in enumerate(flds) if str(f).strip() == "自營商買賣超股數"), None)
+    if i_g is None: i_g = _pick(flds, "自營商買賣超")
+    def sh2lot(x): return int(round((x or 0) / 1000))
+    for r in j["data"]:
+        day[str(r[i_id]).strip()] = [sh2lot(numf(r[i_f])), sh2lot(numf(r[i_t])),
+                                     sh2lot(numf(r[i_g])) if i_g is not None else 0]
+    try:
+        j2 = get_json("https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade",
+                      {"type": "Daily", "sect": "EW",
+                       "date": d.strftime("%Y/%m/%d"), "response": "json"})
+        for tb in j2.get("tables", []):
+            flds2 = tb.get("fields", [])
+            i2_id = _pick(flds2, "代號")
+            i2_f  = _pick(flds2, "外資", "買賣超")
+            i2_t  = _pick(flds2, "投信", "買賣超")
+            i2_g  = _pick(flds2, "自營", "買賣超")
+            if None in (i2_id, i2_f, i2_t): continue
+            for r in tb.get("data", []):
+                day[str(r[i2_id]).strip()] = [sh2lot(numf(r[i2_f])), sh2lot(numf(r[i2_t])),
+                                              sh2lot(numf(r[i2_g])) if i2_g is not None else 0]
+    except Exception as e2:
+        print(f"  [warn] 櫃買法人 {ds}: {e2}")
+    return day
+
+def update_chip_hist(chips, meta):
+    """回補/續抓法人逐日資料,累積至 CHIP_DAYS 個交易日。"""
+    have = set(meta.get("dates", []))
+    want, d, walked = [], TODAY, 0
+    while walked < 110 and len(want) < CHIP_BACKFILL and (len(have) + len(want)) < CHIP_DAYS + 4:
+        if d.weekday() < 5 and d.isoformat() not in have:
+            want.append(d)
+        d -= dt.timedelta(days=1); walked += 1
+    newdays = {}
+    for d in sorted(want):
+        day = fetch_inst_day(d)
+        time.sleep(2.0)
+        if day:
+            newdays[d.isoformat()] = day
+            have.add(d.isoformat())
+    if newdays:
+        allsids = set()
+        for x in newdays.values(): allsids |= set(x)
+        for sid in allsids:
+            e = chips.setdefault(sid, {})
+            g_old = e.get("g") or [0] * len(e.get("d", []))
+            m = {dd: [e["f"][i], e["t"][i], g_old[i]] for i, dd in enumerate(e.get("d", []))}
+            for dd, day in newdays.items():
+                if sid in day: m[dd] = day[sid]
+            ds = sorted(m)[-CHIP_DAYS:]
+            e["d"] = ds
+            e["f"] = [m[x][0] for x in ds]
+            e["t"] = [m[x][1] for x in ds]
+            e["g"] = [m[x][2] for x in ds]
+    meta["dates"] = sorted(have)[-CHIP_DAYS:]
+    print(f"  法人日資料:本次新增 {len(newdays)} 個交易日,累積 {len(meta['dates'])} 日")
+
+def append_tdcc(chips, tdcc, date):
+    """400張大戶週資料:每次執行把最新一週附加進歷史(同週覆蓋)。"""
+    if not tdcc or not date: return
+    for sid, p in tdcc.items():
+        e = chips.setdefault(sid, {})
+        bd, bp = e.setdefault("bd", []), e.setdefault("bp", [])
+        if bd and bd[-1] == date:
+            bp[-1] = p; continue
+        bd.append(date); bp.append(p)
+        if len(bd) > BIG_WEEKS:
+            e["bd"], e["bp"] = bd[-BIG_WEEKS:], bp[-BIG_WEEKS:]
+
+def append_rev(chips, rev_bulk):
+    """月營收:每月附加一筆(同月覆蓋),保留 REV_MONTHS 個月。"""
+    for sid, v in rev_bulk.items():
+        yoy, ym = v[0], v[1]
+        amt = v[2] if len(v) > 2 else None
+        if not ym: continue
+        e = chips.setdefault(sid, {})
+        rm, ry, ra = e.setdefault("rm", []), e.setdefault("ry", []), e.setdefault("ra", [])
+        while len(ra) < len(rm): ra.append(None)
+        if rm and rm[-1] == ym:
+            ry[-1] = yoy; ra[-1] = amt; continue
+        rm.append(ym); ry.append(yoy); ra.append(amt)
+        if len(rm) > REV_MONTHS:
+            e["rm"], e["ry"], e["ra"] = rm[-REV_MONTHS:], ry[-REV_MONTHS:], ra[-REV_MONTHS:]
+
+def build_inst(chips):
+    """從籌碼歷史彙算 5/20/60 日合計與外資連買天數,供評分與前端摘要。"""
+    inst = {}
+    for sid, e in chips.items():
+        f, t, g = e.get("f") or [], e.get("t") or [], e.get("g") or []
+        if not f: continue
+        st = 0
+        for v in reversed(f):
+            if v > 0: st += 1
+            else: break
+        inst[sid] = {"f5": sum(f[-5:]), "t5": sum(t[-5:]),
+                     "f20": sum(f[-20:]), "t20": sum(t[-20:]),
+                     "f60": sum(f[-60:]), "t60": sum(t[-60:]),
+                     "g5": sum(g[-5:]), "fst": st, "nd": len(f)}
+    return inst
+
 # ═══════════════ 台股價格:Yahoo 批次(GitHub 機房可達)═══════════════
 def _yahoo_batch(tickers, hist, idmap):
     """批次下載日K,寫入 hist。idmap: yahoo代碼 → 我們的代號。回傳成功集合。"""
@@ -266,56 +417,19 @@ def fetch_rev_bulk():
             k_id  = next((k for k in keys if "代號" in k), None)
             k_yoy = next((k for k in keys if "去年同月增減" in k), None)
             k_ym  = next((k for k in keys if "資料年月" in k), None)
+            k_amt = next((k for k in keys if k.endswith("當月營收") and "去年" not in k and "上月" not in k), None)
             for r in arr:
                 sid, yoy = str(r.get(k_id, "")).strip(), numf(r.get(k_yoy))
                 if sid and yoy is not None:
-                    out[sid] = (yoy, str(r.get(k_ym, "")))
+                    ym = "".join(ch for ch in str(r.get(k_ym, "")) if ch.isdigit())
+                    if len(ym) >= 5:  # 民國 11405 → 2025-05;若已是西元則直接切
+                        y = int(ym[:-2])
+                        ym = f"{y + 1911 if y < 1900 else y}-{ym[-2:]}"
+                    out[sid] = (yoy, ym, numf(r.get(k_amt)) if k_amt else None)
         except Exception as e:
             print(f"  [warn] 營收彙總: {e}")
     print(f"  月營收:{len(out)} 家")
     return out
-
-def fetch_inst_bulk(days=5, max_try=12):
-    agg, got, d = {}, 0, TODAY
-    for _ in range(max_try):
-        ds = d.strftime("%Y%m%d")
-        try:
-            j = get_json("https://www.twse.com.tw/rwd/zh/fund/T86",
-                         {"date": ds, "selectType": "ALLBUT0999", "response": "json"})
-            if j.get("stat") == "OK" and j.get("data"):
-                flds = j["fields"]
-                i_id = _pick(flds, "證券代號")
-                i_f  = _pick(flds, "外陸資買賣超", "不含")
-                if i_f is None: i_f = _pick(flds, "外陸資買賣超")
-                i_t  = _pick(flds, "投信買賣超")
-                for r in j["data"]:
-                    e = agg.setdefault(str(r[i_id]).strip(), {"f5": 0.0, "t5": 0.0})
-                    e["f5"] += (numf(r[i_f]) or 0) / 1000
-                    e["t5"] += (numf(r[i_t]) or 0) / 1000
-                try:
-                    j2 = get_json("https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade",
-                                  {"type": "Daily", "sect": "EW",
-                                   "date": d.strftime("%Y/%m/%d"), "response": "json"})
-                    for tb in j2.get("tables", []):
-                        flds2 = tb.get("fields", [])
-                        i2_id = _pick(flds2, "代號")
-                        i2_f  = _pick(flds2, "外資", "買賣超")
-                        i2_t  = _pick(flds2, "投信", "買賣超")
-                        if None in (i2_id, i2_f, i2_t): continue
-                        for r in tb.get("data", []):
-                            e = agg.setdefault(str(r[i2_id]).strip(), {"f5": 0.0, "t5": 0.0})
-                            e["f5"] += (numf(r[i2_f]) or 0) / 1000
-                            e["t5"] += (numf(r[i2_t]) or 0) / 1000
-                except Exception as e2:
-                    print(f"  [warn] 櫃買法人 {ds}: {e2}")
-                got += 1
-                if got >= days: break
-        except Exception as e:
-            print(f"  [warn] T86 {ds}: {e}")
-        d -= dt.timedelta(days=1)
-        time.sleep(2.0)
-    print(f"  三大法人:{got} 個交易日、{len(agg)} 檔")
-    return agg
 
 def fetch_tdcc_bulk():
     try:
@@ -376,7 +490,7 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev):
     # 基本面(台股)
     f, f_kv = 50, {}
     if is_tw and sid in rev_bulk:
-        yoy, ym = rev_bulk[sid]
+        yoy, ym = rev_bulk[sid][0], rev_bulk[sid][1]
         f_kv["月營收YoY"], f_kv["資料年月"] = f"{yoy:+.1f}%", ym
         f += 25 if yoy > 40 else 18 if yoy > 20 else 8 if yoy > 5 else -5 if yoy > -10 else -18
     elif not is_tw:
@@ -388,9 +502,17 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev):
     cs, c_kv, c_raw = 50, {}, {}
     if is_tw:
         if sid in inst:
-            f5, t5 = inst[sid]["f5"], inst[sid]["t5"]
+            v = inst[sid]
+            f5, t5 = v["f5"], v["t5"]
             c_kv["外資5日"], c_kv["投信5日"] = f"{f5:+,.0f} 張", f"{t5:+,.0f} 張"
+            c_kv["外資20日"], c_kv["投信20日"] = f"{v['f20']:+,.0f} 張", f"{v['t20']:+,.0f} 張"
+            if v.get("nd", 0) >= 40:
+                c_kv["外資60日"] = f"{v['f60']:+,.0f} 張"
+            if v.get("fst", 0) >= 3:
+                c_kv["外資連買"] = f"{v['fst']} 日"
             c_raw["f5"], c_raw["t5"] = int(f5), int(t5)
+            c_raw["f20"], c_raw["t20"] = int(v["f20"]), int(v["t20"])
+            c_raw["fst"] = int(v.get("fst", 0))
             cs += 15 if f5 > 0 else -10
             cs += 12 if t5 > 0 else (-6 if t5 < 0 else 0)
         if sid in tdcc:
@@ -540,8 +662,13 @@ def main():
 
     print("③ 官方彙總:營收 / 法人 / 大戶(台灣官方站可能封鎖海外IP,抓不到則以中性計分)...")
     rev_bulk = fetch_rev_bulk()
-    inst = fetch_inst_bulk()
+    chips, cmeta = load_chips()
+    update_chip_hist(chips, cmeta)          # 法人逐日,累積至 65 個交易日
     tdcc, tdcc_date = fetch_tdcc_bulk()
+    append_tdcc(chips, tdcc, tdcc_date)     # 大戶逐週,保留 26 週
+    append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
+    inst = build_inst(chips)
+    save_chips(chips, cmeta, comps)
 
     print("④ 計算評分與訊號 ...")
     stocks, ok = [], 0
