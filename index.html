@@ -1581,7 +1581,14 @@ async function renderIdxAnalysis(d){
 
 /* ══ 大盤+櫃買 即時監測:走勢/防守線/破線警示 ══ */
 const IDX={sel:'tw',d:{},lv:{},last:{},otcSyms:['^TWOII','^TWO']};
-const OTCACC={t:[],c:[],v:[],prev:null};   // 櫃買分線備援:即時報價逐點累積
+const OTCACC={t:[],c:[],v:[],prev:null};   // 櫃買分線備援:即時報價逐點累積(當日持久化)
+try{
+  const sv=JSON.parse(localStorage.getItem('otc_acc')||'null');
+  const td=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);
+  if(sv&&sv.d===td&&Array.isArray(sv.c)&&sv.c.length){
+    OTCACC.t=sv.t;OTCACC.c=sv.c;OTCACC.v=sv.c.map(()=>0);OTCACC.prev=sv.prev;
+  }
+}catch(e){}
 const IDX_NM={tw:'加權指數',otc:'櫃買指數'};
 async function idxLevels(key){
   const sym=key==='tw'?'^TWII':IDX.otcSyms[0];
@@ -1628,7 +1635,8 @@ function idxWatch(key,last,chg){
   }
 }
 function drawIdxSel(){
-  const d=IDX.d[IDX.sel];
+  let d=IDX.d[IDX.sel];
+  if(IDX.sel==='otc'&&OTCACC.c.length>=30&&(!d||d.approx))d=OTCACC;  // 真實報價累積夠多就用真的
   const title=document.getElementById('idxTitle');
   if(title)title.textContent=`${IDX_NM[IDX.sel]} 即時走勢(1分線)`;
   const stat=document.getElementById('idxStat');
@@ -1649,7 +1657,7 @@ function drawIdxSel(){
   }
   const last=IDX.last[IDX.sel]??[...d.c].reverse().find(x=>x!=null);
   const chg=(last-d.prev)/d.prev*100;
-  if(stat)stat.innerHTML=`${(+last).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`;
+  if(stat)stat.innerHTML=`${(+last).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>${d.approx?' <span class="c-code" title="Yahoo 無櫃買分線,以上櫃ETF走勢按指數比例換算">ETF換算</span>':''}`;
   RT.idx=drawIntra('idxChart',d);
   const fl=document.getElementById('idxFlow');
   if(fl)fl.innerHTML=IDX.sel==='tw'?flowHTML(d,'股'):'';
@@ -1662,6 +1670,7 @@ async function refreshIdx(){
   let dot=await yChart(IDX.otcSyms[0]);
   if(!dot)dot=await yChart(IDX.otcSyms[0],'1d','5m');
   if(!dot){dot=await yChart(IDX.otcSyms[1]);if(dot)IDX.otcSyms.reverse();}
+  if(!dot)dot=await otcFromETF();
   if(dot)IDX.d.otc=dot;
   ['tw','otc'].forEach(k=>{
     const d=IDX.d[k];
@@ -1684,26 +1693,47 @@ setInterval(async()=>{if(marketOpen()){IDX.lv.tw=IDX.lv.tw||await idxLevels('tw'
 
 
 /* 開站先播一次(不限開盤):讓櫃買/加權卡片與監測在盤後也有最新收盤點位 */
-async function idxBoot(){
-  try{
-    const arr=await fetchMIS(['tse_t00.tw','otc_o00.tw']);
-    (arr||[]).forEach(m=>{
-      const last=rtPx(m), y=parseFloat(m.y);
-      if(!last)return;
-      const chg=y>0?+(((last-y)/y)*100).toFixed(2):null;
-      const key=m.c==='t00'?'tw':'otc';
-      IDX.last[key]=last;
-      if(m.c==='o00'){
-        ensureOtcCard();
-        const v=document.getElementById('otcVal'),c2=document.getElementById('otcChg');
-        if(v)v.textContent=Number(last.toFixed(2)).toLocaleString();
-        if(c2&&chg!=null)c2.innerHTML=chgHtml(chg);
-      }
-    });
-    paintDefense();
-  }catch(e){}
+let IDX_BOOTED=null;
+function idxBoot(){
+  if(IDX_BOOTED)return IDX_BOOTED;
+  IDX_BOOTED=(async()=>{
+    try{
+      const arr=await fetchMIS(['tse_t00.tw','otc_o00.tw']);
+      (arr||[]).forEach(m=>{
+        const last=rtPx(m), y=parseFloat(m.y);
+        if(!last)return;
+        const chg=y>0?+(((last-y)/y)*100).toFixed(2):null;
+        const key=m.c==='t00'?'tw':'otc';
+        IDX.last[key]=last;
+        if(m.c==='o00'){
+          IDX.mis={prev:y>0?y:null,last};
+          OTCACC.prev=OTCACC.prev||(y>0?y:null);
+          ensureOtcCard();
+          const v=document.getElementById('otcVal'),c2=document.getElementById('otcChg');
+          if(v)v.textContent=Number(last.toFixed(2)).toLocaleString();
+          if(c2&&chg!=null)c2.innerHTML=chgHtml(chg);
+        }
+      });
+      paintDefense();
+    }catch(e){}
+  })();
+  return IDX_BOOTED;
 }
-setTimeout(idxBoot,2200);
+setTimeout(idxBoot,1200);
+/* 櫃買分線第三備援:上櫃 ETF(006201)分線 × 指數比例換算(ETF 追蹤指數,形狀一致) */
+async function otcFromETF(){
+  await idxBoot();
+  if(!IDX.mis||!IDX.mis.prev)return null;
+  for(const sym of ['006201.TWO','006201.TW']){
+    const etf=await yChart(sym,'1d','1m')||await yChart(sym,'1d','5m');
+    if(etf&&etf.prev&&etf.c&&etf.c.some(x=>x!=null)){
+      const r=IDX.mis.prev/etf.prev;
+      return {t:etf.t,c:etf.c.map(x=>x==null?null:+(x*r).toFixed(2)),
+              v:etf.v||[],prev:IDX.mis.prev,approx:true};
+    }
+  }
+  return null;
+}
 /* ── 風險指標:VIX 恐慌指數 + 美債殖利率(每60秒即時更新)── */
 async function refreshRisk(){
   const box=document.getElementById('riskRow');
@@ -2027,7 +2057,8 @@ async function rtTick(){
         const now=Math.floor(Date.now()/1000);
         if(!OTCACC.t.length||now-OTCACC.t[OTCACC.t.length-1]>=50){
           OTCACC.t.push(now);OTCACC.c.push(last);OTCACC.v.push(0);
-          if(IDX.sel==='otc'&&!IDX.d.otc)drawIdxSel();
+          try{localStorage.setItem('otc_acc',JSON.stringify({d:new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10),t:OTCACC.t,c:OTCACC.c,prev:OTCACC.prev}));}catch(e){}
+          if(IDX.sel==='otc'&&(!IDX.d.otc||IDX.d.otc.approx))drawIdxSel();
         }
       }
       if(key===IDX.sel)pokeChart(RT.idx,last,'idxStat');
