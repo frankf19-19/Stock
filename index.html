@@ -212,6 +212,10 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
   <div class="idx-row" id="fxRow"></div>
   <div class="fx-note" id="fxNote"></div>
 
+  <div class="sec-title">風險指標</div>
+  <div class="idx-row" id="riskRow"></div>
+  <div class="fx-note" id="riskNote" style="border-left-color:#7FB4FF"></div>
+
   <div class="sec-title">重大新聞</div>
   <div class="news" id="newsBox"></div>
 
@@ -753,6 +757,70 @@ async function refreshIdx(){
 }
 setTimeout(refreshIdx,1500);
 setInterval(()=>{if(marketOpen())refreshIdx();},30000);
+
+/* ── 風險指標:VIX 恐慌指數 + 美債殖利率(每60秒即時更新)── */
+async function refreshRisk(){
+  const box=document.getElementById('riskRow');
+  if(!box)return;
+  const defs=[
+    ['VIX 恐慌指數','^VIX','vix'],
+    ['美債10年殖利率','^TNX','y10'],
+    ['美債30年殖利率','^TYX','y30'],
+    ['美債5年殖利率','^FVX','y5']];
+  const out={};
+  for(const [name,sym,key] of defs){
+    try{
+      const d=await yChart(sym);
+      if(!d)continue;
+      const last=[...d.c].reverse().find(x=>x!=null);
+      if(last!=null)out[key]={name,last,prev:d.prev};
+    }catch(e){}
+  }
+  if(!Object.keys(out).length){
+    box.innerHTML='<div class="idx-card"><div class="nm">風險指標暫時載入不到,稍後自動重試</div></div>';
+    return;
+  }
+  const cards=[];
+  if(out.vix){
+    const v=out.vix, chg=(v.last-v.prev)/v.prev*100;
+    cards.push(`<div class="idx-card"><div class="nm">${v.name}</div>
+      <div class="vl">${v.last.toFixed(2)}</div>
+      <div class="ch">${chgHtml(+chg.toFixed(2))}</div></div>`);
+  }
+  for(const key of ['y10','y30','y5']){
+    const v=out[key]; if(!v)continue;
+    const bp=(v.last-v.prev)*10; // ^TNX 系列報價為殖利率×10,差值×10即為 bp
+    cards.push(`<div class="idx-card"><div class="nm">${v.name}</div>
+      <div class="vl">${(v.last/10).toFixed(2)}%</div>
+      <div class="ch"><span class="${bp>0?'pos':bp<0?'neg':'flat'}">${bp>0?'▲':bp<0?'▼':'–'} ${Math.abs(bp).toFixed(1)} bp</span></div></div>`);
+  }
+  box.innerHTML=cards.join('');
+  // 依當下數值自動判讀
+  const note=document.getElementById('riskNote');
+  if(note){
+    let txt='<b>怎麼看風險指標:</b>';
+    if(out.vix){
+      const v=out.vix.last;
+      const mood=v<15?'<b>偏樂觀</b>(過度自滿期,行情通常還能走但要開始留意反轉訊號)'
+        :v<20?'<b>正常區</b>(健康的多頭環境)'
+        :v<28?'<b>警戒區</b>(避險情緒升溫,波動放大,倉位宜降)'
+        :'<b>恐慌區</b>(常伴隨急殺,但歷史上也是長線買點密集出現的位置)';
+      txt+=`VIX ${v.toFixed(1)},市場情緒處於 ${mood}。`;
+    }
+    if(out.y10){
+      const y=out.y10.last/10, bp=(out.y10.last-out.y10.prev)*10;
+      txt+=`美債10年殖利率 ${y.toFixed(2)}%${Math.abs(bp)>=3?(bp>0?`,今日大幅走升 +${bp.toFixed(1)}bp——利率是高估值 AI 股的地心引力,殖利率急升時科技股評價承壓`:`,今日明顯回落 ${bp.toFixed(1)}bp——資金面轉鬆,有利成長股評價`):',變動溫和'}。`;
+      if(out.y30&&out.y10&&out.y5){
+        txt+=`殖利率曲線(5Y ${(out.y5.last/10).toFixed(2)}% / 10Y ${y.toFixed(2)}% / 30Y ${(out.y30.last/10).toFixed(2)}%)`+
+          (out.y5.last>out.y10.last?'呈現倒掛,債市在示警景氣。':'維持正斜率。');
+      }
+    }
+    txt+=' 美股時段(台北晚間)這些數字會即時跳動;台股盤中看到的是最新收盤與盤前變化。';
+    note.innerHTML=txt;
+  }
+}
+setTimeout(refreshRisk,2000);
+setInterval(refreshRisk,60000);
 
 /* ── 個股即時走勢(個股頁載入,60秒更新)── */
 async function loadIntraDetail(s){
