@@ -2414,6 +2414,10 @@ async function showDetail(id){
       <div class="dim-note" style="color:var(--dim)">此為依營收、籌碼、技術、產業四面向的規則化研判,不構成投資建議;數據品質受來源限制,重大決策請再查證。</div>
     </div>`})()}
     ${s.thesis?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
+    <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
+      <span class="ticker-label">📰 ${s.name} 新聞</span>
+      <div class="ticker-track" id="sTickTrack"></div>
+    </div>
     <div class="d-sec">📈 走勢・價位・進場策略</div>
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
     <div class="d-sec">⚖️ 三力檢視 <span>基本面・籌碼面・技術面</span></div>
@@ -2467,6 +2471,32 @@ async function showDetail(id){
   window.scrollTo({top:0});
   const pBtn=document.getElementById('profAiBtn');
   if(pBtn)pBtn.onclick=()=>aiAsk(`用繁體中文白話介紹 ${s.name}(${s.id}) 這家公司,格式如下:\n1) 一句話+一個比喻說明公司在做什麼\n2) 主要產品與服務(依類型分類條列,每類一句白話說明用途)\n3) 產品用在哪裡、主要客戶是誰\n4) 在產業鏈的上下游位置\n要簡單易懂,像對完全不懂股票的朋友解釋。`);
+  (async()=>{  // 個股新聞跑馬燈
+    const bar=document.getElementById('sTick'),tr=document.getElementById('sTickTrack');
+    if(!bar||!tr)return;
+    const seen=new Set();const items=[];
+    const push=(t,l,src2)=>{if(!t||seen.has(t))return;seen.add(t);
+      items.push(`<a href="${l||'#'}" ${l?'target="_blank" rel="noopener"':''}><span>${t}</span><span class="src">${src2||''}</span></a>`);};
+    (Array.isArray(s.news)?s.news:[]).forEach(x=>push(x.t,x.l,x.s));
+    const paint=()=>{if(!items.length)return;
+      tr.innerHTML=items.join('')+items.join('');
+      tr.style.animationDuration=Math.max(34,items.length*8)+'s';
+      bar.hidden=false;};
+    paint();
+    try{
+      const xml=await fetchTextProxy(`https://news.google.com/rss/search?q=${encodeURIComponent('"'+s.name+'"')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`);
+      if(xml&&location.hash==='#stock/'+s.id){
+        const doc=new DOMParser().parseFromString(xml,'text/xml');
+        [...doc.querySelectorAll('item')].slice(0,10).forEach(it=>{
+          const t=(it.querySelector('title')||{}).textContent||'';
+          const l=(it.querySelector('link')||{}).textContent||'';
+          const sc=(it.querySelector('source')||{}).textContent||'';
+          push(t.replace(/ - [^-]+$/,''),l,sc);
+        });
+        paint();
+      }
+    }catch(e){}
+  })();
   const aBtn=document.getElementById('anaAiBtn');
   if(aBtn)aBtn.onclick=()=>aiAsk(`請上網查詢並整理 ${s.name}(${s.id}) 近三個月外資與投顧研究報告的觀點:哪些券商出過報告或升降評、評等為何(買進/中立/賣出)、目標價各是多少、調整理由是什麼。條列整理,最後一句總結市場共識與分歧點。若查不到個別報告,就整理新聞中提到的最新目標價。`,true);
   loadProfileDetail(s);
@@ -3243,20 +3273,25 @@ async function ySummary(s){
   const sym=ySym(s);
   if(YSUM[sym])return YSUM[sym];
   YSUM[sym]=(async()=>{
-    // 路徑一:quoteSummary API(部分代理仍可通,快)
-    const u=`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=assetProfile%2CfinancialData%2CupgradeDowngradeHistory`;
-    for(const r of PROXY){
-      try{
-        const res=await fT(r(u),8000);
-        if(!res.ok)continue;
-        const j=await res.json();
-        const q=j&&j.quoteSummary&&j.quoteSummary.result&&j.quoteSummary.result[0];
-        if(q&&(q.financialData||q.assetProfile))return q;
-      }catch(e){}
-    }
-    // 路徑二:抓 Yahoo 個股頁 HTML 正則萃取(不需 crumb 驗證)
-    const html=await fetchTextProxy(`https://finance.yahoo.com/quote/${encodeURIComponent(sym)}/`);
-    if(html&&html.length>3000){
+    // Yahoo quoteSummary API 已全面加上 cookie/crumb 驗證,代理必失敗 → 直接抓個股頁 HTML 萃取
+    const page=`https://finance.yahoo.com/quote/${encodeURIComponent(sym)}/`;
+    const routes=[
+      u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+      u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u),
+      u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
+    // 三條路「同時」出發,誰先拿到含關鍵欄位的頁面就用誰(總等待 ≤ 12 秒)
+    const html=await new Promise(resolve=>{
+      let done=false,fails=0;
+      routes.forEach(r=>{
+        fT(r(page),12000).then(res=>res.ok?res.text():null).then(t=>{
+          if(done)return;
+          if(t&&t.length>3000&&(t.includes('targetMeanPrice')||t.includes('longBusinessSummary'))){
+            done=true;resolve(t);
+          }else if(++fails>=routes.length)resolve(null);
+        }).catch(()=>{if(!done&&++fails>=routes.length)resolve(null);});
+      });
+    });
+    if(html){
       const fd={targetMeanPrice:pickNum(html,'targetMeanPrice'),
                 targetHighPrice:pickNum(html,'targetHighPrice'),
                 targetLowPrice:pickNum(html,'targetLowPrice'),
@@ -3274,61 +3309,6 @@ async function ySummary(s){
   })();
   return YSUM[sym];
 }
-const RECO_ZH={strong_buy:'強力買進',buy:'買進',hold:'持有',underperform:'遜於大盤',sell:'賣出',none:'—'};
-const ACT_ZH={up:['調升','up'],down:['調降','down'],init:['首次評等',''],main:['維持',''],reit:['重申','']};
-function numRaw(x){return x==null?null:(typeof x==='object'?x.raw:x);}
-async function loadAnalystDetail(s){
-  const box=document.getElementById('anaBody');
-  if(!box)return;
-  const q=await ySummary(s);
-  if(!document.getElementById('anaBody')||!location.hash.startsWith('#stock/'))return;
-  const fd=q&&q.financialData;
-  const tMean=numRaw(fd&&fd.targetMeanPrice),tHi=numRaw(fd&&fd.targetHighPrice),
-        tLo=numRaw(fd&&fd.targetLowPrice),nA=numRaw(fd&&fd.numberOfAnalystOpinions);
-  const reco=fd&&fd.recommendationKey;
-  const price=s.price;
-  let html='';
-  if(tMean&&tHi&&tLo){
-    const up=price?((tMean-price)/price*100):null;
-    html+=`<div class="tp-grid">
-      <div><dt>平均目標價</dt><dd style="color:var(--amber)">${tMean.toFixed(tMean>100?0:2)}</dd></div>
-      <div><dt>最高 / 最低</dt><dd>${tHi.toFixed(tHi>100?0:2)} / ${tLo.toFixed(tLo>100?0:2)}</dd></div>
-      ${up!=null?`<div><dt>隱含空間(vs 現價)</dt><dd class="${up>0?'pos':'neg'}">${up>0?'+':''}${up.toFixed(1)}%</dd></div>`:''}
-      ${nA?`<div><dt>分析師家數</dt><dd>${nA} 家</dd></div>`:''}
-      ${reco?`<div><dt>綜合評等</dt><dd>${RECO_ZH[reco]||reco}</dd></div>`:''}
-    </div>`;
-    // 目標價區間條:低─平均─高,直線為現價位置
-    const lo=Math.min(tLo,price||tLo)*0.98, hi=Math.max(tHi,price||tHi)*1.02;
-    const pos=v=>Math.max(1,Math.min(99,(v-lo)/(hi-lo)*100));
-    html+=`<div class="tp-bar">
-      <div class="tp-line"></div>
-      <div class="tp-dot" style="left:${pos(tLo)}%"></div><span class="tp-lb" style="left:${pos(tLo)}%;top:34px">低 ${tLo.toFixed(tLo>100?0:1)}</span>
-      <div class="tp-dot" style="left:${pos(tMean)}%"></div><span class="tp-lb" style="left:${pos(tMean)}%;top:0">平均 ${tMean.toFixed(tMean>100?0:1)}</span>
-      <div class="tp-dot" style="left:${pos(tHi)}%"></div><span class="tp-lb" style="left:${pos(tHi)}%;top:34px">高 ${tHi.toFixed(tHi>100?0:1)}</span>
-      ${price?`<div class="tp-now" style="left:${pos(price)}%"></div><span class="tp-lb" style="left:${pos(price)}%;top:0;color:var(--txt);font-weight:700">現價 ${price}</span>`:''}
-    </div>
-    <div class="dim-note" style="margin-top:8px">共識目標價來源:Yahoo Finance 彙整之賣方分析師預估;目標價是「12個月觀點」而非保證,分歧度(高低差)越大代表市場看法越不一致。</div>`;
-  }else{
-    html+='<div class="dim-note">此檔暫無彙整的分析師目標價(小型股常見)——看下方目標價新聞,或用 AI 上網彙整。</div>';
-  }
-  const hist=q&&q.upgradeDowngradeHistory&&q.upgradeDowngradeHistory.history;
-  if(Array.isArray(hist)&&hist.length){
-    const rows=hist.slice(0,6).map(h=>{
-      const d=h.epochGradeDate?new Date(h.epochGradeDate*1000):null;
-      const [az,ac]=ACT_ZH[h.action]||[h.action||'',''];
-      return `<div><span class="ana-firm">${h.firm||''}</span>
-        ${az?`<span class="ana-act ${ac}">${az}</span>`:''}
-        <span style="color:var(--txt2)">${h.toGrade||''}${h.fromGrade&&h.fromGrade!==h.toGrade?`<span style="color:var(--dim)">(原 ${h.fromGrade})</span>`:''}</span>
-        ${d?`<span class="ana-date">${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}</span>`:''}</div>`;
-    }).join('');
-    html+=`<h3 style="margin-top:16px;font-size:14px">外資/券商升降評紀錄(近幾筆)</h3><div class="ana-list">${rows}</div>`;
-  }
-  box.innerHTML=html;
-  // 目標價相關新聞(即時)
-  const nb=document.getElementById('anaNews');
-  if(nb)evNews(`"${s.name}" 目標價`,nb);
-}
-const SEC2LEARN=[['半導體','semi'],['電子零組件','pcb'],['電腦及週邊','server'],['光電','cpo'],['其他電子','server'],['通信網路','cpo']];
 async function loadProfileDetail(s){
   const box=document.getElementById('profBody');
   if(!box)return;
