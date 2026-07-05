@@ -28,10 +28,10 @@ html[data-theme="light"]{
   --amber:#B07A18; --hdr:#E9EDF5;
   --up:#D6323A; --down:#0F8A57;
 }
-html[data-theme="violet"]{
-  --bg:#121022; --panel:#1A1733; --panel2:#252047; --line:#35305C;
-  --txt:#EEEBF9; --mut:#9C95BF; --dim:#615A87; --txt2:#D0CAE8;
-  --amber:#B79CFF; --hdr:#161329;
+html[data-theme="mocha"]{
+  --bg:#171310; --panel:#211B14; --panel2:#2C2419; --line:#3E3424;
+  --txt:#F3EEE5; --mut:#AC9F88; --dim:#6F6350; --txt2:#DFD6C5;
+  --amber:#EDB94E; --hdr:#1C1710;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:15px;line-height:1.6}
@@ -238,6 +238,23 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 
+/* ── 建議進場點(左側/右側)── */
+.entry-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+@media(max-width:640px){.entry-grid{grid-template-columns:1fr}}
+.entry-card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.entry-card.r{border-top:3px solid #E5484D}
+.entry-card.l{border-top:3px solid #7FB4FF}
+.entry-head{display:flex;gap:9px;align-items:center;margin-bottom:3px;font-size:15px;flex-wrap:wrap}
+.entry-side{font-size:11px;padding:2.5px 9px;border-radius:12px;border:1px solid;font-weight:700;letter-spacing:.03em}
+.entry-card.r .entry-side{color:#FF8A8E;border-color:rgba(229,72,77,.5);background:rgba(229,72,77,.12)}
+.entry-card.l .entry-side{color:#7FB4FF;border-color:rgba(127,180,255,.5);background:rgba(127,180,255,.12)}
+.entry-who{font-size:12px;color:var(--mut);margin-bottom:9px;line-height:1.6}
+.entry-rows div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px;align-items:baseline}
+.entry-rows div:last-child{border-bottom:none}
+.entry-rows dt{color:var(--mut);white-space:nowrap}
+.entry-rows dd{font-family:var(--mono);text-align:right;color:var(--txt);line-height:1.55}
+.entry-rows dd b{color:var(--amber);font-size:15px}
+
 /* ── 籌碼深度圖表 ── */
 .chip-sum{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0 4px}
 .chip-sum div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
@@ -311,7 +328,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
         <option value="navy">🌌 深墨藍</option>
         <option value="black">⬛ 純黑金</option>
         <option value="light">☀️ 明亮日盤</option>
-        <option value="violet">🪻 暮光紫</option>
+        <option value="mocha">🥃 琥珀夜盤</option>
       </select>
       <button class="btn-upd" id="updBtn">↻ 更新資訊</button>
     </div>
@@ -1646,11 +1663,11 @@ const CHART_THEMES={
     ttBg:'#141419',ttText:'#F2F2F4',inactive:'#3A3A44',ma60:'#E8E8EC'},
   light:{legend:'#5A6478',axis:'#6B7280',split:'#E4E8F0',border:'#D9DEE8',
     ttBg:'#FFFFFF',ttText:'#1B2233',inactive:'#C4CBD6',ma60:'#4A5568'},
-  violet:{legend:'#9C95BF',axis:'#6F6899',split:'#232045',border:'#35305C',
-    ttBg:'#252047',ttText:'#EEEBF9',inactive:'#3D3766',ma60:'#F0EBFD'}
+  mocha:{legend:'#AC9F88',axis:'#7E7159',split:'#261F14',border:'#3E3424',
+    ttBg:'#2C2419',ttText:'#F3EEE5',inactive:'#4A3E2B',ma60:'#F7F1E4'}
 };
 function applyTheme(t,redraw){
-  if(t==='green')t='violet';  // 舊主題自動遷移
+  if(t==='green'||t==='violet')t='mocha';  // 舊主題自動遷移
   document.documentElement.dataset.theme=t==='navy'?'':t;
   try{localStorage.setItem('theme3l',t);}catch(e){}
   Object.assign(CT,CHART_THEMES[t]||CHART_THEMES.navy);
@@ -1727,6 +1744,11 @@ function drawKChart(){
             label:{show:true,position:'insideEndTop',fontSize:10,color:CT.legend,
               formatter:p=>`${p.name} ${(+p.value).toFixed(1)}`},
             data:[
+              ...(closes[closes.length-1]<curLevels.h20*1.002?[
+                {name:'右側進場',yAxis:+(curLevels.h20*1.005).toFixed(2),
+                 lineStyle:{color:'#E8B44A',type:'solid',width:1.5},
+                 label:{show:true,position:'insideEndTop',fontSize:10,color:'#E8B44A',
+                   formatter:p=>`▶ 右側進場 ${(+p.value).toFixed(1)}`}}]:[]),
               {name:'壓力·前波高',yAxis:+curLevels.h60.toFixed(2),
                lineStyle:{color:UPC,type:'dashed',width:1}},
               {name:'支撐·前波低',yAxis:+curLevels.l60.toFixed(2),
@@ -1740,7 +1762,7 @@ function drawKChart(){
             ]},
           markArea:{silent:true,itemStyle:{color:'rgba(232,180,74,.10)'},
             label:{color:'#E8B44A',fontSize:10,position:'insideRight'},
-            data:[[{name:curLevels.bull?'參考買進區(均線帶)':'支撐帶(空頭·觀望)',
+            data:[[{name:curLevels.bull?'◀ 左側買進區(均線帶)':'支撐帶(空頭·觀望)',
                     yAxis:+curLevels.zone[0].toFixed(2)},
                    {yAxis:+curLevels.zone[1].toFixed(2)}]]}
         }:{})},
@@ -1874,6 +1896,7 @@ async function showDetail(id){
       </div>
       <div class="dim-note">規則:壓力/支撐取近 20、60 日高低點;參考買進區為多頭排列時「月線~季線」均線帶(拉回均線帶承接是常見打法),空頭排列時只標支撐帶、以觀望為主;樞紐點 P=(H+L+C)/3。以上為規則化參考價位,非投資建議——先想好停損再想獲利。</div>
     </div>
+    ${entryHTML(lv,k.ohlc,s.price??k.ohlc[k.ohlc.length-1][3])}
     ${(()=>{const b=scenarioBands(k.ohlc,s.price??k.ohlc[k.ohlc.length-1][3]);return `
     <div class="dim-block" style="border-left:4px solid #7FB4FF">
       <h3>情境價位推估|約一季(60個交易日) <span class="ds">年化波動 ${b.sd.toFixed(0)}%</span></h3>
@@ -2182,6 +2205,55 @@ function renderChipCharts(s,e){
           data:e.ra.map(x=>x==null?null:+(x/100000).toFixed(1))}]:[])
       ]});
   }
+}
+
+/* ══════════════ 建議進場點:左側 vs 右側交易者(規則化)══════════════ */
+function entryPlan(lv,o,price){
+  const vols=o.map(x=>x[4]);
+  const volOk=avg(vols.slice(-5))>avg(vols.slice(-20));
+  const brk=+(lv.h20*1.005).toFixed(2);
+  const brkStop=+(lv.h20*0.965).toFixed(2);
+  const target=+(lv.h60+(lv.h60-lv.l60)*0.618).toFixed(2);
+  const aboveBrk=price>lv.h20*1.002;
+  const right=aboveBrk?{title:'已在高檔 · 順勢不追高',rows:[
+      ['進場方式','回測20日線 <b>'+lv.ma20.toFixed(1)+'</b> 不破且收紅,再進場/加碼'],
+      ['停損',+(lv.ma20*0.96).toFixed(2)+'(跌破月線約4%)'],
+      ['目標參考',target+'(平台高度投射)'],
+      ['提醒','現價已過突破點,直接追價的風險報酬比不佳']]}
+    :{title:'等待帶量突破再進場',rows:[
+      ['進場價','<b>'+brk+'</b>(帶量站上近月高 '+lv.h20.toFixed(1)+')'],
+      ['距現價',((brk-price)/price*100>=0?'+':'')+((brk-price)/price*100).toFixed(1)+'%'],
+      ['停損',brkStop+'(跌回突破點之下即出場)'],
+      ['目標參考',target+'(平台高度投射)'],
+      ['量能條件','突破日成交量>20日均量 '+(volOk?'(近5日量能已放大 ✓)':'(目前量能不足,等放量)')]]};
+  const left=lv.bull?{cls:'l',title:'多頭排列 · 拉回均線帶分批',rows:[
+      ['第一批(1/3)','<b>'+lv.zone[1].toFixed(2)+'</b>(回測均線帶上緣)'],
+      ['第二批(加碼)','<b>'+lv.zone[0].toFixed(2)+'</b>(均線帶下緣/季線)'],
+      ['距現價',((lv.zone[1]-price)/price*100).toFixed(1)+'% ~ '+((lv.zone[0]-price)/price*100).toFixed(1)+'%'],
+      ['停損(全部出場)',lv.stop+'(買進區下緣−3%)'],
+      ['出場參考','跌破季線收盤兩日不收回,左側邏輯失效']]}
+    :{cls:'l',title:'空頭排列 · 僅積極型小倉試單',rows:[
+      ['觀察區',lv.l60.toFixed(2)+' ~ '+lv.l20.toFixed(2)+'(前波低支撐帶)'],
+      ['進場條件','支撐帶出現止跌K棒(長下影/紅K吞噬)+量縮'],
+      ['停損',+(lv.l60*0.97).toFixed(2)+'(跌破前波低)'],
+      ['建議','趨勢未轉多,以觀望為主、倉位嚴控']]};
+  return {right,left};
+}
+function entryHTML(lv,o,price){
+  if(!lv||!o||o.length<60)return'';
+  const ep=entryPlan(lv,o,price);
+  const card=(cls,side,who,p)=>`<div class="entry-card ${cls}">
+    <div class="entry-head"><span class="entry-side">${side}</span><b>${p.title}</b></div>
+    <div class="entry-who">${who}</div>
+    <div class="entry-rows">${p.rows.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</div></div>`;
+  return `<div class="dim-block" style="border-left:4px solid var(--amber)">
+    <h3>建議進場點|右側 vs 左側(規則化) <span class="ds">現價 ${price}</span></h3>
+    <div class="entry-grid">
+      ${card('r','右側交易者','適合:順勢操作、不猜底,用較高成本換「趨勢確認」的訊號,勝率優先。',ep.right)}
+      ${card('l','左側交易者','適合:逢低分批佈局、能承受浮虧與等待,用時間換「成本優勢」。',ep.left)}
+    </div>
+    <div class="dim-note">右側=突破/趨勢確認後才進(買得貴、錯得少);左側=拉回支撐分批接(買得便宜、要忍浮虧)。兩者擇一貫徹即可,最忌右側的價進場、左側的心態凹單。以上為規則化推估、非投資建議——先想好停損,再想獲利。</div>
+  </div>`;
 }
 
 /* ══════════════ 總經行事曆事件詳細頁(說明+即時相關新聞)══════════════ */
