@@ -254,6 +254,8 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .entry-rows dt{color:var(--mut);white-space:nowrap}
 .entry-rows dd{font-family:var(--mono);text-align:right;color:var(--txt);line-height:1.55}
 .entry-rows dd b{color:var(--amber);font-size:15px}
+html[data-theme="light"] .entry-card.r .entry-side{color:#C4333B;border-color:rgba(196,51,59,.45);background:rgba(196,51,59,.08)}
+html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rgba(37,99,235,.4);background:rgba(37,99,235,.08)}
 
 /* ── 籌碼深度圖表 ── */
 .chip-sum{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0 4px}
@@ -1654,17 +1656,23 @@ function scenarioBands(o,price){
 /* ── ECharts 專業 K 線圖(MA 可開關、MACD/KD/RSI 副圖切換、縮放)── */
 let curOhlc=null,curDates=null,chartInst=null,indMode='MACD';
 const UPC='#E5484D', DNC='#21A466';
+function cssVar(n){try{return getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#E8B44A';}catch(e){return'#E8B44A';}}
+function hexA(h,a){h=String(h).replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
 /* 圖表主題(ECharts 吃不到 CSS 變數,用 CT 同步)*/
 const CT={legend:'#8B95AB',axis:'#5A6478',split:'#1A2337',border:'#232D42',
-  ttBg:'#1A2337',ttText:'#E9EDF5',inactive:'#3A4358',ma60:'#F2F2F2'};
+  ttBg:'#1A2337',ttText:'#E9EDF5',inactive:'#3A4358',ma60:'#F2F2F2',
+  up2:'#FF8A8E',dn2:'#4BD695'};
 const CHART_THEMES={
   navy:{...CT},
   black:{legend:'#9A9AA6',axis:'#5C5C68',split:'#1A1A20',border:'#26262E',
-    ttBg:'#141419',ttText:'#F2F2F4',inactive:'#3A3A44',ma60:'#E8E8EC'},
+    ttBg:'#141419',ttText:'#F2F2F4',inactive:'#3A3A44',ma60:'#E8E8EC',
+    up2:'#FF8A8E',dn2:'#4BD695'},
   light:{legend:'#5A6478',axis:'#6B7280',split:'#E4E8F0',border:'#D9DEE8',
-    ttBg:'#FFFFFF',ttText:'#1B2233',inactive:'#C4CBD6',ma60:'#4A5568'},
+    ttBg:'#FFFFFF',ttText:'#1B2233',inactive:'#C4CBD6',ma60:'#4A5568',
+    up2:'#C4333B',dn2:'#0F8A57'},
   mocha:{legend:'#AC9F88',axis:'#7E7159',split:'#261F14',border:'#3E3424',
-    ttBg:'#2C2419',ttText:'#F3EEE5',inactive:'#4A3E2B',ma60:'#F7F1E4'}
+    ttBg:'#2C2419',ttText:'#F3EEE5',inactive:'#4A3E2B',ma60:'#F7F1E4',
+    up2:'#FF9A8E',dn2:'#5BD9A0'}
 };
 function applyTheme(t,redraw){
   if(t==='green'||t==='violet')t='mocha';  // 舊主題自動遷移
@@ -1734,38 +1742,48 @@ function drawKChart(){
         splitLine:{lineStyle:{color:CT.split}}}],
     dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:30,end:100},
       {type:'slider',xAxisIndex:[0,1,2],bottom:0,height:16,start:30,end:100,
-       borderColor:CT.border,fillerColor:'rgba(232,180,74,.15)',
-       handleStyle:{color:'#E8B44A'},textStyle:{color:CT.axis,fontSize:10}}],
+       borderColor:CT.border,fillerColor:hexA(cssVar('--amber'),.15),
+       handleStyle:{color:cssVar('--amber')},textStyle:{color:CT.axis,fontSize:10}}],
     series:[{name:'K線',type:'candlestick',xAxisIndex:0,yAxisIndex:0,
         data:o.map(x=>[x[0],x[3],x[2],x[1]]),  // echarts 順序 [開,收,低,高]
         itemStyle:{color:UPC,color0:DNC,borderColor:UPC,borderColor0:DNC},
-        ...(curLevels?{
+        ...(curLevels?(()=>{
+          const ACC=cssVar('--amber');
+          // 徽章式標籤:帶底色/邊框,任何主題都清楚可讀
+          const chip=(c,pos)=>({show:true,position:pos,fontSize:10.5,fontWeight:600,color:c,
+            backgroundColor:CT.ttBg,borderColor:CT.border,borderWidth:1,
+            padding:[3,7],borderRadius:5,
+            formatter:p=>`${p.name} ${(+p.value).toFixed(1)}`});
+          return {
           markLine:{symbol:'none',silent:true,
-            label:{show:true,position:'insideEndTop',fontSize:10,color:CT.legend,
-              formatter:p=>`${p.name} ${(+p.value).toFixed(1)}`},
             data:[
               ...(closes[closes.length-1]<curLevels.h20*1.002?[
-                {name:'右側進場',yAxis:+(curLevels.h20*1.005).toFixed(2),
-                 lineStyle:{color:'#E8B44A',type:'solid',width:1.5},
-                 label:{show:true,position:'insideEndTop',fontSize:10,color:'#E8B44A',
-                   formatter:p=>`▶ 右側進場 ${(+p.value).toFixed(1)}`}}]:[]),
+                {name:'▶ 右側進場',yAxis:+(curLevels.h20*1.005).toFixed(2),
+                 lineStyle:{color:ACC,type:'solid',width:1.6},
+                 label:chip(ACC,'insideStartTop')}]:[]),
               {name:'壓力·前波高',yAxis:+curLevels.h60.toFixed(2),
-               lineStyle:{color:UPC,type:'dashed',width:1}},
+               lineStyle:{color:UPC,type:'dashed',width:1},
+               label:chip(UPC,'insideEndTop')},
               {name:'支撐·前波低',yAxis:+curLevels.l60.toFixed(2),
-               lineStyle:{color:DNC,type:'dashed',width:1}},
+               lineStyle:{color:DNC,type:'dashed',width:1},
+               label:chip(DNC,'insideEndBottom')},
               ...(Math.abs(curLevels.h20-curLevels.h60)/curLevels.h60>0.012?[
                 {name:'壓力·近月高',yAxis:+curLevels.h20.toFixed(2),
-                 lineStyle:{color:'#FF8A8E',type:'dotted',width:1}}]:[]),
+                 lineStyle:{color:CT.up2,type:'dotted',width:1},
+                 label:chip(CT.up2,'insideEndBottom')}]:[]),
               ...(Math.abs(curLevels.l20-curLevels.l60)/curLevels.l60>0.012?[
                 {name:'支撐·近月低',yAxis:+curLevels.l20.toFixed(2),
-                 lineStyle:{color:'#4BD695',type:'dotted',width:1}}]:[])
+                 lineStyle:{color:CT.dn2,type:'dotted',width:1},
+                 label:chip(CT.dn2,'insideEndTop')}]:[])
             ]},
-          markArea:{silent:true,itemStyle:{color:'rgba(232,180,74,.10)'},
-            label:{color:'#E8B44A',fontSize:10,position:'insideRight'},
+          markArea:{silent:true,itemStyle:{color:hexA(ACC,.12)},
+            label:{show:true,position:'insideLeft',fontSize:10.5,fontWeight:600,color:ACC,
+              backgroundColor:CT.ttBg,borderColor:CT.border,borderWidth:1,
+              padding:[3,7],borderRadius:5},
             data:[[{name:curLevels.bull?'◀ 左側買進區(均線帶)':'支撐帶(空頭·觀望)',
                     yAxis:+curLevels.zone[0].toFixed(2)},
                    {yAxis:+curLevels.zone[1].toFixed(2)}]]}
-        }:{})},
+          };})():{})},
       ...maSeries,volSeries,...indSeries]
   });
 }
