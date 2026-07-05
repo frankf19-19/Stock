@@ -256,6 +256,8 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .entry-rows dt{color:var(--mut);white-space:nowrap}
 .entry-rows dd{font-family:var(--mono);text-align:right;color:var(--txt);line-height:1.55}
 .entry-rows dd b{color:var(--amber);font-size:15px}
+.d-sec{font-size:16px;font-weight:900;color:var(--txt);border-left:4px solid var(--amber);padding:2px 0 2px 11px;margin:32px 0 2px;letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+.d-sec span{font-weight:400;font-size:11.5px;color:var(--dim);letter-spacing:0}
 html[data-theme="light"] .entry-card.r .entry-side{color:#C4333B;border-color:rgba(196,51,59,.45);background:rgba(196,51,59,.08)}
 html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rgba(37,99,235,.4);background:rgba(37,99,235,.08)}
 
@@ -1745,8 +1747,8 @@ function drawKChart(){
       backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
     axisPointer:{link:[{xAxisIndex:'all'}]},
     grid:[{left:56,right:16,top:28,height:'44%'},
-          {left:56,right:16,top:'58%',height:'12%'},
-          {left:56,right:16,top:'74%',height:'17%'}],
+          {left:56,right:16,top:'57%',height:'12%'},
+          {left:56,right:16,top:'72%',height:'16%'}],
     xAxis:[0,1,2].map(i=>({type:'category',gridIndex:i,data:curDates,boundaryGap:true,
       axisLine:{lineStyle:{color:CT.border}},axisLabel:{show:i===2,color:CT.axis,fontSize:10},
       axisTick:{show:false},splitLine:{show:false}})),
@@ -1756,7 +1758,7 @@ function drawKChart(){
       {gridIndex:2,scale:true,axisLabel:{color:CT.axis,fontSize:10},
         splitLine:{lineStyle:{color:CT.split}}}],
     dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:30,end:100},
-      {type:'slider',xAxisIndex:[0,1,2],bottom:0,height:16,start:30,end:100,
+      {type:'slider',xAxisIndex:[0,1,2],bottom:6,height:18,start:30,end:100,showDetail:false,
        borderColor:CT.border,fillerColor:hexA(cssVar('--amber'),.15),
        handleStyle:{color:cssVar('--amber')},textStyle:{color:CT.axis,fontSize:10}}],
     series:[{name:'K線',type:'candlestick',xAxisIndex:0,yAxisIndex:0,
@@ -1862,7 +1864,6 @@ async function showDetail(id){
         <div class="c-price"><span class="px" id="dPx" style="font-size:26px">${s.price??'—'}</span><span id="dChg">${chgHtml(s.chg)}</span></div></div>
       <div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>
     </div>
-    <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
     ${(()=>{const v=aiVerdict(s);return `
     <div class="dim-block" style="border-left:4px solid var(--amber)">
       <h3>AI 綜合研判 <span class="ds ${v.tone==='pos'?'pos':v.tone==='neg'?'neg':''}">${v.tier} · 綜合 ${v.T} 分</span></h3>
@@ -1871,15 +1872,15 @@ async function showDetail(id){
       ${v.info?`<div class="dim-note">產業觀察重點:${v.info.watch.join('、')}。</div>`:''}
       <div class="dim-note" style="color:var(--dim)">此為依營收、籌碼、技術、產業四面向的規則化研判,不構成投資建議;數據品質受來源限制,重大決策請再查證。</div>
     </div>`})()}
-    ${(()=>{const lm=SEC2LEARN.find(([k])=>String(s.sector).includes(k));return `
-    <div class="dim-block" id="profBlock">
-      <h3>公司簡介|做什麼・賣什麼 <span class="ds">${s.sector}</span></h3>
-      <div id="profBody"><div class="dim-note">公司資料載入中…</div></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-        <button class="btn-ai" id="profAiBtn">✦ AI 白話解讀:這家公司在做什麼?產品有哪些?</button>
-        ${lm?`<a class="btn-ai" style="text-decoration:none" href="#learn/${lm[1]}">📚 看懂這個產業:${LEARN[lm[1]].t}</a>`:''}
-      </div>
-    </div>`})()}
+    ${s.thesis?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
+    <div class="d-sec">📈 走勢・價位・進場策略</div>
+    <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
+    <div class="d-sec">⚖️ 三力檢視 <span>基本面・籌碼面・技術面</span></div>
+    ${dimBlock('基本面(權重40%)',s.f)}
+    ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',s.c)}
+    <div id="chipwrap"></div>
+    ${dimBlock('技術線型(權重25%)',s.t)}
+    <div class="d-sec">🎯 市場觀點 <span>分析師目標價與研究報告</span></div>
     <div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
       <h3>分析師觀點|目標價與研究報告</h3>
       <div id="anaBody"><div class="dim-note">分析師資料載入中…</div></div>
@@ -1895,6 +1896,16 @@ async function showDetail(id){
               :`<a href="https://finance.yahoo.com/quote/${s.id}/analysis" target="_blank" rel="noopener">Yahoo 分析師頁 ↗</a>`}
       </div>
     </div>
+    <div class="d-sec">🏢 認識這家公司</div>
+    ${(()=>{const lm=SEC2LEARN.find(([k])=>String(s.sector).includes(k));return `
+    <div class="dim-block" id="profBlock">
+      <h3>公司簡介|做什麼・賣什麼 <span class="ds">${s.sector}</span></h3>
+      <div id="profBody"><div class="dim-note">公司資料載入中…</div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn-ai" id="profAiBtn">✦ AI 白話解讀:這家公司在做什麼?產品有哪些?</button>
+        ${lm?`<a class="btn-ai" style="text-decoration:none" href="#learn/${lm[1]}">📚 看懂這個產業:${LEARN[lm[1]].t}</a>`:''}
+      </div>
+    </div>`})()}
     <div class="dim-block">
       <h3>相關新聞</h3>
       ${Array.isArray(s.news)&&s.news.length?`<div class="news" style="border:none;padding:0">${s.news.map(x=>
@@ -1906,11 +1917,6 @@ async function showDetail(id){
         <a href="https://news.google.com/search?q=${encodeURIComponent(s.name+' '+s.id)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant" target="_blank" rel="noopener">Google 新聞搜尋 ↗</a>
       </div>
     </div>
-    ${dimBlock('基本面(權重40%)',s.f)}
-    ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',s.c)}
-    <div id="chipwrap"></div>
-    ${dimBlock('技術線型(權重25%)',s.t)}
-    ${s.thesis?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
     <div class="links">${links.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}</div>
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
@@ -1943,7 +1949,7 @@ async function showDetail(id){
         <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
           `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
       </div>
-      <div id="kbox" style="height:520px"></div>
+      <div id="kbox" style="height:560px"></div>
     </div>
     <div class="dim-block">
       <h3>關鍵價位(規則化計算)<span class="ds">現價 ${s.price??'—'}</span></h3>
