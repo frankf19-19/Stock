@@ -241,6 +241,11 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .fav-tg:hover{transform:scale(1.15)}
 .fav-tg.on{color:var(--amber)}
 .fav-empty{color:var(--mut);font-size:13px;padding:14px 16px;background:var(--panel);border:1px dashed var(--line);border-radius:10px}
+.idx-def{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--txt2);background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin-top:8px}
+.idx-def b{font-family:var(--mono);font-weight:600}
+.idx-def .ok b{color:var(--txt)}
+.idx-def .brk{color:#FF8A8E}.idx-def .brk b{color:#FF8A8E}
+.idx-def .lbl{color:var(--amber);font-weight:700}
 #toasts{position:fixed;top:16px;right:16px;z-index:120;display:flex;flex-direction:column;gap:10px;max-width:min(360px,calc(100vw - 32px))}
 .toast{background:var(--panel);border:1px solid var(--amber);border-left-width:4px;border-radius:12px;padding:12px 14px;cursor:pointer;box-shadow:0 10px 34px rgba(0,0,0,.5);animation:toastIn .25s ease-out;font-size:13.5px;line-height:1.6}
 .toast .tt{font-weight:800;color:var(--amber);display:flex;gap:8px;align-items:center;margin-bottom:2px}
@@ -437,10 +442,16 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
       <div class="ind-head">
-        <h3>加權指數 即時走勢(1分線)</h3>
-        <span class="c-code" id="idxStat">載入中…</span>
+        <h3 id="idxTitle">加權指數 即時走勢(1分線)</h3>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="ind-seg" id="idxSeg">
+            <button data-x="tw" class="on">加權</button><button data-x="otc">櫃買</button>
+          </div>
+          <span class="c-code" id="idxStat">載入中…</span>
+        </div>
       </div>
       <div id="idxChart" style="height:252px"></div>
+      <div id="idxDefense"></div>
       <div id="idxFlow"></div>
       <div id="idxAnalysis"></div>
     </div>
@@ -1096,6 +1107,16 @@ function renderMacro(){
   const tone=fx.USDTWD?(fx.USDTWD>=32.8?'台幣偏弱(外資匯出壓力,出口有匯兌收益但指數易承壓)':fx.USDTWD<=31.5?'台幣偏強(外資匯入,易走資金行情)':'台幣區間震盪'):null;
   window.__noteFx=tone?`匯率:美元/台幣 ${fx.USDTWD},<b>${tone}</b>。`:'';
   composeMacroNote();
+  ensureOtcCard();
+}
+function ensureOtcCard(){
+  const row=document.getElementById('idxRow');
+  if(!row||document.getElementById('otcVal'))return;
+  const el=document.createElement('div');
+  el.className='idx-card';
+  el.innerHTML='<div class="nm">櫃買指數</div><div class="vl" id="otcVal">—</div><div class="ch" id="otcChg">—</div>';
+  const first=row.firstElementChild;
+  if(first&&first.nextSibling)row.insertBefore(el,first.nextSibling);else row.appendChild(el);
 }
 function composeMacroNote(){
   const el=document.getElementById('macroNote');
@@ -1556,20 +1577,98 @@ async function renderIdxAnalysis(d){
   </div>`;
 }
 
-async function refreshIdx(){
-  const d=await yChart('^TWII');
+/* ══ 大盤+櫃買 即時監測:走勢/防守線/破線警示 ══ */
+const IDX={sel:'tw',d:{},lv:{},last:{},otcSyms:['^TWOII','^TWO']};
+const IDX_NM={tw:'加權指數',otc:'櫃買指數'};
+async function idxLevels(key){
+  const sym=key==='tw'?'^TWII':IDX.otcSyms[0];
+  let d=await yChart(sym,'6mo','1d');
+  if(!d&&key==='otc'){d=await yChart(IDX.otcSyms[1],'6mo','1d');if(d)IDX.otcSyms.reverse();}
+  if(!d||!d.c)return null;
+  const c=d.c.filter(x=>x!=null);
+  if(c.length<60)return null;
+  const ma20=avg(c.slice(-20)),ma60=avg(c.slice(-60));
+  return {ma20:+ma20.toFixed(0),ma60:+ma60.toFixed(0),
+          l20:+Math.min(...c.slice(-20)).toFixed(0),bull:ma20>ma60};
+}
+function paintDefense(){
+  const el=document.getElementById('idxDefense');
+  const lv=IDX.lv[IDX.sel],last=IDX.last[IDX.sel];
+  if(!el)return;
+  if(!lv){el.innerHTML='';return;}
+  const row=(n,v)=>{
+    const brk=last&&last<v;
+    return `<span class="${brk?'brk':'ok'}">${n} <b>${Number(v).toLocaleString()}</b>${brk?' 已跌破⚠':''}</span>`;};
+  el.innerHTML=`<div class="idx-def"><span class="lbl">🛡 ${IDX_NM[IDX.sel]}防守線</span>
+    ${row('月線',lv.ma20)}${row('季線',lv.ma60)}${row('近月低',lv.l20)}
+    <span style="color:var(--dim)">${lv.bull?'月線>季線,多方架構':'月線<季線,偏空架構'};跌破防守線=多方失守訊號</span></div>`;
+}
+function idxWatch(key,last,chg){
+  IDX.last[key]=last;
+  if(key===IDX.sel)paintDefense();
+  if(!AL.on)return;
+  const lv=IDX.lv[key],nm=IDX_NM[key],seen=alSeen().k;
+  const fire=(k2,type,title,text)=>{
+    const kk='IDX'+key+'|'+k2;
+    if(seen[kk])return;
+    alMark(kk);
+    alToast(type,{name:nm,id:''},title,text);
+  };
+  if(lv){
+    if(last<lv.ma20)fire('ma20','dip','⚠ 跌破月線',`現點 ${Math.round(last).toLocaleString()},跌破月線 ${lv.ma20.toLocaleString()}——短多防守失守,留意個股買點是否延後`);
+    if(last<lv.ma60)fire('ma60','dip','⚠ 跌破季線',`現點 ${Math.round(last).toLocaleString()},跌破季線 ${lv.ma60.toLocaleString()}——中期架構轉弱,倉位宜保守`);
+    if(last<lv.l20)fire('l20','dip','⚠ 跌破近月低',`現點 ${Math.round(last).toLocaleString()},創近月新低(前低 ${lv.l20.toLocaleString()})`);
+  }
+  if(typeof chg==='number'){
+    if(chg<=-2)fire('dn2','dip','⚠ 大跌警示',`${nm}今日 ${chg.toFixed(2)}%,系統性賣壓——先看防守線與自身持股停損`);
+    if(chg>=2)fire('up2','brk','🚀 強勢大漲',`${nm}今日 +${chg.toFixed(2)}%,量能與族群擴散值得留意`);
+  }
+}
+function drawIdxSel(){
+  const d=IDX.d[IDX.sel];
+  const title=document.getElementById('idxTitle');
+  if(title)title.textContent=`${IDX_NM[IDX.sel]} 即時走勢(1分線)`;
   const stat=document.getElementById('idxStat');
-  if(!d){if(stat)stat.textContent='走勢暫時載入不到,稍後自動重試';return;}
-  const last=[...d.c].reverse().find(x=>x!=null);
+  if(!d){
+    if(stat)stat.textContent=IDX.sel==='otc'?'櫃買走勢載入中…(來源受限時僅顯示即時點位)':'走勢暫時載入不到';
+    const ch=document.getElementById('idxChart');
+    if(ch&&RT.idx&&RT.idx.ch){try{RT.idx.ch.dispose();}catch(e){}RT.idx=null;ch.innerHTML='';}
+    paintDefense();
+    return;
+  }
+  const last=IDX.last[IDX.sel]??[...d.c].reverse().find(x=>x!=null);
   const chg=(last-d.prev)/d.prev*100;
-  if(stat)stat.innerHTML=`${last.toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`;
+  if(stat)stat.innerHTML=`${(+last).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`;
   RT.idx=drawIntra('idxChart',d);
   const fl=document.getElementById('idxFlow');
-  if(fl)fl.innerHTML=flowHTML(d,'股');
-  renderIdxAnalysis(d);
+  if(fl)fl.innerHTML=IDX.sel==='tw'?flowHTML(d,'股'):'';
+  if(IDX.sel==='tw')renderIdxAnalysis(d);
+  paintDefense();
 }
+async function refreshIdx(){
+  const dtw=await yChart('^TWII');
+  if(dtw)IDX.d.tw=dtw;
+  let dot=await yChart(IDX.otcSyms[0]);
+  if(!dot){dot=await yChart(IDX.otcSyms[1]);if(dot)IDX.otcSyms.reverse();}
+  if(dot)IDX.d.otc=dot;
+  ['tw','otc'].forEach(k=>{
+    const d=IDX.d[k];
+    if(d){const last=[...d.c].reverse().find(x=>x!=null);
+      if(last)IDX.last[k]=IDX.last[k]??last;}
+  });
+  drawIdxSel();
+}
+(function(){
+  document.querySelectorAll('#idxSeg button').forEach(b=>b.onclick=()=>{
+    IDX.sel=b.dataset.x;
+    document.querySelectorAll('#idxSeg button').forEach(x=>x.classList.toggle('on',x===b));
+    drawIdxSel();
+  });
+})();
 setTimeout(refreshIdx,1500);
 setInterval(()=>{if(marketOpen())refreshIdx();},30000);
+setTimeout(async()=>{IDX.lv.tw=await idxLevels('tw');IDX.lv.otc=await idxLevels('otc');paintDefense();},2500);
+setInterval(async()=>{if(marketOpen()){IDX.lv.tw=IDX.lv.tw||await idxLevels('tw');IDX.lv.otc=IDX.lv.otc||await idxLevels('otc');}},600000);
 
 /* ── 風險指標:VIX 恐慌指數 + 美債殖利率(每60秒即時更新)── */
 async function refreshRisk(){
@@ -1673,7 +1772,7 @@ function alToast(type,s,title,text){
   el.innerHTML=`<div class="tt">${type==='dip'?'🎯 下殺至買進區':'🚀 帶量突破'} <span class="cls">✕</span></div>
     <div class="tx"><b>${s.name}(${s.id})</b> ${text}</div>`;
   el.onclick=e=>{
-    if(e.target.classList.contains('cls')){el.remove();return;}
+    if(e.target.classList.contains('cls')||!s.id||s.id==='系統'){el.remove();return;}
     location.hash='#stock/'+s.id;el.remove();
   };
   box.appendChild(el);
@@ -1864,7 +1963,7 @@ async function rtTick(){
     RT.cursor=(RT.cursor+90)%allTW.length;
   }
   const exOf=id=>{const s=DATA.stocks.find(x=>x.id===id);return (s&&s.ex==='otc')?'otc':'tse';};
-  const chans=['tse_t00.tw',...ids.map(id=>`${exOf(id)}_${id}.tw`)];
+  const chans=['tse_t00.tw','otc_o00.tw',...ids.map(id=>`${exOf(id)}_${id}.tw`)];
   let arr=[];
   for(let i=0;i<chans.length;i+=45){
     const part=await fetchMIS(chans.slice(i,i+45));
@@ -1876,12 +1975,23 @@ async function rtTick(){
   arr.forEach(m=>{
     const last=rtPx(m), y=parseFloat(m.y);
     if(!last||!y)return;
-    if(m.c==='t00'){
-      const idx=((DATA.macro||{}).idx||[]).find(x=>(x.name||'').includes('加權'));
-      if(idx){idx.val=+last.toFixed(2);idx.chg=+(((last-y)/y)*100).toFixed(2);}
-      const tv=parseFloat(String(m.v||'').replace(/,/g,''));
-      if(tv>0)RT.t00v=tv;
-      pokeChart(RT.idx,last,'idxStat');
+    if(m.c==='t00'||m.c==='o00'){
+      const key=m.c==='t00'?'tw':'otc';
+      const chg=+(((last-y)/y)*100).toFixed(2);
+      if(m.c==='t00'){
+        const idx=((DATA.macro||{}).idx||[]).find(x=>(x.name||'').includes('加權'));
+        if(idx){idx.val=+last.toFixed(2);idx.chg=chg;}
+        const tv=parseFloat(String(m.v||'').replace(/,/g,''));
+        if(tv>0)RT.t00v=tv;
+      }
+      ensureOtcCard();
+      if(m.c==='o00'){
+        const v=document.getElementById('otcVal'),c2=document.getElementById('otcChg');
+        if(v)v.textContent=Number(last.toFixed(2)).toLocaleString();
+        if(c2)c2.innerHTML=chgHtml(chg);
+      }
+      if(key===IDX.sel)pokeChart(RT.idx,last,'idxStat');
+      try{idxWatch(key,last,chg);}catch(e){}
       return;
     }
     const s=DATA.stocks.find(x=>x.id===m.c);
@@ -2484,15 +2594,9 @@ async function showDetail(id){
       bar.hidden=false;};
     paint();
     try{
-      const xml=await fetchTextProxy(`https://news.google.com/rss/search?q=${encodeURIComponent('"'+s.name+'"')}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`);
-      if(xml&&location.hash==='#stock/'+s.id){
-        const doc=new DOMParser().parseFromString(xml,'text/xml');
-        [...doc.querySelectorAll('item')].slice(0,10).forEach(it=>{
-          const t=(it.querySelector('title')||{}).textContent||'';
-          const l=(it.querySelector('link')||{}).textContent||'';
-          const sc=(it.querySelector('source')||{}).textContent||'';
-          push(t.replace(/ - [^-]+$/,''),l,sc);
-        });
+      const its=await rssItems(`"${s.name}"`,10);
+      if(location.hash==='#stock/'+s.id){
+        its.forEach(x=>push(x.t,x.l,x.s));
         paint();
       }
     }catch(e){}
@@ -3269,70 +3373,192 @@ function showLearnDetail(key){
 /* ══════════════ 公司簡介(Yahoo 公司資料 + AI 白話解讀)══════════════ */
 const YSUM={};
 function ySym(s){return s.market==='TW'?`${s.id}.${s.ex==='tse'?'TW':'TWO'}`:s.id;}
+async function jinaRead(url,ms){
+  try{
+    const r=await fT('https://r.jina.ai/'+url,ms||16000);
+    if(r.ok){const t=await r.text();if(t&&t.length>400&&!/rate ?limit/i.test(t.slice(0,200)))return t;}
+  }catch(e){}
+  return null;
+}
+function saNum(t,res){
+  for(const re of res){const m=t.match(re);if(m)return parseFloat(m[1].replace(/,/g,''));}
+  return null;
+}
 async function ySummary(s){
   const sym=ySym(s);
   if(YSUM[sym])return YSUM[sym];
   YSUM[sym]=(async()=>{
-    // Yahoo quoteSummary API 已全面加上 cookie/crumb 驗證,代理必失敗 → 直接抓個股頁 HTML 萃取
+    const isTW=s.market==='TW';
+    const base=isTW?`https://stockanalysis.com/quote/tpe/${s.id}/`:`https://stockanalysis.com/stocks/${s.id}/`;
+    let fd=null,ap=null;
+    // ── 主力來源:jina 閱讀器讀 stockanalysis(繞過機器人封鎖、支援 CORS 直連) ──
+    const ft=await jinaRead(base+'forecast/');
+    if(ft){
+      const mean=saNum(ft,[/average (?:12-month )?(?:price )?target (?:of |is |at )?(?:NT\$|\$|TWD ?)?([\d,]+\.?\d*)/i,
+                           /average target of (?:NT\$|\$)?([\d,]+\.?\d*)/i,
+                           /price target[^\d]{0,30}?([\d,]+\.\d+)/i]);
+      const hi=saNum(ft,[/high (?:estimate|target|forecast)? ?(?:of|is|at)? ?(?:NT\$|\$|TWD ?)?([\d,]+\.?\d*)/i]);
+      const lo=saNum(ft,[/low (?:estimate|target|forecast)? ?(?:of|is|at)? ?(?:NT\$|\$|TWD ?)?([\d,]+\.?\d*)/i]);
+      const n=saNum(ft,[/(\d+)\s+(?:Wall Street )?analysts?/i,/according to (\d+)/i]);
+      const rk=(ft.match(/consensus (?:rating )?(?:of |is )?"?\*{0,2}(strong buy|buy|hold|underperform|sell)/i)||[])[1];
+      if(mean)fd={targetMeanPrice:mean,targetHighPrice:hi,targetLowPrice:lo,
+                  numberOfAnalystOpinions:n,recommendationKey:rk?rk.toLowerCase().replace(/\s+/,'_'):null};
+    }
+    const ct=await jinaRead(base+'company/');
+    if(ct){
+      let desc=null;
+      const dm=ct.match(/#{1,3}\s*(?:About|Description|Company (?:Description|Profile))[^\n]*\n+([\s\S]{80,1500}?)\n\n/i);
+      if(dm)desc=dm[1];
+      if(!desc){
+        const paras=ct.split(/\n{2,}/).filter(p=>p.length>160&&/[a-z]{4}/.test(p)&&!p.includes('|')&&!/^\[/.test(p.trim()));
+        paras.sort((x,y)=>y.length-x.length);
+        desc=paras[0]||null;
+      }
+      if(desc)desc=desc.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/[*#_>]/g,'').trim();
+      const emp=saNum(ct,[/Employees[^\d]{0,25}([\d,]{3,})/i]);
+      const wm=ct.match(/\bWebsite\b[^\n]*?\]?\((https?:\/\/[^\s)]+)\)/i)||ct.match(/\bWebsite\b[^\n]*?(https?:\/\/[^\s|)\]]+)/i);
+      let ind=(ct.match(/\bIndustry\b[^A-Za-z\u4e00-\u9fff]{0,10}([A-Za-z][A-Za-z &,\-\/]{1,40})/i)||[])[1];
+      if(ind)ind=ind.replace(/x{4,}.*$/,'').trim();
+      if(desc||emp)ap={longBusinessSummary:desc,industry:ind?ind.trim():null,
+        website:wm?wm[1]:null,fullTimeEmployees:emp,city:null,country:null};
+    }
+    if(fd||(ap&&ap.longBusinessSummary))return {financialData:fd||{},assetProfile:ap||{}};
+    // ── 備援:三代理並行抓 Yahoo 個股頁萃取 ──
     const page=`https://finance.yahoo.com/quote/${encodeURIComponent(sym)}/`;
     const routes=[
       u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
       u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u),
       u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
-    // 三條路「同時」出發,誰先拿到含關鍵欄位的頁面就用誰(總等待 ≤ 12 秒)
     const html=await new Promise(resolve=>{
       let done=false,fails=0;
       routes.forEach(r=>{
         fT(r(page),12000).then(res=>res.ok?res.text():null).then(t=>{
           if(done)return;
-          if(t&&t.length>3000&&(t.includes('targetMeanPrice')||t.includes('longBusinessSummary'))){
-            done=true;resolve(t);
-          }else if(++fails>=routes.length)resolve(null);
+          if(t&&t.length>3000&&(t.includes('targetMeanPrice')||t.includes('longBusinessSummary'))){done=true;resolve(t);}
+          else if(++fails>=routes.length)resolve(null);
         }).catch(()=>{if(!done&&++fails>=routes.length)resolve(null);});
       });
     });
     if(html){
-      const fd={targetMeanPrice:pickNum(html,'targetMeanPrice'),
-                targetHighPrice:pickNum(html,'targetHighPrice'),
-                targetLowPrice:pickNum(html,'targetLowPrice'),
-                numberOfAnalystOpinions:pickNum(html,'numberOfAnalystOpinions'),
-                recommendationKey:pickStr(html,'recommendationKey')};
-      const ap={longBusinessSummary:pickStr(html,'longBusinessSummary'),
-                industry:pickStr(html,'industryDisp')||pickStr(html,'industry'),
-                website:pickStr(html,'website'),
-                fullTimeEmployees:pickNum(html,'fullTimeEmployees'),
-                city:pickStr(html,'city'),country:pickStr(html,'country')};
-      if(fd.targetMeanPrice||ap.longBusinessSummary)
-        return {financialData:fd,assetProfile:ap};
+      const fd2={targetMeanPrice:pickNum(html,'targetMeanPrice'),
+                 targetHighPrice:pickNum(html,'targetHighPrice'),
+                 targetLowPrice:pickNum(html,'targetLowPrice'),
+                 numberOfAnalystOpinions:pickNum(html,'numberOfAnalystOpinions'),
+                 recommendationKey:pickStr(html,'recommendationKey')};
+      const ap2={longBusinessSummary:pickStr(html,'longBusinessSummary'),
+                 industry:pickStr(html,'industryDisp')||pickStr(html,'industry'),
+                 website:pickStr(html,'website'),
+                 fullTimeEmployees:pickNum(html,'fullTimeEmployees'),
+                 city:pickStr(html,'city'),country:pickStr(html,'country')};
+      if(fd2.targetMeanPrice||ap2.longBusinessSummary)
+        return {financialData:fd2,assetProfile:ap2};
     }
     return null;
   })();
   return YSUM[sym];
 }
+/* 公司基本資料(全市場一次抓,快取一天;OpenAPI 支援瀏覽器直連) */
+let CO_BASIC=null;
+async function coBasic(){
+  if(CO_BASIC)return CO_BASIC;
+  try{
+    const c=JSON.parse(localStorage.getItem('co_basic')||'null');
+    if(c&&c.exp>Date.now()){CO_BASIC=c.d;return CO_BASIC;}
+  }catch(e){}
+  const d={};
+  for(const u of ['https://openapi.twse.com.tw/v1/opendata/t187ap03_L',
+                  'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O']){
+    let arr=null;
+    try{const r=await fT(u,12000);if(r.ok)arr=await r.json();}catch(e){}
+    if(!arr){const t=await fetchTextProxy(u);try{arr=JSON.parse(t);}catch(e){}}
+    if(!Array.isArray(arr)||!arr.length)continue;
+    const keys=Object.keys(arr[0]);
+    const k=(...ns)=>keys.find(x=>ns.some(n=>x.includes(n)));
+    const kid=k('公司代號'),kch=k('董事長'),kest=k('成立日期'),kipo=k('上市日期','上櫃日期'),
+          kcap=k('實收資本額'),kweb=k('網址'),kind=k('產業別'),kfull=k('公司名稱');
+    arr.forEach(r=>{
+      const sid=String(r[kid]||'').trim();
+      if(!sid)return;
+      d[sid]={chair:r[kch]||'',est:r[kest]||'',ipo:r[kipo]||'',
+              cap:r[kcap]||'',web:r[kweb]||'',ind:r[kind]||'',full:r[kfull]||''};
+    });
+  }
+  CO_BASIC=d;
+  try{localStorage.setItem('co_basic',JSON.stringify({exp:Date.now()+864e5,d}));}catch(e){}
+  return d;
+}
+function fmtCap(v){
+  const n=parseFloat(String(v).replace(/,/g,''));
+  if(!n)return null;
+  return n>=1e8?(n/1e8).toFixed(1).replace(/\.0$/,'')+' 億':Math.round(n/1e4).toLocaleString()+' 萬';
+}
+function fmtRocDate(v){
+  const s=String(v||'').replace(/[^\d]/g,'');
+  if(s.length===7)return (+s.slice(0,3)+1911)+'/'+s.slice(3,5)+'/'+s.slice(5);
+  if(s.length===8)return s.slice(0,4)+'/'+s.slice(4,6)+'/'+s.slice(6);
+  return v||null;
+}
+/* 中文簡介:維基百科 REST API(官方開放 CORS,直連免代理) */
+async function wikiSummary(cands,lang){
+  for(const name of cands.filter(Boolean)){
+    try{
+      const r=await fT(`https://${lang||'zh'}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`,8000);
+      if(!r.ok)continue;
+      const j=await r.json();
+      if(j&&j.extract&&j.type!=='disambiguation'&&j.extract.length>40)
+        return {text:j.extract,url:(j.content_urls&&j.content_urls.desktop&&j.content_urls.desktop.page)||null};
+    }catch(e){}
+  }
+  return null;
+}
 async function loadProfileDetail(s){
   const box=document.getElementById('profBody');
   if(!box)return;
-  const q=await ySummary(s);
-  const p=q&&q.assetProfile;
-  if(!document.getElementById('profBody')||!location.hash.startsWith('#stock/'))return;
-  if(!p){
-    box.innerHTML='<div class="dim-note">公司資料暫時載入不到——直接點下方「AI 白話解讀」最快。</div>';
+  const isTW=s.market==='TW';
+  const parts={facts:'',desc:'<div class="dim-note">中文簡介載入中…</div>'};
+  const paint=()=>{
+    const el=document.getElementById('profBody');
+    if(!el||!location.hash.startsWith('#stock/'))return;
+    el.innerHTML=parts.facts+parts.desc;
+  };
+  // 1) 基本事實(證交所/櫃買,直連):董事長/成立/掛牌/資本額/官網
+  if(isTW){
+    coBasic().then(d=>{
+      const c=d&&d[s.id];
+      if(!c)return;
+      parts.facts=`<div class="prof-kv">
+        ${c.ind?`<span><b>產業別</b>${c.ind}</span>`:''}
+        ${c.chair?`<span><b>董事長</b>${c.chair}</span>`:''}
+        ${fmtRocDate(c.est)?`<span><b>成立</b>${fmtRocDate(c.est)}</span>`:''}
+        ${fmtRocDate(c.ipo)?`<span><b>掛牌</b>${fmtRocDate(c.ipo)}</span>`:''}
+        ${fmtCap(c.cap)?`<span><b>實收資本額</b>${fmtCap(c.cap)}</span>`:''}
+        ${c.web?`<span><b>官網</b><a href="${/^http/.test(c.web)?c.web:'https://'+c.web}" target="_blank" rel="noopener">${String(c.web).replace(/^https?:\/\//,'')}</a></span>`:''}
+      </div>`;
+      paint();
+    });
+  }
+  paint();
+  // 2) 中文簡介:維基百科(直連);查不到再退英文簡介
+  const cands=isTW?[s.name,s.full,s.name+' (公司)']:[s.full,s.name,s.id];
+  let w=await wikiSummary(cands,'zh');
+  if(!w&&!isTW)w=await wikiSummary([s.full,s.name],'en');
+  if(w){
+    parts.desc=`<div class="prof-sum">${w.text}</div>
+      <div class="dim-note" style="margin-top:6px">簡介來源:維基百科${w.url?` <a href="${w.url}" target="_blank" rel="noopener">原文 ↗</a>`:''};想要「產品分類+白話版」點下方 AI 按鈕。</div>`;
+    paint();
     return;
   }
-  const sum=p.longBusinessSummary||'';
-  const short=sum.length>420?sum.slice(0,420)+'…':sum;
-  box.innerHTML=`
-    <div class="prof-kv">
-      ${p.industryDisp||p.industry?`<span><b>細產業</b>${p.industryDisp||p.industry}</span>`:''}
-      ${numRaw(p.fullTimeEmployees)?`<span><b>員工數</b>${Number(numRaw(p.fullTimeEmployees)).toLocaleString()} 人</span>`:''}
-      ${p.city?`<span><b>總部</b>${p.city}${p.country&&p.country!=='Taiwan'?', '+p.country:''}</span>`:''}
-      ${p.website?`<span><b>官網</b><a href="${p.website}" target="_blank" rel="noopener">${p.website.replace(/^https?:\/\//,'')}</a></span>`:''}
-    </div>
-    ${sum?`<div class="prof-sum" id="profSum">${short}${sum.length>420?' <span class="prof-more" id="profMore">展開全文</span>':''}</div>
-    <div class="dim-note" style="margin-top:6px">簡介原文為英文(Yahoo Finance),點下方按鈕由 AI 翻成白話並整理產品分類。</div>`
-    :'<div class="dim-note">此檔無英文簡介,點下方按鈕由 AI 直接介紹。</div>'}`;
-  const more=document.getElementById('profMore');
-  if(more)more.onclick=()=>{document.getElementById('profSum').innerHTML=sum;};
+  // 3) 後備:英文簡介(stockanalysis/Yahoo 鏈)
+  const q=await ySummary(s);
+  const p=q&&q.assetProfile;
+  if(p&&p.longBusinessSummary){
+    const sum=p.longBusinessSummary;
+    parts.desc=`<div class="prof-sum">${sum.length>420?sum.slice(0,420)+'…':sum}</div>
+      <div class="dim-note" style="margin-top:6px">此檔查無中文百科條目,以上為英文簡介——點下方按鈕由 AI 翻成白話並整理產品分類。</div>`;
+  }else{
+    parts.desc='<div class="dim-note">查無現成簡介(小型股常見)——點下方「AI 白話解讀」,會直接為你介紹公司與產品分類。</div>';
+  }
+  paint();
 }
 /* ══════════════ 建議進場點:左側 vs 右側交易者(規則化)══════════════ */
 function entryPlan(lv,o,price){
@@ -3549,24 +3775,34 @@ function showEventDetail(){
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   evNews(kb.q,document.getElementById('evNewsBox'));
 }
+async function rssItems(q,max){
+  const urls=[
+    'https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
+    'https://www.bing.com/news/search?q='+encodeURIComponent(q)+'&format=rss&setlang=zh-TW'];
+  for(const u of urls){
+    const t=await fetchTextProxy(u);
+    if(!t)continue;
+    try{
+      const doc=new DOMParser().parseFromString(t,'text/xml');
+      const items=[...doc.querySelectorAll('item')].slice(0,max||8).map(it=>{
+        const title=(it.querySelector('title')||{textContent:''}).textContent||'';
+        const p=title.split(' - ');
+        return {t:p.length>1?p.slice(0,-1).join(' - '):title,
+                s:p.length>1?p[p.length-1]:'',
+                l:(it.querySelector('link')||{textContent:'#'}).textContent||'#',
+                d:((it.querySelector('pubDate')||{textContent:''}).textContent||'').slice(5,16)};
+      }).filter(x=>x.t);
+      if(items.length)return items;
+    }catch(e){}
+  }
+  return [];
+}
 async function evNews(q,box){
-  const url='https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=zh-TW&gl=TW&ceid=TW:zh-Hant';
-  const t=await fetchTextProxy(url);
+  const items=await rssItems(q,6);
   if(!box||!box.isConnected)return;
-  if(!t){box.innerHTML='<div class="dim-note">新聞暫時載入不到,請點下方 Google 新聞搜尋直接查看。</div>';return;}
-  try{
-    const doc=new DOMParser().parseFromString(t,'text/xml');
-    const items=[...doc.querySelectorAll('item')].slice(0,6).map(it=>{
-      const title=(it.querySelector('title')||{textContent:''}).textContent||'';
-      const p=title.split(' - ');
-      return {t:p.slice(0,-1).join(' - ')||title,s:p.length>1?p[p.length-1]:'',
-              l:(it.querySelector('link')||{textContent:'#'}).textContent||'#',
-              d:((it.querySelector('pubDate')||{textContent:''}).textContent||'').slice(5,16)};
-    }).filter(x=>x.t);
-    box.innerHTML=items.length?`<div class="news" style="border:none;padding:0">${items.map(x=>
-      `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>`
-      :'<div class="dim-note">找不到相關新聞,點下方連結直接搜尋。</div>';
-  }catch(e){box.innerHTML='<div class="dim-note">新聞解析失敗,點下方連結直接搜尋。</div>';}
+  box.innerHTML=items.length?`<div class="news" style="border:none;padding:0">${items.map(x=>
+    `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>`
+    :'<div class="dim-note">新聞暫時載入不到,點下方連結直接搜尋。</div>';
 }
 /* 行事曆點擊(事件委派) */
 (function(){
