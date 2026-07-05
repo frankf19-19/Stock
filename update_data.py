@@ -479,6 +479,97 @@ def fetch_tdcc_bulk():
         print(f"  [warn] TDCC: {e}")
         return {}, ""
 
+def prev_q(q):
+    y, s = int(q[:4]), int(q[-1])
+    return f"{y-1}Q4" if s == 1 else f"{y}Q{s-1}"
+
+def fetch_margin_bulk():
+    """最新一季營益分析(毛利率/營益率/稅後純益率/營收)。來源:證交所+櫃買 OpenAPI(僅最新季)。"""
+    out = {}
+    for url in ("https://openapi.twse.com.tw/v1/opendata/t187ap17_L",
+                "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap17_O"):
+        try:
+            arr = get_json(url, timeout=60)
+            keys = list(arr[0].keys())
+            k_id  = next((k for k in keys if "代號" in k), None)
+            k_y   = next((k for k in keys if "年度" in k), None)
+            k_s   = next((k for k in keys if "季" in k), None)
+            k_rev = next((k for k in keys if "營業收入" in k), None)
+            k_gm  = next((k for k in keys if "毛利率" in k), None)
+            k_om  = next((k for k in keys if "營業利益率" in k), None)
+            k_nm  = next((k for k in keys if "稅後純益率" in k), None)
+            if None in (k_id, k_gm, k_om, k_nm): continue
+            for r in arr:
+                sid = str(r.get(k_id, "")).strip()
+                gm, om, nm = numf(r.get(k_gm)), numf(r.get(k_om)), numf(r.get(k_nm))
+                if not sid or None in (gm, om, nm): continue
+                y = int(numf(r.get(k_y)) or 0)
+                y = y + 1911 if 0 < y < 1900 else y
+                s_ = int(numf(r.get(k_s)) or 0)
+                if not (y > 1900 and 1 <= s_ <= 4): continue
+                out[sid] = (f"{y}Q{s_}", gm, om, nm, numf(r.get(k_rev)))
+        except Exception as e:
+            print(f"  [warn] 營益分析: {e}")
+    print(f"  營益分析(三率):{len(out)} 家")
+    return out
+
+def fetch_margin_mops(year, season):
+    """歷史季別營益彙總(公開資訊觀測站),用於首次回補上一季。"""
+    out = {}
+    for typek in ("sii", "otc"):
+        try:
+            r = requests.post("https://mopsov.twse.com.tw/mops/web/ajax_t163sb06",
+                data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
+                      "isQuery": "Y", "TYPEK": typek,
+                      "year": str(year - 1911), "season": f"{season:02d}"},
+                headers=UA, timeout=60)
+            for df in pd.read_html(StringIO(r.text)):
+                cols = [str(c) for c in df.columns]
+                if not any("毛利率" in c for c in cols): continue
+                c_id = next(c for c in df.columns if "代號" in str(c))
+                c_gm = next(c for c in df.columns if "毛利率" in str(c))
+                c_om = next(c for c in df.columns if "營業利益率" in str(c))
+                c_nm = next(c for c in df.columns if "稅後純益率" in str(c))
+                c_rv = next((c for c in df.columns if "營業收入" in str(c)), None)
+                for _, row in df.iterrows():
+                    sid = str(row[c_id]).strip()
+                    if not (sid.isdigit() and len(sid) == 4): continue
+                    gm, om, nm = numf(row[c_gm]), numf(row[c_om]), numf(row[c_nm])
+                    if None in (gm, om, nm): continue
+                    out[sid] = (gm, om, nm, numf(row[c_rv]) if c_rv is not None else None)
+        except Exception as e:
+            print(f"  [warn] MOPS 營益 {typek} {year}Q{season}: {e}")
+        time.sleep(1.5)
+    return out
+
+def append_margins(chips, cur):
+    """把季度三率寫入籌碼歷史(fq/gm/om/nm/qr,保留8季);上一季不足時嘗試 MOPS 回補一次。"""
+    if not cur: return
+    q_now = max(v[0] for v in cur.values())
+    pq = prev_q(q_now)
+    have_prev = sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or []))
+    if have_prev < 200:
+        y, s_ = int(pq[:4]), int(pq[-1])
+        print(f"  上一季三率資料不足({have_prev} 家),向 MOPS 回補 {pq} …")
+        prev = fetch_margin_mops(y, s_)
+        print(f"  MOPS 回補:{len(prev)} 家")
+        for sid, (gm, om, nm, rv) in prev.items():
+            _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+    for sid, (q, gm, om, nm, rv) in cur.items():
+        _put_margin(chips.setdefault(sid, {}), q, gm, om, nm, rv)
+
+def _put_margin(e, q, gm, om, nm, rv):
+    m = {e["fq"][i]: [e["gm"][i], e["om"][i], e["nm"][i],
+                      (e.get("qr") or [None]*len(e["fq"]))[i]]
+         for i in range(len(e.get("fq") or []))}
+    m[q] = [gm, om, nm, rv]
+    qs = sorted(m)[-8:]
+    e["fq"] = qs
+    e["gm"] = [m[x][0] for x in qs]
+    e["om"] = [m[x][1] for x in qs]
+    e["nm"] = [m[x][2] for x in qs]
+    e["qr"] = [m[x][3] for x in qs]
+
 def load_prev():
     try:
         with open("data.json", encoding="utf-8") as f:
@@ -696,6 +787,7 @@ def main():
     tdcc, tdcc_date = fetch_tdcc_bulk()
     append_tdcc(chips, tdcc, tdcc_date)     # 大戶逐週,保留 26 週
     append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
+    append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
     inst = build_inst(chips)
     save_chips(chips, cmeta, comps)
 
@@ -720,6 +812,19 @@ def main():
                  "t": {"score": 50, "kv": {}, "note": ""}}
         d.update({"id": c["id"], "name": c["name"], "full": c["full"],
                   "market": c["market"], "ex": c["ex"], "sector": c["sector"]})
+        # 營收三率三升:最新季毛利/營益/淨利率皆高於上一季,且營收成長(月YoY>0 或 季營收QoQ>0)
+        me = chips.get(c["id"], {})
+        fq = me.get("fq") or []
+        if c["market"] == "TW" and len(fq) >= 2:
+            g, o2, n2, qr = me["gm"], me["om"], me["nm"], me.get("qr") or []
+            if g[-1] > g[-2] and o2[-1] > o2[-2] and n2[-1] > n2[-2]:
+                yoy = rev_bulk.get(c["id"], (None,))[0] if c["id"] in rev_bulk else None
+                rev_ok = (yoy is not None and yoy > 0) or (
+                    len(qr) >= 2 and qr[-1] and qr[-2] and qr[-1] > qr[-2])
+                if rev_ok:
+                    d["t3"] = {"q": fq[-1],
+                               "gm": [g[-2], g[-1]], "om": [o2[-2], o2[-1]],
+                               "nm": [n2[-2], n2[-1]], "ry": yoy}
         if c["id"] in THESIS: d["thesis"] = THESIS[c["id"]]
         stocks.append(d)
 

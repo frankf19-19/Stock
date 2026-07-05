@@ -33,6 +33,27 @@ html[data-theme="mocha"]{
   --txt:#F3EEE5; --mut:#AC9F88; --dim:#6F6350; --txt2:#DFD6C5;
   --amber:#EDB94E; --hdr:#1C1710;
 }
+html[data-theme="teal"]{
+  --bg:#08181B; --panel:#0D2226; --panel2:#133036; --line:#1E4149;
+  --txt:#E4F4F4; --mut:#8AAFB2; --dim:#527278; --txt2:#C4DFE0;
+  --amber:#3FC9BE; --hdr:#0A1D20;
+}
+html[data-theme="graphite"]{
+  --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
+  --txt:#ECEDEF; --mut:#9BA1AB; --dim:#62676F; --txt2:#CDD1D7;
+  --amber:#D8B364; --hdr:#17181B;
+}
+html[data-theme="dawn"]{
+  --bg:#131722; --panel:#1B2130; --panel2:#252D40; --line:#333C52;
+  --txt:#EDF0F7; --mut:#8D97AD; --dim:#5A6378; --txt2:#CBD2E0;
+  --amber:#F2994A; --hdr:#161B28;
+}
+html[data-theme="sepia"]{
+  --bg:#F5F1E8; --panel:#FFFDF7; --panel2:#EFE9DA; --line:#DCD3BE;
+  --txt:#2A2418; --mut:#6E6552; --dim:#988E77; --txt2:#4A4232;
+  --amber:#A9761B; --hdr:#EEE7D6;
+  --up:#C43A3A; --down:#0E7D52;
+}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:15px;line-height:1.6}
 a{color:var(--amber)}
@@ -198,6 +219,8 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .foot{margin-top:34px;border-top:1px solid var(--line);padding-top:16px;color:var(--dim);font-size:12.5px}
 .empty{color:var(--mut);text-align:center;padding:50px 0;grid-column:1/-1}
 /* ── 手機版重排(≤640px)── */
+.mini-cap{font-size:11px;color:var(--dim);margin:6px 2px 4px;letter-spacing:.08em;font-weight:700}
+.macro-side .mini-cap:first-child{margin-top:0}
 .sec-title.tap{cursor:pointer;user-select:none;transition:opacity .15s}
 .sec-title.tap:hover{opacity:.85}
 .sec-title.tap::before{content:'▾';color:var(--amber);margin-right:2px;display:inline-block;transition:transform .18s;align-self:center;font-size:14px}
@@ -347,6 +370,10 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
         <option value="black">⬛ 純黑金</option>
         <option value="light">☀️ 明亮日盤</option>
         <option value="mocha">🥃 琥珀夜盤</option>
+        <option value="teal">🌊 深海青</option>
+        <option value="graphite">🪨 石墨銀</option>
+        <option value="dawn">🌇 曙光橙</option>
+        <option value="sepia">📜 護眼米黃</option>
       </select>
       <button class="btn-ghost" id="learnBtn" title="半導體/科技供應鏈白話教學">📚 產業小學堂</button>
       <button class="btn-upd" id="updBtn">↻ 更新資訊</button>
@@ -372,34 +399,34 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       <div id="idxAnalysis"></div>
     </div>
     <div class="macro-side">
+      <div class="mini-cap">指數</div>
       <div class="idx-row compact" id="idxRow"></div>
+      <div class="mini-cap">匯率</div>
       <div class="idx-row compact" id="fxRow"></div>
+      <div class="mini-cap">風險溫度計</div>
       <div class="idx-row compact" id="riskRow"></div>
+      <div class="mini-cap">三大法人(盤後)</div>
       <div class="idx-row compact" id="instRow"></div>
     </div>
   </div>
   <div class="fx-note" id="macroNote">總經判讀載入中…</div>
 
   </div>
-  <div class="sec-title" data-sec="cal">總經行事曆 <span style="font-weight:400;font-size:12px;letter-spacing:0">近兩週為即時行事曆(自動更新,含預估值);較遠期為規則推算</span></div><div class="sec-body" id="sb-cal">
-  <div class="news" id="calBox"></div>
+  <div class="sec-title" data-sec="radar">機會雷達 <span style="font-weight:400;font-size:12px;letter-spacing:0">大戶進場・突破・回檔訊號,規則化每日更新</span></div><div class="sec-body" id="sb-radar">
+  <div class="radar" id="radar"></div>
+  <div class="radar-note">雷達為規則化訊號(價格型態 × 三力評分),用途是縮小觀察範圍,不構成投資建議;實際進出請依自己的紀律與停損計畫。</div>
 
+  </div>
+
+  <div class="sec-title" data-sec="t3">營收三率三升 <span style="font-weight:400;font-size:12px;letter-spacing:0">營收成長+毛利率/營益率/淨利率齊揚(季比)|財報公布後每日自動重算</span></div><div class="sec-body" id="sb-t3">
+    <div class="radar" id="t3Box"></div>
   </div>
   <div class="sec-title" data-sec="pulse">盤面脈動 <span style="font-weight:400;font-size:12px;letter-spacing:0">強勢族群與焦點個股,依最新報價即時計算</span></div><div class="sec-body" id="sb-pulse">
   <div class="idx-row" id="pulseSec"></div>
   <div class="radar" id="pulseStocks" style="margin-top:10px"></div>
 
   </div>
-  <div class="sec-title" data-sec="radar">機會雷達</div><div class="sec-body" id="sb-radar">
-  <div class="radar" id="radar"></div>
-  <div class="radar-note">雷達為規則化訊號(價格型態 × 三力評分),用途是縮小觀察範圍,不構成投資建議;實際進出請依自己的紀律與停損計畫。</div>
-
-  </div>
-  <div class="sec-title" data-sec="news">重大新聞</div><div class="sec-body" id="sb-news">
-  <div class="news" id="newsBox"></div>
-
-  </div>
-  <div class="sec-title" data-sec="list">選股清單</div><div class="sec-body" id="sb-list">
+  <div class="sec-title" data-sec="list">選股清單 <span style="font-weight:400;font-size:12px;letter-spacing:0">全市場約 1,800 檔+S&P 500,可搜尋/排序/依產業篩選</span></div><div class="sec-body" id="sb-list">
   <div class="controls">
     <div class="seg" id="mktSeg" role="tablist" aria-label="市場">
       <button data-m="ALL" class="on">全部</button>
@@ -421,7 +448,15 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   <div class="grid" id="grid"></div>
 
   </div>
-  </div><!-- /homeView -->
+  </div><div class="sec-title" data-sec="cal">總經行事曆 <span style="font-weight:400;font-size:12px;letter-spacing:0">近兩週為即時行事曆(自動更新,含預估值);較遠期為規則推算</span></div><div class="sec-body" id="sb-cal">
+  <div class="news" id="calBox"></div>
+
+  </div>
+  <div class="sec-title" data-sec="news">重大新聞 <span style="font-weight:400;font-size:12px;letter-spacing:0">台美股財經頭條</span></div><div class="sec-body" id="sb-news">
+  <div class="news" id="newsBox"></div>
+
+  </div>
+  <!-- /homeView -->
 
   <div id="detailView" style="display:none"></div>
 
@@ -805,7 +840,26 @@ function setBadges(extra){
   const sb=document.getElementById('srcBadge');
   if(DATA.source==='live'){ sb.textContent='即時數據'; sb.className='badge live'; }
 }
-function renderAll(){ renderPulse(); renderRadar(); renderMacro(); renderNews(); renderChips(); render(); }
+function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderMacro(); renderNews(); renderChips(); render(); }
+function renderT3(){
+  const box=document.getElementById('t3Box');
+  if(!box)return;
+  const list=(DATA.stocks||[]).filter(s=>s.t3).sort((a,b)=>total(b)-total(a));
+  if(!list.length){
+    box.innerHTML='<div class="r-card" style="cursor:default"><span class="r-desc">三率資料累積中——執行每日自動更新後(或本季財報公布後)會自動列出符合的個股。</span></div>';
+    return;
+  }
+  const arrow=(a,b,u)=>`${a.toFixed(1)}→<b style="color:#FF8A8E">${b.toFixed(1)}${u||'%'}</b>`;
+  box.innerHTML=list.slice(0,24).map(s=>{
+    const t=s.t3;
+    return `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
+      <span class="r-tag tg-strong">三率三升 ${t.q}</span>
+      <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span> <span class="c-code" style="margin-left:auto">綜合 ${total(s)}</span></span>
+      <span class="r-desc">毛 ${arrow(t.gm[0],t.gm[1])} · 營益 ${arrow(t.om[0],t.om[1])} · 淨利 ${arrow(t.nm[0],t.nm[1])}${t.ry!=null?` · 月營收 <b style="color:#FF8A8E">+${t.ry}%</b>`:''}</span>
+    </div>`;}).join('')
+    +(list.length>24?`<div class="r-card" style="cursor:default;justify-content:center"><span class="r-desc">共 ${list.length} 檔符合,顯示綜合分前 24 名;其餘可在選股清單搜尋</span></div>`:'');
+  box.querySelectorAll('[data-id]').forEach(c=>c.onclick=()=>{location.hash='#stock/'+c.dataset.id;});
+}
 
 function renderMacro(){
   const m=DATA.macro||{};
@@ -1746,7 +1800,19 @@ const CHART_THEMES={
     up2:'#C4333B',dn2:'#0F8A57'},
   mocha:{legend:'#AC9F88',axis:'#7E7159',split:'#261F14',border:'#3E3424',
     ttBg:'#2C2419',ttText:'#F3EEE5',inactive:'#4A3E2B',ma60:'#F7F1E4',
-    up2:'#FF9A8E',dn2:'#5BD9A0'}
+    up2:'#FF9A8E',dn2:'#5BD9A0'},
+  teal:{legend:'#8AAFB2',axis:'#5E858B',split:'#0F272C',border:'#1E4149',
+    ttBg:'#133036',ttText:'#E4F4F4',inactive:'#2A4A50',ma60:'#EAF7F5',
+    up2:'#FF8A8E',dn2:'#4BD695'},
+  graphite:{legend:'#9BA1AB',axis:'#6D737D',split:'#1F2125',border:'#34383F',
+    ttBg:'#26292E',ttText:'#ECEDEF',inactive:'#3E434B',ma60:'#F0F1F3',
+    up2:'#FF8A8E',dn2:'#4BD695'},
+  dawn:{legend:'#8D97AD',axis:'#646E85',split:'#1A2030',border:'#333C52',
+    ttBg:'#252D40',ttText:'#EDF0F7',inactive:'#3B455E',ma60:'#F2F4FA',
+    up2:'#FF8A8E',dn2:'#4BD695'},
+  sepia:{legend:'#6E6552',axis:'#7A7160',split:'#E7E0CF',border:'#DCD3BE',
+    ttBg:'#FFFDF7',ttText:'#2A2418',inactive:'#CFC6B0',ma60:'#4A4232',
+    up2:'#B23037',dn2:'#0B6B47'}
 };
 function applyTheme(t,redraw){
   if(t==='green'||t==='violet')t='mocha';  // 舊主題自動遷移
@@ -1939,6 +2005,7 @@ async function showDetail(id){
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
     <div class="d-sec">⚖️ 三力檢視 <span>基本面・籌碼面・技術面</span></div>
     ${dimBlock('基本面(權重40%)',s.f)}
+    ${s.t3?`<div class="thesis" style="border-color:#4BD695"><b style="color:#4BD695">✅ 營收三率三升(${s.t3.q}):</b>毛利率 ${s.t3.gm[0]}→${s.t3.gm[1]}%、營益率 ${s.t3.om[0]}→${s.t3.om[1]}%、淨利率 ${s.t3.nm[0]}→${s.t3.nm[1]}%${s.t3.ry!=null?`,月營收年增 +${s.t3.ry}%`:''}——獲利品質與營收動能同步向上。</div>`:''}
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',s.c)}
     <div id="chipwrap"></div>
     ${dimBlock('技術線型(權重25%)',s.t)}
