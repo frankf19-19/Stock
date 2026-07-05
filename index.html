@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>三力選股儀表板|產業 × 基本面 × 籌碼 × 技術</title>
+<title>好友操盤室|產業 × 基本面 × 籌碼 × 技術</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230C111D'/><rect x='10' y='34' width='10' height='19' rx='2.5' fill='%238a6a1f'/><rect x='27' y='23' width='10' height='30' rx='2.5' fill='%23E8B44A'/><rect x='44' y='11' width='10' height='42' rx='2.5' fill='%23E5484D'/></svg>">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="theme-color" content="#0C111D">
@@ -336,7 +336,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 <header>
   <div class="head-in">
     <div>
-      <h1><span class="tri">三力</span>選股儀表板</h1>
+      <h1><span class="tri">好友</span>操盤室</h1>
       <div class="sub">產業前景 × 基本面 × 籌碼面 × 技術線型|台股為主、美股為輔</div>
     </div>
     <div class="meta">
@@ -1672,6 +1672,63 @@ function scenarioBands(o,price){
 
 /* ── ECharts 專業 K 線圖(MA 可開關、MACD/KD/RSI 副圖切換、縮放)── */
 let curOhlc=null,curDates=null,chartInst=null,indMode='MACD';
+let kView={rng:'6mo',itv:'1d'},baseK=null;
+const KVC={};  // 長天期K線快取(依 代號|範圍|週期)
+async function yOHLC(s,range,interval){
+  const syms=s.market==='TW'
+    ?[`${s.id}.${s.ex==='tse'?'TW':'TWO'}`,`${s.id}.${s.ex==='tse'?'TWO':'TW'}`]
+    :[s.id];
+  for(const sym of syms){
+    const u=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval}&range=${range}&includePrePost=false`;
+    for(const r of PROXY){
+      try{
+        const res=await fT(r(u),12000);
+        if(!res.ok)continue;
+        const j=await res.json();
+        const q=j&&j.chart&&j.chart.result&&j.chart.result[0];
+        if(!q||!q.timestamp)continue;
+        const t=q.timestamp,v=q.indicators.quote[0];
+        const dates=[],ohlc=[];
+        for(let i=0;i<t.length;i++){
+          if(v.close[i]==null||v.open[i]==null||v.high[i]==null||v.low[i]==null)continue;
+          const d=new Date(t[i]*1000);
+          dates.push(interval==='1mo'?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+                                     :`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+          ohlc.push([+v.open[i].toFixed(2),+v.high[i].toFixed(2),+v.low[i].toFixed(2),+v.close[i].toFixed(2),
+                     Math.round((v.volume[i]||0)/(s.market==='TW'?1000:1))]);
+        }
+        if(ohlc.length>=2)return {ohlc,dates};
+      }catch(e){}
+    }
+  }
+  return null;
+}
+const ITV_ZH={'1d':'日K','1wk':'週K','1mo':'月K'};
+async function applyKView(s){
+  const key=`${s.id}|${kView.rng}|${kView.itv}`;
+  let data;
+  if(kView.rng==='6mo'&&kView.itv==='1d'&&baseK)data=baseK;
+  else if(KVC[key])data=KVC[key];
+  else{
+    const box=document.getElementById('kbox');
+    if(box){
+      if(chartInst){try{chartInst.dispose();}catch(e){} chartInst=null;}
+      box.innerHTML='<div class="dim-note" style="padding:48px;text-align:center">📡 長天期資料載入中…(來源 Yahoo,首次約幾秒)</div>';
+    }
+    data=await yOHLC(s,kView.rng,kView.itv);
+    if(data)KVC[key]=data;
+  }
+  if(location.hash!=='#stock/'+s.id)return;
+  const box=document.getElementById('kbox');
+  if(!data){
+    if(box)box.innerHTML='<div class="dim-note" style="padding:48px;text-align:center">此範圍資料暫時抓不到,請換一個範圍/週期或稍後再試</div>';
+    return;
+  }
+  curOhlc=data.ohlc;curDates=data.dates;
+  const meta=document.getElementById('kMeta');
+  if(meta)meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}`;
+  drawKChart();
+}
 const UPC='#E5484D', DNC='#21A466';
 function cssVar(n){try{return getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#E8B44A';}catch(e){return'#E8B44A';}}
 function hexA(h,a){h=String(h).replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
@@ -1718,10 +1775,14 @@ function drawKChart(){
   const box=document.getElementById('kbox');
   if(!box||!curOhlc) return;
   if(!window.echarts){ box.innerHTML=kChart(curOhlc); return; } // 離線後備:簡易 SVG
-  if(chartInst){ chartInst.dispose(); }
+  if(chartInst){ try{chartInst.dispose();}catch(e){} }
+  box.innerHTML='';
   chartInst=echarts.init(box);
   const o=curOhlc, closes=o.map(x=>x[3]);
-  const maCfg=[['MA5',5,'#E8B44A'],['MA10',10,'#7FB4FF'],['MA20',20,'#C792EA'],['MA60',60,CT.ma60]];
+  const isDay=kView.itv==='1d';
+  const zs=o.length>1500?88:o.length>600?70:30;   // 長天期預設看最近一段,滑桿可拉全程
+  const maCfg=[['MA5',5,'#E8B44A'],['MA10',10,'#7FB4FF'],['MA20',20,'#C792EA'],['MA60',60,CT.ma60],
+               ['MA120',120,'#FF8FB0'],['MA240',240,'#5BD9C0']];
   const maSeries=maCfg.map(([nm,p,col])=>({name:nm,type:'line',xAxisIndex:0,yAxisIndex:0,
     data:closes.map((_,i)=>i<p-1?null:+avg(closes.slice(i-p+1,i+1)).toFixed(2)),
     showSymbol:false,lineStyle:{width:1.2,color:col},itemStyle:{color:col},smooth:true}));
@@ -1742,7 +1803,8 @@ function drawKChart(){
     backgroundColor:'transparent',animation:false,
     textStyle:{fontFamily:'IBM Plex Mono,monospace'},
     legend:{top:0,textStyle:{color:CT.legend,fontSize:11},
-      data:['K線',...maCfg.map(m=>m[0])],inactiveColor:CT.inactive},
+      data:['K線',...maCfg.map(m=>m[0])],inactiveColor:CT.inactive,
+      selected:{MA120:false,MA240:false}},
     tooltip:{trigger:'axis',axisPointer:{type:'cross'},
       backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
     axisPointer:{link:[{xAxisIndex:'all'}]},
@@ -1757,14 +1819,14 @@ function drawKChart(){
       {gridIndex:1,scale:true,axisLabel:{show:false},splitLine:{show:false}},
       {gridIndex:2,scale:true,axisLabel:{color:CT.axis,fontSize:10},
         splitLine:{lineStyle:{color:CT.split}}}],
-    dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:30,end:100},
-      {type:'slider',xAxisIndex:[0,1,2],bottom:6,height:18,start:30,end:100,showDetail:false,
+    dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:zs,end:100},
+      {type:'slider',xAxisIndex:[0,1,2],bottom:6,height:18,start:zs,end:100,showDetail:false,
        borderColor:CT.border,fillerColor:hexA(cssVar('--amber'),.15),
        handleStyle:{color:cssVar('--amber')},textStyle:{color:CT.axis,fontSize:10}}],
     series:[{name:'K線',type:'candlestick',xAxisIndex:0,yAxisIndex:0,
         data:o.map(x=>[x[0],x[3],x[2],x[1]]),  // echarts 順序 [開,收,低,高]
         itemStyle:{color:UPC,color0:DNC,borderColor:UPC,borderColor0:DNC},
-        ...(curLevels?(()=>{
+        ...((curLevels&&isDay)?(()=>{
           const ACC=cssVar('--amber');
           // 徽章式標籤:帶底色/邊框,任何主題都清楚可讀
           const chip=(c,pos)=>({show:true,position:pos,fontSize:10.5,fontWeight:600,color:c,
@@ -1932,6 +1994,7 @@ async function showDetail(id){
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
+  kView={rng:'6mo',itv:'1d'}; baseK=k;
   curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
   const lv=curLevels;
   const zoneName=lv.bull?'參考買進區|月線~季線均線帶':'支撐帶|空頭排列,先觀望';
@@ -1944,11 +2007,18 @@ async function showDetail(id){
       <div id="intraFlow"></div>
     </div>
     <div class="chart-box">
-      <div class="ind-head">
-        <h3>K線圖 · 近 ${k.ohlc.length} 個交易日${k.demo?'(範例資料,部署後為真實K線)':''} · 點圖例可開關均線 · 下方滑桿縮放</h3>
-        <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
-          `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
+      <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
+        <h3>K線圖 <span class="ds" id="kMeta">日K · ${k.ohlc.length} 根${k.demo?'(範例資料)':''}</span></h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
+          <div class="ind-seg" id="rngSeg">${[['6mo','6月'],['1y','1年'],['2y','2年'],['5y','5年'],['10y','10年'],['max','全部']].map(([v,n])=>
+            `<button data-r="${v}" class="${v==='6mo'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
+            `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
+            `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
+        </div>
       </div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=上市以來完整歷史 · 點圖例可開關 MA5~MA240 均線(120/240 預設隱藏) · 滾輪/滑桿縮放 · 長天期預設顯示近段,滑桿拉到最左看全程</div>
       <div id="kbox" style="height:560px"></div>
     </div>
     <div class="dim-block">
@@ -1982,6 +2052,16 @@ async function showDetail(id){
     indMode=b.dataset.i;
     document.querySelectorAll('#indSeg button').forEach(x=>x.classList.toggle('on',x===b));
     drawKChart();
+  });
+  document.querySelectorAll('#rngSeg button').forEach(b=>b.onclick=()=>{
+    kView.rng=b.dataset.r;
+    document.querySelectorAll('#rngSeg button').forEach(x=>x.classList.toggle('on',x===b));
+    applyKView(s);
+  });
+  document.querySelectorAll('#itvSeg button').forEach(b=>b.onclick=()=>{
+    kView.itv=b.dataset.v;
+    document.querySelectorAll('#itvSeg button').forEach(x=>x.classList.toggle('on',x===b));
+    applyKView(s);
   });
   drawKChart();
   loadIntraDetail(s);
@@ -3385,7 +3465,7 @@ function aiCtx(){
   return L.join('\n');
 }
 function aiSys(){
-  return '你是「三力選股儀表板」網站內建的 AI 小幫手。你可以回答任何主題的問題(生活、科技、程式、運動、時事、投資……不限於本網站內容)。'
+  return '你是「好友操盤室」網站內建的 AI 小幫手,這是站主分享給好朋友們的私人選股儀表板。你可以回答任何主題的問題(生活、科技、程式、運動、時事、投資……不限於本網站內容)。'
   +'使用者在台灣,預設以繁體中文(台灣用語)回答。回覆精簡、口語、重點先講,適合在小視窗閱讀;需要條列時用短列點。'
   +'涉及個股買賣判斷時依據資料客觀分析,結尾用一句話提醒風險即可,不要長篇免責聲明。'
   +'\n\n以下是網站此刻的即時資料,回答站內相關問題時直接引用:\n'+aiCtx();
