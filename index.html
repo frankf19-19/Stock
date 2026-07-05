@@ -283,9 +283,21 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 .ai-hbtn button:hover{color:var(--txt);border-color:var(--amber)}
 .ai-set{padding:12px 14px;border-bottom:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column;gap:9px;max-height:52%;overflow-y:auto}
 .ai-set[hidden]{display:none!important}
-.idx-card[data-mk]{cursor:pointer;transition:border-color .15s,transform .15s}
-.idx-card[data-mk]:hover{border-color:var(--amber);transform:translateY(-1px)}
+.idx-card[data-mk],.idx-card[data-lk]{cursor:pointer;transition:border-color .15s,transform .15s}
+.idx-card[data-mk]:hover,.idx-card[data-lk]:hover{border-color:var(--amber);transform:translateY(-1px)}
 .idx-card[data-mk] .nm::after{content:' ›';color:var(--dim)}
+.learn-card .lt{font-size:14.5px;font-weight:700;color:var(--txt)}
+.learn-card .lo{font-size:12px;color:var(--mut);margin-top:4px;line-height:1.6}
+.learn-card .ltag{display:inline-block;font-size:10.5px;color:var(--amber);border:1px solid var(--line);border-radius:10px;padding:1px 7px;margin-bottom:6px}
+.learn-fig{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:4px 0 6px;overflow-x:auto}
+.learn-fig svg{display:block;width:100%;height:auto;min-width:560px;font-family:var(--sans)}
+.learn-fig .cap{font-size:11.5px;color:var(--dim);margin-top:6px;text-align:center}
+.btn-ai{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--amber);color:var(--amber);border-radius:9px;padding:8px 14px;font-size:13.5px;font-family:var(--sans);cursor:pointer;font-weight:700;transition:background .15s}
+.btn-ai:hover{background:rgba(232,180,74,.12)}
+.prof-kv{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--txt2);margin-bottom:8px}
+.prof-kv b{color:var(--mut);font-weight:400;margin-right:5px}
+.prof-sum{font-size:13.5px;color:var(--txt2);line-height:1.8}
+.prof-more{color:var(--amber);cursor:pointer;font-size:12.5px}
 .ai-set label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut)}
 .ai-set input[type=password],.ai-set select{background:var(--panel);border:1px solid var(--line);color:var(--txt);
   border-radius:7px;padding:7px 10px;font-family:var(--mono);font-size:13px}
@@ -382,6 +394,10 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   <div class="news" id="newsBox"></div>
 
   </div>
+  <div class="sec-title" data-sec="learn">產業小學堂 <span style="font-weight:400;font-size:12px;letter-spacing:0">半導體與科技供應鏈白話教學,點卡片深入了解</span></div><div class="sec-body" id="sb-learn">
+    <div class="idx-row" id="learnRow"></div>
+  </div>
+
   <div class="sec-title" data-sec="list">選股清單</div><div class="sec-body" id="sb-list">
   <div class="controls">
     <div class="seg" id="mktSeg" role="tablist" aria-label="市場">
@@ -1856,6 +1872,15 @@ async function showDetail(id){
       ${v.info?`<div class="dim-note">產業觀察重點:${v.info.watch.join('、')}。</div>`:''}
       <div class="dim-note" style="color:var(--dim)">此為依營收、籌碼、技術、產業四面向的規則化研判,不構成投資建議;數據品質受來源限制,重大決策請再查證。</div>
     </div>`})()}
+    ${(()=>{const lm=SEC2LEARN.find(([k])=>String(s.sector).includes(k));return `
+    <div class="dim-block" id="profBlock">
+      <h3>公司簡介|做什麼・賣什麼 <span class="ds">${s.sector}</span></h3>
+      <div id="profBody"><div class="dim-note">公司資料載入中…</div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn-ai" id="profAiBtn">✦ AI 白話解讀:這家公司在做什麼?產品有哪些?</button>
+        ${lm?`<a class="btn-ai" style="text-decoration:none" href="#learn/${lm[1]}">📚 看懂這個產業:${LEARN[lm[1]].t}</a>`:''}
+      </div>
+    </div>`})()}
     <div class="dim-block">
       <h3>相關新聞</h3>
       ${Array.isArray(s.news)&&s.news.length?`<div class="news" style="border:none;padding:0">${s.news.map(x=>
@@ -1876,6 +1901,9 @@ async function showDetail(id){
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   window.scrollTo({top:0});
+  const pBtn=document.getElementById('profAiBtn');
+  if(pBtn)pBtn.onclick=()=>aiAsk(`用繁體中文白話介紹 ${s.name}(${s.id}) 這家公司,格式如下:\n1) 一句話+一個比喻說明公司在做什麼\n2) 主要產品與服務(依類型分類條列,每類一句白話說明用途)\n3) 產品用在哪裡、主要客戶是誰\n4) 在產業鏈的上下游位置\n要簡單易懂,像對完全不懂股票的朋友解釋。`);
+  loadProfileDetail(s);
   loadChipDetail(s);
   const k=await loadK(s);
   const kwrap=document.getElementById('kwrap');
@@ -1943,6 +1971,7 @@ function route(){
   if(location.hash.startsWith('#stock/')) showDetail(decodeURIComponent(location.hash.slice(7)));
   else if(location.hash.startsWith('#macro/')) showMacroDetail(decodeURIComponent(location.hash.slice(7)));
   else if(location.hash.startsWith('#event/')) showEventDetail();
+  else if(location.hash.startsWith('#learn/')) showLearnDetail(decodeURIComponent(location.hash.slice(7)));
   else{
     if(RT.dTimer){clearInterval(RT.dTimer);RT.dTimer=null;}
     disposeChipCharts(); curChips=null;
@@ -2096,7 +2125,7 @@ function setupSections(){
     if(!t.querySelector('.sec-hint')){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
-    const closed=(key in saved)?!!saved[key]:(mob&&['cal','radar','news'].includes(key));
+    const closed=(key in saved)?!!saved[key]:(mob&&['cal','radar','news','learn'].includes(key));
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
     t.onclick=()=>{
@@ -2225,6 +2254,433 @@ function renderChipCharts(s,e){
   }
 }
 
+/* ══════════════ 產業小學堂:半導體/科技供應鏈白話教學 ══════════════ */
+const LEARN={
+ semi:{t:'半導體產業總覽',tag:'入門必讀',one:'從一顆晶片的誕生看懂設計、製造、封測三大環節',
+  secs:[
+   ['這是什麼',
+    '把晶片想成一棟大樓:IC 設計公司是「建築師」畫藍圖(聯發科、世芯);晶圓代工廠是「營造商」照圖施工(台積電、聯電);封裝測試廠是「裝潢與驗收」把裸晶片包起來、測好才能出貨(日月光)。台灣罕見地在三個環節都是世界級,這就是台股科技含量高的原因。'],
+   ['為什麼重要',
+    '手機、汽車、AI 伺服器,所有電子產品的心臟都是晶片。AI 時代晶片需求爆發,而全球最先進的晶片製造幾乎只有台積電做得出來——台灣位於整條 AI 供應鏈最上游、最不可取代的位置。'],
+   ['產業鏈怎麼走',
+    '上游:IP/EDA 工具、矽晶圓、化學品與設備 → 中游:IC 設計 → 晶圓代工 → 下游:封裝測試 → 模組與系統組裝。每個環節台股都有代表公司,一檔晶片大單會沿著這條鏈一路「雨露均霑」。'],
+   ['投資觀察重點',
+    '看三件事:①台積電的資本支出與法說展望(整條鏈的水龍頭);②費城半導體指數(全球景氣溫度計);③各環節的產能利用率與報價。半導體是景氣循環產業——「好到不能再好」時要小心,「壞到沒人要」時反而該研究。']],
+  rel:[['台積電 2330','#stock/2330'],['日月光投控 3711','#stock/3711'],['世芯-KY 3661','#stock/3661']],more:['wafer','foundry','package']},
+ wafer:{t:'矽晶圓是什麼',tag:'上游材料',one:'所有晶片的「地基」——從沙子到鏡面圓盤的煉金術',
+  secs:[
+   ['這是什麼',
+    '矽晶圓就是晶片的「畫布」。把純度 99.9999999%(9個9)的矽,拉成一根圓柱狀的「晶棒」,再像切香腸一樣切成一片片薄圓盤、拋光到比鏡子還平——這就是晶圓。晶片是直接「印」在這片圓盤上的,一片 12 吋晶圓可以切出數百到數千顆晶片。'],
+   ['為什麼重要',
+    '沒有晶圓就沒有晶片,它是半導體製造的第一個材料。尺寸越大越划算(12吋是主流,8吋做車用與功率元件),而全球晶圓供應高度集中在日本信越、SUMCO 與台灣環球晶等少數幾家——寡佔市場,景氣好時漲價很有感。'],
+   ['上下游與台廠',
+    '上游是多晶矽原料 → 晶圓廠(環球晶、台勝科、合晶) → 賣給晶圓代工與 IDM 廠。晶圓廠通常簽長約(LTA)出貨,營收相對穩定,但擴產週期長,供需錯配時價格波動大。'],
+   ['投資觀察重點',
+    '看「晶圓出貨面積」(SEMI 每季公布)判斷景氣方向;長約簽訂與價格談判的新聞是轉折訊號;另外留意 AI 帶動的先進製程用晶圓(磊晶片)佔比提升,毛利率會跟著結構升級。']],
+  rel:[['環球晶 6488','#stock/6488'],['台勝科 3532','#stock/3532'],['合晶 6182','#stock/6182']],more:['semi','foundry']},
+ foundry:{t:'晶圓代工與先進製程',tag:'製造核心',one:'3奈米、2奈米到底在比什麼?為什麼只有台積電做得到',
+  secs:[
+   ['這是什麼',
+    '晶圓代工=「只幫別人製造晶片、自己不設計」的商業模式,台積電發明了它。「奈米」指的是電晶體的尺寸世代——數字越小,同樣面積能塞越多電晶體,晶片就越快、越省電。頭髮直徑約 8 萬奈米,而台積電已經在量產 2 奈米,等於在頭髮截面上蓋出一座數百億個房間的城市。'],
+   ['為什麼重要',
+    '越先進的製程越難:一座 2 奈米廠要價超過 200 億美元,全球有能力量產最先進製程的只剩台積電、三星、英特爾三家,而良率與客戶信任讓台積電拿走九成以上的先進製程訂單。NVIDIA、蘋果的晶片都非台積電不可——這就是「護城河」。'],
+   ['上下游與台廠',
+    '上游:設備(ASML 的 EUV 曝光機一台 2 億美元起)、矽晶圓、特用化學品、廠務工程 → 代工廠(台積電、聯電、世界先進) → 下游封測。台積電擴廠時,整條「台積電概念鏈」(設備、廠務、氣體)都會受惠。'],
+   ['投資觀察重點',
+    '每季法說會三個數字:毛利率指引、資本支出、先進製程營收佔比。資本支出上修=對未來需求有信心=供應鏈利多。另外美元匯率對台積電毛利率影響很大(收美元、付台幣成本)。']],
+  rel:[['台積電 2330','#stock/2330'],['聯電 2303','#stock/2303'],['世界先進 5347','#stock/5347']],more:['semi','package','wafer']},
+ icdesign:{t:'IC 設計與 ASIC',tag:'設計腦力',one:'不蓋工廠、只賣「腦力」的晶片公司,以及 AI 巨頭為何要自研晶片',
+  secs:[
+   ['這是什麼',
+    'IC 設計公司就是晶片界的「建築師事務所」:畫好電路藍圖,交給台積電代工生產,自己一座工廠都沒有(所以叫 Fabless)。ASIC 則是「客製化晶片」——像訂做西裝,Google、Amazon 這些雲端巨頭為了省電費和擺脫 NVIDIA,越來越愛訂做自己的 AI 晶片。'],
+   ['為什麼重要',
+    'ASIC 是 AI 晶片的第二條路:通用 GPU(NVIDIA)什麼都能算但貴,ASIC 只做一件事但又快又省電。巨頭自研晶片不會自己畫全部的圖,而是找「設計服務公司」協力——台灣的世芯、創意就是幫巨頭訂做晶片的裁縫師。'],
+   ['上下游與台廠',
+    '上游:矽智財 IP(安謀、力旺) → IC 設計(聯發科、瑞昱)與設計服務(世芯、創意) → 交給台積電製造。設計服務的商業模式分 NRE(一次性設計費)與 Turnkey(量產抽成),量產案開始貢獻時營收會跳階。'],
+   ['投資觀察重點',
+    '看「案量」:新客戶委託案(design win)是領先指標,量產時程是營收兌現點。風險是客戶集中——一個大案延期或砍單,股價波動會非常劇烈,估值(本益比)通常也很高,要用成長股的紀律操作。']],
+  rel:[['世芯-KY 3661','#stock/3661'],['聯發科 2454','#stock/2454'],['信驊 5274','#stock/5274']],more:['semi','foundry']},
+ package:{t:'先進封裝與 CoWoS',tag:'AI 瓶頸',one:'AI 晶片缺貨的真正瓶頸——把好幾顆晶片「疊積木」的技術',
+  secs:[
+   ['這是什麼',
+    '封裝原本只是把晶片裝進保護殼、接出腳位。但 AI 晶片太複雜,單一晶片做不下了,於是改用「先進封裝」:把 GPU 和好幾顆記憶體(HBM)像積木一樣並排、堆疊在一個特製基板上,彼此用超短距離連接——台積電的 CoWoS 就是這種技術的代名詞,NVIDIA 的 AI 晶片全靠它。'],
+   ['為什麼重要',
+    '過去兩年 AI 晶片缺貨,缺的常常不是晶片本身,而是 CoWoS 產能——它成了整條 AI 供應鏈的「窄門」。台積電拚命擴產還把部分訂單外溢給日月光等封測廠,擴產速度直接決定 NVIDIA 能出多少貨。'],
+   ['上下游與台廠',
+    '需要特殊材料(ABF 載板:欣興、南電;矽中介層)與設備(辛耘、弘塑、萬潤等「CoWoS 概念設備股」)。封測廠日月光吃外溢訂單,測試介面(精測、旺矽)也受惠——這是台股 2023 年以來最強的族群之一。'],
+   ['投資觀察重點',
+    '追蹤台積電 CoWoS 月產能目標(法說會與供應鏈訪查數字)、日月光先進封裝營收佔比。設備股看「機台交期與訂單能見度」,屬於訂單型公司,消息面波動大,要分清楚是「產能真擴」還是「題材蹭熱」。']],
+  rel:[['日月光投控 3711','#stock/3711'],['台積電 2330','#stock/2330']],more:['memory','foundry','semi']},
+ memory:{t:'記憶體:DRAM/NAND/HBM',tag:'循環之王',one:'暴賺暴虧的循環產業,以及 AI 催生的記憶體貴族 HBM',
+  secs:[
+   ['這是什麼',
+    '記憶體分兩種:DRAM 是「工作桌面」,速度快但斷電就忘(南亞科做這個);NAND 是「倉庫」,存得久、你手機的容量就是它(群聯做控制晶片)。HBM 則是 DRAM 的貴族版——把很多層 DRAM 疊起來、直接貼在 AI 晶片旁邊,頻寬是普通 DRAM 的十倍以上,AI 晶片沒它跑不動。'],
+   ['為什麼重要',
+    '記憶體是標準品,價格由供需決定,漲時大家一起賺翻、跌時一起虧錢——典型的景氣循環股。AI 改變了遊戲:三大廠(三星、SK 海力士、美光)把產能挪去做高毛利的 HBM,傳統 DRAM 反而變得緊俏,帶動整個族群的漲價循環。'],
+   ['上下游與台廠',
+    '台灣沒有 HBM 製造,但有:南亞科(標準 DRAM,純度最高的循環股)、群聯(NAND 控制晶片+模組)、威剛/十銓(模組廠,漲價時庫存增值)。美股對照組是美光(MU),漲價循環時可互相驗證。'],
+   ['投資觀察重點',
+    '記住一句老話:「循環股要買在虧損、賣在大賺」——本益比最低時往往是高點。看合約價與現貨價走勢(集邦 TrendForce 月報)、三大廠的資本支出紀律。模組廠看庫存水位:漲價前囤的低價庫存就是獲利來源。']],
+  rel:[['南亞科 2408','#stock/2408'],['群聯 8299','#stock/8299'],['美光 MU','#stock/MU']],more:['package','semi']},
+ cpo:{t:'矽光子與 CPO',tag:'次世代',one:'用「光」取代「電」傳資料——AI 資料中心的下一場革命',
+  secs:[
+   ['這是什麼',
+    '資料中心裡伺服器之間用光纖溝通,但光訊號進晶片前要先轉成電訊號,轉換器(光收發模組)又熱又耗電。CPO(共同封裝光學)的想法很直接:把光引擎直接封裝到交換器晶片旁邊,距離從幾十公分縮到幾毫米——省電 30% 以上,速度還更快。矽光子則是「用做晶片的方式做光學元件」,是 CPO 的底層技術。'],
+   ['為什麼重要',
+    'AI 集群動輒數萬顆 GPU 互連,傳輸速度從 400G 衝向 800G、1.6T,傳統方案的功耗撐不住。NVIDIA 已在交換器導入 CPO,滲透率從接近零起步——低基期+大廠背書,是市場願意給夢想估值的原因。'],
+   ['上下游與台廠',
+    '上游:雷射磊晶(聯亞)、光纖陣列 FAU(上詮) → 模組與整合 → 交換器(美股 Arista 可對照)。台廠卡位在關鍵零組件,量還小、波動極大,屬於「題材與基本面銜接中」的族群。'],
+   ['投資觀察重點',
+    '看 NVIDIA/博通新平台的 CPO 導入時程與台廠打入供應鏈的驗證進度(送樣→認證→小量→放量,每一步都是股價事件)。倉位務必控制——滲透率題材最怕時程延後,故事沒變但股價可以先跌五成。']],
+  rel:[['聯亞 3081','#stock/3081'],['上詮 3363','#stock/3363'],['Arista ANET','#stock/ANET']],more:['server','semi']},
+ pcb:{t:'PCB 與 CCL 板材',tag:'AI 受惠',one:'伺服器的「神經系統」,AI 一來就全面升級的板材生意',
+  secs:[
+   ['這是什麼',
+    'PCB(印刷電路板)是所有電子零件的「地基+神經網路」,晶片們都焊在上面、靠板內的銅線互相溝通。CCL(銅箔基板)則是做 PCB 的原材料——像做蛋糕的麵粉。AI 伺服器訊號又快又密,需要「高階麵粉」:低損耗 CCL(M6、M8 等級),一台 AI 伺服器的板材價值是普通伺服器的好幾倍。'],
+   ['為什麼重要',
+    '這是 AI 硬體中「升級最確定」的環節之一:GPU 每換一代,傳輸速度翻倍,板材等級就被迫升級,而高階 CCL 認證門檻高、供應商少——台光電在最高階 M8 幾乎獨供,定價權極強。'],
+   ['上下游與台廠',
+    '上游材料:玻纖布(富喬,Low-Dk 規格)、銅箔(金居,HVLP 高階銅箔)、樹脂 → CCL(台光電、聯茂、台燿) → PCB 廠(金像電、健鼎) → 組裝進伺服器。AI 需求沿著這條鏈由下往上點火,上游材料股波動最大。'],
+   ['投資觀察重點',
+    '看「高階佔比」:同樣做 CCL,M8 佔比高的毛利率完全不同;看 GB 系列等新平台的放量時程。上游材料(玻纖布、銅箔)是漲價循環邏輯,高 Beta、要設好停損停利紀律。']],
+  rel:[['台光電 2383','#stock/2383'],['聯茂 6213','#stock/6213'],['富喬 1815','#stock/1815'],['金居 8358','#stock/8358']],more:['server','semi']},
+ cooling:{t:'散熱:從氣冷到液冷',tag:'AI 受惠',one:'AI 晶片是「電暖爐」,幫它降溫的生意正在改朝換代',
+  secs:[
+   ['這是什麼',
+    '一顆 AI 晶片功耗上千瓦,等於一台電暖爐,不降溫幾秒就燒掉。傳統「氣冷」靠散熱片+風扇吹;新一代「液冷」直接讓冷卻液流過晶片上方的水冷板帶走熱——就像跑車從氣冷引擎進化到水冷引擎。GB 機櫃世代開始,液冷從選配變成標配。'],
+   ['為什麼重要',
+    '液冷單價是氣冷的數倍以上,滲透率從低基期快速爬升——量與價齊揚,是 AI 硬體中成長斜率最好的環節之一。而且散熱與晶片功耗直接掛鉤:晶片越強、越熱、散熱越貴,是「跟著摩爾定律收租」的生意。'],
+   ['上下游與台廠',
+    '零組件:水冷板、快接頭(UQD)、分歧管 → 模組(奇鋐、雙鴻氣冷液冷雙吃) → 機櫃整合與 CDU(台達電也有佈局) → 資料中心基礎設施(美股 Vertiv 可對照)。奇鋐是台股散熱龍頭,3017 幾乎是液冷滲透率的代名詞。'],
+   ['投資觀察重點',
+    '看 GB/下一代機櫃的出貨量預估(散熱是出貨量的直接函數)、液冷營收佔比與毛利率走勢。留意競爭格局變化——散熱技術門檻存在但不是獨佔,毛利率能否守住是關鍵指標。']],
+  rel:[['奇鋐 3017','#stock/3017'],['台達電 2308','#stock/2308'],['Vertiv VRT','#stock/VRT']],more:['server','pcb']},
+ server:{t:'AI 伺服器供應鏈總覽',tag:'系統整合',one:'一台 GB 機櫃拆開來,台灣公司做了裡面八成的東西',
+  secs:[
+   ['這是什麼',
+    '把 AI 伺服器機櫃想成一台超級電腦「豪宅」:GPU 是主人(NVIDIA),台積電蓋主人的身體,然後——組裝(鴻海、廣達、緯穎)、電源(台達電,800V 新架構)、散熱(奇鋐)、銅纜線束(貿聯,GB 機櫃用量倍增)、連接器與插槽(嘉澤)、滑軌(川湖,近乎獨佔)、BMC 遠端管理晶片(信驊,市佔九成)。一台機櫃售價數百萬美元,台廠含量極高。'],
+   ['為什麼重要',
+    '這是台股 AI 行情的主戰場:雲端四巨頭(微軟、Google、Amazon、Meta)的資本支出直接變成台廠訂單。看懂機櫃裡每個位置誰在做,就看懂大半個台股 AI 族群。'],
+   ['上下游與台廠',
+    '上游晶片(台積電製造) → 零組件(電源/散熱/線束/連接器/滑軌/板材) → 組裝代工(鴻海機櫃市佔最大、廣達 ODM 龍頭、緯穎直供 CSP 白牌) → 雲端業者資料中心。組裝毛利率低但量大,零組件毛利率高但競爭者多,兩種投資邏輯不同。'],
+   ['投資觀察重點',
+    '每季追四巨頭資本支出財測(整個族群的水源)、NVIDIA 新平台出貨時程(GB→Rubin 的過渡期常有拉貨空窗)、各家「AI 營收佔比」的變化。組裝股看營收動能,零組件股看毛利率與市佔——別用同一把尺量所有 AI 股。']],
+  rel:[['鴻海 2317','#stock/2317'],['廣達 2382','#stock/2382'],['緯穎 6669','#stock/6669'],['貿聯-KY 3665','#stock/3665'],['川湖 2059','#stock/2059'],['嘉澤 3533','#stock/3533']],more:['cooling','pcb','cpo']},
+};
+const LEARN_FIG={
+semi:`<svg viewBox="0 0 760 215" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9" fill="none" stroke="var(--dim)" stroke-width="1.6"/></marker></defs>
+<rect x="20" y="18" width="720" height="52" rx="10" fill="none" stroke="var(--line)" stroke-dasharray="4 4"/>
+<text x="380" y="38" text-anchor="middle" fill="var(--mut)" font-size="12">上游:設備(ASML)・矽晶圓・化學材料・EDA/IP 工具</text>
+<line x1="380" y1="70" x2="380" y2="92" stroke="var(--dim)" stroke-width="1.4" marker-end="url(#ar1)"/>
+<g><rect x="28" y="96" width="150" height="76" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="103" y="122" text-anchor="middle" fill="var(--txt)" font-size="15" font-weight="700">IC 設計</text>
+<text x="103" y="141" text-anchor="middle" fill="var(--amber)" font-size="12">建築師畫藍圖</text>
+<text x="103" y="159" text-anchor="middle" fill="var(--mut)" font-size="11.5">聯發科・世芯</text></g>
+<line x1="178" y1="134" x2="212" y2="134" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar1)"/>
+<g><rect x="216" y="96" width="150" height="76" rx="10" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<text x="291" y="122" text-anchor="middle" fill="var(--txt)" font-size="15" font-weight="700">晶圓代工</text>
+<text x="291" y="141" text-anchor="middle" fill="var(--amber)" font-size="12">營造商照圖施工</text>
+<text x="291" y="159" text-anchor="middle" fill="var(--mut)" font-size="11.5">台積電・聯電</text></g>
+<line x1="366" y1="134" x2="400" y2="134" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar1)"/>
+<g><rect x="404" y="96" width="150" height="76" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="479" y="122" text-anchor="middle" fill="var(--txt)" font-size="15" font-weight="700">封裝測試</text>
+<text x="479" y="141" text-anchor="middle" fill="var(--amber)" font-size="12">裝潢+驗收</text>
+<text x="479" y="159" text-anchor="middle" fill="var(--mut)" font-size="11.5">日月光</text></g>
+<line x1="554" y1="134" x2="588" y2="134" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar1)"/>
+<g><rect x="592" y="96" width="146" height="76" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="665" y="122" text-anchor="middle" fill="var(--txt)" font-size="15" font-weight="700">系統組裝</text>
+<text x="665" y="141" text-anchor="middle" fill="var(--amber)" font-size="12">蓋成整台設備</text>
+<text x="665" y="159" text-anchor="middle" fill="var(--mut)" font-size="11.5">鴻海・廣達</text></g>
+<text x="380" y="200" text-anchor="middle" fill="var(--dim)" font-size="11.5">一顆晶片的旅程:台灣在每一站都有世界級選手</text></svg>`,
+wafer:`<svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9" fill="none" stroke="var(--dim)" stroke-width="1.6"/></marker></defs>
+<g><rect x="30" y="60" width="110" height="70" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="85" y="88" text-anchor="middle" fill="var(--txt)" font-size="14" font-weight="700">高純度矽</text>
+<text x="85" y="108" text-anchor="middle" fill="var(--mut)" font-size="11">9 個 9(99.9999999%)</text></g>
+<line x1="140" y1="95" x2="172" y2="95" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar2)"/>
+<g><ellipse cx="225" cy="52" rx="34" ry="10" fill="var(--panel2)" stroke="var(--line)"/>
+<rect x="191" y="52" width="68" height="86" fill="var(--panel2)" stroke="var(--line)"/>
+<ellipse cx="225" cy="138" rx="34" ry="10" fill="var(--panel2)" stroke="var(--line)"/>
+<line x1="191" y1="52" x2="191" y2="138" stroke="var(--line)"/><line x1="259" y1="52" x2="259" y2="138" stroke="var(--line)"/>
+<text x="225" y="170" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="700">長成晶棒</text>
+<text x="225" y="186" text-anchor="middle" fill="var(--mut)" font-size="11">圓柱狀單晶矽</text></g>
+<line x1="266" y1="95" x2="298" y2="95" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar2)"/>
+<g><ellipse cx="352" cy="95" rx="11" ry="42" fill="var(--panel2)" stroke="var(--line)"/>
+<ellipse cx="372" cy="95" rx="11" ry="42" fill="var(--panel2)" stroke="var(--line)"/>
+<ellipse cx="392" cy="95" rx="11" ry="42" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="372" y="170" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="700">像切香腸切片</text>
+<text x="372" y="186" text-anchor="middle" fill="var(--mut)" font-size="11">再拋光成鏡面</text></g>
+<line x1="412" y1="95" x2="444" y2="95" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar2)"/>
+<g><circle cx="516" cy="95" r="52" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<g stroke="var(--line)" stroke-width="1">
+<line x1="472" y1="78" x2="560" y2="78"/><line x1="466" y1="95" x2="566" y2="95"/><line x1="472" y1="112" x2="560" y2="112"/>
+<line x1="499" y1="47" x2="499" y2="143"/><line x1="516" y1="43" x2="516" y2="147"/><line x1="533" y1="47" x2="533" y2="143"/></g>
+<text x="516" y="170" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="700">12 吋晶圓</text>
+<text x="516" y="186" text-anchor="middle" fill="var(--mut)" font-size="11">晶片的畫布</text></g>
+<line x1="572" y1="95" x2="604" y2="95" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar2)"/>
+<g><rect x="614" y="66" width="26" height="26" rx="4" fill="var(--panel2)" stroke="var(--amber)"/>
+<rect x="648" y="66" width="26" height="26" rx="4" fill="var(--panel2)" stroke="var(--amber)"/>
+<rect x="614" y="100" width="26" height="26" rx="4" fill="var(--panel2)" stroke="var(--amber)"/>
+<rect x="648" y="100" width="26" height="26" rx="4" fill="var(--panel2)" stroke="var(--amber)"/>
+<text x="700" y="86" fill="var(--txt)" font-size="13" font-weight="700">數百~</text>
+<text x="700" y="104" fill="var(--txt)" font-size="13" font-weight="700">數千顆</text>
+<text x="644" y="150" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="700">切出晶片</text></g>
+<text x="380" y="210" text-anchor="middle" fill="var(--dim)" font-size="11.5">從沙子到晶片畫布:環球晶・台勝科・合晶做的就是中間這段煉金術</text></svg>`,
+foundry:`<svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg">
+<circle cx="150" cy="95" r="72" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="150" y="90" text-anchor="middle" fill="var(--txt)" font-size="14" font-weight="700">頭髮直徑</text>
+<text x="150" y="110" text-anchor="middle" fill="var(--amber)" font-size="15" font-weight="700">80,000 奈米</text>
+<circle cx="330" cy="95" r="3" fill="var(--amber)"/>
+<text x="330" y="130" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="700">2 奈米電晶體</text>
+<text x="330" y="148" text-anchor="middle" fill="var(--mut)" font-size="11">小 4 萬倍(圖中那個點)</text>
+<line x1="228" y1="95" x2="318" y2="95" stroke="var(--dim)" stroke-width="1.2" stroke-dasharray="3 3"/>
+<g><rect x="430" y="30" width="300" height="42" rx="9" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<text x="450" y="56" fill="var(--txt)" font-size="14" font-weight="700">台積電</text><text x="580" y="56" fill="var(--amber)" font-size="13">先進製程市佔 9 成↑</text></g>
+<g><rect x="430" y="82" width="230" height="38" rx="9" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="450" y="106" fill="var(--txt)" font-size="13">三星</text><text x="560" y="106" fill="var(--mut)" font-size="12">追趕中</text></g>
+<g><rect x="430" y="130" width="180" height="38" rx="9" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="450" y="154" fill="var(--txt)" font-size="13">英特爾</text><text x="530" y="154" fill="var(--mut)" font-size="12">重返賽道</text></g>
+<text x="430" y="192" fill="var(--dim)" font-size="11.5">全球有能力量產最先進製程的只剩三家,一座 2 奈米廠造價 200 億美元起</text>
+<text x="380" y="212" text-anchor="middle" fill="var(--dim)" font-size="11.5">「奈米」=電晶體世代:數字越小,同面積塞越多電晶體,越快越省電</text></svg>`,
+icdesign:`<svg viewBox="0 0 760 235" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9" fill="none" stroke="var(--dim)" stroke-width="1.6"/></marker></defs>
+<g><rect x="30" y="24" width="330" height="74" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="52" y="52" fill="var(--txt)" font-size="14.5" font-weight="700">通用 GPU(成衣)</text>
+<text x="52" y="74" fill="var(--mut)" font-size="12">什麼都能算・買了就用・但貴又耗電</text>
+<text x="52" y="90" fill="var(--amber)" font-size="12">代表:NVIDIA</text></g>
+<g><rect x="400" y="24" width="330" height="74" rx="10" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<text x="422" y="52" fill="var(--txt)" font-size="14.5" font-weight="700">ASIC 客製晶片(訂做西裝)</text>
+<text x="422" y="74" fill="var(--mut)" font-size="12">只做一件事・又快又省電・要等要花設計費</text>
+<text x="422" y="90" fill="var(--amber)" font-size="12">雲端巨頭的新歡</text></g>
+<g><rect x="60" y="150" width="170" height="58" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="145" y="174" text-anchor="middle" fill="var(--txt)" font-size="13.5" font-weight="700">雲端巨頭</text>
+<text x="145" y="193" text-anchor="middle" fill="var(--mut)" font-size="11.5">Google・AWS・Meta</text></g>
+<line x1="230" y1="179" x2="288" y2="179" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar4)"/>
+<text x="259" y="168" text-anchor="middle" fill="var(--dim)" font-size="10.5">委託設計</text>
+<g><rect x="292" y="150" width="180" height="58" rx="10" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<text x="382" y="174" text-anchor="middle" fill="var(--txt)" font-size="13.5" font-weight="700">設計服務(裁縫師)</text>
+<text x="382" y="193" text-anchor="middle" fill="var(--amber)" font-size="11.5">世芯・創意</text></g>
+<line x1="472" y1="179" x2="530" y2="179" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar4)"/>
+<text x="501" y="168" text-anchor="middle" fill="var(--dim)" font-size="10.5">交付製造</text>
+<g><rect x="534" y="150" width="170" height="58" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="619" y="174" text-anchor="middle" fill="var(--txt)" font-size="13.5" font-weight="700">台積電</text>
+<text x="619" y="193" text-anchor="middle" fill="var(--mut)" font-size="11.5">代工生產</text></g>
+<text x="380" y="228" text-anchor="middle" fill="var(--dim)" font-size="11.5">Fabless=只賣腦力不蓋工廠;巨頭訂做晶片時,台灣裁縫師就接到大單</text></svg>`,
+package:`<svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg">
+<rect x="130" y="150" width="500" height="34" rx="6" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="380" y="172" text-anchor="middle" fill="var(--mut)" font-size="12.5">封裝基板 Substrate(ABF 載板:欣興・南電)</text>
+<rect x="170" y="112" width="420" height="34" rx="6" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<text x="380" y="134" text-anchor="middle" fill="var(--amber)" font-size="12.5" font-weight="700">矽中介層 Interposer(晶片間的高速公路)</text>
+<rect x="300" y="46" width="160" height="60" rx="6" fill="var(--panel2)" stroke="var(--line)" stroke-width="1.5"/>
+<text x="380" y="82" text-anchor="middle" fill="var(--txt)" font-size="15" font-weight="700">GPU</text>
+<g stroke="var(--line)" fill="var(--panel2)">
+<rect x="196" y="92" width="86" height="13" rx="2"/><rect x="196" y="77" width="86" height="13" rx="2"/>
+<rect x="196" y="62" width="86" height="13" rx="2"/><rect x="196" y="47" width="86" height="13" rx="2"/>
+<rect x="478" y="92" width="86" height="13" rx="2"/><rect x="478" y="77" width="86" height="13" rx="2"/>
+<rect x="478" y="62" width="86" height="13" rx="2"/><rect x="478" y="47" width="86" height="13" rx="2"/></g>
+<text x="239" y="36" text-anchor="middle" fill="var(--txt)" font-size="12.5" font-weight="700">HBM(疊 8~12 層)</text>
+<text x="521" y="36" text-anchor="middle" fill="var(--txt)" font-size="12.5" font-weight="700">HBM</text>
+<text x="380" y="207" text-anchor="middle" fill="var(--dim)" font-size="11.5">CoWoS=把 GPU 和記憶體像積木一樣排在同一塊中介層上,距離越近速度越快</text>
+<text x="380" y="224" text-anchor="middle" fill="var(--dim)" font-size="11.5">產能不夠時,它就是整條 AI 供應鏈的瓶頸——外溢訂單流向日月光</text></svg>`,
+memory:`<svg viewBox="0 0 760 225" xmlns="http://www.w3.org/2000/svg">
+<g><rect x="30" y="30" width="215" height="120" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="137" y="58" text-anchor="middle" fill="var(--txt)" font-size="14.5" font-weight="700">DRAM=工作桌</text>
+<text x="137" y="80" text-anchor="middle" fill="var(--mut)" font-size="11.5">速度快・斷電就忘</text>
+<text x="137" y="98" text-anchor="middle" fill="var(--mut)" font-size="11.5">電腦記憶體就是它</text>
+<text x="137" y="126" text-anchor="middle" fill="var(--amber)" font-size="12">台股代表:南亞科</text></g>
+<g><rect x="270" y="30" width="215" height="120" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="377" y="58" text-anchor="middle" fill="var(--txt)" font-size="14.5" font-weight="700">NAND=倉庫</text>
+<text x="377" y="80" text-anchor="middle" fill="var(--mut)" font-size="11.5">存得久・容量大</text>
+<text x="377" y="98" text-anchor="middle" fill="var(--mut)" font-size="11.5">手機容量、SSD 就是它</text>
+<text x="377" y="126" text-anchor="middle" fill="var(--amber)" font-size="12">台股代表:群聯(控制晶片)</text></g>
+<g><rect x="510" y="30" width="220" height="120" rx="10" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<text x="620" y="56" text-anchor="middle" fill="var(--txt)" font-size="14.5" font-weight="700">HBM=DRAM 貴族版</text>
+<g stroke="var(--amber)" fill="var(--panel)" stroke-width="1">
+<rect x="560" y="112" width="60" height="9" rx="2"/><rect x="560" y="101" width="60" height="9" rx="2"/>
+<rect x="560" y="90" width="60" height="9" rx="2"/><rect x="560" y="79" width="60" height="9" rx="2"/>
+<rect x="560" y="68" width="60" height="9" rx="2"/></g>
+<text x="672" y="98" text-anchor="middle" fill="var(--mut)" font-size="11">疊很多層</text>
+<text x="620" y="140" text-anchor="middle" fill="var(--mut)" font-size="11.5">頻寬 10 倍↑・AI 必需</text></g>
+<text x="380" y="180" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="700">循環股鐵律:買在虧損、賣在大賺(本益比最低時反而是高點)</text>
+<text x="380" y="205" text-anchor="middle" fill="var(--dim)" font-size="11.5">三大廠把產能挪去做 HBM → 傳統 DRAM 變緊俏 → 帶動整族群漲價循環</text></svg>`,
+cpo:`<svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg">
+<text x="40" y="34" fill="var(--mut)" font-size="12.5" font-weight="700">傳統做法</text>
+<rect x="40" y="46" width="130" height="52" rx="8" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="105" y="77" text-anchor="middle" fill="var(--txt)" font-size="13">交換器晶片</text>
+<line x1="170" y1="72" x2="480" y2="72" stroke="var(--dim)" stroke-width="2"/>
+<text x="325" y="62" text-anchor="middle" fill="var(--mut)" font-size="11">電訊號跑幾十公分 → 又熱又耗電</text>
+<rect x="480" y="46" width="130" height="52" rx="8" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="545" y="77" text-anchor="middle" fill="var(--txt)" font-size="13">光收發模組</text>
+<text x="660" y="77" fill="var(--mut)" font-size="12">→ 光纖</text>
+<text x="40" y="140" fill="var(--amber)" font-size="12.5" font-weight="700">CPO 共同封裝</text>
+<rect x="40" y="152" width="200" height="52" rx="8" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<text x="112" y="183" text-anchor="middle" fill="var(--txt)" font-size="13">交換器晶片</text>
+<rect x="188" y="160" width="44" height="36" rx="5" fill="var(--panel)" stroke="var(--amber)"/>
+<text x="210" y="182" text-anchor="middle" fill="var(--amber)" font-size="10.5">光引擎</text>
+<text x="262" y="183" fill="var(--mut)" font-size="12">→ 光纖</text>
+<text x="360" y="176" fill="var(--amber)" font-size="12.5" font-weight="700">距離縮到幾毫米:省電 30%↑・速度更快</text>
+<text x="360" y="196" fill="var(--mut)" font-size="11.5">台廠卡位:聯亞(雷射磊晶)・上詮(光纖陣列 FAU)</text>
+<text x="380" y="222" text-anchor="middle" fill="var(--dim)" font-size="11.5">AI 集群數萬顆 GPU 互連,800G→1.6T 的功耗只有「光」撐得住</text></svg>`,
+pcb:`<svg viewBox="0 0 760 225" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar8" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9" fill="none" stroke="var(--dim)" stroke-width="1.6"/></marker></defs>
+<g><rect x="40" y="40" width="170" height="110" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="125" y="66" text-anchor="middle" fill="var(--txt)" font-size="13.5" font-weight="700">原料(像麵粉原料)</text>
+<text x="125" y="92" text-anchor="middle" fill="var(--mut)" font-size="11.5">玻纖布:富喬</text>
+<text x="125" y="110" text-anchor="middle" fill="var(--mut)" font-size="11.5">銅箔:金居</text>
+<text x="125" y="128" text-anchor="middle" fill="var(--mut)" font-size="11.5">+樹脂</text></g>
+<line x1="210" y1="95" x2="248" y2="95" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar8)"/>
+<g><rect x="252" y="40" width="170" height="110" rx="10" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<text x="337" y="66" text-anchor="middle" fill="var(--txt)" font-size="13.5" font-weight="700">CCL 銅箔基板</text>
+<text x="337" y="88" text-anchor="middle" fill="var(--amber)" font-size="11.5">=做板子的「麵粉」</text>
+<text x="337" y="110" text-anchor="middle" fill="var(--mut)" font-size="11.5">台光電(M8 幾乎獨供)</text>
+<text x="337" y="128" text-anchor="middle" fill="var(--mut)" font-size="11.5">聯茂・台燿</text></g>
+<line x1="422" y1="95" x2="460" y2="95" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar8)"/>
+<g><rect x="464" y="40" width="130" height="110" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="529" y="66" text-anchor="middle" fill="var(--txt)" font-size="13.5" font-weight="700">PCB 電路板</text>
+<text x="529" y="90" text-anchor="middle" fill="var(--amber)" font-size="11.5">=烤好的蛋糕</text>
+<text x="529" y="112" text-anchor="middle" fill="var(--mut)" font-size="11.5">金像電・健鼎</text></g>
+<line x1="594" y1="95" x2="632" y2="95" stroke="var(--dim)" stroke-width="1.6" marker-end="url(#ar8)"/>
+<g><rect x="636" y="40" width="100" height="110" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="686" y="80" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="700">AI 伺服器</text>
+<text x="686" y="104" text-anchor="middle" fill="var(--amber)" font-size="11.5">板材價值</text>
+<text x="686" y="122" text-anchor="middle" fill="var(--amber)" font-size="11.5">數倍跳升</text></g>
+<text x="380" y="188" text-anchor="middle" fill="var(--txt)" font-size="12.5" font-weight="700">GPU 每換一代 → 訊號更快 → 板材被迫升級(M6→M8)→ 認證門檻高、供應商少=定價權</text>
+<text x="380" y="212" text-anchor="middle" fill="var(--dim)" font-size="11.5">AI 需求沿著這條鏈「由右往左」點火,越上游(原料)波動越大</text></svg>`,
+cooling:`<svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg">
+<text x="180" y="34" text-anchor="middle" fill="var(--mut)" font-size="13" font-weight="700">氣冷(電風扇吹)</text>
+<rect x="120" y="120" width="120" height="30" rx="5" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="180" y="140" text-anchor="middle" fill="var(--txt)" font-size="11.5">晶片(1000W 電暖爐)</text>
+<g stroke="var(--line)"><line x1="130" y1="118" x2="130" y2="78"/><line x1="146" y1="118" x2="146" y2="72"/><line x1="162" y1="118" x2="162" y2="78"/><line x1="178" y1="118" x2="178" y2="72"/><line x1="194" y1="118" x2="194" y2="78"/><line x1="210" y1="118" x2="210" y2="72"/><line x1="226" y1="118" x2="226" y2="78"/></g>
+<text x="180" y="62" text-anchor="middle" fill="var(--mut)" font-size="11">散熱鰭片</text>
+<g stroke="var(--dim)" stroke-dasharray="4 3"><path d="M70,90 q20,-8 40,0" fill="none"/><path d="M62,110 q20,-8 40,0" fill="none"/><path d="M70,130 q20,-8 40,0" fill="none"/></g>
+<text x="180" y="180" text-anchor="middle" fill="var(--mut)" font-size="11.5">風扇+鰭片,撐不住下一代功耗</text>
+<text x="560" y="34" text-anchor="middle" fill="var(--amber)" font-size="13" font-weight="700">液冷(水冷引擎)</text>
+<rect x="500" y="120" width="120" height="30" rx="5" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="560" y="140" text-anchor="middle" fill="var(--txt)" font-size="11.5">晶片</text>
+<rect x="500" y="92" width="120" height="24" rx="5" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<text x="560" y="108" text-anchor="middle" fill="var(--amber)" font-size="11">水冷板(冷卻液流過)</text>
+<path d="M620,104 h56 v78 h-232 v-40" fill="none" stroke="var(--amber)" stroke-width="2"/>
+<rect x="404" y="120" width="80" height="30" rx="6" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="444" y="140" text-anchor="middle" fill="var(--mut)" font-size="10.5">CDU 冷卻分配</text>
+<text x="560" y="180" text-anchor="middle" fill="var(--mut)" font-size="11.5">單價=氣冷的數倍,GB 世代起變標配</text>
+<text x="380" y="216" text-anchor="middle" fill="var(--dim)" font-size="11.5">奇鋐氣冷液冷雙吃・台達電做 CDU 與電力整合——晶片越熱,散熱越貴</text></svg>`,
+server:`<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">
+<rect x="290" y="24" width="180" height="250" rx="10" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.5"/>
+<g fill="var(--panel)" stroke="var(--line)">
+<rect x="304" y="40" width="152" height="28" rx="4"/><rect x="304" y="74" width="152" height="28" rx="4"/>
+<rect x="304" y="108" width="152" height="28" rx="4"/><rect x="304" y="142" width="152" height="28" rx="4"/>
+<rect x="304" y="176" width="152" height="28" rx="4"/><rect x="304" y="210" width="152" height="28" rx="4"/></g>
+<text x="380" y="262" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="700">GB 機櫃(數百萬美元)</text>
+<g font-size="12.5">
+<text x="270" y="58" text-anchor="end" fill="var(--txt)">GPU 晶片 <tspan fill="var(--mut)">NVIDIA/台積電製</tspan></text>
+<line x1="276" y1="54" x2="302" y2="54" stroke="var(--dim)"/>
+<text x="270" y="126" text-anchor="end" fill="var(--txt)">散熱液冷 <tspan fill="var(--amber)">奇鋐</tspan></text>
+<line x1="276" y1="122" x2="302" y2="122" stroke="var(--dim)"/>
+<text x="270" y="194" text-anchor="end" fill="var(--txt)">銅纜線束 <tspan fill="var(--amber)">貿聯</tspan></text>
+<line x1="276" y1="190" x2="302" y2="190" stroke="var(--dim)"/>
+<text x="270" y="248" text-anchor="end" fill="var(--txt)">滑軌 <tspan fill="var(--amber)">川湖</tspan><tspan fill="var(--mut)">(近乎獨佔)</tspan></text>
+<line x1="276" y1="244" x2="296" y2="244" stroke="var(--dim)"/>
+<text x="490" y="58" fill="var(--txt)">電源 800V <tspan fill="var(--amber)">台達電</tspan></text>
+<line x1="458" y1="54" x2="484" y2="54" stroke="var(--dim)"/>
+<text x="490" y="126" fill="var(--txt)">連接器/插槽 <tspan fill="var(--amber)">嘉澤</tspan></text>
+<line x1="458" y1="122" x2="484" y2="122" stroke="var(--dim)"/>
+<text x="490" y="194" fill="var(--txt)">BMC 管理晶片 <tspan fill="var(--amber)">信驊</tspan><tspan fill="var(--mut)">(市佔9成)</tspan></text>
+<line x1="458" y1="190" x2="484" y2="190" stroke="var(--dim)"/>
+<text x="490" y="248" fill="var(--txt)">高階板材 <tspan fill="var(--amber)">台光電</tspan></text>
+<line x1="458" y1="244" x2="484" y2="244" stroke="var(--dim)"/></g>
+<text x="380" y="292" text-anchor="middle" fill="var(--dim)" font-size="11.5">組裝:鴻海(機櫃市佔最大)・廣達(ODM 龍頭)・緯穎(直供 CSP)——一台機櫃,台廠含量八成</text></svg>`
+};
+function renderLearn(){
+  const box=document.getElementById('learnRow');
+  if(!box)return;
+  box.innerHTML=Object.entries(LEARN).map(([k,v])=>
+    `<div class="idx-card learn-card" data-lk="${k}" tabindex="0" role="button">
+      <span class="ltag">${v.tag}</span>
+      <div class="lt">${v.t}</div>
+      <div class="lo">${v.one}</div>
+    </div>`).join('');
+}
+function showLearnDetail(key){
+  const t=LEARN[key];
+  const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
+  if(!t){location.hash='';return;}
+  disposeChipCharts();curChips=null;
+  home.style.display='none';dv.style.display='block';
+  window.scrollTo({top:0});
+  dv.innerHTML=`<div class="detail-wrap">
+    <button class="back" id="backBtn">← 回儀表板</button>
+    <div class="m-head"><div>
+      <h2 style="font-size:24px;font-weight:900"><span class="c-sector" style="margin-right:8px">${t.tag}</span>${t.t}</h2>
+      <div class="c-full" style="margin-top:4px">${t.one}</div>
+    </div></div>
+    ${LEARN_FIG[key]?`<div class="learn-fig">${LEARN_FIG[key]}<div class="cap">示意圖:${t.t}(顏色隨主題切換)</div></div>`:''}
+    ${t.secs.map(([h,b],i)=>`<div class="dim-block"${i===0?' style="border-left:4px solid var(--amber)"':''}><h3>${h}</h3><div class="dim-note" style="font-size:14px;line-height:1.9">${b}</div></div>`).join('')}
+    ${t.rel&&t.rel.length?`<div class="dim-block"><h3>相關個股(點進去看三力評分)</h3><div class="links">${t.rel.map(([n,h])=>`<a href="${h}">${n} →</a>`).join('')}</div></div>`:''}
+    ${t.more&&t.more.length?`<div class="dim-block"><h3>延伸閱讀</h3><div class="links">${t.more.filter(k2=>LEARN[k2]).map(k2=>`<a href="#learn/${k2}">📚 ${LEARN[k2].t} →</a>`).join('')}</div></div>`:''}
+    <div style="margin-top:14px"><button class="btn-ai" id="learnAiBtn">✦ 還有不懂?讓 AI 用更簡單的比喻再講一次</button></div>
+    <div class="dim-note" style="margin-top:12px">內容為產業知識教學,非投資建議;公司舉例僅說明產業鏈位置。</div>
+  </div>`;
+  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  const btn=document.getElementById('learnAiBtn');
+  if(btn)btn.onclick=()=>aiAsk(`我剛看完「${t.t}」的產業教學,請用一個生活化的比喻幫我把重點再講一次(3~5句就好),然後考我一個小問題確認我有懂。`);
+}
+/* 學堂卡片點擊(事件委派) */
+(function(){
+  const el=document.getElementById('learnRow');
+  if(el)el.addEventListener('click',e=>{
+    const c=e.target.closest('[data-lk]');
+    if(c)location.hash='#learn/'+c.dataset.lk;
+  });
+})();
+renderLearn();
+
+/* ══════════════ 公司簡介(Yahoo 公司資料 + AI 白話解讀)══════════════ */
+const PCACHE={};
+async function loadProfile(s){
+  const sym=s.market==='TW'?`${s.id}.${s.ex==='tse'?'TW':'TWO'}`:s.id;
+  if(sym in PCACHE)return PCACHE[sym];
+  const u=`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=assetProfile`;
+  const routes=[x=>x,
+    x=>'https://corsproxy.io/?url='+encodeURIComponent(x),
+    x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x),
+    x=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(x)];
+  for(const r of routes){
+    try{
+      const res=await fetch(r(u),{cache:'no-store'});
+      if(!res.ok)continue;
+      const j=await res.json();
+      const p=j&&j.quoteSummary&&j.quoteSummary.result&&j.quoteSummary.result[0]&&j.quoteSummary.result[0].assetProfile;
+      if(p){PCACHE[sym]=p;return p;}
+    }catch(e){}
+  }
+  PCACHE[sym]=null;return null;
+}
+const SEC2LEARN=[['半導體','semi'],['電子零組件','pcb'],['電腦及週邊','server'],['光電','cpo'],['其他電子','server'],['通信網路','cpo']];
+async function loadProfileDetail(s){
+  const box=document.getElementById('profBody');
+  if(!box)return;
+  const p=await loadProfile(s);
+  if(!document.getElementById('profBody')||!location.hash.startsWith('#stock/'))return;
+  if(!p){
+    box.innerHTML='<div class="dim-note">公司資料暫時載入不到——直接點下方「AI 白話解讀」最快。</div>';
+    return;
+  }
+  const sum=p.longBusinessSummary||'';
+  const short=sum.length>420?sum.slice(0,420)+'…':sum;
+  box.innerHTML=`
+    <div class="prof-kv">
+      ${p.industryDisp||p.industry?`<span><b>細產業</b>${p.industryDisp||p.industry}</span>`:''}
+      ${p.fullTimeEmployees?`<span><b>員工數</b>${Number(p.fullTimeEmployees).toLocaleString()} 人</span>`:''}
+      ${p.city?`<span><b>總部</b>${p.city}${p.country&&p.country!=='Taiwan'?', '+p.country:''}</span>`:''}
+      ${p.website?`<span><b>官網</b><a href="${p.website}" target="_blank" rel="noopener">${p.website.replace(/^https?:\/\//,'')}</a></span>`:''}
+    </div>
+    ${sum?`<div class="prof-sum" id="profSum">${short}${sum.length>420?' <span class="prof-more" id="profMore">展開全文</span>':''}</div>
+    <div class="dim-note" style="margin-top:6px">簡介原文為英文(Yahoo Finance),點下方按鈕由 AI 翻成白話並整理產品分類。</div>`
+    :'<div class="dim-note">此檔無英文簡介,點下方按鈕由 AI 直接介紹。</div>'}`;
+  const more=document.getElementById('profMore');
+  if(more)more.onclick=()=>{document.getElementById('profSum').innerHTML=sum;};
+}
 /* ══════════════ 建議進場點:左側 vs 右側交易者(規則化)══════════════ */
 function entryPlan(lv,o,price){
   const vols=o.map(x=>x[4]);
@@ -2902,6 +3358,18 @@ async function aiSend(){
     el.innerHTML=mdLite('❌ 呼叫失敗:'+m+'\n\n'+hint);
   }
   AI.busy=false;$a('aiSendBtn').disabled=false;aiScroll();
+}
+function aiAsk(q){
+  const fab=$a('aiFab'),panel=$a('aiPanel');
+  if(!panel)return;
+  if(panel.hidden){panel.hidden=false;if(fab)fab.style.display='none';aiGreet();}
+  if(!aiKey()){
+    $a('aiSet').hidden=false;aiFillCfg();
+    aiAddMsg('sys','請先在 ⚙ 設定免費金鑰(aistudio.google.com/apikey),設定好再點一次按鈕即可');
+    return;
+  }
+  $a('aiInput').value=q;
+  aiSend();
 }
 function aiGreet(){
   if(AI.greeted)return;AI.greeted=true;
