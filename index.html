@@ -192,6 +192,15 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
   <div class="idx-row" id="pulseSec"></div>
   <div class="radar" id="pulseStocks" style="margin-top:10px"></div>
 
+  <div class="chart-box" style="margin-top:12px">
+    <div class="ind-head">
+      <h3>加權指數 即時走勢(1分線)</h3>
+      <span class="c-code" id="idxStat">載入中…</span>
+    </div>
+    <div id="idxChart" style="height:230px"></div>
+    <div id="idxFlow"></div>
+  </div>
+
   <div class="sec-title">機會雷達</div>
   <div class="radar" id="radar"></div>
   <div class="radar-note">雷達為規則化訊號(價格型態 × 三力評分),用途是縮小觀察範圍,不構成投資建議;實際進出請依自己的紀律與停損計畫。</div>
@@ -630,7 +639,143 @@ async function refreshLive(auto){
 }
 document.getElementById('updBtn').onclick=()=>refreshLive(false);
 
-/* ── 秒級即時報價:瀏覽器直連證交所 MIS 快照(每20秒,僅更新畫面上的個股)── */
+/* ── 即時走勢圖:Yahoo 1分線(經轉接通道),含量能與均價線 ── */
+async function yChart(sym){
+  const u=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1m&range=1d&includePrePost=false`;
+  const routes=[x=>x,
+    x=>'https://corsproxy.io/?url='+encodeURIComponent(x),
+    x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x)];
+  for(const r of routes){
+    try{
+      const res=await fetch(r(u),{cache:'no-store'});
+      if(!res.ok)continue;
+      const j=await res.json();
+      const q=j&&j.chart&&j.chart.result&&j.chart.result[0];
+      if(!q||!q.timestamp)continue;
+      return {t:q.timestamp,
+              c:q.indicators.quote[0].close,
+              v:q.indicators.quote[0].volume||[],
+              prev:q.meta.chartPreviousClose||q.meta.previousClose};
+    }catch(e){}
+  }
+  return null;
+}
+function flowCalc(d){ // 內外盤估:分鐘收高=主動買量、收低=主動賣量
+  let up=0,dn=0;
+  for(let i=1;i<d.c.length;i++){
+    const c=d.c[i],p=d.c[i-1],v=d.v[i]||0;
+    if(c==null||p==null)continue;
+    if(c>p)up+=v; else if(c<p)dn+=v;
+  }
+  return {up,dn};
+}
+function flowHTML(d,unit){
+  const f=flowCalc(d), tot=f.up+f.dn;
+  if(!tot)return '';
+  const bp=Math.round(f.up/tot*100);
+  const k=unit==='張'?1000:1;
+  return `<div class="dim-note" style="margin-top:8px">
+    <b>盤中多空力道(內外盤估):</b>主動買 <span class="pos">${bp}%(${Math.round(f.up/k).toLocaleString()}${unit})</span>
+    vs 主動賣 <span class="neg">${100-bp}%(${Math.round(f.dn/k).toLocaleString()}${unit})</span>
+    <div style="height:10px;margin-top:6px;border-radius:5px;overflow:hidden;background:#21A466">
+      <div style="width:${bp}%;height:100%;background:#E5484D"></div></div>
+    <span style="color:var(--dim);font-size:12px">依逐分鐘量價推估主動買賣盤。精確的大戶/散戶分點買賣超屬券商付費資料;本站的大戶視角以「盤後法人買賣超+每週集保大戶持股」補足。</span></div>`;
+}
+function drawIntra(domId,d){
+  const box=document.getElementById(domId);
+  if(!box)return;
+  if(!window.echarts){box.innerHTML='<div class="dim-note">圖表元件載入失敗</div>';return;}
+  echarts.dispose(box);
+  const ch=echarts.init(box);
+  const times=d.t.map(ts=>new Date(ts*1000).toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit'}));
+  let cv=0,cpv=0;
+  const avg=d.c.map((c,i)=>{const v=d.v[i]||0;
+    if(c!=null&&v){cv+=v;cpv+=c*v;}
+    return cv? +(cpv/cv).toFixed(2):(c!=null?+c.toFixed(2):null);});
+  const last=[...d.c].reverse().find(x=>x!=null);
+  const up=last>=d.prev, col=up?UPC:DNC;
+  const hasVol=(d.v||[]).some(v=>v>0);
+  const grids=hasVol?[{left:56,right:14,top:10,height:'64%'},{left:56,right:14,top:'80%',height:'16%'}]
+                    :[{left:56,right:14,top:10,bottom:26}];
+  const xAxes=grids.map((_,i)=>({type:'category',gridIndex:i,data:times,boundaryGap:false,
+    axisLine:{lineStyle:{color:'#232D42'}},axisTick:{show:false},
+    axisLabel:{show:i===grids.length-1,color:'#5A6478',fontSize:10,interval:Math.floor(times.length/6)}}));
+  const yAxes=[{gridIndex:0,scale:true,axisLabel:{color:'#5A6478',fontSize:10},
+      splitLine:{lineStyle:{color:'#1A2337'}}}];
+  const series=[
+    {name:'價格',type:'line',xAxisIndex:0,yAxisIndex:0,showSymbol:false,connectNulls:true,
+     data:d.c.map(x=>x!=null?+x.toFixed(2):null),
+     lineStyle:{width:1.6,color:col},itemStyle:{color:col},
+     areaStyle:{color:up?'rgba(229,72,77,.10)':'rgba(33,164,102,.10)'},
+     markLine:{symbol:'none',silent:true,label:{color:'#8B95AB',fontSize:10,formatter:'昨收 {c}'},
+       data:[{yAxis:+(+d.prev).toFixed(2),lineStyle:{color:'#5A6478',type:'dashed',width:1}}]}},
+    {name:'均價',type:'line',xAxisIndex:0,yAxisIndex:0,showSymbol:false,connectNulls:true,
+     data:avg,lineStyle:{width:1.1,color:'#E8B44A'},itemStyle:{color:'#E8B44A'}}];
+  if(hasVol){
+    yAxes.push({gridIndex:1,scale:true,axisLabel:{show:false},splitLine:{show:false}});
+    series.push({name:'量',type:'bar',xAxisIndex:1,yAxisIndex:1,
+      data:d.v.map((v,i)=>({value:v||0,
+        itemStyle:{color:(d.c[i]!=null&&d.c[i-1]!=null&&d.c[i]<d.c[i-1])?DNC:UPC,opacity:.55}}))});
+  }
+  ch.setOption({backgroundColor:'transparent',animation:false,
+    textStyle:{fontFamily:'IBM Plex Mono,monospace'},
+    tooltip:{trigger:'axis',backgroundColor:'#1A2337',borderColor:'#232D42',
+      textStyle:{color:'#E9EDF5',fontSize:12}},
+    grid:grids,xAxis:xAxes,yAxis:yAxes,series});
+  return {ch,disp:series[0].data,prev:d.prev};
+}
+/* 即時縫合:MIS 每10秒的最新價直接推動走勢圖線尾 */
+function pokeChart(ctx,price,statEl,unitFix){
+  if(!ctx||!ctx.ch||!ctx.disp||!price)return;
+  let i=ctx.disp.length-1;
+  while(i>=0&&(ctx.disp[i]==null))i--;
+  if(i<0)return;
+  ctx.disp[i]=+(+price).toFixed(unitFix??2);
+  try{ctx.ch.setOption({series:[{data:ctx.disp}]});}catch(e){}
+  if(statEl){
+    const el=document.getElementById(statEl);
+    if(el&&ctx.prev){
+      const chg=(price-ctx.prev)/ctx.prev*100;
+      el.innerHTML=`${(+price).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`;
+    }
+  }
+}
+async function refreshIdx(){
+  const d=await yChart('^TWII');
+  const stat=document.getElementById('idxStat');
+  if(!d){if(stat)stat.textContent='走勢暫時載入不到,稍後自動重試';return;}
+  const last=[...d.c].reverse().find(x=>x!=null);
+  const chg=(last-d.prev)/d.prev*100;
+  if(stat)stat.innerHTML=`${last.toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`;
+  RT.idx=drawIntra('idxChart',d);
+  const fl=document.getElementById('idxFlow');
+  if(fl)fl.innerHTML=flowHTML(d,'股');
+}
+setTimeout(refreshIdx,1500);
+setInterval(()=>{if(marketOpen())refreshIdx();},30000);
+
+/* ── 個股即時走勢(個股頁載入,60秒更新)── */
+async function loadIntraDetail(s){
+  const box=document.getElementById('intraChart');
+  if(!box)return;
+  const sym=s.market==='TW'?`${s.id}.${s.ex==='otc'?'TWO':'TW'}`:s.id;
+  const d=await yChart(sym);
+  const stat=document.getElementById('intraStat');
+  const fl=document.getElementById('intraFlow');
+  if(!d){if(stat)stat.textContent='即時走勢暫時載入不到';return;}
+  if(location.hash!=='#stock/'+s.id)return;
+  const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
+  const yv=(curOhlc&&curOhlc.length)?curOhlc[curOhlc.length-1][4]:0; // 昨日量(張)
+  const isTW=s.market==='TW';
+  const vTxt=isTW?`總量 ${(totV/1000).toLocaleString(undefined,{maximumFractionDigits:0})} 張${yv?` · 為昨量 ${Math.round(totV/1000/yv*100)}%`:''}`
+                 :`Vol ${(totV/1e6).toFixed(1)}M`;
+  if(stat)stat.textContent=vTxt;
+  RT.intra=drawIntra('intraChart',d);
+  if(RT.intra)RT.intra.id=s.id;
+  if(fl)fl.innerHTML=flowHTML(d,isTW?'張':'股');
+}
+
+/* ── 秒級即時報價:瀏覽器直連證交所 MIS 快照(每10秒,僅更新畫面上的個股)── */
 const RT={lastOk:0};
 function rtTargets(){
   const ids=new Set();
@@ -684,10 +829,14 @@ async function rtTick(){
     if(m.c==='t00'){
       const idx=((DATA.macro||{}).idx||[]).find(x=>(x.name||'').includes('加權'));
       if(idx){idx.val=+last.toFixed(2);idx.chg=+(((last-y)/y)*100).toFixed(2);}
+      pokeChart(RT.idx,last,'idxStat');
       return;
     }
     const s=DATA.stocks.find(x=>x.id===m.c);
-    if(s){s.price=+last.toFixed(2);s.chg=+(((last-y)/y)*100).toFixed(2);n++;}
+    if(s){
+      s.price=+last.toFixed(2);s.chg=+(((last-y)/y)*100).toFixed(2);n++;
+      if(RT.intra&&RT.intra.id===s.id)pokeChart(RT.intra,last);
+    }
   });
   if(!n)return;
   RT.lastOk=Date.now();
@@ -703,7 +852,7 @@ async function rtTick(){
     if(s&&ch){ch.innerHTML=chgHtml(s.chg);}
   }
 }
-setInterval(rtTick,20000);
+setInterval(rtTick,10000);
 setTimeout(rtTick,2500);
 
 /* ── 開盤時段自動更新:台北週一至五 08:55–13:40,每 3 分鐘 ── */
@@ -1100,6 +1249,14 @@ async function showDetail(id){
   const zoneName=lv.bull?'參考買進區|月線~季線均線帶':'支撐帶|空頭排列,先觀望';
   kwrap.innerHTML=`<div class="chart-box">
       <div class="ind-head">
+        <h3>即時走勢(1分線) · 黃線為當日均價 · 虛線為昨收</h3>
+        <span class="c-code" id="intraStat">載入中…</span>
+      </div>
+      <div id="intraChart" style="height:230px"></div>
+      <div id="intraFlow"></div>
+    </div>
+    <div class="chart-box">
+      <div class="ind-head">
         <h3>K線圖 · 近 ${k.ohlc.length} 個交易日${k.demo?'(範例資料,部署後為真實K線)':''} · 點圖例可開關均線 · 下方滑桿縮放</h3>
         <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
           `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
@@ -1138,11 +1295,19 @@ async function showDetail(id){
     drawKChart();
   });
   drawKChart();
+  loadIntraDetail(s);
+  if(RT.dTimer)clearInterval(RT.dTimer);
+  RT.dTimer=setInterval(()=>{
+    if(location.hash==='#stock/'+s.id&&marketOpen())loadIntraDetail(s);
+  },30000);
 }
 function route(){
   if(location.hash.startsWith('#stock/')) showDetail(decodeURIComponent(location.hash.slice(7)));
-  else{document.getElementById('detailView').style.display='none';
-       document.getElementById('homeView').style.display='block';}
+  else{
+    if(RT.dTimer){clearInterval(RT.dTimer);RT.dTimer=null;}
+    document.getElementById('detailView').style.display='none';
+    document.getElementById('homeView').style.display='block';
+  }
 }
 window.addEventListener('hashchange',route);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&location.hash)location.hash='';});
