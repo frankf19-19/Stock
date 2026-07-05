@@ -150,6 +150,14 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .diag.show{display:block}
 .diag .ok{color:#4BD695} .diag .bad{color:#FF8A8E}
 
+.ps-card{cursor:pointer;transition:border-color .15s}
+.ps-card:hover{border-color:var(--amber)}
+.ps-card .lead{font-size:11.5px;color:var(--mut);margin-top:3px}
+.tg-hot{background:rgba(229,72,77,.15);color:#FF8A8E;border:1px solid rgba(229,72,77,.4)}
+.tg-drop{background:rgba(232,180,74,.12);color:var(--amber);border:1px solid rgba(232,180,74,.4)}
+.ai-ul{list-style:none;margin-top:4px}
+.ai-ul li{padding-left:16px;position:relative;margin-bottom:3px;color:#C4CBDA}
+.ai-ul li::before{content:'▸';position:absolute;left:2px;color:var(--amber)}
 .more{grid-column:1/-1;background:var(--panel);border:1px dashed var(--line);color:var(--mut);border-radius:10px;padding:14px;cursor:pointer;font-size:14px;font-family:var(--sans)}
 .more:hover{color:var(--amber);border-color:var(--amber)}
 
@@ -179,6 +187,10 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
   <div class="diag" id="diag"></div>
 
   <div id="homeView">
+
+  <div class="sec-title">盤面脈動 <span style="font-weight:400;font-size:12px;letter-spacing:0">依最新報價即時計算,開盤時段每 3 分鐘自動重算</span></div>
+  <div class="idx-row" id="pulseSec"></div>
+  <div class="radar" id="pulseStocks" style="margin-top:10px"></div>
 
   <div class="sec-title">機會雷達</div>
   <div class="radar" id="radar"></div>
@@ -567,7 +579,7 @@ function setBadges(extra){
   const sb=document.getElementById('srcBadge');
   if(DATA.source==='live'){ sb.textContent='即時數據'; sb.className='badge live'; }
 }
-function renderAll(){ renderRadar(); renderMacro(); renderNews(); renderChips(); render(); }
+function renderAll(){ renderPulse(); renderRadar(); renderMacro(); renderNews(); renderChips(); render(); }
 
 function renderMacro(){
   const m=DATA.macro||{};
@@ -786,6 +798,57 @@ function keyLevels(o){
     stop:+(zone[0]*0.97).toFixed(2)};
 }
 
+/* ── AI 綜合研判:未來性判定(規則化,看壞會說明原因)── */
+function aiVerdict(s){
+  const T=total(s), f=s.f.score, c=s.c.score, t=s.t.score;
+  const pros=[], cons=[];
+  // 基本面
+  const yoyStr=(s.f.kv||{})["月營收YoY"]||(s.f.kv||{})["最新月營收YoY"]||(s.f.kv||{})["季營收YoY"]||"";
+  const yoy=parseFloat(String(yoyStr).replace(/[+%]/g,''));
+  if(!isNaN(yoy)){
+    if(yoy>=20) pros.push(`營收動能強:最新營收年增 ${yoyStr},成長趨勢明確`);
+    else if(yoy>=0) pros.push(`營收穩定:年增 ${yoyStr},維持正成長`);
+    else cons.push(`營收衰退:年減 ${Math.abs(yoy).toFixed(1)}%,基本面動能不足`);
+  }else if(f<=50) cons.push('基本面資料有限或動能平平,需自行查閱財報');
+  // 籌碼面
+  const r=chipRaw(s);
+  if(r.f5>0&&r.t5>0) pros.push(`外資投信同步買超(外資 ${r.f5>0?'+':''}${(r.f5||0).toLocaleString()} 張、投信 ${r.t5>0?'+':''}${(r.t5||0).toLocaleString()} 張),法人態度偏多`);
+  else if((r.f5||0)<0&&(r.t5||0)<0) cons.push('外資與投信同步賣超,法人正在調節');
+  if(r.bigw!==undefined){
+    if(r.bigw>=0.3) pros.push(`400張大戶持股週增 +${r.bigw}pp,籌碼向大戶集中`);
+    else if(r.bigw<=-0.3) cons.push(`400張大戶持股週減 ${r.bigw}pp,大戶調節中`);
+  }
+  // 技術面
+  const kv=s.t.kv||{};
+  if(kv["20/60MA"]==="多頭排列") pros.push('均線多頭排列,趨勢結構健康');
+  else if(kv["20/60MA"]) cons.push('均線空方或糾結,趨勢尚未轉強,買盤需先克服套牢賣壓');
+  // 產業面
+  const info=SECTOR_INFO[s.sector];
+  if(info) pros.push(`產業面:${s.sector}——${info.tag}`);
+  // 結論
+  let tier,tone;
+  if(T>=72&&cons.length<=1){tier='看好|具未來性';tone='pos';}
+  else if(T>=58){tier='中性偏多|列入觀察';tone='';}
+  else if(T>=46){tier='中性|暫無明確方向';tone='';}
+  else{tier='偏弱|未來性不足';tone='neg';}
+  return {T,tier,tone,pros,cons,info};
+}
+
+/* ── 情境價位推估:波動率統計 + 技術量測(非目標價預測)── */
+function scenarioBands(o,price){
+  const closes=o.map(x=>x[3]);
+  const rets=[];
+  for(let i=1;i<closes.length;i++) if(closes[i-1]) rets.push(Math.log(closes[i]/closes[i-1]));
+  const mu=rets.reduce((a,b)=>a+b,0)/rets.length;
+  const sd=Math.sqrt(rets.reduce((a,b)=>a+(b-mu)*(b-mu),0)/rets.length);
+  const h=Math.sqrt(60);            // 約一季(60個交易日)
+  const up=price*Math.exp(sd*h), dn=price*Math.exp(-sd*h);
+  const highs=o.map(x=>x[1]), lows=o.map(x=>x[2]);
+  const h60=Math.max(...highs.slice(-60)), l60=Math.min(...lows.slice(-60));
+  const brk=h60+(h60-l60)*0.618;    // 突破量測目標(平台高度0.618投射)
+  return {up,dn,h60,l60,brk,sd:(sd*Math.sqrt(252)*100)};
+}
+
 /* ── ECharts 專業 K 線圖(MA 可開關、MACD/KD/RSI 副圖切換、縮放)── */
 let curOhlc=null,curDates=null,chartInst=null,indMode='MACD';
 const UPC='#E5484D', DNC='#21A466';
@@ -924,6 +987,25 @@ async function showDetail(id){
       <div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>
     </div>
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
+    ${(()=>{const v=aiVerdict(s);return `
+    <div class="dim-block" style="border-left:4px solid var(--amber)">
+      <h3>AI 綜合研判 <span class="ds ${v.tone==='pos'?'pos':v.tone==='neg'?'neg':''}">${v.tier} · 綜合 ${v.T} 分</span></h3>
+      ${v.pros.length?`<div class="dim-note" style="margin-top:4px"><b style="color:#4BD695">未來性所在:</b><ul class="ai-ul">${v.pros.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
+      ${v.cons.length?`<div class="dim-note"><b style="color:#FF8A8E">${v.pros.length?'需要留意:':'未來性不足的原因:'}</b><ul class="ai-ul">${v.cons.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
+      ${v.info?`<div class="dim-note">產業觀察重點:${v.info.watch.join('、')}。</div>`:''}
+      <div class="dim-note" style="color:var(--dim)">此為依營收、籌碼、技術、產業四面向的規則化研判,不構成投資建議;數據品質受來源限制,重大決策請再查證。</div>
+    </div>`})()}
+    <div class="dim-block">
+      <h3>相關新聞</h3>
+      ${Array.isArray(s.news)&&s.news.length?`<div class="news" style="border:none;padding:0">${s.news.map(x=>
+        `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s||''}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>`
+       :`<div class="dim-note">此檔未在每日新聞掃描名單(僅涵蓋訊號股與評分前段班),請用下方連結查看:</div>`}
+      <div class="links" style="margin-top:10px">
+        ${isTW?`<a href="https://tw.stock.yahoo.com/quote/${s.id}/news" target="_blank" rel="noopener">Yahoo 個股新聞 ↗</a>`
+              :`<a href="https://finance.yahoo.com/quote/${s.id}/news" target="_blank" rel="noopener">Yahoo Finance News ↗</a>`}
+        <a href="https://news.google.com/search?q=${encodeURIComponent(s.name+' '+s.id)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant" target="_blank" rel="noopener">Google 新聞搜尋 ↗</a>
+      </div>
+    </div>
     ${dimBlock('基本面(權重40%)',s.f)}
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',s.c)}
     ${dimBlock('技術線型(權重25%)',s.t)}
@@ -960,7 +1042,19 @@ async function showDetail(id){
         <div><dt>支撐 2|前波低(60日)</dt><dd class="neg">${lv.l60.toFixed(1)}</dd></div>
       </div>
       <div class="dim-note">規則:壓力/支撐取近 20、60 日高低點;參考買進區為多頭排列時「月線~季線」均線帶(拉回均線帶承接是常見打法),空頭排列時只標支撐帶、以觀望為主;樞紐點 P=(H+L+C)/3。以上為規則化參考價位,非投資建議——先想好停損再想獲利。</div>
-    </div>`;
+    </div>
+    ${(()=>{const b=scenarioBands(k.ohlc,s.price??k.ohlc[k.ohlc.length-1][3]);return `
+    <div class="dim-block" style="border-left:4px solid #7FB4FF">
+      <h3>情境價位推估|約一季(60個交易日) <span class="ds">年化波動 ${b.sd.toFixed(0)}%</span></h3>
+      <div class="kv">
+        <div><dt>樂觀情境(+1σ 統計上緣)</dt><dd class="pos">${b.up.toFixed(1)}</dd></div>
+        <div><dt>技術突破量測目標(平台高度投射)</dt><dd class="pos">${b.brk.toFixed(1)}</dd></div>
+        <div><dt>中性:回到前波高需過的關卡</dt><dd>${b.h60.toFixed(1)}</dd></div>
+        <div><dt>保守情境(−1σ 統計下緣)</dt><dd class="neg">${b.dn.toFixed(1)}</dd></div>
+        <div><dt>極端防守:前波低</dt><dd class="neg">${b.l60.toFixed(1)}</dd></div>
+      </div>
+      <div class="dim-note">說明:樂觀/保守情境為近 120 日波動率的 ±1σ 統計推估(約 68% 機率落在此區間內);突破量測目標為型態學的平台高度投射,<b>前提是先帶量突破 ${b.h60.toFixed(1)} 且訊號未被跌破</b>。這是統計與型態推估、不是目標價預測——市場永遠可能走出區間之外,部位大小與停損才是你能控制的事。</div>
+    </div>`})()}`;
   document.querySelectorAll('#indSeg button').forEach(b=>b.onclick=()=>{
     indMode=b.dataset.i;
     document.querySelectorAll('#indSeg button').forEach(x=>x.classList.toggle('on',x===b));
@@ -1023,6 +1117,57 @@ function signals(s){
       desc:`綜合 ${T} 分,多頭排列沿 20MA 推進,基本/籌碼/技術同向`});
   return out;
 }
+/* ── 盤面脈動:強勢族群 + 焦點個股(依最新報價即時計算)── */
+function renderPulse(){
+  const secBox=document.getElementById('pulseSec');
+  const stBox=document.getElementById('pulseStocks');
+  const priced=DATA.stocks.filter(s=>s.price!=null&&typeof s.chg==='number');
+  // 族群強度:平均漲幅排行(至少4檔有報價的族群才列入)
+  const g={};
+  priced.forEach(s=>{(g[s.sector]=g[s.sector]||[]).push(s);});
+  const rows=Object.entries(g).filter(([_,a])=>a.length>=4).map(([sec,a])=>{
+    const avg=a.reduce((x,s)=>x+s.chg,0)/a.length;
+    const up=a.filter(s=>s.chg>0).length;
+    const lead=a.slice().sort((x,y)=>y.chg-x.chg)[0];
+    return {sec,avg,up,n:a.length,lead};
+  }).sort((a,b)=>b.avg-a.avg);
+  secBox.innerHTML=rows.length?rows.slice(0,6).map((r,i)=>
+    `<div class="idx-card ps-card" data-sec="${r.sec}" tabindex="0" role="button" aria-label="查看${r.sec}">
+      <div class="nm">${i===0?'🔥 ':''}${r.sec}</div>
+      <div class="vl">${chgHtml(+r.avg.toFixed(2))}</div>
+      <div class="lead">上漲 ${r.up}/${r.n} · 領漲 ${r.lead.name} ${r.lead.chg>0?'+':''}${r.lead.chg}%</div>
+    </div>`).join('')
+    :'<div class="idx-card"><div class="nm">尚無報價資料,等資料更新後顯示</div></div>';
+  secBox.querySelectorAll('.ps-card').forEach(c=>{
+    const go=()=>{const sec=c.dataset.sec;
+      mkt=sec.startsWith('美股·')?'US':'TW'; sector=sec; page=1;
+      document.querySelectorAll('#mktSeg button').forEach(x=>x.classList.toggle('on',x.dataset.m===mkt));
+      renderChips(); render();
+      const t=document.getElementById('chips'); if(t) t.scrollIntoView({behavior:'smooth'});};
+    c.onclick=go; c.onkeydown=e=>{if(e.key==='Enter')go();};
+  });
+  // 焦點個股:強勢上攻(漲幅大且評分佳)、好股重挫(高分股大跌,值得觀察)
+  const hot=priced.filter(s=>s.chg>=3.5&&total(s)>=58)
+    .sort((a,b)=>b.chg-a.chg).slice(0,6)
+    .map(s=>({s,label:'強勢上攻',cls:'tg-hot',
+      desc:`今日 +${s.chg}%,綜合 ${total(s)} 分${s.sig&&s.sig.length?' · 觸發「'+s.sig[0].label+'」':''} · ${s.sector}`}));
+  const drop=priced.filter(s=>s.chg<=-3.5&&total(s)>=68)
+    .sort((a,b)=>a.chg-b.chg).slice(0,4)
+    .map(s=>({s,label:'好股重挫',cls:'tg-drop',
+      desc:`今日 ${s.chg}%,綜合 ${total(s)} 分的體質股大跌,留意是否殺到關鍵價 · ${s.sector}`}));
+  const items=[...hot,...drop];
+  stBox.innerHTML=items.length?items.map(({s,label,cls,desc})=>
+    `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
+      <span class="r-tag ${cls}">${label}</span>
+      <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span></span>
+      <span class="r-desc">${desc}</span></div>`).join('')
+    :'<div class="r-empty">目前沒有明顯異動的焦點個股(休市或盤勢平靜)。</div>';
+  stBox.querySelectorAll('.r-card').forEach(c=>{
+    c.onclick=()=>{location.hash='#stock/'+c.dataset.id;};
+    c.onkeydown=e=>{if(e.key==='Enter'){location.hash='#stock/'+c.dataset.id;}};
+  });
+}
+
 function renderRadar(){
   const box=document.getElementById('radar');
   const items=[];

@@ -439,6 +439,35 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev):
     if sig: out["sig"] = sig
     return out
 
+# ═══════════════ 個股新聞(訊號股 + 精選 + 評分前段班)═══════════════
+def fetch_stock_news(stocks, cap=150, per=3):
+    import xml.etree.ElementTree as ET, html as H
+    def T(s): return round(s["f"]["score"]*.40 + s["c"]["score"]*.35 + s["t"]["score"]*.25)
+    cands = [s for s in stocks if s.get("sig") or s["id"] in THESIS]
+    rest = sorted([s for s in stocks if s not in cands and s.get("price") is not None],
+                  key=T, reverse=True)
+    targets = (cands + rest)[:cap]
+    got = 0
+    for s in targets:
+        q = requests.utils.quote(f'"{s["name"]}" {("股價" if s["market"]=="TW" else "stock")}')
+        url = (f"https://news.google.com/rss/search?q={q}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant")
+        try:
+            root = ET.fromstring(requests.get(url, headers=UA, timeout=15).content)
+            items = []
+            for it in root.iter("item"):
+                title = H.unescape(it.findtext("title") or "")
+                parts = title.rsplit(" - ", 1)
+                items.append({"t": parts[0][:80], "s": parts[1] if len(parts) > 1 else "",
+                              "l": it.findtext("link") or "#",
+                              "d": (it.findtext("pubDate") or "")[5:16]})
+                if len(items) >= per: break
+            if items:
+                s["news"] = items; got += 1
+        except Exception:
+            pass
+        time.sleep(0.5)
+    print(f"  個股新聞:{got}/{len(targets)} 檔")
+
 # ═══════════════ 市場總覽 / 新聞 ═══════════════
 def stooq_index(sym):
     d1 = (TODAY - dt.timedelta(days=15)).strftime("%Y%m%d")
@@ -538,7 +567,13 @@ def main():
         if c["id"] in THESIS: d["thesis"] = THESIS[c["id"]]
         stocks.append(d)
 
-    print("⑤ 市場總覽與新聞 ...")
+    print("⑤ 個股新聞(訊號股與評分前段班)...")
+    try:
+        fetch_stock_news(stocks)
+    except Exception as e:
+        print(f"  [warn] 個股新聞: {e}")
+
+    print("⑥ 市場總覽與新聞 ...")
     taipei = (dt.datetime.utcnow() + dt.timedelta(hours=8)).strftime("%Y-%m-%d")
     out = {"updated": taipei, "source": "live",
            "macro": fetch_macro(), "news": fetch_news(), "stocks": stocks}
