@@ -2230,6 +2230,59 @@ const MK={
     how:'三大法人同步買超的日子是「法人日」,行情多屬攻擊型;合計連續賣超代表法人整體降風險,搶反彈宜保守。'}
 };
 let MMETA=null;
+function mkLoadLS(){
+  try{const h=JSON.parse(localStorage.getItem('mkt_hist')||'null');
+      return (h&&Array.isArray(h.d))?h:{d:[],f:[],t:[],g:[]};}
+  catch(e){return {d:[],f:[],t:[],g:[]};}
+}
+function mkSaveLS(h,skip){
+  try{localStorage.setItem('mkt_hist',JSON.stringify(h));
+      localStorage.setItem('mkt_skip',JSON.stringify(skip.slice(-140)));}catch(e){}
+}
+function tpNow(){return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));}
+function isoOf(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+async function getMktHist(onProg){
+  const meta=await loadMMeta();
+  const map={};
+  const add=h=>{if(h&&Array.isArray(h.d))h.d.forEach((dd,i)=>{map[dd]=[h.f[i],h.t[i],h.g[i]];});};
+  add(meta&&meta.mkt);          // 後端累積(若有)
+  add(mkLoadLS());              // 本機快取
+  let skip=[];try{skip=JSON.parse(localStorage.getItem('mkt_skip')||'[]');}catch(e){}
+  const skipSet=new Set(skip);
+  const todayIso=isoOf(tpNow());
+  // 找出缺少的交易日(平日),往回最多 100 個日曆日、湊滿 65 個交易日
+  const need=[];
+  let d=tpNow();
+  for(let w=0;w<100&&(Object.keys(map).length+need.length)<66;w++){
+    const wd=d.getDay(),iso=isoOf(d);
+    if(wd!==0&&wd!==6&&!map[iso]&&!skipSet.has(iso))need.push(new Date(d));
+    d.setDate(d.getDate()-1);
+  }
+  let done=0;
+  for(const dd of need){
+    if(!location.hash.startsWith('#macro/'))break;  // 使用者離開就停,下次續補
+    const iso=isoOf(dd);
+    const ds=iso.replace(/-/g,'');
+    const j=await fetchTWJSON(`https://www.twse.com.tw/rwd/zh/fund/BFI82U?dayDate=${ds}&type=day&response=json`);
+    done++;if(onProg)onProg(done,need.length);
+    if(j&&j.stat==='OK'&&Array.isArray(j.data)){
+      let f=0,t=0,g=0;
+      j.data.forEach(row=>{
+        const name=String(row[0]||''),net=parseFloat(String(row[3]||'0').replace(/,/g,''))/1e8;
+        if(name.includes('外資'))f+=net;
+        else if(name.includes('投信'))t+=net;
+        else if(name.includes('自營'))g+=net;});
+      map[iso]=[+f.toFixed(1),+t.toFixed(1),+g.toFixed(1)];
+    }else if(iso!==todayIso){   // 今天可能還沒公布(約15:00後),不列入永久略過
+      skipSet.add(iso);          // 假日/休市:記下來以後不再重抓
+    }
+    await new Promise(r=>setTimeout(r,220));
+  }
+  const ds2=Object.keys(map).sort().slice(-65);
+  const h={d:ds2,f:ds2.map(x=>map[x][0]),t:ds2.map(x=>map[x][1]),g:ds2.map(x=>map[x][2])};
+  mkSaveLS(h,[...skipSet]);
+  return h;
+}
 async function loadMMeta(){
   if(MMETA!==null)return MMETA;
   try{
@@ -2291,12 +2344,15 @@ async function showMacroDetail(key){
       <div class="dim-note">資料來源:證交所 BFI82U 三大法人買賣金額統計(僅上市);歷史自 v5 部署起逐日累積。</div>
     </div>`;
     document.getElementById('backBtn').onclick=()=>{location.hash='';};
-    const meta=await loadMMeta();
+    const mk=await getMktHist((a,b)=>{
+      const el=document.getElementById('mkInstWrap');
+      if(el&&location.hash==='#macro/'+key)
+        el.innerHTML=`<div class="chart-box"><h3>首次回補近三個月歷史中… ${a}/${b}</h3><div class="dim-note" style="padding:8px 14px">資料會存在你的瀏覽器,只有第一次比較久(約1分鐘),之後每天只補最新一天、秒開。</div></div>`;
+    });
     if(location.hash!=='#macro/'+key)return;
-    const mk=meta&&meta.mkt;
     const wrap=document.getElementById('mkInstWrap');
     if(!mk||!mk.d||mk.d.length<2){
-      wrap.innerHTML='<div class="dim-block"><h3>近三個月買賣超</h3><div class="dim-note">大盤法人歷史累積中——執行一次每日自動更新後,會自動回補約三個月的資料。目前可先看首頁卡片的近5日數字。</div></div>';
+      wrap.innerHTML='<div class="dim-block"><h3>近三個月買賣超</h3><div class="dim-note">目前抓不到證交所法人資料(官方通道或代理暫時不可用),稍後再點進來會自動重試。首頁卡片的近5日數字仍可參考。</div></div>';
       return;
     }
     const series=def.sk==='*'?mk.d.map((_,i)=>+(mk.f[i]+mk.t[i]+mk.g[i]).toFixed(1)):mk[def.sk];
