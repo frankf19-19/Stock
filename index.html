@@ -150,6 +150,14 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .diag.show{display:block}
 .diag .ok{color:#4BD695} .diag .bad{color:#FF8A8E}
 
+.macro-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;align-items:stretch}
+.macro-side{display:flex;flex-direction:column;gap:8px;justify-content:space-between}
+.idx-row.compact{gap:8px;grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}
+.idx-row.compact .idx-card{padding:9px 11px}
+.idx-row.compact .nm{font-size:11px}
+.idx-row.compact .vl{font-size:15.5px}
+.idx-row.compact .ch{font-size:11.5px}
+@media(max-width:900px){.macro-grid{grid-template-columns:1fr}}
 .ps-card{cursor:pointer;transition:border-color .15s}
 .ps-card:hover{border-color:var(--amber)}
 .ps-card .lead{font-size:11.5px;color:var(--mut);margin-top:3px}
@@ -188,33 +196,33 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 
   <div id="homeView">
 
-  <div class="sec-title">盤面脈動 <span style="font-weight:400;font-size:12px;letter-spacing:0">依最新報價即時計算,開盤時段每 3 分鐘自動重算</span></div>
+  <div class="sec-title">總經環境 <span style="font-weight:400;font-size:12px;letter-spacing:0">大盤走勢與指標即時更新</span></div>
+  <div class="macro-grid">
+    <div class="chart-box" style="margin:0">
+      <div class="ind-head">
+        <h3>加權指數 即時走勢(1分線)</h3>
+        <span class="c-code" id="idxStat">載入中…</span>
+      </div>
+      <div id="idxChart" style="height:252px"></div>
+      <div id="idxFlow"></div>
+      <div id="idxAnalysis"></div>
+    </div>
+    <div class="macro-side">
+      <div class="idx-row compact" id="idxRow"></div>
+      <div class="idx-row compact" id="fxRow"></div>
+      <div class="idx-row compact" id="riskRow"></div>
+      <div class="idx-row compact" id="instRow"></div>
+    </div>
+  </div>
+  <div class="fx-note" id="macroNote">總經判讀載入中…</div>
+
+  <div class="sec-title">盤面脈動 <span style="font-weight:400;font-size:12px;letter-spacing:0">強勢族群與焦點個股,依最新報價即時計算</span></div>
   <div class="idx-row" id="pulseSec"></div>
   <div class="radar" id="pulseStocks" style="margin-top:10px"></div>
-
-  <div class="chart-box" style="margin-top:12px">
-    <div class="ind-head">
-      <h3>加權指數 即時走勢(1分線)</h3>
-      <span class="c-code" id="idxStat">載入中…</span>
-    </div>
-    <div id="idxChart" style="height:230px"></div>
-    <div id="idxFlow"></div>
-  </div>
 
   <div class="sec-title">機會雷達</div>
   <div class="radar" id="radar"></div>
   <div class="radar-note">雷達為規則化訊號(價格型態 × 三力評分),用途是縮小觀察範圍,不構成投資建議;實際進出請依自己的紀律與停損計畫。</div>
-
-  <div class="sec-title">市場總覽</div>
-  <div class="idx-row" id="idxRow"></div>
-
-  <div class="sec-title">匯率</div>
-  <div class="idx-row" id="fxRow"></div>
-  <div class="fx-note" id="fxNote"></div>
-
-  <div class="sec-title">風險指標</div>
-  <div class="idx-row" id="riskRow"></div>
-  <div class="fx-note" id="riskNote" style="border-left-color:#7FB4FF"></div>
 
   <div class="sec-title">重大新聞</div>
   <div class="news" id="newsBox"></div>
@@ -603,11 +611,16 @@ function renderMacro(){
   const items=[["美元/台幣",fx.USDTWD],["日圓/台幣",fx.JPYTWD],["歐元/台幣",fx.EURTWD],["美元/日圓",fx.USDJPY]];
   document.getElementById('fxRow').innerHTML=items.map(([n,v])=>
     `<div class="idx-card"><div class="nm">${n}</div><div class="vl">${v??'—'}</div></div>`).join('');
-  const tone=fx.USDTWD?(fx.USDTWD>=32.8?'台幣偏弱':fx.USDTWD<=31.5?'台幣偏強':'台幣區間震盪'):null;
-  document.getElementById('fxNote').innerHTML=
-    `<b>怎麼看匯率:</b>${tone?`目前美元兌台幣 ${fx.USDTWD},屬 <b>${tone}</b> 格局。`:''}`+
-    `台幣<b>升值</b>通常伴隨外資匯入,台股容易走資金行情;台幣<b>貶值</b>代表外資匯出壓力,電子出口商有匯兌收益但指數易承壓。`+
-    `日圓則牽動套利交易——日圓急升時全球風險資產常同步震盪,是操作 AI 股的重要風向球。`;
+  const tone=fx.USDTWD?(fx.USDTWD>=32.8?'台幣偏弱(外資匯出壓力,出口有匯兌收益但指數易承壓)':fx.USDTWD<=31.5?'台幣偏強(外資匯入,易走資金行情)':'台幣區間震盪'):null;
+  window.__noteFx=tone?`匯率:美元/台幣 ${fx.USDTWD},<b>${tone}</b>。`:'';
+  composeMacroNote();
+}
+function composeMacroNote(){
+  const el=document.getElementById('macroNote');
+  if(!el)return;
+  const parts=[window.__noteFx||'',window.__noteRisk||'',window.__noteInst||''].filter(Boolean);
+  el.innerHTML=parts.length?`<b>總經判讀:</b>${parts.join(' ')}`
+    :'總經判讀載入中…';
 }
 function renderNews(){
   const n=DATA.news||[];
@@ -644,11 +657,12 @@ async function refreshLive(auto){
 document.getElementById('updBtn').onclick=()=>refreshLive(false);
 
 /* ── 即時走勢圖:Yahoo 1分線(經轉接通道),含量能與均價線 ── */
-async function yChart(sym){
-  const u=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1m&range=1d&includePrePost=false`;
+async function yChart(sym,range,interval){
+  const u=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval||'1m'}&range=${range||'1d'}&includePrePost=false`;
   const routes=[x=>x,
     x=>'https://corsproxy.io/?url='+encodeURIComponent(x),
-    x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x)];
+    x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x),
+    x=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(x)];
   for(const r of routes){
     try{
       const res=await fetch(r(u),{cache:'no-store'});
@@ -744,6 +758,141 @@ function pokeChart(ctx,price,statEl,unitFix){
     }
   }
 }
+/* ── 三大法人(集中市場,盤後公布;含近5日累計)── */
+async function fetchTWJSON(url){
+  const routes=[x=>x,
+    x=>'https://corsproxy.io/?url='+encodeURIComponent(x),
+    x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x),
+    x=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(x)];
+  for(const r of routes){
+    try{
+      const res=await fetch(r(url),{cache:'no-store'});
+      if(!res.ok)continue;
+      const j=await res.json();
+      if(j&&(j.stat!==undefined||j.data||j.tables))return j;
+    }catch(e){}
+  }
+  return null;
+}
+async function loadInst(){
+  const box=document.getElementById('instRow');
+  if(!box)return;
+  const days=[]; // [{date,f,t,d}] 億元
+  let d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  for(let tries=0;tries<10&&days.length<5;tries++){
+    if(d.getDay()!==0&&d.getDay()!==6){
+      const ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      const j=await fetchTWJSON(`https://www.twse.com.tw/rwd/zh/fund/BFI82U?dayDate=${ds}&type=day&response=json`);
+      if(j&&j.stat==='OK'&&Array.isArray(j.data)){
+        let f=0,t=0,dl=0;
+        j.data.forEach(row=>{
+          const name=String(row[0]||''), net=parseFloat(String(row[3]||'0').replace(/,/g,''))/1e8;
+          if(name.includes('外資'))f+=net;
+          else if(name.includes('投信'))t+=net;
+          else if(name.includes('自營'))dl+=net;
+        });
+        days.push({date:`${d.getMonth()+1}/${d.getDate()}`,f:+f.toFixed(0),t:+t.toFixed(0),d:+dl.toFixed(0)});
+      }
+    }
+    d.setDate(d.getDate()-1);
+  }
+  if(!days.length){
+    box.innerHTML='<div class="idx-card"><div class="nm">法人資料通道暫不可用,稍後自動重試</div></div>';
+    return;
+  }
+  const cur=days[0];
+  const sum=k=>days.reduce((a,x)=>a+x[k],0);
+  const cell=(name,v,acc)=>`<div class="idx-card"><div class="nm">${name}(${cur.date})</div>
+    <div class="vl"><span class="${v>0?'pos':v<0?'neg':'flat'}">${v>0?'+':''}${v.toLocaleString()} 億</span></div>
+    <div class="ch">5日累計 <span class="${acc>0?'pos':acc<0?'neg':'flat'}">${acc>0?'+':''}${acc.toLocaleString()} 億</span></div></div>`;
+  box.innerHTML=cell('外資',cur.f,sum('f'))+cell('投信',cur.t,sum('t'))+cell('自營商',cur.d,sum('d'))
+    +cell('三大法人',cur.f+cur.t+cur.d,sum('f')+sum('t')+sum('d'));
+  const dir=v=>v>0?`買超 ${v}`:v<0?`賣超 ${Math.abs(v)}`:'持平';
+  window.__noteInst=`法人(${cur.date} 盤後):外資${dir(cur.f)}億、投信${dir(cur.t)}億、自營${dir(cur.d)}億;外資近5日累計 ${sum('f')>0?'+':''}${sum('f')} 億${sum('f')>300?',買盤積極':sum('f')<-300?',調節明顯':''}。`;
+  composeMacroNote();
+}
+setTimeout(loadInst,3500);
+setInterval(loadInst,15*60*1000); // 每15分鐘檢查(15:00後會自動換上今日)
+
+/* ── 大盤即時解讀:走勢型態、日線趨勢、量能評估與預估量 ── */
+let IDXD=null,IDXD_T=0;
+async function loadIdxDaily(){
+  if(IDXD&&Date.now()-IDXD_T<3600e3)return IDXD;
+  const d=await yChart('^TWII','3mo','1d');
+  if(d){IDXD=d;IDXD_T=Date.now();}
+  return IDXD;
+}
+function cumPct(mins){ // 台股盤中時間量能曲線(U型):該時點的歷史成交量佔比
+  const T=[[0,0],[15,10],[30,18],[60,30],[90,40],[120,48],[150,55],[180,63],[210,72],[240,82],[255,90],[265,96],[270,100]];
+  if(mins<=0)return 1; if(mins>=270)return 100;
+  for(let i=1;i<T.length;i++){
+    if(mins<=T[i][0]){const[a,pa]=T[i-1],[b,pb]=T[i];return pa+(pb-pa)*(mins-a)/(b-a);}
+  }
+  return 100;
+}
+async function renderIdxAnalysis(d){
+  const box=document.getElementById('idxAnalysis');
+  if(!box||!d)return;
+  const c=d.c.filter(x=>x!=null);
+  if(c.length<5)return;
+  const last=c[c.length-1], open=c[0], hi=Math.max(...c), lo=Math.min(...c), prev=+d.prev;
+  const gap=(open-prev)/prev*100, chg=(last-prev)/prev*100;
+  let cv=0,cpv=0;
+  d.c.forEach((x,i)=>{const v=(d.v||[])[i]||0;if(x!=null&&v){cv+=v;cpv+=x*v;}});
+  const vwap=cv?cpv/cv:null;
+  const pat=(gap>0.3?'跳空開高':gap<-0.3?'跳空開低':'平盤附近開出')+
+    (last>open*1.001?',其後走高':last<open*0.999?',其後走低':',其後區間震盪');
+  const posR=(hi-lo)>0?((last-lo)/(hi-lo)):0.5;
+  const pos=posR>0.7?'收在日內高檔區':posR<0.3?'壓在日內低檔區':'在日內中間震盪';
+  const vw=vwap?(last>=vwap?'站在均價線之上、盤中多方控盤':'壓在均價線之下、盤中空方佔優'):'';
+  // 日線趨勢(月線/季線)
+  let trend='';
+  const dd=await loadIdxDaily();
+  if(dd){
+    const dc=dd.c.filter(x=>x!=null);
+    if(dc.length>=60){
+      const ma20=avg(dc.slice(-20)), ma60=avg(dc.slice(-60));
+      trend=`日線趨勢:${ma20>ma60?'20/60日線多頭排列':'20/60日線空方或糾結'},指數${last>ma20?'站上':'跌破'}月線 ${ma20.toFixed(0)}、${last>ma60?'守住':'跌破'}季線 ${ma60.toFixed(0)}。`;
+    }
+  }
+  // 量能與預估量
+  let volTxt='';
+  const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const mins=(now.getHours()*60+now.getMinutes())-540;
+  const inSession=now.getDay()>=1&&now.getDay()<=5&&mins>0&&mins<270;
+  let yV=null;
+  if(IDXD&&IDXD.v){const vs=IDXD.v.filter(v=>v>0);if(vs.length>=2)yV=vs[vs.length-2];}
+  const quad=(est,base)=>{
+    const ratio=base?est/base:null;
+    if(chg>0)return ratio!=null?(ratio>=1.1?'量增價漲,攻擊有燃料,結構較健康。':ratio<=0.85?'價漲量縮,追價意願保守,留意上檔續航力。':'價漲量平,穩步推進。')
+                              :'價格上漲中。';
+    return ratio!=null?(ratio>=1.1?'量增價跌,賣壓沉重,搶反彈宜等止穩。':ratio<=0.85?'量縮價跌,殺低意願不強,偏修正整理。':'價跌量平,觀察支撐。')
+                      :'價格下跌中。';
+  };
+  if(totV>0){
+    const U=1e8, cur=totV/U;
+    if(inSession){
+      const pct=cumPct(mins), est=cur/(pct/100);
+      volTxt=`量能:目前累積 ${cur.toFixed(1)} 億股(時間進度 ${pct.toFixed(0)}%),<b>預估全日約 ${est.toFixed(1)} 億股</b>`;
+      if(yV)volTxt+=`,約為昨量 ${(est/(yV/U)*100).toFixed(0)}%`;
+      volTxt+='。'+quad(est,yV?yV/U:null);
+    }else{
+      volTxt=`量能:全日成交約 ${cur.toFixed(1)} 億股`+(yV?`(為前一日 ${(totV/yV*100).toFixed(0)}%)`:'')+'。'+quad(cur,yV?yV/U:null);
+    }
+  }else if(RT.t00v){
+    const cur=RT.t00v;
+    if(inSession){
+      const pct=cumPct(mins), est=cur/(pct/100);
+      volTxt=`量能:成交金額累計約 ${cur.toFixed(0)} 億(時間進度 ${pct.toFixed(0)}%),<b>預估全日約 ${est.toFixed(0)} 億</b>。`;
+    }else volTxt=`量能:全日成交金額約 ${cur.toFixed(0)} 億。`;
+  }
+  box.innerHTML=`<div class="dim-note" style="margin-top:8px;line-height:1.85">
+    <b>大盤即時解讀:</b>今日${pat},現於 ${last.toFixed(0)} 點(${chg>=0?'+':''}${chg.toFixed(2)}%),日內 ${lo.toFixed(0)}~${hi.toFixed(0)},${pos}${vw?'、'+vw:''}。${trend} ${volTxt}<br>
+    <span style="color:var(--dim)">即時關卡——上檔:今日高點 ${hi.toFixed(0)}${prev>last?`、昨收 ${prev.toFixed(0)}`:''};下檔:${vwap?`均價 ${vwap.toFixed(0)}、`:''}今日低點 ${lo.toFixed(0)}${prev<last?`、昨收 ${prev.toFixed(0)}`:''}。規則化解讀,非投資建議。</span>
+  </div>`;
+}
+
 async function refreshIdx(){
   const d=await yChart('^TWII');
   const stat=document.getElementById('idxStat');
@@ -754,6 +903,7 @@ async function refreshIdx(){
   RT.idx=drawIntra('idxChart',d);
   const fl=document.getElementById('idxFlow');
   if(fl)fl.innerHTML=flowHTML(d,'股');
+  renderIdxAnalysis(d);
 }
 setTimeout(refreshIdx,1500);
 setInterval(()=>{if(marketOpen())refreshIdx();},30000);
@@ -795,29 +945,22 @@ async function refreshRisk(){
       <div class="ch"><span class="${bp>0?'pos':bp<0?'neg':'flat'}">${bp>0?'▲':bp<0?'▼':'–'} ${Math.abs(bp).toFixed(1)} bp</span></div></div>`);
   }
   box.innerHTML=cards.join('');
-  // 依當下數值自動判讀
-  const note=document.getElementById('riskNote');
-  if(note){
-    let txt='<b>怎麼看風險指標:</b>';
-    if(out.vix){
-      const v=out.vix.last;
-      const mood=v<15?'<b>偏樂觀</b>(過度自滿期,行情通常還能走但要開始留意反轉訊號)'
-        :v<20?'<b>正常區</b>(健康的多頭環境)'
-        :v<28?'<b>警戒區</b>(避險情緒升溫,波動放大,倉位宜降)'
-        :'<b>恐慌區</b>(常伴隨急殺,但歷史上也是長線買點密集出現的位置)';
-      txt+=`VIX ${v.toFixed(1)},市場情緒處於 ${mood}。`;
-    }
-    if(out.y10){
-      const y=out.y10.last/10, bp=(out.y10.last-out.y10.prev)*10;
-      txt+=`美債10年殖利率 ${y.toFixed(2)}%${Math.abs(bp)>=3?(bp>0?`,今日大幅走升 +${bp.toFixed(1)}bp——利率是高估值 AI 股的地心引力,殖利率急升時科技股評價承壓`:`,今日明顯回落 ${bp.toFixed(1)}bp——資金面轉鬆,有利成長股評價`):',變動溫和'}。`;
-      if(out.y30&&out.y10&&out.y5){
-        txt+=`殖利率曲線(5Y ${(out.y5.last/10).toFixed(2)}% / 10Y ${y.toFixed(2)}% / 30Y ${(out.y30.last/10).toFixed(2)}%)`+
-          (out.y5.last>out.y10.last?'呈現倒掛,債市在示警景氣。':'維持正斜率。');
-      }
-    }
-    txt+=' 美股時段(台北晚間)這些數字會即時跳動;台股盤中看到的是最新收盤與盤前變化。';
-    note.innerHTML=txt;
+  // 依當下數值自動判讀(精簡版,併入總經判讀)
+  let txt='';
+  if(out.vix){
+    const v=out.vix.last;
+    const mood=v<15?'偏樂觀(留意自滿)':v<20?'正常區':v<28?'<b>警戒區</b>(倉位宜降)':'<b>恐慌區</b>(急殺與長線買點並存)';
+    txt+=`VIX ${v.toFixed(1)} 屬${mood}。`;
   }
+  if(out.y10){
+    const y=out.y10.last/10, bp=(out.y10.last-out.y10.prev)*10;
+    txt+=`美債10年 ${y.toFixed(2)}%`;
+    if(Math.abs(bp)>=3)txt+=bp>0?`(+${bp.toFixed(1)}bp 急升,高估值 AI 股評價承壓)`:`(${bp.toFixed(1)}bp 回落,資金面轉鬆利成長股)`;
+    if(out.y5)txt+=out.y5.last>out.y10.last?',曲線倒掛、債市示警景氣':'';
+    txt+='。';
+  }
+  window.__noteRisk=txt;
+  composeMacroNote();
 }
 setTimeout(refreshRisk,2000);
 setInterval(refreshRisk,60000);
@@ -862,7 +1005,8 @@ async function fetchMIS(chans){
     +chans.join('|')+'&json=1&delay=0&_='+Date.now();
   const routes=[u=>u,
     u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
-    u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)];
+    u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+    u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)];
   for(const r of routes){
     try{const res=await fetch(r(mis),{cache:'no-store'});
         if(!res.ok)continue;
@@ -897,6 +1041,8 @@ async function rtTick(){
     if(m.c==='t00'){
       const idx=((DATA.macro||{}).idx||[]).find(x=>(x.name||'').includes('加權'));
       if(idx){idx.val=+last.toFixed(2);idx.chg=+(((last-y)/y)*100).toFixed(2);}
+      const tv=parseFloat(String(m.v||'').replace(/,/g,''));
+      if(tv>0)RT.t00v=tv;
       pokeChart(RT.idx,last,'idxStat');
       return;
     }
