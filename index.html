@@ -248,6 +248,14 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .toast .cls{margin-left:auto;color:var(--dim);font-size:15px;padding:0 2px}
 .toast.dip{border-color:#7FB4FF}.toast.dip .tt{color:#7FB4FF}
 @keyframes toastIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.mini-spark{flex:none;margin-left:auto;width:92px;height:26px;opacity:.95}
+.mini-spark svg{display:block;width:100%;height:100%}
+@media(max-width:640px){.mini-spark{width:76px;height:22px}}
+.r-name .rpx{font-family:var(--mono);font-size:13px;font-weight:600}
+.cm-tg{cursor:pointer;user-select:none;display:flex;gap:6px;align-items:center}
+.cm-tg::before{content:'▾';color:var(--amber);font-size:12px;transition:transform .18s}
+.cal-mini.closed .cm-tg::before{transform:rotate(-90deg)}
+.cal-mini.closed #calTrack{display:none}
 .mini-cap{font-size:11px;color:var(--dim);margin:6px 2px 4px;letter-spacing:.08em;font-weight:700}
 .macro-side .mini-cap:first-child{margin-top:0}
 .sec-title.tap{cursor:pointer;user-select:none;transition:opacity .15s}
@@ -450,7 +458,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   <div class="fx-note" id="macroNote">總經判讀載入中…</div>
 
   <div class="cal-mini" id="calBar" hidden>
-    <div class="cal-mini-head"><b>📅 近期大事</b><a href="#events">完整行事曆 →</a></div>
+    <div class="cal-mini-head"><b class="cm-tg" id="cmTg">📅 近期大事</b><a href="#events">完整行事曆 →</a></div>
     <div id="calTrack"></div>
   </div>
 
@@ -918,7 +926,7 @@ function renderFav(){
     if(!s)return `<div class="r-card" data-id="${id}"><span class="r-name">${id} <span class="c-code">資料更新後顯示</span></span></div>`;
     return `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
       <span class="r-name"><span class="fav-tg on" data-fav="${s.id}" title="移除收藏">★</span> ${s.name} <span class="c-code">${s.id}</span>
-        <span style="font-family:var(--mono);font-size:13px;margin-left:auto">${s.price??'—'} ${chgHtml(s.chg)}</span></span>
+        <b class="rpx">${s.price??'—'}</b> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span><span class="mini-spark" data-spark="${s.id}"></span></span>
       <span class="r-desc">綜合 ${total(s)} 分|基本 ${s.f.score} · 籌碼 ${s.c.score} · 技術 ${s.t.score}${s.sig&&s.sig.length?` · <b style="color:var(--amber)">${s.sig.map(x=>x.label).join('+')}</b>`:''}</span>
     </div>`;
   }).join('');
@@ -928,7 +936,7 @@ function renderFav(){
     location.hash='#stock/'+c.dataset.id;
   });
 }
-function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderFav(); renderMacro(); renderNews(); renderChips(); render(); }
+function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderFav(); renderMacro(); renderNews(); renderChips(); render(); setTimeout(hydrateSparks,300); }
 let T3_BUSY=false;
 function t3ParseOpen(arr,cur){
   if(!Array.isArray(arr)||!arr.length)return;
@@ -1049,7 +1057,7 @@ function t3Render(items,note){
   box.innerHTML=list.slice(0,24).map(({s,t3:t})=>
     `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
       <span class="r-tag tg-strong">三率三升 ${t.q}</span>
-      <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span> <span class="c-code" style="margin-left:auto">綜合 ${total(s)}</span></span>
+      <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <b class="rpx">${s.price??'—'}</b> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span><span class="mini-spark" data-spark="${s.id}"></span><span class="c-code" style="flex:none">綜合 ${total(s)}</span></span>
       <span class="r-desc">毛 ${arrow(t.gm[0],t.gm[1])} · 營益 ${arrow(t.om[0],t.om[1])} · 淨利 ${arrow(t.nm[0],t.nm[1])}${t.ry!=null?` · 月營收 <b style="color:#FF8A8E">${t.ry>0?'+':''}${t.ry}%</b>`:''}</span>
     </div>`).join('')
     +(list.length>24?`<div class="r-card" style="cursor:default;justify-content:center"><span class="r-desc">共 ${list.length} 檔符合,顯示綜合分前 24 名</span></div>`:'');
@@ -1068,7 +1076,7 @@ function renderT3(){
     const t=s.t3;
     return `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
       <span class="r-tag tg-strong">三率三升 ${t.q}</span>
-      <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span> <span class="c-code" style="margin-left:auto">綜合 ${total(s)}</span></span>
+      <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <b class="rpx">${s.price??'—'}</b> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span><span class="mini-spark" data-spark="${s.id}"></span><span class="c-code" style="flex:none">綜合 ${total(s)}</span></span>
       <span class="r-desc">毛 ${arrow(t.gm[0],t.gm[1])} · 營益 ${arrow(t.om[0],t.om[1])} · 淨利 ${arrow(t.nm[0],t.nm[1])}${t.ry!=null?` · 月營收 <b style="color:#FF8A8E">+${t.ry}%</b>`:''}</span>
     </div>`;}).join('')
     +(list.length>24?`<div class="r-card" style="cursor:default;justify-content:center"><span class="r-desc">共 ${list.length} 檔符合,顯示綜合分前 24 名;其餘可在選股清單搜尋</span></div>`:'');
@@ -1394,6 +1402,15 @@ function renderCalendar(){
       `${e.real?'<span class="c-sector" style="border-color:#4BD695;color:#4BD695;flex:none">已確認</span>':''}</a>`;
   }).join('');
   bar.hidden=false;
+  if(!bar.dataset.tg){
+    bar.dataset.tg='1';
+    try{if(localStorage.getItem('calmini_c')==='1')bar.classList.add('closed');}catch(e){}
+    const tg=document.getElementById('cmTg');
+    if(tg)tg.onclick=()=>{
+      const c=bar.classList.toggle('closed');
+      try{localStorage.setItem('calmini_c',c?'1':'0');}catch(e){}
+    };
+  }
   const big=buildCalendar().find(e=>e.stars===3);
   if(big){
     const days=Math.round((big.d-today)/86400000);
@@ -1737,6 +1754,65 @@ setInterval(alSeed,10*60*1000);
     }
   };
 })();
+/* ══ 即時小走勢圖:當日走勢迷你圖(Yahoo 5分線打底 + MIS 即時續點) ══ */
+const SPARK={},SPARK_Q=[];let SPARK_RUN=0;
+function sparkSVG(d){
+  const c=(d.c||[]).filter(x=>x!=null);
+  if(c.length<2)return'';
+  const prev=d.prev||c[0];
+  const lo=Math.min(...c,prev),hi=Math.max(...c,prev),rg=(hi-lo)||1;
+  const W=92,H=26,X=i=>i/(c.length-1)*W,Y=v=>2+(hi-v)/rg*(H-4);
+  const up=c[c.length-1]>=prev,col=up?'var(--up)':'var(--down)';
+  const pts=c.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <line x1="0" y1="${Y(prev).toFixed(1)}" x2="${W}" y2="${Y(prev).toFixed(1)}" stroke="var(--dim)" stroke-width="0.7" stroke-dasharray="3 3"/>
+    <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.6"/>
+    <polygon points="0,${H} ${pts} ${W},${H}" fill="${col}" opacity="0.10"/>
+  </svg>`;
+}
+function sparkPaint(id){
+  const d=SPARK[id];
+  if(!d||d==='pending')return;
+  const svg=sparkSVG(d);
+  document.querySelectorAll(`[data-spark="${id}"]`).forEach(el=>{el.innerHTML=svg;});
+}
+function sparkPush(id,price){
+  const d=SPARK[id];
+  if(!d||d==='pending')return;
+  const now=Date.now()/1000;
+  if(d.t.length&&now-d.t[d.t.length-1]<55)return;   // 至少間隔55秒才補點
+  d.t.push(now);d.c.push(price);
+  sparkPaint(id);
+}
+async function sparkWorker(){
+  if(SPARK_RUN>=2)return;
+  SPARK_RUN++;
+  while(SPARK_Q.length){
+    const id=SPARK_Q.shift();
+    const s=(DATA&&DATA.stocks||[]).find(x=>x.id===id);
+    if(!s){continue;}
+    try{
+      const d=await yChart(ySym(s),'1d','5m');
+      if(d&&d.c&&d.c.some(x=>x!=null)){
+        SPARK[id]={t:d.t.slice(),c:d.c.slice(),prev:d.prev};
+      }else SPARK[id]=null;
+    }catch(e){SPARK[id]=null;}
+    sparkPaint(id);
+    await new Promise(r=>setTimeout(r,300));
+  }
+  SPARK_RUN--;
+}
+function hydrateSparks(){
+  document.querySelectorAll('[data-spark]').forEach(el=>{
+    const id=el.dataset.spark;
+    if(SPARK[id]===undefined){
+      SPARK[id]='pending';SPARK_Q.push(id);
+    }else if(SPARK[id]&&SPARK[id]!=='pending'&&!el.firstChild){
+      el.innerHTML=sparkSVG(SPARK[id]);
+    }
+  });
+  sparkWorker();sparkWorker();
+}
 function rtTargets(){
   const ids=new Set();
   const add=s=>{if(s&&s.market==='TW'&&s.id)ids.add(s.id);};
@@ -1808,6 +1884,7 @@ async function rtTick(){
     if(s){
       s.price=+last.toFixed(2);s.chg=+(((last-y)/y)*100).toFixed(2);n++;
       try{alertCheck(s,m,last);}catch(e){}
+      try{sparkPush(s.id,last);}catch(e){}
       if(RT.intra&&RT.intra.id===s.id)pokeChart(RT.intra,last);
     }
   });
@@ -1817,7 +1894,11 @@ async function rtTick(){
   const sb=document.getElementById('srcBadge');
   if(sb){sb.textContent=`● 即時 ${t}(${n}檔)`;sb.className='badge live';}
   renderPulse(); renderMacro();
-  if(!location.hash.startsWith('#stock/')){ render(); renderRadar(); }
+  if(!location.hash.startsWith('#stock/')){
+    render(); renderRadar(); renderT3(); try{renderPulse();}catch(e){}
+    if(location.hash==='#fav')renderFav();
+    hydrateSparks();
+  }
   else{
     const s=DATA.stocks.find(x=>x.id===decodeURIComponent(location.hash.slice(7)));
     const px=document.getElementById('dPx'), ch=document.getElementById('dChg');
@@ -2574,7 +2655,7 @@ function renderPulse(){
   stBox.innerHTML=items.length?items.map(({s,label,cls,desc})=>
     `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
       <span class="r-tag ${cls}">${label}</span>
-      <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span></span>
+      <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <b class="rpx">${s.price??'—'}</b> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span><span class="mini-spark" data-spark="${s.id}"></span></span>
       <span class="r-desc">${desc}</span></div>`).join('')
     :'<div class="r-empty">目前沒有明顯異動的焦點個股(休市或盤勢平靜)。</div>';
   stBox.querySelectorAll('.r-card').forEach(c=>{
@@ -2598,7 +2679,7 @@ function renderRadar(){
   box.innerHTML=shown.length?shown.map(({s,g})=>
     `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
        <span class="r-tag tg-${g.type}">${g.label}</span>
-       <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span></span>
+       <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <b class="rpx">${s.price??'—'}</b> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span><span class="mini-spark" data-spark="${s.id}"></span></span>
        <span class="r-desc">${g.desc}</span></div>`).join('')
     +(items.length>shown.length?`<div class="r-empty">每類只顯示評分最高的 12 檔,共 ${items.length} 個訊號;其餘請用排序與搜尋檢視。</div>`:'')
     :'<div class="r-empty">今日沒有觸發訊號的個股 —— 沒有訊號也是一種訊號,空手等待也是部位。</div>';
