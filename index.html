@@ -1064,12 +1064,13 @@ function renderCalendar(){
   const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
   today.setHours(0,0,0,0);
   const ev=buildCalendar().slice(0,12);
+  window.__calList=ev;
   const wd=['日','一','二','三','四','五','六'];
-  box.innerHTML=ev.length?ev.map(e=>{
+  box.innerHTML=ev.length?ev.map((e,i)=>{
     const days=Math.round((e.d-today)/86400000);
     const soon=days<=3;
     const dstr=`${e.d.getMonth()+1}/${String(e.d.getDate()).padStart(2,'0')}(${wd[e.d.getDay()]})`;
-    return `<a href="#" onclick="return false" style="cursor:default">
+    return `<a href="javascript:void(0)" data-ev="${i}" style="cursor:pointer">
       <span style="display:flex;gap:10px;align-items:baseline;min-width:0">
         <span class="cal-date ${soon?'cal-soon':''}">${dstr}${soon?(days===0?' 今天':days===1?' 明天':` ${days}天後`):''}</span>
         <span style="min-width:0"><span class="c-sector" style="margin:0 6px 0 0">${e.tag}</span>${e.name}${e.real?` <span style="font-family:var(--mono);font-size:11px;color:var(--mut)">${e.time}</span>`:''} <span class="cal-star">${'★'.repeat(e.stars)}</span>${e.real?' <span class="c-sector" style="border-color:#4BD695;color:#4BD695">已確認時程</span>':''}
@@ -1262,14 +1263,14 @@ async function refreshRisk(){
   const cards=[];
   if(out.vix){
     const v=out.vix, chg=(v.last-v.prev)/v.prev*100;
-    cards.push(`<div class="idx-card"><div class="nm">${v.name}</div>
+    cards.push(`<div class="idx-card" data-mk="vix"><div class="nm">${v.name}</div>
       <div class="vl">${v.last.toFixed(2)}</div>
       <div class="ch">${chgHtml(+chg.toFixed(2))}</div></div>`);
   }
   for(const key of ['y10','y30','y5']){
     const v=out[key]; if(!v)continue;
     const bp=(v.last-v.prev)*10; // ^TNX 系列報價為殖利率×10,差值×10即為 bp
-    cards.push(`<div class="idx-card"><div class="nm">${v.name}</div>
+    cards.push(`<div class="idx-card" data-mk="${key}"><div class="nm">${v.name}</div>
       <div class="vl">${(v.last/10).toFixed(2)}%</div>
       <div class="ch"><span class="${bp>0?'pos':bp<0?'neg':'flat'}">${bp>0?'▲':bp<0?'▼':'–'} ${Math.abs(bp).toFixed(1)} bp</span></div></div>`);
   }
@@ -1893,6 +1894,7 @@ async function showDetail(id){
 function route(){
   if(location.hash.startsWith('#stock/')) showDetail(decodeURIComponent(location.hash.slice(7)));
   else if(location.hash.startsWith('#macro/')) showMacroDetail(decodeURIComponent(location.hash.slice(7)));
+  else if(location.hash.startsWith('#event/')) showEventDetail();
   else{
     if(RT.dTimer){clearInterval(RT.dTimer);RT.dTimer=null;}
     disposeChipCharts(); curChips=null;
@@ -2170,6 +2172,145 @@ function renderChipCharts(s,e){
   }
 }
 
+/* ══════════════ 總經行事曆事件詳細頁(說明+即時相關新聞)══════════════ */
+async function fetchTextProxy(url){
+  const routes=[
+    x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x),
+    x=>'https://corsproxy.io/?url='+encodeURIComponent(x),
+    x=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(x)];
+  for(const r of routes){
+    try{
+      const res=await fetch(r(url),{cache:'no-store'});
+      if(res.ok){const t=await res.text();if(t&&t.length>100)return t;}
+    }catch(e){}
+  }
+  return null;
+}
+const EV_KB=[
+ {m:e=>/FOMC/.test(e.name),q:'FOMC 利率決議',rel:[['美債10年殖利率','#macro/y10'],['VIX','#macro/vix'],['美元/台幣','#macro/usdtwd']],
+  what:'美國聯準會(Fed)一年八次的利率決策會議,決定聯邦基金利率——全球資金成本的源頭。台北時間通常在翌日凌晨 2:00 公布決議、2:30 主席記者會。',
+  watch:'三個重點:①利率決議本身(升/降/不動,與市場預期的落差才是行情來源);②點陣圖 dot plot(委員對未來利率的預測,季會才有);③鮑爾記者會措辭(鷹派=偏緊縮、鴿派=偏寬鬆)。',
+  tw:'降息或轉鴿→美元轉弱、美債殖利率回落,外資偏好加碼新興市場,對台股與高估值 AI 股偏多;意外偏鷹→殖利率彈升,成長股評價承壓,台股電子權值首當其衝。決議日台股當天通常量縮觀望,反應在翌日開盤。'},
+ {m:e=>/非農/.test(e.name),q:'美國 非農就業',rel:[['美債10年殖利率','#macro/y10'],['S&P 500','#macro/gspc']],
+  what:'美國每月第一個週五公布的就業報告(新增非農就業人數、失業率、時薪增速),台北時間 20:30 或 21:30。',
+  watch:'數字太強=經濟熱、降息延後(利空高估值股);太弱=衰退疑慮(也是利空);「溫和放緩」最受市場歡迎。時薪年增率是通膨的領先線索。',
+  tw:'公布當晚美股期貨與美債殖利率立即反應,台股在下週一開盤跟進;若數字大幅偏離預期,週一電子權值股常有跳空。'},
+ {m:e=>/CPI/.test(e.name)&&e.tag==='美國',q:'美國 CPI 通膨',rel:[['美債10年殖利率','#macro/y10'],['VIX','#macro/vix']],
+  what:'美國消費者物價指數,最受市場關注的通膨數據,台北時間通常 20:30 或 21:30 公布。核心 CPI(剔除食品能源)比整體數字更重要。',
+  watch:'月增率(MoM)比年增率敏感:核心月增 ≤0.2% 屬降溫、≥0.4% 屬過熱。數字高於預期→殖利率跳升、科技股殺;低於預期→全面慶祝行情。',
+  tw:'CPI 之夜是每月波動最大的夜晚之一,直接改寫降息機率;台股 AI 股評價與美債殖利率高度連動,當晚首頁的風險指標(殖利率/VIX)值得盯著看。'},
+ {m:e=>/CPI|物價/.test(e.name)&&e.tag==='台灣',q:'台灣 CPI 物價',rel:[['美元/台幣','#macro/usdtwd']],
+  what:'主計總處每月 6 日前後公布的台灣消費者物價指數,反映國內通膨壓力。',
+  watch:'2% 是央行的警戒參考線:連續高於 2% 會增加央行升息或緊縮的壓力;核心 CPI 與 17 項重要民生物資漲幅是新聞焦點。',
+  tw:'影響台灣央行政策節奏→金融股(升息有利存放款利差)與內需股;對電子股直接影響較小。'},
+ {m:e=>/PCE/.test(e.name),q:'美國 PCE 物價',rel:[['美債10年殖利率','#macro/y10']],
+  what:'個人消費支出物價指數,Fed 官方最重視的通膨指標(目標:核心 PCE 年增 2%),每月月底公布。',
+  watch:'因為 CPI 先公布,PCE 通常可以被預估,意外性較低;但若與 CPI 方向背離,以 PCE 為準——那才是 Fed 看的數字。',
+  tw:'臨近 FOMC 前的最後一塊拼圖,數字溫和有助降息預期,對台股資金面偏多。'},
+ {m:e=>/ISM/.test(e.name),q:'美國 ISM 指數',rel:[['S&P 500','#macro/gspc'],['費城半導體','#macro/sox']],
+  what:'美國供應管理協會的採購經理人指數(製造業每月1日左右、服務業3日左右),50 為榮枯線。',
+  watch:'50 以上擴張、以下收縮;「新訂單」與「物價支付」分項是領先訊號。服務業佔美國經濟七成,服務業 ISM 的影響力常大於製造業。',
+  tw:'反映美國終端需求強弱→影響台灣出口與電子業拉貨預期;新訂單分項走升對台股科技鏈是領先利多。'},
+ {m:e=>/月營收/.test(e.name),q:'台股 月營收',rel:[],
+  what:'台灣上市櫃公司依法須在每月 10 日前公布上月營收——這是台股獨有的高頻基本面資料(多數市場只有季報)。',
+  watch:'年增率(YoY)看趨勢、月增率(MoM)看動能;「營收創歷史新高」「連續 N 月年增超過 50%」是常見的題材點火語。注意高基期問題:去年同期太高會讓 YoY 失真。',
+  tw:'每月 8~10 日是營收密集公布期,營收爆發股常見隔日跳空;本站個股頁的「基本面」分數與月營收 YoY 圖會在更新後自動反映。'},
+ {m:e=>/台指期結算/.test(e.name),q:'台指期 結算',rel:[['加權指數','#macro/twii']],
+  what:'台指期貨每月第三個週三結算,期貨與現貨價差在當天收斂歸零。',
+  watch:'結算日 13:00~13:30 尾盤波動常放大(結算價以現貨收盤前一段時間均價計算);大量未平倉部位的履約價位附近常有「磁吸」效應。',
+  tw:'當天技術訊號容易失真,短線單建議避開尾盤;結算後隔天走勢較能反映真實方向。'},
+ {m:e=>/央行理監事/.test(e.name),q:'台灣央行 理監事會議',rel:[['美元/台幣','#macro/usdtwd']],
+  what:'台灣中央銀行每季一次(3、6、9、12月)的利率決策會議,決定重貼現率與信用管制措施。',
+  watch:'利率調整之外,更常有影響的是「選擇性信用管制」(房市管制)與對台幣匯率的態度表述。',
+  tw:'升息利多金融股、利空高槓桿資產營建股;匯率態度會影響外資對台幣資產的配置意願。'},
+ {m:e=>/四巫/.test(e.name),q:'美股 四巫日',rel:[['S&P 500','#macro/gspc'],['VIX','#macro/vix']],
+  what:'每季第三個週五,美股的股指期貨、股指選擇權、個股期貨、個股選擇權四種衍生品同步到期。',
+  watch:'當天成交量暴增、尾盤波動放大,但方向性意義不大——多是部位調整而非基本面驅動。',
+  tw:'對台股主要是「隔日開盤氣氛」的影響;四巫日的漲跌不必過度解讀。'},
+ {m:e=>/台積電法說/.test(e.name),q:'台積電 法說會',rel:[['台積電個股頁','#stock/2330'],['費城半導體','#macro/sox']],
+  what:'台積電每季法人說明會(1、4、7、10月中旬),公布上季財報與本季/全年展望,是全球半導體業的風向標。',
+  watch:'四個關鍵:①毛利率指引;②全年資本支出(CapEx)——直接決定設備與供應鏈訂單;③AI 需求的措辭;④先進製程(N3/N2)產能與定價。',
+  tw:'定調整個台股 AI 供應鏈的多空:CapEx 上修→設備、CoWoS、廠務族群全面受惠;展望保守→高估值 AI 股修正。法說前一週市場常先卡位。'},
+ {m:e=>/NVIDIA|輝達/.test(e.name),q:'NVIDIA 財報',rel:[['NVIDIA 個股頁','#stock/NVDA'],['費城半導體','#macro/sox']],
+  what:'NVIDIA 每季財報(2、5、8、11月底),AI 行情的總開關;財測(guidance)比當季數字更重要。',
+  watch:'資料中心營收、下季財測與市場預期的落差、新平台(GB/Rubin 系列)出貨節奏、中國市場影響。',
+  tw:'直接決定台鏈拉貨力道:鴻海、廣達、緯創(組裝)、台積電(晶圓)、散熱/電源/PCB 族群全面連動;財報後隔天台股 AI 股常見跳空表態。'},
+ {m:e=>/外銷訂單/.test(e.name),q:'台灣 外銷訂單',rel:[['加權指數','#macro/twii']],
+  what:'經濟部每月 20 日左右公布的外銷訂單金額,是台灣出口的領先指標(接單領先出貨約 1~3 個月)。',
+  watch:'資訊通信與電子產品兩大類的年增率,直接反映全球電子業對台灣的下單動能;連續正成長代表出口循環向上。',
+  tw:'電子業動能風向球,訂單年增率轉正/轉負常對應台股電子股的波段轉折。'},
+ {m:e=>/GDP|零售|失業/.test(e.name),q:'美國 經濟數據',rel:[['S&P 500','#macro/gspc']],
+  what:'重要總經數據:GDP 反映整體經濟成長、零售銷售反映消費動能、失業金數據反映就業市場健康度。',
+  watch:'與市場預估值的「落差」才是行情來源;數字本身好壞的解讀要看當下市場在交易什麼(交易衰退時壞數字=壞;交易降息時壞數字=好)。',
+  tw:'透過美股與美債殖利率間接影響台股開盤氣氛。'}
+];
+function evExplain(e){
+  const hit=EV_KB.find(k=>{try{return k.m(e);}catch(x){return false;}});
+  return hit||{q:e.name.replace(/\(.*?\)/g,'').trim(),rel:[],
+    what:'重要總經/財經事件。',watch:'留意公布值與市場預估的落差——落差才是行情的來源。',
+    tw:'透過市場情緒與資金面間接影響台股。'};
+}
+let __evPick=null;
+function showEventDetail(){
+  const e=__evPick;
+  const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
+  if(!e){location.hash='';return;}
+  disposeChipCharts();curChips=null;
+  home.style.display='none';dv.style.display='block';
+  window.scrollTo({top:0});
+  const kb=evExplain(e);
+  const wd=['日','一','二','三','四','五','六'];
+  const dstr=`${e.d.getFullYear()}/${e.d.getMonth()+1}/${String(e.d.getDate()).padStart(2,'0')}(${wd[e.d.getDay()]})`;
+  dv.innerHTML=`<div class="detail-wrap">
+    <button class="back" id="backBtn">← 回儀表板</button>
+    <div class="m-head"><div>
+      <h2 style="font-size:22px;font-weight:900"><span class="c-sector" style="margin-right:8px">${e.tag}</span>${e.name}</h2>
+      <div class="c-full">${dstr}${e.time?' · '+e.time:''} · 重要度 <span class="cal-star">${'★'.repeat(e.stars)}</span>${e.real?' · <span style="color:#4BD695">已確認時程</span>':e.approx?' · 日期為規則推估,以官方公告為準':''}</div>
+      ${e.why?`<div class="c-full" style="margin-top:4px">${e.why}</div>`:''}
+    </div></div>
+    <div class="dim-block"><h3>這是什麼</h3><div class="dim-note">${kb.what}</div></div>
+    <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>公布時怎麼看</h3><div class="dim-note">${kb.watch}</div></div>
+    <div class="dim-block" style="border-left:4px solid #7FB4FF"><h3>對台股的影響</h3><div class="dim-note">${kb.tw}</div></div>
+    ${kb.rel&&kb.rel.length?`<div class="links">${kb.rel.map(([n,h])=>`<a href="${h}">${n} →</a>`).join('')}</div>`:''}
+    <div class="dim-block"><h3>相關新聞(即時)</h3><div id="evNewsBox"><div class="dim-note">新聞載入中…</div></div>
+      <div class="links" style="margin-top:10px">
+        <a href="https://news.google.com/search?q=${encodeURIComponent(kb.q)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant" target="_blank" rel="noopener">Google 新聞搜尋 ↗</a>
+        <a href="https://tw.investing.com/economic-calendar/" target="_blank" rel="noopener">Investing 財經日曆 ↗</a>
+      </div></div>
+  </div>`;
+  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  evNews(kb.q,document.getElementById('evNewsBox'));
+}
+async function evNews(q,box){
+  const url='https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=zh-TW&gl=TW&ceid=TW:zh-Hant';
+  const t=await fetchTextProxy(url);
+  if(!box||!box.isConnected)return;
+  if(!t){box.innerHTML='<div class="dim-note">新聞暫時載入不到,請點下方 Google 新聞搜尋直接查看。</div>';return;}
+  try{
+    const doc=new DOMParser().parseFromString(t,'text/xml');
+    const items=[...doc.querySelectorAll('item')].slice(0,6).map(it=>{
+      const title=(it.querySelector('title')||{textContent:''}).textContent||'';
+      const p=title.split(' - ');
+      return {t:p.slice(0,-1).join(' - ')||title,s:p.length>1?p[p.length-1]:'',
+              l:(it.querySelector('link')||{textContent:'#'}).textContent||'#',
+              d:((it.querySelector('pubDate')||{textContent:''}).textContent||'').slice(5,16)};
+    }).filter(x=>x.t);
+    box.innerHTML=items.length?`<div class="news" style="border:none;padding:0">${items.map(x=>
+      `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>`
+      :'<div class="dim-note">找不到相關新聞,點下方連結直接搜尋。</div>';
+  }catch(e){box.innerHTML='<div class="dim-note">新聞解析失敗,點下方連結直接搜尋。</div>';}
+}
+/* 行事曆點擊(事件委派) */
+(function(){
+  const el=document.getElementById('calBox');
+  if(el)el.addEventListener('click',e=>{
+    const a=e.target.closest('[data-ev]');
+    if(!a)return;
+    const ev=(window.__calList||[])[+a.dataset.ev];
+    if(ev){__evPick=ev;location.hash='#event/'+(+a.dataset.ev)+'-'+Date.now();}
+  });
+})();
+
 /* ══════════════ 總經詳細頁(指數/匯率/大盤法人,首頁卡片點入)══════════════ */
 function mkKeyIdx(n){
   n=String(n||'');
@@ -2216,6 +2357,15 @@ const MK={
   usdjpy:{name:'美元/日圓',sym:'JPY=X',kind:'fx',dg:2,
     about:'1 美元兌換多少日圓,全球交易量最大的匯率之一,反映美日利差。',
     how:'數字急跌(日圓急升)時要留意:常伴隨利差交易(carry trade)平倉,全球股市易同步震盪(2024年8月即為典型案例)。'},
+  y10:{name:'美債10年期殖利率',sym:'^TNX',kind:'idx',dg:2,sc:0.1,unit:'%',bp:true,
+    about:'美國10年期公債的市場利率,被稱為「全球資產定價之錨」——股票、房貸、企業債的評價都以它為基準。殖利率上升代表債券被賣(資金要求更高報酬),通常反映通膨或升息預期。',
+    how:'對台股 AI 股尤其重要:殖利率急升(單日 +5bp 以上)時,高本益比成長股評價承壓,台股電子權值常首當其衝;殖利率回落則資金面轉鬆、利多成長股。4% 以上屬偏高水位、關注 4.5% 與 5% 整數關卡的攻防。'},
+  y30:{name:'美債30年期殖利率',sym:'^TYX',kind:'idx',dg:2,sc:0.1,unit:'%',bp:true,
+    about:'美國最長天期公債利率,反映市場對長期通膨與美國財政赤字的看法,對利率政策的短期變動較不敏感。',
+    how:'30年殖利率創高而10年沒跟上,常代表市場擔心的是「財政赤字/發債供給」而非景氣過熱;30年突破 5% 歷來都會引發全球股市評價修正的討論。'},
+  y5:{name:'美債5年期殖利率',sym:'^FVX',kind:'idx',dg:2,sc:0.1,unit:'%',bp:true,
+    about:'美國5年期公債利率,對聯準會未來幾年的利率路徑最敏感,是觀察「市場押注降息幾碼」的好指標。',
+    how:'重點看它與10年期的關係:5年高於10年=殖利率曲線倒掛,是債市對景氣衰退的經典警訊;倒掛解除(轉正)的過程反而常伴隨波動。'},
   foreign:{name:'外資買賣超(集中市場)',kind:'inst',sk:'f',
     about:'外資及陸資每日在台股上市市場的買賣金額差(買超為正、賣超為負,單位:億元)。外資持有台股市值約四成,是影響加權指數最大的單一力量。',
     how:'單日買賣超看氣氛,連續累計看趨勢:近20日累計買超放大通常伴隨指數走升;連續大額賣超(日均−200億以上)則指數難有表現。搭配台幣匯率交叉驗證——外資真金白銀匯入時,台幣會同步升值。'},
@@ -2406,14 +2556,23 @@ async function showMacroDetail(key){
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   const [intra,daily]=await Promise.all([yChart(def.sym,'1d','1m'),yChart(def.sym,'6mo','1d')]);
   if(location.hash!=='#macro/'+key)return;
-  const dg=def.dg;
+  const dg=def.dg,sc=def.sc||1,unit=def.unit||'';
   let last=null,prev=null;
   if(daily){const cs=daily.c.filter(x=>x!=null);last=cs[cs.length-1];prev=cs[cs.length-2];}
   if(intra){const cs=intra.c.filter(x=>x!=null);if(cs.length){last=cs[cs.length-1];prev=intra.prev||prev;}}
   if(last!=null){
-    document.getElementById('mkPx').textContent=last.toFixed(dg);
-    if(prev){const c=(last-prev)/prev*100;document.getElementById('mkChg').innerHTML=chgHtml(+c.toFixed(2));}
+    document.getElementById('mkPx').textContent=(last*sc).toFixed(dg)+unit;
+    if(prev){
+      if(def.bp){
+        const b=(last-prev)*sc*100;
+        document.getElementById('mkChg').innerHTML=`<span class="${b>0?'pos':b<0?'neg':'flat'}">${b>0?'▲':b<0?'▼':'–'} ${Math.abs(b).toFixed(1)} bp</span>`;
+      }else{
+        const c=(last-prev)/prev*100;document.getElementById('mkChg').innerHTML=chgHtml(+c.toFixed(2));
+      }
+    }
   }else document.getElementById('mkPx').textContent='—';
+  if(sc!==1&&intra){intra.c=intra.c.map(x=>x==null?null:x*sc);if(intra.prev)intra.prev*=sc;}
+  if(sc!==1&&daily){daily.c=daily.c.map(x=>x==null?null:x*sc);}
   if(intra&&intra.c.some(x=>x!=null))drawIntra('mkIntra',intra);
   else document.getElementById('mkIntra').innerHTML='<div class="dim-note" style="padding:20px">目前非交易時段或無分時資料,請看下方日線。</div>';
   const box=document.getElementById('mkIntra');
@@ -2427,7 +2586,7 @@ async function showMacroDetail(key){
   }
 }
 /* 首頁總經卡片點擊(事件委派,重繪也不失效) */
-['idxRow','fxRow','instRow'].forEach(id=>{
+['idxRow','fxRow','instRow','riskRow'].forEach(id=>{
   const el=document.getElementById(id);
   if(el)el.addEventListener('click',e=>{
     const c=e.target.closest('[data-mk]');
