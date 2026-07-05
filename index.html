@@ -120,7 +120,9 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 @media(max-width:720px){.kv{grid-template-columns:1fr}}
 
 /* ── 更新按鈕 / 市場總覽 / 匯率 / 新聞 ── */
-.btn-upd{background:var(--amber);border:none;color:#1A1206;font-weight:700;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:var(--sans);font-size:14px}
+.btn-upd{background:var(--amber);border:none;color:#1A1206;font-weight:700;border-radius:8px;padding:0 16px;height:38px;cursor:pointer;font-family:var(--sans);font-size:14px;display:inline-flex;align-items:center}
+.btn-ghost{background:var(--panel);border:1px solid var(--line);color:var(--txt2);font-weight:700;border-radius:8px;padding:0 16px;height:38px;cursor:pointer;font-family:var(--sans);font-size:14px;transition:border-color .15s,color .15s;display:inline-flex;align-items:center}
+.btn-ghost:hover{border-color:var(--amber);color:var(--amber)}
 .btn-upd:disabled{opacity:.55;cursor:wait}
 .sec-title{font-size:17.5px;font-weight:900;letter-spacing:.05em;color:var(--txt);margin:32px 0 12px;display:flex;align-items:baseline;gap:10px;border-left:4px solid var(--amber);padding:2px 0 2px 12px;line-height:1.4}
 .sec-title::after{content:'';flex:1;align-self:center;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
@@ -213,7 +215,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
   .sub{font-size:11px}
   #updBadge{display:none}
   .badge{font-size:11px;padding:3px 8px}
-  .btn-upd{padding:7px 12px;font-size:13px}
+  .btn-upd,.btn-ghost{padding:0 12px;height:34px;font-size:13px}
   .sec-title{font-size:14px;margin:18px 0 8px}
   .sec-title span{display:none}
   /* 產業膠囊改橫向滑動,不再佔滿版面 */
@@ -338,13 +340,13 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
     <div class="meta">
       <span class="badge" id="updBadge">更新:—</span>
       <span class="badge demo" id="srcBadge">範例資料(尚未接入即時數據)</span>
-      <select id="themeSel" aria-label="介面主題" style="padding:6px 10px;font-size:13px">
+      <select id="themeSel" aria-label="介面主題" style="padding:8px 12px;font-size:14px;border-radius:8px;height:38px">
         <option value="navy">🌌 深墨藍</option>
         <option value="black">⬛ 純黑金</option>
         <option value="light">☀️ 明亮日盤</option>
         <option value="mocha">🥃 琥珀夜盤</option>
       </select>
-      <button class="btn-upd" id="learnBtn" title="半導體/科技供應鏈白話教學">📚 產業小學堂</button>
+      <button class="btn-ghost" id="learnBtn" title="半導體/科技供應鏈白話教學">📚 產業小學堂</button>
       <button class="btn-upd" id="updBtn">↻ 更新資訊</button>
     </div>
   </div>
