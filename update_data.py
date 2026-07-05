@@ -570,6 +570,86 @@ def _put_margin(e, q, gm, om, nm, rv):
     e["nm"] = [m[x][2] for x in qs]
     e["qr"] = [m[x][3] for x in qs]
 
+def fetch_cobasic():
+    """公司基本資料(董事長/掛牌/資本額/官網/產業別),全市場。"""
+    out = {}
+    for url in ("https://openapi.twse.com.tw/v1/opendata/t187ap03_L",
+                "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O"):
+        try:
+            arr = get_json(url, timeout=60)
+            keys = list(arr[0].keys())
+            k = lambda *ns: next((x for x in keys if any(n in x for n in ns)), None)
+            kid, kch = k("公司代號"), k("董事長")
+            kipo, kcap = k("上市日期", "上櫃日期"), k("實收資本額")
+            kweb, kind = k("網址"), k("產業別")
+            for r in arr:
+                sid = str(r.get(kid, "")).strip()
+                if not sid: continue
+                out[sid] = {"ch": str(r.get(kch, "") or ""),
+                            "ipo": str(r.get(kipo, "") or ""),
+                            "cap": str(r.get(kcap, "") or ""),
+                            "web": str(r.get(kweb, "") or ""),
+                            "ind": str(r.get(kind, "") or "")}
+        except Exception as e:
+            print(f"  [warn] 公司基本資料: {e}")
+    print(f"  公司基本資料:{len(out)} 家")
+    return out
+
+import re as _re
+def fetch_biz(sid):
+    """MOPS 個股基本資料 → 主要經營業務(中文)。"""
+    try:
+        r = requests.post("https://mopsov.twse.com.tw/mops/web/ajax_t05st03",
+            data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
+                  "queryName": "co_id", "inpuType": "co_id", "TYPEK": "all", "co_id": sid},
+            headers=UA, timeout=30)
+        m = _re.search(r"主要經營業務[\s\S]{0,200}?<td[^>]*>([\s\S]*?)</td>", r.text)
+        if m:
+            txt = _re.sub(r"<[^>]+>", "", m.group(1))
+            txt = _re.sub(r"\s+", " ", txt).strip()
+            if len(txt) > 8:
+                return txt[:400]
+    except Exception:
+        pass
+    return None
+
+def fetch_targets(stocks):
+    """用 yfinance 抓分析師目標價(自帶 cookie/crumb 處理,最穩)。
+    覆蓋:台股綜合分前150 + 精選論點股 + 美股前60,寫入 s["tp"]={m,h,l}。"""
+    try:
+        import yfinance as yf
+    except Exception as e:
+        print(f"  [warn] yfinance 不可用({e}),略過目標價")
+        return
+    def tot(s):
+        return s["f"]["score"]*0.4 + s["c"]["score"]*0.35 + s["t"]["score"]*0.25
+    tw = sorted([s for s in stocks if s["market"] == "TW"], key=lambda s: -tot(s))[:150]
+    thes = [s for s in stocks if s.get("thesis") and s not in tw]
+    us = sorted([s for s in stocks if s["market"] == "US"], key=lambda s: -tot(s))[:60]
+    picks, n = tw + thes + us, 0
+    for s in picks:
+        sym = (f"{s['id']}.{'TW' if s['ex']=='tse' else 'TWO'}"
+               if s["market"] == "TW" else s["id"])
+        try:
+            pt = yf.Ticker(sym).analyst_price_targets
+            if pt and pt.get("mean"):
+                s["tp"] = {"m": round(float(pt["mean"]), 2),
+                           "h": round(float(pt["high"]), 2) if pt.get("high") else None,
+                           "l": round(float(pt["low"]), 2) if pt.get("low") else None}
+                n += 1
+        except Exception:
+            pass
+        time.sleep(0.35)
+    print(f"  分析師目標價(yfinance):{n}/{len(picks)} 檔")
+    nb = 0
+    for s in picks:
+        if s["market"] != "TW": continue
+        bz = fetch_biz(s["id"])
+        if bz:
+            s["bz"] = bz; nb += 1
+        time.sleep(0.6)
+    print(f"  主要經營業務(MOPS):{nb} 檔")
+
 def load_prev():
     try:
         with open("data.json", encoding="utf-8") as f:
@@ -842,6 +922,12 @@ def main():
 
     print("⑥ 市場總覽與新聞 ...")
     taipei = (dt.datetime.utcnow() + dt.timedelta(hours=8)).strftime("%Y-%m-%d")
+    cob = fetch_cobasic()                    # 公司基本資料(全市場)
+    for s in stocks:
+        c = cob.get(s["id"])
+        if c:
+            s["co"] = {k: v for k, v in c.items() if v}
+    fetch_targets(stocks)                    # 分析師目標價+中文業務(重點個股)
     out = {"updated": taipei, "source": "live",
            "macro": fetch_macro(), "news": fetch_news(), "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:

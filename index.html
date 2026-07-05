@@ -1581,6 +1581,7 @@ async function renderIdxAnalysis(d){
 
 /* ══ 大盤+櫃買 即時監測:走勢/防守線/破線警示 ══ */
 const IDX={sel:'tw',d:{},lv:{},last:{},otcSyms:['^TWOII','^TWO']};
+const OTCACC={t:[],c:[],v:[],prev:null};   // 櫃買分線備援:即時報價逐點累積
 const IDX_NM={tw:'加權指數',otc:'櫃買指數'};
 async function idxLevels(key){
   const sym=key==='tw'?'^TWII':IDX.otcSyms[0];
@@ -1632,7 +1633,15 @@ function drawIdxSel(){
   if(title)title.textContent=`${IDX_NM[IDX.sel]} 即時走勢(1分線)`;
   const stat=document.getElementById('idxStat');
   if(!d){
-    if(stat)stat.textContent=IDX.sel==='otc'?'櫃買走勢載入中…(來源受限時僅顯示即時點位)':'走勢暫時載入不到';
+    if(IDX.sel==='otc'&&OTCACC.c.length>=2){   // 用累積點畫線
+      RT.idx=drawIntra('idxChart',OTCACC);
+      const last=OTCACC.c[OTCACC.c.length-1],pv=OTCACC.prev;
+      if(stat&&pv){const chg=(last-pv)/pv*100;
+        stat.innerHTML=`${(+last).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`;}
+      paintDefense();
+      return;
+    }
+    if(stat)stat.textContent=IDX.sel==='otc'?'櫃買分線由即時報價累積繪製,開盤後幾分鐘內出現':'走勢暫時載入不到';
     const ch=document.getElementById('idxChart');
     if(ch&&RT.idx&&RT.idx.ch){try{RT.idx.ch.dispose();}catch(e){}RT.idx=null;ch.innerHTML='';}
     paintDefense();
@@ -1651,6 +1660,7 @@ async function refreshIdx(){
   const dtw=await yChart('^TWII');
   if(dtw)IDX.d.tw=dtw;
   let dot=await yChart(IDX.otcSyms[0]);
+  if(!dot)dot=await yChart(IDX.otcSyms[0],'1d','5m');
   if(!dot){dot=await yChart(IDX.otcSyms[1]);if(dot)IDX.otcSyms.reverse();}
   if(dot)IDX.d.otc=dot;
   ['tw','otc'].forEach(k=>{
@@ -2013,6 +2023,12 @@ async function rtTick(){
         const v=document.getElementById('otcVal'),c2=document.getElementById('otcChg');
         if(v)v.textContent=Number(last.toFixed(2)).toLocaleString();
         if(c2)c2.innerHTML=chgHtml(chg);
+        OTCACC.prev=y>0?y:OTCACC.prev;
+        const now=Math.floor(Date.now()/1000);
+        if(!OTCACC.t.length||now-OTCACC.t[OTCACC.t.length-1]>=50){
+          OTCACC.t.push(now);OTCACC.c.push(last);OTCACC.v.push(0);
+          if(IDX.sel==='otc'&&!IDX.d.otc)drawIdxSel();
+        }
       }
       if(key===IDX.sel)pokeChart(RT.idx,last,'idxStat');
       try{idxWatch(key,last,chg);}catch(e){}
@@ -3628,62 +3644,38 @@ async function loadProfileDetail(s){
   const box=document.getElementById('profBody');
   if(!box)return;
   const isTW=s.market==='TW';
-  const parts={facts:'',desc:'<div class="dim-note">中文簡介載入中…</div>'};
+  const co=s.co||{};
+  let facts='',desc='';
+  const factRow=c=>`<div class="prof-kv">
+      ${c.ind?`<span><b>產業別</b>${c.ind}</span>`:''}
+      ${c.ch||c.chair?`<span><b>董事長</b>${c.ch||c.chair}</span>`:''}
+      ${fmtRocDate(c.ipo)?`<span><b>掛牌</b>${fmtRocDate(c.ipo)}</span>`:''}
+      ${fmtCap(c.cap)?`<span><b>實收資本額</b>${fmtCap(c.cap)}</span>`:''}
+      ${c.web?`<span><b>官網</b><a href="${/^http/.test(c.web)?c.web:'https://'+c.web}" target="_blank" rel="noopener">${String(c.web).replace(/^https?:\/\//,'')}</a></span>`:''}
+    </div>`;
+  if(co.ind||co.ch||co.web)facts=factRow(co);
+  if(s.bz)desc=`<div class="prof-sum">${s.bz}</div>
+    <div class="dim-note" style="margin-top:6px">來源:公司登記之主要經營業務(公開資訊觀測站,每日更新);想要「產品分類+白話版」點下方 AI 按鈕。</div>`;
   const paint=()=>{
     const el=document.getElementById('profBody');
     if(!el||!location.hash.startsWith('#stock/'))return;
-    el.innerHTML=parts.facts+parts.desc;
+    el.innerHTML=(facts+desc)||'<div class="dim-note">公司資料載入中…</div>';
   };
-  // 1) 基本事實(證交所/櫃買,直連):董事長/成立/掛牌/資本額/官網
-  if(isTW){
-    coBasic().then(d=>{
-      const c=d&&d[s.id];
-      if(!c)return;
-      parts.facts=`<div class="prof-kv">
-        ${c.ind?`<span><b>產業別</b>${c.ind}</span>`:''}
-        ${c.chair?`<span><b>董事長</b>${c.chair}</span>`:''}
-        ${fmtRocDate(c.est)?`<span><b>成立</b>${fmtRocDate(c.est)}</span>`:''}
-        ${fmtRocDate(c.ipo)?`<span><b>掛牌</b>${fmtRocDate(c.ipo)}</span>`:''}
-        ${fmtCap(c.cap)?`<span><b>實收資本額</b>${fmtCap(c.cap)}</span>`:''}
-        ${c.web?`<span><b>官網</b><a href="${/^http/.test(c.web)?c.web:'https://'+c.web}" target="_blank" rel="noopener">${String(c.web).replace(/^https?:\/\//,'')}</a></span>`:''}
-      </div>`;
-      paint();
-    });
-  }
   paint();
-  // 2) 官方登記的「主要經營業務」(證交所/櫃買,絕不錯配)優先
-  if(isTW){
-    const d=await coBasic();
-    const c=d&&d[s.id];
-    if(c&&c.biz&&c.biz.length>10){
-      parts.desc=`<div class="prof-sum">${c.biz}</div>
-        <div class="dim-note" style="margin-top:6px">來源:公司登記之主要經營業務(證交所/櫃買官方資料);想要「產品分類+白話版」點下方 AI 按鈕。</div>`;
-      paint();
-      return;
-    }
+  if(facts&&desc)return;                      // 後端資料齊全,秒開收工
+  if(isTW){                                    // 備援:瀏覽器直連證交所補基本資料
+    try{
+      const d=await coBasic();
+      const c=d&&d[s.id];
+      if(c){
+        if(!facts&&(c.ind||c.chair||c.web))facts=factRow(c);
+        if(!desc&&c.biz&&c.biz.length>10)
+          desc=`<div class="prof-sum">${c.biz}</div>
+            <div class="dim-note" style="margin-top:6px">來源:公司登記之主要經營業務(證交所/櫃買)。</div>`;
+      }
+    }catch(e){}
   }
-  // 3) 維基百科備援:用全名候選+公司條目驗證(避免同名錯配)
-  const clean=n=>String(n||'').replace(/股份有限公司|控股公司|控股|-KY|\*/g,'').trim();
-  const cands=isTW?[clean(s.full),clean(s.full)+'公司',s.name.length>=3?s.name:null]
-                  :[s.full,s.name,s.id];
-  let w=await wikiSummary(cands,'zh');
-  if(!w&&!isTW)w=await wikiSummary([s.full,s.name],'en');
-  if(w){
-    parts.desc=`<div class="prof-sum">${w.text}</div>
-      <div class="dim-note" style="margin-top:6px">簡介來源:維基百科${w.url?` <a href="${w.url}" target="_blank" rel="noopener">原文 ↗</a>`:''};想要「產品分類+白話版」點下方 AI 按鈕。</div>`;
-    paint();
-    return;
-  }
-  // 3) 後備:英文簡介(stockanalysis/Yahoo 鏈)
-  const q=await ySummary(s);
-  const p=q&&q.assetProfile;
-  if(p&&p.longBusinessSummary){
-    const sum=p.longBusinessSummary;
-    parts.desc=`<div class="prof-sum">${sum.length>420?sum.slice(0,420)+'…':sum}</div>
-      <div class="dim-note" style="margin-top:6px">此檔查無中文百科條目,以上為英文簡介——點下方按鈕由 AI 翻成白話並整理產品分類。</div>`;
-  }else{
-    parts.desc='<div class="dim-note">查無現成簡介(小型股常見)——點下方「AI 白話解讀」,會直接為你介紹公司與產品分類。</div>';
-  }
+  if(!desc)desc=`<div class="dim-note">此檔尚未納入每日業務簡介掃描(僅涵蓋重點股)——點下方「AI 白話解讀」,AI 會直接為你介紹這家公司與產品分類,通常這個答案還更完整。</div>`;
   paint();
 }
 /* ══════════════ 建議進場點:左側 vs 右側交易者(規則化)══════════════ */
