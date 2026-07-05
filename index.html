@@ -841,12 +841,134 @@ function setBadges(extra){
   if(DATA.source==='live'){ sb.textContent='即時數據'; sb.className='badge live'; }
 }
 function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderMacro(); renderNews(); renderChips(); render(); }
+let T3_BUSY=false;
+function t3ParseOpen(arr,cur){
+  if(!Array.isArray(arr)||!arr.length)return;
+  const keys=Object.keys(arr[0]);
+  const k=(...ns)=>keys.find(x=>ns.every(n=>x.includes(n)));
+  const kid=k('代號'),ky=k('年度'),ks=k('季'),kr=k('營業收入'),kg=k('毛利率'),ko=k('營業利益率'),kn=k('稅後純益率');
+  if(!kid||!kg||!ko||!kn)return;
+  arr.forEach(r=>{
+    const sid=String(r[kid]||'').trim();
+    const gm=parseFloat(r[kg]),om=parseFloat(r[ko]),nm=parseFloat(r[kn]);
+    if(!sid||[gm,om,nm].some(isNaN))return;
+    let y=parseInt(r[ky])||0;y=y<1900?y+1911:y;
+    const s_=parseInt(r[ks])||0;
+    if(!(y>1900&&s_>=1&&s_<=4))return;
+    cur[sid]={q:`${y}Q${s_}`,gm,om,nm,rev:parseFloat(String(r[kr]||'').replace(/,/g,''))||null};
+  });
+}
+async function t3Mops(year,season){
+  const url='https://mopsov.twse.com.tw/mops/web/ajax_t163sb06';
+  const out={};
+  for(const typek of ['sii','otc']){
+    const form=new URLSearchParams({encodeURIComponent:'1',step:'1',firstin:'1',off:'1',isQuery:'Y',
+      TYPEK:typek,year:String(year-1911),season:String(season).padStart(2,'0')}).toString();
+    let html=null;
+    for(const mk of [u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
+                     u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)]){
+      try{
+        const res=await fT(mk(url),14000,{method:'POST',
+          headers:{'content-type':'application/x-www-form-urlencoded'},body:form});
+        if(res.ok){const t=await res.text();if(t&&t.includes('毛利率')){html=t;break;}}
+      }catch(e){}
+    }
+    if(!html)continue;
+    try{
+      const doc=new DOMParser().parseFromString(html,'text/html');
+      doc.querySelectorAll('table').forEach(tb=>{
+        const heads=[...tb.querySelectorAll('tr')][0];
+        if(!heads)return;
+        const hs=[...heads.children].map(x=>x.textContent.trim());
+        if(!hs.some(h=>h.includes('毛利率')))return;
+        const idx=n=>hs.findIndex(h=>h.includes(n));
+        const iid=idx('代號'),ig=idx('毛利率'),io=idx('營業利益率'),iN=idx('稅後純益率'),ir=idx('營業收入');
+        if(iid<0||ig<0||io<0||iN<0)return;
+        [...tb.querySelectorAll('tr')].slice(1).forEach(tr=>{
+          const td=[...tr.children].map(x=>x.textContent.trim());
+          const sid=td[iid];
+          if(!/^\d{4}$/.test(sid||''))return;
+          const gm=parseFloat(td[ig]),om=parseFloat(td[io]),nm=parseFloat(td[iN]);
+          if([gm,om,nm].some(isNaN))return;
+          out[sid]={gm,om,nm,rev:ir>=0?parseFloat((td[ir]||'').replace(/,/g,''))||null:null};
+        });
+      });
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,400));
+  }
+  return out;
+}
+async function t3Fallback(){
+  const box=document.getElementById('t3Box');
+  if(!box||T3_BUSY)return;
+  // 快取一週(季報一季才變一次)
+  try{
+    const c=JSON.parse(localStorage.getItem('t3_cache')||'null');
+    if(c&&c.exp>Date.now()&&Array.isArray(c.items)){t3Render(c.items,c.note);return;}
+  }catch(e){}
+  T3_BUSY=true;
+  box.innerHTML='<div class="r-card" style="cursor:default"><span class="r-desc">⏳ 正在從證交所/櫃買抓最新季三率、向公開資訊觀測站補上一季比較基準(首次約 15~30 秒,算好會快取一週)…</span></div>';
+  const cur={};
+  for(const u of ['https://openapi.twse.com.tw/v1/opendata/t187ap17_L',
+                  'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap17_O']){
+    let txt=null;
+    try{const res=await fT(u,10000);if(res.ok)txt=await res.text();}catch(e){}  // OpenAPI 支援 CORS,先直連
+    if(!txt)txt=await fetchTextProxy(u);
+    if(txt){try{t3ParseOpen(JSON.parse(txt),cur);}catch(e){}}
+  }
+  const sids=Object.keys(cur);
+  if(!sids.length){
+    T3_BUSY=false;
+    box.innerHTML='<div class="r-card" style="cursor:default"><span class="r-desc">目前抓不到季報三率資料(來源暫時不可用),稍後重新整理會自動重試;每日自動更新成功後也會由後端補上。</span></div>';
+    return;
+  }
+  const qNow=sids.map(s=>cur[s].q).sort().pop();
+  const [y,s_]=[+qNow.slice(0,4),+qNow.slice(-1)];
+  const [py,ps]=s_===1?[y-1,4]:[y,s_-1];
+  const prev=await t3Mops(py,ps);
+  T3_BUSY=false;
+  const items=[];
+  const yoyOf=s=>{const v=s&&s.f&&s.f.kv&&s.f.kv['月營收YoY'];const m=v&&String(v).match(/(-?[\d.]+)/);return m?+m[1]:null;};
+  const byId={};(DATA.stocks||[]).forEach(s=>byId[s.id]=s);
+  sids.forEach(sid=>{
+    const c=cur[sid],p=prev[sid];
+    if(!p||c.q!==qNow)return;
+    if(!(c.gm>p.gm&&c.om>p.om&&c.nm>p.nm))return;
+    const yoy=yoyOf(byId[sid]);
+    const revOk=(yoy!=null&&yoy>0)||(c.rev&&p.rev&&c.rev>p.rev);
+    if(!revOk)return;
+    items.push({id:sid,t3:{q:qNow,gm:[p.gm,c.gm],om:[p.om,c.om],nm:[p.nm,c.nm],ry:yoy}});
+  });
+  const note=Object.keys(prev).length?null:'⚠ 上一季比較基準暫時抓不到(公開資訊觀測站不通),請稍後再試';
+  try{localStorage.setItem('t3_cache',JSON.stringify({exp:Date.now()+7*864e5,items,note}));}catch(e){}
+  t3Render(items,note);
+}
+function t3Render(items,note){
+  const box=document.getElementById('t3Box');
+  if(!box)return;
+  if(note||!items.length){
+    box.innerHTML=`<div class="r-card" style="cursor:default"><span class="r-desc">${note||'本季暫無同時符合「營收成長+三率齊揚」的個股(條件較嚴格,屬正常現象),財報陸續公布後會自動更新。'}</span></div>`;
+    return;
+  }
+  const byId={};(DATA.stocks||[]).forEach(s=>byId[s.id]=s);
+  const list=items.map(x=>({s:byId[x.id]||{id:x.id,name:x.id,chg:0,f:{score:50},c:{score:50},t:{score:50}},t3:x.t3}))
+    .sort((a,b)=>total(b.s)-total(a.s));
+  const arrow=(a,b)=>`${a.toFixed(1)}→<b style="color:#FF8A8E">${b.toFixed(1)}%</b>`;
+  box.innerHTML=list.slice(0,24).map(({s,t3:t})=>
+    `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
+      <span class="r-tag tg-strong">三率三升 ${t.q}</span>
+      <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span> <span class="c-code" style="margin-left:auto">綜合 ${total(s)}</span></span>
+      <span class="r-desc">毛 ${arrow(t.gm[0],t.gm[1])} · 營益 ${arrow(t.om[0],t.om[1])} · 淨利 ${arrow(t.nm[0],t.nm[1])}${t.ry!=null?` · 月營收 <b style="color:#FF8A8E">${t.ry>0?'+':''}${t.ry}%</b>`:''}</span>
+    </div>`).join('')
+    +(list.length>24?`<div class="r-card" style="cursor:default;justify-content:center"><span class="r-desc">共 ${list.length} 檔符合,顯示綜合分前 24 名</span></div>`:'');
+  box.querySelectorAll('[data-id]').forEach(c=>c.onclick=()=>{location.hash='#stock/'+c.dataset.id;});
+}
 function renderT3(){
   const box=document.getElementById('t3Box');
   if(!box)return;
   const list=(DATA.stocks||[]).filter(s=>s.t3).sort((a,b)=>total(b)-total(a));
   if(!list.length){
-    box.innerHTML='<div class="r-card" style="cursor:default"><span class="r-desc">三率資料累積中——執行每日自動更新後(或本季財報公布後)會自動列出符合的個股。</span></div>';
+    t3Fallback();  // 後端沒算到 → 瀏覽器自己抓證交所/MOPS 現算(結果會快取一週)
     return;
   }
   const arrow=(a,b,u)=>`${a.toFixed(1)}→<b style="color:#FF8A8E">${b.toFixed(1)}${u||'%'}</b>`;
@@ -2985,10 +3107,10 @@ function entryHTML(lv,o,price){
 }
 
 /* ══════════════ 總經行事曆事件詳細頁(說明+即時相關新聞)══════════════ */
-function fT(url,ms){  // 帶逾時的 fetch:代理掛掉也不會讓畫面卡死
+function fT(url,ms,opts){  // 帶逾時的 fetch:代理掛掉也不會讓畫面卡死
   const c=new AbortController();
   const t=setTimeout(()=>c.abort(),ms||9000);
-  return fetch(url,{cache:'no-store',signal:c.signal}).finally(()=>clearTimeout(t));
+  return fetch(url,Object.assign({cache:'no-store',signal:c.signal},opts||{})).finally(()=>clearTimeout(t));
 }
 const PROXY=[x=>x,
   x=>'https://corsproxy.io/?url='+encodeURIComponent(x),
