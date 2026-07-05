@@ -260,21 +260,43 @@ def fetch_inst_day(d):
         print(f"  [warn] 櫃買法人 {ds}: {e2}")
     return day
 
+def fetch_mkt_day(d):
+    """大盤三大法人買賣超金額(億,集中市場 BFI82U)。回傳 [外資,投信,自營] 或 None。"""
+    ds = d.strftime("%Y%m%d")
+    try:
+        j = get_json("https://www.twse.com.tw/rwd/zh/fund/BFI82U",
+                     {"dayDate": ds, "type": "day", "response": "json"})
+        if j.get("stat") != "OK" or not j.get("data"): return None
+        f = t = g = 0.0
+        for r in j["data"]:
+            name, net = str(r[0]), (numf(r[3]) or 0) / 1e8
+            if "外資" in name: f += net
+            elif "投信" in name: t += net
+            elif "自營" in name: g += net
+        return [round(f, 1), round(t, 1), round(g, 1)]
+    except Exception as e:
+        print(f"  [warn] BFI82U {ds}: {e}")
+        return None
+
 def update_chip_hist(chips, meta):
-    """回補/續抓法人逐日資料,累積至 CHIP_DAYS 個交易日。"""
+    """回補/續抓法人逐日資料,累積至 CHIP_DAYS 個交易日。同步累積大盤法人買賣金額(meta['mkt'])。"""
     have = set(meta.get("dates", []))
     want, d, walked = [], TODAY, 0
     while walked < 110 and len(want) < CHIP_BACKFILL and (len(have) + len(want)) < CHIP_DAYS + 4:
         if d.weekday() < 5 and d.isoformat() not in have:
             want.append(d)
         d -= dt.timedelta(days=1); walked += 1
-    newdays = {}
+    newdays, newmkt = {}, {}
     for d in sorted(want):
         day = fetch_inst_day(d)
-        time.sleep(2.0)
+        time.sleep(1.2)
         if day:
-            newdays[d.isoformat()] = day
-            have.add(d.isoformat())
+            iso = d.isoformat()
+            newdays[iso] = day
+            have.add(iso)
+            mk = fetch_mkt_day(d)
+            if mk: newmkt[iso] = mk
+            time.sleep(1.2)
     if newdays:
         allsids = set()
         for x in newdays.values(): allsids |= set(x)
@@ -289,8 +311,15 @@ def update_chip_hist(chips, meta):
             e["f"] = [m[x][0] for x in ds]
             e["t"] = [m[x][1] for x in ds]
             e["g"] = [m[x][2] for x in ds]
+    # 大盤法人歷史(供首頁總經卡片點入的詳細頁使用)
+    mk_old = meta.get("mkt") or {"d": [], "f": [], "t": [], "g": []}
+    mm = {dd: [mk_old["f"][i], mk_old["t"][i], mk_old["g"][i]] for i, dd in enumerate(mk_old.get("d", []))}
+    mm.update(newmkt)
+    mds = sorted(mm)[-CHIP_DAYS:]
+    meta["mkt"] = {"d": mds, "f": [mm[x][0] for x in mds],
+                   "t": [mm[x][1] for x in mds], "g": [mm[x][2] for x in mds]}
     meta["dates"] = sorted(have)[-CHIP_DAYS:]
-    print(f"  法人日資料:本次新增 {len(newdays)} 個交易日,累積 {len(meta['dates'])} 日")
+    print(f"  法人日資料:本次新增 {len(newdays)} 個交易日,累積 {len(meta['dates'])} 日(大盤金額 {len(mds)} 日)")
 
 def append_tdcc(chips, tdcc, date):
     """400張大戶週資料:每次執行把最新一週附加進歷史(同週覆蓋)。"""

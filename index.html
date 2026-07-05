@@ -256,7 +256,11 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .ai-hbtn button{background:none;border:1px solid var(--line);color:var(--mut);border-radius:7px;
   width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1}
 .ai-hbtn button:hover{color:var(--txt);border-color:var(--amber)}
-.ai-set{padding:12px 14px;border-bottom:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column;gap:9px}
+.ai-set{padding:12px 14px;border-bottom:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column;gap:9px;max-height:52%;overflow-y:auto}
+.ai-set[hidden]{display:none!important}
+.idx-card[data-mk]{cursor:pointer;transition:border-color .15s,transform .15s}
+.idx-card[data-mk]:hover{border-color:var(--amber);transform:translateY(-1px)}
+.idx-card[data-mk] .nm::after{content:' ›';color:var(--dim)}
 .ai-set label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut)}
 .ai-set input[type=password],.ai-set select{background:var(--panel);border:1px solid var(--line);color:var(--txt);
   border-radius:7px;padding:7px 10px;font-family:var(--mono);font-size:13px}
@@ -763,13 +767,14 @@ function renderAll(){ renderPulse(); renderRadar(); renderMacro(); renderNews();
 
 function renderMacro(){
   const m=DATA.macro||{};
-  document.getElementById('idxRow').innerHTML=(m.idx&&m.idx.length)?m.idx.map(i=>
-    `<div class="idx-card"><div class="nm">${i.name}</div><div class="vl">${Number(i.val).toLocaleString()}</div><div class="ch">${chgHtml(i.chg??0)}</div></div>`).join('')
+  document.getElementById('idxRow').innerHTML=(m.idx&&m.idx.length)?m.idx.map(i=>{
+    const k=mkKeyIdx(i.name);
+    return `<div class="idx-card"${k?` data-mk="${k}"`:''}><div class="nm">${i.name}</div><div class="vl">${Number(i.val).toLocaleString()}</div><div class="ch">${chgHtml(i.chg??0)}</div></div>`;}).join('')
     :'<div class="idx-card"><div class="nm">尚無指數資料,按「更新資訊」或執行 update_data.py</div></div>';
   const fx=m.fx||{};
-  const items=[["美元/台幣",fx.USDTWD],["日圓/台幣",fx.JPYTWD],["歐元/台幣",fx.EURTWD],["美元/日圓",fx.USDJPY]];
-  document.getElementById('fxRow').innerHTML=items.map(([n,v])=>
-    `<div class="idx-card"><div class="nm">${n}</div><div class="vl">${v??'—'}</div></div>`).join('');
+  const items=[["美元/台幣",fx.USDTWD,"usdtwd"],["日圓/台幣",fx.JPYTWD,"jpytwd"],["歐元/台幣",fx.EURTWD,"eurtwd"],["美元/日圓",fx.USDJPY,"usdjpy"]];
+  document.getElementById('fxRow').innerHTML=items.map(([n,v,k])=>
+    `<div class="idx-card" data-mk="${k}"><div class="nm">${n}</div><div class="vl">${v??'—'}</div></div>`).join('');
   const tone=fx.USDTWD?(fx.USDTWD>=32.8?'台幣偏弱(外資匯出壓力,出口有匯兌收益但指數易承壓)':fx.USDTWD<=31.5?'台幣偏強(外資匯入,易走資金行情)':'台幣區間震盪'):null;
   window.__noteFx=tone?`匯率:美元/台幣 ${fx.USDTWD},<b>${tone}</b>。`:'';
   composeMacroNote();
@@ -1126,11 +1131,11 @@ async function loadInst(){
   }
   const cur=days[0];
   const sum=k=>days.reduce((a,x)=>a+x[k],0);
-  const cell=(name,v,acc)=>`<div class="idx-card"><div class="nm">${name}(${cur.date})</div>
+  const cell=(name,v,acc,mk)=>`<div class="idx-card" data-mk="${mk}"><div class="nm">${name}(${cur.date})</div>
     <div class="vl"><span class="${v>0?'pos':v<0?'neg':'flat'}">${v>0?'+':''}${v.toLocaleString()} 億</span></div>
     <div class="ch">5日累計 <span class="${acc>0?'pos':acc<0?'neg':'flat'}">${acc>0?'+':''}${acc.toLocaleString()} 億</span></div></div>`;
-  box.innerHTML=cell('外資',cur.f,sum('f'))+cell('投信',cur.t,sum('t'))+cell('自營商',cur.d,sum('d'))
-    +cell('三大法人',cur.f+cur.t+cur.d,sum('f')+sum('t')+sum('d'));
+  box.innerHTML=cell('外資',cur.f,sum('f'),'foreign')+cell('投信',cur.t,sum('t'),'trust')+cell('自營商',cur.d,sum('d'),'dealer')
+    +cell('三大法人',cur.f+cur.t+cur.d,sum('f')+sum('t')+sum('d'),'all');
   const dir=v=>v>0?`買超 ${v}`:v<0?`賣超 ${Math.abs(v)}`:'持平';
   window.__noteInst=`法人(${cur.date} 盤後):外資${dir(cur.f)}億、投信${dir(cur.t)}億、自營${dir(cur.d)}億;外資近5日累計 ${sum('f')>0?'+':''}${sum('f')} 億${sum('f')>300?',買盤積極':sum('f')<-300?',調節明顯':''}。`;
   composeMacroNote();
@@ -1650,6 +1655,8 @@ function applyTheme(t,redraw){
     const s=DATA&&DATA.stocks.find(x=>x.id===decodeURIComponent(location.hash.slice(7)));
     if(s)try{loadIntraDetail(s);}catch(e){}
     try{if(curChips)renderChipCharts(curChips.s,curChips.e);}catch(e){}
+  }else if(location.hash.startsWith('#macro/')){
+    try{showMacroDetail(decodeURIComponent(location.hash.slice(7)));}catch(e){}
   }
 }
 try{applyTheme(localStorage.getItem('theme3l')||'navy',false);}catch(e){}
@@ -1775,6 +1782,7 @@ async function showDetail(id){
   const s=DATA.stocks.find(x=>x.id===id);
   const home=document.getElementById('homeView'), dv=document.getElementById('detailView');
   if(!s){location.hash=''; return;}
+  disposeChipCharts(); curChips=null;
   home.style.display='none'; dv.style.display='block';
   const isTW=s.market!=='US';
   const links=isTW?[
@@ -1884,6 +1892,7 @@ async function showDetail(id){
 }
 function route(){
   if(location.hash.startsWith('#stock/')) showDetail(decodeURIComponent(location.hash.slice(7)));
+  else if(location.hash.startsWith('#macro/')) showMacroDetail(decodeURIComponent(location.hash.slice(7)));
   else{
     if(RT.dTimer){clearInterval(RT.dTimer);RT.dTimer=null;}
     disposeChipCharts(); curChips=null;
@@ -2161,6 +2170,215 @@ function renderChipCharts(s,e){
   }
 }
 
+/* ══════════════ 總經詳細頁(指數/匯率/大盤法人,首頁卡片點入)══════════════ */
+function mkKeyIdx(n){
+  n=String(n||'');
+  if(n.includes('加權'))return'twii';
+  if(n.includes('S&P')||n.includes('標普'))return'gspc';
+  if(/那斯達克|NASDAQ/i.test(n))return'ixic';
+  if(n.includes('費'))return'sox';
+  if(/VIX|恐慌/i.test(n))return'vix';
+  if(n.includes('道瓊'))return'dji';
+  if(n.includes('日經'))return'n225';
+  return'';
+}
+const MK={
+  twii:{name:'加權指數(TAIEX)',sym:'^TWII',kind:'idx',dg:0,
+    about:'台灣證券交易所全部上市股票的市值加權指數,是台股整體表現的代表。台積電權重最大(約三成),所以指數走勢深受權值股影響。',
+    how:'站上20日線(月線)代表短線偏多、20日在60日(季線)之上為多頭排列;跌破季線通常視為波段轉弱訊號。搭配下方外資買賣超一起看,外資動向與加權指數高度連動。'},
+  gspc:{name:'S&P 500',sym:'^GSPC',kind:'idx',dg:0,
+    about:'美國500大企業的市值加權指數,全球股市的錨。美股收黑,台股隔天通常承壓;反之亦然。',
+    how:'趨勢判讀同樣看20/60日線排列。對台股而言,S&P 500 的方向決定外資風險偏好——美股走多,外資較願意加碼新興市場(含台股)。'},
+  ixic:{name:'那斯達克指數',sym:'^IXIC',kind:'idx',dg:0,
+    about:'以科技股為主的美股指數,與台股電子權值股(台積電、鴻海、廣達等)連動性最高。',
+    how:'台股是科技股佔比極高的市場,那斯達克強弱幾乎直接映射到台股電子股的開盤氣氛;科技股修正時台股跌幅常大於大盤。'},
+  sox:{name:'費城半導體指數',sym:'^SOX',kind:'idx',dg:0,
+    about:'美國30檔半導體公司組成的指數(NVIDIA、台積電ADR、博通、美光等),是全球半導體景氣的溫度計。',
+    how:'對台股是最重要的先行指標:費半漲跌會直接反映在隔日台積電與整個半導體族群。費半創新高而台股半導體沒跟上時,常是補漲機會;背離向下則要提防。'},
+  dji:{name:'道瓊工業指數',sym:'^DJI',kind:'idx',dg:0,
+    about:'美國30檔藍籌股的價格加權指數,偏傳產與金融,代表美國傳統經濟。',
+    how:'道瓊與那斯達克走勢分歧時,代表資金在「傳產vs科技」間輪動;對台股的直接影響小於那斯達克與費半。'},
+  n225:{name:'日經225',sym:'^N225',kind:'idx',dg:0,
+    about:'日本股市代表指數。日圓匯率與日股連動:日圓貶值通常有利日本出口股。',
+    how:'亞股連動參考;日圓急升時常伴隨套利交易平倉,亞股(含台股)易同步震盪。'},
+  vix:{name:'VIX 恐慌指數',sym:'^VIX',kind:'idx',dg:1,
+    about:'以 S&P 500 選擇權價格計算的「預期波動率」,市場越恐慌、避險需求越高,VIX 越高。',
+    how:'經驗區間:<15 市場樂觀(有時過度自滿)、15~20 正常、20~30 避險情緒升溫、>30 恐慌。VIX 急飆時全球股市(含台股)通常同步重挫;VIX 從高檔回落常是反彈訊號。注意:VIX 是反向指標,上漲=風險升高。'},
+  usdtwd:{name:'美元/台幣',sym:'TWD=X',kind:'fx',dg:3,
+    about:'1 美元兌換多少台幣。數字上升=台幣貶值,下降=台幣升值。',
+    how:'台幣匯率是外資動向的即時溫度計:台幣升值(數字下降)通常代表外資匯入買台股,易走資金行情;貶值(上升)代表外資匯出、指數易承壓。出口股(電子)在台幣貶值時有匯兌收益,但整體指數通常與台幣同向(台幣強、台股強)。'},
+  jpytwd:{name:'日圓/台幣',sym:'JPYTWD=X',kind:'fx',dg:4,
+    about:'1 日圓兌換多少台幣。哈日族與赴日旅遊的換匯參考;也反映日圓的國際強弱。',
+    how:'日圓大幅升值時常代表全球避險情緒升溫(日圓是避險貨幣)或日本央行政策轉向,亞股波動會放大;對想去日本玩的人,數字越低換日幣越划算。'},
+  eurtwd:{name:'歐元/台幣',sym:'EURTWD=X',kind:'fx',dg:3,
+    about:'1 歐元兌換多少台幣,反映歐元區經濟與利率預期相對台灣的強弱。',
+    how:'歐元走強通常代表美元轉弱(歐元佔美元指數近六成),而弱美元環境對新興市場與台股資金面偏正面。'},
+  usdjpy:{name:'美元/日圓',sym:'JPY=X',kind:'fx',dg:2,
+    about:'1 美元兌換多少日圓,全球交易量最大的匯率之一,反映美日利差。',
+    how:'數字急跌(日圓急升)時要留意:常伴隨利差交易(carry trade)平倉,全球股市易同步震盪(2024年8月即為典型案例)。'},
+  foreign:{name:'外資買賣超(集中市場)',kind:'inst',sk:'f',
+    about:'外資及陸資每日在台股上市市場的買賣金額差(買超為正、賣超為負,單位:億元)。外資持有台股市值約四成,是影響加權指數最大的單一力量。',
+    how:'單日買賣超看氣氛,連續累計看趨勢:近20日累計買超放大通常伴隨指數走升;連續大額賣超(日均−200億以上)則指數難有表現。搭配台幣匯率交叉驗證——外資真金白銀匯入時,台幣會同步升值。'},
+  trust:{name:'投信買賣超(集中市場)',kind:'inst',sk:'t',
+    about:'國內投信基金每日買賣金額差(億元)。投信偏好中小型成長股,且有季底作帳(3、6、9、12月底)拉抬持股的傳統。',
+    how:'投信買超的個股常有波段行情(投信認養);季底前兩週留意「投信作帳股」。投信與外資同步買超的日子,行情通常最健康。'},
+  dealer:{name:'自營商買賣超(集中市場)',kind:'inst',sk:'g',
+    about:'證券自營商(含避險部位)每日買賣金額差(億元)。自營商操作短線,部分部位是為權證與期貨避險,方向參考性較低。',
+    how:'自營商連續同向操作時可視為短線籌碼的助漲/助跌力量,但不宜作為主要判斷依據;以外資、投信為主,自營為輔。'},
+  all:{name:'三大法人合計買賣超',kind:'inst',sk:'*',
+    about:'外資+投信+自營商每日買賣金額合計(億元),代表整體法人資金的進出方向。',
+    how:'三大法人同步買超的日子是「法人日」,行情多屬攻擊型;合計連續賣超代表法人整體降風險,搶反彈宜保守。'}
+};
+let MMETA=null;
+async function loadMMeta(){
+  if(MMETA!==null)return MMETA;
+  try{
+    const r=await fetch('c/meta.json?v='+encodeURIComponent(DATA&&DATA.updated||''),{cache:'no-store'});
+    MMETA=r.ok?await r.json():{};
+  }catch(e){MMETA={};}
+  return MMETA;
+}
+function drawMacroLine(domId,d,dg){
+  const box=document.getElementById(domId);
+  if(!box||!window.echarts)return;
+  echarts.dispose(box);
+  const ch=echarts.init(box);chipCharts.push(ch);
+  const pts=[],dts=[];
+  for(let i=0;i<d.t.length;i++){if(d.c[i]!=null){pts.push(+d.c[i].toFixed(dg));dts.push(new Date(d.t[i]*1000).toLocaleDateString('zh-TW',{month:'2-digit',day:'2-digit'}));}}
+  const ma=(p)=>pts.map((_,i)=>i<p-1?null:+(pts.slice(i-p+1,i+1).reduce((a,b)=>a+b,0)/p).toFixed(dg));
+  const last=pts[pts.length-1],first=pts[0],up=last>=first;
+  ch.setOption({
+    tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
+    legend:{data:['收盤','MA20','MA60'],textStyle:{color:CT.legend,fontSize:11},top:0},
+    grid:{left:64,right:16,top:30,bottom:24},
+    xAxis:{type:'category',data:dts,axisLabel:{color:CT.axis,fontSize:10,interval:Math.ceil(dts.length/8)},axisLine:{lineStyle:{color:CT.border}}},
+    yAxis:{type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
+    dataZoom:[{type:'inside'}],
+    series:[
+      {name:'收盤',type:'line',data:pts,showSymbol:false,lineStyle:{width:2,color:up?'#E5484D':'#21A466'},
+       areaStyle:{color:up?'rgba(229,72,77,.08)':'rgba(33,164,102,.08)'}},
+      {name:'MA20',type:'line',data:ma(20),showSymbol:false,lineStyle:{width:1.4,color:'#E8B44A'}},
+      {name:'MA60',type:'line',data:ma(60),showSymbol:false,lineStyle:{width:1.4,color:'#7FB4FF'}}
+    ]});
+  return pts;
+}
+function mkTrendText(pts,dg,def){
+  if(!pts||pts.length<20)return'';
+  const last=pts[pts.length-1];
+  const avgN=n=>pts.slice(-n).reduce((a,b)=>a+b,0)/Math.min(n,pts.length);
+  const ma20=avgN(20),ma60=avgN(60);
+  const w=pts.slice(-60),hi=Math.max(...w),lo=Math.min(...w);
+  const trend=last>ma20&&ma20>ma60?'<b style="color:#FF8A8E">短中期趨勢向上</b>(站上20日線且20日在60日之上,多頭排列)'
+    :last<ma20&&ma20<ma60?'<b style="color:#4BD695">短中期趨勢向下</b>(20/60日線之下,空方排列)'
+    :'<b>區間整理</b>(均線糾結,方向未明)';
+  return `現值 <b>${last.toFixed(dg)}</b>,20日均 ${ma20.toFixed(dg)}、60日均 ${ma60.toFixed(dg)};距近三個月高點 ${((last-hi)/hi*100).toFixed(1)}%、低點 +${((last-lo)/lo*100).toFixed(1)}%。${trend}。`;
+}
+async function showMacroDetail(key){
+  const def=MK[key];
+  const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
+  if(!def){location.hash='';return;}
+  disposeChipCharts();curChips=null;
+  home.style.display='none';dv.style.display='block';
+  window.scrollTo({top:0});
+  if(def.kind==='inst'){
+    dv.innerHTML=`<div class="detail-wrap">
+      <button class="back" id="backBtn">← 回儀表板</button>
+      <div class="m-head"><div><h2 style="font-size:24px;font-weight:900">${def.name}</h2>
+        <div class="c-full">大盤籌碼 · 單位:億元(上市集中市場)</div></div></div>
+      <div id="mkInstWrap"><div class="chart-box"><h3>近三個月資料載入中…</h3></div></div>
+      <div class="dim-block"><h3>這是什麼</h3><div class="dim-note">${def.about}</div></div>
+      <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>怎麼看</h3><div class="dim-note">${def.how}</div></div>
+      <div class="dim-note">資料來源:證交所 BFI82U 三大法人買賣金額統計(僅上市);歷史自 v5 部署起逐日累積。</div>
+    </div>`;
+    document.getElementById('backBtn').onclick=()=>{location.hash='';};
+    const meta=await loadMMeta();
+    if(location.hash!=='#macro/'+key)return;
+    const mk=meta&&meta.mkt;
+    const wrap=document.getElementById('mkInstWrap');
+    if(!mk||!mk.d||mk.d.length<2){
+      wrap.innerHTML='<div class="dim-block"><h3>近三個月買賣超</h3><div class="dim-note">大盤法人歷史累積中——執行一次每日自動更新後,會自動回補約三個月的資料。目前可先看首頁卡片的近5日數字。</div></div>';
+      return;
+    }
+    const series=def.sk==='*'?mk.d.map((_,i)=>+(mk.f[i]+mk.t[i]+mk.g[i]).toFixed(1)):mk[def.sk];
+    const sum=n=>series.slice(-n).reduce((a,b)=>a+b,0);
+    let st=0;for(let i=series.length-1;i>=0;i--){if(series[i]>0)st++;else break;}
+    let acc=0;const cum=series.map(v=>+(acc+=v).toFixed(0));
+    const s5=sum(5),s20=sum(20),s60=sum(60);
+    const tone=s20>500?'買盤積極,資金明顯流入':s20>0?'溫和買超':s20>-500?'溫和調節':'大幅調節,資金明顯流出';
+    wrap.innerHTML=`
+      <div class="chip-sum">
+        <div><dt>5日累計</dt><dd class="${s5>0?'pos':s5<0?'neg':''}">${s5>0?'+':''}${s5.toFixed(0)} 億</dd></div>
+        <div><dt>20日累計</dt><dd class="${s20>0?'pos':s20<0?'neg':''}">${s20>0?'+':''}${s20.toFixed(0)} 億</dd></div>
+        <div><dt>60日累計</dt><dd class="${s60>0?'pos':s60<0?'neg':''}">${s60>0?'+':''}${s60.toFixed(0)} 億</dd></div>
+        <div><dt>連續買超</dt><dd>${st>=2?st+' 個交易日':'—'}</dd></div>
+      </div>
+      <div class="chart-box" style="margin-top:10px"><h3 style="font-size:14px">每日買賣超(億)· 折線為累計 · 近 ${mk.d.length} 個交易日</h3><div id="mkInstBox" style="height:300px"></div></div>
+      <div class="dim-block" style="border-left:4px solid #7FB4FF"><h3>規則化判讀</h3><div class="dim-note">近20日累計 ${s20>0?'+':''}${s20.toFixed(0)} 億,<b>${tone}</b>${st>=3?`;目前連續買超 ${st} 個交易日`:''}。${def.sk==='f'?'外資動向與加權指數高度連動,累計方向比單日金額更重要。':''}</div></div>`;
+    const box=document.getElementById('mkInstBox');
+    if(box&&window.echarts){
+      const ch=echarts.init(box);chipCharts.push(ch);
+      ch.setOption({
+        tooltip:{trigger:'axis',axisPointer:{type:'shadow'},backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
+        legend:{data:['買賣超','累計'],textStyle:{color:CT.legend,fontSize:11},top:0},
+        grid:{left:56,right:56,top:30,bottom:24},
+        xAxis:{type:'category',data:mk.d.map(x=>x.slice(5)),axisLabel:{color:CT.axis,fontSize:10,interval:Math.ceil(mk.d.length/9)},axisLine:{lineStyle:{color:CT.border}}},
+        yAxis:[{type:'value',name:'億',axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
+               {type:'value',name:'累計',axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
+        dataZoom:[{type:'inside'}],
+        series:[
+          {name:'買賣超',type:'bar',data:series,barMaxWidth:10,
+           itemStyle:{color:p=>p.value>=0?'#E5484D':'#21A466'}},
+          {name:'累計',type:'line',yAxisIndex:1,data:cum,showSymbol:false,lineStyle:{width:2,color:'#E8B44A'}}
+        ]});
+    }
+    return;
+  }
+  /* 指數/匯率頁 */
+  dv.innerHTML=`<div class="detail-wrap">
+    <button class="back" id="backBtn">← 回儀表板</button>
+    <div class="m-head"><div><h2 style="font-size:24px;font-weight:900">${def.name}</h2>
+      <div class="c-full">${def.kind==='fx'?'匯率':'指數'} · Yahoo Finance 即時</div>
+      <div class="c-price"><span class="px" id="mkPx" style="font-size:26px">載入中…</span><span id="mkChg"></span></div></div></div>
+    <div class="chart-box"><div class="ind-head"><h3>即時走勢(1分線) · 黃線為均價 · 虛線為昨收</h3><span class="c-code" id="mkIntraStat"></span></div>
+      <div id="mkIntra" style="height:230px"></div></div>
+    <div class="chart-box"><h3 style="font-size:14px">近六個月走勢 · 含 20/60 日均線 · 滾輪縮放</h3><div id="mkDaily" style="height:320px"></div></div>
+    <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>規則化判讀</h3><div class="dim-note" id="mkTrend">計算中…</div></div>
+    <div class="dim-block"><h3>這是什麼</h3><div class="dim-note">${def.about}</div></div>
+    <div class="dim-block"><h3>怎麼看</h3><div class="dim-note">${def.how}</div></div>
+    <div class="dim-note">說明:以上為規則化判讀,非投資建議。即時報價可能有 15 分鐘內延遲。</div>
+  </div>`;
+  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  const [intra,daily]=await Promise.all([yChart(def.sym,'1d','1m'),yChart(def.sym,'6mo','1d')]);
+  if(location.hash!=='#macro/'+key)return;
+  const dg=def.dg;
+  let last=null,prev=null;
+  if(daily){const cs=daily.c.filter(x=>x!=null);last=cs[cs.length-1];prev=cs[cs.length-2];}
+  if(intra){const cs=intra.c.filter(x=>x!=null);if(cs.length){last=cs[cs.length-1];prev=intra.prev||prev;}}
+  if(last!=null){
+    document.getElementById('mkPx').textContent=last.toFixed(dg);
+    if(prev){const c=(last-prev)/prev*100;document.getElementById('mkChg').innerHTML=chgHtml(+c.toFixed(2));}
+  }else document.getElementById('mkPx').textContent='—';
+  if(intra&&intra.c.some(x=>x!=null))drawIntra('mkIntra',intra);
+  else document.getElementById('mkIntra').innerHTML='<div class="dim-note" style="padding:20px">目前非交易時段或無分時資料,請看下方日線。</div>';
+  const box=document.getElementById('mkIntra');
+  if(box){try{const inst=echarts.getInstanceByDom(box);if(inst)chipCharts.push(inst);}catch(e){}}
+  if(daily){
+    const pts=drawMacroLine('mkDaily',daily,dg);
+    document.getElementById('mkTrend').innerHTML=mkTrendText(pts,dg,def)||'資料不足。';
+  }else{
+    document.getElementById('mkDaily').innerHTML='<div class="dim-note" style="padding:20px">日線資料暫時抓不到,稍後重試。</div>';
+    document.getElementById('mkTrend').textContent='資料暫缺。';
+  }
+}
+/* 首頁總經卡片點擊(事件委派,重繪也不失效) */
+['idxRow','fxRow','instRow'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el)el.addEventListener('click',e=>{
+    const c=e.target.closest('[data-mk]');
+    if(c)location.hash='#macro/'+c.dataset.mk;
+  });
+});
+
 /* ══════════════ AI 小幫手(雙引擎:Gemini 免費 / Claude 付費,金鑰只存本機)══════════════ */
 const AIP={
   gemini:{
@@ -2256,6 +2474,9 @@ function aiCtx(){
       }
       if(Array.isArray(s.news)&&s.news.length)L.push('近期新聞標題:'+s.news.map(x=>x.t).join(' / '));
     }
+  }else if(location.hash.startsWith('#macro/')){
+    const def=MK[decodeURIComponent(location.hash.slice(7))];
+    if(def)L.push('\n【使用者目前正在看的總經頁面】'+def.name+'。'+def.about);
   }else{
     const sig=DATA.stocks.filter(x=>x.sig&&x.sig.length).slice(0,12);
     if(sig.length)L.push('今日訊號股:'+sig.map(s=>`${s.name}(${s.id}):${s.sig.map(x=>x.label).join('+')}`).join('、'));
