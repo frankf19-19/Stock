@@ -602,6 +602,12 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev):
             "20/60MA": "多頭排列" if bull else "空方/糾結",
             "乖離(20MA)": f"{bias20:+.1f}%"},
             "note": ("多頭排列。" if bull else "均線偏弱。")}
+        if is_tw:  # 盤中即時警示用的關鍵價位(買進區/突破價/均量)
+            h20 = max(x[1] for x in o[-20:])
+            z1, z0 = max(ma20, ma60), min(ma20, ma60)
+            out["al"] = {"z1": round(z1, 2), "z0": round(z0, 2),
+                         "stop": round(z0 * 0.97, 2), "h20": round(h20, 2),
+                         "v20": int(avg(vols[-20:])), "bull": 1 if bull else 0}
     else:
         ma20 = avg(closes[-min(20, n):]); ma60 = ma20; bull = None
         out["t"] = {"score": 50, "kv": {"K線累積": f"{n}/60 天"},

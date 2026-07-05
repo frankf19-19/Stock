@@ -219,6 +219,35 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .foot{margin-top:34px;border-top:1px solid var(--line);padding-top:16px;color:var(--dim);font-size:12.5px}
 .empty{color:var(--mut);text-align:center;padding:50px 0;grid-column:1/-1}
 /* ── 手機版重排(≤640px)── */
+.ticker{position:relative;overflow:hidden;border:1px solid var(--line);background:var(--panel);border-radius:10px;margin:16px 0 2px;display:flex;align-items:center}
+.ticker-label{flex:none;font-size:12px;font-weight:700;color:var(--amber);padding:9px 14px;border-right:1px solid var(--line);background:var(--hdr);z-index:2;white-space:nowrap}
+.ticker-track{display:inline-flex;gap:38px;white-space:nowrap;padding:9px 0 9px 20px;animation:tickmove 60s linear infinite;will-change:transform}
+.ticker:hover .ticker-track{animation-play-state:paused}
+.ticker-track a{color:var(--txt);text-decoration:none;font-size:13.5px;display:inline-flex;gap:8px;align-items:baseline}
+.ticker-track a:hover{color:var(--amber)}
+.ticker-track .src{color:var(--dim);font-size:11px}
+@keyframes tickmove{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media(max-width:640px){.ticker-label{padding:8px 10px;font-size:11px}.ticker-track a{font-size:12.5px}}
+.cal-mini{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.cal-mini-head{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--hdr)}
+.cal-mini-head b{font-size:13.5px;letter-spacing:.03em}
+.cal-mini-head a{font-size:12px;color:var(--amber);text-decoration:none}
+.cal-mini-head a:hover{text-decoration:underline}
+.cal-mini a.cal-row{display:flex;gap:12px;align-items:baseline;padding:9px 16px;border-bottom:1px dashed var(--line);color:var(--txt);text-decoration:none;font-size:13.5px;min-width:0}
+.cal-mini a.cal-row:last-child{border-bottom:none}
+.cal-mini a.cal-row:hover{background:var(--panel2)}
+.cal-mini .cal-nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fav-tg{cursor:pointer;font-size:19px;color:var(--dim);transition:color .15s,transform .1s;user-select:none;line-height:1}
+.fav-tg:hover{transform:scale(1.15)}
+.fav-tg.on{color:var(--amber)}
+.fav-empty{color:var(--mut);font-size:13px;padding:14px 16px;background:var(--panel);border:1px dashed var(--line);border-radius:10px}
+#toasts{position:fixed;top:16px;right:16px;z-index:120;display:flex;flex-direction:column;gap:10px;max-width:min(360px,calc(100vw - 32px))}
+.toast{background:var(--panel);border:1px solid var(--amber);border-left-width:4px;border-radius:12px;padding:12px 14px;cursor:pointer;box-shadow:0 10px 34px rgba(0,0,0,.5);animation:toastIn .25s ease-out;font-size:13.5px;line-height:1.6}
+.toast .tt{font-weight:800;color:var(--amber);display:flex;gap:8px;align-items:center;margin-bottom:2px}
+.toast .tx{color:var(--txt2)}
+.toast .cls{margin-left:auto;color:var(--dim);font-size:15px;padding:0 2px}
+.toast.dip{border-color:#7FB4FF}.toast.dip .tt{color:#7FB4FF}
+@keyframes toastIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
 .mini-cap{font-size:11px;color:var(--dim);margin:6px 2px 4px;letter-spacing:.08em;font-weight:700}
 .macro-side .mini-cap:first-child{margin-top:0}
 .sec-title.tap{cursor:pointer;user-select:none;transition:opacity .15s}
@@ -375,6 +404,8 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
         <option value="dawn">🌇 曙光橙</option>
         <option value="sepia">📜 護眼米黃</option>
       </select>
+      <button class="btn-ghost" id="alertBtn" title="盤中警示:好股下殺至買進區/帶量突破時通知">🔔</button>
+      <button class="btn-ghost" id="favBtn" title="我收藏的個股">⭐ 我的最愛</button>
       <button class="btn-ghost" id="learnBtn" title="半導體/科技供應鏈白話教學">📚 產業小學堂</button>
       <button class="btn-upd" id="updBtn">↻ 更新資訊</button>
     </div>
@@ -387,7 +418,14 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 
   <div id="homeView">
 
-  <div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:12px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
+  
+  <div id="toasts"></div>
+  <div class="ticker" id="tickerBar" hidden>
+    <span class="ticker-label">📰 財經快訊</span>
+    <div class="ticker-track" id="tickerTrack"></div>
+  </div>
+
+<div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:12px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
       <div class="ind-head">
@@ -411,8 +449,14 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   </div>
   <div class="fx-note" id="macroNote">總經判讀載入中…</div>
 
+  <div class="cal-mini" id="calBar" hidden>
+    <div class="cal-mini-head"><b>📅 近期大事</b><a href="#events">完整行事曆 →</a></div>
+    <div id="calTrack"></div>
   </div>
-  <div class="sec-title" data-sec="radar">機會雷達 <span style="font-weight:400;font-size:12px;letter-spacing:0">大戶進場・突破・回檔訊號,規則化每日更新</span></div><div class="sec-body" id="sb-radar">
+
+  </div>
+
+    <div class="sec-title" data-sec="radar">機會雷達 <span style="font-weight:400;font-size:12px;letter-spacing:0">大戶進場・突破・回檔訊號,規則化每日更新</span></div><div class="sec-body" id="sb-radar">
   <div class="radar" id="radar"></div>
   <div class="radar-note">雷達為規則化訊號(價格型態 × 三力評分),用途是縮小觀察範圍,不構成投資建議;實際進出請依自己的紀律與停損計畫。</div>
 
@@ -432,6 +476,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       <button data-m="ALL" class="on">全部</button>
       <button data-m="TW">台股</button>
       <button data-m="US">美股</button>
+      <button data-m="FAV">⭐ 最愛</button>
     </div>
     <select id="sortSel" aria-label="排序方式">
       <option value="total">綜合評分 高→低</option>
@@ -448,15 +493,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   <div class="grid" id="grid"></div>
 
   </div>
-  </div><div class="sec-title" data-sec="cal">總經行事曆 <span style="font-weight:400;font-size:12px;letter-spacing:0">近兩週為即時行事曆(自動更新,含預估值);較遠期為規則推算</span></div><div class="sec-body" id="sb-cal">
-  <div class="news" id="calBox"></div>
-
-  </div>
-  <div class="sec-title" data-sec="news">重大新聞 <span style="font-weight:400;font-size:12px;letter-spacing:0">台美股財經頭條</span></div><div class="sec-body" id="sb-news">
-  <div class="news" id="newsBox"></div>
-
-  </div>
-  <!-- /homeView -->
+  </div><!-- /homeView -->
 
   <div id="detailView" style="display:none"></div>
 
@@ -840,7 +877,58 @@ function setBadges(extra){
   const sb=document.getElementById('srcBadge');
   if(DATA.source==='live'){ sb.textContent='即時數據'; sb.className='badge live'; }
 }
-function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderMacro(); renderNews(); renderChips(); render(); }
+function favList(){try{const a=JSON.parse(localStorage.getItem('fav_ids')||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}}
+function favHas(id){return favList().includes(id);}
+function favToggle(id){
+  let a=favList();
+  a=a.includes(id)?a.filter(x=>x!==id):[...a,id];
+  try{localStorage.setItem('fav_ids',JSON.stringify(a.slice(-100)));}catch(e){}
+  renderFav();
+  document.querySelectorAll(`.fav-tg[data-fav="${id}"]`).forEach(el=>{
+    el.classList.toggle('on',a.includes(id));el.textContent=a.includes(id)?'★':'☆';});
+  return a.includes(id);
+}
+function showFavPage(){
+  const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
+  disposeChipCharts();curChips=null;
+  home.style.display='none';dv.style.display='block';
+  window.scrollTo({top:0});
+  dv.innerHTML=`<div class="detail-wrap">
+    <button class="back" id="backBtn">← 回儀表板</button>
+    <div class="m-head"><div>
+      <h2 style="font-size:24px;font-weight:900">⭐ 我的最愛</h2>
+      <div class="c-full" style="margin-top:4px">在個股頁點名稱旁的 ☆、或在選股清單卡片點星星即可收藏;收藏只存在你這台裝置。</div>
+    </div></div>
+    <div class="radar" id="favBox" style="margin-top:14px"></div>
+  </div>`;
+  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  renderFav();
+}
+function renderFav(){
+  const box=document.getElementById('favBox');
+  if(!box)return;
+  const ids=favList();
+  if(!ids.length){
+    box.innerHTML='<div class="fav-empty">還沒有收藏——到任何個股頁點名稱旁的 ☆,或在選股清單卡片點星星,收藏後回到這裡就看得到。</div>';
+    return;
+  }
+  const byId={};(DATA.stocks||[]).forEach(s=>byId[s.id]=s);
+  box.innerHTML=ids.map(id=>{
+    const s=byId[id];
+    if(!s)return `<div class="r-card" data-id="${id}"><span class="r-name">${id} <span class="c-code">資料更新後顯示</span></span></div>`;
+    return `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
+      <span class="r-name"><span class="fav-tg on" data-fav="${s.id}" title="移除收藏">★</span> ${s.name} <span class="c-code">${s.id}</span>
+        <span style="font-family:var(--mono);font-size:13px;margin-left:auto">${s.price??'—'} ${chgHtml(s.chg)}</span></span>
+      <span class="r-desc">綜合 ${total(s)} 分|基本 ${s.f.score} · 籌碼 ${s.c.score} · 技術 ${s.t.score}${s.sig&&s.sig.length?` · <b style="color:var(--amber)">${s.sig.map(x=>x.label).join('+')}</b>`:''}</span>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.r-card').forEach(c=>c.onclick=e=>{
+    const st=e.target.closest('.fav-tg');
+    if(st){e.stopPropagation();favToggle(st.dataset.fav);return;}
+    location.hash='#stock/'+c.dataset.id;
+  });
+}
+function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderFav(); renderMacro(); renderNews(); renderChips(); render(); }
 let T3_BUSY=false;
 function t3ParseOpen(arr,cur){
   if(!Array.isArray(arr)||!arr.length)return;
@@ -868,7 +956,7 @@ async function t3Mops(year,season){
     for(const mk of [u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
                      u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)]){
       try{
-        const res=await fT(mk(url),14000,{method:'POST',
+        const res=await fT(mk(url),10000,{method:'POST',
           headers:{'content-type':'application/x-www-form-urlencoded'},body:form});
         if(res.ok){const t=await res.text();if(t&&t.includes('毛利率')){html=t;break;}}
       }catch(e){}
@@ -907,15 +995,18 @@ async function t3Fallback(){
     if(c&&c.exp>Date.now()&&Array.isArray(c.items)){t3Render(c.items,c.note);return;}
   }catch(e){}
   T3_BUSY=true;
-  box.innerHTML='<div class="r-card" style="cursor:default"><span class="r-desc">⏳ 正在從證交所/櫃買抓最新季三率、向公開資訊觀測站補上一季比較基準(首次約 15~30 秒,算好會快取一週)…</span></div>';
+  const prog=t=>{const el=document.getElementById('t3Box');
+    if(el)el.innerHTML=`<div class="r-card" style="cursor:default"><span class="r-desc">${t}</span></div>`;};
+  prog('⏳ 步驟 1/3:向證交所/櫃買抓最新季三率…');
   const cur={};
-  for(const u of ['https://openapi.twse.com.tw/v1/opendata/t187ap17_L',
-                  'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap17_O']){
+  await Promise.all(['https://openapi.twse.com.tw/v1/opendata/t187ap17_L',
+                     'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap17_O'].map(async u=>{
     let txt=null;
-    try{const res=await fT(u,10000);if(res.ok)txt=await res.text();}catch(e){}  // OpenAPI 支援 CORS,先直連
+    try{const res=await fT(u,9000);if(res.ok)txt=await res.text();}catch(e){}  // OpenAPI 支援 CORS,先直連
     if(!txt)txt=await fetchTextProxy(u);
     if(txt){try{t3ParseOpen(JSON.parse(txt),cur);}catch(e){}}
-  }
+  }));
+  prog(`⏳ 步驟 2/3:最新季已取得 ${Object.keys(cur).length} 家,向公開資訊觀測站補上一季比較基準(約 10~20 秒)…`);
   const sids=Object.keys(cur);
   if(!sids.length){
     T3_BUSY=false;
@@ -926,6 +1017,7 @@ async function t3Fallback(){
   const [y,s_]=[+qNow.slice(0,4),+qNow.slice(-1)];
   const [py,ps]=s_===1?[y-1,4]:[y,s_-1];
   const prev=await t3Mops(py,ps);
+  prog(`⏳ 步驟 3/3:上一季取得 ${Object.keys(prev).length} 家,比對計算中…`);
   T3_BUSY=false;
   const items=[];
   const yoyOf=s=>{const v=s&&s.f&&s.f.kv&&s.f.kv['月營收YoY'];const m=v&&String(v).match(/(-?[\d.]+)/);return m?+m[1]:null;};
@@ -1005,10 +1097,16 @@ function composeMacroNote(){
     :'總經判讀載入中…';
 }
 function renderNews(){
+  const bar=document.getElementById('tickerBar'),track=document.getElementById('tickerTrack');
+  if(!bar||!track)return;
   const n=DATA.news||[];
-  document.getElementById('newsBox').innerHTML=n.length?n.map(x=>
-    `<a href="${x.link||'#'}" ${x.link&&x.link!=='#'?'target="_blank" rel="noopener"':''}><span>${x.title}</span><span class="src">${x.source||''}${x.time?' · '+x.time:''}</span></a>`).join('')
-    :'<a href="#">尚無新聞,執行 update_data.py 後自動帶入財經頭條</a>';
+  if(!n.length){bar.hidden=true;return;}
+  const items=n.map(x=>
+    `<a href="${x.link||'#'}" ${x.link&&x.link!=='#'?'target="_blank" rel="noopener"':''}>` +
+    `<span>${x.title}</span><span class="src">${x.source||''}${x.time?' · '+x.time:''}</span></a>`).join('');
+  track.innerHTML=items+items;  // 兩份內容無縫循環
+  track.style.animationDuration=Math.max(40,n.length*9)+'s';
+  bar.hidden=false;
 }
 
 /* ── 更新資訊:重抓 data.json + 證交所/櫃買 OpenAPI 收盤 + 即時匯率 ── */
@@ -1277,29 +1375,29 @@ function buildCalendar(){
   return ev.filter(e=>{const k=e.name+e.d.toDateString();if(seen.has(k))return false;seen.add(k);return true;});
 }
 function renderCalendar(){
-  const box=document.getElementById('calBox');
-  if(!box)return;
+  const bar=document.getElementById('calBar'),track=document.getElementById('calTrack');
+  if(!bar||!track)return;
   const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
   today.setHours(0,0,0,0);
-  const ev=buildCalendar().slice(0,12);
+  const ev=buildCalendar().slice(0,14);
   window.__calList=ev;
   const wd=['日','一','二','三','四','五','六'];
-  box.innerHTML=ev.length?ev.map((e,i)=>{
+  if(!ev.length){bar.hidden=true;return;}
+  track.innerHTML=ev.slice(0,5).map((e,i)=>{
     const days=Math.round((e.d-today)/86400000);
-    const soon=days<=3;
     const dstr=`${e.d.getMonth()+1}/${String(e.d.getDate()).padStart(2,'0')}(${wd[e.d.getDay()]})`;
-    return `<a href="javascript:void(0)" data-ev="${i}" style="cursor:pointer">
-      <span style="display:flex;gap:10px;align-items:baseline;min-width:0">
-        <span class="cal-date ${soon?'cal-soon':''}">${dstr}${soon?(days===0?' 今天':days===1?' 明天':` ${days}天後`):''}</span>
-        <span style="min-width:0"><span class="c-sector" style="margin:0 6px 0 0">${e.tag}</span>${e.name}${e.real?` <span style="font-family:var(--mono);font-size:11px;color:var(--mut)">${e.time}</span>`:''} <span class="cal-star">${'★'.repeat(e.stars)}</span>${e.real?' <span class="c-sector" style="border-color:#4BD695;color:#4BD695">已確認時程</span>':''}
-          <span class="cal-why">${e.why}${e.approx?'(日期為規則推估,以官方公告為準)':''}</span></span>
-      </span></a>`;
-  }).join(''):'<a href="#">近期無排定事件</a>';
-  // 最近的三星重磅倒數,併入總經判讀
+    const cnt=days===0?'今天':days===1?'明天':days+'天後';
+    return `<a class="cal-row" href="javascript:void(0)" data-ev="${i}">`+
+      `<span class="cal-date ${days<=3?'cal-soon':''}">${dstr} ${cnt}</span>`+
+      `<span class="cal-nm"><span class="c-sector" style="margin-right:6px">${e.tag}</span>${e.name.replace(/\(約[^)]*\)/,'').trim()}</span>`+
+      `<span class="cal-star">${'★'.repeat(e.stars)}</span>`+
+      `${e.real?'<span class="c-sector" style="border-color:#4BD695;color:#4BD695;flex:none">已確認</span>':''}</a>`;
+  }).join('');
+  bar.hidden=false;
   const big=buildCalendar().find(e=>e.stars===3);
   if(big){
     const days=Math.round((big.d-today)/86400000);
-    window.__noteCal=`近期重磅:${days===0?'今天':days+'天後'} ${big.name.replace(/(約·[^)]*)/,'').replace('()','')}。`;
+    window.__noteCal=`近期重磅:${days===0?'今天':days+'天後'} ${big.name.replace(/\(約·[^)]*\)/,'').replace('()','')}。`;
     composeMacroNote();
   }
 }
@@ -1536,6 +1634,109 @@ async function loadIntraDetail(s){
 
 /* ── 秒級即時報價:瀏覽器直連證交所 MIS 快照(每10秒,僅更新畫面上的個股)── */
 const RT={lastOk:0};
+/* ══ 盤中即時警示:好股下殺至買進區 / 帶量突破整理區 ══ */
+const AL={on:localStorage.getItem('alert_on')!=='0',seen:null};
+function alSeen(){
+  const d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);
+  if(!AL.seen||AL.seen.d!==d){
+    try{const s=JSON.parse(localStorage.getItem('al_seen')||'null');
+        AL.seen=(s&&s.d===d)?s:{d,k:{}};}catch(e){AL.seen={d,k:{}};}
+  }
+  return AL.seen;
+}
+function alMark(key){const s=alSeen();s.k[key]=1;try{localStorage.setItem('al_seen',JSON.stringify(s));}catch(e){}}
+function alGood(s){return s.market==='TW'&&s.al&&(total(s)>=66||s.thesis);}
+function tpMins(){const d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));return (d.getHours()-9)*60+d.getMinutes();}
+function alToast(type,s,title,text){
+  const box=document.getElementById('toasts');
+  if(!box)return;
+  while(box.children.length>=4)box.removeChild(box.firstChild);
+  const el=document.createElement('div');
+  el.className='toast '+(type==='dip'?'dip':'');
+  el.innerHTML=`<div class="tt">${type==='dip'?'🎯 下殺至買進區':'🚀 帶量突破'} <span class="cls">✕</span></div>
+    <div class="tx"><b>${s.name}(${s.id})</b> ${text}</div>`;
+  el.onclick=e=>{
+    if(e.target.classList.contains('cls')){el.remove();return;}
+    location.hash='#stock/'+s.id;el.remove();
+  };
+  box.appendChild(el);
+  setTimeout(()=>{try{el.remove();}catch(e){}},20000);
+  if('Notification' in window&&Notification.permission==='granted'){
+    try{const n=new Notification(title,{body:`${s.name}(${s.id})`+text.replace(/<[^>]+>/g,''),icon:'icon.png',tag:s.id+type});
+        n.onclick=()=>{window.focus();location.hash='#stock/'+s.id;};}catch(e){}
+  }
+}
+function alertCheck(s,m,last){
+  if(!AL.on||!alGood(s))return;
+  const a=s.al, seen=alSeen().k;
+  // 條件一:多頭好股回檔進「左側買進區」(均線帶),且未破停損
+  if(a.bull&&last<=a.z1*1.005&&last>=a.stop){
+    const key=s.id+'|dip';
+    if(!seen[key]){
+      alMark(key);
+      alToast('dip',s,'🎯 好股下殺至買進區',
+        `現價 ${last},回到均線帶 ${a.z0}~${a.z1}(綜合 ${total(s)} 分);左側分批參考區,停損 ${a.stop}`);
+    }
+  }
+  // 條件二:帶量突破近月高(整理區上緣)
+  const vol=parseFloat(String(m.v||'').replace(/,/g,''));
+  if(last>=a.h20*1.005&&vol>0&&a.v20>0){
+    const prog=Math.max(cumPct(tpMins()),8)/100;   // 依盤中時間估的量能進度
+    if(vol>=a.v20*prog*1.15){
+      const key=s.id+'|brk';
+      if(!seen[key]){
+        alMark(key);
+        alToast('brk',s,'🚀 帶量突破整理區',
+          `現價 ${last} 站上近月高 ${a.h20},量能已達同時段均量 ${Math.round(vol/(a.v20*prog)*100)}%(綜合 ${total(s)} 分)`);
+      }
+    }
+  }
+}
+/* 後端尚未提供 al 時,背景載入 K 線分片自行計算(僅盤中執行一次) */
+let AL_SEEDED=false;
+async function alSeed(){
+  if(AL_SEEDED||!DATA||DATA.source!=='live')return;
+  const need=(DATA.stocks||[]).filter(s=>s.market==='TW'&&!s.al&&(total(s)>=66||s.thesis));
+  if(!need.length){AL_SEEDED=true;return;}
+  if(!marketOpen())return;   // 收盤不浪費流量,明天開盤再補
+  AL_SEEDED=true;
+  for(let d=0;d<10;d++){
+    const sh=`k/tw${d}.json`;
+    if(!(sh in KCACHE)){
+      try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),15000);
+          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
+    }
+    need.filter(s=>s.id[0]===String(d)).forEach(s=>{
+      const e=KCACHE[sh][s.id];
+      if(!e||!e.o||e.o.length<60)return;
+      const o=e.o,closes=o.map(x=>x[3]),vols=o.map(x=>x[4]);
+      const ma20=avg(closes.slice(-20)),ma60=avg(closes.slice(-60));
+      const h20=Math.max(...o.slice(-20).map(x=>x[1]));
+      const z1=Math.max(ma20,ma60),z0=Math.min(ma20,ma60);
+      s.al={z1:+z1.toFixed(2),z0:+z0.toFixed(2),stop:+(z0*0.97).toFixed(2),
+            h20:+h20.toFixed(2),v20:Math.round(avg(vols.slice(-20))),bull:ma20>ma60?1:0};
+    });
+    await new Promise(r=>setTimeout(r,600));
+  }
+}
+setTimeout(alSeed,9000);
+setInterval(alSeed,10*60*1000);
+/* 鈴鐺開關 */
+(function(){
+  const b=document.getElementById('alertBtn');
+  if(!b)return;
+  const paint=()=>{b.textContent=AL.on?'🔔':'🔕';b.title=AL.on?'盤中警示:開啟(好股回檔至買進區/帶量突破會通知)':'盤中警示:已關閉';};
+  paint();
+  b.onclick=()=>{
+    AL.on=!AL.on;
+    try{localStorage.setItem('alert_on',AL.on?'1':'0');}catch(e){}
+    paint();
+    if(AL.on){
+      alToast('brk',{name:'警示已開啟',id:'系統'},'','盤中若有好股下殺至買進區或帶量突破,會在這裡跳出通知(點通知直達個股頁)');
+      if('Notification' in window&&Notification.permission==='default')Notification.requestPermission();
+    }
+  };
+})();
 function rtTargets(){
   const ids=new Set();
   const add=s=>{if(s&&s.market==='TW'&&s.id)ids.add(s.id);};
@@ -1606,6 +1807,7 @@ async function rtTick(){
     const s=DATA.stocks.find(x=>x.id===m.c);
     if(s){
       s.price=+last.toFixed(2);s.chg=+(((last-y)/y)*100).toFixed(2);n++;
+      try{alertCheck(s,m,last);}catch(e){}
       if(RT.intra&&RT.intra.id===s.id)pokeChart(RT.intra,last);
     }
   });
@@ -1682,7 +1884,7 @@ function chgHtml(c){
 function render(){
   sectorPanel();
   let list=DATA.stocks.filter(s=>
-    (mkt==='ALL'||s.market===mkt)&&
+    (mkt==='ALL'||(mkt==='FAV'?favHas(s.id):s.market===mkt))&&
     (sector==='全部'||s.sector===sector)&&
     (q===''||s.name.includes(q)||s.id.toLowerCase().includes(q.toLowerCase())||(s.full||'').includes(q)));
   const key={total:s=>total(s),fund:s=>s.f.score,chip:s=>s.c.score,tech:s=>s.t.score,chg:s=>s.chg};
@@ -1696,7 +1898,7 @@ function render(){
     return `<div class="card" data-id="${s.id}" tabindex="0" role="button" aria-label="查看 ${s.name} 明細">
       <div class="c-top">
         <div>
-          <div class="c-name">${s.name} <span class="c-code">${s.id}</span></div>
+          <div class="c-name"><span class="fav-tg ${favHas(s.id)?'on':''}" data-fav="${s.id}" title="收藏/取消">${favHas(s.id)?'★':'☆'}</span> ${s.name} <span class="c-code">${s.id}</span></div>
           <div class="c-full">${s.full||''}</div>
           <span class="c-sector">${s.market==='US'?'美股':'台股'}|${s.sector}</span>
         </div>
@@ -1714,7 +1916,11 @@ function render(){
   const mb=document.getElementById('moreBtn');
   if(mb) mb.onclick=()=>{page++;render();};
   document.querySelectorAll('.card').forEach(c=>{
-    c.onclick=()=>{location.hash='#stock/'+c.dataset.id;};
+    c.onclick=e=>{
+      const st=e.target.closest('.fav-tg');
+      if(st){e.stopPropagation();favToggle(st.dataset.fav);if(mkt==='FAV')render();return;}
+      location.hash='#stock/'+c.dataset.id;
+    };
     c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();location.hash='#stock/'+c.dataset.id;}};
   });
 }
@@ -2109,7 +2315,7 @@ async function showDetail(id){
   dv.innerHTML=`<div class="detail-wrap">
     <button class="back" id="backBtn">← 回選股清單</button>
     <div class="m-head">
-      <div><h2 style="font-size:24px;font-weight:900">${s.name} <span class="c-code">${s.id}</span></h2>
+      <div><h2 style="font-size:24px;font-weight:900"><span class="fav-tg ${favHas(s.id)?'on':''}" data-fav="${s.id}" id="dFav" title="收藏/取消收藏" style="font-size:23px">${favHas(s.id)?'★':'☆'}</span> ${s.name} <span class="c-code">${s.id}</span></h2>
         <div class="c-full">${s.full||''}|${isTW?'台股':'美股'} · ${s.sector}</div>
         <div class="c-price"><span class="px" id="dPx" style="font-size:26px">${s.price??'—'}</span><span id="dChg">${chgHtml(s.chg)}</span></div></div>
       <div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>
@@ -2171,6 +2377,8 @@ async function showDetail(id){
     <div class="links">${links.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}</div>
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  const dFav=document.getElementById('dFav');
+  if(dFav)dFav.onclick=()=>favToggle(s.id);
   window.scrollTo({top:0});
   const pBtn=document.getElementById('profAiBtn');
   if(pBtn)pBtn.onclick=()=>aiAsk(`用繁體中文白話介紹 ${s.name}(${s.id}) 這家公司,格式如下:\n1) 一句話+一個比喻說明公司在做什麼\n2) 主要產品與服務(依類型分類條列,每類一句白話說明用途)\n3) 產品用在哪裡、主要客戶是誰\n4) 在產業鏈的上下游位置\n要簡單易懂,像對完全不懂股票的朋友解釋。`);
@@ -2262,6 +2470,8 @@ async function showDetail(id){
 function route(){
   if(location.hash.startsWith('#stock/')) showDetail(decodeURIComponent(location.hash.slice(7)));
   else if(location.hash.startsWith('#macro/')) showMacroDetail(decodeURIComponent(location.hash.slice(7)));
+  else if(location.hash==='#fav') showFavPage();
+  else if(location.hash==='#events') showEventsIndex();
   else if(location.hash.startsWith('#event/')) showEventDetail();
   else if(location.hash.startsWith('#learn/')) showLearnDetail(decodeURIComponent(location.hash.slice(7)));
   else if(location.hash==='#learn') showLearnIndex();
@@ -2418,7 +2628,7 @@ function setupSections(){
     if(!t.querySelector('.sec-hint')){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
-    const closed=(key in saved)?!!saved[key]:(mob&&['cal','radar','news'].includes(key));
+    const closed=(key in saved)?!!saved[key]:false;  // 各區塊預設展開,使用者收合會記住
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
     t.onclick=()=>{
@@ -2937,6 +3147,8 @@ function showLearnDetail(key){
 (function(){
   const b=document.getElementById('learnBtn');
   if(b)b.onclick=()=>{location.hash='#learn';};
+  const f=document.getElementById('favBtn');
+  if(f)f.onclick=()=>{location.hash='#fav';};
 })();
 
 /* ══════════════ 公司簡介(Yahoo 公司資料 + AI 白話解讀)══════════════ */
@@ -3206,6 +3418,42 @@ function evExplain(e){
     tw:'透過市場情緒與資金面間接影響台股。'};
 }
 let __evPick=null;
+function showEventsIndex(){
+  const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
+  disposeChipCharts();curChips=null;
+  home.style.display='none';dv.style.display='block';
+  window.scrollTo({top:0});
+  const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  today.setHours(0,0,0,0);
+  const ev=buildCalendar().slice(0,16);
+  window.__calList=ev;
+  const wd=['日','一','二','三','四','五','六'];
+  dv.innerHTML=`<div class="detail-wrap">
+    <button class="back" id="backBtn">← 回儀表板</button>
+    <div class="m-head"><div>
+      <h2 style="font-size:24px;font-weight:900">📅 總經行事曆</h2>
+      <div class="c-full" style="margin-top:4px">近兩週為即時行事曆(自動更新,含預估值);較遠期為規則推算。點任一事件看完整說明與相關新聞。</div>
+    </div></div>
+    <div class="news" id="evIdxBox" style="margin-top:12px">${ev.map((e,i)=>{
+      const days=Math.round((e.d-today)/86400000);
+      const soon=days<=3;
+      const dstr=`${e.d.getMonth()+1}/${String(e.d.getDate()).padStart(2,'0')}(${wd[e.d.getDay()]})`;
+      return `<a href="javascript:void(0)" data-ev="${i}">
+        <span style="display:flex;gap:10px;align-items:baseline;min-width:0">
+          <span class="cal-date ${soon?'cal-soon':''}">${dstr}${soon?(days===0?' 今天':days===1?' 明天':` ${days}天後`):''}</span>
+          <span style="min-width:0"><span class="c-sector" style="margin:0 6px 0 0">${e.tag}</span>${e.name}${e.real?` <span style="font-family:var(--mono);font-size:11px;color:var(--mut)">${e.time}</span>`:''} <span class="cal-star">${'★'.repeat(e.stars)}</span>${e.real?' <span class="c-sector" style="border-color:#4BD695;color:#4BD695">已確認時程</span>':''}
+            <span class="cal-why">${e.why}${e.approx?'(日期為規則推估,以官方公告為準)':''}</span></span>
+        </span></a>`;
+    }).join('')}</div>
+  </div>`;
+  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('evIdxBox').addEventListener('click',e=>{
+    const a=e.target.closest('[data-ev]');
+    if(!a)return;
+    const evx=(window.__calList||[])[+a.dataset.ev];
+    if(evx){__evPick=evx;location.hash='#event/'+(+a.dataset.ev)+'-'+Date.now();}
+  });
+}
 function showEventDetail(){
   const e=__evPick;
   const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
@@ -3257,7 +3505,7 @@ async function evNews(q,box){
 }
 /* 行事曆點擊(事件委派) */
 (function(){
-  const el=document.getElementById('calBox');
+  const el=document.getElementById('calTrack');
   if(el)el.addEventListener('click',e=>{
     const a=e.target.closest('[data-ev]');
     if(!a)return;
