@@ -623,9 +623,9 @@ def fetch_targets(stocks):
         return
     def tot(s):
         return s["f"]["score"]*0.4 + s["c"]["score"]*0.35 + s["t"]["score"]*0.25
-    tw = sorted([s for s in stocks if s["market"] == "TW"], key=lambda s: -tot(s))[:150]
+    tw = sorted([s for s in stocks if s["market"] == "TW"], key=lambda s: -tot(s))[:300]
     thes = [s for s in stocks if s.get("thesis") and s not in tw]
-    us = sorted([s for s in stocks if s["market"] == "US"], key=lambda s: -tot(s))[:60]
+    us = sorted([s for s in stocks if s["market"] == "US"], key=lambda s: -tot(s))[:80]
     picks, n = tw + thes + us, 0
     for s in picks:
         sym = (f"{s['id']}.{'TW' if s['ex']=='tse' else 'TWO'}"

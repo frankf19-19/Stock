@@ -2669,7 +2669,7 @@ async function showDetail(id){
       bar.hidden=false;};
     paint();
     try{
-      const its=await rssItems(`"${s.name}"`,10);
+      const its=await rssItems(`"${s.name}"`,10,ySym(s));
       if(location.hash==='#stock/'+s.id){
         its.forEach(x=>push(x.t,x.l,x.s));
         paint();
@@ -3560,7 +3560,7 @@ async function loadAnalystDetail(s){
     </div>
     <div class="dim-note" style="margin-top:8px">共識目標價${q._daily?'(每日自動更新)':''}:賣方分析師 12 個月預估彙整,並非保證;分歧度(高低差)越大代表市場看法越不一致。</div>`;
   }else{
-    html+='<div class="dim-note">此檔暫無彙整的分析師目標價(小型股常見)——看下方目標價新聞,或用 AI 上網彙整。</div>';
+    html+='<div class="dim-note">此檔暫無目標價資料:①每日更新(Actions)跑過後,綜合分前300名+精選股會自動有;②不在名單的小型股本來就少有分析師覆蓋——點下方 AI 按鈕上網彙整最準。</div>';
   }
   const hist=q&&q.upgradeDowngradeHistory&&q.upgradeDowngradeHistory.history;
   if(Array.isArray(hist)&&hist.length){
@@ -3577,7 +3577,13 @@ async function loadAnalystDetail(s){
   box.innerHTML=html;
   // 目標價相關新聞(即時)
   const nb=document.getElementById('anaNews');
-  if(nb)evNews(`"${s.name}" 目標價`,nb);
+  if(nb)(async()=>{
+    const its=await rssItems(`"${s.name}" 目標價`,6,ySym(s));
+    if(!nb.isConnected)return;
+    nb.innerHTML=its.length?`<div class="news" style="border:none;padding:0">${its.map(x=>
+      `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>`
+      :'<div class="dim-note">新聞暫時載入不到,點下方連結直接搜尋。</div>';
+  })();
 }
 const SEC2LEARN=[['半導體','semi'],['電子零組件','pcb'],['電腦及週邊','server'],['光電','cpo'],['其他電子','server'],['通信網路','cpo']];
 /* 公司基本資料(全市場一次抓,快取一天;OpenAPI 支援瀏覽器直連) */
@@ -3893,10 +3899,26 @@ function showEventDetail(){
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   evNews(kb.q,document.getElementById('evNewsBox'));
 }
-async function rssItems(q,max){
+async function yNews(q,count){
+  try{
+    const u=`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&newsCount=${count||8}&quotesCount=0&enableFuzzyQuery=false`;
+    const r=await fT(u,8000);
+    if(!r.ok)return[];
+    const j=await r.json();
+    return (j.news||[]).map(n=>({t:n.title,l:n.link,s:n.publisher||'',
+      d:n.providerPublishTime?new Date(n.providerPublishTime*1000).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'}):''}))
+      .filter(x=>x.t&&x.l);
+  }catch(e){return[];}
+}
+async function rssItems(q,max,sym){
+  // 主力:Yahoo 搜尋 API(直連可用);備援:Google/Bing RSS(需代理)
+  for(const key of [sym,q].filter(Boolean)){
+    const its=await yNews(key,max||8);
+    if(its.length)return its;
+  }
   const urls=[
     'https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=zh-TW&gl=TW&ceid=TW:zh-Hant',
-    'https://www.bing.com/news/search?q='+encodeURIComponent(q)+'&format=rss&setlang=zh-TW'];
+    'https://www.bing.com/news/search?q='+encodeURIComponent(q)+'&format=rss&setlang=zh-TW'];  // 備援(需代理)
   for(const u of urls){
     const t=await fetchTextProxy(u);
     if(!t)continue;
