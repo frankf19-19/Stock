@@ -344,6 +344,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
         <option value="light">☀️ 明亮日盤</option>
         <option value="mocha">🥃 琥珀夜盤</option>
       </select>
+      <button class="btn-upd" id="learnBtn" title="半導體/科技供應鏈白話教學">📚 產業小學堂</button>
       <button class="btn-upd" id="updBtn">↻ 更新資訊</button>
     </div>
   </div>
@@ -394,10 +395,6 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   <div class="news" id="newsBox"></div>
 
   </div>
-  <div class="sec-title" data-sec="learn">產業小學堂 <span style="font-weight:400;font-size:12px;letter-spacing:0">半導體與科技供應鏈白話教學,點卡片深入了解</span></div><div class="sec-body" id="sb-learn">
-    <div class="idx-row" id="learnRow"></div>
-  </div>
-
   <div class="sec-title" data-sec="list">選股清單</div><div class="sec-body" id="sb-list">
   <div class="controls">
     <div class="seg" id="mktSeg" role="tablist" aria-label="市場">
@@ -1972,6 +1969,7 @@ function route(){
   else if(location.hash.startsWith('#macro/')) showMacroDetail(decodeURIComponent(location.hash.slice(7)));
   else if(location.hash.startsWith('#event/')) showEventDetail();
   else if(location.hash.startsWith('#learn/')) showLearnDetail(decodeURIComponent(location.hash.slice(7)));
+  else if(location.hash==='#learn') showLearnIndex();
   else{
     if(RT.dTimer){clearInterval(RT.dTimer);RT.dTimer=null;}
     disposeChipCharts(); curChips=null;
@@ -2125,7 +2123,7 @@ function setupSections(){
     if(!t.querySelector('.sec-hint')){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
-    const closed=(key in saved)?!!saved[key]:(mob&&['cal','radar','news','learn'].includes(key));
+    const closed=(key in saved)?!!saved[key]:(mob&&['cal','radar','news'].includes(key));
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
     t.onclick=()=>{
@@ -2591,15 +2589,30 @@ server:`<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">
 <line x1="458" y1="244" x2="484" y2="244" stroke="var(--dim)"/></g>
 <text x="380" y="292" text-anchor="middle" fill="var(--dim)" font-size="11.5">組裝:鴻海(機櫃市佔最大)・廣達(ODM 龍頭)・緯穎(直供 CSP)——一台機櫃,台廠含量八成</text></svg>`
 };
-function renderLearn(){
-  const box=document.getElementById('learnRow');
-  if(!box)return;
-  box.innerHTML=Object.entries(LEARN).map(([k,v])=>
+function learnCards(){
+  return Object.entries(LEARN).map(([k,v])=>
     `<div class="idx-card learn-card" data-lk="${k}" tabindex="0" role="button">
       <span class="ltag">${v.tag}</span>
       <div class="lt">${v.t}</div>
       <div class="lo">${v.one}</div>
     </div>`).join('');
+}
+function showLearnIndex(){
+  const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
+  disposeChipCharts();curChips=null;
+  home.style.display='none';dv.style.display='block';
+  window.scrollTo({top:0});
+  dv.innerHTML=`<div class="detail-wrap">
+    <button class="back" id="backBtn">← 回儀表板</button>
+    <div class="m-head"><div>
+      <h2 style="font-size:24px;font-weight:900">📚 產業小學堂</h2>
+      <div class="c-full" style="margin-top:4px">半導體與科技供應鏈白話教學——每篇都有示意圖,建議從「半導體產業總覽」開始,順著延伸閱讀讀完整條鏈。</div>
+    </div></div>
+    <div class="idx-row" style="margin-top:14px">${learnCards()}</div>
+    <div class="dim-note" style="margin-top:14px">內容為產業知識教學,非投資建議。想加新主題(被動元件、重電、無人機…)歡迎提出。</div>
+  </div>`;
+  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  dv.querySelectorAll('[data-lk]').forEach(c=>c.onclick=()=>{location.hash='#learn/'+c.dataset.lk;});
 }
 function showLearnDetail(key){
   const t=LEARN[key];
@@ -2609,7 +2622,7 @@ function showLearnDetail(key){
   home.style.display='none';dv.style.display='block';
   window.scrollTo({top:0});
   dv.innerHTML=`<div class="detail-wrap">
-    <button class="back" id="backBtn">← 回儀表板</button>
+    <button class="back" id="backBtn">← 回小學堂目錄</button>
     <div class="m-head"><div>
       <h2 style="font-size:24px;font-weight:900"><span class="c-sector" style="margin-right:8px">${t.tag}</span>${t.t}</h2>
       <div class="c-full" style="margin-top:4px">${t.one}</div>
@@ -2621,19 +2634,15 @@ function showLearnDetail(key){
     <div style="margin-top:14px"><button class="btn-ai" id="learnAiBtn">✦ 還有不懂?讓 AI 用更簡單的比喻再講一次</button></div>
     <div class="dim-note" style="margin-top:12px">內容為產業知識教學,非投資建議;公司舉例僅說明產業鏈位置。</div>
   </div>`;
-  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('backBtn').onclick=()=>{location.hash='#learn';};
   const btn=document.getElementById('learnAiBtn');
   if(btn)btn.onclick=()=>aiAsk(`我剛看完「${t.t}」的產業教學,請用一個生活化的比喻幫我把重點再講一次(3~5句就好),然後考我一個小問題確認我有懂。`);
 }
-/* 學堂卡片點擊(事件委派) */
+/* 頂部小學堂按鈕 */
 (function(){
-  const el=document.getElementById('learnRow');
-  if(el)el.addEventListener('click',e=>{
-    const c=e.target.closest('[data-lk]');
-    if(c)location.hash='#learn/'+c.dataset.lk;
-  });
+  const b=document.getElementById('learnBtn');
+  if(b)b.onclick=()=>{location.hash='#learn';};
 })();
-renderLearn();
 
 /* ══════════════ 公司簡介(Yahoo 公司資料 + AI 白話解讀)══════════════ */
 const PCACHE={};
