@@ -189,7 +189,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .ind-seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .ind-seg button{background:none;border:none;color:var(--mut);padding:5px 12px;font-size:12.5px;cursor:pointer;font-family:var(--mono)}
 .ind-seg button.on{background:var(--panel2);color:var(--amber);font-weight:600}
-.diag{display:none;font-family:var(--mono);font-size:12px;color:var(--mut);margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 14px;line-height:1.9}
+.diag{display:none;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:10px;line-height:1.6}
 .diag.show{display:block}
 .diag .ok{color:#4BD695} .diag .bad{color:#FF8A8E}
 
@@ -1115,6 +1115,7 @@ function ensureOtcCard(){
   if(!row||document.getElementById('otcVal'))return;
   const el=document.createElement('div');
   el.className='idx-card';
+  el.dataset.mk='otc';
   el.innerHTML='<div class="nm">櫃買指數</div><div class="vl" id="otcVal">—</div><div class="ch" id="otcChg">—</div>';
   const first=row.firstElementChild;
   if(first&&first.nextSibling)row.insertBefore(el,first.nextSibling);else row.appendChild(el);
@@ -1146,7 +1147,7 @@ async function refreshLive(auto){
   const diag=[];
   try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
       if(r.ok){DATA=await r.json();DATA.source='live';
-        diag.push(`<span class="ok">✓ data.json</span> 資料日期 ${DATA.updated}${DATA.intraday?' · 盤中 '+DATA.intraday:''}`);}
+        diag.push(`<span class="ok">✓</span> 資料 ${DATA.updated||''}`);}
       else diag.push(`<span class="bad">✗ data.json</span> HTTP ${r.status}(repo 裡還沒有 data.json?到 Actions 手動 Run daily-update)`);
   }catch(e){diag.push(`<span class="bad">✗ data.json</span> 讀取失敗(本機直接開檔案會這樣,請用 github.io 網址或 python -m http.server)`);}
   DATA.macro=DATA.macro||{};
@@ -1155,11 +1156,11 @@ async function refreshLive(auto){
     const r=j.rates;
     DATA.macro.fx={USDTWD:+r.TWD.toFixed(3),JPYTWD:+(r.TWD/r.JPY).toFixed(4),
                    EURTWD:+(r.TWD/r.EUR).toFixed(3),USDJPY:+r.JPY.toFixed(2)};
-    diag.push('<span class="ok">✓ 匯率</span> open.er-api.com');
+    diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
-  diag.push('<span class="ok">ⓘ 即時架構</span> 畫面個股每 10 秒直連證交所快照;全市場輪動掃描約 3 分鐘一輪;GitHub 每 5 分鐘另存備援,本頁每 60 秒重抓');
+  diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
   const dg=document.getElementById('diag');
-  dg.innerHTML=diag.join('<br>'); dg.classList.add('show');
+  dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 盤中自動更新':' · 已更新報價與匯率');
   btn.disabled=false; btn.textContent='↻ 更新資訊';
   renderAll(); route();
@@ -1759,7 +1760,7 @@ async function loadIntraDetail(s){
   const stat=document.getElementById('intraStat');
   const fl=document.getElementById('intraFlow');
   if(!d){if(stat)stat.textContent='即時走勢暫時載入不到';return;}
-  if(location.hash!=='#stock/'+s.id)return;
+  if(location.hash!==KHASH)return;
   const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
   const yv=(curOhlc&&curOhlc.length)?curOhlc[curOhlc.length-1][4]:0; // 昨日量(張)
   const isTW=s.market==='TW';
@@ -2272,12 +2273,12 @@ function scenarioBands(o,price){
 
 /* ── ECharts 專業 K 線圖(MA 可開關、MACD/KD/RSI 副圖切換、縮放)── */
 let curOhlc=null,curDates=null,chartInst=null,indMode='MACD';
-let kView={rng:'6mo',itv:'1d'},baseK=null;
+let kView={rng:'6mo',itv:'1d'},baseK=null,KHASH='';
 const KVC={};  // 長天期K線快取(依 代號|範圍|週期)
 async function yOHLC(s,range,interval){
-  const syms=s.market==='TW'
+  const syms=s.syms?s.syms:(s.market==='TW'
     ?[`${s.id}.${s.ex==='tse'?'TW':'TWO'}`,`${s.id}.${s.ex==='tse'?'TWO':'TW'}`]
-    :[s.id];
+    :[s.id]);
   for(const sym of syms){
     const u=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval}&range=${range}&includePrePost=false`;
     for(const r of PROXY){
@@ -2318,13 +2319,14 @@ async function applyKView(s){
     data=await yOHLC(s,kView.rng,kView.itv);
     if(data)KVC[key]=data;
   }
-  if(location.hash!=='#stock/'+s.id)return;
+  if(location.hash!==KHASH)return;
   const box=document.getElementById('kbox');
   if(!data){
     if(box)box.innerHTML='<div class="dim-note" style="padding:48px;text-align:center">此範圍資料暫時抓不到,請換一個範圍/週期或稍後再試</div>';
     return;
   }
   curOhlc=data.ohlc;curDates=data.dates;
+  if(kView.itv==='1d'&&data.ohlc.length>=60)curLevels=keyLevels(data.ohlc.slice(-130));
   const meta=document.getElementById('kMeta');
   if(meta)meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}`;
   drawKChart();
@@ -2383,6 +2385,40 @@ setTimeout(()=>{
   const sel=document.getElementById('themeSel');
   if(sel)sel.onchange=e=>applyTheme(e.target.value,true);
 },0);
+function bindKControls(sLike){
+  document.querySelectorAll('#rngSeg button').forEach(b=>b.onclick=()=>{
+    kView.rng=b.dataset.r;
+    document.querySelectorAll('#rngSeg button').forEach(x=>x.classList.toggle('on',x===b));
+    applyKView(sLike);
+  });
+  document.querySelectorAll('#itvSeg button').forEach(b=>b.onclick=()=>{
+    kView.itv=b.dataset.v;
+    document.querySelectorAll('#itvSeg button').forEach(x=>x.classList.toggle('on',x===b));
+    applyKView(sLike);
+  });
+  document.querySelectorAll('#indSeg button').forEach(b=>b.onclick=()=>{
+    indMode=b.dataset.i;
+    document.querySelectorAll('#indSeg button').forEach(x=>x.classList.toggle('on',x===b));
+    drawKChart();
+  });
+}
+function kChartBoxHTML(){
+  return `<div class="chart-box">
+      <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
+        <h3>K線圖 <span class="ds" id="kMeta">載入中…</span></h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
+          <div class="ind-seg" id="rngSeg">${[['6mo','6月'],['1y','1年'],['2y','2年'],['5y','5年'],['10y','10年'],['max','全部']].map(([v,n])=>
+            `<button data-r="${v}" class="${v==='6mo'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
+            `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
+            `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
+        </div>
+      </div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=有資料以來完整歷史 · 點圖例可開關 MA5~MA240(120/240 預設隱藏) · 滾輪/滑桿縮放</div>
+      <div id="kbox" style="height:560px"></div>
+    </div>`;
+}
 function drawKChart(){
   const box=document.getElementById('kbox');
   if(!box||!curOhlc) return;
@@ -2633,7 +2669,7 @@ async function showDetail(id){
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
-  kView={rng:'6mo',itv:'1d'}; baseK=k;
+  kView={rng:'6mo',itv:'1d'}; baseK=k; KHASH='#stock/'+s.id;
   curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
   const lv=curLevels;
   const zoneName=lv.bull?'參考買進區|月線~季線均線帶':'支撐帶|空頭排列,先觀望';
@@ -2687,21 +2723,7 @@ async function showDetail(id){
       </div>
       <div class="dim-note">說明:樂觀/保守情境為近 120 日波動率的 ±1σ 統計推估(約 68% 機率落在此區間內);突破量測目標為型態學的平台高度投射,<b>前提是先帶量突破 ${b.h60.toFixed(1)} 且訊號未被跌破</b>。這是統計與型態推估、不是目標價預測——市場永遠可能走出區間之外,部位大小與停損才是你能控制的事。</div>
     </div>`})()}`;
-  document.querySelectorAll('#indSeg button').forEach(b=>b.onclick=()=>{
-    indMode=b.dataset.i;
-    document.querySelectorAll('#indSeg button').forEach(x=>x.classList.toggle('on',x===b));
-    drawKChart();
-  });
-  document.querySelectorAll('#rngSeg button').forEach(b=>b.onclick=()=>{
-    kView.rng=b.dataset.r;
-    document.querySelectorAll('#rngSeg button').forEach(x=>x.classList.toggle('on',x===b));
-    applyKView(s);
-  });
-  document.querySelectorAll('#itvSeg button').forEach(b=>b.onclick=()=>{
-    kView.itv=b.dataset.v;
-    document.querySelectorAll('#itvSeg button').forEach(x=>x.classList.toggle('on',x===b));
-    applyKView(s);
-  });
+  bindKControls(s);
   drawKChart();
   loadIntraDetail(s);
   if(RT.dTimer)clearInterval(RT.dTimer);
@@ -2913,7 +2935,7 @@ async function loadChipDetail(s){
     box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">部署後開始累積:三大法人買賣超近 65 個交易日、400張大戶 26 週、月營收 13 個月。</div></div>';return;}
   box.innerHTML='<div class="chart-box"><h3>籌碼深度資料載入中…</h3></div>';
   const e=await loadChips(s);
-  if(location.hash!=='#stock/'+s.id)return;
+  if(location.hash!==KHASH)return;
   if(!e||!(e.d&&e.d.length)){
     box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">此檔法人歷史累積中(每日自動更新後逐步補齊至 65 個交易日),先參考上方籌碼面摘要。</div></div>';return;}
   curChips={s,e};
@@ -3487,7 +3509,13 @@ function numRaw(x){return x==null?null:(typeof x==='object'?x.raw:x);}
 async function loadAnalystDetail(s){
   const box=document.getElementById('anaBody');
   if(!box)return;
-  const q=await ySummary(s);
+  let q=null;
+  if(s.tp&&s.tp.m){  // 後端每日已抓好(yfinance):秒開
+    q={financialData:{targetMeanPrice:s.tp.m,targetHighPrice:s.tp.h,targetLowPrice:s.tp.l,
+       numberOfAnalystOpinions:null,recommendationKey:null},_daily:true};
+  }else{
+    q=await ySummary(s);
+  }
   if(!document.getElementById('anaBody')||!location.hash.startsWith('#stock/'))return;
   const fd=q&&q.financialData;
   const tMean=numRaw(fd&&fd.targetMeanPrice),tHi=numRaw(fd&&fd.targetHighPrice),
@@ -3514,7 +3542,7 @@ async function loadAnalystDetail(s){
       <div class="tp-dot" style="left:${pos(tHi)}%"></div><span class="tp-lb" style="left:${pos(tHi)}%;top:34px">高 ${tHi.toFixed(tHi>100?0:1)}</span>
       ${price?`<div class="tp-now" style="left:${pos(price)}%"></div><span class="tp-lb" style="left:${pos(price)}%;top:0;color:var(--txt);font-weight:700">現價 ${price}</span>`:''}
     </div>
-    <div class="dim-note" style="margin-top:8px">共識目標價來源:Yahoo Finance 彙整之賣方分析師預估;目標價是「12個月觀點」而非保證,分歧度(高低差)越大代表市場看法越不一致。</div>`;
+    <div class="dim-note" style="margin-top:8px">共識目標價${q._daily?'(每日自動更新)':''}:賣方分析師 12 個月預估彙整,並非保證;分歧度(高低差)越大代表市場看法越不一致。</div>`;
   }else{
     html+='<div class="dim-note">此檔暫無彙整的分析師目標價(小型股常見)——看下方目標價新聞,或用 AI 上網彙整。</div>';
   }
@@ -3541,7 +3569,7 @@ let CO_BASIC=null;
 async function coBasic(){
   if(CO_BASIC)return CO_BASIC;
   try{
-    const c=JSON.parse(localStorage.getItem('co_basic')||'null');
+    const c=JSON.parse(localStorage.getItem('co_basic2')||'null');
     if(c&&c.exp>Date.now()){CO_BASIC=c.d;return CO_BASIC;}
   }catch(e){}
   const d={};
@@ -3554,16 +3582,18 @@ async function coBasic(){
     const keys=Object.keys(arr[0]);
     const k=(...ns)=>keys.find(x=>ns.some(n=>x.includes(n)));
     const kid=k('公司代號'),kch=k('董事長'),kest=k('成立日期'),kipo=k('上市日期','上櫃日期'),
-          kcap=k('實收資本額'),kweb=k('網址'),kind=k('產業別'),kfull=k('公司名稱');
+          kcap=k('實收資本額'),kweb=k('網址'),kind=k('產業別'),kfull=k('公司名稱'),
+          kbiz=k('主要經營業務','營業項目','所營事業');
     arr.forEach(r=>{
       const sid=String(r[kid]||'').trim();
       if(!sid)return;
       d[sid]={chair:r[kch]||'',est:r[kest]||'',ipo:r[kipo]||'',
-              cap:r[kcap]||'',web:r[kweb]||'',ind:r[kind]||'',full:r[kfull]||''};
+              cap:r[kcap]||'',web:r[kweb]||'',ind:r[kind]||'',full:r[kfull]||'',
+              biz:kbiz?String(r[kbiz]||'').trim().slice(0,600):''};
     });
   }
   CO_BASIC=d;
-  try{localStorage.setItem('co_basic',JSON.stringify({exp:Date.now()+864e5,d}));}catch(e){}
+  try{localStorage.setItem('co_basic2',JSON.stringify({exp:Date.now()+864e5,d}));}catch(e){}
   return d;
 }
 function fmtCap(v){
@@ -3579,13 +3609,17 @@ function fmtRocDate(v){
 }
 /* 中文簡介:維基百科 REST API(官方開放 CORS,直連免代理) */
 async function wikiSummary(cands,lang){
+  const zh=(lang||'zh')==='zh';
+  const looksCo=t=>zh?/(公司|企業|集團|股份|製造商|供應商|廠商|品牌)/.test(t)
+                    :/(compan(y|ies)|corporation|manufacturer|holdings|conglomerate|firm)/i.test(t);
   for(const name of cands.filter(Boolean)){
     try{
-      const r=await fT(`https://${lang||'zh'}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`,8000);
+      const r=await fT(`https://${zh?'zh':'en'}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`,8000);
       if(!r.ok)continue;
       const j=await r.json();
-      if(j&&j.extract&&j.type!=='disambiguation'&&j.extract.length>40)
-        return {text:j.extract,url:(j.content_urls&&j.content_urls.desktop&&j.content_urls.desktop.page)||null};
+      if(!j||!j.extract||j.type==='disambiguation'||j.extract.length<40)continue;
+      if(!looksCo(j.extract+(j.description||'')))continue;   // 防同名錯配(如「中華」對到中國別稱)
+      return {text:j.extract,url:(j.content_urls&&j.content_urls.desktop&&j.content_urls.desktop.page)||null};
     }catch(e){}
   }
   return null;
@@ -3617,8 +3651,21 @@ async function loadProfileDetail(s){
     });
   }
   paint();
-  // 2) 中文簡介:維基百科(直連);查不到再退英文簡介
-  const cands=isTW?[s.name,s.full,s.name+' (公司)']:[s.full,s.name,s.id];
+  // 2) 官方登記的「主要經營業務」(證交所/櫃買,絕不錯配)優先
+  if(isTW){
+    const d=await coBasic();
+    const c=d&&d[s.id];
+    if(c&&c.biz&&c.biz.length>10){
+      parts.desc=`<div class="prof-sum">${c.biz}</div>
+        <div class="dim-note" style="margin-top:6px">來源:公司登記之主要經營業務(證交所/櫃買官方資料);想要「產品分類+白話版」點下方 AI 按鈕。</div>`;
+      paint();
+      return;
+    }
+  }
+  // 3) 維基百科備援:用全名候選+公司條目驗證(避免同名錯配)
+  const clean=n=>String(n||'').replace(/股份有限公司|控股公司|控股|-KY|\*/g,'').trim();
+  const cands=isTW?[clean(s.full),clean(s.full)+'公司',s.name.length>=3?s.name:null]
+                  :[s.full,s.name,s.id];
   let w=await wikiSummary(cands,'zh');
   if(!w&&!isTW)w=await wikiSummary([s.full,s.name],'en');
   if(w){
@@ -3898,6 +3945,7 @@ async function evNews(q,box){
 function mkKeyIdx(n){
   n=String(n||'');
   if(n.includes('加權'))return'twii';
+  if(n.includes('櫃買'))return'otc';
   if(n.includes('S&P')||n.includes('標普'))return'gspc';
   if(/那斯達克|NASDAQ/i.test(n))return'ixic';
   if(n.includes('費'))return'sox';
@@ -3907,6 +3955,9 @@ function mkKeyIdx(n){
   return'';
 }
 const MK={
+  otc:{name:'櫃買指數(TPEx)',sym:'^TWOII',alt:['^TWO'],kind:'idx',dg:1,
+    about:'櫃買中心全部上櫃股票的市值加權指數,成分以中小型股為主(IC 設計、生技、隱形冠軍居多)。波動通常大於加權指數,反映市場的「風險胃口」——資金敢衝時櫃買常率先噴出。',
+    how:'看櫃買與加權的「相對強弱」:櫃買強於加權=資金往中小型股走、市場偏投機熱;櫃買明顯弱於加權=資金縮回權值防守。防守線一樣看月線/季線,跌破季線時中小型股通常修正更兇,倉位要更保守。'},
   twii:{name:'加權指數(TAIEX)',sym:'^TWII',kind:'idx',dg:0,
     about:'台灣證券交易所全部上市股票的市值加權指數,是台股整體表現的代表。台積電權重最大(約三成),所以指數走勢深受權值股影響。',
     how:'站上20日線(月線)代表短線偏多、20日在60日(季線)之上為多頭排列;跌破季線通常視為波段轉弱訊號。搭配下方外資買賣超一起看,外資動向與加權指數高度連動。'},
@@ -4130,14 +4181,26 @@ async function showMacroDetail(key){
       <div class="c-price"><span class="px" id="mkPx" style="font-size:26px">載入中…</span><span id="mkChg"></span></div></div></div>
     <div class="chart-box"><div class="ind-head"><h3>即時走勢(1分線) · 黃線為均價 · 虛線為昨收</h3><span class="c-code" id="mkIntraStat"></span></div>
       <div id="mkIntra" style="height:230px"></div></div>
-    <div class="chart-box"><h3 style="font-size:14px">近六個月走勢 · 含 20/60 日均線 · 滾輪縮放</h3><div id="mkDaily" style="height:320px"></div></div>
+    ${kChartBoxHTML()}
+    <div class="chart-box"><h3 style="font-size:14px">近六個月收盤走勢 · 含 20/60 日均線</h3><div id="mkDaily" style="height:320px"></div></div>
     <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>規則化判讀</h3><div class="dim-note" id="mkTrend">計算中…</div></div>
     <div class="dim-block"><h3>這是什麼</h3><div class="dim-note">${def.about}</div></div>
     <div class="dim-block"><h3>怎麼看</h3><div class="dim-note">${def.how}</div></div>
     <div class="dim-note">說明:以上為規則化判讀,非投資建議。即時報價可能有 15 分鐘內延遲。</div>
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
-  const [intra,daily]=await Promise.all([yChart(def.sym,'1d','1m'),yChart(def.sym,'6mo','1d')]);
+  // 完整 K 線(與個股同引擎:範圍/週期/均線/指標)
+  kView={rng:'6mo',itv:'1d'}; baseK=null; curLevels=null; indMode='MACD';
+  KHASH='#macro/'+key;
+  const pseudo={id:def.sym,market:'US',syms:[def.sym,...(def.alt||[])]};
+  bindKControls(pseudo);
+  applyKView(pseudo);
+  const syms=[def.sym,...(def.alt||[])];
+  let intra=null,daily=null;
+  for(const sy of syms){
+    [intra,daily]=await Promise.all([intra||yChart(sy,'1d','1m'),daily||yChart(sy,'6mo','1d')]);
+    if(intra&&daily)break;
+  }
   if(location.hash!=='#macro/'+key)return;
   const dg=def.dg,sc=def.sc||1,unit=def.unit||'';
   let last=null,prev=null;
