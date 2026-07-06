@@ -1270,6 +1270,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
+  diag.push('<span style="color:var(--dim)">build r42</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4692,7 +4693,7 @@ async function showMacroDetail(key){
   dv.innerHTML=`<div class="detail-wrap">
     <button class="back" id="backBtn">← 回儀表板</button>
     <div class="m-head"><div><h2 style="font-size:24px;font-weight:900">${def.name}</h2>
-      <div class="c-full">${def.kind==='fx'?'匯率':'指數'} · Yahoo Finance 即時</div>
+      <div class="c-full">${def.kind==='fx'?'匯率':'指數'} · ${(key==='twii'||key==='otc')?'證交所即時(MIS)':'Yahoo Finance 即時'}</div>
       <div class="c-price"><span class="px" id="mkPx" style="font-size:26px">載入中…</span><span id="mkChg"></span></div></div></div>
     <div class="chart-box"><div class="ind-head"><h3>即時走勢(1分線) · 黃線為均價 · 虛線為昨收</h3><span class="c-code" id="mkIntraStat"></span></div>
       <div id="mkIntra" style="height:230px"></div></div>
@@ -4734,7 +4735,7 @@ async function showMacroDetail(key){
   let last=null,prev=null;
   if(daily){const cs=daily.c.filter(x=>x!=null);last=cs[cs.length-1];prev=cs[cs.length-2];}
   if(intra){const cs=intra.c.filter(x=>x!=null);if(cs.length){last=cs[cs.length-1];prev=intra.prev||prev;}}
-  if(last!=null){
+  if(last!=null&&!misKey){
     document.getElementById('mkPx').textContent=(last*sc).toFixed(dg)+unit;
     if(prev){
       if(def.bp){
@@ -4744,7 +4745,7 @@ async function showMacroDetail(key){
         const c=(last-prev)/prev*100;document.getElementById('mkChg').innerHTML=chgHtml(+c.toFixed(2));
       }
     }
-  }else document.getElementById('mkPx').textContent='—';
+  }else if(!misKey)document.getElementById('mkPx').textContent='—';
   if(sc!==1&&intra){intra.c=intra.c.map(x=>x==null?null:x*sc);if(intra.prev)intra.prev*=sc;}
   if(sc!==1&&daily){daily.c=daily.c.map(x=>x==null?null:x*sc);}
   if(misKey)drawMkLive(misKey);
