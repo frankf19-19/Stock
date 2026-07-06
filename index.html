@@ -1154,6 +1154,7 @@ function renderMacro(){
   composeMacroNote();
   ensureOtcCard();
   renderFut();
+  setTimeout(()=>{try{refreshUS();refreshFutCards();}catch(e){}},800);
 }
 function renderFut(){
   const row=document.getElementById('futRow');
@@ -1270,7 +1271,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r43</span>');
+  diag.push('<span style="color:var(--dim)">build r44</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1870,19 +1871,61 @@ setInterval(async()=>{if(marketOpen()){IDX.lv.tw=IDX.lv.tw||await idxLevels('tw'
 
 
 /* 開站先播一次(不限開盤):讓櫃買/加權卡片與監測在盤後也有最新收盤點位 */
+let OTC_CH='otc_o00.tw';           // 櫃買指數 MIS 頻道(開站自動探測)
+let OTC_OK=false;                   // MIS 是否成功回過櫃買報價
+async function otcBase(){           // 櫃買官方基準值(TPEX OpenAPI 直連)
+  if(window.__otcBase)return window.__otcBase;
+  try{
+    const r=await fT('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_highlight',10000);
+    if(r.ok){
+      const j=await r.json();
+      const row=Array.isArray(j)?j[0]:j;
+      if(row){
+        const kIdx=Object.keys(row).find(k=>k.includes('指數'));
+        const v=parseFloat(String(row[kIdx]||'').replace(/,/g,''));
+        if(v>0)return window.__otcBase={close:v};
+      }
+    }
+  }catch(e){}
+  return null;
+}
+async function otcApproxTick(){     // MIS 不通時:006201 ETF 即時 × 官方基準換算
+  if(OTC_OK||!marketOpen())return;
+  const base=await otcBase();
+  if(!base)return;
+  for(const sym of ['006201.TWO','006201.TW']){
+    const d=await yChart(sym,'1d','1m')||await yChart(sym,'1d','5m');
+    if(d&&d.prev&&d.c){
+      const lastE=[...d.c].reverse().find(x=>x!=null);
+      if(!lastE)continue;
+      const val=+(base.close*lastE/d.prev).toFixed(2);
+      const chg=+(((lastE-d.prev)/d.prev)*100).toFixed(2);
+      IDX.last.otc=val;
+      ensureOtcCard();
+      const v=document.getElementById('otcVal'),c2=document.getElementById('otcChg');
+      if(v)v.textContent='≈'+Number(val).toLocaleString();
+      if(c2)c2.innerHTML=chgHtml(chg);
+      if(IDX.sel==='otc')paintDefense();
+      return;
+    }
+  }
+}
+setInterval(otcApproxTick,60000);
+setTimeout(otcApproxTick,12000);
 let IDX_BOOTED=null;
 function idxBoot(){
   if(IDX_BOOTED)return IDX_BOOTED;
   IDX_BOOTED=(async()=>{
     try{
-      const arr=await fetchMIS(['tse_t00.tw','otc_o00.tw']);
+      const arr=await fetchMIS(['tse_t00.tw','otc_o00.tw','otc_o00.tw|otc_O00.tw'.split('|')[1]]);
       (arr||[]).forEach(m=>{
         const last=rtPx(m), y=parseFloat(m.y);
         if(!last)return;
         const chg=y>0?+(((last-y)/y)*100).toFixed(2):null;
         const key=m.c==='t00'?'tw':'otc';
         IDX.last[key]=last;
-        if(m.c==='o00'){
+        if(String(m.c||'').toLowerCase()==='o00'){
+          OTC_OK=true;OTC_CH='otc_'+m.c+'.tw';
           IDX.mis={prev:y>0?y:null,last};
           OTCACC.prev=OTCACC.prev||(y>0?y:null);
           ensureOtcCard();
@@ -2267,7 +2310,7 @@ async function rtTick(){
     RT.cursor=(RT.cursor+90)%allTW.length;
   }
   const exOf=id=>{const s=DATA.stocks.find(x=>x.id===id);return (s&&s.ex==='otc')?'otc':'tse';};
-  const chans=['tse_t00.tw','otc_o00.tw',...ids.map(id=>`${exOf(id)}_${id}.tw`)];
+  const chans=['tse_t00.tw',OTC_CH,...ids.map(id=>`${exOf(id)}_${id}.tw`)];
   let arr=[];
   for(let i=0;i<chans.length;i+=45){
     const part=await fetchMIS(chans.slice(i,i+45));
@@ -2279,8 +2322,9 @@ async function rtTick(){
   arr.forEach(m=>{
     const last=rtPx(m), y=parseFloat(m.y);
     if(!last||!y)return;
-    if(m.c==='t00'||m.c==='o00'){
+    if(m.c==='t00'||String(m.c||'').toLowerCase()==='o00'){
       const key=m.c==='t00'?'tw':'otc';
+      if(key==='otc')OTC_OK=true;
       const chg=+(((last-y)/y)*100).toFixed(2);
       if(m.c==='t00'){
         const idx=((DATA.macro||{}).idx||[]).find(x=>(x.name||'').includes('加權'));
