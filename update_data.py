@@ -580,28 +580,37 @@ def _taifex_csv_fallback():
         if d0.weekday() < 5:
             dates.append(d0.strftime("%Y/%m/%d"))
         d0 -= dt.timedelta(days=1)
+    import csv as _csv, io as _io
     def dl(url, form):
         r = requests.post(url, data=form, headers=UA, timeout=15)
         r.raise_for_status()
+        txt = None
         for enc in ("utf-8-sig", "big5", "cp950", "utf-8"):
-            try: return r.content.decode(enc)
+            try: txt = r.content.decode(enc); break
             except Exception: continue
-        return r.text
+        if txt is None: txt = r.text
+        return list(_csv.reader(_io.StringIO(txt)))
     # 三大法人(依商品)
     ok1 = 0
     for qd in dates:
         try:
-            txt = dl("https://www.taifex.com.tw/cht/3/futContractsDateDown",
+            rows = dl("https://www.taifex.com.tw/cht/3/futContractsDateDown",
                      {"queryType": "1", "goDay": "", "doQuery": "1",
                       "dateaddcnt": "", "queryDate": qd, "commodityId": ""})
-            rows = [r.split(",") for r in txt.splitlines() if r.strip()]
-            if len(rows) < 2: continue
+            rows = [r for r in rows if r and any(c.strip() for c in r)]
+            if len(rows) < 2:
+                if ok1 == 0 and qd == dates[0]:
+                    print(f"  [debug] 法人端點回應過短:{rows[:1]}")
+                continue
             hdr = rows[0]
             def col(*ns):
                 return next((i for i, h in enumerate(hdr) if all(n in h for n in ns)), None)
             ci_d, ci_p, ci_i = col("日期"), col("商品"), col("身")
             ci_net = col("多空", "未平倉", "淨額") or col("多空未平倉口數淨額")
-            if None in (ci_d, ci_p, ci_i, ci_net): continue
+            if None in (ci_d, ci_p, ci_i, ci_net):
+                if ok1 == 0 and qd == dates[0]:
+                    print(f"  [debug] 法人表頭無法配對:{hdr[:16]}")
+                continue
             fday = {}   # 單檔內解析,跨檔以「覆蓋」合併(同日重複下載不會重複累加)
             for r0 in rows[1:]:
                 if len(r0) <= ci_net: continue
@@ -625,9 +634,9 @@ def _taifex_csv_fallback():
     ok2 = 0
     for qd in dates:
         try:
-            txt = dl("https://www.taifex.com.tw/cht/3/largeTraderFutDown",
+            rows = dl("https://www.taifex.com.tw/cht/3/largeTraderFutDown",
                      {"queryStartDate": qd, "queryEndDate": qd})
-            rows = [r.split(",") for r in txt.splitlines() if r.strip()]
+            rows = [r for r in rows if r and any(c.strip() for c in r)]
             if len(rows) < 2: continue
             hdr = rows[0]
             def col(*ns):
