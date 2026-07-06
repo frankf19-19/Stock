@@ -1278,7 +1278,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r54</span>');
+  diag.push('<span style="color:var(--dim)">build r56</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2820,10 +2820,11 @@ async function applyKView(s){
     else if(KHASH==='#macro/otc')liveKBar('otc');
   }catch(e){}},400);
   __kbarLast=0;
-  const bn=document.getElementById('kBoxNote');
-  if(bn)bn.innerHTML=window.__kBox
+  const bn2=document.getElementById('kBoxNote');
+  if(bn2)bn2.innerHTML=window.__kBox
     ?`<br>📦 <b>偵測到箱型整理(近 ${window.__kBox.w} 日)</b>:箱頂 ${window.__kBox.top} · 箱底 ${window.__kBox.bot} · 現價位於箱體 ${window.__kBox.pos}% 高度。箱型=多空拉鋸的休息區——<b>帶量突破箱頂</b>常開啟新波段(可搭配右側進場價),<b>跌破箱底</b>則型態轉壞宜守紀律;在箱內反覆追高殺低最吃虧。`
-    :'';
+    :(kView.itv==='1d'?`<br>📦 箱型掃描:<b>目前未偵測到箱型整理</b>——近期高低震幅超過門檻(個股10%/指數6%),屬趨勢行情;等股價開始橫盤收斂,陰影框會自動出現。`
+      :'');
   const meta=document.getElementById('kMeta');
   if(meta)meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}`;
   drawKChart();
@@ -2901,13 +2902,15 @@ function liveKBar(idOrKey){
     curDates.push(today);curOhlc.push(bar);
   }
   const now=Date.now();
+  if(window.__kZoomTs&&now-window.__kZoomTs<4000)return;   // 正在縮放:重繪讓路
   if(now-__kbarLast>=8000){    // 8秒重繪一次:日K今日棒即時呼吸
     __kbarLast=now;
     try{drawKChart();}catch(e){}
-    const bn=document.getElementById('kBoxNote');
-  if(bn)bn.innerHTML=window.__kBox
+    const bn2=document.getElementById('kBoxNote');
+  if(bn2)bn2.innerHTML=window.__kBox
     ?`<br>📦 <b>偵測到箱型整理(近 ${window.__kBox.w} 日)</b>:箱頂 ${window.__kBox.top} · 箱底 ${window.__kBox.bot} · 現價位於箱體 ${window.__kBox.pos}% 高度。箱型=多空拉鋸的休息區——<b>帶量突破箱頂</b>常開啟新波段(可搭配右側進場價),<b>跌破箱底</b>則型態轉壞宜守紀律;在箱內反覆追高殺低最吃虧。`
-    :'';
+    :(kView.itv==='1d'?`<br>📦 箱型掃描:<b>目前未偵測到箱型整理</b>——近期高低震幅超過門檻(個股10%/指數6%),屬趨勢行情;等股價開始橫盤收斂,陰影框會自動出現。`
+      :'');
   const meta=document.getElementById('kMeta');
     if(meta&&!/今日盤中/.test(meta.textContent))meta.textContent+=' · 今日盤中即時';
   }
@@ -2962,11 +2965,24 @@ function drawKChart(){
         keepLegend=op.legend[0].selected;
     }catch(e){}
   }
+  if(window.__kZoomSaved&&window.__kZoomSaved.sig!==kSig)window.__kZoomSaved=null;
   window.__kSig=kSig;
   if(chartInst){ try{chartInst.dispose();}catch(e){} }
   box.innerHTML='';
   chartInst=echarts.init(box);
   window.__kRestore={zoom:keepZoom,legend:keepLegend};
+  chartInst.on('datazoom',()=>{
+    window.__kZoomTs=Date.now();
+    try{
+      const dz=chartInst.getOption().dataZoom[0];
+      if(dz&&dz.start!=null&&curDates&&curDates.length){
+        const n=curDates.length;
+        window.__kZoomSaved={sig:kSig,
+          ds:curDates[Math.max(0,Math.round(dz.start/100*(n-1)))],
+          de:curDates[Math.min(n-1,Math.round(dz.end/100*(n-1)))]};
+      }
+    }catch(e){}
+  });
   const o=curOhlc, closes=o.map(x=>x[3]);
   const isDay=kView.itv==='1d';
   let zs=o.length>1500?88:o.length>600?70:0;      // ≤2年全程顯示;更長天期預設看最近一段
@@ -3020,12 +3036,17 @@ function drawKChart(){
         ...((curLevels&&isDay)?(()=>{
           const ACC=cssVar('--amber');
   try{
-    const kr=window.__kRestore;
-    if(kr){
-      if(kr.legend)chartInst.setOption({legend:{selected:kr.legend}});
-      if(kr.zoom)chartInst.dispatchAction({type:'dataZoom',start:kr.zoom.start,end:kr.zoom.end});
-      window.__kRestore=null;
+    const kr=window.__kRestore,zsav=window.__kZoomSaved;
+    if(kr&&kr.legend)chartInst.setOption({legend:{selected:kr.legend}});
+    if(zsav&&zsav.sig===kSig&&curDates&&curDates.length){
+      let i1=curDates.indexOf(zsav.ds),i2=curDates.indexOf(zsav.de);
+      if(i1<0)i1=0;
+      if(i2<0)i2=curDates.length-1;
+      if(i2>i1)chartInst.dispatchAction({type:'dataZoom',startValue:i1,endValue:i2});
+    }else if(kr&&kr.zoom){
+      chartInst.dispatchAction({type:'dataZoom',start:kr.zoom.start,end:kr.zoom.end});
     }
+    window.__kRestore=null;
   }catch(e){}
           // 徽章式標籤:帶底色/邊框,任何主題都清楚可讀
           const chip=(c,pos)=>({show:true,position:pos,fontSize:10.5,fontWeight:600,color:c,
