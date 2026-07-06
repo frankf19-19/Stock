@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
+<link rel="preconnect" href="https://mis.twse.com.tw" crossorigin>
+<link rel="preconnect" href="https://query1.finance.yahoo.com" crossorigin>
+<link rel="preconnect" href="https://openapi.twse.com.tw" crossorigin>
+<link rel="dns-prefetch" href="https://www.tpex.org.tw">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>麻吉股研所|好友限定 · 產業 × 基本面 × 籌碼 × 技術</title>
@@ -1204,7 +1208,7 @@ async function refreshFutCards(){
     el.innerHTML=`<div class="nm">${nm}</div><div class="vl">${last>=100?Number(last.toFixed(0)).toLocaleString():last.toFixed(2)}</div><div class="ch">${chgHtml(chg)}</div>`;
   }
 }
-setTimeout(refreshFutCards,3500);
+setTimeout(refreshFutCards,2600);
 setInterval(refreshFutCards,60000);
 /* 美股大盤即時動態(直連 Yahoo,60秒;收盤時顯示最後收盤) */
 const US_LIVE=[['^GSPC','gspc','S&P 500'],['^IXIC','ixic','那斯達克'],['^SOX','sox','費城半導體'],['^DJI','dji','道瓊工業']];
@@ -1229,7 +1233,7 @@ async function refreshUS(){
     el.innerHTML=`<div class="nm">${nm}<span style="color:var(--dim)"> ›</span></div><div class="vl">${Number(last.toFixed(2)).toLocaleString()}</div><div class="ch">${chgHtml(chg)}</div>`;
   }
 }
-setTimeout(refreshUS,4200);
+setTimeout(refreshUS,2400);
 setInterval(refreshUS,60000);
 function ensureOtcCard(){
   const row=document.getElementById('idxRow');
@@ -1279,8 +1283,8 @@ async function refreshLive(auto){
                    EURTWD:+(r.TWD/r.EUR).toFixed(3),USDJPY:+r.JPY.toFixed(2)};
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
-  diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r57</span>');
+  diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
+  diag.push('<span style="color:var(--dim)">build r59</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1926,7 +1930,7 @@ async function refreshIdx(){
     drawIdxSel();
   });
 })();
-setTimeout(refreshIdx,1500);
+setTimeout(refreshIdx,1100);
 setInterval(()=>{if(marketOpen())refreshIdx();},30000);
 setTimeout(async()=>{IDX.lv.tw=await idxLevels('tw');IDX.lv.otc=await idxLevels('otc');paintDefense();},2500);
 setInterval(async()=>{if(marketOpen()){IDX.lv.tw=IDX.lv.tw||await idxLevels('tw');IDX.lv.otc=IDX.lv.otc||await idxLevels('otc');}},600000);
@@ -1973,7 +1977,7 @@ async function otcApproxTick(){     // MIS 不通時:006201 ETF 即時 × 官方
   }
 }
 setInterval(otcApproxTick,60000);
-setTimeout(otcApproxTick,12000);
+setTimeout(otcApproxTick,7000);
 let IDX_BOOTED=null;
 function idxBoot(){
   if(IDX_BOOTED)return IDX_BOOTED;
@@ -2102,7 +2106,12 @@ async function loadIntraDetail(s,accOnly){
   const isTW0=s.market==='TW';
   const stat0=document.getElementById('intraStat');
   if(stat0&&!accOnly)stat0.innerHTML=intraStatTxt(s);   // 漲跌幅立即顯示,不等圖
-  if(isTW0&&marketOpen()&&stkAcc(s.id).c.length<2&&!accOnly)seedStk(s);
+  if(isTW0&&marketOpen()&&stkAcc(s.id).c.length<2&&!accOnly){
+    seedStk(s);
+    setTimeout(()=>{if(location.hash===KHASH&&stkAcc(s.id).c.length<2)seedStk(s).then(()=>{
+      if(location.hash===KHASH&&stkAcc(s.id).c.length>=2)loadIntraDetail(s,true);
+    });},8500);
+  }
   let d=accOnly?null:await yChart(sym);
   const stat=document.getElementById('intraStat');
   const fl=document.getElementById('intraFlow');
@@ -2331,7 +2340,7 @@ async function candleWorker(){
       }
     }catch(e){}
     candlePaint(id);
-    await new Promise(r=>setTimeout(r,320));
+    await new Promise(r=>setTimeout(r,180));
   }
   CQ_RUN--;
 }
@@ -2351,14 +2360,14 @@ function hydrateSparks(){   // 名稱沿用:各區塊渲染後呼叫,補畫/排�
 function rtTargets(){
   const ids=new Set();
   const add=s=>{if(s&&s.market==='TW'&&s.id)ids.add(s.id);};
+  if(location.hash.startsWith('#stock/'))   // 正在看的個股永遠第一優先
+    add((DATA.stocks||[]).find(x=>x.id===decodeURIComponent(location.hash.slice(7))));
   (DATA.stocks||[]).forEach(s=>{if(s.sig&&s.sig.length)add(s);});
   (DATA.stocks||[]).forEach(s=>{
     if(s.price!=null&&typeof s.chg==='number'&&
        ((s.chg>=3.5&&total(s)>=58)||(s.chg<=-3.5&&total(s)>=68))) add(s);});
   (window.__shownIds||[]).forEach(id=>add((DATA.stocks||[]).find(x=>x.id===id)));
   document.querySelectorAll('[data-candle]').forEach(el=>add((DATA.stocks||[]).find(x=>x.id===el.dataset.candle)));
-  if(location.hash.startsWith('#stock/'))
-    add((DATA.stocks||[]).find(x=>x.id===decodeURIComponent(location.hash.slice(7))));
   return [...ids].slice(0,140);
 }
 async function fetchMIS(chans){
@@ -2369,7 +2378,7 @@ async function fetchMIS(chans){
     u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
     u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)];
   for(const r of routes){
-    try{const res=await fetch(r(mis),{cache:'no-store'});
+    try{const res=await fT(r(mis),5000);
         if(!res.ok)continue;
         const j=await res.json();
         if(j&&j.msgArray)return j.msgArray;}catch(e){}
@@ -2404,9 +2413,9 @@ async function rtTick(){
   const allTW=DATA.stocks.filter(s=>s.market==='TW'&&!seen.has(s.id)).map(s=>s.id);
   if(allTW.length){
     RT.cursor=(RT.cursor||0)%allTW.length;
-    for(let k=0;k<90&&k<allTW.length;k++)
+    for(let k=0;k<130&&k<allTW.length;k++)
       ids.push(allTW[(RT.cursor+k)%allTW.length]);
-    RT.cursor=(RT.cursor+90)%allTW.length;
+    RT.cursor=(RT.cursor+130)%allTW.length;
   }
   const exOf=id=>{const s=DATA.stocks.find(x=>x.id===id);return (s&&s.ex==='otc')?'otc':'tse';};
   const chans=['tse_t00.tw',OTC_CH,...ids.map(id=>`${exOf(id)}_${id}.tw`)];
@@ -2494,8 +2503,8 @@ async function rtTick(){
     if(s&&ch){ch.innerHTML=chgHtml(s.chg);}
   }
 }
-setInterval(rtTick,10000);
-setTimeout(rtTick,2500);
+setInterval(rtTick,6000);
+setTimeout(rtTick,900);
 
 /* ── 開盤時段自動更新:台北週一至五 08:55–13:40,每 60 秒重抓 data.json ── */
 function marketOpen(){
@@ -2783,7 +2792,8 @@ async function applyKView(s){
     if(!baseK.__up){
       baseK.__up=1;
       (async()=>{
-        const d2=await yOHLC(s,'2y','1d');
+        let d2=await yOHLC(s,'2y','1d');
+        if(!d2){await new Promise(r=>setTimeout(r,8000));d2=await yOHLC(s,'2y','1d');}
         if(d2&&d2.ohlc&&d2.ohlc.length>baseK.ohlc.length+40){
           KVC[key]=d2;
           if(location.hash===KHASH&&kView.rng==='2y'&&kView.itv==='1d'){
@@ -3282,7 +3292,7 @@ async function showDetail(id){
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="dim-note" style="margin:2px 0 8px">「全部」=上市以來完整歷史 · 點圖例可開關 MA5~MA240 均線(120/240 預設隱藏) · 滾輪/滑桿縮放 · 長天期預設顯示近段,滑桿拉到最左看全程</div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=上市以來完整歷史 · MA5~MA240 全數預設顯示(點圖例可開關;年線需背景載入約2秒) · 滾輪/滑桿縮放</div>
       <div id="kbox" style="height:560px"></div>
     </div>
     <div class="dim-block">
