@@ -1271,7 +1271,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r51</span>');
+  diag.push('<span style="color:var(--dim)">build r52</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1341,8 +1341,8 @@ function drawIntra(domId,d){
   const last=[...d.c].reverse().find(x=>x!=null);
   const up=last>=d.prev, col=up?UPC:DNC;
   const hasVol=(d.v||[]).some(v=>v>0);
-  const grids=hasVol?[{left:56,right:14,top:10,height:'64%'},{left:56,right:14,top:'80%',height:'16%'}]
-                    :[{left:56,right:14,top:10,bottom:26}];
+  const grids=hasVol?[{left:56,right:78,top:10,height:'64%'},{left:56,right:78,top:'80%',height:'16%'}]
+                    :[{left:56,right:78,top:10,bottom:26}];
   const xAxes=grids.map((_,i)=>({type:'category',gridIndex:i,data:times,boundaryGap:false,
     axisLine:{lineStyle:{color:CT.border}},axisTick:{show:false},
     axisLabel:{show:i===grids.length-1,color:CT.axis,fontSize:10,interval:Math.floor(times.length/6)}}));
@@ -1372,7 +1372,7 @@ function drawIntra(domId,d){
     series[0].endLabel={show:true,formatter:p=>(+p.value).toFixed(2),
       color:'#fff',backgroundColor:col,padding:[3,7],borderRadius:5,
       fontSize:11.5,fontWeight:700,fontFamily:'IBM Plex Mono,monospace',
-      offset:[4,0]};
+      offset:[6,0]};
     series[0].labelLayout={moveOverlap:'shiftY'};
     pulseIdx=series.length;
     series.push({name:'現價',type:'effectScatter',xAxisIndex:0,yAxisIndex:0,
