@@ -1271,7 +1271,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r45</span>');
+  diag.push('<span style="color:var(--dim)">build r47</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1736,8 +1736,11 @@ async function idxLevels(key){
   const c=d.c.filter(x=>x!=null);
   if(c.length<60)return null;
   const ma20=avg(c.slice(-20)),ma60=avg(c.slice(-60));
+  const pseudo=c.slice(-70).map(x=>[x,x,x,x,0]);
+  const box=boxDetect(pseudo,0.05,60,10);
   return {ma20:+ma20.toFixed(0),ma60:+ma60.toFixed(0),
-          l20:+Math.min(...c.slice(-20)).toFixed(0),bull:ma20>ma60};
+          l20:+Math.min(...c.slice(-20)).toFixed(0),bull:ma20>ma60,
+          box:box?{w:box.w,top:Math.round(box.top),bot:Math.round(box.bot)}:null};
 }
 function paintDefense(){
   const el=document.getElementById('idxDefense');
@@ -1747,9 +1750,19 @@ function paintDefense(){
   const row=(n,v)=>{
     const brk=last&&last<v;
     return `<span class="${brk?'brk':'ok'}">${n} <b>${Number(v).toLocaleString()}</b>${brk?' 已跌破⚠':''}</span>`;};
+  let boxRow='';
+  if(lv.box){
+    const inBox=last&&last<=lv.box.top*1.005&&last>=lv.box.bot*0.995;
+    const st=!last?'':last>lv.box.top*1.005?'<b class="pos">已突破箱頂🚀</b>':last<lv.box.bot*0.995?'<b style="color:#FF8A8E">已跌破箱底⚠</b>':`現於箱體 ${Math.round((last-lv.box.bot)/(lv.box.top-lv.box.bot)*100)}% 高度`;
+    boxRow=`<div class="idx-def" style="margin-top:6px"><span class="lbl">📦 箱型整理(近${lv.box.w}日)</span>
+      <span>箱頂 <b>${lv.box.top.toLocaleString()}</b></span>
+      <span>箱底 <b>${lv.box.bot.toLocaleString()}</b></span>
+      <span>${st}</span>
+      <span style="color:var(--dim)">箱型=多空拉鋸休息區;帶量突破箱頂常開新波段、跌破箱底型態轉壞</span></div>`;
+  }
   el.innerHTML=`<div class="idx-def"><span class="lbl">🛡 ${IDX_NM[IDX.sel]}防守線</span>
     ${row('月線',lv.ma20)}${row('季線',lv.ma60)}${row('近月低',lv.l20)}
-    <span style="color:var(--dim)">${lv.bull?'月線>季線,多方架構':'月線<季線,偏空架構'};跌破防守線=多方失守訊號</span></div>`;
+    <span style="color:var(--dim)">${lv.bull?'月線>季線,多方架構':'月線<季線,偏空架構'};跌破防守線=多方失守訊號</span></div>`+boxRow;
 }
 function idxWatch(key,last,chg){
   IDX.last[key]=last;
@@ -1762,6 +1775,10 @@ function idxWatch(key,last,chg){
     alMark(kk);
     alToast(type,{name:nm,id:''},title,text);
   };
+  if(lv&&lv.box){
+    if(last>lv.box.top*1.005)fire('boxup','brk','🚀 突破箱頂',`${nm}突破近${lv.box.w}日箱型上緣 ${lv.box.top.toLocaleString()}——整理結束向上表態,留意量能是否跟上`);
+    if(last<lv.box.bot*0.995)fire('boxdn','dip','⚠ 跌破箱底',`${nm}跌破近${lv.box.w}日箱型下緣 ${lv.box.bot.toLocaleString()}——型態轉壞,倉位宜保守`);
+  }
   if(lv){
     if(last<lv.ma20)fire('ma20','dip','⚠ 跌破月線',`現點 ${Math.round(last).toLocaleString()},跌破月線 ${lv.ma20.toLocaleString()}——短多防守失守,留意個股買點是否延後`);
     if(last<lv.ma60)fire('ma60','dip','⚠ 跌破季線',`現點 ${Math.round(last).toLocaleString()},跌破季線 ${lv.ma60.toLocaleString()}——中期架構轉弱,倉位宜保守`);
@@ -2562,6 +2579,26 @@ function rsiCalc(c,p=14){const r=[50];let g=0,l=0;
 
 /* ── 關鍵價位:規則化計算(非投資建議)── */
 let curLevels=null;
+/* 箱型整理偵測:從最長窗格往下找,高低震幅 ≤ 門檻即為箱型 */
+function boxDetect(o,thr,maxW,minW){
+  if(!Array.isArray(o)||o.length<(minW||12))return null;
+  thr=thr||0.10;maxW=Math.min(maxW||60,o.length);minW=minW||12;
+  const last=o[o.length-1][3];
+  for(let w=maxW;w>=minW;w--){
+    const seg=o.slice(-w);
+    const hi=Math.max(...seg.map(x=>x[1]));
+    const lo=Math.min(...seg.map(x=>x[2]));
+    if((hi-lo)/last<=thr){
+      // 品質檢查:至少各碰觸過箱頂/箱底附近一次(避免單邊趨勢誤判)
+      const nearTop=seg.filter(x=>x[1]>=hi-(hi-lo)*0.25).length;
+      const nearBot=seg.filter(x=>x[2]<=lo+(hi-lo)*0.25).length;
+      if(nearTop>=2&&nearBot>=2)
+        return {w,top:+hi.toFixed(2),bot:+lo.toFixed(2),
+                pos:+(((last-lo)/(hi-lo))*100).toFixed(0)};
+    }
+  }
+  return null;
+}
 function keyLevels(o){
   const closes=o.map(x=>x[3]), highs=o.map(x=>x[1]), lows=o.map(x=>x[2]);
   const h20=Math.max(...highs.slice(-20)), l20=Math.min(...lows.slice(-20));
@@ -2684,12 +2721,17 @@ async function applyKView(s){
   }
   curOhlc=data.ohlc;curDates=data.dates;
   if(kView.itv==='1d'&&data.ohlc.length>=60)curLevels=keyLevels(data.ohlc.slice(-130));
+  window.__kBox=kView.itv==='1d'?boxDetect(data.ohlc,KHASH.startsWith('#macro/')?0.06:0.10):null;
   setTimeout(()=>{try{
     if(KHASH.startsWith('#stock/'))liveKBar(KHASH.slice(7));
     else if(KHASH==='#macro/twii')liveKBar('tw');
     else if(KHASH==='#macro/otc')liveKBar('otc');
   }catch(e){}},400);
   __kbarLast=0;
+  const bn=document.getElementById('kBoxNote');
+  if(bn)bn.innerHTML=window.__kBox
+    ?`<br>📦 <b>偵測到箱型整理(近 ${window.__kBox.w} 日)</b>:箱頂 ${window.__kBox.top} · 箱底 ${window.__kBox.bot} · 現價位於箱體 ${window.__kBox.pos}% 高度。箱型=多空拉鋸的休息區——<b>帶量突破箱頂</b>常開啟新波段(可搭配右側進場價),<b>跌破箱底</b>則型態轉壞宜守紀律;在箱內反覆追高殺低最吃虧。`
+    :'';
   const meta=document.getElementById('kMeta');
   if(meta)meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}`;
   drawKChart();
@@ -2770,7 +2812,11 @@ function liveKBar(idOrKey){
   if(now-__kbarLast>=8000){    // 8秒重繪一次:日K今日棒即時呼吸
     __kbarLast=now;
     try{drawKChart();}catch(e){}
-    const meta=document.getElementById('kMeta');
+    const bn=document.getElementById('kBoxNote');
+  if(bn)bn.innerHTML=window.__kBox
+    ?`<br>📦 <b>偵測到箱型整理(近 ${window.__kBox.w} 日)</b>:箱頂 ${window.__kBox.top} · 箱底 ${window.__kBox.bot} · 現價位於箱體 ${window.__kBox.pos}% 高度。箱型=多空拉鋸的休息區——<b>帶量突破箱頂</b>常開啟新波段(可搭配右側進場價),<b>跌破箱底</b>則型態轉壞宜守紀律;在箱內反覆追高殺低最吃虧。`
+    :'';
+  const meta=document.getElementById('kMeta');
     if(meta&&!/今日盤中/.test(meta.textContent))meta.textContent+=' · 今日盤中即時';
   }
 }
@@ -2804,7 +2850,7 @@ function kChartBoxHTML(){
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="dim-note" style="margin:2px 0 8px">「全部」=有資料以來完整歷史 · 點圖例可開關 MA5~MA240(120/240 預設隱藏) · 滾輪/滑桿縮放</div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=有資料以來完整歷史 · 點圖例可開關 MA5~MA240(120/240 預設隱藏) · 滾輪/滑桿縮放<span id="kBoxNote"></span></div>
       <div id="kbox" style="height:560px"></div>
     </div>`;
 }
@@ -2812,9 +2858,23 @@ function drawKChart(){
   const box=document.getElementById('kbox');
   if(!box||!curOhlc) return;
   if(!window.echarts){ box.innerHTML=kChart(curOhlc); return; } // 離線後備:簡易 SVG
+  // 保存使用者的縮放範圍與均線圖例開關(同一檔同一視圖的重繪才還原)
+  const kSig=KHASH+'|'+kView.rng+'|'+kView.itv;
+  let keepZoom=null,keepLegend=null;
+  if(chartInst&&window.__kSig===kSig){
+    try{
+      const op=chartInst.getOption();
+      if(op&&op.dataZoom&&op.dataZoom[0]&&op.dataZoom[0].start!=null)
+        keepZoom={start:op.dataZoom[0].start,end:op.dataZoom[0].end};
+      if(op&&op.legend&&op.legend[0]&&op.legend[0].selected)
+        keepLegend=op.legend[0].selected;
+    }catch(e){}
+  }
+  window.__kSig=kSig;
   if(chartInst){ try{chartInst.dispose();}catch(e){} }
   box.innerHTML='';
   chartInst=echarts.init(box);
+  window.__kRestore={zoom:keepZoom,legend:keepLegend};
   const o=curOhlc, closes=o.map(x=>x[3]);
   const isDay=kView.itv==='1d';
   const zs=o.length>1500?88:o.length>600?70:30;   // 長天期預設看最近一段,滑桿可拉全程
@@ -2865,6 +2925,14 @@ function drawKChart(){
         itemStyle:{color:UPC,color0:DNC,borderColor:UPC,borderColor0:DNC},
         ...((curLevels&&isDay)?(()=>{
           const ACC=cssVar('--amber');
+  try{
+    const kr=window.__kRestore;
+    if(kr){
+      if(kr.legend)chartInst.setOption({legend:{selected:kr.legend}});
+      if(kr.zoom)chartInst.dispatchAction({type:'dataZoom',start:kr.zoom.start,end:kr.zoom.end});
+      window.__kRestore=null;
+    }
+  }catch(e){}
           // 徽章式標籤:帶底色/邊框,任何主題都清楚可讀
           const chip=(c,pos)=>({show:true,position:pos,fontSize:10.5,fontWeight:600,color:c,
             backgroundColor:CT.ttBg,borderColor:CT.border,borderWidth:1,
@@ -2890,13 +2958,27 @@ function drawKChart(){
               ...(Math.abs(curLevels.l20-curLevels.l60)/curLevels.l60>0.012?[
                 {name:'支撐·近月低',yAxis:+curLevels.l20.toFixed(2),
                  lineStyle:{color:CT.dn2,type:'dotted',width:1},
-                 label:chip(CT.dn2,'insideEndTop')}]:[])
+                 label:chip(CT.dn2,'insideEndTop')}]:[]),
+              ...(window.__kBox?[
+                {name:'📦 箱頂',yAxis:window.__kBox.top,
+                 lineStyle:{color:UPC,type:'solid',width:1.3},
+                 label:chip(UPC,'insideStartTop')},
+                {name:'📦 箱底',yAxis:window.__kBox.bot,
+                 lineStyle:{color:DNC,type:'solid',width:1.3},
+                 label:chip(DNC,'insideStartBottom')}]:[])
             ]},
           markArea:{silent:true,itemStyle:{color:hexA(ACC,.12)},
             label:{show:true,position:'insideLeft',fontSize:10.5,fontWeight:600,color:ACC,
               backgroundColor:CT.ttBg,borderColor:CT.border,borderWidth:1,
               padding:[3,7],borderRadius:5},
-            data:[[{name:curLevels.bull?'◀ 左側買進區(均線帶)':'支撐帶(空頭·觀望)',
+            data:[
+              ...(window.__kBox?[[{name:`📦 箱型整理 ${window.__kBox.w}日`,
+                    xAxis:curDates[curDates.length-window.__kBox.w],
+                    yAxis:window.__kBox.bot,
+                    itemStyle:{color:hexA(CT.legend==='#000'?'#888888':'#8899AA',.14)},
+                    label:{position:'insideTopLeft',color:CT.axis}},
+                   {xAxis:curDates[curDates.length-1],yAxis:window.__kBox.top}]]:[]),
+              [{name:curLevels.bull?'◀ 左側買進區(均線帶)':'支撐帶(空頭·觀望)',
                     yAxis:+curLevels.zone[0].toFixed(2)},
                    {yAxis:+curLevels.zone[1].toFixed(2)}]]}
           };})():{})},
@@ -3060,6 +3142,7 @@ async function showDetail(id){
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
   kView={rng:'6mo',itv:'1d'}; baseK=k; KHASH='#stock/'+s.id;
   curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
+  window.__kBox=boxDetect(k.ohlc,0.10);
   const lv=curLevels;
   const zoneName=lv.bull?'參考買進區|月線~季線均線帶':'支撐帶|空頭排列,先觀望';
   kwrap.innerHTML=`<div class="chart-box">
