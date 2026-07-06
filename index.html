@@ -215,7 +215,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .diag.show{display:block}
 .diag .ok{color:#4BD695} .diag .bad{color:#FF8A8E}
 
-.macro-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;align-items:stretch}
+.macro-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;align-items:start}
 .macro-side{display:flex;flex-direction:column;gap:8px;justify-content:space-between}
 .idx-row.compact{gap:8px;grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}
 .idx-row.compact .idx-card{padding:9px 11px}
@@ -485,6 +485,8 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       <div id="idxDefense"></div>
       <div id="idxFlow"></div>
       <div id="idxAnalysis"></div>
+      <div class="mini-cap" style="margin-top:12px">期貨籌碼(台指・盤後)</div>
+      <div class="idx-row compact" id="futRow"><div class="idx-card"><div class="nm">台指期籌碼</div><div class="vl" style="font-size:13px;color:var(--dim)">每日更新後顯示</div></div></div>
     </div>
     <div class="macro-side">
       <div class="mini-cap">指數</div>
@@ -493,8 +495,6 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       <div class="idx-row compact" id="fxRow"></div>
       <div class="mini-cap">風險溫度計</div>
       <div class="idx-row compact" id="riskRow"></div>
-      <div class="mini-cap">期貨籌碼(台指・盤後)</div>
-      <div class="idx-row compact" id="futRow"><div class="idx-card"><div class="nm">台指期籌碼</div><div class="vl" style="font-size:13px;color:var(--dim)">每日更新後顯示</div></div></div>
       <div class="mini-cap">三大法人(盤後)</div>
       <div class="idx-row compact" id="instRow"></div>
     </div>
@@ -1267,7 +1267,10 @@ async function refreshLive(auto){
   btn.disabled=false; btn.textContent='↻ 更新資訊';
   renderAll(); route();
 }
-document.getElementById('updBtn').onclick=()=>refreshLive(false);
+document.getElementById('updBtn').onclick=async()=>{
+  await refreshLive(false);
+  try{drawIdxSel();renderFut();}catch(e){}
+};
 
 /* ── 即時走勢圖:Yahoo 1分線(經轉接通道),含量能與均價線 ── */
 async function yChart(sym,range,interval){
@@ -1317,6 +1320,7 @@ function drawIntra(domId,d){
   if(!box)return;
   if(!window.echarts){box.innerHTML='<div class="dim-note">圖表元件載入失敗</div>';return;}
   echarts.dispose(box);
+  box.innerHTML='';
   const ch=echarts.init(box);
   const times=d.t.map(ts=>new Date(ts*1000).toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit'}));
   let cv=0,cpv=0;
