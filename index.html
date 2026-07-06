@@ -1296,7 +1296,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r68</span>');
+  diag.push('<span style="color:var(--dim)">build r69</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3320,7 +3320,7 @@ async function showDetail(id){
     <div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
       <h3>分析師觀點|目標價與研究報告</h3>
       <div id="anaBody"><div class="dim-note">分析師資料載入中…</div></div>
-      <h3 style="margin-top:16px;font-size:14px">近期目標價/報告新聞(即時,點標題閱讀)</h3>
+      <h3 style="margin-top:16px;font-size:14px">券商研究報告與目標價動態(即時,點標題閱讀原文)</h3>
       <div id="anaNews"><div class="dim-note">新聞載入中…</div></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
         <button class="btn-ai" id="anaAiBtn">✦ AI 彙整:近期外資/投顧怎麼看?目標價多少?</button>
@@ -4432,11 +4432,27 @@ async function loadAnalystDetail(s){
   // 目標價相關新聞(即時)
   const nb=document.getElementById('anaNews');
   if(nb)(async()=>{
-    const its=await rssItems(`"${s.name}" 目標價`,6,ySym(s));
+    // 券商研究報告動態:抓「目標價/評等/報告」相關報導,自動摘出券商與目標價
+    const BROKERS=['摩根士丹利','大摩','高盛','摩根大通','小摩','花旗','美銀','美林','瑞銀','野村','麥格理','里昂','匯豐','巴克萊','德意志','凱基','元大','富邦','國泰','中信','統一','群益','永豐','台新','兆豐','第一金'];
+    const its=await rssItems(`"${s.name}" (目標價 OR 評等 OR 研究報告)`,8,ySym(s));
     if(!nb.isConnected)return;
-    nb.innerHTML=its.length?`<div class="news" style="border:none;padding:0">${its.map(x=>
-      `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>`
-      :'<div class="dim-note">新聞暫時載入不到,點下方連結直接搜尋。</div>';
+    if(!its.length){
+      nb.innerHTML='<div class="dim-note">近期查無券商報告相關報導——點下方連結直接搜尋,或用 AI 彙整。</div>';
+      return;
+    }
+    // 從標題摘取:券商名 + 目標價 X 元
+    const picks=[];
+    its.forEach(x=>{
+      const b=BROKERS.find(k=>x.t.includes(k));
+      const m=x.t.match(/目標價[至上調升降看]{0,3}\s*([0-9,]{2,7}(?:\.\d+)?)\s*元/);
+      if(b&&m)picks.push({b,p:m[1],l:x.l});
+    });
+    const chips=picks.slice(0,4).map(p=>
+      `<a class="btn-ghost" style="height:auto;padding:5px 12px;font-size:12.5px" href="${p.l}" target="_blank" rel="noopener">🎯 ${p.b} ${p.p} 元 ↗</a>`).join(' ');
+    nb.innerHTML=(chips?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px">${chips}</div>`:'')+
+      `<div class="news" style="border:none;padding:0">${its.map(x=>
+      `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>
+      <div class="dim-note" style="margin-top:6px">點標題可閱讀完整報導;🎯 為標題自動摘取之券商目標價,請以原文為準。</div>`;
   })();
 }
 const SEC2LEARN=[['半導體','semi'],['電子零組件','pcb'],['電腦及週邊','server'],['光電','cpo'],['其他電子','server'],['通信網路','cpo']];

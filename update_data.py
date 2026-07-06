@@ -684,7 +684,7 @@ def fetch_biz(sid):
         r = requests.post("https://mopsov.twse.com.tw/mops/web/ajax_t05st03",
             data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
                   "queryName": "co_id", "inpuType": "co_id", "TYPEK": "all", "co_id": sid},
-            headers=UA, timeout=30)
+            headers=UA, timeout=8)
         m = _re.search(r"主要經營業務[\s\S]{0,200}?<td[^>]*>([\s\S]*?)</td>", r.text)
         if m:
             txt = _re.sub(r"<[^>]+>", "", m.group(1))
@@ -709,7 +709,12 @@ def fetch_targets(stocks):
     thes = [s for s in stocks if s.get("thesis") and s not in tw]
     us = sorted([s for s in stocks if s["market"] == "US"], key=lambda s: -tot(s))[:80]
     picks, n = tw + thes + us, 0
+    t0, fails = time.time(), 0
     for s in picks:
+        if time.time() - t0 > 600:
+            print("  [warn] 目標價超過時間預算(10分),提前收工"); break
+        if fails >= 10 and n == 0:
+            print("  [warn] 目標價連續失敗,來源可能被擋,跳過"); break
         sym = (f"{s['id']}.{'TW' if s['ex']=='tse' else 'TWO'}"
                if s["market"] == "TW" else s["id"])
         try:
@@ -718,17 +723,25 @@ def fetch_targets(stocks):
                 s["tp"] = {"m": round(float(pt["mean"]), 2),
                            "h": round(float(pt["high"]), 2) if pt.get("high") else None,
                            "l": round(float(pt["low"]), 2) if pt.get("low") else None}
-                n += 1
+                n += 1; fails = 0
+            else:
+                fails += 1
         except Exception:
-            pass
+            fails += 1
         time.sleep(0.35)
     print(f"  分析師目標價(yfinance):{n}/{len(picks)} 檔")
-    nb = 0
+    nb, bf, tb = 0, 0, time.time()
     for s in picks:
         if s["market"] != "TW": continue
+        if time.time() - tb > 300:
+            print("  [warn] 業務抓取超過時間預算(5分),提前收工"); break
+        if bf >= 8 and nb == 0:
+            print("  [warn] MOPS 連續失敗,來源可能封鎖 GitHub 機房,跳過"); break
         bz = fetch_biz(s["id"])
         if bz:
-            s["bz"] = bz; nb += 1
+            s["bz"] = bz; nb += 1; bf = 0
+        else:
+            bf += 1
         time.sleep(0.6)
     print(f"  主要經營業務(MOPS):{nb} 檔")
 
