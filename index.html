@@ -1270,7 +1270,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r42</span>');
+  diag.push('<span style="color:var(--dim)">build r43</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2166,6 +2166,14 @@ function candleSVG(d){
   </svg>`;
 }
 function candlePaint(id){
+  // 同步刷新卡片上的現價/漲跌(雷達、脈動、最愛卡片即時跳動)
+  const d0=RTC[id];
+  if(d0&&d0.c>0){
+    document.querySelectorAll(`.r-card[data-id="${id}"] .rpx`).forEach(el=>{el.textContent=d0.c;});
+  }
+  return candlePaint2(id);
+}
+function candlePaint2(id){
   const svg=candleSVG(RTC[id]);
   if(!svg)return;
   document.querySelectorAll(`[data-candle="${id}"]`).forEach(el=>{el.innerHTML=svg;});
@@ -2700,7 +2708,7 @@ function liveKBar(idOrKey){
     curDates.push(today);curOhlc.push(bar);
   }
   const now=Date.now();
-  if(now-__kbarLast>=15000){   // 15秒重繪一次,避免過度負擔
+  if(now-__kbarLast>=8000){    // 8秒重繪一次:日K今日棒即時呼吸
     __kbarLast=now;
     try{drawKChart();}catch(e){}
     const meta=document.getElementById('kMeta');
