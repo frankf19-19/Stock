@@ -1,0 +1,47 @@
+name: 每日資料更新(三力儀表板)
+
+on:
+  schedule:
+    - cron: '40 7 * * 1-5'    # UTC 07:40 = 台北 15:40,法人/期交所公布後搶先跑
+    - cron: '30 10 * * 1-5'   # UTC 10:30 = 台北 18:30,完整補跑(涵蓋較晚公布的資料)
+  workflow_dispatch:           # 也可以到 Actions 頁面手動觸發
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝套件
+        run: pip install requests pandas yfinance
+
+      - name: 執行每日更新(價格/法人/大戶/營收/評分)
+        run: python update_data.py
+
+      - name: 提交結果
+        run: |
+          git config user.name  "bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data.json k c
+          if git diff --cached --quiet; then
+            echo "沒有變更,略過提交"
+            exit 0
+          fi
+          git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d')"
+          # 若其他排程(如盤中報價)剛好也推了 commit,先 rebase 再推,避免衝突
+          git pull --rebase --autostash origin main
+          git push

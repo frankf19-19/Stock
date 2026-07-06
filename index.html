@@ -953,7 +953,7 @@ function setBadges(extra){
     const today=nowT.toISOString().slice(0,10);
     const wd=nowT.getDay(),hm=nowT.getHours()*60+nowT.getMinutes();
     if(String(DATA.updated)<today&&wd>=1&&wd<=5){
-      tail=hm<18*60+45?'(今日盤後 18:30 自動產生)':' ⚠今日更新未完成,檢查 Actions';
+      tail=hm<15*60+55?'(盤後資料 15:40 搶先更新)':hm<18*60+45?'(15:40 首更未完成?18:30 將補跑)':' ⚠今日更新未完成,檢查 Actions';
     }
   }
   document.getElementById('updBadge').textContent='盤後資料:'+_upd+tail+intr+(extra||'');
@@ -1296,7 +1296,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r67</span>');
+  diag.push('<span style="color:var(--dim)">build r68</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
