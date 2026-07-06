@@ -1288,7 +1288,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r65</span>');
+  diag.push('<span style="color:var(--dim)">build r66</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1323,6 +1323,20 @@ async function yChart(sym,range,interval){
             prev:q.meta.chartPreviousClose||q.meta.previousClose};
   }catch(e){}
   return null;
+}
+async function yToday(sym){
+  // Yahoo '1d' 有時給前一日 → 改抓 5 日 5 分線,切出「今天」的段落
+  const d5=await yChart(sym,'5d','5m');
+  if(!d5||!d5.t)return null;
+  const today=tpDay(Date.now()/1000);
+  const idx=[];
+  d5.t.forEach((ts,i)=>{if(tpDay(ts)===today)idx.push(i);});
+  if(idx.length<4)return null;
+  const pick=a=>Array.isArray(a)?idx.map(i=>a[i]):[];
+  // 昨收=今天第一根之前最後一個有效收盤
+  let prev=d5.prev;
+  for(let i=idx[0]-1;i>=0;i--){if(d5.c[i]!=null){prev=d5.c[i];break;}}
+  return {t:pick(d5.t),c:pick(d5.c),v:pick(d5.v),prev};
 }
 function flowCalc(d){ // 內外盤估:分鐘收高=主動買量、收低=主動賣量
   let up=0,dn=0;
@@ -1771,6 +1785,7 @@ const OTCACC={t:[],c:[],v:[],prev:null};   // 櫃買分線:即時報價逐點累
 function tpDay(ts){return new Date(new Date(ts*1000).toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);}
 function accOf(key){return key==='tw'?TWACC:OTCACC;}
 function accPush(key,last,y){
+  if(!marketOpen())return;
   const acc=accOf(key);
   if(y>0&&!acc.prev)acc.prev=y;
   const now=Math.floor(Date.now()/1000);
@@ -1928,7 +1943,11 @@ function drawIdxSel(){
   paintDefense();
 }
 async function refreshIdx(){
-  const dtw=await yChart('^TWII');
+  let dtw=await yChart('^TWII');
+  if(dtw&&dtw.t&&dtw.t.length&&tpDay(dtw.t[dtw.t.length-1])!==tpDay(Date.now()/1000)&&openish()){
+    const t2=await yToday('^TWII');
+    if(t2)dtw=t2;
+  }
   if(dtw)IDX.d.tw=dtw;
   let dot=await yChart(IDX.otcSyms[0]);
   if(!dot)dot=await yChart(IDX.otcSyms[0],'1d','5m');
@@ -1950,7 +1969,7 @@ async function refreshIdx(){
   });
 })();
 setTimeout(refreshIdx,1100);
-setInterval(()=>{if(marketOpen())refreshIdx();},30000);
+setInterval(()=>{if(openish())refreshIdx();},30000);
 setTimeout(async()=>{IDX.lv.tw=await idxLevels('tw');IDX.lv.otc=await idxLevels('otc');paintDefense();},2500);
 setInterval(async()=>{if(marketOpen()){IDX.lv.tw=IDX.lv.tw||await idxLevels('tw');IDX.lv.otc=IDX.lv.otc||await idxLevels('otc');}},600000);
 
@@ -2108,7 +2127,7 @@ function stkLiveStart(s){
   if(s.market!=='TW')return;
   const tick=async()=>{
     if(location.hash!=='#stock/'+s.id){stkLiveStop();return;}
-    if(!marketOpen())return;
+    if(!openish())return;
     try{
       const arr=await fetchMIS([`${s.ex==='otc'?'otc':'tse'}_${s.id}.tw`]);
       const m=(arr||[])[0];
@@ -2157,7 +2176,7 @@ async function loadIntraDetail(s,accOnly){
   const isTW0=s.market==='TW';
   const stat0=document.getElementById('intraStat');
   if(stat0&&!accOnly)stat0.innerHTML=intraStatTxt(s);   // 漲跌幅立即顯示,不等圖
-  if(isTW0&&marketOpen()&&stkAcc(s.id).c.length<2&&!accOnly){
+  if(isTW0&&openish()&&stkAcc(s.id).c.length<2&&!accOnly){
     seedStk(s);
     setTimeout(()=>{if(location.hash===KHASH&&stkAcc(s.id).c.length<2)seedStk(s).then(()=>{
       if(location.hash===KHASH&&stkAcc(s.id).c.length>=2)loadIntraDetail(s,true);
@@ -2171,7 +2190,11 @@ async function loadIntraDetail(s,accOnly){
   if(isTW0){
     const acc=stkAcc(s.id);
     const today=tpDay(Date.now()/1000);
-    const fresh=d&&Array.isArray(d.t)&&d.t.length&&tpDay(d.t[d.t.length-1])===today;
+    let fresh=d&&Array.isArray(d.t)&&d.t.length&&tpDay(d.t[d.t.length-1])===today;
+    if(!fresh&&!accOnly){
+      const dT=await yToday(sym);
+      if(dT){d=dT;fresh=true;}
+    }
     if(fresh){
       (RT.lastYD=RT.lastYD||{})[s.id]=d;   // 快取底圖供輕量重繪
       if(acc.c.length){  // 合併累積較新點(複製,不動原資料)
@@ -2190,7 +2213,12 @@ async function loadIntraDetail(s,accOnly){
         return;
       }
     }else{
-      window.__stkToday=false;   // 收盤:顯示最近完整一日,禁止即時戳點
+      window.__stkToday=false;   // 顯示最近完整一日,禁止即時戳點
+      if(d&&d.t&&d.t.length){
+        const dd=tpDay(d.t[d.t.length-1]);
+        if(dd!==today&&stat)setTimeout(()=>{const st2=document.getElementById('intraStat');
+          if(st2&&!/前一交易日/.test(st2.innerHTML))st2.innerHTML+=` · <span style="color:var(--dim)">圖為前一交易日 ${dd.slice(5)}</span>`;},600);
+      }
     }
   }else{
     window.__stkToday=!!d;
@@ -2248,6 +2276,7 @@ function stkAcc(id){
   return a;
 }
 function stkAccPush(id,last,y){
+  if(!marketOpen())return;
   const a=stkAcc(id);
   if(y>0&&!a.prev)a.prev=y;
   const now=Math.floor(Date.now()/1000);
@@ -2481,7 +2510,7 @@ function keepScroll(fn){
   }
 }
 async function rtTick(){
-  if(!marketOpen()||!DATA)return;
+  if(!openish()||!DATA)return;
   const ids=rtTargets(); if(!ids.length)return;
   // 全市場輪動:每輪多掃一批未在畫面上的台股,約3分鐘涵蓋全市場
   const seen=new Set(ids);
@@ -2582,6 +2611,12 @@ setInterval(rtTick,6000);
 setTimeout(rtTick,900);
 
 /* ── 開盤時段自動更新:台北週一至五 08:55–13:40,每 60 秒重抓 data.json ── */
+function openish(){
+  // 收盤後~19:30 仍持續同步「今日」資料(MIS 收盤快照+Yahoo 回補),不再下午就凍結
+  const t=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const d=t.getDay(),m=t.getHours()*60+t.getMinutes();
+  return d>=1&&d<=5&&m>=535&&m<=1170;
+}
 function marketOpen(){
   const tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
   const d=tp.getDay(), m=tp.getHours()*60+tp.getMinutes();
@@ -2973,7 +3008,7 @@ setTimeout(()=>{
 /* 盤中把「今日這根K棒」即時長在日K線圖尾端(個股+加權/櫃買) */
 let __kbarLast=0;
 function liveKBar(idOrKey){
-  if(!marketOpen()||kView.itv!=='1d'||!Array.isArray(curOhlc)||!Array.isArray(curDates)||!curDates.length)return;
+  if(!openish()||kView.itv!=='1d'||!Array.isArray(curOhlc)||!Array.isArray(curDates)||!curDates.length)return;
   // 對應目前開啟的頁面
   let rtc=null;
   if(KHASH==='#stock/'+idOrKey)rtc=RTC[idOrKey];
