@@ -1,10 +1,9 @@
 # 放到 repo 的 .github/workflows/update_quotes.yml
-# 開盤時段(台北 09:00–13:50,週一至五)每 10 分鐘更新盤中報價
-# 注意:GitHub Actions 排程可能延遲數分鐘,實際間隔約 10–15 分鐘
+# 開盤時段(台北 09:00–13:55,週一至五)每 5 分鐘更新盤中報價備援
 name: intraday-quotes
 on:
   schedule:
-    - cron: "*/5 1-5 * * 1-5"   # UTC 01–05 時 = 台北 09:00–13:55,每 5 分鐘(Actions 實際會延遲數分鐘)
+    - cron: "*/5 1-5 * * 1-5"   # UTC 01–05 時 = 台北 09:00–13:55
   workflow_dispatch: {}
 permissions:
   contents: write
@@ -24,7 +23,19 @@ jobs:
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
-          git pull --rebase || true
           git add data.json
-          git commit -m "quotes: $(TZ=Asia/Taipei date +%H:%M)" || echo "no changes"
-          git push
+          if git diff --cached --quiet; then
+            echo "沒有變更,略過"
+            exit 0
+          fi
+          git commit -m "quotes: $(TZ=Asia/Taipei date +%H:%M)"
+          # 與每日更新撞車時:禮讓——放棄本輪(報價5分鐘後自動再來,絕不覆蓋盤後資料)
+          for i in 1 2 3; do
+            if git pull --rebase origin main && git push; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            sleep 5
+          done
+          echo "推送撞車,本輪禮讓略過(下一輪自動再試)"
+          exit 0
