@@ -924,9 +924,18 @@ async function boot(){
 function setBadges(extra){
   const intr=DATA.intraday?` · 盤中 ${DATA.intraday}`:'';
   const _upd=DATA.source==='live'?DATA.updated:'範例';
-  document.getElementById('updBadge').textContent='更新:'+_upd+intr+(extra||'');
+  let tail='';
+  if(DATA.source==='live'){
+    const nowT=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const today=nowT.toISOString().slice(0,10);
+    const wd=nowT.getDay(),hm=nowT.getHours()*60+nowT.getMinutes();
+    if(String(DATA.updated)<today&&wd>=1&&wd<=5){
+      tail=hm<18*60+45?'(今日盤後 18:30 自動產生)':' ⚠今日更新未完成,檢查 Actions';
+    }
+  }
+  document.getElementById('updBadge').textContent='盤後資料:'+_upd+tail+intr+(extra||'');
   const sb=document.getElementById('srcBadge');
-  if(DATA.source==='live'){ sb.textContent='即時數據'; sb.className='badge live'; }
+  if(DATA.source==='live'){ sb.textContent='● 報價即時'; sb.className='badge live'; }
 }
 function favList(){try{const a=JSON.parse(localStorage.getItem('fav_ids')||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}}
 function favHas(id){return favList().includes(id);}
@@ -1752,6 +1761,24 @@ async function loadUSIdx(key){
   }
 }
 setInterval(()=>{if(IDX.sel==='sp'||IDX.sel==='nq')loadUSIdx(IDX.sel);},60000);
+function liveAppend(key,last){
+  // 即時報價「長」到分線尾端:每滿60秒補一個新點,線會即時延伸
+  const d=IDX.d[key];
+  if(!d||d.approx||!Array.isArray(d.t))return;
+  const now=Math.floor(Date.now()/1000);
+  let i=d.t.length-1;
+  if(i<0)return;
+  if(now-d.t[i]>=60){
+    d.t.push(now);d.c.push(+(+last).toFixed(2));
+    if(Array.isArray(d.v))d.v.push(0);
+    if(IDX.sel===key)drawIdxSel();
+  }else{
+    // 同一分鐘內:更新最後一點的值
+    let j=d.c.length-1;
+    while(j>=0&&d.c[j]==null)j--;
+    if(j>=0)d.c[j]=+(+last).toFixed(2);
+  }
+}
 function drawIdxSel(){
   let d=IDX.d[IDX.sel];
   if((IDX.sel==='sp'||IDX.sel==='nq')&&!d){loadUSIdx(IDX.sel);}
@@ -2181,6 +2208,7 @@ async function rtTick(){
           if(IDX.sel==='otc'&&(!IDX.d.otc||IDX.d.otc.approx))drawIdxSel();
         }
       }
+      liveAppend(key,last);
       if(key===IDX.sel)pokeChart(RT.idx,last,'idxStat');
       try{idxWatch(key,last,chg);}catch(e){}
       return;
