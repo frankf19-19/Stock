@@ -199,6 +199,8 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .tg-t3{color:#4BD695;border-color:rgba(75,214,149,.45);background:rgba(75,214,149,.1)}
 .tg-price{color:#FF9A5A;border-color:rgba(255,154,90,.45);background:rgba(255,154,90,.1)}
 .tg-theme{color:#C792EA;border-color:rgba(199,146,234,.45);background:rgba(199,146,234,.1)}
+.tg-left{color:#4BD695;border-color:rgba(75,214,149,.5);background:rgba(75,214,149,.08)}
+.tg-right{color:#FF6B6E;border-color:rgba(255,107,110,.5);background:rgba(255,107,110,.08)}
 .tg-strong{background:rgba(127,180,255,.12);color:#9CC4FF;border:1px solid rgba(127,180,255,.35)}
 .r-name{font-weight:700;font-size:15px}
 .r-name .c-code{font-size:12px}
@@ -1278,7 +1280,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r56</span>');
+  diag.push('<span style="color:var(--dim)">build r57</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3441,6 +3443,8 @@ const STRATS=[
   ['break','🚀 帶量突破'],
   ['dip','🎯 回檔機會'],
   ['strong','💪 三力強勢'],
+  ['left','◀ 左側·價值回檔'],
+  ['right','▶ 右側·動能突破'],
   ['t3','📈 營收三率三升'],
   ['price','🔥 漲價/缺料'],
   ['theme','🧠 潛在漲價(研究)'],
@@ -3458,6 +3462,33 @@ const PRICE_WATCH=[
  ['2059','伺服器滑軌近乎獨佔,獨家供應=天然漲價能力'],
  ['3037','ABF 載板稼動率回升,AI 晶片放量下高階載板轉緊'],
 ];
+/* 未來性濾網:基本面夠強 或 成長型產業+及格基本面 或 精選論點股 */
+const GROWTH_SECTORS=new Set(['半導體業','電子零組件業','電腦及週邊設備業','光電業','通信網路業','其他電子業','資訊服務業','電子通路業','數位雲端','綠能環保']);
+function futureOK(s){
+  const f=s.f&&s.f.score||0;
+  if(s.thesis)return true;
+  if(f>=75)return true;
+  return f>=60&&GROWTH_SECTORS.has(s.sector||'');
+}
+function sideItems(){
+  const out=[];
+  (DATA.stocks||[]).forEach(s=>{
+    if(s.market!=='TW'||!s.al||s.price==null||!futureOK(s))return;
+    const a=s.al,f=s.f?s.f.score:0,c=s.c?s.c.score:0,t=s.t?s.t.score:0;
+    // ◀ 左側·價值回檔:多頭架構 + 價格回到均線買進區(未破停損) + 籌碼未潰
+    if(a.bull&&a.z1&&a.stop&&s.price<=a.z1*1.02&&s.price>=a.stop&&c>=50){
+      out.push({s,g:{type:'left',label:'◀ 左側·價值回檔',
+        desc:`多頭架構回檔至均線帶(${a.z0}~${a.z1}),基本面 ${f} 分——左側分批佈局思路;跌破 ${a.stop} 守停損`}});
+    }
+    // ▶ 右側·動能突破:站上或逼近 20 日高 + 技術面強
+    else if(a.h20&&t>=65&&s.price>=a.h20*0.99){
+      const over=s.price>=a.h20;
+      out.push({s,g:{type:'right',label:'▶ 右側·動能突破',
+        desc:`${over?'已站上':'逼近'} 20 日高 ${a.h20},技術 ${t} 分/基本面 ${f} 分——右側動能確認${over?'':'(突破帶量再追)'};失守 ${a.h20} 宜減碼`}});
+    }
+  });
+  return out;
+}
 function radarItems(){
   const items=[];
   const push=(s,g)=>{if(s)items.push({s,g});};
@@ -3478,6 +3509,8 @@ function radarItems(){
     push(s,{type:'t3',label:'三率三升 '+t.q,
       desc:`毛 ${arrow(t.gm[0],t.gm[1])} · 營益 ${arrow(t.om[0],t.om[1])} · 淨利 ${arrow(t.nm[0],t.nm[1])}${t.ry!=null?` · 月營收 ${t.ry>0?'+':''}${t.ry}%`:''}`});
   });
+  // 左側/右側交易分類(未來性濾網把關)
+  sideItems().forEach(x=>items.push(x));
   // 研究觀點:潛在漲價/缺料
   PRICE_WATCH.forEach(([id,why])=>{
     const s=byId[id];
@@ -3504,7 +3537,7 @@ function renderRadar(){
       renderRadar();
     });
   }
-  const order={whale:0,dip:1,break:2,t3:3,price:4,strong:5,theme:6};
+  const order={whale:0,dip:1,break:2,left:3,right:4,t3:5,price:6,strong:7,theme:8};
   let show=items.filter(({g})=>curStrat==='all'||g.type===curStrat);
   show.sort((a,b)=>(order[a.g.type]??9)-(order[b.g.type]??9)||total(b.s)-total(a.s));
   if(curStrat==='all'){
