@@ -1308,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r73</span>');
+  diag.push('<span style="color:var(--dim)">build r74</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2694,7 +2694,7 @@ function render(){
   let list=DATA.stocks.filter(s=>
     (mkt==='ALL'||(mkt==='FAV'?favHas(s.id):s.market===mkt))&&
     (sector==='全部'||s.sector===sector)&&
-    (q===''||s.name.includes(q)||s.id.toLowerCase().includes(q.toLowerCase())||(s.full||'').includes(q)));
+    (q===''||s.name.toLowerCase().includes(q.toLowerCase())||s.id.toLowerCase().includes(q.toLowerCase())||String(s.full||'').toLowerCase().includes(q.toLowerCase())));
   const key={total:s=>total(s),fund:s=>s.f.score,chip:s=>s.c.score,tech:s=>s.t.score,chg:s=>s.chg};
   list.sort((a,b)=>key[sortBy](b)-key[sortBy](a));
   const g=document.getElementById('grid');
@@ -4298,7 +4298,7 @@ function showLearnDetail(key){
     if(!q)return[];
     const st=DATA.stocks||[];
     const a=st.filter(s=>s.id.toUpperCase().startsWith(q));
-    const b=st.filter(s=>!a.includes(s)&&(s.name.includes(q)||String(s.full||'').includes(q)||s.id.toUpperCase().includes(q)));
+    const b=st.filter(s=>!a.includes(s)&&(s.name.toUpperCase().includes(q)||String(s.full||'').toUpperCase().includes(q)||s.id.toUpperCase().includes(q)));
     return [...a,...b].slice(0,8);
   }
   function paint(){
