@@ -571,45 +571,35 @@ def _put_margin(e, q, gm, om, nm, rv):
     e["qr"] = [m[x][3] for x in qs]
 
 def fetch_taifex(prev_fut=None):
-    """台指期籌碼:三大法人淨未平倉(TX/小台)、十大交易人/特定法人、散戶小台(反向法人近似)。"""
-    fut = {"inst": [], "big": None, "ret": None, "d": ""}
+    """台指期籌碼:三大法人/十大交易人/散戶小台,含 60 日歷史(供詳細頁畫圖)。"""
+    day = {}   # date -> {fx,it,dl,rt,b10,sp}
     try:
         arr = get_json("https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsByDate", timeout=60)
         keys = list(arr[0].keys())
         k = lambda *ns: next((x for x in keys if all(n in x for n in ns)), None)
         kd, kp, ki = k("日期"), k("商品名稱") or k("商品"), k("身份別") or k("身分別")
         kn = k("多空", "淨額")
-        latest = max(str(r.get(kd, "")) for r in arr)
-        fut["d"] = latest
-        tx_net, mtx_net = {}, {}
         for r in arr:
-            if str(r.get(kd, "")) != latest: continue
+            d = str(r.get(kd, "")).strip()
             prod, ident = str(r.get(kp, "")), str(r.get(ki, ""))
             try: net = int(float(str(r.get(kn, "0")).replace(",", "")))
             except Exception: continue
+            e = day.setdefault(d, {})
             if "臺股期貨" in prod and "小型" not in prod and "微型" not in prod:
-                tx_net[ident] = net
-            if "小型臺指" in prod:
-                mtx_net[ident] = mtx_net.get(ident, 0) + net
-        for nm in ("外資", "投信", "自營商"):
-            key2 = next((x for x in tx_net if nm in x), None)
-            if key2 is not None:
-                fut["inst"].append([nm, tx_net[key2]])
-        if mtx_net:
-            inst_mtx = sum(v for kk, v in mtx_net.items()
-                           if any(n in kk for n in ("外資", "投信", "自營")))
-            fut["ret"] = -inst_mtx   # 散戶小台淨部位 ≈ 法人反向
+                if "外資" in ident: e["fx"] = net
+                elif "投信" in ident: e["it"] = net
+                elif "自營" in ident: e["dl"] = net
+            if "小型臺指" in prod and any(n in ident for n in ("外資", "投信", "自營")):
+                e["mtx"] = e.get("mtx", 0) + net
     except Exception as e:
         print(f"  [warn] 期貨法人: {e}")
     try:
         arr = get_json("https://openapi.taifex.com.tw/v1/OpenInterestOfLargeTradersFutures", timeout=60)
         keys = list(arr[0].keys())
         k = lambda *ns: next((x for x in keys if all(n in x for n in ns)), None)
-        kd = k("日期"); kp = k("契約") or k("商品")
-        km = k("月份") or k("週別")
+        kd = k("日期"); kp = k("契約") or k("商品"); km = k("月份") or k("週別")
         kb10 = k("十大", "買方", "部位數") or k("十大", "買方")
         ks10 = k("十大", "賣方", "部位數") or k("十大", "賣方")
-        latest = max(str(r.get(kd, "")) for r in arr)
         def num(v):
             m = _re.match(r"\s*([\d,]+)", str(v) or "")
             return int(m.group(1).replace(",", "")) if m else 0
@@ -617,32 +607,50 @@ def fetch_taifex(prev_fut=None):
             m = _re.search(r"\(([\d,]+)\)", str(v) or "")
             return int(m.group(1).replace(",", "")) if m else None
         for r in arr:
-            if str(r.get(kd, "")) != latest: continue
+            d = str(r.get(kd, "")).strip()
             if "臺股期貨" not in str(r.get(kp, "")) or "小型" in str(r.get(kp, "")): continue
             mv = str(r.get(km, ""))
             if not ("999999" in mv or "所有" in mv or "全部" in mv): continue
             b, s2 = r.get(kb10), r.get(ks10)
-            net10 = num(b) - num(s2)
+            e = day.setdefault(d, {})
+            e["b10"] = num(b) - num(s2)
             sb, ss = spec(b), spec(s2)
-            fut["big"] = [net10, (sb - ss) if (sb is not None and ss is not None) else None]
-            break
+            if sb is not None and ss is not None: e["sp"] = sb - ss
     except Exception as e:
         print(f"  [warn] 十大交易人: {e}")
-    if prev_fut:
-        try:
-            pi = {x[0]: x[1] for x in prev_fut.get("inst", [])}
-            fut["inst"] = [([n, v, v - pi[n]] if n in pi else [n, v]) for n, v in [(x[0], x[1]) for x in fut["inst"]]]
-            pr = prev_fut.get("ret")
-            pr0 = pr[0] if isinstance(pr, list) else pr
-            if fut.get("ret") is not None and pr0 is not None:
-                fut["ret"] = [fut["ret"], fut["ret"] - pr0]
-        except Exception:
-            pass
-    if fut.get("ret") is not None and not isinstance(fut["ret"], list):
-        fut["ret"] = [fut["ret"]]
-    ok = bool(fut["inst"]) or fut["big"] or fut["ret"]
-    print(f"  台指期籌碼:{'OK' if ok else '無資料'}(法人 {len(fut['inst'])} 項/十大 {'有' if fut['big'] else '無'})")
-    return fut if ok else None
+    if not day:
+        print("  台指期籌碼:無資料")
+        return None
+    # 併入舊歷史,去重排序留 60 日
+    hist = {}
+    if prev_fut and isinstance(prev_fut.get("h"), dict):
+        ph = prev_fut["h"]
+        for i, d in enumerate(ph.get("d", [])):
+            hist[d] = {kk: (ph.get(kk2) or [None]*len(ph["d"]))[i]
+                       for kk, kk2 in [("fx","fx"),("it","it"),("dl","dl"),("rt","rt"),("b10","b10"),("sp","sp")]}
+    for d, e in day.items():
+        h = hist.setdefault(d, {})
+        for kk in ("fx","it","dl","b10","sp"):
+            if e.get(kk) is not None: h[kk] = e[kk]
+        if e.get("mtx") is not None: h["rt"] = -e["mtx"]
+    ds = sorted(hist)[-60:]
+    H = {"d": ds}
+    for kk in ("fx","it","dl","rt","b10","sp"):
+        H[kk] = [hist[d].get(kk) for d in ds]
+    last, prev = ds[-1], (ds[-2] if len(ds) > 1 else None)
+    def pair(kk):
+        v = hist[last].get(kk)
+        if v is None: return None
+        pv = hist[prev].get(kk) if prev else None
+        return [v, (v - pv) if pv is not None else None]
+    fut = {"d": last, "h": H,
+           "inst": [[nm, *(pair(kk) or [None, None])] for nm, kk in
+                    [("外資","fx"),("投信","it"),("自營商","dl")] if pair(kk)],
+           "big": ([hist[last].get("b10"), hist[last].get("sp")]
+                   if hist[last].get("b10") is not None else None),
+           "ret": pair("rt")}
+    print(f"  台指期籌碼:{last}(歷史 {len(ds)} 日/法人 {len(fut['inst'])} 項/十大 {'有' if fut['big'] else '無'})")
+    return fut
 
 def fetch_cobasic():
     """公司基本資料(董事長/掛牌/資本額/官網/產業別),全市場。"""
