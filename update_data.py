@@ -570,14 +570,104 @@ def _put_margin(e, q, gm, om, nm, rv):
     e["nm"] = [m[x][2] for x in qs]
     e["qr"] = [m[x][3] for x in qs]
 
+def _taifex_csv_fallback():
+    """期交所傳統下載端點:三大法人+大額交易人(近10個交易日回填)。"""
+    day = {}
+    today = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+    dates = []
+    d0 = today
+    while len(dates) < 10:
+        if d0.weekday() < 5:
+            dates.append(d0.strftime("%Y/%m/%d"))
+        d0 -= dt.timedelta(days=1)
+    def dl(url, form):
+        r = requests.post(url, data=form, headers=UA, timeout=15)
+        r.raise_for_status()
+        for enc in ("utf-8-sig", "big5", "cp950", "utf-8"):
+            try: return r.content.decode(enc)
+            except Exception: continue
+        return r.text
+    # 三大法人(依商品)
+    ok1 = 0
+    for qd in dates:
+        try:
+            txt = dl("https://www.taifex.com.tw/cht/3/futContractsDateDown",
+                     {"queryType": "1", "goDay": "", "doQuery": "1",
+                      "dateaddcnt": "", "queryDate": qd, "commodityId": ""})
+            rows = [r.split(",") for r in txt.splitlines() if r.strip()]
+            if len(rows) < 2: continue
+            hdr = rows[0]
+            def col(*ns):
+                return next((i for i, h in enumerate(hdr) if all(n in h for n in ns)), None)
+            ci_d, ci_p, ci_i = col("日期"), col("商品"), col("身")
+            ci_net = col("多空", "未平倉", "淨額") or col("多空未平倉口數淨額")
+            if None in (ci_d, ci_p, ci_i, ci_net): continue
+            fday = {}   # 單檔內解析,跨檔以「覆蓋」合併(同日重複下載不會重複累加)
+            for r0 in rows[1:]:
+                if len(r0) <= ci_net: continue
+                dte, prod, ident = r0[ci_d].strip(), r0[ci_p].strip(), r0[ci_i].strip()
+                try: net = int(float(r0[ci_net].replace('"', '').replace(",", "")))
+                except Exception: continue
+                e = fday.setdefault(dte, {})
+                if "臺股期貨" in prod and "小型" not in prod and "微型" not in prod:
+                    if "外資" in ident: e["fx"] = net
+                    elif "投信" in ident: e["it"] = net
+                    elif "自營" in ident: e["dl"] = net
+                if "小型臺指" in prod and any(n in ident for n in ("外資", "投信", "自營")):
+                    e["mtx"] = e.get("mtx", 0) + net
+            for dte, e in fday.items():
+                day.setdefault(dte, {}).update(e)
+            ok1 += 1
+        except Exception:
+            pass
+        time.sleep(0.4)
+    # 大額交易人
+    ok2 = 0
+    for qd in dates:
+        try:
+            txt = dl("https://www.taifex.com.tw/cht/3/largeTraderFutDown",
+                     {"queryStartDate": qd, "queryEndDate": qd})
+            rows = [r.split(",") for r in txt.splitlines() if r.strip()]
+            if len(rows) < 2: continue
+            hdr = rows[0]
+            def col(*ns):
+                return next((i for i, h in enumerate(hdr) if all(n in h for n in ns)), None)
+            ci_d, ci_c, ci_m = col("日期"), col("契約"), col("月份") if col("月份") is not None else col("週別")
+            ci_b = col("十大", "買方"); ci_s = col("十大", "賣方")
+            if None in (ci_d, ci_c, ci_b, ci_s): continue
+            import re as _r2
+            def num(v):
+                m = _r2.match(r"\s*\"?([\d,]+)", str(v))
+                return int(m.group(1).replace(",", "")) if m else 0
+            def spec(v):
+                m = _r2.search(r"\(([\d,]+)\)", str(v))
+                return int(m.group(1).replace(",", "")) if m else None
+            for r0 in rows[1:]:
+                if len(r0) <= max(ci_b, ci_s): continue
+                if "TX" != r0[ci_c].strip() and "臺股期貨" not in r0[ci_c]: continue
+                mv = r0[ci_m] if ci_m is not None and len(r0) > ci_m else ""
+                if not ("999999" in mv or "所有" in mv or "全部" in mv): continue
+                dte = r0[ci_d].strip()
+                e = day.setdefault(dte, {})
+                e["b10"] = num(r0[ci_b]) - num(r0[ci_s])
+                sb, ss = spec(r0[ci_b]), spec(r0[ci_s])
+                if sb is not None and ss is not None: e["sp"] = sb - ss
+            ok2 += 1
+        except Exception:
+            pass
+        time.sleep(0.4)
+    print(f"  [info] 傳統端點回填:法人 {ok1}/10 日、大額 {ok2}/10 日")
+    return day
+
 def fetch_taifex(prev_fut=None):
     """台指期籌碼:三大法人/十大交易人/散戶小台,含 60 日歷史(供詳細頁畫圖)。"""
     day = {}   # date -> {fx,it,dl,rt,b10,sp}
     try:
         arr = get_json("https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsByDate", timeout=60)
         keys = list(arr[0].keys())
+        print(f"  [debug] 期貨法人欄位: {keys[:10]}")
         k = lambda *ns: next((x for x in keys if all(n in x for n in ns)), None)
-        kd, kp, ki = k("日期"), k("商品名稱") or k("商品"), k("身份別") or k("身分別")
+        kd, kp, ki = k("日期") or k("Date"), k("商品名稱") or k("商品") or k("Commodity") or k("Contract"), k("身份別") or k("身分別") or k("Investor") or k("Institut")
         kn = k("多空", "淨額")
         for r in arr:
             d = str(r.get(kd, "")).strip()
@@ -618,6 +708,10 @@ def fetch_taifex(prev_fut=None):
             if sb is not None and ss is not None: e["sp"] = sb - ss
     except Exception as e:
         print(f"  [warn] 十大交易人: {e}")
+    if not day:
+        # ── 備援:期交所傳統下載端點(CSV/中文欄位)──
+        print("  [info] OpenAPI 無資料,改走傳統下載端點…")
+        day = _taifex_csv_fallback()
     if not day:
         print("  台指期籌碼:無資料")
         return None
