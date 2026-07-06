@@ -154,7 +154,35 @@ def fetch_us_companies():
                     "full": f'{r["Security"]}|{r["GICS Sub-Industry"]}',
                     "market": "US", "ex": "us",
                     "sector": GICS_ZH.get(str(r["GICS Sector"]).strip(), "美股·其他")})
-    print(f"  S&P 500 成分股:{len(out)} 檔")
+    # 補充:台廠 ADR + 費半非 S&P500 成分 + 重點外籍半導體(S&P500 名單天生沒有外國公司)
+    EXTRA_US = [
+        ("TSM",  "台積電 ADR",       "美股·資訊科技"),
+        ("UMC",  "聯電 ADR",         "美股·資訊科技"),
+        ("ASX",  "日月光 ADR",       "美股·資訊科技"),
+        ("CHT",  "中華電信 ADR",     "美股·通訊服務"),
+        ("HIMX", "奇景光電 ADR",     "美股·資訊科技"),
+        ("SIMO", "慧榮科技 ADR",     "美股·資訊科技"),
+        ("ASML", "ASML 艾司摩爾",    "美股·資訊科技"),
+        ("ARM",  "Arm Holdings",     "美股·資訊科技"),
+        ("GFS",  "GlobalFoundries",  "美股·資訊科技"),
+        ("STM",  "意法半導體",       "美股·資訊科技"),
+        ("AMKR", "Amkor 艾克爾",     "美股·資訊科技"),
+        ("ONTO", "Onto Innovation",  "美股·資訊科技"),
+        ("LSCC", "Lattice 萊迪思",   "美股·資訊科技"),
+        ("ALAB", "Astera Labs",      "美股·資訊科技"),
+        ("CRDO", "Credo",            "美股·資訊科技"),
+        ("RMBS", "Rambus",           "美股·資訊科技"),
+        ("MSTR", "MicroStrategy",    "美股·資訊科技"),
+        ("IONQ", "IonQ 量子運算",    "美股·資訊科技"),
+    ]
+    have = {o["id"] for o in out}
+    added = 0
+    for sym, nm, sec in EXTRA_US:
+        if sym not in have:
+            out.append({"id": sym, "name": nm, "full": nm,
+                        "market": "US", "ex": "us", "sector": sec})
+            added += 1
+    print(f"  S&P 500 成分股:{len(out)-added} 檔 + 補充 {added} 檔(台廠ADR/費半/外籍半導體)")
     return out
 
 # ═══════════════ K線分片存取 ═══════════════
@@ -900,7 +928,10 @@ def fetch_targets(stocks):
         time.sleep(0.35)
     print(f"  分析師目標價(yfinance):{n}/{len(picks)} 檔")
     nb, bf, tb = 0, 0, time.time()
-    for s in picks:
+    # 補洞優先:全市場尚無業務簡介者排前面(重點股其次刷新)——約兩週覆蓋全市場
+    holes = [s for s in stocks if s.get("market") == "TW" and not s.get("bz")]
+    todo = holes + [s for s in picks if s.get("market") == "TW" and s.get("bz")]
+    for s in todo:
         if s["market"] != "TW": continue
         if time.time() - tb > 300:
             print("  [warn] 業務抓取超過時間預算(5分),提前收工"); break
@@ -1208,6 +1239,18 @@ def main():
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     print(f"  ✅ 核心資料已寫出(第一階段保底):{len(stocks)} 檔")
     # ══ 第二階段:豐富化——任何一項爆掉都不影響核心 ══
+    # 跨日繼承:昨天抓到的目標價/業務先搬過來,之後的抓取只是刷新/補洞
+    try:
+        _prev_by_id = {s.get("id"): s for s in (prev_all.get("stocks") or [])}
+        _c_tp = _c_bz = 0
+        for s in stocks:
+            p = _prev_by_id.get(s["id"])
+            if not p: continue
+            if p.get("tp") and not s.get("tp"): s["tp"] = p["tp"]; _c_tp += 1
+            if p.get("bz") and not s.get("bz"): s["bz"] = p["bz"]; _c_bz += 1
+        print(f"  跨日繼承:目標價 {_c_tp} 檔、業務 {_c_bz} 檔")
+    except Exception as e:
+        print(f"  [warn] 繼承: {e}")
     try:
         fut = fetch_taifex((prev_all.get("macro") or {}).get("fut"))
         if fut: _macro["fut"] = fut

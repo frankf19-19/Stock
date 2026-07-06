@@ -1308,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r72</span>');
+  diag.push('<span style="color:var(--dim)">build r73</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3350,6 +3350,7 @@ async function showDetail(id){
       <h3>公司簡介|做什麼・賣什麼 <span class="ds">${s.sector}</span></h3>
       <div id="profBody"><div class="dim-note">公司資料載入中…</div></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        <div id="coFile" style="margin-bottom:10px"></div>
         <button class="btn-ai" id="profAiBtn">✦ AI 白話解讀:這家公司在做什麼?產品有哪些?</button>
         ${lm?`<a class="btn-ai" style="text-decoration:none" href="#learn/${lm[1]}">📚 看懂這個產業:${LEARN[lm[1]].t}</a>`:''}
       </div>
@@ -3371,6 +3372,30 @@ async function showDetail(id){
   const dFav=document.getElementById('dFav');
   if(dFav)dFav.onclick=()=>favToggle(s.id);
   window.scrollTo({top:0});
+  // 公司檔案:業務原文 + 產品線拆解 + 供應鏈圖譜 + 同業(XQ 營運結構風格)
+  const cf=document.getElementById('coFile');
+  if(cf){
+    const sm=SUPPLY_MAP[s.id];
+    const bz=s.bz||'';
+    let lines=sm?sm.lines:bz.split(/[、,;，。及與暨]/).map(x=>x.trim())
+      .filter(x=>x.length>=2&&x.length<=14).slice(0,8);
+    const lineChips=lines.map(x=>`<span class="btn-ghost" style="height:auto;padding:5px 12px;font-size:12.5px;cursor:default">${x}</span>`).join(' ');
+    const downHtml=sm?`<div style="margin-top:10px"><b style="font-size:13px">下游應用與客戶</b>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-top:7px">
+      ${sm.down.map(([g,cs])=>`<div class="dim-block" style="margin:0;padding:10px 12px"><b style="font-size:12.5px;color:var(--amber)">${g}</b><div class="dim-note" style="margin-top:3px">${cs.join('、')}</div></div>`).join('')}
+      </div></div>`:'';
+    let peers=sm?sm.peers:(DATA.stocks||[]).filter(x=>x.id!==s.id&&x.market===s.market&&x.sector===s.sector)
+      .sort((a,b)=>total(b)-total(a)).slice(0,6).map(x=>[x.id,x.name]);
+    const peerHtml=peers.length?`<div style="margin-top:10px"><b style="font-size:13px">同業/競爭者</b> <span class="dim-note">(點擊查看)</span><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+      ${peers.map(([id,nm])=>`<a class="btn-ghost" style="height:auto;padding:5px 12px;font-size:12.5px" href="#stock/${id}">${nm} ${id}</a>`).join('')}</div></div>`:'';
+    cf.innerHTML=`
+      ${bz?`<div class="dim-note" style="margin-bottom:8px"><b>主要業務(公開資訊觀測站):</b>${bz}</div>`:''}
+      ${lineChips?`<b style="font-size:13px">產品線</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px">${lineChips}</div>`:''}
+      ${downHtml}
+      ${sm&&sm.note?`<div class="dim-note" style="margin-top:9px;border-left:3px solid var(--amber);padding-left:9px">${sm.note}</div>`:''}
+      ${peerHtml}
+      ${!bz&&!sm?'<div class="dim-note">業務簡介累積中(每日更新自動補齊全市場)——也可按下方 AI 白話解讀立即生成。</div>':''}`;
+  }
   const pBtn=document.getElementById('profAiBtn');
   if(pBtn)pBtn.onclick=()=>aiAsk(`用繁體中文白話介紹 ${s.name}(${s.id}) 這家公司,格式如下:\n1) 一句話+一個比喻說明公司在做什麼\n2) 主要產品與服務(依類型分類條列,每類一句白話說明用途)\n3) 產品用在哪裡、主要客戶是誰\n4) 在產業鏈的上下游位置\n要簡單易懂,像對完全不懂股票的朋友解釋。`);
   (async()=>{  // 個股新聞跑馬燈
@@ -3608,6 +3633,19 @@ const STRATS=[
   ['theme','🧠 潛在漲價(研究)'],
 ];
 /* 研究觀點:供需結構偏緊、未來有漲價/缺料想像的名單(非投資建議,定期檢視) */
+/* 重點股供應鏈圖譜(人工整理,XQ 營運結構風格;逐步擴充) */
+const SUPPLY_MAP={
+ '3665':{lines:['連接線材/線束','光纖主動+被動元件','電源管理系統','連接器/電子線'],
+  down:[['伺服器/AI 資料中心',['Amazon','Dell','HP','Microsoft','NVIDIA','Supermicro','Credo']],
+        ['半導體製程設備',['ASML','KLA','Lam Research','Tokyo Electron','ASM International']],
+        ['電動車/儲能',['Tesla(車用鋰電池/工業電池)','BMW','Fiat']],
+        ['工業/電機/機器人',['Siemens','Bosch','ABB','FANUC','KUKA']],
+        ['家電/消費電子',['Dyson','Philips','SONY','小米','聯想']],
+        ['醫療影像',['GE HealthCare']],
+        ['特殊應用',['Polaris 沙灘車','PACCAR 卡車','Thermo King 冷鏈','Trane 空調']]],
+  peers:[['3011','今皓'],['3023','信邦'],['6115','鎰勝'],['6290','良維']],
+  note:'產品跟著「用電+傳輸」走:AI 伺服器電源線束與高速線材是本波成長主軸,車用與半導體設備為第二、三支腳。'}
+};
 const PRICE_WATCH=[
  ['2408','DRAM 合約價上行:三大廠產能挪去 HBM,標準型供給被動吃緊'],
  ['8299','NAND 報價反轉:減產效應+AI 端側儲存需求,控制晶片跟漲'],
