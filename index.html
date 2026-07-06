@@ -1271,12 +1271,12 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r44</span>');
+  diag.push('<span style="color:var(--dim)">build r45</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
   btn.disabled=false; btn.textContent='↻ 更新';
-  renderAll(); route();
+  keepScroll(()=>renderAll()); route();
 }
 document.getElementById('updBtn').onclick=async()=>{
   await refreshLive(false);
@@ -2297,6 +2297,19 @@ function rtPx(m){
   }
   return null;
 }
+/* 捲動位置保持:資料重繪不打斷閱讀 */
+function keepScroll(fn){
+  const y=window.scrollY,x=window.scrollX;
+  try{fn();}finally{
+    requestAnimationFrame(()=>{
+      if(Math.abs(window.scrollY-y)>2||Math.abs(window.scrollX-x)>2)
+        window.scrollTo({top:y,left:x,behavior:'instant'});
+      requestAnimationFrame(()=>{
+        if(Math.abs(window.scrollY-y)>2)window.scrollTo({top:y,left:x,behavior:'instant'});
+      });
+    });
+  }
+}
 async function rtTick(){
   if(!marketOpen()||!DATA)return;
   const ids=rtTargets(); if(!ids.length)return;
@@ -2375,8 +2388,10 @@ async function rtTick(){
   if(sb){sb.textContent=`● 即時 ${t}(${n}檔)`;sb.className='badge live';}
   renderPulse(); renderMacro();
   if(!location.hash.startsWith('#stock/')){
-    render(); renderRadar(); renderT3(); try{renderPulse();}catch(e){}
-    if(location.hash==='#fav')renderFav();
+    keepScroll(()=>{
+      render(); renderRadar(); renderT3(); try{renderPulse();}catch(e){}
+      if(location.hash==='#fav')renderFav();
+    });
     hydrateSparks();
   }
   else{
