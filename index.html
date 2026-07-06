@@ -1271,7 +1271,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r48</span>');
+  diag.push('<span style="color:var(--dim)">build r50</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1363,12 +1363,32 @@ function drawIntra(domId,d){
       data:d.v.map((v,i)=>({value:v||0,
         itemStyle:{color:(d.c[i]!=null&&d.c[i-1]!=null&&d.c[i]<d.c[i-1])?DNC:UPC,opacity:.55}}))});
   }
+  // 「活的」走勢(最後一點在20分鐘內)→ 線尾顯示現價標籤 + 呼吸光點
+  let li=d.c.length-1;while(li>=0&&d.c[li]==null)li--;
+  const live=li>=0&&d.t&&d.t[li]&&(Date.now()/1000-d.t[li])<=20*60;
+  let pulseIdx=-1;
+  if(live){
+    const lv=d.c[li],col=lv>=d.prev?UPC:DNC;
+    series[0].endLabel={show:true,formatter:p=>(+p.value).toFixed(2),
+      color:'#fff',backgroundColor:col,padding:[3,7],borderRadius:5,
+      fontSize:11.5,fontWeight:700,fontFamily:'IBM Plex Mono,monospace',
+      offset:[4,0]};
+    series[0].labelLayout={moveOverlap:'shiftY'};
+    pulseIdx=series.length;
+    series.push({name:'現價',type:'effectScatter',xAxisIndex:0,yAxisIndex:0,
+      z:9,symbolSize:6.5,
+      rippleEffect:{period:2.4,scale:3.6,brushType:'stroke'},
+      itemStyle:{color:col,shadowBlur:6,shadowColor:col},
+      tooltip:{show:false},
+      data:[[li,+(+lv).toFixed(2)]],
+      animation:true});
+  }
   ch.setOption({backgroundColor:'transparent',animation:false,
     textStyle:{fontFamily:'IBM Plex Mono,monospace'},
     tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,
       textStyle:{color:CT.ttText,fontSize:12}},
     grid:grids,xAxis:xAxes,yAxis:yAxes,series});
-  return {ch,disp:series[0].data,prev:d.prev};
+  return {ch,disp:series[0].data,prev:d.prev,pulseIdx};
 }
 /* 即時縫合:MIS 每10秒的最新價直接推動走勢圖線尾 */
 function pokeChart(ctx,price,statEl,unitFix){
@@ -1376,8 +1396,17 @@ function pokeChart(ctx,price,statEl,unitFix){
   let i=ctx.disp.length-1;
   while(i>=0&&(ctx.disp[i]==null))i--;
   if(i<0)return;
-  ctx.disp[i]=+(+price).toFixed(unitFix??2);
-  try{ctx.ch.setOption({series:[{data:ctx.disp}]});}catch(e){}
+  const pv=+(+price).toFixed(unitFix??2);
+  ctx.disp[i]=pv;
+  try{
+    const upd=[{data:ctx.disp}];
+    if(ctx.pulseIdx>0){
+      for(let k=upd.length;k<ctx.pulseIdx;k++)upd.push({});
+      const col=ctx.prev?(pv>=ctx.prev?UPC:DNC):UPC;
+      upd.push({data:[[i,pv]],itemStyle:{color:col,shadowColor:col}});
+    }
+    ctx.ch.setOption({series:upd});
+  }catch(e){}
   if(statEl){
     const el=document.getElementById(statEl);
     if(el&&ctx.prev){
@@ -2667,7 +2696,7 @@ function scenarioBands(o,price){
 
 /* ── ECharts 專業 K 線圖(MA 可開關、MACD/KD/RSI 副圖切換、縮放)── */
 let curOhlc=null,curDates=null,chartInst=null,indMode='MACD';
-let kView={rng:'6mo',itv:'1d'},baseK=null,KHASH='';
+let kView={rng:'2y',itv:'1d'},baseK=null,KHASH='';
 const KVC={};  // 長天期K線快取(依 代號|範圍|週期)
 async function yOHLC(s,range,interval){
   const syms=s.syms?s.syms:(s.market==='TW'
@@ -2702,25 +2731,24 @@ const ITV_ZH={'1d':'日K','1wk':'週K','1mo':'月K'};
 async function applyKView(s){
   const key=`${s.id}|${kView.rng}|${kView.itv}`;
   let data;
-  if(kView.rng==='6mo'&&kView.itv==='1d'&&baseK){
-    data=baseK;
-    // 背景抓 2 年:MA120/240 需要更長歷史;抓到後無感升級(視窗仍聚焦近 6 個月)
+  if(kView.rng==='2y'&&kView.itv==='1d'&&baseK&&!KVC[key]){
+    data=baseK;   // 先用內建近半年資料秒開,背景補滿 2 年
     if(!baseK.__up){
       baseK.__up=1;
       (async()=>{
-        const d2=KVC[s.id+'|2y|1d']||await yOHLC(s,'2y','1d');
+        const d2=await yOHLC(s,'2y','1d');
         if(d2&&d2.ohlc&&d2.ohlc.length>baseK.ohlc.length+40){
-          KVC[s.id+'|2y|1d']=d2;
-          if(location.hash===KHASH&&kView.rng==='6mo'&&kView.itv==='1d'){
+          KVC[key]=d2;
+          if(location.hash===KHASH&&kView.rng==='2y'&&kView.itv==='1d'){
             curOhlc=d2.ohlc;curDates=d2.dates;
-            window.__kZoomBars=135;
-            window.__kSig='';   // 資料替換:允許套用新的預設縮放
+            if(kView.itv==='1d'&&d2.ohlc.length>=60)curLevels=keyLevels(d2.ohlc.slice(-130));
+            window.__kBox=boxDetect(d2.ohlc,KHASH.startsWith('#macro/')?0.06:0.10);
+            window.__kSig='';   // 資料替換:套用新預設縮放(顯示完整2年)
             try{drawKChart();}catch(e){}
           }
         }
       })();
     }
-    window.__kZoomBars=null;
   }
   else if(KVC[key])data=KVC[key];
   else{
@@ -2861,8 +2889,8 @@ function kChartBoxHTML(){
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
         <h3>K線圖 <span class="ds" id="kMeta">載入中…</span></h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
-          <div class="ind-seg" id="rngSeg">${[['6mo','6月'],['1y','1年'],['2y','2年'],['5y','5年'],['10y','10年'],['max','全部']].map(([v,n])=>
-            `<button data-r="${v}" class="${v==='6mo'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="rngSeg">${[['2y','2年'],['5y','5年'],['10y','10年'],['max','全部']].map(([v,n])=>
+            `<button data-r="${v}" class="${v==='2y'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
@@ -2896,7 +2924,7 @@ function drawKChart(){
   window.__kRestore={zoom:keepZoom,legend:keepLegend};
   const o=curOhlc, closes=o.map(x=>x[3]);
   const isDay=kView.itv==='1d';
-  let zs=o.length>1500?88:o.length>600?70:30;     // 長天期預設看最近一段,滑桿可拉全程
+  let zs=o.length>1500?88:o.length>600?70:0;      // ≤2年全程顯示;更長天期預設看最近一段
   if(window.__kZoomBars&&o.length>window.__kZoomBars)
     zs=Math.max(0,Math.round((1-window.__kZoomBars/o.length)*100));
   const maCfg=[['MA5',5,'#E8B44A'],['MA10',10,'#7FB4FF'],['MA20',20,'#C792EA'],['MA60',60,CT.ma60],
@@ -3161,7 +3189,7 @@ async function showDetail(id){
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
-  kView={rng:'6mo',itv:'1d'}; baseK=k; KHASH='#stock/'+s.id;
+  kView={rng:'2y',itv:'1d'}; baseK=k; KHASH='#stock/'+s.id;
   curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
   window.__kBox=boxDetect(k.ohlc,0.10);
   const lv=curLevels;
@@ -3178,8 +3206,8 @@ async function showDetail(id){
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
         <h3>K線圖 <span class="ds" id="kMeta">日K · ${k.ohlc.length} 根${k.demo?'(範例資料)':''}</span></h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
-          <div class="ind-seg" id="rngSeg">${[['6mo','6月'],['1y','1年'],['2y','2年'],['5y','5年'],['10y','10年'],['max','全部']].map(([v,n])=>
-            `<button data-r="${v}" class="${v==='6mo'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="rngSeg">${[['2y','2年'],['5y','5年'],['10y','10年'],['max','全部']].map(([v,n])=>
+            `<button data-r="${v}" class="${v==='2y'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
@@ -4877,7 +4905,7 @@ async function showMacroDetail(key){
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   // 完整 K 線(與個股同引擎:範圍/週期/均線/指標)
-  kView={rng:'6mo',itv:'1d'}; baseK=null; curLevels=null; indMode='MACD';
+  kView={rng:'2y',itv:'1d'}; baseK=null; curLevels=null; indMode='MACD';
   KHASH='#macro/'+key;
   const pseudo={id:def.sym,market:'US',syms:[def.sym,...(def.alt||[])]};
   bindKControls(pseudo);
