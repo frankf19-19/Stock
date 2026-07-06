@@ -276,6 +276,13 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .toast .cls{margin-left:auto;color:var(--dim);font-size:15px;padding:0 2px}
 .toast.dip{border-color:#7FB4FF}.toast.dip .tt{color:#7FB4FF}
 @keyframes toastIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.live-dot{position:absolute;width:9px;height:9px;border-radius:50%;pointer-events:none;z-index:5;
+  transform:translate(-50%,-50%);}
+.live-dot::after{content:'';position:absolute;inset:-3px;border-radius:50%;
+  border:2px solid currentColor;opacity:.8;animation:ldPulse 1.8s ease-out infinite}
+.live-dot.up{background:var(--up);color:var(--up);box-shadow:0 0 6px var(--up)}
+.live-dot.dn{background:var(--down);color:var(--down);box-shadow:0 0 6px var(--down)}
+@keyframes ldPulse{0%{transform:scale(.6);opacity:.9}70%{transform:scale(2.3);opacity:0}100%{transform:scale(2.3);opacity:0}}
 .mini-candle{display:inline-block;vertical-align:middle;width:15px;height:24px;margin:0 2px 0 6px;flex:none}
 .mini-candle svg{display:block;width:100%;height:100%}
 @media(max-width:640px){.mini-candle{width:13px;height:21px}}
@@ -1271,7 +1278,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r52</span>');
+  diag.push('<span style="color:var(--dim)">build r54</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1292,7 +1299,7 @@ async function yChart(sym,range,interval){
     x=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(x)];
   for(const r of routes){
     try{
-      const res=await fetch(r(u),{cache:'no-store'});
+      const res=await fT(r(u),6000);
       if(!res.ok)continue;
       const j=await res.json();
       const q=j&&j.chart&&j.chart.result&&j.chart.result[0];
@@ -1366,7 +1373,6 @@ function drawIntra(domId,d){
   // 「活的」走勢(最後一點在20分鐘內)→ 線尾顯示現價標籤 + 呼吸光點
   let li=d.c.length-1;while(li>=0&&d.c[li]==null)li--;
   const live=li>=0&&d.t&&d.t[li]&&(Date.now()/1000-d.t[li])<=35*60;
-  let pulseIdx=-1;
   if(live){
     const lv=d.c[li],col=lv>=d.prev?UPC:DNC;
     series[0].endLabel={show:true,formatter:p=>(+p.value).toFixed(2),
@@ -1374,14 +1380,6 @@ function drawIntra(domId,d){
       fontSize:11.5,fontWeight:700,fontFamily:'IBM Plex Mono,monospace',
       offset:[6,0]};
     series[0].labelLayout={moveOverlap:'shiftY'};
-    pulseIdx=series.length;
-    series.push({name:'現價',type:'effectScatter',xAxisIndex:0,yAxisIndex:0,
-      z:9,symbolSize:6.5,
-      rippleEffect:{period:2.4,scale:3.6,brushType:'stroke'},
-      itemStyle:{color:col,shadowBlur:6,shadowColor:col},
-      tooltip:{show:false},
-      data:[[li,+(+lv).toFixed(2)]],
-      animation:true});
   }
   ch.setOption({backgroundColor:'transparent',
     animation:true,animationDuration:0,animationDurationUpdate:0,
@@ -1389,7 +1387,29 @@ function drawIntra(domId,d){
     tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,
       textStyle:{color:CT.ttText,fontSize:12}},
     grid:grids,xAxis:xAxes,yAxis:yAxes,series});
-  return {ch,disp:series[0].data,prev:d.prev,pulseIdx};
+  const ctx={ch,box,disp:series[0].data,prev:d.prev,lastIdx:li};
+  if(live)liveDot(ctx,li,d.c[li]);
+  else{const e=box.querySelector('.live-dot');if(e)e.remove();}
+  return ctx;
+}
+/* CSS 呼吸光點:與圖表更新解耦,盤中恆亮直到收盤 */
+function liveDot(ctx,i,val){
+  if(!ctx||!ctx.ch||!ctx.box)return;
+  try{
+    const p=ctx.ch.convertToPixel({seriesIndex:0},[i,+val]);
+    if(!p||!isFinite(p[0]))return;
+    let el=ctx.box.querySelector('.live-dot');
+    if(!el){
+      el=document.createElement('div');
+      el.className='live-dot';
+      if(getComputedStyle(ctx.box).position==='static')ctx.box.style.position='relative';
+      ctx.box.appendChild(el);
+    }
+    el.classList.toggle('up',val>=ctx.prev);
+    el.classList.toggle('dn',val<ctx.prev);
+    el.style.left=p[0]+'px';
+    el.style.top=p[1]+'px';
+  }catch(e){}
 }
 /* 即時縫合:MIS 每10秒的最新價直接推動走勢圖線尾 */
 function pokeChart(ctx,price,statEl,unitFix){
@@ -1399,15 +1419,8 @@ function pokeChart(ctx,price,statEl,unitFix){
   if(i<0)return;
   const pv=+(+price).toFixed(unitFix??2);
   ctx.disp[i]=pv;
-  try{
-    const upd=[{data:ctx.disp}];
-    if(ctx.pulseIdx>0){
-      for(let k=upd.length;k<ctx.pulseIdx;k++)upd.push({});
-      const col=ctx.prev?(pv>=ctx.prev?UPC:DNC):UPC;
-      upd.push({data:[[i,pv]],itemStyle:{color:col,shadowColor:col}});
-    }
-    ctx.ch.setOption({series:upd});
-  }catch(e){}
+  try{ctx.ch.setOption({series:[{data:ctx.disp}]});}catch(e){}
+  liveDot(ctx,i,pv);
   if(statEl){
     const el=document.getElementById(statEl);
     if(el&&ctx.prev){
@@ -1737,7 +1750,7 @@ function accPush(key,last,y){
   if(y>0&&!acc.prev)acc.prev=y;
   const now=Math.floor(Date.now()/1000);
   const i=acc.t.length-1;
-  if(i<0||now-acc.t[i]>=25){
+  if(i<0||now-acc.t[i]>=(acc.t.length<3?8:25)){
     acc.t.push(now);acc.c.push(+(+last).toFixed(2));acc.v.push(0);
     try{localStorage.setItem(key+'_acc',JSON.stringify({d:tpDay(now),t:acc.t,c:acc.c,prev:acc.prev}));}catch(e){}
     if(IDX.sel===key)drawIdxSel();
@@ -2059,11 +2072,35 @@ setTimeout(refreshRisk,2000);
 setInterval(refreshRisk,60000);
 
 /* ── 個股即時走勢(個股頁載入,60秒更新)── */
+function intraStatTxt(s,extra){
+  const px=s.price!=null?s.price:'—';
+  const cg=s.chg!=null?` <span class="${s.chg>=0?'pos':'neg'}">${s.chg>=0?'▲':'▼'} ${Math.abs(s.chg).toFixed(2)}%</span>`:'';
+  return `<b style="font-family:var(--mono)">${px}</b>${cg}${extra?' · '+extra:''}`;
+}
+async function seedStk(s){
+  // 開頁即刻抓一筆即時報價當種子(不等 10 秒輪),圖更快出現
+  try{
+    const arr=await fetchMIS([`${s.ex==='otc'?'otc':'tse'}_${s.id}.tw`]);
+    const m=(arr||[])[0];
+    if(!m)return;
+    const last=rtPx(m),y=parseFloat(m.y);
+    if(!last)return;
+    s.price=+last.toFixed(2);
+    if(y>0)s.chg=+(((last-y)/y)*100).toFixed(2);
+    stkAccPush(s.id,last,y);
+    try{candleFromMIS(s.id,m,last);}catch(e){}
+    const st=document.getElementById('intraStat');
+    if(st&&location.hash===KHASH)st.innerHTML=intraStatTxt(s);
+  }catch(e){}
+}
 async function loadIntraDetail(s,accOnly){
   const box=document.getElementById('intraChart');
   if(!box)return;
   const sym=s.market==='TW'?`${s.id}.${s.ex==='otc'?'TWO':'TW'}`:s.id;
   const isTW0=s.market==='TW';
+  const stat0=document.getElementById('intraStat');
+  if(stat0&&!accOnly)stat0.innerHTML=intraStatTxt(s);   // 漲跌幅立即顯示,不等圖
+  if(isTW0&&marketOpen()&&stkAcc(s.id).c.length<2&&!accOnly)seedStk(s);
   let d=accOnly?null:await yChart(sym);
   const stat=document.getElementById('intraStat');
   const fl=document.getElementById('intraFlow');
@@ -2086,7 +2123,7 @@ async function loadIntraDetail(s,accOnly){
       if(acc.c.length>=2){d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev||((d&&d.prev)||null)};window.__stkToday=true;}
       else{
         window.__stkToday=false;
-        if(stat)stat.textContent='今日走勢即時累積中,約 30 秒後出現(來源延遲時自動改用證交所即時報價)';
+        if(stat)stat.innerHTML=intraStatTxt(s,'走勢累積中(約20秒)');
         return;
       }
     }else{
@@ -2101,7 +2138,7 @@ async function loadIntraDetail(s,accOnly){
   const isTW=s.market==='TW';
   const vTxt=isTW?`總量 ${(totV/1000).toLocaleString(undefined,{maximumFractionDigits:0})} 張${yv?` · 為昨量 ${Math.round(totV/1000/yv*100)}%`:''}`
                  :`Vol ${(totV/1e6).toFixed(1)}M`;
-  if(stat)stat.textContent=vTxt;
+  if(stat)stat.innerHTML=intraStatTxt(s,vTxt);
   RT.intra=drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
   if(fl)fl.innerHTML=flowHTML(d,isTW?'張':'股');
@@ -2131,7 +2168,7 @@ function stkAccPush(id,last,y){
   if(y>0&&!a.prev)a.prev=y;
   const now=Math.floor(Date.now()/1000);
   const i=a.t.length-1;
-  if(i<0||now-a.t[i]>=25){
+  if(i<0||now-a.t[i]>=(a.t.length<3?8:25)){
     a.t.push(now);a.c.push(+(+last).toFixed(2));a.v.push(0);
     if(location.hash==='#stock/'+id&&!window.__stkToday)loadIntraDetail(DATA.stocks.find(x=>x.id===id),true);
   }else a.c[a.c.length-1]=+(+last).toFixed(2);
@@ -2426,6 +2463,13 @@ async function rtTick(){
       if(s.market==='TW'){try{stkAccPush(s.id,last,parseFloat(m.y));}catch(e){}}
       try{liveKBar(s.id);}catch(e){}
       if(RT.intra&&RT.intra.id===s.id&&window.__stkToday)pokeChart(RT.intra,last);
+      if(location.hash==='#stock/'+s.id){
+        const st=document.getElementById('intraStat');
+        if(st){
+          const keep=(st.innerHTML.split(' · ').slice(1)||[]).join(' · ');
+          st.innerHTML=intraStatTxt(s,keep||null);
+        }
+      }
     }
   });
   if(!n)return;
