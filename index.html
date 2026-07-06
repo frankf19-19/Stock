@@ -1308,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r71</span>');
+  diag.push('<span style="color:var(--dim)">build r72</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5065,6 +5065,21 @@ async function showFutDetail(){
       <h2 style="font-size:24px;font-weight:900">台指期籌碼|法人・十大・散戶 <span class="c-sector">${f?f.d:''}</span></h2>
       <div class="c-full" style="margin-top:4px">未平倉=留在市場過夜的部位,是「用真金白銀表態」的多空看法。</div>
     </div></div>
+    ${(()=>{if(!f||!f.h)return '';
+      const h=f.h;
+      const Lp=k=>{const a=h[k]||[];let i=a.length-1;while(i>=0&&a[i]==null)i--;
+        if(i<0)return null;
+        let j=i-1;while(j>=0&&a[j]==null)j--;
+        return [a[i],j>=0?a[i]-a[j]:null];};
+      const chip=(nm,pr,inv)=>{if(!pr)return '';
+        const v=pr[0],c=pr[1];
+        const good=inv?v<0:v>=0;
+        return `<div class="idx-card"><div class="nm">${nm}</div>
+          <div class="vl ${good?'pos':'neg'}" style="font-size:19px">${v>=0?'+':''}${v.toLocaleString()}</div>
+          <div class="ch" style="color:var(--dim)">${c!=null?`${c>=0?'+':''}${c.toLocaleString()} vs 前日`:'—'}</div></div>`;};
+      const row=[chip('外資',Lp('fx')),chip('投信',Lp('it')),chip('自營商',Lp('dl')),
+                 chip('十大交易人',Lp('b10')),chip('十大特定法人',Lp('sp')),chip('散戶小台(反指標)',Lp('rt'),true)].join('');
+      return row?`<div class="idx-row compact" style="margin-bottom:14px">${row}</div>`:'';})()}
     ${!f||!f.h?'<div class="dim-block"><div class="dim-note">期貨籌碼資料尚未產生——執行每日自動更新(Actions)後,這裡會有 60 日歷史圖與規則化判讀。</div></div>':`
     <div class="chart-box"><h3 style="font-size:14px">三大法人 台指期淨未平倉(口)</h3><div id="futC1" style="height:280px"></div></div>
     <div class="chart-box"><h3 style="font-size:14px">十大交易人 vs 十大特定法人 淨部位</h3><div id="futC2" style="height:250px"></div></div>

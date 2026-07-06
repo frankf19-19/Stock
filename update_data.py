@@ -661,9 +661,15 @@ def _taifex_csv_fallback():
         except Exception:
             pass
         time.sleep(0.4)
-    # 大額交易人
+    # 大額交易人(回填 45 個交易日,含特定法人獨立列)
+    dates2 = []
+    d0 = today
+    while len(dates2) < 45:
+        if d0.weekday() < 5:
+            dates2.append(d0.strftime("%Y/%m/%d"))
+        d0 -= dt.timedelta(days=1)
     ok2 = 0
-    for qd in dates:
+    for qd in dates2:
         try:
             rows = dl("https://www.taifex.com.tw/cht/3/largeTraderFutDown",
                      {"queryStartDate": qd, "queryEndDate": qd})
@@ -674,14 +680,21 @@ def _taifex_csv_fallback():
                 return next((i for i, h in enumerate(hdr) if all(n in h for n in ns)), None)
             ci_d, ci_c, ci_m = col("日期"), col("契約"), col("月份") if col("月份") is not None else col("週別")
             ci_b = col("十大", "買方"); ci_s = col("十大", "賣方")
-            if None in (ci_d, ci_c, ci_b, ci_s): continue
+            ci_t = col("類別")   # 「交易人類別」欄:全部/特定法人 各一列
+            if None in (ci_d, ci_c, ci_b, ci_s):
+                if ok2 == 0 and qd == dates2[0]:
+                    print(f"  [debug] 大額表頭:{hdr[:12]}")
+                continue
             import re as _r2
             def num(v):
                 m = _r2.match(r"\s*\"?([\d,]+)", str(v))
                 return int(m.group(1).replace(",", "")) if m else 0
             def spec(v):
                 m = _r2.search(r"\(([\d,]+)\)", str(v))
-                return int(m.group(1).replace(",", "")) if m else None
+                if not m: return None
+                inner = m.group(1)
+                if "%" in str(v) or "." in inner: return None   # 百分比,不是口數
+                return int(inner.replace(",", ""))
             for r0 in rows[1:]:
                 if len(r0) <= max(ci_b, ci_s): continue
                 if "TX" != r0[ci_c].strip() and "臺股期貨" not in r0[ci_c]: continue
@@ -689,14 +702,20 @@ def _taifex_csv_fallback():
                 if not ("999999" in mv or "所有" in mv or "全部" in mv): continue
                 dte = r0[ci_d].strip()
                 e = day.setdefault(dte, {})
-                e["b10"] = num(r0[ci_b]) - num(r0[ci_s])
-                sb, ss = spec(r0[ci_b]), spec(r0[ci_s])
-                if sb is not None and ss is not None: e["sp"] = sb - ss
+                net10 = num(r0[ci_b]) - num(r0[ci_s])
+                kind = r0[ci_t].strip() if (ci_t is not None and len(r0) > ci_t) else ""
+                if "特定" in kind:
+                    e["sp"] = net10          # 特定法人獨立列
+                else:
+                    e["b10"] = net10         # 全部十大
+                    sb, ss = spec(r0[ci_b]), spec(r0[ci_s])
+                    if sb is not None and ss is not None and e.get("sp") is None:
+                        e["sp"] = sb - ss    # 舊版括號格式相容
             ok2 += 1
         except Exception:
             pass
         time.sleep(0.4)
-    print(f"  [info] 傳統端點回填:法人 {ok1}/10 日、大額 {ok2}/10 日")
+    print(f"  [info] 傳統端點回填:法人 {ok1}/{len(dates)} 日、大額 {ok2}/{len(dates2)} 日")
     return day
 
 def fetch_taifex(prev_fut=None):
