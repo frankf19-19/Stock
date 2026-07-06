@@ -1271,7 +1271,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r47</span>');
+  diag.push('<span style="color:var(--dim)">build r48</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2702,7 +2702,26 @@ const ITV_ZH={'1d':'日K','1wk':'週K','1mo':'月K'};
 async function applyKView(s){
   const key=`${s.id}|${kView.rng}|${kView.itv}`;
   let data;
-  if(kView.rng==='6mo'&&kView.itv==='1d'&&baseK)data=baseK;
+  if(kView.rng==='6mo'&&kView.itv==='1d'&&baseK){
+    data=baseK;
+    // 背景抓 2 年:MA120/240 需要更長歷史;抓到後無感升級(視窗仍聚焦近 6 個月)
+    if(!baseK.__up){
+      baseK.__up=1;
+      (async()=>{
+        const d2=KVC[s.id+'|2y|1d']||await yOHLC(s,'2y','1d');
+        if(d2&&d2.ohlc&&d2.ohlc.length>baseK.ohlc.length+40){
+          KVC[s.id+'|2y|1d']=d2;
+          if(location.hash===KHASH&&kView.rng==='6mo'&&kView.itv==='1d'){
+            curOhlc=d2.ohlc;curDates=d2.dates;
+            window.__kZoomBars=135;
+            window.__kSig='';   // 資料替換:允許套用新的預設縮放
+            try{drawKChart();}catch(e){}
+          }
+        }
+      })();
+    }
+    window.__kZoomBars=null;
+  }
   else if(KVC[key])data=KVC[key];
   else{
     const box=document.getElementById('kbox');
@@ -2850,7 +2869,7 @@ function kChartBoxHTML(){
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="dim-note" style="margin:2px 0 8px">「全部」=有資料以來完整歷史 · 點圖例可開關 MA5~MA240(120/240 預設隱藏) · 滾輪/滑桿縮放<span id="kBoxNote"></span></div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=有資料以來完整歷史 · MA5~MA240 全數預設顯示(點圖例可開關) · 滾輪/滑桿縮放<span id="kBoxNote"></span></div>
       <div id="kbox" style="height:560px"></div>
     </div>`;
 }
@@ -2877,7 +2896,9 @@ function drawKChart(){
   window.__kRestore={zoom:keepZoom,legend:keepLegend};
   const o=curOhlc, closes=o.map(x=>x[3]);
   const isDay=kView.itv==='1d';
-  const zs=o.length>1500?88:o.length>600?70:30;   // 長天期預設看最近一段,滑桿可拉全程
+  let zs=o.length>1500?88:o.length>600?70:30;     // 長天期預設看最近一段,滑桿可拉全程
+  if(window.__kZoomBars&&o.length>window.__kZoomBars)
+    zs=Math.max(0,Math.round((1-window.__kZoomBars/o.length)*100));
   const maCfg=[['MA5',5,'#E8B44A'],['MA10',10,'#7FB4FF'],['MA20',20,'#C792EA'],['MA60',60,CT.ma60],
                ['MA120',120,'#FF8FB0'],['MA240',240,'#5BD9C0']];
   const maSeries=maCfg.map(([nm,p,col])=>({name:nm,type:'line',xAxisIndex:0,yAxisIndex:0,
@@ -2901,7 +2922,7 @@ function drawKChart(){
     textStyle:{fontFamily:'IBM Plex Mono,monospace'},
     legend:{top:0,textStyle:{color:CT.legend,fontSize:11},
       data:['K線',...maCfg.map(m=>m[0])],inactiveColor:CT.inactive,
-      selected:{MA120:false,MA240:false}},
+      selected:{}},
     tooltip:{trigger:'axis',axisPointer:{type:'cross'},
       backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
     axisPointer:{link:[{xAxisIndex:'all'}]},
