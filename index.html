@@ -1696,14 +1696,33 @@ async function renderIdxAnalysis(d){
 
 /* ══ 大盤+櫃買 即時監測:走勢/防守線/破線警示 ══ */
 const IDX={sel:'tw',d:{},lv:{},last:{},otcSyms:['^TWOII','^TWO']};
-const OTCACC={t:[],c:[],v:[],prev:null};   // 櫃買分線備援:即時報價逐點累積(當日持久化)
-try{
-  const sv=JSON.parse(localStorage.getItem('otc_acc')||'null');
-  const td=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);
-  if(sv&&sv.d===td&&Array.isArray(sv.c)&&sv.c.length){
-    OTCACC.t=sv.t;OTCACC.c=sv.c;OTCACC.v=sv.c.map(()=>0);OTCACC.prev=sv.prev;
+const TWACC={t:[],c:[],v:[],prev:null};    // 加權分線:即時報價逐點累積(當日持久化)
+const OTCACC={t:[],c:[],v:[],prev:null};   // 櫃買分線:即時報價逐點累積(當日持久化)
+function tpDay(ts){return new Date(new Date(ts*1000).toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);}
+function accOf(key){return key==='tw'?TWACC:OTCACC;}
+function accPush(key,last,y){
+  const acc=accOf(key);
+  if(y>0&&!acc.prev)acc.prev=y;
+  const now=Math.floor(Date.now()/1000);
+  const i=acc.t.length-1;
+  if(i<0||now-acc.t[i]>=55){
+    acc.t.push(now);acc.c.push(+(+last).toFixed(2));acc.v.push(0);
+    try{localStorage.setItem(key+'_acc',JSON.stringify({d:tpDay(now),t:acc.t,c:acc.c,prev:acc.prev}));}catch(e){}
+    if(IDX.sel===key)drawIdxSel();
+  }else{
+    acc.c[acc.c.length-1]=+(+last).toFixed(2);
   }
-}catch(e){}
+}
+['tw','otc'].forEach(k=>{
+  try{
+    const sv=JSON.parse(localStorage.getItem(k+'_acc')||'null');
+    if(sv&&sv.d===tpDay(Date.now()/1000)&&Array.isArray(sv.c)&&sv.c.length){
+      const acc=accOf(k);
+      acc.t=sv.t;acc.c=sv.c;acc.v=sv.c.map(()=>0);acc.prev=sv.prev;
+    }
+  }catch(e){}
+});
+
 const IDX_NM={tw:'加權指數',otc:'櫃買指數',sp:'S&P 500',nq:'那斯達克'};
 const IDX_SYM={sp:'^GSPC',nq:'^IXIC'};
 async function idxLevels(key){
@@ -1761,28 +1780,32 @@ async function loadUSIdx(key){
   }
 }
 setInterval(()=>{if(IDX.sel==='sp'||IDX.sel==='nq')loadUSIdx(IDX.sel);},60000);
-function liveAppend(key,last){
-  // 即時報價「長」到分線尾端:每滿60秒補一個新點,線會即時延伸
-  const d=IDX.d[key];
-  if(!d||d.approx||!Array.isArray(d.t))return;
-  const now=Math.floor(Date.now()/1000);
-  let i=d.t.length-1;
-  if(i<0)return;
-  if(now-d.t[i]>=60){
-    d.t.push(now);d.c.push(+(+last).toFixed(2));
-    if(Array.isArray(d.v))d.v.push(0);
-    if(IDX.sel===key)drawIdxSel();
-  }else{
-    // 同一分鐘內:更新最後一點的值
-    let j=d.c.length-1;
-    while(j>=0&&d.c[j]==null)j--;
-    if(j>=0)d.c[j]=+(+last).toFixed(2);
+function idxPick(key){
+  const yd=IDX.d[key];
+  if(key==='sp'||key==='nq')return yd;                 // 美股:直接用 Yahoo
+  const acc=accOf(key);
+  const today=tpDay(Date.now()/1000);
+  const ydFresh=yd&&!yd.approx&&Array.isArray(yd.t)&&yd.t.length
+    &&tpDay(yd.t[yd.t.length-1])===today;
+  if(ydFresh){
+    // Yahoo 已是今天:把累積中比它更新的點「複製」接上(不改原資料,跨日不可能混)
+    if(acc.c.length){
+      const lastT=yd.t[yd.t.length-1];
+      const t=[...yd.t],c=[...yd.c],v=Array.isArray(yd.v)?[...yd.v]:null;
+      for(let i=0;i<acc.t.length;i++)
+        if(acc.t[i]>lastT+30){t.push(acc.t[i]);c.push(acc.c[i]);if(v)v.push(0);}
+      return {t,c,v:v||yd.v,prev:yd.prev};
+    }
+    return yd;
   }
+  if(marketOpen()&&acc.c.length>=2)return acc;          // 盤中且 Yahoo 還是昨天 → 用即時累積(今天的真資料)
+  if(yd)return yd;                                      // 收盤時段:顯示最近完整一日
+  if(acc.c.length>=2)return acc;
+  return null;
 }
 function drawIdxSel(){
-  let d=IDX.d[IDX.sel];
-  if((IDX.sel==='sp'||IDX.sel==='nq')&&!d){loadUSIdx(IDX.sel);}
-  if(IDX.sel==='otc'&&OTCACC.c.length>=30&&(!d||d.approx))d=OTCACC;  // 真實報價累積夠多就用真的
+  if((IDX.sel==='sp'||IDX.sel==='nq')&&!IDX.d[IDX.sel]){loadUSIdx(IDX.sel);}
+  let d=idxPick(IDX.sel);
   const title=document.getElementById('idxTitle');
   if(title)title.textContent=`${IDX_NM[IDX.sel]} 即時走勢(1分線)`;
   const stat=document.getElementById('idxStat');
@@ -2200,15 +2223,9 @@ async function rtTick(){
         const v=document.getElementById('otcVal'),c2=document.getElementById('otcChg');
         if(v)v.textContent=Number(last.toFixed(2)).toLocaleString();
         if(c2)c2.innerHTML=chgHtml(chg);
-        OTCACC.prev=y>0?y:OTCACC.prev;
-        const now=Math.floor(Date.now()/1000);
-        if(!OTCACC.t.length||now-OTCACC.t[OTCACC.t.length-1]>=50){
-          OTCACC.t.push(now);OTCACC.c.push(last);OTCACC.v.push(0);
-          try{localStorage.setItem('otc_acc',JSON.stringify({d:new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10),t:OTCACC.t,c:OTCACC.c,prev:OTCACC.prev}));}catch(e){}
-          if(IDX.sel==='otc'&&(!IDX.d.otc||IDX.d.otc.approx))drawIdxSel();
-        }
+
       }
-      liveAppend(key,last);
+      try{accPush(key,last,y);}catch(e){}
       if(key===IDX.sel)pokeChart(RT.idx,last,'idxStat');
       try{idxWatch(key,last,chg);}catch(e){}
       return;
