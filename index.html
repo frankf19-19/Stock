@@ -1271,7 +1271,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股10秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r50</span>');
+  diag.push('<span style="color:var(--dim)">build r51</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1365,7 +1365,7 @@ function drawIntra(domId,d){
   }
   // 「活的」走勢(最後一點在20分鐘內)→ 線尾顯示現價標籤 + 呼吸光點
   let li=d.c.length-1;while(li>=0&&d.c[li]==null)li--;
-  const live=li>=0&&d.t&&d.t[li]&&(Date.now()/1000-d.t[li])<=20*60;
+  const live=li>=0&&d.t&&d.t[li]&&(Date.now()/1000-d.t[li])<=35*60;
   let pulseIdx=-1;
   if(live){
     const lv=d.c[li],col=lv>=d.prev?UPC:DNC;
@@ -1383,7 +1383,8 @@ function drawIntra(domId,d){
       data:[[li,+(+lv).toFixed(2)]],
       animation:true});
   }
-  ch.setOption({backgroundColor:'transparent',animation:false,
+  ch.setOption({backgroundColor:'transparent',
+    animation:true,animationDuration:0,animationDurationUpdate:0,
     textStyle:{fontFamily:'IBM Plex Mono,monospace'},
     tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,
       textStyle:{color:CT.ttText,fontSize:12}},
