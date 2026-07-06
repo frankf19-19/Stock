@@ -268,6 +268,8 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .fav-tg{cursor:pointer;font-size:19px;color:var(--dim);transition:color .15s,transform .1s;user-select:none;line-height:1}
 .fav-tg:hover{transform:scale(1.15)}
 .fav-tg.on{color:var(--amber)}
+.ps-card{cursor:pointer;transition:border-color .15s}
+.ps-card:hover{border-color:var(--amber)}
 .fav-empty{color:var(--mut);font-size:13px;padding:14px 16px;background:var(--panel);border:1px dashed var(--line);border-radius:10px}
 .idx-def{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--txt2);background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin-top:8px}
 .idx-def b{font-family:var(--mono);font-weight:600}
@@ -1241,7 +1243,9 @@ function ensureOtcCard(){
   const el=document.createElement('div');
   el.className='idx-card';
   el.dataset.mk='otc';
-  el.innerHTML='<div class="nm">櫃買指數</div><div class="vl" id="otcVal">—</div><div class="ch" id="otcChg">—</div>';
+  const lv=IDX.last&&IDX.last.otc,pv=(typeof OTCACC!=='undefined'&&OTCACC.prev)||null;
+  const c0=lv&&pv?+(((lv-pv)/pv)*100).toFixed(2):null;
+  el.innerHTML=`<div class="nm">櫃買指數</div><div class="vl" id="otcVal">${lv?Number((+lv).toFixed(2)).toLocaleString():'—'}</div><div class="ch" id="otcChg">${c0!=null?chgHtml(c0):'—'}</div>`;
   const first=row.firstElementChild;
   if(first&&first.nextSibling)row.insertBefore(el,first.nextSibling);else row.appendChild(el);
 }
@@ -1284,7 +1288,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r59</span>');
+  diag.push('<span style="color:var(--dim)">build r63</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2083,6 +2087,38 @@ function intraStatTxt(s,extra){
   const cg=s.chg!=null?` <span class="${s.chg>=0?'pos':'neg'}">${s.chg>=0?'▲':'▼'} ${Math.abs(s.chg).toFixed(2)}%</span>`:'';
   return `<b style="font-family:var(--mono)">${px}</b>${cg}${extra?' · '+extra:''}`;
 }
+let STK_TIMER=null;
+function stkLiveStart(s){
+  stkLiveStop();
+  if(s.market!=='TW')return;
+  const tick=async()=>{
+    if(location.hash!=='#stock/'+s.id){stkLiveStop();return;}
+    if(!marketOpen())return;
+    try{
+      const arr=await fetchMIS([`${s.ex==='otc'?'otc':'tse'}_${s.id}.tw`]);
+      const m=(arr||[])[0];
+      if(!m)return;
+      const last=rtPx(m),y=parseFloat(m.y);
+      if(!last)return;
+      // 單一事實來源:同筆報價更新所有元件
+      s.price=+last.toFixed(2);
+      if(y>0)s.chg=+(((last-y)/y)*100).toFixed(2);
+      stkAccPush(s.id,last,y);
+      try{candleFromMIS(s.id,m,last);}catch(e){}
+      try{liveKBar(s.id);}catch(e){}
+      if(RT.intra&&RT.intra.id===s.id&&window.__stkToday)pokeChart(RT.intra,last);
+      const st=document.getElementById('intraStat');
+      if(st){
+        const keep=(st.innerHTML.split(' · ').slice(1)||[]).join(' · ');
+        st.innerHTML=intraStatTxt(s,keep||null);
+      }
+      try{alertCheck(s,m,last);}catch(e){}
+    }catch(e){}
+  };
+  tick();
+  STK_TIMER=setInterval(tick,6000);
+}
+function stkLiveStop(){if(STK_TIMER){clearInterval(STK_TIMER);STK_TIMER=null;}}
 async function seedStk(s){
   // 開頁即刻抓一筆即時報價當種子(不等 10 秒輪),圖更快出現
   try{
@@ -2112,7 +2148,7 @@ async function loadIntraDetail(s,accOnly){
       if(location.hash===KHASH&&stkAcc(s.id).c.length>=2)loadIntraDetail(s,true);
     });},8500);
   }
-  let d=accOnly?null:await yChart(sym);
+  let d=accOnly?null:(await yChart(sym)||await yChart(sym,'1d','5m'));
   const stat=document.getElementById('intraStat');
   const fl=document.getElementById('intraFlow');
   if(location.hash!==KHASH)return;
@@ -2394,9 +2430,11 @@ function rtPx(m){
 }
 /* 捲動位置保持:資料重繪不打斷閱讀 */
 function keepScroll(fn){
+  if(window.__navScrollTs&&Date.now()-window.__navScrollTs<8000){try{fn();}catch(e){}return;}
   const y=window.scrollY,x=window.scrollX;
   try{fn();}finally{
     requestAnimationFrame(()=>{
+      if(window.__navScrollTs&&Date.now()-window.__navScrollTs<8000)return;
       if(Math.abs(window.scrollY-y)>2||Math.abs(window.scrollX-x)>2)
         window.scrollTo({top:y,left:x,behavior:'instant'});
       requestAnimationFrame(()=>{
@@ -2418,13 +2456,13 @@ async function rtTick(){
     RT.cursor=(RT.cursor+130)%allTW.length;
   }
   const exOf=id=>{const s=DATA.stocks.find(x=>x.id===id);return (s&&s.ex==='otc')?'otc':'tse';};
-  const chans=['tse_t00.tw',OTC_CH,...ids.map(id=>`${exOf(id)}_${id}.tw`)];
-  let arr=[];
-  for(let i=0;i<chans.length;i+=45){
-    const part=await fetchMIS(chans.slice(i,i+45));
-    if(!part){arr=null;break;}
-    arr=arr.concat(part);
-  }
+  const stockChans=ids.map(id=>`${exOf(id)}_${id}.tw`);
+  const reqs=[fetchMIS(['tse_t00.tw',OTC_CH])];   // 指數獨立請求:不與股票混批,保證每輪必到
+  for(let i=0;i<stockChans.length;i+=45)reqs.push(fetchMIS(stockChans.slice(i,i+45)));
+  const parts=await Promise.all(reqs);            // 全部並行:一輪只花最慢那一趟的時間
+  let arr=[],okN=0;
+  parts.forEach(p=>{if(p){arr=arr.concat(p);okN++;}});
+  if(!okN)arr=null;
   if(!arr||!arr.length)return; // 通道暫時不通:維持5分鐘機制,不吵使用者
   let n=0;
   arr.forEach(m=>{
@@ -2914,7 +2952,7 @@ function liveKBar(idOrKey){
     curDates.push(today);curOhlc.push(bar);
   }
   const now=Date.now();
-  if(window.__kZoomTs&&now-window.__kZoomTs<4000)return;   // 正在縮放:重繪讓路
+  if(window.__kZoomTs&&now-window.__kZoomTs<10000)return;  // 正在縮放:重繪讓路10秒
   if(now-__kbarLast>=8000){    // 8秒重繪一次:日K今日棒即時呼吸
     __kbarLast=now;
     try{drawKChart();}catch(e){}
@@ -2998,8 +3036,21 @@ function drawKChart(){
   const o=curOhlc, closes=o.map(x=>x[3]);
   const isDay=kView.itv==='1d';
   let zs=o.length>1500?88:o.length>600?70:0;      // ≤2年全程顯示;更長天期預設看最近一段
+  let ze=100;
   if(window.__kZoomBars&&o.length>window.__kZoomBars)
     zs=Math.max(0,Math.round((1-window.__kZoomBars/o.length)*100));
+  // 使用者的縮放視窗(日期錨點)直接烘進圖表設定:重繪瞬間就在原視窗,無重置窗口期
+  const zsav=window.__kZoomSaved;
+  if(zsav&&zsav.sig===window.__kSig&&curDates&&curDates.length>1){
+    let i1=curDates.indexOf(zsav.ds),i2=curDates.indexOf(zsav.de);
+    if(i1<0)i1=0;
+    if(i2<0)i2=curDates.length-1;
+    if(i2>i1+1){
+      const n=curDates.length-1;
+      zs=Math.max(0,Math.min(100,+(i1/n*100).toFixed(3)));
+      ze=Math.max(0,Math.min(100,+(i2/n*100).toFixed(3)));
+    }
+  }
   const maCfg=[['MA5',5,'#E8B44A'],['MA10',10,'#7FB4FF'],['MA20',20,'#C792EA'],['MA60',60,CT.ma60],
                ['MA120',120,'#FF8FB0'],['MA240',240,'#5BD9C0']];
   const maSeries=maCfg.map(([nm,p,col])=>({name:nm,type:'line',xAxisIndex:0,yAxisIndex:0,
@@ -3038,8 +3089,8 @@ function drawKChart(){
       {gridIndex:1,scale:true,axisLabel:{show:false},splitLine:{show:false}},
       {gridIndex:2,scale:true,axisLabel:{color:CT.axis,fontSize:10},
         splitLine:{lineStyle:{color:CT.split}}}],
-    dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:zs,end:100},
-      {type:'slider',xAxisIndex:[0,1,2],bottom:6,height:18,start:zs,end:100,showDetail:false,
+    dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:zs,end:ze},
+      {type:'slider',xAxisIndex:[0,1,2],bottom:6,height:18,start:zs,end:ze,showDetail:false,
        borderColor:CT.border,fillerColor:hexA(cssVar('--amber'),.15),
        handleStyle:{color:cssVar('--amber')},textStyle:{color:CT.axis,fontSize:10}}],
     series:[{name:'K線',type:'candlestick',xAxisIndex:0,yAxisIndex:0,
@@ -3048,16 +3099,8 @@ function drawKChart(){
         ...((curLevels&&isDay)?(()=>{
           const ACC=cssVar('--amber');
   try{
-    const kr=window.__kRestore,zsav=window.__kZoomSaved;
+    const kr=window.__kRestore;
     if(kr&&kr.legend)chartInst.setOption({legend:{selected:kr.legend}});
-    if(zsav&&zsav.sig===kSig&&curDates&&curDates.length){
-      let i1=curDates.indexOf(zsav.ds),i2=curDates.indexOf(zsav.de);
-      if(i1<0)i1=0;
-      if(i2<0)i2=curDates.length-1;
-      if(i2>i1)chartInst.dispatchAction({type:'dataZoom',startValue:i1,endValue:i2});
-    }else if(kr&&kr.zoom){
-      chartInst.dispatchAction({type:'dataZoom',start:kr.zoom.start,end:kr.zoom.end});
-    }
     window.__kRestore=null;
   }catch(e){}
           // 徽章式標籤:帶底色/邊框,任何主題都清楚可讀
@@ -3268,6 +3311,7 @@ async function showDetail(id){
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
   kView={rng:'2y',itv:'1d'}; baseK=k; KHASH='#stock/'+s.id;
+  try{stkLiveStart(s);}catch(e){}
   curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
   window.__kBox=boxDetect(k.ohlc,0.10);
   const lv=curLevels;
@@ -3331,6 +3375,7 @@ async function showDetail(id){
   },30000);
 }
 function route(){
+  if(!location.hash.startsWith('#stock/'))try{stkLiveStop();}catch(e){}
   if(location.hash.startsWith('#stock/')) showDetail(decodeURIComponent(location.hash.slice(7)));
   else if(location.hash.startsWith('#macro/')) showMacroDetail(decodeURIComponent(location.hash.slice(7)));
   else if(location.hash==='#fav') showFavPage();
@@ -3411,14 +3456,15 @@ function renderPulse(){
   }).sort((a,b)=>b.avg-a.avg);
   secBox.innerHTML=rows.length?rows.slice(0,6).map((r,i)=>
     `<div class="idx-card ps-card" data-sec="${r.sec}" tabindex="0" role="button" aria-label="查看${r.sec}">
-      <div class="nm">${i===0?'🔥 ':''}${r.sec}</div>
+      <div class="nm">${i===0?'🔥 ':''}${r.sec}${String(r.sec).startsWith('美股')?' <span class="c-code" title="美股個股為前日收盤資料">盤後</span>':''} <span style="color:var(--dim)">›</span></div>
       <div class="vl">${chgHtml(+r.avg.toFixed(2))}</div>
       <div class="lead">上漲 ${r.up}/${r.n} · 領漲 ${r.lead.name} ${r.lead.chg>0?'+':''}${r.lead.chg}%</div>
     </div>`).join('')
     :'<div class="idx-card"><div class="nm">尚無報價資料,等資料更新後顯示</div></div>';
   secBox.querySelectorAll('.ps-card').forEach(c=>{
     const go=()=>{const sec=c.dataset.sec;
-      mkt=sec.startsWith('美股·')?'US':'TW'; sector=sec; page=1;
+      window.__navScrollTs=Date.now();   // 主動跳轉:重繪保持器讓路,不再被拉回
+      mkt=sec.startsWith('美股')?'US':'TW'; sector=sec; page=1;
       document.querySelectorAll('#mktSeg button').forEach(x=>x.classList.toggle('on',x.dataset.m===mkt));
       renderChips(); render();
       const t=document.getElementById('chips'); if(t) t.scrollIntoView({behavior:'smooth'});};
@@ -4889,6 +4935,7 @@ function futChart(dom,dates,series){
   });
 }
 async function showFutDetail(){
+  try{stkLiveStop();}catch(e){}
   const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
   disposeChipCharts();curChips=null;
   home.style.display='none';dv.style.display='block';
