@@ -1030,17 +1030,34 @@ def main():
             prev_all = json.load(_f)
     except Exception:
         pass
-    fut = fetch_taifex((prev_all.get("macro") or {}).get("fut"))
-    cob = fetch_cobasic()                    # 公司基本資料(全市場)
-    for s in stocks:
-        c = cob.get(s["id"])
-        if c:
-            s["co"] = {k: v for k, v in c.items() if v}
-    fetch_targets(stocks)                    # 分析師目標價+中文業務(重點個股)
+    # ══ 第一階段:核心保底——評分/K線/總經先寫出,今日資料保證上線 ══
     _macro = fetch_macro()
-    if fut: _macro["fut"] = fut
+    _news = fetch_news()
     out = {"updated": taipei, "source": "live",
-           "macro": _macro, "news": fetch_news(), "stocks": stocks}
+           "macro": _macro, "news": _news, "stocks": stocks}
+    with open("data.json", "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"  ✅ 核心資料已寫出(第一階段保底):{len(stocks)} 檔")
+    # ══ 第二階段:豐富化——任何一項爆掉都不影響核心 ══
+    try:
+        fut = fetch_taifex((prev_all.get("macro") or {}).get("fut"))
+        if fut: _macro["fut"] = fut
+    except Exception as e:
+        print(f"  [warn] 期貨籌碼跳過: {e}")
+    try:
+        cob = fetch_cobasic()
+        for s in stocks:
+            c = cob.get(s["id"])
+            if c:
+                s["co"] = {k: v for k, v in c.items() if v}
+    except Exception as e:
+        print(f"  [warn] 公司資料跳過: {e}")
+    try:
+        fetch_targets(stocks)
+    except Exception as e:
+        print(f"  [warn] 目標價/業務跳過: {e}")
+    out = {"updated": taipei, "source": "live",
+           "macro": _macro, "news": _news, "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     sz = os.path.getsize("data.json") // 1024

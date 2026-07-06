@@ -370,12 +370,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 .chip-sum dt{color:var(--mut);font-size:12px}
 .chip-sum dd{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:2px}
 
-/* ── AI 小幫手 ── */
-#aiFab{position:fixed;right:18px;bottom:18px;z-index:90;border:1px solid var(--line);
-  background:linear-gradient(135deg,var(--panel2),var(--panel));color:var(--amber);
-  font-family:var(--sans);font-weight:900;font-size:15px;letter-spacing:.05em;
-  padding:12px 18px;border-radius:26px;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.45)}
-#aiFab:hover{border-color:var(--amber)}
+/* ── AI 回答面板 ── */
 #aiPanel{position:fixed;right:18px;bottom:18px;z-index:95;width:392px;max-width:calc(100vw - 24px);
   height:600px;max-height:calc(100vh - 40px);display:flex;flex-direction:column;
   background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
@@ -562,8 +557,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 
   <div id="detailView" style="display:none"></div>
 
-  <!-- ── AI 小幫手(自帶 Anthropic API 金鑰,只存本機瀏覽器)── -->
-  <button id="aiFab" aria-label="開啟 AI 小幫手">✦ AI 小幫手</button>
+  <!-- ── AI 回答面板(由個股頁/小學堂的 AI 按鈕觸發;浮動按鈕已依需求移除)── -->
   <div id="aiPanel" hidden role="dialog" aria-label="AI 小幫手">
     <div class="ai-head">
       <b>✦ AI 小幫手</b><span class="ai-model" id="aiModelTag"></span>
@@ -1245,6 +1239,24 @@ async function refreshUS(){
 }
 setTimeout(refreshUS,2400);
 setInterval(refreshUS,60000);
+/* 匯率即時化:Yahoo FX 直連(er-api 免費版一天一值,僅作開站底圖) */
+const FX_LIVE=[['USDTWD','TWD=X',3],['JPYTWD','JPYTWD=X',4],['EURTWD','EURTWD=X',3],['USDJPY','JPY=X',2]];
+async function refreshFX(){
+  const fx=(DATA.macro||{}).fx;
+  if(!fx)return;
+  let hit=0;
+  for(const [key,sym,dp] of FX_LIVE){
+    const d=await yChart(sym,'1d','5m');
+    if(!d||!d.c)continue;
+    const last=[...d.c].reverse().find(x=>x!=null);
+    if(!last)continue;
+    fx[key]=+(+last).toFixed(dp);
+    hit++;
+  }
+  if(hit&&!location.hash)renderMacro();
+}
+setTimeout(refreshFX,3200);
+setInterval(refreshFX,60000);
 function ensureOtcCard(){
   const row=document.getElementById('idxRow');
   if(!row||document.getElementById('otcVal'))return;
@@ -1296,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r69</span>');
+  diag.push('<span style="color:var(--dim)">build r71</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
