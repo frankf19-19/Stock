@@ -570,6 +570,37 @@ def _put_margin(e, q, gm, om, nm, rv):
     e["nm"] = [m[x][2] for x in qs]
     e["qr"] = [m[x][3] for x in qs]
 
+def _finmind_fut(day):
+    """FinMind 期貨法人未平倉(TX 大台 + MTX 小台),一次取 90 天歷史。"""
+    start = (dt.datetime.now() - dt.timedelta(days=95)).strftime("%Y-%m-%d")
+    for pid in ("TX", "MTX"):
+        try:
+            j = get_json("https://api.finmindtrade.com/api/v4/data"
+                         f"?dataset=TaiwanFuturesInstitutionalInvestors&data_id={pid}&start_date={start}",
+                         timeout=40)
+            rows = j.get("data") if isinstance(j, dict) else (j if isinstance(j, list) else None)
+            if not rows:
+                print(f"  [warn] FinMind {pid}:無資料")
+                continue
+            for r in rows:
+                d0 = str(r.get("date", "")).replace("-", "/")
+                nm = str(r.get("institutional_investors") or r.get("name") or "")
+                try:
+                    net = int(float(r.get("long_open_interest_balance_volume", 0))) -                           int(float(r.get("short_open_interest_balance_volume", 0)))
+                except Exception:
+                    continue
+                e = day.setdefault(d0, {})
+                if pid == "TX":
+                    if "外資" in nm: e["fx"] = net
+                    elif "投信" in nm: e["it"] = net
+                    elif "自營" in nm: e["dl"] = net
+                else:
+                    if any(k in nm for k in ("外資", "投信", "自營")):
+                        e["mtx"] = e.get("mtx", 0) + net
+            print(f"  [info] FinMind {pid}:{len(rows)} 列")
+        except Exception as e2:
+            print(f"  [warn] FinMind {pid}: {e2}")
+
 def _taifex_csv_fallback():
     """期交所傳統下載端點:三大法人+大額交易人(近10個交易日回填)。"""
     day = {}
@@ -717,10 +748,26 @@ def fetch_taifex(prev_fut=None):
             if sb is not None and ss is not None: e["sp"] = sb - ss
     except Exception as e:
         print(f"  [warn] 十大交易人: {e}")
-    if not day:
-        # ── 備援:期交所傳統下載端點(CSV/中文欄位)──
-        print("  [info] OpenAPI 無資料,改走傳統下載端點…")
-        day = _taifex_csv_fallback()
+    # 備援一:FinMind(法人+小台,90日歷史,一次到位)
+    if not any(e.get("fx") is not None for e in day.values()):
+        try:
+            _finmind_fut(day)
+        except Exception as e:
+            print(f"  [warn] FinMind: {e}")
+    # 備援二:期交所傳統下載端點(主要補十大交易人;法人若仍缺也一併嘗試)
+    need_big = not any(e.get("b10") is not None for e in day.values())
+    need_inst = not any(e.get("fx") is not None for e in day.values())
+    if need_big or need_inst:
+        print(f"  [info] 傳統端點補洞(十大:{need_big}/法人:{need_inst})…")
+        try:
+            fb = _taifex_csv_fallback()
+            for dte, e in (fb or {}).items():
+                tgt = day.setdefault(dte, {})
+                for k, v in e.items():
+                    if tgt.get(k) is None:
+                        tgt[k] = v
+        except Exception as e:
+            print(f"  [warn] 傳統端點: {e}")
     if not day:
         print("  台指期籌碼:無資料")
         return None
