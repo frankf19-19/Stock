@@ -1705,7 +1705,7 @@ function accPush(key,last,y){
   if(y>0&&!acc.prev)acc.prev=y;
   const now=Math.floor(Date.now()/1000);
   const i=acc.t.length-1;
-  if(i<0||now-acc.t[i]>=55){
+  if(i<0||now-acc.t[i]>=25){
     acc.t.push(now);acc.c.push(+(+last).toFixed(2));acc.v.push(0);
     try{localStorage.setItem(key+'_acc',JSON.stringify({d:tpDay(now),t:acc.t,c:acc.c,prev:acc.prev}));}catch(e){}
     if(IDX.sel===key)drawIdxSel();
@@ -1798,7 +1798,10 @@ function idxPick(key){
     }
     return yd;
   }
-  if(marketOpen()&&acc.c.length>=2)return acc;          // 盤中且 Yahoo 還是昨天 → 用即時累積(今天的真資料)
+  if(marketOpen()){
+    if(acc.c.length>=2)return acc;                      // 盤中且 Yahoo 還是昨天 → 用即時累積(今天的真資料)
+    return null;                                        // 累積未滿:寧可先空白,也不畫昨日線誤導
+  }
   if(yd)return yd;                                      // 收盤時段:顯示最近完整一日
   if(acc.c.length>=2)return acc;
   return null;
@@ -1806,6 +1809,8 @@ function idxPick(key){
 function drawIdxSel(){
   if((IDX.sel==='sp'||IDX.sel==='nq')&&!IDX.d[IDX.sel]){loadUSIdx(IDX.sel);}
   let d=idxPick(IDX.sel);
+  // 圖上是否為「今日盤中資料」→ 決定即時報價能不能戳最後一點
+  window.__idxToday=!!(d&&Array.isArray(d.t)&&d.t.length&&tpDay(d.t[d.t.length-1])===tpDay(Date.now()/1000));
   const title=document.getElementById('idxTitle');
   if(title)title.textContent=`${IDX_NM[IDX.sel]} 即時走勢(1分線)`;
   const stat=document.getElementById('idxStat');
@@ -1818,7 +1823,7 @@ function drawIdxSel(){
       paintDefense();
       return;
     }
-    if(stat)stat.textContent=IDX.sel==='otc'?'櫃買分線由即時報價累積繪製,開盤後幾分鐘內出現':(IDX.sel==='sp'||IDX.sel==='nq')?'美股走勢載入中…':'走勢暫時載入不到';
+    if(stat)stat.textContent=marketOpen()&&(IDX.sel==='tw'||IDX.sel==='otc')?'今日走勢即時累積中,約 1 分鐘後出現':(IDX.sel==='sp'||IDX.sel==='nq')?'美股走勢載入中…':'走勢暫時載入不到';
     const ch=document.getElementById('idxChart');
     if(ch&&RT.idx&&RT.idx.ch){try{RT.idx.ch.dispose();}catch(e){}RT.idx=null;ch.innerHTML='';}
     paintDefense();
@@ -1962,15 +1967,43 @@ setTimeout(refreshRisk,2000);
 setInterval(refreshRisk,60000);
 
 /* ── 個股即時走勢(個股頁載入,60秒更新)── */
-async function loadIntraDetail(s){
+async function loadIntraDetail(s,accOnly){
   const box=document.getElementById('intraChart');
   if(!box)return;
   const sym=s.market==='TW'?`${s.id}.${s.ex==='otc'?'TWO':'TW'}`:s.id;
-  const d=await yChart(sym);
+  const isTW0=s.market==='TW';
+  let d=accOnly?null:await yChart(sym);
   const stat=document.getElementById('intraStat');
   const fl=document.getElementById('intraFlow');
-  if(!d){if(stat)stat.textContent='即時走勢暫時載入不到';return;}
   if(location.hash!==KHASH)return;
+  // 台股:嚴選資料源(Yahoo 台股盤中延遲且早盤給昨日 → 以證交所即時累積為主)
+  if(isTW0){
+    const acc=stkAcc(s.id);
+    const today=tpDay(Date.now()/1000);
+    const fresh=d&&Array.isArray(d.t)&&d.t.length&&tpDay(d.t[d.t.length-1])===today;
+    if(fresh){
+      if(acc.c.length){  // 合併累積較新點(複製,不動原資料)
+        const lastT=d.t[d.t.length-1];
+        const t=[...d.t],c=[...d.c],v=Array.isArray(d.v)?[...d.v]:[];
+        for(let i=0;i<acc.t.length;i++)
+          if(acc.t[i]>lastT+30){t.push(acc.t[i]);c.push(acc.c[i]);v.push(0);}
+        d={t,c,v,prev:d.prev};
+      }
+      window.__stkToday=true;
+    }else if(marketOpen()){
+      if(acc.c.length>=2){d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev||((d&&d.prev)||null)};window.__stkToday=true;}
+      else{
+        window.__stkToday=false;
+        if(stat)stat.textContent='今日走勢即時累積中,約 30 秒後出現(來源延遲時自動改用證交所即時報價)';
+        return;
+      }
+    }else{
+      window.__stkToday=false;   // 收盤:顯示最近完整一日,禁止即時戳點
+    }
+  }else{
+    window.__stkToday=!!d;
+  }
+  if(!d){if(stat)stat.textContent='即時走勢暫時載入不到';return;}
   const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
   const yv=(curOhlc&&curOhlc.length)?curOhlc[curOhlc.length-1][4]:0; // 昨日量(張)
   const isTW=s.market==='TW';
@@ -1981,9 +2014,34 @@ async function loadIntraDetail(s){
   if(RT.intra)RT.intra.id=s.id;
   if(fl)fl.innerHTML=flowHTML(d,isTW?'張':'股');
 }
+setInterval(()=>{
+  if(!marketOpen())return;
+  const mm=location.hash.match(/^#stock\/(.+)$/);
+  if(!mm)return;
+  const s=(DATA.stocks||[]).find(x=>x.id===decodeURIComponent(mm[1]));
+  if(s&&s.market==='TW')loadIntraDetail(s);
+},30000);
 
 /* ── 秒級即時報價:瀏覽器直連證交所 MIS 快照(每10秒,僅更新畫面上的個股)── */
 const RT={lastOk:0};
+/* 個股當日走勢即時累積(看哪檔就累積哪檔;換日自動重置) */
+const STK_ACC={};
+function stkAcc(id){
+  const today=tpDay(Date.now()/1000);
+  let a=STK_ACC[id];
+  if(!a||a.day!==today){a=STK_ACC[id]={day:today,t:[],c:[],v:[],prev:null};}
+  return a;
+}
+function stkAccPush(id,last,y){
+  const a=stkAcc(id);
+  if(y>0&&!a.prev)a.prev=y;
+  const now=Math.floor(Date.now()/1000);
+  const i=a.t.length-1;
+  if(i<0||now-a.t[i]>=25){
+    a.t.push(now);a.c.push(+(+last).toFixed(2));a.v.push(0);
+    if(location.hash==='#stock/'+id&&!window.__stkToday)loadIntraDetail(DATA.stocks.find(x=>x.id===id),true);
+  }else a.c[a.c.length-1]=+(+last).toFixed(2);
+}
 /* ══ 盤中即時警示:好股下殺至買進區 / 帶量突破整理區 ══ */
 const AL={on:localStorage.getItem('alert_on')!=='0',seen:null};
 function alSeen(){
@@ -2226,7 +2284,11 @@ async function rtTick(){
 
       }
       try{accPush(key,last,y);}catch(e){}
-      if(key===IDX.sel)pokeChart(RT.idx,last,'idxStat');
+      if(key===IDX.sel&&window.__idxToday)pokeChart(RT.idx,last,'idxStat');
+      else if(key===IDX.sel){
+        const el=document.getElementById('idxStat');
+        if(el&&y>0)el.innerHTML=`${(+last).toFixed(2)} <span class="${last>=y?'pos':'neg'}">${last>=y?'▲':'▼'} ${Math.abs((last-y)/y*100).toFixed(2)}%</span>`;
+      }
       try{idxWatch(key,last,chg);}catch(e){}
       return;
     }
@@ -2235,7 +2297,8 @@ async function rtTick(){
       s.price=+last.toFixed(2);s.chg=+(((last-y)/y)*100).toFixed(2);n++;
       try{alertCheck(s,m,last);}catch(e){}
       try{candleFromMIS(s.id,m,last);}catch(e){}
-      if(RT.intra&&RT.intra.id===s.id)pokeChart(RT.intra,last);
+      if(s.market==='TW'){try{stkAccPush(s.id,last,parseFloat(m.y));}catch(e){}}
+      if(RT.intra&&RT.intra.id===s.id&&window.__stkToday)pokeChart(RT.intra,last);
     }
   });
   if(!n)return;
