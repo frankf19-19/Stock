@@ -1709,6 +1709,7 @@ function accPush(key,last,y){
     acc.t.push(now);acc.c.push(+(+last).toFixed(2));acc.v.push(0);
     try{localStorage.setItem(key+'_acc',JSON.stringify({d:tpDay(now),t:acc.t,c:acc.c,prev:acc.prev}));}catch(e){}
     if(IDX.sel===key)drawIdxSel();
+    if(window.__mkMis===key&&location.hash.startsWith('#macro/'))drawMkLive(key);
   }else{
     acc.c[acc.c.length-1]=+(+last).toFixed(2);
   }
@@ -2024,6 +2025,8 @@ setInterval(()=>{
 
 /* ── 秒級即時報價:瀏覽器直連證交所 MIS 快照(每10秒,僅更新畫面上的個股)── */
 const RT={lastOk:0};
+/* 指數當日 OHLC(供日K長出今日這根) */
+const IDXRTC={};
 /* 個股當日走勢即時累積(看哪檔就累積哪檔;換日自動重置) */
 const STK_ACC={};
 function stkAcc(id){
@@ -2284,6 +2287,16 @@ async function rtTick(){
 
       }
       try{accPush(key,last,y);}catch(e){}
+      {const o=parseFloat(m.o),h=parseFloat(m.h),l=parseFloat(m.l);
+       if(o>0&&h>0&&l>0)IDXRTC[key]={o,h:Math.max(h,last),l:Math.min(l,last),c:last,y:y>0?y:null};}
+      try{liveKBar(key);}catch(e){}
+      if(window.__mkMis===key&&location.hash.startsWith('#macro/')){
+        const px=document.getElementById('mkPx'),cg=document.getElementById('mkChg');
+        if(px)px.textContent=Number((+last).toFixed(2)).toLocaleString();
+        if(cg&&y>0){const c=(last-y)/y*100;
+          cg.innerHTML=` <span class="${c>=0?'pos':'neg'}" style="font-size:16px">${c>=0?'▲':'▼'} ${Math.abs(c).toFixed(2)}%</span>`;}
+        if(window.__mkToday&&RT.mk)pokeChart(RT.mk,last);
+      }
       if(key===IDX.sel&&window.__idxToday)pokeChart(RT.idx,last,'idxStat');
       else if(key===IDX.sel){
         const el=document.getElementById('idxStat');
@@ -2298,6 +2311,7 @@ async function rtTick(){
       try{alertCheck(s,m,last);}catch(e){}
       try{candleFromMIS(s.id,m,last);}catch(e){}
       if(s.market==='TW'){try{stkAccPush(s.id,last,parseFloat(m.y));}catch(e){}}
+      try{liveKBar(s.id);}catch(e){}
       if(RT.intra&&RT.intra.id===s.id&&window.__stkToday)pokeChart(RT.intra,last);
     }
   });
@@ -2602,6 +2616,12 @@ async function applyKView(s){
   }
   curOhlc=data.ohlc;curDates=data.dates;
   if(kView.itv==='1d'&&data.ohlc.length>=60)curLevels=keyLevels(data.ohlc.slice(-130));
+  setTimeout(()=>{try{
+    if(KHASH.startsWith('#stock/'))liveKBar(KHASH.slice(7));
+    else if(KHASH==='#macro/twii')liveKBar('tw');
+    else if(KHASH==='#macro/otc')liveKBar('otc');
+  }catch(e){}},400);
+  __kbarLast=0;
   const meta=document.getElementById('kMeta');
   if(meta)meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}`;
   drawKChart();
@@ -2660,6 +2680,32 @@ setTimeout(()=>{
   const sel=document.getElementById('themeSel');
   if(sel)sel.onchange=e=>applyTheme(e.target.value,true);
 },0);
+/* 盤中把「今日這根K棒」即時長在日K線圖尾端(個股+加權/櫃買) */
+let __kbarLast=0;
+function liveKBar(idOrKey){
+  if(!marketOpen()||kView.itv!=='1d'||!Array.isArray(curOhlc)||!Array.isArray(curDates)||!curDates.length)return;
+  // 對應目前開啟的頁面
+  let rtc=null;
+  if(KHASH==='#stock/'+idOrKey)rtc=RTC[idOrKey];
+  else if(KHASH==='#macro/twii'&&idOrKey==='tw')rtc=IDXRTC.tw;
+  else if(KHASH==='#macro/otc'&&idOrKey==='otc')rtc=IDXRTC.otc;
+  if(!rtc||!(rtc.o>0))return;
+  if(location.hash!==KHASH)return;
+  const today=tpDay(Date.now()/1000);
+  const bar=[+rtc.o.toFixed(2),+rtc.h.toFixed(2),+rtc.l.toFixed(2),+rtc.c.toFixed(2),0];
+  if(curDates[curDates.length-1]===today){
+    curOhlc[curOhlc.length-1]=bar;
+  }else{
+    curDates.push(today);curOhlc.push(bar);
+  }
+  const now=Date.now();
+  if(now-__kbarLast>=15000){   // 15秒重繪一次,避免過度負擔
+    __kbarLast=now;
+    try{drawKChart();}catch(e){}
+    const meta=document.getElementById('kMeta');
+    if(meta&&!/今日盤中/.test(meta.textContent))meta.textContent+=' · 今日盤中即時';
+  }
+}
 function bindKControls(sLike){
   document.querySelectorAll('#rngSeg button').forEach(b=>b.onclick=()=>{
     kView.rng=b.dataset.r;
@@ -4496,6 +4542,26 @@ function mkTrendText(pts,dg,def){
     :'<b>區間整理</b>(均線糾結,方向未明)';
   return `現值 <b>${last.toFixed(dg)}</b>,20日均 ${ma20.toFixed(dg)}、60日均 ${ma60.toFixed(dg)};距近三個月高點 ${((last-hi)/hi*100).toFixed(1)}%、低點 +${((last-lo)/lo*100).toFixed(1)}%。${trend}。`;
 }
+/* 加權/櫃買詳細頁:即時走勢(與首頁同一套 session-safe 資料) */
+function drawMkLive(misKey){
+  const d=idxPick(misKey);
+  const stat=document.getElementById('mkIntraStat');
+  const box=document.getElementById('mkIntra');
+  const px=document.getElementById('mkPx'),cg=document.getElementById('mkChg');
+  const last=IDX.last[misKey];
+  const prev=(d&&d.prev)||accOf(misKey).prev;
+  if(px&&last)px.textContent=Number((+last).toFixed(2)).toLocaleString();
+  if(cg&&last&&prev){const c=(last-prev)/prev*100;
+    cg.innerHTML=` <span class="${c>=0?'pos':'neg'}" style="font-size:16px">${c>=0?'▲':'▼'} ${Math.abs(c).toFixed(2)}%</span>`;}
+  if(!box)return;
+  if(d){
+    window.__mkToday=!!(Array.isArray(d.t)&&d.t.length&&tpDay(d.t[d.t.length-1])===tpDay(Date.now()/1000));
+    RT.mk=drawIntra('mkIntra',d);
+  }else{
+    window.__mkToday=false;
+    if(stat)stat.textContent=marketOpen()?'今日走勢即時累積中,約 30 秒後出現':'走勢暫時載入不到';
+  }
+}
 function futChart(dom,dates,series){
   const box=document.getElementById(dom);
   if(!box||!window.echarts)return;
@@ -4644,11 +4710,24 @@ async function showMacroDetail(key){
   const pseudo={id:def.sym,market:'US',syms:[def.sym,...(def.alt||[])]};
   bindKControls(pseudo);
   applyKView(pseudo);
+  // 加權/櫃買:即時走勢與標頭價改用證交所即時系統(session-safe,不吃 Yahoo 延遲)
+  const misKey=key==='twii'?'tw':key==='otc'?'otc':null;
+  window.__mkMis=misKey;
+  if(misKey){
+    drawMkLive(misKey);
+    const syms0=[def.sym,...(def.alt||[])];
+    (async()=>{   // 背景仍抓 Yahoo 供收盤全貌/籌碼估算(session-safe 由 idxPick 把關)
+      let d0=await yChart(syms0[0]);
+      if(!d0&&syms0[1])d0=await yChart(syms0[1]);
+      if(d0){IDX.d[misKey]=IDX.d[misKey]||d0;}
+      if(location.hash==='#macro/'+key)drawMkLive(misKey);
+    })();
+  }
   const syms=[def.sym,...(def.alt||[])];
   let intra=null,daily=null;
   for(const sy of syms){
-    [intra,daily]=await Promise.all([intra||yChart(sy,'1d','1m'),daily||yChart(sy,'6mo','1d')]);
-    if(intra&&daily)break;
+    [intra,daily]=await Promise.all([intra||(misKey?null:yChart(sy,'1d','1m')),daily||yChart(sy,'6mo','1d')]);
+    if((intra||misKey)&&daily)break;
   }
   if(location.hash!=='#macro/'+key)return;
   const dg=def.dg,sc=def.sc||1,unit=def.unit||'';
@@ -4668,7 +4747,8 @@ async function showMacroDetail(key){
   }else document.getElementById('mkPx').textContent='—';
   if(sc!==1&&intra){intra.c=intra.c.map(x=>x==null?null:x*sc);if(intra.prev)intra.prev*=sc;}
   if(sc!==1&&daily){daily.c=daily.c.map(x=>x==null?null:x*sc);}
-  if(intra&&intra.c.some(x=>x!=null))drawIntra('mkIntra',intra);
+  if(misKey)drawMkLive(misKey);
+  else if(intra&&intra.c.some(x=>x!=null))drawIntra('mkIntra',intra);
   else document.getElementById('mkIntra').innerHTML='<div class="dim-note" style="padding:20px">目前非交易時段或無分時資料,請看下方日線。</div>';
   const box=document.getElementById('mkIntra');
   if(box){try{const inst=echarts.getInstanceByDom(box);if(inst)chipCharts.push(inst);}catch(e){}}
