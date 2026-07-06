@@ -1288,7 +1288,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r63</span>');
+  diag.push('<span style="color:var(--dim)">build r65</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1307,19 +1307,21 @@ async function yChart(sym,range,interval){
     x=>'https://corsproxy.io/?url='+encodeURIComponent(x),
     x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x),
     x=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(x)];
-  for(const r of routes){
-    try{
-      const res=await fT(r(u),6000);
-      if(!res.ok)continue;
-      const j=await res.json();
-      const q=j&&j.chart&&j.chart.result&&j.chart.result[0];
-      if(!q||!q.timestamp)continue;
-      return {t:q.timestamp,
-              c:q.indicators.quote[0].close,
-              v:q.indicators.quote[0].volume||[],
-              prev:q.meta.chartPreviousClose||q.meta.previousClose};
-    }catch(e){}
-  }
+  const tryRoute=async r=>{
+    const res=await fT(r(u),6000);
+    if(!res.ok)throw 0;
+    const j=await res.json();
+    const q=j&&j.chart&&j.chart.result&&j.chart.result[0];
+    if(!q||!q.timestamp)throw 0;
+    return q;
+  };
+  try{
+    const q=await Promise.any(routes.map(tryRoute));   // 四路並行,先到先贏
+    return {t:q.timestamp,
+            c:q.indicators.quote[0].close,
+            v:q.indicators.quote[0].volume||[],
+            prev:q.meta.chartPreviousClose||q.meta.previousClose};
+  }catch(e){}
   return null;
 }
 function flowCalc(d){ // 內外盤估:分鐘收高=主動買量、收低=主動賣量
@@ -1363,8 +1365,21 @@ function drawIntra(domId,d){
   const xAxes=grids.map((_,i)=>({type:'category',gridIndex:i,data:times,boundaryGap:false,
     axisLine:{lineStyle:{color:CT.border}},axisTick:{show:false},
     axisLabel:{show:i===grids.length-1,color:CT.axis,fontSize:10,interval:Math.floor(times.length/6)}}));
-  const yAxes=[{gridIndex:0,scale:true,axisLabel:{color:CT.axis,fontSize:10},
-      splitLine:{lineStyle:{color:CT.split}}}];
+  const yAxis0={gridIndex:0,scale:true,axisLabel:{color:CT.axis,fontSize:10},
+      splitLine:{lineStyle:{color:CT.split}}};
+  {// 冷啟動保護:點數少或走勢扁平 → 以昨收為中心鎖定合理範圍,避免 Y 軸亂噴
+    const vals=d.c.filter(x=>x!=null);
+    if(vals.length){
+      const mn=Math.min(...vals,d.prev||Infinity),mx=Math.max(...vals,d.prev||-Infinity);
+      if(vals.length<8||(mx-mn)<mx*0.006){
+        const mid=d.prev||vals[vals.length-1];
+        const pad=Math.max(mid*0.015,(mx-mn)*1.5,0.01);
+        yAxis0.min=+(Math.min(mn,mid)-pad).toFixed(2);
+        yAxis0.max=+(Math.max(mx,mid)+pad).toFixed(2);
+      }
+    }
+  }
+  const yAxes=[yAxis0];
   const series=[
     {name:'價格',type:'line',xAxisIndex:0,yAxisIndex:0,showSymbol:false,connectNulls:true,
      data:d.c.map(x=>x!=null?+x.toFixed(2):null),
@@ -2158,6 +2173,7 @@ async function loadIntraDetail(s,accOnly){
     const today=tpDay(Date.now()/1000);
     const fresh=d&&Array.isArray(d.t)&&d.t.length&&tpDay(d.t[d.t.length-1])===today;
     if(fresh){
+      (RT.lastYD=RT.lastYD||{})[s.id]=d;   // 快取底圖供輕量重繪
       if(acc.c.length){  // 合併累積較新點(複製,不動原資料)
         const lastT=d.t[d.t.length-1];
         const t=[...d.t],c=[...d.c],v=Array.isArray(d.v)?[...d.v]:[];
@@ -2183,12 +2199,33 @@ async function loadIntraDetail(s,accOnly){
   const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
   const yv=(curOhlc&&curOhlc.length)?curOhlc[curOhlc.length-1][4]:0; // 昨日量(張)
   const isTW=s.market==='TW';
-  const vTxt=isTW?`總量 ${(totV/1000).toLocaleString(undefined,{maximumFractionDigits:0})} 張${yv?` · 為昨量 ${Math.round(totV/1000/yv*100)}%`:''}`
-                 :`Vol ${(totV/1e6).toFixed(1)}M`;
+  const vTxt=totV<=0?'量能待來源回補':(isTW?`總量 ${(totV/1000).toLocaleString(undefined,{maximumFractionDigits:0})} 張${yv?` · 為昨量 ${Math.round(totV/1000/yv*100)}%`:''}`
+                 :`Vol ${(totV/1e6).toFixed(1)}M`);
   if(stat)stat.innerHTML=intraStatTxt(s,vTxt);
   RT.intra=drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
   if(fl)fl.innerHTML=flowHTML(d,isTW?'張':'股');
+}
+/* 個股走勢的輕量重繪:用快取的 Yahoo 底圖 + 最新累積,零網路請求 */
+function refreshIntraLight(s){
+  if(location.hash!=='#stock/'+s.id)return;
+  const acc=stkAcc(s.id);
+  if(acc.c.length<2)return;
+  const yd=RT.lastYD&&RT.lastYD[s.id];
+  let d;
+  const today=tpDay(Date.now()/1000);
+  if(yd&&yd.t.length&&tpDay(yd.t[yd.t.length-1])===today){
+    const lastT=yd.t[yd.t.length-1];
+    const t=[...yd.t],c=[...yd.c],v=Array.isArray(yd.v)?[...yd.v]:[];
+    for(let i=0;i<acc.t.length;i++)
+      if(acc.t[i]>lastT+30){t.push(acc.t[i]);c.push(acc.c[i]);v.push(0);}
+    d={t,c,v,prev:yd.prev};
+  }else{
+    d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev};
+  }
+  window.__stkToday=true;
+  RT.intra=drawIntra('intraChart',d);
+  if(RT.intra)RT.intra.id=s.id;
 }
 setInterval(()=>{
   if(!marketOpen())return;
@@ -2217,7 +2254,7 @@ function stkAccPush(id,last,y){
   const i=a.t.length-1;
   if(i<0||now-a.t[i]>=(a.t.length<3?8:25)){
     a.t.push(now);a.c.push(+(+last).toFixed(2));a.v.push(0);
-    if(location.hash==='#stock/'+id&&!window.__stkToday)loadIntraDetail(DATA.stocks.find(x=>x.id===id),true);
+    if(location.hash==='#stock/'+id){const s2=DATA.stocks.find(x=>x.id===id);if(s2)try{refreshIntraLight(s2);}catch(e){}}
   }else a.c[a.c.length-1]=+(+last).toFixed(2);
 }
 /* ══ 盤中即時警示:好股下殺至買進區 / 帶量突破整理區 ══ */
@@ -3187,7 +3224,7 @@ async function loadK(s){
   if(DATA.source!=='live') return {ohlc:demoOHLC(s),dates:demoDates(120),demo:true};
   const sh=shardOf(s);
   if(!(sh in KCACHE)){
-    try{const r=await fetch(sh+'?v='+encodeURIComponent(DATA.updated||''),{cache:'no-store'});
+    try{const r=await fetch(sh+'?v='+encodeURIComponent(DATA.updated||''));
         KCACHE[sh]=r.ok?await r.json():{};}
     catch(e){KCACHE[sh]={};}
   }
@@ -3306,12 +3343,14 @@ async function showDetail(id){
   loadProfileDetail(s);
   loadAnalystDetail(s);
   loadChipDetail(s);
+  KHASH='#stock/'+s.id;
+  try{stkLiveStart(s);}catch(e){}      // 報價迴圈 0 秒啟動
+  try{loadIntraDetail(s);}catch(e){}   // 走勢圖與 K 分片平行
   const k=await loadK(s);
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
-  kView={rng:'2y',itv:'1d'}; baseK=k; KHASH='#stock/'+s.id;
-  try{stkLiveStart(s);}catch(e){}
+  kView={rng:'2y',itv:'1d'}; baseK=k;
   curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
   window.__kBox=boxDetect(k.ohlc,0.10);
   const lv=curLevels;
@@ -3368,7 +3407,7 @@ async function showDetail(id){
     </div>`})()}`;
   bindKControls(s);
   drawKChart();
-  loadIntraDetail(s);
+  if(!RT.intra||RT.intra.id!==s.id)loadIntraDetail(s);
   if(RT.dTimer)clearInterval(RT.dTimer);
   RT.dTimer=setInterval(()=>{
     if(location.hash==='#stock/'+s.id&&marketOpen())loadIntraDetail(s);
@@ -3661,7 +3700,7 @@ async function loadChips(s){
   if(s.market!=='TW'||DATA.source!=='live')return null;
   const sh=`c/tw${s.id[0]}.json`;
   if(!(sh in CCACHE)){
-    try{const r=await fetch(sh+'?v='+encodeURIComponent(DATA.updated||''),{cache:'no-store'});
+    try{const r=await fetch(sh+'?v='+encodeURIComponent(DATA.updated||''));
         CCACHE[sh]=r.ok?await r.json():{};}
     catch(e){CCACHE[sh]={};}
   }
