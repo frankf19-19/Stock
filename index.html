@@ -501,7 +501,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       <div id="idxFlow"></div>
       <div id="idxAnalysis"></div>
       <div class="mini-cap" style="margin-top:12px">期貨籌碼(台指・盤後)</div>
-      <div class="idx-row compact" id="futRow"><div class="idx-card"><div class="nm">台指期籌碼</div><div class="vl" style="font-size:13px;color:var(--dim)">每日更新後顯示</div></div></div>
+      <div class="idx-row compact" id="futRow"><div class="idx-card" data-mk="fut"><div class="nm">台指期籌碼 ›</div><div class="vl" style="font-size:13px;color:var(--dim)">每日更新後顯示,點我看說明</div></div></div>
     </div>
     <div class="macro-side">
       <div class="mini-cap">指數</div>
@@ -936,6 +936,14 @@ async function boot(){
   if(!DATA) DATA=DEMO;
   setBadges(); renderAll(); route();
 }
+window.addEventListener('error',e=>{
+  try{
+    window.__lastErr=(e.message||'')+' @'+String(e.filename||'').split('/').pop()+':'+e.lineno;
+    const dg=document.getElementById('diag');
+    if(dg&&!dg.innerHTML.includes('⚠JS'))
+      dg.innerHTML+=' &ensp;·&ensp; <span class="bad">⚠JS:'+window.__lastErr.slice(0,90)+'</span>';
+  }catch(_){}
+});
 function setBadges(extra){
   const intr=DATA.intraday?` · 盤中 ${DATA.intraday}`:'';
   const _upd=DATA.source==='live'?DATA.updated:'範例';
@@ -1288,7 +1296,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r66</span>');
+  diag.push('<span style="color:var(--dim)">build r67</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3515,6 +3523,22 @@ function signals(s){
   return out;
 }
 /* ── 盤面脈動:強勢族群 + 焦點個股(依最新報價即時計算)── */
+/* 族群卡點擊:一次性委派,重繪不失效 */
+(function(){
+  const box=document.getElementById('pulseSec');
+  if(!box||box.dataset.b)return;
+  box.dataset.b='1';
+  box.addEventListener('click',e=>{
+    const c=e.target.closest('.ps-card');
+    if(!c||!c.dataset.sec)return;
+    const sec=c.dataset.sec;
+    window.__navScrollTs=Date.now();
+    mkt=sec.startsWith('美股')?'US':'TW'; sector=sec; page=1;
+    document.querySelectorAll('#mktSeg button').forEach(x=>x.classList.toggle('on',x.dataset.m===mkt));
+    renderChips(); render();
+    const t=document.getElementById('chips'); if(t) t.scrollIntoView({behavior:'smooth'});
+  });
+})();
 function renderPulse(){
   const secBox=document.getElementById('pulseSec');
   const stBox=document.getElementById('pulseStocks');
@@ -3535,15 +3559,7 @@ function renderPulse(){
       <div class="lead">上漲 ${r.up}/${r.n} · 領漲 ${r.lead.name} ${r.lead.chg>0?'+':''}${r.lead.chg}%</div>
     </div>`).join('')
     :'<div class="idx-card"><div class="nm">尚無報價資料,等資料更新後顯示</div></div>';
-  secBox.querySelectorAll('.ps-card').forEach(c=>{
-    const go=()=>{const sec=c.dataset.sec;
-      window.__navScrollTs=Date.now();   // 主動跳轉:重繪保持器讓路,不再被拉回
-      mkt=sec.startsWith('美股')?'US':'TW'; sector=sec; page=1;
-      document.querySelectorAll('#mktSeg button').forEach(x=>x.classList.toggle('on',x.dataset.m===mkt));
-      renderChips(); render();
-      const t=document.getElementById('chips'); if(t) t.scrollIntoView({behavior:'smooth'});};
-    c.onclick=go; c.onkeydown=e=>{if(e.key==='Enter')go();};
-  });
+  // 族群卡點擊:事件委派於永久容器(見下方一次性綁定)
   // 焦點個股:強勢上攻(漲幅大且評分佳)、好股重挫(高分股大跌,值得觀察)
   const hot=priced.filter(s=>s.chg>=3.5&&total(s)>=58)
     .sort((a,b)=>b.chg-a.chg).slice(0,6)
