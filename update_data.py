@@ -464,6 +464,42 @@ def update_us_prices(hist, us_comps):
     print(f"  美股價格:{len(ok)}/{len(us_comps)} 檔")
 
 # ═══════════════ 官方彙總:營收 / 法人 / 大戶 ═══════════════
+def fetch_rev_mops_live():
+    """MOPS 當月即時彙總:公司 1~10 日陸續申報,申報當天此頁就有(上市+上櫃)。"""
+    out = {}
+    now = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+    y, m = (now.year, now.month - 1) if now.month > 1 else (now.year - 1, 12)
+    roc = y - 1911
+    for mk in ("sii", "otc"):
+        try:
+            u = f"https://mops.twse.com.tw/nas/t21/{mk}/t21sc03_{roc}_{m}_0.html"
+            r = requests.get(u, headers=UA, timeout=15)
+            if r.status_code != 200 or len(r.content) < 2000:
+                continue
+            html = r.content.decode("big5", errors="ignore")
+            tabs = pd.read_html(StringIO(html))
+            n0 = len(out)
+            for df in tabs:
+                cols = ["".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in df.columns]
+                def ci(*pats):
+                    return next((i for i, c in enumerate(cols) if all(p in c for p in pats)), None)
+                i_id  = ci("公司", "代號")
+                i_yoy = ci("去年同月", "增減")
+                i_amt = ci("當月營收")
+                if None in (i_id, i_yoy): continue
+                for _, row in df.iterrows():
+                    sid = str(row.iloc[i_id]).strip()
+                    if not (sid.isdigit() and 4 <= len(sid) <= 6): continue
+                    yoy = numf(row.iloc[i_yoy])
+                    if yoy is None: continue
+                    amt = numf(row.iloc[i_amt]) if i_amt is not None else None
+                    out[sid] = (yoy, f"{y}-{m:02d}", amt)
+            if len(out) > n0:
+                print(f"  MOPS 即時營收({mk} {y}-{m:02d}):+{len(out)-n0} 家")
+        except Exception as e:
+            print(f"  [warn] MOPS 即時營收({mk}): {e}")
+    return out
+
 def fetch_rev_bulk():
     out = {}
     for url in ("https://openapi.twse.com.tw/v1/opendata/t187ap05_L",
@@ -485,7 +521,12 @@ def fetch_rev_bulk():
                     out[sid] = (yoy, ym, numf(r.get(k_amt)) if k_amt else None)
         except Exception as e:
             print(f"  [warn] 營收彙總: {e}")
-    print(f"  月營收:{len(out)} 家")
+    live = fetch_rev_mops_live()
+    for sid, v in live.items():
+        cur = out.get(sid)
+        if not cur or v[1] > cur[1]:   # 只用「更新的月份」覆蓋
+            out[sid] = v
+    print(f"  月營收:{len(out)} 家(其中當月即時 {len(live)} 家)")
     return out
 
 def fetch_tdcc_bulk():
