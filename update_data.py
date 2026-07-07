@@ -1299,6 +1299,58 @@ def fetch_etf_holdings(stocks):
         time.sleep(0.12)
     print(f"  ETF 成分/規模:{n_ok}/{len(etfs)} 檔")
 
+def fetch_disposal(stocks):
+    """處置有價證券公告:標記處置中個股與撮合間隔分鐘。來源:證交所/櫃買公告 OpenAPI。"""
+    import re
+    by = {s["id"]: s for s in stocks}
+    def grab(url, tag):
+        n = 0
+        try:
+            arr = get_json(url, timeout=40)
+            if not isinstance(arr, list) or not arr: return 0
+            keys = list(arr[0].keys())
+            k = lambda *ns: next((x for x in keys if any(n2.lower() in x.lower() for n2 in ns)), None)
+            kid  = k("Code", "證券代號", "SecuritiesCompanyCode")
+            kper = k("Period", "期間")
+            kmea = k("Measure", "措施", "DispositionMeasures")
+            if not kid: 
+                print(f"  [warn] 處置({tag})欄位不符: {keys[:6]}"); return 0
+            for r in arr:
+                sid = str(r.get(kid, "")).strip().upper()
+                s = by.get(sid)
+                if not s: continue
+                per = str(r.get(kper, "")).strip() if kper else ""
+                mea = str(r.get(kmea, "")).strip() if kmea else ""
+                mm = re.search(r"(\d+)\s*分鐘", mea)
+                s["disp"] = {"m": int(mm.group(1)) if mm else None,
+                             "p": per[:25], "t": mea[:60]}
+                n += 1
+        except Exception as e:
+            print(f"  [warn] 處置公告({tag}): {e}")
+        return n
+    n1 = grab("https://openapi.twse.com.tw/v1/announcement/punish", "上市")
+    n2 = grab("https://www.tpex.org.tw/openapi/v1/tpex_disposal_information", "上櫃")
+    print(f"  處置股標記:{n1 + n2} 檔")
+
+def mark_leaders(stocks):
+    """產業龍頭標記:各產業「股價×股本」推算市值最大者(排除 ETF/未分類)。"""
+    best = {}
+    for s in stocks:
+        if s.get("market") != "TW" or s.get("etf"): continue
+        sec = s.get("sector") or ""
+        if sec in ("", "未分類", "ETF", "其他"): continue
+        try: cap = float((s.get("co") or {}).get("cap") or 0)
+        except Exception: cap = 0
+        if not cap or not s.get("price"): continue
+        mv = s["price"] * cap / 10.0        # 資本額(面額10元)→ 股數 → 市值
+        if sec not in best or mv > best[sec][0]:
+            best[sec] = (mv, s["id"])
+    ids = {v[1] for v in best.values()}
+    for s in stocks:
+        if s.get("market") == "TW" and s["id"] in ids:
+            s["lead"] = 1
+    print(f"  產業龍頭標記:{len(ids)} 個產業")
+
 def fetch_cobasic():
     """公司基本資料(董事長/掛牌/資本額/官網/產業別),全市場。"""
     out = {}
@@ -1762,6 +1814,14 @@ def main():
         fetch_etf_holdings(stocks)
     except Exception as e:
         print(f"  [warn] ETF 成分跳過: {e}")
+    try:
+        fetch_disposal(stocks)
+    except Exception as e:
+        print(f"  [warn] 處置公告跳過: {e}")
+    try:
+        mark_leaders(stocks)
+    except Exception as e:
+        print(f"  [warn] 龍頭標記跳過: {e}")
     out = {"updated": taipei, "source": "live",
            "macro": _macro, "news": _news, "indpe": _indpe, "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
