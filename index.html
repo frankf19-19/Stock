@@ -1340,7 +1340,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r92</span>');
+  diag.push('<span style="color:var(--dim)">build r94</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3466,8 +3466,12 @@ function drawKChart(){
   const maSeries=maCfg.map(([nm,p,col])=>({name:nm,type:'line',xAxisIndex:0,yAxisIndex:0,
     data:closes.map((_,i)=>i<p-1?null:+avg(closes.slice(i-p+1,i+1)).toFixed(2)),
     showSymbol:false,lineStyle:{width:1.2,color:col},itemStyle:{color:col},smooth:true}));
+  const _spk=(localStorage.getItem('kGP')!=='0')?volSpikes(o):new Set();
+  const _amber=cssVar('--amber')||'#E8B44A';
   const volSeries={name:'成交量',type:'bar',xAxisIndex:1,yAxisIndex:1,
-    data:o.map(x=>({value:x[4],itemStyle:{color:x[3]>=x[0]?UPC:DNC,opacity:.55}}))};
+    data:o.map((x,i)=>({value:x[4],itemStyle:_spk.has(i)
+      ?{color:_amber,opacity:.95}
+      :{color:x[3]>=x[0]?UPC:DNC,opacity:.55}}))};
   let indSeries=[];
   const subLine=(nm,d,col)=>({name:nm,type:'line',xAxisIndex:2,yAxisIndex:2,
     data:d.map(v=>+v.toFixed(2)),showSymbol:false,lineStyle:{width:1.1,color:col},itemStyle:{color:col}});
@@ -3672,18 +3676,22 @@ async function showDetail(id){
       <span class="ticker-label">📰 ${s.name} 新聞</span>
       <div class="ticker-track" id="sTickTrack"></div>
     </div>
-        <div class="d-sec">📈 走勢・價位・進場策略</div>
+    <div class="sec-title" data-sec="stk_k">📈 走勢・價位・進場策略 <span style="font-weight:400;font-size:12px;letter-spacing:0">K線・關鍵價位・除權息時間</span></div><div class="sec-body" id="sb-stk_k">
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
     <div id="divTL"></div>
-    <div class="d-sec">⚖️ 三力檢視 <span>基本面・籌碼面・技術面 · 💡 看不懂的名詞,點一下就有白話解釋</span></div>
+    </div>
+    <div class="sec-title" data-sec="stk_3">⚖️ 三力檢視 <span style="font-weight:400;font-size:12px;letter-spacing:0">基本面・籌碼面・技術面評分 · 💡 點名詞看白話解釋</span></div><div class="sec-body" id="sb-stk_3">
     ${dimBlock('基本面(權重40%)',s.f)}
     ${s.t3?`<div class="thesis" style="border-color:#4BD695"><b style="color:#4BD695">✅ 營收三率三升(${s.t3.q}):</b>毛利率 ${s.t3.gm[0]}→${s.t3.gm[1]}%、營益率 ${s.t3.om[0]}→${s.t3.om[1]}%、淨利率 ${s.t3.nm[0]}→${s.t3.nm[1]}%${s.t3.ry!=null?`,月營收年增 +${s.t3.ry}%`:''}——獲利品質與營收動能同步向上。</div>`:''}
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',cAug)}
+    ${dimBlock('技術線型(權重25%)',s.t)}
+    </div>
+    <div class="sec-title" data-sec="stk_c">📊 籌碼與營收圖表 <span style="font-weight:400;font-size:12px;letter-spacing:0">營收趨勢・法人・大戶・信用交易</span></div><div class="sec-body" id="sb-stk_c">
     ${s.market==='TW'?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
     <div id="chipwrap"></div>
-    ${dimBlock('技術線型(權重25%)',s.t)}
-    ${s.market==='TW'?`<div class="d-sec">💰 估值與未來性 <span>股價貴不貴・成長在哪裡</span></div>${valBlock(s)}${futureBlock(s)}`:''}
-    <div class="d-sec">🎯 市場觀點 <span>分析師目標價與研究報告</span></div>
+    </div>
+    ${s.market==='TW'?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:12px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}</div>`:''}
+    <div class="sec-title" data-sec="stk_m">🎯 市場觀點與新聞 <span style="font-weight:400;font-size:12px;letter-spacing:0">目標價・研究報告・相關新聞</span></div><div class="sec-body" id="sb-stk_m">
     <div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
       <h3>分析師觀點|目標價與研究報告</h3>
       <div id="anaBody"><div class="dim-note">分析師資料載入中…</div></div>
@@ -3699,17 +3707,6 @@ async function showDetail(id){
               :`<a href="https://finance.yahoo.com/quote/${s.id}/analysis" target="_blank" rel="noopener">Yahoo 分析師頁 ↗</a>`}
       </div>
     </div>
-    <div class="d-sec">🏢 認識這家公司</div>
-    ${(()=>{const lm=SEC2LEARN.find(([k])=>String(s.sector).includes(k));return `
-    <div class="dim-block" id="profBlock">
-      <h3>公司簡介|做什麼・賣什麼 <span class="ds">${s.sector}</span></h3>
-      <div id="profBody"><div class="dim-note">公司資料載入中…</div></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-        <div id="coFile" style="margin-bottom:10px"></div>
-        <button class="btn-ai" id="profAiBtn">✦ AI 白話解讀:這家公司在做什麼?產品有哪些?</button>
-        ${lm?`<a class="btn-ai" style="text-decoration:none" href="#learn/${lm[1]}">📚 看懂這個產業:${LEARN[lm[1]].t}</a>`:''}
-      </div>
-    </div>`})()}
     <div class="dim-block">
       <h3>相關新聞</h3>
       ${Array.isArray(s.news)&&s.news.length?`<div class="news" style="border:none;padding:0">${s.news.map(x=>
@@ -3721,9 +3718,23 @@ async function showDetail(id){
         <a href="https://news.google.com/search?q=${encodeURIComponent(s.name+' '+s.id)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant" target="_blank" rel="noopener">Google 新聞搜尋 ↗</a>
       </div>
     </div>
+    </div>
+    <div class="sec-title" data-sec="stk_p">🏢 認識這家公司 <span style="font-weight:400;font-size:12px;letter-spacing:0">公司簡介・產業教學・外部連結</span></div><div class="sec-body" id="sb-stk_p">
+    ${(()=>{const lm=SEC2LEARN.find(([k])=>String(s.sector).includes(k));return `
+    <div class="dim-block" id="profBlock">
+      <h3>公司簡介|做什麼・賣什麼 <span class="ds">${s.sector}</span></h3>
+      <div id="profBody"><div class="dim-note">公司資料載入中…</div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        <div id="coFile" style="margin-bottom:10px"></div>
+        <button class="btn-ai" id="profAiBtn">✦ AI 白話解讀:這家公司在做什麼?產品有哪些?</button>
+        ${lm?`<a class="btn-ai" style="text-decoration:none" href="#learn/${lm[1]}">📚 看懂這個產業:${LEARN[lm[1]].t}</a>`:''}
+      </div>
+    </div>`})()}
     <div class="links">${links.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}</div>
+    </div>
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  try{wireDetailSecs();}catch(e){}
   const dFav=document.getElementById('dFav');
   if(dFav)dFav.onclick=()=>favToggle(s.id);
   window.scrollTo({top:0});
@@ -5512,7 +5523,7 @@ const GLOSS={
 '股價淨值比':'股價 ÷ 每股淨值(公司帳面上每股值多少)。低於 1 倍=用比帳面價值便宜的價格買到;但金融、景氣循環股常年低於 1 是常態,一樣要跟同業比。',
 '同產業中位數':'把同一個產業所有股票的本益比排隊,取中間那一個。個股比它便宜=評價相對低;比它貴=市場給它更高期待。',
 '跳空缺口':'今天的最低價比昨天的最高價還高(向上跳空),K棒之間出現「空白」——通常是重大利多/利空讓大家搶著用更高(低)價成交。<br><b>怎麼看:</b>缺口=多空力道特別強的位置;沒回補的缺口常變成日後的支撐或壓力,回補(股價走回缺口區)前色帶會一直顯示。',
-'爆大量':'單日成交量超過近 20 根平均量的 2.5 倍(圖上 🔥)。<br><b>怎麼看:</b>大量=大資金在換手。低檔爆量收紅常是止跌起漲訊號;高檔爆量收黑要小心出貨。爆量那根K棒的最低點,常是日後多空的重要防線。'
+'爆大量':'單日成交量超過近 20 根平均量的 2.5 倍(量能區的金色量柱,K棒下方有金色小三角定位)。<br><b>怎麼看:</b>大量=大資金在換手。低檔爆量收紅常是止跌起漲訊號;高檔爆量收黑要小心出貨。爆量那根K棒的最低點,常是日後多空的重要防線。'
 };
 function glossFind(t){
   t=String(t||'').replace(/\(.*?\)|(.*?)|[|].*$/g,'').trim();
@@ -5618,7 +5629,18 @@ function renderDivTimeline(s){
     <div class="dim-note">殖利率說明:標題列為「近一年現金股利合計 ÷ 現價」;歷史各場次以「該次除息前一日收盤價」計算,較能反映當時的實際殖利率;若當日價格不在已載入的K線範圍內,則以現價概算。殖利率高低請搭配填息紀錄與獲利穩定度一起看,高殖利率若長年貼息反而侵蝕本金。來源:FinMind 股利政策。K 線圖上的 💰/🎁 垂直虛線為歷次除權息日,可用 K 線區「除權息」鈕開關;股東會、法說會以公開資訊觀測站為準。</div>
   </div>`;
 }
-/* 跳空缺口(未回補色帶)+ 爆大量標記(量>20根均量×2.5,標於K棒低點) */
+/* 爆大量偵測:量 > 近20根均量×2.5,回傳索引集合(量柱高亮與主圖三角共用) */
+function volSpikes(o){
+  const s=new Set();
+  if(!o||o.length<25)return s;
+  for(let i=20;i<o.length;i++){
+    let sum=0;for(let j=i-20;j<i;j++)sum+=(o[j][4]||0);
+    const av=sum/20;
+    if(av>0&&(o[i][4]||0)>av*2.5)s.add(i);
+  }
+  return s;
+}
+/* 跳空缺口(未回補色帶)+ 爆大量標記(量柱金色高亮+K棒下方金色小三角) */
 function gapVolSeries(o,dates){
   if(localStorage.getItem('kGP')==='0'||!o||o.length<25||!dates)return[];
   const mob=innerWidth<640, mpts=[], areas=[];
@@ -5640,18 +5662,13 @@ function gapVolSeries(o,dates){
       label:{show:true,position:mob?'insideLeft':'insideRight',fontSize:mob?8.5:9.5,color:col}},
       {xAxis:dates[o.length-1],yAxis:g.bot}]);
   });
-  const cand=[];
-  for(let i=20;i<o.length;i++){
-    let s=0;for(let j=i-20;j<i;j++)s+=(o[j][4]||0);
-    const av=s/20;
-    if(av>0&&(o[i][4]||0)>av*2.5)cand.push(i);
-  }
-  cand.slice(-8).forEach(i=>{
+  const _amb=cssVar('--amber')||'#E8B44A';
+  [...volSpikes(o)].slice(-10).forEach(i=>{
     mpts.push({name:'爆大量',coord:[dates[i],o[i][2]],
-      symbol:'circle',symbolSize:0.1,
-      label:{show:true,position:'bottom',distance:4,formatter:'🔥',fontSize:mob?10:12},
-      itemStyle:{color:'transparent'},
-      tooltip:{formatter:`爆大量 ${dates[i]}<br>成交量為 20 根均量 2.5 倍以上,低點 ${o[i][2]}`}});
+      symbol:'triangle',symbolSize:mob?5.5:7,symbolOffset:[0,9],
+      itemStyle:{color:_amb,opacity:.9},
+      label:{show:false},
+      tooltip:{formatter:`爆大量 ${dates[i]}<br>成交量達近 20 根均量 2.5 倍以上(下方金色量柱)<br>當日低點 ${o[i][2]} 常是日後多空防線`}});
   });
   if(!areas.length&&!mpts.length)return[];
   return[{name:'缺口量能',type:'line',data:[],xAxisIndex:0,yAxisIndex:0,silent:false,showSymbol:false,
@@ -5736,6 +5753,28 @@ async function loadCreditTrend(s,e){
       {name:'融券餘額',type:'line',color:'#FF8A8E',yAxisIndex:1,data:mv,symbol:'none',lineStyle:{width:1.6,color:'#FF8A8E'},itemStyle:{color:'#FF8A8E'}},
       {name:'借券賣出餘額',type:'line',color:'#7FB4FF',yAxisIndex:1,data:sb,symbol:'none',lineStyle:{width:1.6,color:'#7FB4FF'},itemStyle:{color:'#7FB4FF'}}
     ]});
+}
+/* 個股頁收合:沿用首頁 sec-title 機制;手機預設收合圖表/新聞/公司區,展開後重算圖表尺寸 */
+function wireDetailSecs(){
+  let saved={};try{saved=JSON.parse(localStorage.getItem('secState')||'{}');}catch(e){}
+  const mob=innerWidth<640;
+  const defClosed={stk_c:mob,stk_m:mob,stk_p:mob};
+  document.querySelectorAll('#detailView .sec-title[data-sec]').forEach(t=>{
+    const key=t.dataset.sec,body=document.getElementById('sb-'+key);
+    if(!body)return;
+    t.classList.add('tap');
+    if(!t.querySelector('.sec-hint')){const hh=document.createElement('span');hh.className='sec-hint';hh.textContent='點標題收合';t.appendChild(hh);}
+    const closed=(key in saved)?!!saved[key]:!!defClosed[key];
+    body.classList.toggle('closed',closed);t.classList.toggle('closed',closed);
+    t.onclick=()=>{
+      const c=body.classList.toggle('closed');
+      t.classList.toggle('closed',c);
+      saved[key]=c;
+      try{localStorage.setItem('secState',JSON.stringify(saved));}catch(e){}
+      if(!c)setTimeout(()=>{body.querySelectorAll('div').forEach(el=>{
+        try{const ch=window.echarts&&echarts.getInstanceByDom(el);if(ch)ch.resize();}catch(e){}});},90);
+    };
+  });
 }
 /* 個股營收趨勢:FinMind 直連近3年月營收(失敗回退站內累積) */
 async function loadRevTrend(s){
