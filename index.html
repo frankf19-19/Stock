@@ -38,9 +38,9 @@ html[data-theme="mocha"]{
   --amber:#EDB94E; --hdr:#1C1710;
 }
 html[data-theme="teal"]{
-  --bg:#0B0E1A; --panel:#121729; --panel2:#1A2138; --line:#2A3352;
-  --txt:#ECEFF9; --mut:#98A4C8; --dim:#5E6A8F; --txt2:#C9D1E8;
-  --amber:#93A9FF; --hdr:#0D111F;
+  --bg:#F2F7F4; --panel:#FFFFFF; --panel2:#E9F2EC; --line:#D5E4DA;
+  --txt:#1E2B24; --mut:#5F7469; --dim:#8CA095; --txt2:#3D5247;
+  --amber:#1D8A66; --hdr:#EDF4EF;
 }
 html[data-theme="graphite"]{
   --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
@@ -480,7 +480,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <option value="black">⬛ 純黑金</option>
           <option value="light">☀️ 明亮日盤</option>
           <option value="mocha">🥃 琥珀夜盤</option>
-          <option value="teal">🌌 靛夜藍</option>
+          <option value="teal">🍃 青瓷亮綠</option>
           <option value="graphite">🪨 石墨銀</option>
           <option value="dawn">🌇 曙光橙</option>
           <option value="sepia">📜 護眼米黃</option>
@@ -1340,7 +1340,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r94</span>');
+  diag.push('<span style="color:var(--dim)">build r96</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2922,6 +2922,34 @@ function dimBlock(title,d){
     <div class="kv">${Object.entries(d.kv).map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</div>
     <div class="dim-note">${d.note}</div></div>`;
 }
+/* 參考價位劇本:規則化的買進區/出場位/報酬風險比;條件不符時說明原因 */
+function planBlock(s){
+  const a=s.al, px=s.price;
+  if(!a||!px)return '';
+  const T=total(s), fmt=v=>(+v).toLocaleString();
+  const ok=!!a.bull&&T>=60;
+  const why=[];
+  if(!a.bull)why.push('均線空頭排列(月線在季線下方)——下跌趨勢中猜底勝率低,等股價重新站回均線帶、月線翻揚再評估');
+  if(T<60)why.push(`綜合評分 ${T} 分偏低——基本面、籌碼、技術至少一個面向不及格,好價格也救不了壞股票`);
+  const tone=ok?'#4BD695':'#FF8A8E';
+  let buyHtml='';
+  if(ok){
+    const inZone=px<=a.z1*1.005&&px>=a.z0*0.995;
+    const nearBrk=px>=a.h20*0.98&&px<a.h20*1.005;
+    const brk=+(a.h20*1.005).toFixed(2);
+    buyHtml=`<div><dt>拉回買進參考區</dt><dd>${fmt(a.z0)} ~ ${fmt(a.z1)}|月線~季線均線帶,分批不重押${inZone?' · <b style="color:#4BD695">現價就在區內</b>':''}</dd></div>
+      <div><dt>突破買進參考</dt><dd>帶量站上 ${fmt(brk)}|量需 > ${Math.round(a.v20*1.15).toLocaleString()} 張${nearBrk?' · <b style="color:var(--amber)">接近觸發</b>':''}</dd></div>`;
+  }
+  const upside=(s.tp&&s.tp.m)?((s.tp.m/px-1)*100):null;
+  const rr=(ok&&a.z1&&a.stop&&s.tp&&s.tp.m&&(a.z1-a.stop)>0)?((s.tp.m-a.z1)/(a.z1-a.stop)):null;
+  const sellHtml=`<div><dt>停損出場</dt><dd>收盤跌破 ${fmt(a.stop)}|買進區下緣再 -3%,趨勢理由被破壞就離場,不凹單</dd></div>
+    <div><dt>分批獲利參考</dt><dd>${fmt(a.h20)}(近月高,先出第一批)${s.tp&&s.tp.m?` → ${fmt(Math.round(s.tp.m))}(分析師平均目標價${upside!=null?`,距現價 ${upside>=0?'+':''}${upside.toFixed(0)}%`:''})`:''}</dd></div>
+    ${rr!=null&&rr>0?`<div><dt>報酬風險比</dt><dd>約 ${rr.toFixed(1)} : 1|「均線帶買、目標價賣、停損認錯」劇本下,賺賠空間的比例${rr>=2?' · <b style="color:#4BD695">≥2,值得列入觀察</b>':rr<1?' · <b style="color:#FF8A8E"><1,現在進場划不來</b>':''}</dd></div>`:''}`;
+  return `<div class="dim-block" style="border-left:4px solid ${tone}"><h3>📐 參考價位劇本(規則化) <span class="ds">${ok?'✓ 可留意布局':'✗ 先觀望'}</span></h3>
+    <div class="dim-note" style="margin-bottom:6px"><b style="color:${tone}">${ok?`符合留意條件:多頭排列+綜合 ${T} 分`:'目前不符合買進條件:'}</b>${why.length?'<br>'+why.map(w=>'• '+w).join('<br>'):''}</div>
+    <div class="kv">${buyHtml}${sellHtml}</div>
+    <div class="dim-note">這是把「回檔到均線帶分批、帶量突破追進、跌破停損離場、到目標分批獲利」四條常見紀律,套進這檔的實際數據自動算出的<b>劇本範本,不是投資建議</b>——它不知道你的成本、部位與風險承受度,價位每天隨數據更新。到價要不要執行,永遠由你自己決定。</div></div>`;
+}
 /* 估值評價:本益比/EPS/預估本益比/同產業中位數 */
 function valBlock(s){
   if(!s.pe&&!s.eps)return '<div class="dim-block" style="border-left:4px solid #7FB4FF"><h3>💰 估值評價</h3><div class="dim-note">本益比資料待「每日資料更新」執行後產生;若更新後仍無,代表這檔近四季虧損(官方不提供虧損公司的本益比),可改看股價淨值比與營收動能。</div></div>';
@@ -3249,9 +3277,9 @@ const CHART_THEMES={
   mocha:{legend:'#AC9F88',axis:'#7E7159',split:'#261F14',border:'#3E3424',
     ttBg:'#2C2419',ttText:'#F3EEE5',inactive:'#4A3E2B',ma60:'#F7F1E4',
     up2:'#FF9A8E',dn2:'#5BD9A0'},
-  teal:{legend:'#98A4C8',axis:'#66719A',split:'#171D33',border:'#2A3352',
-    ttBg:'#1A2138',ttText:'#EEF1FB',inactive:'#333D5E',ma60:'#EDEFF9',
-    up2:'#FF8A8E',dn2:'#4BD695'},
+  teal:{legend:'#5F7469',axis:'#7C9187',split:'#E2EDE6',border:'#CFE0D5',
+    ttBg:'#FFFFFF',ttText:'#1E2B24',inactive:'#BFD2C6',ma60:'#33473C',
+    up2:'#C4333B',dn2:'#0F8A57'},
   graphite:{legend:'#9BA1AB',axis:'#6D737D',split:'#1F2125',border:'#34383F',
     ttBg:'#26292E',ttText:'#ECEDEF',inactive:'#3E434B',ma60:'#F0F1F3',
     up2:'#FF8A8E',dn2:'#4BD695'},
@@ -3690,7 +3718,7 @@ async function showDetail(id){
     ${s.market==='TW'?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
     <div id="chipwrap"></div>
     </div>
-    ${s.market==='TW'?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:12px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}</div>`:''}
+    ${s.market==='TW'?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:12px;letter-spacing:0">股價貴不貴・成長在哪裡・參考價位劇本</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}${planBlock(s)}</div>`:''}
     <div class="sec-title" data-sec="stk_m">🎯 市場觀點與新聞 <span style="font-weight:400;font-size:12px;letter-spacing:0">目標價・研究報告・相關新聞</span></div><div class="sec-body" id="sb-stk_m">
     <div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
       <h3>分析師觀點|目標價與研究報告</h3>
@@ -5517,6 +5545,7 @@ const GLOSS={
 '箱型':'股價在一個固定區間上下震盪,像被關在箱子裡。<b>帶量突破箱頂</b>常是新一波起漲的訊號;跌破箱底則反之。',
 '買進區':'本站定義的「月線~季線之間的均線帶」:多頭股回檔到這裡,是常見的分批留意區。<b>是參考區域,不是保證會漲的價位。</b>',
 '停損參考':'跌破這個價位,代表原本看多的理由已被破壞,一般會先出場控制虧損,保留資金等下一次機會。',
+'報酬風險比':'如果照劇本走:「可能賺的空間 ÷ 可能賠的空間」。例如買在 100、目標 130、停損 90 → 賺 30 賠 10 = 3:1。<br><b>怎麼看:</b>大於 2 才值得出手是常見紀律——十次對五次也能賺錢;小於 1 代表賠率不划算,再看好也該等更好的價位。',
 '本益比':'股價 ÷ 每股一年賺的錢(EPS),意思是「用現在的獲利速度,幾年回本」。20 倍=不成長的話 20 年回本。<br><b>怎麼看:</b>數字越低越便宜,但要跟「同產業」比才有意義——高成長產業天生比較貴。',
 '預估本益比':'用「預估的未來一年 EPS」算的本益比。成長股常常「現在看很貴、用明年獲利看就合理」。<br><b>注意:</b>本站是用營收年增率簡易推算,不是分析師預估,參考方向就好。',
 'EPS':'每股盈餘=公司一年幫「每一股」賺了多少元。EPS 10 元、股價 200 元 → 本益比 20 倍。EPS 持續成長是股價長期上漲最根本的燃料。',
