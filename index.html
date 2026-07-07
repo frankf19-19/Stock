@@ -1354,7 +1354,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r101</span>');
+  diag.push('<span style="color:var(--dim)">build r102</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3325,10 +3325,11 @@ const CHART_THEMES={
     ttBg:'#FFFDF7',ttText:'#2A2418',inactive:'#CFC6B0',ma60:'#4A4232',
     up2:'#B23037',dn2:'#0B6B47'}
 };
-/* 🌸🌊🌲 氛圍特效引擎:櫻花瓣/海邊氣泡/森林落葉,依主題切換;
-   畫在背景層不擋內容;尊重「減少動態」;切換主題自動清除重建 */
+/* 🌸🌊🌲 氛圍場景引擎 v2:
+   櫻花=花瓣飄落|海邊=太陽・飄雲・海浪・沙灘・沙堡(旗飄)・海鷗・氣泡|森林=陽光光束・松樹・搖曳草地・落葉
+   全程式繪製、畫在背景層不擋內容;尊重「減少動態」;切主題自動清除重建 */
 function natureFX(theme){
-  const kind={sakura:'petal',dawn:'bubble',mocha:'leaf'}[theme]||null;
+  const kind={sakura:'petal',dawn:'beach',mocha:'forest'}[theme]||null;
   const old=document.getElementById('natureFx');
   if(!kind){window.__nfRun=false;if(old)old.remove();return;}
   try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;}catch(e){}
@@ -3339,23 +3340,113 @@ function natureFX(theme){
   const cx=cv.getContext('2d');
   const fit=()=>{cv.width=innerWidth;cv.height=innerHeight;};
   fit();addEventListener('resize',fit,{passive:true});
-  const mob=innerWidth<640;
-  const N=kind==='bubble'?(mob?9:14):(mob?10:18);
+  const mob=innerWidth<640, R=Math.random;
+  /* ── 粒子 ── */
+  const N=kind==='beach'?(mob?7:12):(mob?10:18);
   const LEAF_C=[['#8FBF7A','#6FA35F'],['#C9C06A','#A89B4E'],['#D6A85F','#B5854A']];
   const mk=init=>{
-    if(kind==='bubble')return{x:Math.random()*innerWidth,
-      y:init?Math.random()*innerHeight:cv.height+16,
-      s:2.5+Math.random()*6,vy:-(.22+Math.random()*.42),ph:Math.random()*6.28,
-      sw:.18+Math.random()*.4,o:.16+Math.random()*.22};
-    const base={x:Math.random()*innerWidth,y:init?Math.random()*innerHeight:-24,
-      ph:Math.random()*6.28,rot:Math.random()*6.28,hue:Math.random()};
-    if(kind==='leaf')return{...base,s:6.5+Math.random()*6,vy:.26+Math.random()*.42,
-      sw:.3+Math.random()*.55,vr:(Math.random()-.5)*.03,o:.34+Math.random()*.3,
-      col:LEAF_C[Math.floor(Math.random()*LEAF_C.length)]};
-    return{...base,s:6+Math.random()*7,vy:.32+Math.random()*.5,
-      sw:.22+Math.random()*.5,vr:(Math.random()-.5)*.018,o:.32+Math.random()*.34};
+    if(kind==='beach')return{x:R()*innerWidth,y:init?R()*innerHeight:cv.height+16,
+      s:2+R()*4.5,vy:-(.2+R()*.35),ph:R()*6.28,sw:.16+R()*.35,o:.10+R()*.15};
+    const b={x:R()*innerWidth,y:init?R()*innerHeight:-24,ph:R()*6.28,rot:R()*6.28,hue:R()};
+    if(kind==='forest')return{...b,s:6.5+R()*6,vy:.26+R()*.42,sw:.3+R()*.55,
+      vr:(R()-.5)*.03,o:.34+R()*.3,col:LEAF_C[Math.floor(R()*3)]};
+    return{...b,s:6+R()*7,vy:.32+R()*.5,sw:.22+R()*.5,vr:(R()-.5)*.018,o:.32+R()*.34};
   };
   const P=Array.from({length:N},()=>mk(true));
+  /* ── 場景物件(預先生成) ── */
+  const SC={};
+  if(kind==='beach'){
+    SC.clouds=Array.from({length:mob?2:3},(_,i)=>({x:R()*innerWidth,y:30+R()*70,s:.7+R()*.6,v:.08+R()*.1}));
+    SC.gulls=Array.from({length:mob?1:2},()=>({x:R()*innerWidth,y:60+R()*90,v:.35+R()*.3,ph:R()*6.28}));
+    SC.castleX=.16+R()*.1;
+  }
+  if(kind==='forest'){
+    SC.grass=Array.from({length:mob?26:52},()=>({x:R(),h:8+R()*11,ph:R()*6.28,lt:R()<.35}));
+    SC.trees=Array.from({length:mob?3:5},(_,i)=>({x:(i+.5+R()*.3)/(mob?3:5),s:.7+R()*.6}));
+  }
+  /* ── 場景繪製 ── */
+  function beachScene(t){
+    const W=cv.width,H=cv.height,sandH=H*.13,seaTop=H-sandH-H*.09;
+    let g=cx.createRadialGradient(W*.86,H*.09,10,W*.86,H*.09,H*.2);      // 太陽
+    g.addColorStop(0,'rgba(255,214,130,.5)');g.addColorStop(1,'rgba(255,214,130,0)');
+    cx.fillStyle=g;cx.fillRect(W*.6,0,W*.4,H*.35);
+    cx.beginPath();cx.arc(W*.86,H*.09,H*.032,0,6.29);cx.fillStyle='rgba(255,205,110,.75)';cx.fill();
+    SC.clouds.forEach(c=>{                                               // 飄雲
+      c.x+=c.v;if(c.x>W+140)c.x=-140;
+      cx.fillStyle='rgba(255,255,255,.65)';
+      [[0,0,42],[30,6,30],[-30,7,28]].forEach(([dx,dy,r])=>{
+        cx.beginPath();cx.ellipse(c.x+dx*c.s,c.y+dy*c.s,r*c.s,r*.55*c.s,0,0,6.29);cx.fill();});
+    });
+    SC.gulls.forEach(gl=>{                                               // 海鷗
+      gl.x+=gl.v;gl.ph+=.06;if(gl.x>W+40)gl.x=-40;
+      const y=gl.y+Math.sin(gl.ph*.5)*8, f=Math.sin(gl.ph)*3;
+      cx.strokeStyle='rgba(90,110,122,.7)';cx.lineWidth=1.6;cx.lineCap='round';
+      cx.beginPath();cx.moveTo(gl.x-9,y);cx.quadraticCurveTo(gl.x-4,y-4-f,gl.x,y);
+      cx.quadraticCurveTo(gl.x+4,y-4-f,gl.x+9,y);cx.stroke();
+    });
+    const tide=Math.sin(t*.45)*7;                                        // 海:兩層波浪+潮線
+    cx.fillStyle='rgba(155,205,228,.75)';
+    cx.beginPath();cx.moveTo(0,H-sandH);cx.lineTo(0,seaTop+6);
+    for(let x=0;x<=W;x+=14)cx.lineTo(x,seaTop+6+Math.sin(x*.014+t*1.0)*3.2);
+    cx.lineTo(W,H-sandH);cx.closePath();cx.fill();
+    cx.fillStyle='rgba(105,170,200,.55)';
+    cx.beginPath();cx.moveTo(0,H-sandH);cx.lineTo(0,seaTop+16);
+    for(let x=0;x<=W;x+=14)cx.lineTo(x,seaTop+16+Math.sin(x*.011-t*.7)*4);
+    cx.lineTo(W,H-sandH);cx.closePath();cx.fill();
+    g=cx.createLinearGradient(0,H-sandH,0,H);                            // 沙灘
+    g.addColorStop(0,'#F0E1C4');g.addColorStop(1,'#E4D0A8');
+    cx.fillStyle=g;cx.fillRect(0,H-sandH+tide*.3,W,sandH+8);
+    cx.strokeStyle='rgba(255,255,255,.8)';cx.lineWidth=2;               // 浪花泡沫線
+    cx.beginPath();
+    for(let x=0;x<=W;x+=10)cx.lineTo(x,H-sandH+tide*.3+Math.sin(x*.02+t*1.1)*2.5);
+    cx.stroke();
+    const bx=W*SC.castleX, by=H-sandH*.42;                               // 沙堡
+    cx.fillStyle='#D9BE8F';
+    cx.fillRect(bx-26,by-14,52,18);                                      // 主體
+    cx.fillRect(bx-34,by-30,16,34);cx.fillRect(bx+18,by-30,16,34);       // 雙塔
+    cx.fillStyle='#C9AA74';
+    [[-34,-30],[-26,-30],[-18,-30],[18,-30],[26,-30],[34,-30]].forEach(([dx])=>cx.fillRect(bx+dx,by-34,5,5)); // 城垛
+    cx.beginPath();cx.arc(bx,by+4,7,3.14,0);cx.fill();                   // 城門
+    cx.strokeStyle='#8A7350';cx.lineWidth=1.4;                           // 旗桿+飄動旗
+    cx.beginPath();cx.moveTo(bx-26,by-30);cx.lineTo(bx-26,by-44);cx.stroke();
+    const fw=Math.sin(t*3)*2;
+    cx.fillStyle='#E06A6A';
+    cx.beginPath();cx.moveTo(bx-26,by-44);cx.lineTo(bx-13,by-41+fw);cx.lineTo(bx-26,by-38);cx.closePath();cx.fill();
+  }
+  function forestScene(t){
+    const W=cv.width,H=cv.height,gndH=H*.09,gTop=H-gndH;
+    let g=cx.createRadialGradient(W*.12,H*.07,8,W*.12,H*.07,H*.22);      // 林間太陽
+    g.addColorStop(0,'rgba(255,222,140,.4)');g.addColorStop(1,'rgba(255,222,140,0)');
+    cx.fillStyle=g;cx.fillRect(0,0,W*.5,H*.35);
+    for(let i=0;i<3;i++){                                                // 光束(呼吸明滅)
+      const a=.05+.04*Math.sin(t*.35+i*2.1);
+      if(a<=0)continue;
+      cx.fillStyle=`rgba(255,230,160,${a.toFixed(3)})`;
+      const x0=W*(.08+i*.09);
+      cx.beginPath();cx.moveTo(x0,0);cx.lineTo(x0+W*.05,0);
+      cx.lineTo(x0+W*.16,H*.75);cx.lineTo(x0+W*.07,H*.75);cx.closePath();cx.fill();
+    }
+    SC.trees.forEach(tr=>{                                               // 遠景松樹
+      const x=W*tr.x, s=tr.s, base=gTop+4;
+      cx.fillStyle='rgba(16,28,21,.9)';
+      for(let k=0;k<3;k++){
+        const w=(46-k*12)*s, y=base-(k*26+8)*s;
+        cx.beginPath();cx.moveTo(x,y-30*s);cx.lineTo(x-w/2,y);cx.lineTo(x+w/2,y);cx.closePath();cx.fill();
+      }
+      cx.fillRect(x-3*s,base-8*s,6*s,10*s);
+    });
+    g=cx.createLinearGradient(0,gTop,0,H);                               // 草地
+    g.addColorStop(0,'#16241B');g.addColorStop(1,'#0E1712');
+    cx.fillStyle=g;cx.fillRect(0,gTop,W,gndH);
+    cx.lineWidth=1.4;cx.lineCap='round';
+    SC.grass.forEach(b=>{                                                // 隨風搖的草
+      const x=W*b.x, sway=Math.sin(t*1.15+b.ph)*3;
+      cx.strokeStyle=b.lt?'rgba(78,118,90,.9)':'rgba(48,80,60,.9)';
+      cx.beginPath();cx.moveTo(x,gTop+3);
+      cx.quadraticCurveTo(x+sway*.5,gTop-b.h*.55,x+sway,gTop-b.h);cx.stroke();
+    });
+  }
+  /* ── 粒子繪製 ── */
   const draw={
     petal(p){
       cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);
@@ -3370,40 +3461,43 @@ function natureFX(theme){
       cx.beginPath();cx.arc(0,s*1.02,s*.26,0,6.29);cx.fill();
       cx.restore();cx.globalCompositeOperation='source-over';
     },
-    bubble(p){
+    beach(p){
       cx.save();cx.globalAlpha=p.o;
       cx.beginPath();cx.arc(p.x,p.y,p.s,0,6.29);
-      cx.fillStyle='rgba(150,205,228,.28)';cx.fill();
-      cx.lineWidth=1;cx.strokeStyle='rgba(70,150,185,.55)';cx.stroke();
-      cx.beginPath();cx.arc(p.x-p.s*.32,p.y-p.s*.32,Math.max(.7,p.s*.22),0,6.29);
-      cx.fillStyle='rgba(255,255,255,.85)';cx.fill();       // 高光
+      cx.fillStyle='rgba(150,205,228,.25)';cx.fill();
+      cx.lineWidth=1;cx.strokeStyle='rgba(70,150,185,.45)';cx.stroke();
+      cx.beginPath();cx.arc(p.x-p.s*.32,p.y-p.s*.32,Math.max(.6,p.s*.22),0,6.29);
+      cx.fillStyle='rgba(255,255,255,.8)';cx.fill();
       cx.restore();
     },
-    leaf(p){
+    forest(p){
       cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);
       const s=p.s,g=cx.createLinearGradient(0,-s,0,s);
       g.addColorStop(0,p.col[0]);g.addColorStop(1,p.col[1]);
       cx.globalAlpha=p.o;cx.fillStyle=g;
-      cx.beginPath();cx.moveTo(0,-s);                        // 尖橢圓葉形
+      cx.beginPath();cx.moveTo(0,-s);
       cx.bezierCurveTo(s*.62,-s*.35,s*.62,s*.35,0,s);
       cx.bezierCurveTo(-s*.62,s*.35,-s*.62,-s*.35,0,-s);cx.fill();
-      cx.globalAlpha=p.o*.7;cx.lineWidth=.8;                 // 葉脈
-      cx.strokeStyle=p.col[1];
+      cx.globalAlpha=p.o*.7;cx.lineWidth=.8;cx.strokeStyle=p.col[1];
       cx.beginPath();cx.moveTo(0,-s*.85);cx.lineTo(0,s*.85);cx.stroke();
       cx.restore();
     }
   };
   window.__nfRun=true;
+  const t0=performance.now();
   (function loop(){
     const me=document.getElementById('natureFx');
     if(!window.__nfRun||!me||me!==cv)return;
     if(!document.hidden){
+      const t=(performance.now()-t0)/1000;
       cx.clearRect(0,0,cv.width,cv.height);
+      if(kind==='beach')beachScene(t);
+      else if(kind==='forest')forestScene(t);
       P.forEach(p=>{
-        p.ph+=kind==='bubble'?.016:.011;
+        p.ph+=kind==='beach'?.016:.011;
         p.y+=p.vy;p.x+=Math.sin(p.ph)*p.sw;
-        if(p.rot!=null)p.rot+=p.vr+Math.sin(p.ph)*(kind==='leaf'?.006:.0035);
-        if(kind==='bubble'){if(p.y<-20)Object.assign(p,mk(false));}
+        if(p.rot!=null)p.rot+=p.vr+Math.sin(p.ph)*(kind==='forest'?.006:.0035);
+        if(kind==='beach'){if(p.y<-20)Object.assign(p,mk(false));}
         else if(p.y>cv.height+26)Object.assign(p,mk(false));
         if(p.x<-30)p.x=cv.width+22;else if(p.x>cv.width+30)p.x=-22;
         draw[kind](p);
