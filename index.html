@@ -1308,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r83</span>');
+  diag.push('<span style="color:var(--dim)">build r85</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3241,6 +3241,18 @@ function liveKBar(idOrKey){
   }
 }
 function bindKControls(sLike){
+  const lvs=document.getElementById('lvSeg');
+  if(lvs){
+    const cur=localStorage.getItem('kLV')!=='0';
+    lvs.querySelectorAll('button').forEach(b=>{
+      b.classList.toggle('on',(b.dataset.t==='1')===cur);
+      b.onclick=()=>{
+        localStorage.setItem('kLV',b.dataset.t);
+        lvs.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+        try{drawKChart();}catch(e){}
+      };
+    });
+  }
   const tl=document.getElementById('tlSeg');
   if(tl){
     const cur=localStorage.getItem('kTL')!=='0';
@@ -3290,6 +3302,7 @@ function kChartBoxHTML(){
             `<button data-r="${v}" class="${v==='2y'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
@@ -3399,6 +3412,7 @@ function drawKChart(){
         itemStyle:{color:UPC,color0:DNC,borderColor:UPC,borderColor0:DNC},
         ...((curLevels&&isDay)?(()=>{
           const ACC=cssVar('--amber');
+          const showLv=localStorage.getItem('kLV')!=='0';   // 壓力/支撐等價位標記開關
   try{
     const kr=window.__kRestore;
     if(kr&&kr.legend)chartInst.setOption({legend:{selected:kr.legend}});
@@ -3412,25 +3426,26 @@ function drawKChart(){
           return {
           markLine:{symbol:'none',silent:true,
             data:[
-              ...(closes[closes.length-1]<curLevels.h20*1.002?[
+              ...(showLv&&closes[closes.length-1]<curLevels.h20*1.002?[
                 {name:'▶ 右側進場',yAxis:+(curLevels.h20*1.005).toFixed(2),
                  lineStyle:{color:ACC,type:'solid',width:1.6},
                  label:chip(ACC,'insideStartTop')}]:[]),
+              ...(showLv?[
               {name:'壓力·前波高',yAxis:+curLevels.h60.toFixed(2),
                lineStyle:{color:UPC,type:'dashed',width:1},
                label:chip(UPC,'insideEndTop')},
               {name:'支撐·前波低',yAxis:+curLevels.l60.toFixed(2),
                lineStyle:{color:DNC,type:'dashed',width:1},
-               label:chip(DNC,'insideEndBottom')},
-              ...(Math.abs(curLevels.h20-curLevels.h60)/curLevels.h60>0.012?[
+               label:chip(DNC,'insideEndBottom')}]:[]),
+              ...(showLv&&Math.abs(curLevels.h20-curLevels.h60)/curLevels.h60>0.012?[
                 {name:'壓力·近月高',yAxis:+curLevels.h20.toFixed(2),
                  lineStyle:{color:CT.up2,type:'dotted',width:1},
                  label:chip(CT.up2,'insideEndBottom')}]:[]),
-              ...(Math.abs(curLevels.l20-curLevels.l60)/curLevels.l60>0.012?[
+              ...(showLv&&Math.abs(curLevels.l20-curLevels.l60)/curLevels.l60>0.012?[
                 {name:'支撐·近月低',yAxis:+curLevels.l20.toFixed(2),
                  lineStyle:{color:CT.dn2,type:'dotted',width:1},
                  label:chip(CT.dn2,'insideEndTop')}]:[]),
-              ...(window.__kBox?[
+              ...(showLv&&window.__kBox?[
                 {name:'📦 箱頂',yAxis:window.__kBox.top,
                  lineStyle:{color:UPC,type:'solid',width:1.3},
                  label:chip(UPC,'insideStartTop')},
@@ -3458,15 +3473,15 @@ function drawKChart(){
               backgroundColor:CT.ttBg,borderColor:CT.border,borderWidth:1,
               padding:[3,7],borderRadius:5},
             data:[
-              ...(window.__kBox?[[{name:`📦 箱型整理 ${window.__kBox.w}日`,
+              ...(showLv&&window.__kBox?[[{name:`📦 箱型整理 ${window.__kBox.w}日`,
                     xAxis:curDates[curDates.length-window.__kBox.w],
                     yAxis:window.__kBox.bot,
                     itemStyle:{color:hexA(CT.legend==='#000'?'#888888':'#8899AA',.14)},
                     label:{position:'insideTopLeft',color:CT.axis}},
                    {xAxis:curDates[curDates.length-1],yAxis:window.__kBox.top}]]:[]),
-              [{name:curLevels.bull?'◀ 左側買進區(均線帶)':'支撐帶(空頭·觀望)',
+              ...(showLv?[[{name:curLevels.bull?'◀ 左側買進區(均線帶)':'支撐帶(空頭·觀望)',
                     yAxis:+curLevels.zone[0].toFixed(2)},
-                   {yAxis:+curLevels.zone[1].toFixed(2)}]]}
+                   {yAxis:+curLevels.zone[1].toFixed(2)}]]:[])]}
           };})():{})},
       ...maSeries,volSeries,...indSeries,...divMarkSeries()]
   });
@@ -3699,6 +3714,7 @@ async function showDetail(id){
             `<button data-r="${v}" class="${v==='2y'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
