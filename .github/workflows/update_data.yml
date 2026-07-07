@@ -27,7 +27,7 @@ jobs:
           python-version: '3.11'
 
       - name: 安裝套件
-        run: pip install requests pandas yfinance
+        run: pip install requests pandas yfinance lxml
 
       - name: 執行每日更新(價格/法人/大戶/營收/評分)
         run: python update_data.py
