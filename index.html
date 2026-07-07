@@ -1308,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r74</span>');
+  diag.push('<span style="color:var(--dim)">build r76</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2081,6 +2081,20 @@ async function otcFromETF(){
 /* ── 風險指標:VIX 恐慌指數 + 美債殖利率(每60秒即時更新)── */
 async function refreshRisk(){
   const box=document.getElementById('riskRow');
+  // 大盤融資餘額卡(FinMind,每日更新)
+  window.__creditCard=()=>{
+    const c=(DATA.macro||{}).credit;
+    if(!box||!c||!c.fin||document.getElementById('creditCard'))return;
+    const d=document.createElement('div');
+    d.className='idx-card';d.id='creditCard';
+    d.style.cursor='pointer';
+    d.onclick=()=>{location.hash='#macro/credit';};
+    d.innerHTML=`<div class="nm">融資餘額(上市) ›</div>
+      <div class="vl">${c.fin.toLocaleString()} 億</div>
+      <div class="ch ${(c.finD||0)>=0?'pos':'neg'}">${c.finD!=null?((c.finD>=0?'▲ +':'▼ ')+c.finD+' 億'):'—'}</div>`;
+    box.appendChild(d);
+  };
+  setTimeout(()=>{try{window.__creditCard();}catch(e){}},400);
   if(!box)return;
   const defs=[
     ['VIX 恐慌指數','^VIX','vix'],
@@ -3299,6 +3313,21 @@ async function showDetail(id){
     ['TradingView',`https://tw.tradingview.com/symbols/${s.id}/`]]
    :[['Yahoo Finance',`https://finance.yahoo.com/quote/${s.id}`],
      ['TradingView',`https://www.tradingview.com/symbols/${s.id}/`]];
+  // 信用交易列注入(融資/融券/借券,張+日增減)
+  let cAug=s.c;
+  if(s.c&&s.mg){
+    const m=s.mg,dd=v=>v==null?'':`(${v>=0?'+':''}${v.toLocaleString()})`;
+    const kv2={...(s.c.kv||{})};
+    if(m.f!=null)kv2['融資餘額(張)']=m.f.toLocaleString()+dd(m.fd);
+    if(m.s!=null)kv2['融券餘額(張)']=m.s.toLocaleString()+dd(m.sd);
+    if(m.f>0&&m.s!=null)kv2['券資比']=((m.s/m.f)*100).toFixed(1)+'%';
+    if(m.l!=null)kv2['借券賣出(張)']=m.l.toLocaleString()+dd(m.ld);
+    let note=s.c.note||'';
+    if(m.fd!=null&&m.f>0&&m.fd>m.f*0.03)note+=' 融資單日大增,散戶追價轉熱、籌碼轉浮。';
+    else if(m.fd!=null&&m.f>0&&m.fd<-(m.f*0.03))note+=' 融資明顯減肥,浮額洗出。';
+    if(m.ld!=null&&m.ld>Math.max(500,(m.l||0)*0.05))note+=' 借券賣出增加,空方(常為外資)布局中。';
+    cAug={...s.c,kv:kv2,note};
+  }
   dv.innerHTML=`<div class="detail-wrap">
     <button class="back" id="backBtn">← 回選股清單</button>
     <div class="m-head">
@@ -3325,7 +3354,8 @@ async function showDetail(id){
     <div class="d-sec">⚖️ 三力檢視 <span>基本面・籌碼面・技術面</span></div>
     ${dimBlock('基本面(權重40%)',s.f)}
     ${s.t3?`<div class="thesis" style="border-color:#4BD695"><b style="color:#4BD695">✅ 營收三率三升(${s.t3.q}):</b>毛利率 ${s.t3.gm[0]}→${s.t3.gm[1]}%、營益率 ${s.t3.om[0]}→${s.t3.om[1]}%、淨利率 ${s.t3.nm[0]}→${s.t3.nm[1]}%${s.t3.ry!=null?`,月營收年增 +${s.t3.ry}%`:''}——獲利品質與營收動能同步向上。</div>`:''}
-    ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',s.c)}
+    ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',cAug)}
+    ${s.market==='TW'?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
     <div id="chipwrap"></div>
     ${dimBlock('技術線型(權重25%)',s.t)}
     <div class="d-sec">🎯 市場觀點 <span>分析師目標價與研究報告</span></div>
@@ -3426,6 +3456,7 @@ async function showDetail(id){
   KHASH='#stock/'+s.id;
   try{stkLiveStart(s);}catch(e){}      // 報價迴圈 0 秒啟動
   try{loadIntraDetail(s);}catch(e){}   // 走勢圖與 K 分片平行
+  if(s.market==='TW')setTimeout(()=>{try{loadRevTrend(s);}catch(e){}},300);
   const k=await loadK(s);
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
@@ -5073,6 +5104,56 @@ function drawMkLive(misKey){
     if(stat)stat.textContent=marketOpen()?'今日走勢即時累積中,約 30 秒後出現':'走勢暫時載入不到';
   }
 }
+/* 個股營收趨勢:FinMind 直連近3年月營收(失敗回退站內累積) */
+async function loadRevTrend(s){
+  const box=document.getElementById('revChart'),st=document.getElementById('revStat');
+  if(!box)return;
+  let rows=null;
+  try{
+    const start=new Date(Date.now()-40*30*86400000).toISOString().slice(0,10);
+    const r=await fT(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockMonthRevenue&data_id=${s.id}&start_date=${start}`,9000);
+    if(r.ok){const j=await r.json();rows=(j&&j.data)||null;}
+  }catch(e){}
+  let mm=[],rev=[],yoy=[];
+  if(rows&&rows.length>=6){
+    const by={};
+    rows.forEach(x=>{by[`${x.revenue_year}-${String(x.revenue_month).padStart(2,'0')}`]=+x.revenue;});
+    Object.keys(by).sort().slice(-36).forEach(ym=>{
+      mm.push(ym.slice(2));
+      rev.push(+(by[ym]/1e8).toFixed(2));
+      const py=`${+ym.slice(0,4)-1}${ym.slice(4)}`;
+      yoy.push(by[py]?+(((by[ym]-by[py])/by[py])*100).toFixed(1):null);
+    });
+  }else{
+    const cc=curChips&&curChips[s.id];
+    if(cc&&Array.isArray(cc.rm)&&cc.rm.length){
+      mm=cc.rm.map(x=>String(x).slice(2));
+      rev=(cc.ra||[]).map(x=>x!=null?+(x/1e5).toFixed(2):null);
+      yoy=cc.ry||[];
+    }
+  }
+  if(location.hash!=='#stock/'+s.id)return;
+  if(!mm.length){if(st)st.textContent='營收資料暫缺';return;}
+  if(st)st.textContent=`${mm.length} 個月 · 最新 ${mm[mm.length-1]}`;
+  if(!window.echarts)return;
+  echarts.dispose(box);box.innerHTML='';
+  const ch=echarts.init(box);
+  ch.setOption({backgroundColor:'transparent',
+    textStyle:{fontFamily:'IBM Plex Mono,monospace'},
+    legend:{top:0,textStyle:{color:CT.legend,fontSize:11}},
+    tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
+    grid:{left:56,right:56,top:30,bottom:24},
+    xAxis:{type:'category',data:mm,axisLabel:{color:CT.axis,fontSize:9.5,interval:Math.floor(mm.length/8)},axisLine:{lineStyle:{color:CT.border}}},
+    yAxis:[{type:'value',name:'營收(億)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
+           {type:'value',name:'YoY%',axisLabel:{color:CT.axis,fontSize:10,formatter:'{value}%'},splitLine:{show:false}}],
+    series:[
+      {name:'月營收(億)',type:'bar',data:rev,itemStyle:{color:hexA(cssVar('--amber'),.75)}},
+      {name:'年增率%',type:'line',yAxisIndex:1,data:yoy,symbol:'none',
+       lineStyle:{width:2,color:'#7FB4FF'},
+       markLine:{silent:true,symbol:'none',label:{show:false},
+         data:[{yAxis:0,lineStyle:{color:CT.border,type:'dashed'}}]}}
+    ]});
+}
 function futChart(dom,dates,series){
   const box=document.getElementById(dom);
   if(!box||!window.echarts)return;
@@ -5151,8 +5232,42 @@ async function showFutDetail(){
     nn.innerHTML=msgs.join('<br>')||'資料累積中。';
   }
 }
+function showCreditDetail(){
+  const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
+  disposeChipCharts();curChips=null;
+  home.style.display='none';dv.style.display='block';
+  window.scrollTo({top:0});
+  const c=(DATA.macro||{}).credit;
+  dv.innerHTML=`<div class="detail-wrap">
+    <button class="back" id="backBtn">← 回儀表板</button>
+    <div class="m-head"><div>
+      <h2 style="font-size:24px;font-weight:900">融資餘額(上市)|散戶信心溫度計 <span class="c-sector">${c?c.d:''}</span></h2>
+      <div class="c-full" style="margin-top:4px">融資=借錢買股的部位,通常視為散戶信心與市場浮額的溫度計。</div>
+    </div></div>
+    ${!c||!c.h?'<div class="dim-block"><div class="dim-note">資料尚未產生,執行每日更新後出現。</div></div>':`
+    <div class="chart-box"><h3 style="font-size:14px">融資餘額 60 日走勢(億元)</h3><div id="crC1" style="height:280px"></div></div>
+    <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>規則化判讀</h3><div class="dim-note" id="crNote"></div></div>`}
+    <div class="dim-block"><h3>怎麼看</h3><div class="dim-note"><b>融資緩增+指數上漲</b>=健康多頭;<b>融資急增+指數不漲</b>=散戶追高、籌碼轉浮,高檔警訊;<b>融資急降(俗稱斷頭清洗)</b>常出現在恐慌低點,洗完浮額反而是中期買點溫床;<b>融資創高但指數未創高</b>=背離留意。搭配個股頁的融資/借券欄位,可判斷「這檔是散戶在買還是法人在買」。</div></div>
+  </div>`;
+  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  if(!c||!c.h)return;
+  const ds=c.h.d.map(x=>String(x).slice(5));
+  futChart('crC1',ds,[{name:'融資餘額(億)',type:'line',data:c.h.fin,symbol:'none',
+    lineStyle:{width:2,color:'#E8B44A'},areaStyle:{opacity:.1}}]);
+  const nn=document.getElementById('crNote');
+  if(nn){
+    const a=c.h.fin,last=a[a.length-1];
+    const w=a.slice(-5),chg5=w.length>1?+(last-w[0]).toFixed(1):null;
+    const mx=Math.max(...a);
+    let t=`目前融資餘額 <b>${last.toLocaleString()} 億</b>${c.finD!=null?`,單日 ${c.finD>=0?'+':''}${c.finD} 億`:''}${chg5!=null?`,近五日 ${chg5>=0?'+':''}${chg5} 億`:''}。`;
+    if(last>=mx*0.99)t+=' 已在 60 日高檔區——散戶情緒偏熱,若指數同步創高屬健康,否則留意籌碼轉浮。';
+    else if(chg5!=null&&chg5<-(mx*0.02))t+=' 近五日明顯減肥——浮額清洗中,通常是中期健康訊號。';
+    nn.innerHTML=t;
+  }
+}
 async function showMacroDetail(key){
   if(key==='fut')return showFutDetail();
+  if(key==='credit')return showCreditDetail();
   const def=MK[key];
   const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
   if(!def){location.hash='';return;}

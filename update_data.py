@@ -30,7 +30,7 @@ KEEP_BARS = 130
 C_DIR = "c"            # 籌碼歷史分片資料夾
 CHIP_DAYS = 65         # 法人買賣超保留 65 個交易日(約 3 個月)
 BIG_WEEKS = 26         # 400張大戶保留 26 週(約半年)
-REV_MONTHS = 13        # 月營收保留 13 個月(可看年增趨勢)
+REV_MONTHS = 26        # 月營收保留 26 個月(兩年以上年增趨勢)
 CHIP_BACKFILL = 70     # 單次執行最多回補幾個交易日的法人資料(首次執行約需 7 分鐘)
 
 # ── 台股官方產業別代碼(t187ap03 若回傳代碼時使用)──
@@ -707,11 +707,16 @@ def _taifex_csv_fallback():
             def col(*ns):
                 return next((i for i, h in enumerate(hdr) if all(n in h for n in ns)), None)
             ci_d, ci_c, ci_m = col("日期"), col("契約"), col("月份") if col("月份") is not None else col("週別")
-            ci_b = col("十大", "買方"); ci_s = col("十大", "賣方")
-            ci_t = col("類別")   # 「交易人類別」欄:全部/特定法人 各一列
+            # 十大(全部)買賣:排除「特定」欄
+            ci_b = next((i for i,h in enumerate(hdr) if "十大" in h and "買" in h and "特定" not in h), None)
+            ci_s = next((i for i,h in enumerate(hdr) if "十大" in h and "賣" in h and "特定" not in h), None)
+            # 十大特定法人:獨立欄位格式
+            ci_pb = next((i for i,h in enumerate(hdr) if "十大" in h and "特定" in h and "買" in h), None)
+            ci_ps = next((i for i,h in enumerate(hdr) if "十大" in h and "特定" in h and "賣" in h), None)
+            ci_t = col("類別")   # 「交易人類別」列格式
+            if ok2 == 0 and qd == dates2[0]:
+                print(f"  [debug] 大額表頭全列:{hdr}")
             if None in (ci_d, ci_c, ci_b, ci_s):
-                if ok2 == 0 and qd == dates2[0]:
-                    print(f"  [debug] 大額表頭:{hdr[:12]}")
                 continue
             import re as _r2
             def num(v):
@@ -733,18 +738,115 @@ def _taifex_csv_fallback():
                 net10 = num(r0[ci_b]) - num(r0[ci_s])
                 kind = r0[ci_t].strip() if (ci_t is not None and len(r0) > ci_t) else ""
                 if "特定" in kind:
-                    e["sp"] = net10          # 特定法人獨立列
+                    e["sp"] = net10                                   # 格式A:特定法人獨立「列」
                 else:
-                    e["b10"] = net10         # 全部十大
-                    sb, ss = spec(r0[ci_b]), spec(r0[ci_s])
-                    if sb is not None and ss is not None and e.get("sp") is None:
-                        e["sp"] = sb - ss    # 舊版括號格式相容
+                    e["b10"] = net10
+                    if ci_pb is not None and ci_ps is not None and len(r0) > max(ci_pb, ci_ps):
+                        e["sp"] = num(r0[ci_pb]) - num(r0[ci_ps])     # 格式B:特定法人獨立「欄」
+                    else:
+                        sb, ss = spec(r0[ci_b]), spec(r0[ci_s])
+                        if sb is not None and ss is not None and e.get("sp") is None:
+                            e["sp"] = sb - ss                          # 格式C:括號含口數(舊)
             ok2 += 1
         except Exception:
             pass
         time.sleep(0.4)
     print(f"  [info] 傳統端點回填:法人 {ok1}/{len(dates)} 日、大額 {ok2}/{len(dates2)} 日")
     return day
+
+def fetch_credit_stocks(stocks):
+    """個股融資融券餘額(MI_MARGN,上市)+融券借券賣出餘額(TWT93U)。單位:張。"""
+    by_id = {s["id"]: s for s in stocks if s.get("market") == "TW"}
+    def pick(keys, *pats):
+        for k in keys:
+            if all(p.lower() in k.lower() for p in pats): return k
+        return None
+    n1 = 0
+    try:
+        arr = get_json("https://openapi.twse.com.tw/v1/exchangeReport/MI_MARGN", timeout=60)
+        keys = list(arr[0].keys())
+        kc = pick(keys, "Code") or pick(keys, "代號")
+        kft = pick(keys, "MarginBalanceOfTheDay") or pick(keys, "融資", "今日餘額")
+        kfp = pick(keys, "MarginBalanceOfPreviousDay") or pick(keys, "融資", "前日餘額")
+        kst = pick(keys, "ShortBalanceOfTheDay") or pick(keys, "融券", "今日餘額")
+        ksp = pick(keys, "ShortBalanceOfPreviousDay") or pick(keys, "融券", "前日餘額")
+        if not all((kc, kft, kfp)):
+            print(f"  [debug] MI_MARGN 欄位:{keys[:12]}")
+        else:
+            for r in arr:
+                s = by_id.get(str(r.get(kc, "")).strip())
+                if not s: continue
+                def iv(k):
+                    try: return int(float(str(r.get(k, "0")).replace(",", "")))
+                    except Exception: return None
+                ft, fp = iv(kft), iv(kfp)
+                st_, sp = (iv(kst), iv(ksp)) if kst and ksp else (None, None)
+                if ft is None: continue
+                mg = s.setdefault("mg", {})
+                mg["f"] = ft
+                if fp is not None: mg["fd"] = ft - fp
+                if st_ is not None:
+                    mg["s"] = st_
+                    if sp is not None: mg["sd"] = st_ - sp
+                n1 += 1
+    except Exception as e:
+        print(f"  [warn] 融資融券(MI_MARGN): {e}")
+    n2 = 0
+    try:
+        arr = get_json("https://openapi.twse.com.tw/v1/exchangeReport/TWT93U", timeout=60)
+        keys = list(arr[0].keys())
+        kc = pick(keys, "Code") or pick(keys, "代號")
+        klt = pick(keys, "SBL", "TheDay") or pick(keys, "Lending", "TheDay") or pick(keys, "借券", "當日餘額") or pick(keys, "借券", "今日餘額")
+        klp = pick(keys, "SBL", "Previous") or pick(keys, "Lending", "Previous") or pick(keys, "借券", "前日餘額")
+        if not all((kc, klt)):
+            print(f"  [debug] TWT93U 欄位:{keys[:12]}")
+        else:
+            for r in arr:
+                s = by_id.get(str(r.get(kc, "")).strip())
+                if not s: continue
+                def iv(k):
+                    try: return int(float(str(r.get(k, "0")).replace(",", "")))
+                    except Exception: return None
+                lt = iv(klt)
+                if lt is None: continue
+                lt = round(lt / 1000)                       # 股 → 張
+                mg = s.setdefault("mg", {})
+                mg["l"] = lt
+                lp = iv(klp) if klp else None
+                if lp is not None: mg["ld"] = lt - round(lp / 1000)
+                n2 += 1
+    except Exception as e:
+        print(f"  [warn] 借券賣出(TWT93U): {e}")
+    print(f"  信用交易:融資融券 {n1} 檔、借券賣出 {n2} 檔")
+
+def fetch_credit_macro(prev):
+    """大盤融資餘額(億元,FinMind 90 日歷史)。"""
+    try:
+        start = (dt.datetime.now() - dt.timedelta(days=95)).strftime("%Y-%m-%d")
+        j = get_json("https://api.finmindtrade.com/api/v4/data"
+                     f"?dataset=TaiwanStockTotalMarginPurchaseShortSale&start_date={start}",
+                     timeout=40)
+        rows = j.get("data") if isinstance(j, dict) else (j if isinstance(j, list) else [])
+        hist = {}
+        for r in rows or []:
+            nm = str(r.get("name", ""))
+            if "MarginPurchaseMoney" not in nm: continue
+            d0 = str(r.get("date", ""))
+            try: bal = float(r.get("TodayBalance", r.get("balance", 0)))
+            except Exception: continue
+            hist[d0] = round(bal / 1e5, 1)                  # 仟元 → 億
+        if not hist and prev: return prev
+        ds = sorted(hist)[-60:]
+        if not ds: return prev
+        h = {"d": ds, "fin": [hist[d] for d in ds]}
+        last, p = h["fin"][-1], (h["fin"][-2] if len(ds) > 1 else None)
+        out = {"d": ds[-1], "fin": last,
+               "finD": round(last - p, 1) if p is not None else None, "h": h}
+        print(f"  大盤融資餘額:{last} 億(歷史 {len(ds)} 日)")
+        return out
+    except Exception as e:
+        print(f"  [warn] 大盤融資: {e}")
+        return prev
 
 def fetch_taifex(prev_fut=None):
     """台指期籌碼:三大法人/十大交易人/散戶小台,含 60 日歷史(供詳細頁畫圖)。"""
@@ -1256,6 +1358,14 @@ def main():
         if fut: _macro["fut"] = fut
     except Exception as e:
         print(f"  [warn] 期貨籌碼跳過: {e}")
+    try:
+        fetch_credit_stocks(stocks)
+    except Exception as e:
+        print(f"  [warn] 信用交易跳過: {e}")
+    try:
+        _macro["credit"] = fetch_credit_macro((prev_all.get("macro") or {}).get("credit"))
+    except Exception as e:
+        print(f"  [warn] 大盤融資跳過: {e}")
     try:
         cob = fetch_cobasic()
         for s in stocks:
