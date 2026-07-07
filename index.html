@@ -1308,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r81</span>');
+  diag.push('<span style="color:var(--dim)">build r82</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2155,6 +2155,45 @@ function intraStatTxt(s,extra){
   const cg=s.chg!=null?` <span class="${s.chg>=0?'pos':'neg'}">${s.chg>=0?'▲':'▼'} ${Math.abs(s.chg).toFixed(2)}%</span>`:'';
   return `<b style="font-family:var(--mono)">${px}</b>${cg}${extra?' · '+extra:''}`;
 }
+/* 個股即時解讀:開盤型態/日內位置/均價關係/短線動能/量能/關卡距離 */
+function stkRead(s){
+  const r=RTC[s.id];
+  if(!r||!(r.o>0)||!(r.y>0))return null;
+  const c=r.c,o=r.o,h=r.h,l=r.l,y=r.y;
+  const gap=(o-y)/y*100, chg=(c-y)/y*100;
+  const pat=gap>=1.5?`跳空開高(+${gap.toFixed(1)}%)`:gap<=-1.5?`跳空開低(${gap.toFixed(1)}%)`:'平盤附近開出';
+  const rng=h-l;
+  const pos=rng>0?(c-l)/rng:0.5;
+  const posTxt=pos>=0.75?'收斂在日內高檔區':pos<=0.25?'壓在日內低檔區':'於日內中間帶震盪';
+  // 均價關係(累積線平均)
+  const acc=stkAcc(s.id);
+  let vw='';
+  if(acc.c.length>=5){
+    const avg=acc.c.reduce((a,b)=>a+b,0)/acc.c.length;
+    vw=c>=avg*1.002?'站穩均價線之上(多方控盤)':c<=avg*0.998?'跌落均價線之下(賣壓浮現)':'貼著均價線拉鋸';
+  }
+  // 短線動能:最近~10點斜率
+  let mom='';
+  if(acc.c.length>=10){
+    const seg=acc.c.slice(-10);
+    const d0=(seg[seg.length-1]-seg[0])/seg[0]*100;
+    mom=d0>0.35?'短線正在拉升':d0<-0.35?'短線正在回落':'短線橫盤整理';
+  }
+  // 關卡距離(20日高/箱頂/停損)
+  const notes=[];
+  const a=s.al||{};
+  if(a.h20&&c<a.h20&&c>=a.h20*0.985)notes.push(`逼近 20 日高 ${a.h20}(差 ${(((a.h20-c)/c)*100).toFixed(1)}%),突破帶量可視為右側訊號`);
+  else if(a.h20&&c>=a.h20)notes.push(`已站上 20 日高 ${a.h20},右側動能確認`);
+  if(window.__kBox&&KHASH==='#stock/'+s.id){
+    const b=window.__kBox;
+    if(c>=b.top*0.99&&c<b.top*1.005)notes.push(`正在測試箱頂 ${b.top}`);
+    else if(c>=b.top*1.005)notes.push(`突破箱頂 ${b.top},整理結束向上表態`);
+    else if(c<=b.bot*1.01)notes.push(`貼近箱底 ${b.bot},守不守得住是關鍵`);
+  }
+  if(a.stop&&c<=a.stop*1.02&&c>a.stop)notes.push(`接近停損參考價 ${a.stop},紀律優先`);
+  const strength=chg>=5?'今日強攻':chg>=2?'今日走強':chg<=-5?'今日重挫':chg<=-2?'今日走弱':'今日波動溫和';
+  return `${strength}——${pat},現於 ${c}(${chg>=0?'+':''}${chg.toFixed(2)}%),日內 ${l}~${h},${posTxt}${vw?'、'+vw:''}${mom?'、'+mom:''}。${notes.length?notes.join(';')+'。':''}<span class="dim-note">規則化描述,非投資建議。</span>`;
+}
 let STK_TIMER=null;
 function stkLiveStart(s){
   stkLiveStop();
@@ -2185,6 +2224,12 @@ function stkLiveStart(s){
       const px0=document.getElementById('dPx'),ch0=document.getElementById('dChg');
       if(px0)px0.textContent=s.price;
       if(ch0)ch0.innerHTML=chgHtml(s.chg);
+      // 即時解讀:每2輪(約12秒)改寫一次
+      STK_TIMER&&(window.__rdN=(window.__rdN||0)+1);
+      if((window.__rdN||0)%2===0){
+        const t=stkRead(s),bx=document.getElementById('liveRead'),tx=document.getElementById('liveReadTxt');
+        if(t&&bx&&tx){bx.style.display='';tx.innerHTML=t;}
+      }
       try{alertCheck(s,m,last);}catch(e){}
     }catch(e){}
   };
@@ -3532,6 +3577,10 @@ async function showDetail(id){
       </div>
       <div id="intraChart" style="height:230px"></div>
       <div id="intraFlow"></div>
+    </div>
+    <div class="dim-block" id="liveRead" style="border-left:4px solid var(--amber);display:none">
+      <h3>📡 個股即時解讀 <span class="c-code">盤中約每12秒自動改寫</span></h3>
+      <div class="dim-note" id="liveReadTxt"></div>
     </div>
     <div class="chart-box">
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
