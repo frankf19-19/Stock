@@ -41,14 +41,19 @@ html[data-theme="light"]{
   --up:#D6323A; --down:#0F8A57;
 }
 html[data-theme="mocha"]{
-  --bg:#171310; --panel:#211B14; --panel2:#2C2419; --line:#3E3424;
-  --txt:#F3EEE5; --mut:#AC9F88; --dim:#6F6350; --txt2:#DFD6C5;
-  --amber:#EDB94E; --hdr:#1C1710;
+  --bg:#0D1411; --panel:#131C17; --panel2:#1A271F; --line:#27392E;
+  --txt:#E9F2EC; --mut:#93AC9C; --dim:#5E7568; --txt2:#C6D8CC;
+  --amber:#D6A85F; --hdr:#101915;
 }
 html[data-theme="teal"]{
   --bg:#F2F5FA; --panel:#FFFFFF; --panel2:#E9EEF7; --line:#D6DEEC;
   --txt:#1B2438; --mut:#5A6880; --dim:#8B97AC; --txt2:#39465F;
   --amber:#2563C9; --hdr:#EDF1F8;
+}
+html[data-theme="sakura"]{
+  --bg:#FBF5F7; --panel:#FFFFFF; --panel2:#F7EBEF; --line:#EDD8DF;
+  --txt:#2E222A; --mut:#8A6E7B; --dim:#B396A2; --txt2:#54414C;
+  --amber:#B84D8A; --hdr:#F9F0F3;
 }
 html[data-theme="graphite"]{
   --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
@@ -56,9 +61,9 @@ html[data-theme="graphite"]{
   --amber:#D8B364; --hdr:#17181B;
 }
 html[data-theme="dawn"]{
-  --bg:#131722; --panel:#1B2130; --panel2:#252D40; --line:#333C52;
-  --txt:#EDF0F7; --mut:#8D97AD; --dim:#5A6378; --txt2:#CBD2E0;
-  --amber:#F2994A; --hdr:#161B28;
+  --bg:#F4F8FA; --panel:#FFFFFF; --panel2:#E8F2F6; --line:#D3E5EC;
+  --txt:#16303B; --mut:#5B7C8A; --dim:#8FADB9; --txt2:#3A5866;
+  --amber:#0F86A8; --hdr:#EEF5F8;
 }
 html[data-theme="sepia"]{
   --bg:#F5F1E8; --panel:#FFFDF7; --panel2:#EFE9DA; --line:#DCD3BE;
@@ -487,10 +492,11 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <option value="navy">🌌 深墨藍</option>
           <option value="black">⬛ 純黑金</option>
           <option value="light">☀️ 明亮日盤</option>
-          <option value="mocha">🥃 琥珀夜盤</option>
+          <option value="mocha">🌲 森林</option>
           <option value="teal">🔷 湛藍亮</option>
+          <option value="sakura">🌸 櫻花</option>
           <option value="graphite">🪨 石墨銀</option>
-          <option value="dawn">🌇 曙光橙</option>
+          <option value="dawn">🌊 海邊</option>
           <option value="sepia">📜 護眼米黃</option>
         </select>
         <button class="btn-ghost" id="alertBtn" title="盤中警示:好股下殺至買進區/帶量突破時通知">🔔</button>
@@ -1348,7 +1354,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r97</span>');
+  diag.push('<span style="color:var(--dim)">build r101</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2940,23 +2946,41 @@ function planBlock(s){
   if(!a.bull)why.push('均線空頭排列(月線在季線下方)——下跌趨勢中猜底勝率低,等股價重新站回均線帶、月線翻揚再評估');
   if(T<60)why.push(`綜合評分 ${T} 分偏低——基本面、籌碼、技術至少一個面向不及格,好價格也救不了壞股票`);
   const tone=ok?'#4BD695':'#FF8A8E';
-  let buyHtml='';
+  const row=(g,tag,price,desc,col)=>`<div style="margin-top:11px">
+    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+      <span data-g="${g}" style="font-size:11.5px;color:${col};font-weight:800;cursor:help;border-bottom:1px dotted ${col}66">${tag}</span>
+      <b style="font-family:var(--mono);font-size:17px;letter-spacing:.02em;color:var(--txt)">${price}</b></div>
+    <div style="font-size:11.5px;color:var(--dim);margin-top:3px;line-height:1.65">${desc}</div></div>`;
+  const card=(title,col,inner)=>`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px 14px">
+    <div style="font-size:12px;font-weight:900;color:${col};letter-spacing:.08em">${title}</div>${inner}</div>`;
+  let buyCard='';
   if(ok){
     const inZone=px<=a.z1*1.005&&px>=a.z0*0.995;
     const nearBrk=px>=a.h20*0.98&&px<a.h20*1.005;
-    const brk=+(a.h20*1.005).toFixed(2);
-    buyHtml=`<div><dt>拉回買進參考區</dt><dd>${fmt(a.z0)} ~ ${fmt(a.z1)}|月線~季線均線帶,分批不重押${inZone?' · <b style="color:#4BD695">現價就在區內</b>':''}</dd></div>
-      <div><dt>突破買進參考</dt><dd>帶量站上 ${fmt(brk)}|量需 > ${Math.round(a.v20*1.15).toLocaleString()} 張${nearBrk?' · <b style="color:var(--amber)">接近觸發</b>':''}</dd></div>`;
+    buyCard=card('▼ 買進參考','#4BD695',
+      row('買進區','拉回分批',`${fmt(a.z0)} ~ ${fmt(a.z1)}`,
+        `月線~季線均線帶,分批承接不重押${inZone?' · <b style="color:#4BD695">現價就在區內</b>':''}`,'#4BD695')+
+      row('箱型','帶量突破',fmt(+(a.h20*1.005).toFixed(2)),
+        `站上近月高且量 > ${Math.round(a.v20*1.15).toLocaleString()} 張才算數${nearBrk?' · <b style="color:var(--amber)">接近觸發</b>':''}`,'#4BD695'));
+  }else{
+    buyCard=card('▼ 買進參考','#FF8A8E',
+      `<div style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.8">暫不提供買進區。${why.map(w=>'<br>• '+w).join('')}</div>`);
   }
   const upside=(s.tp&&s.tp.m)?((s.tp.m/px-1)*100):null;
+  const sellCard=card('▲ 出場參考','#FF8A8E',
+    row('停損參考','停損',fmt(a.stop),'收盤跌破就離場——趨勢理由被破壞,不凹單','#FF8A8E')+
+    row('分批獲利','分批獲利',`${fmt(a.h20)}${s.tp&&s.tp.m?` → ${fmt(Math.round(s.tp.m))}`:''}`,
+      `近月高先出第一批${s.tp&&s.tp.m?`;第二段看分析師平均目標價${upside!=null?`(距現價 ${upside>=0?'+':''}${upside.toFixed(0)}%)`:''}`:''}`,'#FF8A8E'));
   const rr=(ok&&a.z1&&a.stop&&s.tp&&s.tp.m&&(a.z1-a.stop)>0)?((s.tp.m-a.z1)/(a.z1-a.stop)):null;
-  const sellHtml=`<div><dt>停損出場</dt><dd>收盤跌破 ${fmt(a.stop)}|買進區下緣再 -3%,趨勢理由被破壞就離場,不凹單</dd></div>
-    <div><dt>分批獲利參考</dt><dd>${fmt(a.h20)}(近月高,先出第一批)${s.tp&&s.tp.m?` → ${fmt(Math.round(s.tp.m))}(分析師平均目標價${upside!=null?`,距現價 ${upside>=0?'+':''}${upside.toFixed(0)}%`:''})`:''}</dd></div>
-    ${rr!=null&&rr>0?`<div><dt>報酬風險比</dt><dd>約 ${rr.toFixed(1)} : 1|「均線帶買、目標價賣、停損認錯」劇本下,賺賠空間的比例${rr>=2?' · <b style="color:#4BD695">≥2,值得列入觀察</b>':rr<1?' · <b style="color:#FF8A8E"><1,現在進場划不來</b>':''}</dd></div>`:''}`;
+  const rrBar=rr!=null&&rr>0?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:9px 13px;background:var(--panel2);border:1px solid var(--line);border-radius:10px">
+      <span data-g="報酬風險比" style="font-size:11.5px;font-weight:800;color:var(--mut);cursor:help;border-bottom:1px dotted var(--dim)">報酬風險比</span>
+      <b style="font-family:var(--mono);font-size:17px;color:${rr>=2?'#4BD695':rr<1?'#FF8A8E':'var(--txt)'}">${rr.toFixed(1)} : 1</b>
+      <span style="font-size:11.5px;color:var(--dim)">${rr>=2?'≥2,賺賠空間划算,值得列入觀察':rr<1?'<1,現在的位置追進不划算':'介於 1~2,可等更好的價位'}</span></div>`:'';
   return `<div class="dim-block" style="border-left:4px solid ${tone}"><h3>📐 參考價位劇本(規則化) <span class="ds">${ok?'✓ 可留意布局':'✗ 先觀望'}</span></h3>
-    <div class="dim-note" style="margin-bottom:6px"><b style="color:${tone}">${ok?`符合留意條件:多頭排列+綜合 ${T} 分`:'目前不符合買進條件:'}</b>${why.length?'<br>'+why.map(w=>'• '+w).join('<br>'):''}</div>
-    <div class="kv">${buyHtml}${sellHtml}</div>
-    <div class="dim-note">這是把「回檔到均線帶分批、帶量突破追進、跌破停損離場、到目標分批獲利」四條常見紀律,套進這檔的實際數據自動算出的<b>劇本範本,不是投資建議</b>——它不知道你的成本、部位與風險承受度,價位每天隨數據更新。到價要不要執行,永遠由你自己決定。</div></div>`;
+    ${ok?`<div class="dim-note" style="margin:2px 0 4px"><b style="color:#4BD695">符合留意條件:多頭排列+綜合 ${T} 分</b></div>`:''}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:12px;margin-top:8px">${buyCard}${sellCard}</div>
+    ${rrBar}
+    <div class="dim-note" style="margin-top:10px">把「回檔到均線帶分批、帶量突破追進、跌破停損離場、到目標分批獲利」四條常見紀律,套進這檔的實際數據自動算出的<b>劇本範本,不是投資建議</b>——它不知道你的成本與部位,價位每天隨數據更新,均線帶與近月高的位置可直接對照下方 K 線圖;到價要不要執行,由你自己決定。點虛線名詞可看白話解釋。</div></div>`;
 }
 /* 估值評價:本益比/EPS/預估本益比/同產業中位數 */
 function valBlock(s){
@@ -3282,25 +3306,116 @@ const CHART_THEMES={
   light:{legend:'#5A6478',axis:'#6B7280',split:'#E4E8F0',border:'#D9DEE8',
     ttBg:'#FFFFFF',ttText:'#1B2233',inactive:'#C4CBD6',ma60:'#4A5568',
     up2:'#C4333B',dn2:'#0F8A57'},
-  mocha:{legend:'#AC9F88',axis:'#7E7159',split:'#261F14',border:'#3E3424',
-    ttBg:'#2C2419',ttText:'#F3EEE5',inactive:'#4A3E2B',ma60:'#F7F1E4',
-    up2:'#FF9A8E',dn2:'#5BD9A0'},
+  mocha:{legend:'#93AC9C',axis:'#6C8577',split:'#1B2721',border:'#2A3D31',
+    ttBg:'#16211B',ttText:'#EDF5EF',inactive:'#31463A',ma60:'#F0F6F1',
+    up2:'#FF8A8E',dn2:'#4BD695'},
   teal:{legend:'#5A6880',axis:'#7A87A0',split:'#E4EAF4',border:'#D0D9E9',
     ttBg:'#FFFFFF',ttText:'#1B2438',inactive:'#C0CBDE',ma60:'#2F3C57',
+    up2:'#C4333B',dn2:'#0F8A57'},
+  sakura:{legend:'#8A6E7B',axis:'#A28D98',split:'#F3E4E9',border:'#E8D3DB',
+    ttBg:'#FFFFFF',ttText:'#2E222A',inactive:'#D9C2CB',ma60:'#4A3540',
     up2:'#C4333B',dn2:'#0F8A57'},
   graphite:{legend:'#9BA1AB',axis:'#6D737D',split:'#1F2125',border:'#34383F',
     ttBg:'#26292E',ttText:'#ECEDEF',inactive:'#3E434B',ma60:'#F0F1F3',
     up2:'#FF8A8E',dn2:'#4BD695'},
-  dawn:{legend:'#8D97AD',axis:'#646E85',split:'#1A2030',border:'#333C52',
-    ttBg:'#252D40',ttText:'#EDF0F7',inactive:'#3B455E',ma60:'#F2F4FA',
-    up2:'#FF8A8E',dn2:'#4BD695'},
+  dawn:{legend:'#5B7C8A',axis:'#7C99A6',split:'#E2EEF3',border:'#CDE0E8',
+    ttBg:'#FFFFFF',ttText:'#16303B',inactive:'#BCD4DD',ma60:'#2C4855',
+    up2:'#C4333B',dn2:'#0F8A57'},
   sepia:{legend:'#6E6552',axis:'#7A7160',split:'#E7E0CF',border:'#DCD3BE',
     ttBg:'#FFFDF7',ttText:'#2A2418',inactive:'#CFC6B0',ma60:'#4A4232',
     up2:'#B23037',dn2:'#0B6B47'}
 };
+/* 🌸🌊🌲 氛圍特效引擎:櫻花瓣/海邊氣泡/森林落葉,依主題切換;
+   畫在背景層不擋內容;尊重「減少動態」;切換主題自動清除重建 */
+function natureFX(theme){
+  const kind={sakura:'petal',dawn:'bubble',mocha:'leaf'}[theme]||null;
+  const old=document.getElementById('natureFx');
+  if(!kind){window.__nfRun=false;if(old)old.remove();return;}
+  try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;}catch(e){}
+  if(old){if(old.dataset.kind===kind)return;window.__nfRun=false;old.remove();}
+  const cv=document.createElement('canvas');cv.id='natureFx';cv.dataset.kind=kind;
+  cv.style.cssText='position:fixed;inset:0;z-index:-1;pointer-events:none';
+  document.body.appendChild(cv);
+  const cx=cv.getContext('2d');
+  const fit=()=>{cv.width=innerWidth;cv.height=innerHeight;};
+  fit();addEventListener('resize',fit,{passive:true});
+  const mob=innerWidth<640;
+  const N=kind==='bubble'?(mob?9:14):(mob?10:18);
+  const LEAF_C=[['#8FBF7A','#6FA35F'],['#C9C06A','#A89B4E'],['#D6A85F','#B5854A']];
+  const mk=init=>{
+    if(kind==='bubble')return{x:Math.random()*innerWidth,
+      y:init?Math.random()*innerHeight:cv.height+16,
+      s:2.5+Math.random()*6,vy:-(.22+Math.random()*.42),ph:Math.random()*6.28,
+      sw:.18+Math.random()*.4,o:.16+Math.random()*.22};
+    const base={x:Math.random()*innerWidth,y:init?Math.random()*innerHeight:-24,
+      ph:Math.random()*6.28,rot:Math.random()*6.28,hue:Math.random()};
+    if(kind==='leaf')return{...base,s:6.5+Math.random()*6,vy:.26+Math.random()*.42,
+      sw:.3+Math.random()*.55,vr:(Math.random()-.5)*.03,o:.34+Math.random()*.3,
+      col:LEAF_C[Math.floor(Math.random()*LEAF_C.length)]};
+    return{...base,s:6+Math.random()*7,vy:.32+Math.random()*.5,
+      sw:.22+Math.random()*.5,vr:(Math.random()-.5)*.018,o:.32+Math.random()*.34};
+  };
+  const P=Array.from({length:N},()=>mk(true));
+  const draw={
+    petal(p){
+      cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);
+      const s=p.s,g=cx.createLinearGradient(-s,0,s,0);
+      g.addColorStop(0,p.hue<.5?'#F7CBD8':'#F3B9CA');
+      g.addColorStop(1,p.hue<.5?'#F0ACC0':'#E99CB4');
+      cx.globalAlpha=p.o;cx.fillStyle=g;
+      cx.beginPath();cx.moveTo(0,-s);
+      cx.bezierCurveTo(s*.9,-s*.6,s*.72,s*.55,0,s);
+      cx.bezierCurveTo(-s*.72,s*.55,-s*.9,-s*.6,0,-s);cx.fill();
+      cx.globalCompositeOperation='destination-out';
+      cx.beginPath();cx.arc(0,s*1.02,s*.26,0,6.29);cx.fill();
+      cx.restore();cx.globalCompositeOperation='source-over';
+    },
+    bubble(p){
+      cx.save();cx.globalAlpha=p.o;
+      cx.beginPath();cx.arc(p.x,p.y,p.s,0,6.29);
+      cx.fillStyle='rgba(150,205,228,.28)';cx.fill();
+      cx.lineWidth=1;cx.strokeStyle='rgba(70,150,185,.55)';cx.stroke();
+      cx.beginPath();cx.arc(p.x-p.s*.32,p.y-p.s*.32,Math.max(.7,p.s*.22),0,6.29);
+      cx.fillStyle='rgba(255,255,255,.85)';cx.fill();       // 高光
+      cx.restore();
+    },
+    leaf(p){
+      cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);
+      const s=p.s,g=cx.createLinearGradient(0,-s,0,s);
+      g.addColorStop(0,p.col[0]);g.addColorStop(1,p.col[1]);
+      cx.globalAlpha=p.o;cx.fillStyle=g;
+      cx.beginPath();cx.moveTo(0,-s);                        // 尖橢圓葉形
+      cx.bezierCurveTo(s*.62,-s*.35,s*.62,s*.35,0,s);
+      cx.bezierCurveTo(-s*.62,s*.35,-s*.62,-s*.35,0,-s);cx.fill();
+      cx.globalAlpha=p.o*.7;cx.lineWidth=.8;                 // 葉脈
+      cx.strokeStyle=p.col[1];
+      cx.beginPath();cx.moveTo(0,-s*.85);cx.lineTo(0,s*.85);cx.stroke();
+      cx.restore();
+    }
+  };
+  window.__nfRun=true;
+  (function loop(){
+    const me=document.getElementById('natureFx');
+    if(!window.__nfRun||!me||me!==cv)return;
+    if(!document.hidden){
+      cx.clearRect(0,0,cv.width,cv.height);
+      P.forEach(p=>{
+        p.ph+=kind==='bubble'?.016:.011;
+        p.y+=p.vy;p.x+=Math.sin(p.ph)*p.sw;
+        if(p.rot!=null)p.rot+=p.vr+Math.sin(p.ph)*(kind==='leaf'?.006:.0035);
+        if(kind==='bubble'){if(p.y<-20)Object.assign(p,mk(false));}
+        else if(p.y>cv.height+26)Object.assign(p,mk(false));
+        if(p.x<-30)p.x=cv.width+22;else if(p.x>cv.width+30)p.x=-22;
+        draw[kind](p);
+      });
+    }
+    requestAnimationFrame(loop);
+  })();
+}
 function applyTheme(t,redraw){
   if(t==='green'||t==='violet')t='mocha';  // 舊主題自動遷移
   document.documentElement.dataset.theme=t==='navy'?'':t;
+  try{natureFX(t);}catch(e){}
   try{localStorage.setItem('theme3l',t);}catch(e){}
   Object.assign(CT,CHART_THEMES[t]||CHART_THEMES.navy);
   const sel=document.getElementById('themeSel');
@@ -3708,6 +3823,7 @@ async function showDetail(id){
       <div class="dim-note" style="color:var(--dim)">此為依營收、籌碼、技術、產業四面向的規則化研判,不構成投資建議;數據品質受來源限制,重大決策請再查證。</div>
     </div>`})()}
     ${s.thesis?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
+    ${planBlock(s)}
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
       <span class="ticker-label">📰 ${s.name} 新聞</span>
       <div class="ticker-track" id="sTickTrack"></div>
@@ -3726,7 +3842,7 @@ async function showDetail(id){
     ${s.market==='TW'?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
     <div id="chipwrap"></div>
     </div>
-    ${s.market==='TW'?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:12px;letter-spacing:0">股價貴不貴・成長在哪裡・參考價位劇本</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}${planBlock(s)}</div>`:''}
+    ${s.market==='TW'?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:12px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}</div>`:''}
     <div class="sec-title" data-sec="stk_m">🎯 市場觀點與新聞 <span style="font-weight:400;font-size:12px;letter-spacing:0">目標價・研究報告・相關新聞</span></div><div class="sec-body" id="sb-stk_m">
     <div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
       <h3>分析師觀點|目標價與研究報告</h3>
@@ -5553,6 +5669,7 @@ const GLOSS={
 '箱型':'股價在一個固定區間上下震盪,像被關在箱子裡。<b>帶量突破箱頂</b>常是新一波起漲的訊號;跌破箱底則反之。',
 '買進區':'本站定義的「月線~季線之間的均線帶」:多頭股回檔到這裡,是常見的分批留意區。<b>是參考區域,不是保證會漲的價位。</b>',
 '停損參考':'跌破這個價位,代表原本看多的理由已被破壞,一般會先出場控制虧損,保留資金等下一次機會。',
+'分批獲利':'不要想一次賣在最高點——到第一個壓力(如近月高)先賣一部分落袋,剩下的抱到下一個目標。就算後面回跌,你已經鎖住部分獲利;續漲也還有部位參與。',
 '報酬風險比':'如果照劇本走:「可能賺的空間 ÷ 可能賠的空間」。例如買在 100、目標 130、停損 90 → 賺 30 賠 10 = 3:1。<br><b>怎麼看:</b>大於 2 才值得出手是常見紀律——十次對五次也能賺錢;小於 1 代表賠率不划算,再看好也該等更好的價位。',
 '本益比':'股價 ÷ 每股一年賺的錢(EPS),意思是「用現在的獲利速度,幾年回本」。20 倍=不成長的話 20 年回本。<br><b>怎麼看:</b>數字越低越便宜,但要跟「同產業」比才有意義——高成長產業天生比較貴。',
 '預估本益比':'用「預估的未來一年 EPS」算的本益比。成長股常常「現在看很貴、用明年獲利看就合理」。<br><b>注意:</b>本站是用營收年增率簡易推算,不是分析師預估,參考方向就好。',
@@ -5585,9 +5702,9 @@ function showGloss(anchor,term,txt){
 document.addEventListener('click',ev=>{
   const p=document.getElementById('glossPop');
   if(p&&p.contains(ev.target))return;
-  const dt=ev.target.closest('.kv dt');
+  const dt=ev.target.closest('.kv dt')||ev.target.closest('[data-g]');
   if(!dt){if(p)p.style.display='none';return;}
-  const hit=glossFind(dt.textContent);
+  const hit=glossFind(dt.dataset&&dt.dataset.g?dt.dataset.g:dt.textContent);
   if(hit)showGloss(dt,hit[0],hit[1]);
   else if(p)p.style.display='none';
 });
