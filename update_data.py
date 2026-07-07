@@ -107,17 +107,29 @@ def fetch_tw_companies():
                     ("https://raw.githubusercontent.com/mlouielu/twstock/master/twstock/codes/tpex_equities.csv", "otc")):
         try:
             df = pd.read_csv(StringIO(requests.get(url, headers=UA, timeout=40).text))
-            df = df[(df["type"] == "股票")]
-            n = 0
+            df = df[df["type"].isin(["股票", "ETF"])]
+            n = n_etf = 0
+            import re as _re
             for _, r in df.iterrows():
-                sid = str(r["code"]).strip()
-                if not (sid.isdigit() and len(sid) == 4): continue
+                sid = str(r["code"]).strip().upper()
+                is_etf = str(r["type"]).strip() == "ETF"
+                if is_etf:
+                    if not _re.fullmatch(r"\d{4,6}[A-Z]?", sid): continue
+                else:
+                    if not (sid.isdigit() and len(sid) == 4): continue
                 grp = str(r.get("group", "")).strip()
-                out.append({"id": sid, "name": str(r["name"]).strip(),
-                            "full": str(r["name"]).strip(),
-                            "market": "TW", "ex": ex,
-                            "sector": grp if grp and grp != "nan" else "未分類"})
-                n += 1
+                rec = {"id": sid, "name": str(r["name"]).strip(),
+                       "full": str(r["name"]).strip(),
+                       "market": "TW", "ex": ex,
+                       "sector": "ETF" if is_etf else (grp if grp and grp != "nan" else "未分類")}
+                if is_etf:
+                    rec["etf"] = 1
+                    rec["sub"] = ("active" if sid.endswith("A") else
+                                  "lev" if sid[-1] in "LR" else
+                                  "bond" if sid.endswith("B") else "std")
+                    n_etf += 1
+                out.append(rec); n += 1
+            print(f"    含 ETF {n_etf} 檔")
             print(f"  {'上市' if ex=='tse' else '上櫃'}(開放資料集):{n} 檔")
         except Exception as e:
             print(f"  [warn] 名單資料集 {ex}: {e}")
@@ -187,6 +199,18 @@ def fetch_us_companies():
     return out
 
 # ═══════════════ K線分片存取 ═══════════════
+US_ETFS = [("SPY","SPDR 標普500"),("QQQ","Invesco 那斯達克100"),("VOO","Vanguard 標普500"),
+    ("VTI","Vanguard 全市場"),("DIA","道瓊工業"),("IWM","羅素2000"),("SMH","VanEck 半導體"),
+    ("SOXX","iShares 半導體"),("XLK","科技類股"),("XLF","金融類股"),("XLE","能源類股"),
+    ("TLT","20年+美債"),("GLD","黃金"),("ARKK","ARK 創新"),("SCHD","Schwab 高股息"),
+    ("JEPI","JPMorgan 收益"),("VT","Vanguard 全球"),("EEM","新興市場")]
+def add_us_etfs(out):
+    for sid, nm in US_ETFS:
+        out.append({"id": sid, "name": nm, "full": nm, "market": "US", "ex": "us",
+                    "sector": "ETF", "etf": 1, "sub": "us"})
+    print(f"  美股 ETF:{len(US_ETFS)} 檔")
+    return out
+
 def shard_name(s):
     return f"tw{s['id'][0]}.json" if s["market"] == "TW" else f"us_{s['id'][0].lower()}.json"
 
@@ -1231,6 +1255,50 @@ def fetch_taifex(prev_fut=None):
     print(f"  台指期籌碼:{last}(歷史 {len(ds)} 日/法人 {len(fut['inst'])} 項/十大 {'有' if fut['big'] else '無'})")
     return fut
 
+def fetch_etf_holdings(stocks):
+    """ETF 成分與規模(每日):前十大成分股+權重、AUM、淨值、股/債/現金配置。
+    來源 Yahoo/Morningstar(yfinance funds_data);小型/新上市 ETF 可能缺資料,前端會給官網連結。"""
+    import yfinance as yf
+    etfs = [s for s in stocks if s.get("etf")]
+    n_ok = 0
+    for s in etfs:
+        tk = s["id"] if s["market"] == "US" else f"{s['id']}.{'TW' if s['ex']=='tse' else 'TWO'}"
+        hold = {}
+        try:
+            t = yf.Ticker(tk)
+            try: info = t.get_info() or {}
+            except Exception: info = {}
+            aum = info.get("totalAssets") or info.get("netAssets")
+            if aum: hold["aum"] = int(aum)
+            nav = info.get("navPrice")
+            if nav: hold["nav"] = round(float(nav), 2)
+            er = info.get("annualReportExpenseRatio") or info.get("netExpenseRatio")
+            if er: hold["er"] = round(float(er) * (100 if er < 1 else 1), 2)   # 內扣費用%
+            try:
+                fd = t.funds_data
+                ac = fd.asset_classes or {}
+                for ks, kd in (("cashPosition", "cash"), ("stockPosition", "stk"), ("bondPosition", "bond")):
+                    v = ac.get(ks)
+                    if v is not None: hold[kd] = round(float(v) * 100, 2)
+                th = fd.top_holdings
+                if th is not None and len(th):
+                    top = []
+                    for sym, row in th.iterrows():
+                        pw = row.get("Holding Percent")
+                        top.append([str(sym).replace(".TW", "").replace(".TWO", ""),
+                                    str(row.get("Name", ""))[:24],
+                                    round(float(pw) * 100, 2) if pw == pw else None])
+                    hold["top"] = top[:10]
+            except Exception:
+                pass
+        except Exception:
+            pass
+        if hold.get("top") or hold.get("aum"):
+            hold["d"] = TODAY.isoformat()
+            s["hold"] = hold; n_ok += 1
+        time.sleep(0.12)
+    print(f"  ETF 成分/規模:{n_ok}/{len(etfs)} 檔")
+
 def fetch_cobasic():
     """公司基本資料(董事長/掛牌/資本額/官網/產業別),全市場。"""
     out = {}
@@ -1542,7 +1610,7 @@ def fetch_news(n=10):
 # ═══════════════ 主流程 ═══════════════
 def main():
     print("① 讀取名單與既有 K 線 ...")
-    comps = fetch_tw_companies() + fetch_us_companies()
+    comps = fetch_tw_companies() + add_us_etfs(fetch_us_companies())
     hist = load_hist()
     prev = load_prev()
 
@@ -1581,6 +1649,7 @@ def main():
                  "f": {"score": 50, "kv": {"狀態": "資料暫缺"}, "note": "等下次更新"},
                  "c": {"score": 50, "kv": {}, "note": "", "raw": {}},
                  "t": {"score": 50, "kv": {}, "note": ""}}
+        if c.get("etf"): d["etf"], d["sub"] = 1, c.get("sub", "std")
         d.update({"id": c["id"], "name": c["name"], "full": c["full"],
                   "market": c["market"], "ex": c["ex"], "sector": c["sector"]})
         # 營收三率三升:最新季毛利/營益/淨利率皆高於上一季,且營收成長(月YoY>0 或 季營收QoQ>0)
@@ -1632,6 +1701,7 @@ def main():
             if not p: continue
             if p.get("tp") and not s.get("tp"): s["tp"] = p["tp"]; _c_tp += 1
             if p.get("bz") and not s.get("bz"): s["bz"] = p["bz"]; _c_bz += 1
+            if p.get("hold") and not s.get("hold"): s["hold"] = p["hold"]
         print(f"  跨日繼承:目標價 {_c_tp} 檔、業務 {_c_bz} 檔")
     except Exception as e:
         print(f"  [warn] 繼承: {e}")
@@ -1688,6 +1758,10 @@ def main():
         fetch_targets(stocks)
     except Exception as e:
         print(f"  [warn] 目標價/業務跳過: {e}")
+    try:
+        fetch_etf_holdings(stocks)
+    except Exception as e:
+        print(f"  [warn] ETF 成分跳過: {e}")
     out = {"updated": taipei, "source": "live",
            "macro": _macro, "news": _news, "indpe": _indpe, "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:

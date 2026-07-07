@@ -440,6 +440,12 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   #aiPanel{right:0;bottom:0;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
   .ai-m{max-width:94%}
 }
+/* 首頁分頁籤 */
+.home-tabs{display:flex;gap:8px;margin:14px 0 4px;position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0}
+.home-tabs button{flex:1;max-width:180px;padding:11px 0;font-size:14.5px;font-weight:800;letter-spacing:.08em;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--mut);cursor:pointer;transition:.15s}
+.home-tabs button.on{color:var(--amber);border-color:var(--amber);background:var(--panel2)}
+@media(max-width:640px){.home-tabs button{font-size:13px;padding:10px 0}}
 /* K線工具列:右側還有按鈕時,右緣漸層淡出提示可滑動 */
 .kseg-row.has-more{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);
   mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
@@ -525,7 +531,12 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
     <div class="ticker-track" id="tickerTrack"></div>
   </div>
 
-<div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:12px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
+<div class="home-tabs" id="homeTabs">
+  <button data-tab="macro">🌍 大盤</button>
+  <button data-tab="stocks">📈 個股</button>
+  <button data-tab="etf">🧺 ETF</button>
+</div>
+<div class="tabPane" id="tp-macro"><div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:12px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
       <div class="ind-head">
@@ -564,6 +575,8 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 
   </div>
 
+</div>
+<div class="tabPane" id="tp-stocks">
     <div class="sec-title" data-sec="radar">機會雷達|選股策略 <span style="font-weight:400;font-size:12px;letter-spacing:0">點策略切換,規則化每日更新+盤中即時</span></div><div class="sec-body" id="sb-radar">
     <div class="ind-seg" id="stratSeg" style="flex-wrap:wrap;margin-bottom:10px"></div>
   <div class="radar" id="radar"></div>
@@ -599,6 +612,24 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   <div class="grid" id="grid"></div>
 
   </div>
+</div>
+<div class="tabPane" id="tp-etf">
+  <div class="sec-title">🧺 ETF 總覽 <span style="font-weight:400;font-size:12px;letter-spacing:0">台股全部 ETF・主動式・槓桿反向・債券・美股精選,點列進 K 線與籌碼頁</span></div>
+  <div class="sec-body">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:2px 0 12px">
+      <div class="ind-seg kseg-row" id="etfSub" style="display:flex">
+        <button data-s="tw" class="on">台股全部</button>
+        <button data-s="active">主動式</button>
+        <button data-s="lev">槓桿反向</button>
+        <button data-s="bond">債券</button>
+        <button data-s="us">美股</button>
+      </div>
+      <input id="etfQ" placeholder="搜尋代號/名稱" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:8px 12px;font-size:13px;min-width:170px">
+    </div>
+    <div id="etfBody"><div class="dim-note">載入中…</div></div>
+  </div>
+</div>
+
   </div><!-- /homeView -->
 
   <div id="detailView" style="display:none"></div>
@@ -1354,7 +1385,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r103</span>');
+  diag.push('<span style="color:var(--dim)">build r105</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2721,7 +2752,7 @@ async function rtTick(){
   const ids=rtTargets(); if(!ids.length)return;
   // 全市場輪動:每輪多掃一批未在畫面上的台股,約3分鐘涵蓋全市場
   const seen=new Set(ids);
-  const allTW=DATA.stocks.filter(s=>s.market==='TW'&&!seen.has(s.id)).map(s=>s.id);
+  const allTW=DATA.stocks.filter(s=>s.market==='TW'&&!s.etf&&!seen.has(s.id)).map(s=>s.id);
   if(allTW.length){
     RT.cursor=(RT.cursor||0)%allTW.length;
     for(let k=0;k<120&&k<allTW.length;k++)
@@ -2843,7 +2874,7 @@ function marketOpen(){
 setInterval(()=>{ if(marketOpen()) refreshLive(true); }, 60000);
 
 function renderChips(){
-  const pool=DATA.stocks.filter(s=>mkt==='ALL'||s.market===mkt);
+  const pool=DATA.stocks.filter(s=>!s.etf&&(mkt==='ALL'||s.market===mkt));
   const secs=['全部',...[...new Set(pool.map(s=>s.sector))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))];
   document.getElementById('chips').innerHTML=secs.map(s=>
     `<button class="chip ${s===sector?'on':''}" data-s="${s}">${s}</button>`).join('');
@@ -2853,7 +2884,7 @@ function renderChips(){
 function sectorPanel(){
   const el=document.getElementById('sectorPanel');
   if(sector==='全部'){ el.innerHTML=''; return; }
-  const pool=DATA.stocks.filter(s=>(mkt==='ALL'||s.market===mkt)&&s.sector===sector);
+  const pool=DATA.stocks.filter(s=>!s.etf&&(mkt==='ALL'||s.market===mkt)&&s.sector===sector);
   const withP=pool.filter(s=>s.price!=null);
   const upN=withP.filter(s=>s.chg>0).length;
   const avgT=pool.length?Math.round(pool.reduce((a,s)=>a+total(s),0)/pool.length):0;
@@ -2889,7 +2920,7 @@ function chgHtml(c){
 
 function render(){
   sectorPanel();
-  let list=DATA.stocks.filter(s=>
+  let list=DATA.stocks.filter(s=>!s.etf&&
     (mkt==='ALL'||(mkt==='FAV'?favHas(s.id):s.market===mkt))&&
     (sector==='全部'||s.sector===sector)&&
     (q===''||s.name.toLowerCase().includes(q.toLowerCase())||s.id.toLowerCase().includes(q.toLowerCase())||String(s.full||'').toLowerCase().includes(q.toLowerCase())));
@@ -3926,6 +3957,7 @@ async function showDetail(id){
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
     <div id="divTL"></div>
     </div>
+    ${s.etf?etfSec(s):''}
     <div class="sec-title" data-sec="stk_3">⚖️ 三力檢視 <span style="font-weight:400;font-size:12px;letter-spacing:0">基本面・籌碼面・技術面評分 · 💡 點名詞看白話解釋</span></div><div class="sec-body" id="sb-stk_3">
     ${dimBlock('基本面(權重40%)',s.f)}
     ${s.t3?`<div class="thesis" style="border-color:#4BD695"><b style="color:#4BD695">✅ 營收三率三升(${s.t3.q}):</b>毛利率 ${s.t3.gm[0]}→${s.t3.gm[1]}%、營益率 ${s.t3.om[0]}→${s.t3.om[1]}%、淨利率 ${s.t3.nm[0]}→${s.t3.nm[1]}%${s.t3.ry!=null?`,月營收年增 +${s.t3.ry}%`:''}——獲利品質與營收動能同步向上。</div>`:''}
@@ -3936,7 +3968,7 @@ async function showDetail(id){
     ${s.market==='TW'?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
     <div id="chipwrap"></div>
     </div>
-    ${s.market==='TW'?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:12px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}</div>`:''}
+    ${s.market==='TW'&&!s.etf?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:12px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}</div>`:''}
     <div class="sec-title" data-sec="stk_m">🎯 市場觀點與新聞 <span style="font-weight:400;font-size:12px;letter-spacing:0">目標價・研究報告・相關新聞</span></div><div class="sec-body" id="sb-stk_m">
     <div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
       <h3>分析師觀點|目標價與研究報告</h3>
@@ -3981,6 +4013,7 @@ async function showDetail(id){
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   try{wireDetailSecs();}catch(e){}
+  dv.querySelectorAll('[data-goto]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.goto;});
   const dFav=document.getElementById('dFav');
   if(dFav)dFav.onclick=()=>favToggle(s.id);
   window.scrollTo({top:0});
@@ -4202,7 +4235,7 @@ function signals(s){
 function renderPulse(){
   const secBox=document.getElementById('pulseSec');
   const stBox=document.getElementById('pulseStocks');
-  const priced=DATA.stocks.filter(s=>s.price!=null&&typeof s.chg==='number');
+  const priced=DATA.stocks.filter(s=>!s.etf&&s.price!=null&&typeof s.chg==='number');
   // 族群強度:平均漲幅排行(至少4檔有報價的族群才列入)
   const g={};
   priced.forEach(s=>{(g[s.sector]=g[s.sector]||[]).push(s);});
@@ -5764,6 +5797,9 @@ const GLOSS={
 '買進區':'本站定義的「月線~季線之間的均線帶」:多頭股回檔到這裡,是常見的分批留意區。<b>是參考區域,不是保證會漲的價位。</b>',
 '停損參考':'跌破這個價位,代表原本看多的理由已被破壞,一般會先出場控制虧損,保留資金等下一次機會。',
 '分批獲利':'不要想一次賣在最高點——到第一個壓力(如近月高)先賣一部分落袋,剩下的抱到下一個目標。就算後面回跌,你已經鎖住部分獲利;續漲也還有部位參與。',
+'成分股':'ETF 實際持有的股票清單。買一張 ETF = 按權重同時買進這一籃股票,所以看 ETF 先看它裝了什麼。前十大權重通常決定了八成的走勢。',
+'ETF 規模':'這檔 ETF 管理的總資產(AUM)。規模太小(台股常以 1~2 億為警戒)有清算下市風險,規模大的流動性與買賣價差通常較好。',
+'內扣費用':'經理費+保管費等,每年從淨值中自動扣除,你不會看到帳單但確實在付。長期持有時 0.3% 和 1% 的差距會被複利放大,越低越好。',
 '報酬風險比':'如果照劇本走:「可能賺的空間 ÷ 可能賠的空間」。例如買在 100、目標 130、停損 90 → 賺 30 賠 10 = 3:1。<br><b>怎麼看:</b>大於 2 才值得出手是常見紀律——十次對五次也能賺錢;小於 1 代表賠率不划算,再看好也該等更好的價位。',
 '本益比':'股價 ÷ 每股一年賺的錢(EPS),意思是「用現在的獲利速度,幾年回本」。20 倍=不成長的話 20 年回本。<br><b>怎麼看:</b>數字越低越便宜,但要跟「同產業」比才有意義——高成長產業天生比較貴。',
 '預估本益比':'用「預估的未來一年 EPS」算的本益比。成長股常常「現在看很貴、用明年獲利看就合理」。<br><b>注意:</b>本站是用營收年增率簡易推算,不是分析師預估,參考方向就好。',
@@ -6001,6 +6037,100 @@ async function loadCreditTrend(s,e){
       {name:'融券餘額',type:'line',color:'#FF8A8E',yAxisIndex:1,data:mv,symbol:'none',lineStyle:{width:1.6,color:'#FF8A8E'},itemStyle:{color:'#FF8A8E'}},
       {name:'借券賣出餘額',type:'line',color:'#7FB4FF',yAxisIndex:1,data:sb,symbol:'none',lineStyle:{width:1.6,color:'#7FB4FF'},itemStyle:{color:'#7FB4FF'}}
     ]});
+}
+/* ══ 首頁分頁籤:大盤/個股/ETF ══ */
+function setHomeTab(t){
+  ['macro','stocks','etf'].forEach(k=>{
+    const p=document.getElementById('tp-'+k);
+    if(p)p.style.display=(k===t)?'':'none';
+    const b=document.querySelector('#homeTabs [data-tab="'+k+'"]');
+    if(b)b.classList.toggle('on',k===t);
+  });
+  try{localStorage.setItem('homeTab',t);}catch(e){}
+  if(t==='etf'){try{renderEtf();}catch(e){}}
+  setTimeout(()=>{const p=document.getElementById('tp-'+t);              // 補算被隱藏時初始化的圖表
+    if(p&&window.echarts)p.querySelectorAll('div').forEach(el=>{
+      try{const ch=echarts.getInstanceByDom(el);if(ch)ch.resize();}catch(e){}});},90);
+}
+window.__etfSub='tw';
+function renderEtf(){
+  const box=document.getElementById('etfBody');
+  if(!box||!window.DATA||!DATA.stocks)return;
+  let L=DATA.stocks.filter(s=>s.etf);
+  if(!L.length){
+    box.innerHTML='<div class="dim-note">ETF 名單將於下一次「每日資料更新」(Actions)執行後自動產生——台股全部 ETF(含主動式/槓反/債券)與美股精選的名單、K 線、法人買賣超、融資券都會納入,跑完重新整理即可。</div>';
+    return;
+  }
+  const sub=window.__etfSub;
+  L=L.filter(s=> sub==='us'?s.sub==='us' : sub==='tw'?s.market==='TW' : s.sub===sub);
+  const q=((document.getElementById('etfQ')||{}).value||'').trim().toLowerCase();
+  if(q)L=L.filter(s=>s.id.toLowerCase().includes(q)||String(s.name).toLowerCase().includes(q));
+  L.sort((a,b)=>(b.chg??-999)-(a.chg??-999));
+  const SUBN={active:'主動',lev:'槓反',bond:'債券',us:'美股',std:''};
+  const cell='cursor:pointer;padding:9px 2px;border-bottom:1px solid var(--line)';
+  box.innerHTML=`<div style="display:grid;grid-template-columns:1fr 76px 84px 56px;font-size:13px">
+    <div style="color:var(--mut);padding:4px 2px;border-bottom:1px solid var(--line)">名稱</div>
+    <div style="color:var(--mut);text-align:right;padding:4px 2px;border-bottom:1px solid var(--line)">現價</div>
+    <div style="color:var(--mut);text-align:right;padding:4px 2px;border-bottom:1px solid var(--line)">漲跌%</div>
+    <div style="color:var(--mut);text-align:right;padding:4px 2px;border-bottom:1px solid var(--line)">綜合</div>
+    ${L.slice(0,300).map(s=>`
+      <div data-id="${s.id}" style="${cell}"><b style="font-family:var(--mono)">${s.id}</b> ${s.name}${SUBN[s.sub]?` <span style="font-size:10px;color:var(--amber);border:1px solid var(--amber);border-radius:4px;padding:0 4px;vertical-align:1px">${SUBN[s.sub]}</span>`:''}</div>
+      <div data-id="${s.id}" style="${cell};text-align:right;font-family:var(--mono)">${s.price??'—'}</div>
+      <div data-id="${s.id}" style="${cell};text-align:right;font-family:var(--mono)">${s.chg!=null?chgHtml(s.chg):'—'}</div>
+      <div data-id="${s.id}" style="${cell};text-align:right;font-family:var(--mono)">${total(s)}</div>`).join('')}
+  </div>
+  <div class="dim-note" style="margin-top:8px">共 ${L.length} 檔,依當日漲跌排序;點任一列進入 K 線・籌碼・參考價位頁。ETF 沒有月營收與本益比是正常的——它是一籃股票,請看追蹤指數與內扣費用。</div>`;
+  box.querySelectorAll('[data-id]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.id;});
+}
+(function(){
+  const tabs=document.getElementById('homeTabs');
+  if(!tabs)return;
+  tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>setHomeTab(b.dataset.tab));
+  const sub=document.getElementById('etfSub');
+  if(sub)sub.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    window.__etfSub=b.dataset.s;
+    sub.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+    renderEtf();
+  });
+  const qi=document.getElementById('etfQ');
+  if(qi)qi.oninput=()=>{try{renderEtf();}catch(e){}};
+  let t='stocks';try{t=localStorage.getItem('homeTab')||'stocks';}catch(e){}
+  setHomeTab(t);
+})();
+/* 🧺 ETF 成分與規模區塊:前十大成分股(權重條)、AUM、資產配置、內扣費用 */
+function etfSec(s){
+  const h=s.hold, isUS=s.market==='US';
+  const yhold=isUS?`https://finance.yahoo.com/quote/${s.id}/holdings`:`https://tw.stock.yahoo.com/quote/${s.id}.TW/holding`;
+  const inner=(()=>{
+    if(!h)return `<div class="dim-note">此檔的成分股/規模資料待「每日資料更新」執行後產生;若更新後仍無(常見於新上市或小型 ETF,資料商尚未收錄),請直接看 <a href="${yhold}" target="_blank" rel="noopener">Yahoo 持股頁 ↗</a> 或發行商官網的每日申購買回清單(PCF)。</div>`;
+    const aumTxt=h.aum?(isUS?(h.aum/1e9).toFixed(1)+' 億美元':(h.aum/1e8).toLocaleString(undefined,{maximumFractionDigits:0})+' 億台幣'):null;
+    const alloc=[['股票',h.stk,'#7FB4FF'],['債券',h.bond,'#C792EA'],['現金',h.cash,'#E8B44A']].filter(x=>x[1]!=null&&x[1]>0.05);
+    const kv=[];
+    if(aumTxt)kv.push(['ETF 規模',aumTxt]);
+    if(h.nav)kv.push(['最新淨值',h.nav+(isUS?' 美元':' 元')]);
+    if(h.er!=null)kv.push(['內扣費用',h.er+'% / 年']);
+    kv.push(['資料日期',h.d||'—']);
+    const allocBar=alloc.length?`<div style="margin:10px 0 2px">
+      <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;border:1px solid var(--line)">
+        ${alloc.map(([n,v,c])=>`<div style="width:${v}%;background:${c}" title="${n} ${v}%"></div>`).join('')}
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--mut);margin-top:5px">
+        ${alloc.map(([n,v,c])=>`<span><span style="display:inline-block;width:9px;height:9px;background:${c};border-radius:2px;margin-right:4px"></span>${n} ${v}%</span>`).join('')}
+      </div></div>`:'';
+    const topRows=(h.top||[]).map(([sym,nm,pct])=>{
+      const tw=/^\d{4,6}[A-Z]?$/.test(sym), link=tw||isUS;
+      return `<div ${link?`data-goto="${sym}"`:''} style="display:grid;grid-template-columns:1fr 120px 58px;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);${link?'cursor:pointer':''}">
+        <div><b style="font-family:var(--mono)">${sym}</b> <span style="color:var(--txt2)">${nm}</span></div>
+        <div style="height:9px;background:var(--panel2);border-radius:5px;overflow:hidden"><div style="width:${Math.min(100,(pct||0)*2.2)}%;height:100%;background:var(--amber);opacity:.85"></div></div>
+        <div style="text-align:right;font-family:var(--mono)">${pct!=null?pct.toFixed(2)+'%':'—'}</div></div>`;
+    }).join('');
+    return `<div class="kv">${kv.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</div>
+      ${allocBar}
+      ${h.top&&h.top.length?`<h3 style="font-size:13.5px;margin:14px 0 4px">前十大成分股(權重)</h3>${topRows}`:''}
+      <div class="links" style="margin-top:12px"><a href="${yhold}" target="_blank" rel="noopener">完整持股 · Yahoo ↗</a></div>
+      <div class="dim-note" style="margin-top:8px">來源:Yahoo/Morningstar,每日自動更新;此為前十大持股,<b>完整每日成分(PCF)以發行商官網為準</b>。「現金」是尚未投入市場的部位——比重偏高代表基金留了子彈或正在調倉。台股成分點列可直接跳到該檔個股頁看報價與籌碼。</div>`;
+  })();
+  return `<div class="sec-title" data-sec="stk_e">🧺 成分股與規模 <span style="font-weight:400;font-size:12px;letter-spacing:0">前十大持股・資產配置・每日更新</span></div><div class="sec-body" id="sb-stk_e"><div class="dim-block" style="border-left:4px solid var(--amber)">${inner}</div></div>`;
 }
 /* 個股頁收合:沿用首頁 sec-title 機制;手機預設收合圖表/新聞/公司區,展開後重算圖表尺寸 */
 function wireDetailSecs(){
