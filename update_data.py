@@ -1103,6 +1103,29 @@ def fetch_pe_bulk():
             print(f"  [warn] 本益比({tag}): {e}")
     grab("https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL", "上市")
     grab("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis", "上櫃")
+    # 第三來源備援:官方端點失效/欄位變動時,FinMind PER 以日期查全市場
+    if len(out) < 800:
+        try:
+            d0 = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+            for _ in range(4):
+                if d0.weekday() < 5:
+                    day = d0.strftime("%Y-%m-%d")
+                    params = {"dataset": "TaiwanStockPER", "start_date": day, "end_date": day}
+                    tok = os.environ.get("FINMIND_TOKEN", "")
+                    if tok: params["token"] = tok
+                    j = get_json("https://api.finmindtrade.com/api/v4/data", params=params, timeout=60)
+                    rows = j.get("data") if isinstance(j, dict) else None
+                    n0 = len(out)
+                    for r in rows or []:
+                        sid = str(r.get("stock_id", "")).strip()
+                        pe, pb = numf(r.get("PER")), numf(r.get("PBR"))
+                        if sid and sid not in out and pe and 0 < pe < 5000:
+                            out[sid] = (pe, pb)
+                    if len(out) > n0:
+                        print(f"  本益比(FinMind 備援 {day}):+{len(out)-n0} 檔"); break
+                d0 -= dt.timedelta(days=1)
+        except Exception as e:
+            print(f"  [warn] 本益比 FinMind 備援: {e}")
     return out
 
 def fetch_taifex(prev_fut=None):

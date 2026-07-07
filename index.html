@@ -38,9 +38,9 @@ html[data-theme="mocha"]{
   --amber:#EDB94E; --hdr:#1C1710;
 }
 html[data-theme="teal"]{
-  --bg:#08181B; --panel:#0D2226; --panel2:#133036; --line:#1E4149;
-  --txt:#E4F4F4; --mut:#8AAFB2; --dim:#527278; --txt2:#C4DFE0;
-  --amber:#3FC9BE; --hdr:#0A1D20;
+  --bg:#0B0E1A; --panel:#121729; --panel2:#1A2138; --line:#2A3352;
+  --txt:#ECEFF9; --mut:#98A4C8; --dim:#5E6A8F; --txt2:#C9D1E8;
+  --amber:#93A9FF; --hdr:#0D111F;
 }
 html[data-theme="graphite"]{
   --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
@@ -480,7 +480,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <option value="black">⬛ 純黑金</option>
           <option value="light">☀️ 明亮日盤</option>
           <option value="mocha">🥃 琥珀夜盤</option>
-          <option value="teal">🌊 深海青</option>
+          <option value="teal">🌌 靛夜藍</option>
           <option value="graphite">🪨 石墨銀</option>
           <option value="dawn">🌇 曙光橙</option>
           <option value="sepia">📜 護眼米黃</option>
@@ -1340,7 +1340,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r91</span>');
+  diag.push('<span style="color:var(--dim)">build r92</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2924,7 +2924,7 @@ function dimBlock(title,d){
 }
 /* 估值評價:本益比/EPS/預估本益比/同產業中位數 */
 function valBlock(s){
-  if(!s.pe&&!s.eps)return '';
+  if(!s.pe&&!s.eps)return '<div class="dim-block" style="border-left:4px solid #7FB4FF"><h3>💰 估值評價</h3><div class="dim-note">本益比資料待「每日資料更新」執行後產生;若更新後仍無,代表這檔近四季虧損(官方不提供虧損公司的本益比),可改看股價淨值比與營收動能。</div></div>';
   const ind=(DATA.indpe||{})[s.sector];
   const rel=(s.pe&&ind)?((s.pe/ind-1)*100):null;
   let note='';
@@ -3249,8 +3249,8 @@ const CHART_THEMES={
   mocha:{legend:'#AC9F88',axis:'#7E7159',split:'#261F14',border:'#3E3424',
     ttBg:'#2C2419',ttText:'#F3EEE5',inactive:'#4A3E2B',ma60:'#F7F1E4',
     up2:'#FF9A8E',dn2:'#5BD9A0'},
-  teal:{legend:'#8AAFB2',axis:'#5E858B',split:'#0F272C',border:'#1E4149',
-    ttBg:'#133036',ttText:'#E4F4F4',inactive:'#2A4A50',ma60:'#EAF7F5',
+  teal:{legend:'#98A4C8',axis:'#66719A',split:'#171D33',border:'#2A3352',
+    ttBg:'#1A2138',ttText:'#EEF1FB',inactive:'#333D5E',ma60:'#EDEFF9',
     up2:'#FF8A8E',dn2:'#4BD695'},
   graphite:{legend:'#9BA1AB',axis:'#6D737D',split:'#1F2125',border:'#34383F',
     ttBg:'#26292E',ttText:'#ECEDEF',inactive:'#3E434B',ma60:'#F0F1F3',
@@ -3348,6 +3348,18 @@ function bindKControls(sLike){
       };
     });
   }
+  const gps=document.getElementById('gpSeg');
+  if(gps){
+    const cur=localStorage.getItem('kGP')!=='0';
+    gps.querySelectorAll('button').forEach(b=>{
+      b.classList.toggle('on',(b.dataset.t==='1')===cur);
+      b.onclick=()=>{
+        localStorage.setItem('kGP',b.dataset.t);
+        gps.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+        try{drawKChart();}catch(e){}
+      };
+    });
+  }
   const dvs=document.getElementById('dvSeg');
   if(dvs){
     const cur=localStorage.getItem('kDV')!=='0';
@@ -3388,6 +3400,7 @@ function kChartBoxHTML(){
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
@@ -3493,7 +3506,7 @@ function drawKChart(){
     series:[{name:'K線',type:'candlestick',xAxisIndex:0,yAxisIndex:0,
         data:o.map(x=>[x[0],x[3],x[2],x[1]]),  // echarts 順序 [開,收,低,高]
         itemStyle:{color:UPC,color0:DNC,borderColor:UPC,borderColor0:DNC},
-        ...((curLevels&&isDay)?(()=>{
+        ...((curLevels)?(()=>{   // 價位/趨勢線:日K/週K/月K 都顯示(水平價與趨勢線不受週期影響;箱型仍限日K)
           const ACC=cssVar('--amber');
           const showLv=localStorage.getItem('kLV')!=='0';   // 壓力/支撐等價位標記開關
   try{
@@ -3530,7 +3543,7 @@ function drawKChart(){
                 {name:'支撐·近月低',yAxis:+curLevels.l20.toFixed(2),
                  lineStyle:{color:CT.dn2,type:'dotted',width:1},
                  label:chip(CT.dn2,'insideEndTop')}]:[]),
-              ...(showLv&&window.__kBox?[
+              ...(showLv&&isDay&&window.__kBox?[
                 {name:'📦 箱頂',yAxis:window.__kBox.top,
                  lineStyle:{color:UPC,type:'solid',width:1.3},
                  label:chip(UPC,'insideStartTop')},
@@ -3558,7 +3571,7 @@ function drawKChart(){
               backgroundColor:CT.ttBg,borderColor:CT.border,borderWidth:1,
               padding:_mob?[1,4]:[3,7],borderRadius:_mob?3:5},
             data:[
-              ...(showLv&&window.__kBox?[[{name:`📦 箱型整理 ${window.__kBox.w}日`,
+              ...(showLv&&isDay&&window.__kBox?[[{name:`📦 箱型整理 ${window.__kBox.w}日`,
                     xAxis:curDates[curDates.length-window.__kBox.w],
                     yAxis:window.__kBox.bot,
                     itemStyle:{color:hexA(CT.legend==='#000'?'#888888':'#8899AA',.14)},
@@ -3568,7 +3581,7 @@ function drawKChart(){
                     yAxis:+curLevels.zone[0].toFixed(2)},
                    {yAxis:+curLevels.zone[1].toFixed(2)}]]:[])]}
           };})():{})},
-      ...maSeries,volSeries,...indSeries,...divMarkSeries()]
+      ...maSeries,volSeries,...indSeries,...divMarkSeries(),...gapVolSeries(o,curDates)]
   });
 }
 window.addEventListener('resize',()=>{if(chartInst)chartInst.resize();});
@@ -3803,6 +3816,7 @@ async function showDetail(id){
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
@@ -4213,7 +4227,7 @@ function renderChipCharts(s,e){
       legend:{data:['外資','投信','自營商','外資累計'],textStyle:{color:CT.legend,fontSize:11},top:0},
       grid:{left:58,right:58,top:30,bottom:innerWidth<640?36:24},
       xAxis:{type:'category',data:e.d,...ax,axisLabel:{color:CT.axis,fontSize:9.5,
-        interval:Math.ceil(e.d.length/(innerWidth<640?5:9)),rotate:innerWidth<640?30:0,
+        interval:Math.ceil(e.d.length/(innerWidth<640?6:9)),rotate:innerWidth<640?30:0,showMinLabel:true,showMaxLabel:true,
         formatter:v=>String(v).slice(5).replace('-','/')}},
       yAxis:[{type:'value',name:'張',...ax},{type:'value',name:'累計',...ax,splitLine:{show:false}}],
       dataZoom:[{type:'inside'}],
@@ -5496,7 +5510,9 @@ const GLOSS={
 '預估本益比':'用「預估的未來一年 EPS」算的本益比。成長股常常「現在看很貴、用明年獲利看就合理」。<br><b>注意:</b>本站是用營收年增率簡易推算,不是分析師預估,參考方向就好。',
 'EPS':'每股盈餘=公司一年幫「每一股」賺了多少元。EPS 10 元、股價 200 元 → 本益比 20 倍。EPS 持續成長是股價長期上漲最根本的燃料。',
 '股價淨值比':'股價 ÷ 每股淨值(公司帳面上每股值多少)。低於 1 倍=用比帳面價值便宜的價格買到;但金融、景氣循環股常年低於 1 是常態,一樣要跟同業比。',
-'同產業中位數':'把同一個產業所有股票的本益比排隊,取中間那一個。個股比它便宜=評價相對低;比它貴=市場給它更高期待。'
+'同產業中位數':'把同一個產業所有股票的本益比排隊,取中間那一個。個股比它便宜=評價相對低;比它貴=市場給它更高期待。',
+'跳空缺口':'今天的最低價比昨天的最高價還高(向上跳空),K棒之間出現「空白」——通常是重大利多/利空讓大家搶著用更高(低)價成交。<br><b>怎麼看:</b>缺口=多空力道特別強的位置;沒回補的缺口常變成日後的支撐或壓力,回補(股價走回缺口區)前色帶會一直顯示。',
+'爆大量':'單日成交量超過近 20 根平均量的 2.5 倍(圖上 🔥)。<br><b>怎麼看:</b>大量=大資金在換手。低檔爆量收紅常是止跌起漲訊號;高檔爆量收黑要小心出貨。爆量那根K棒的最低點,常是日後多空的重要防線。'
 };
 function glossFind(t){
   t=String(t||'').replace(/\(.*?\)|(.*?)|[|].*$/g,'').trim();
@@ -5602,6 +5618,47 @@ function renderDivTimeline(s){
     <div class="dim-note">殖利率說明:標題列為「近一年現金股利合計 ÷ 現價」;歷史各場次以「該次除息前一日收盤價」計算,較能反映當時的實際殖利率;若當日價格不在已載入的K線範圍內,則以現價概算。殖利率高低請搭配填息紀錄與獲利穩定度一起看,高殖利率若長年貼息反而侵蝕本金。來源:FinMind 股利政策。K 線圖上的 💰/🎁 垂直虛線為歷次除權息日,可用 K 線區「除權息」鈕開關;股東會、法說會以公開資訊觀測站為準。</div>
   </div>`;
 }
+/* 跳空缺口(未回補色帶)+ 爆大量標記(量>20根均量×2.5,標於K棒低點) */
+function gapVolSeries(o,dates){
+  if(localStorage.getItem('kGP')==='0'||!o||o.length<25||!dates)return[];
+  const mob=innerWidth<640, mpts=[], areas=[];
+  const gaps=[];
+  for(let i=1;i<o.length;i++){
+    const ph=o[i-1][1],pl=o[i-1][2];
+    if(o[i][2]>ph*1.003)gaps.push({i,up:1,top:o[i][2],bot:ph});        // 向上跳空:今低>昨高
+    else if(o[i][1]<pl*0.997)gaps.push({i,up:0,top:pl,bot:o[i][1]});   // 向下跳空:今高<昨低
+  }
+  const unfilled=gaps.filter(g=>{
+    for(let j=g.i+1;j<o.length;j++)
+      if(g.up?(o[j][2]<=g.bot):(o[j][1]>=g.top))return false;          // 已回補
+    return true;
+  });
+  unfilled.slice(-6).forEach(g=>{
+    const col=g.up?'#C792EA':'#FF8A8E';
+    areas.push([{name:(g.up?'⬆ 跳空缺口':'⬇ 跳空缺口'),xAxis:dates[g.i],yAxis:g.top,
+      itemStyle:{color:hexA(col,.15),borderColor:hexA(col,.4),borderWidth:1,borderType:'dashed'},
+      label:{show:true,position:mob?'insideLeft':'insideRight',fontSize:mob?8.5:9.5,color:col}},
+      {xAxis:dates[o.length-1],yAxis:g.bot}]);
+  });
+  const cand=[];
+  for(let i=20;i<o.length;i++){
+    let s=0;for(let j=i-20;j<i;j++)s+=(o[j][4]||0);
+    const av=s/20;
+    if(av>0&&(o[i][4]||0)>av*2.5)cand.push(i);
+  }
+  cand.slice(-8).forEach(i=>{
+    mpts.push({name:'爆大量',coord:[dates[i],o[i][2]],
+      symbol:'circle',symbolSize:0.1,
+      label:{show:true,position:'bottom',distance:4,formatter:'🔥',fontSize:mob?10:12},
+      itemStyle:{color:'transparent'},
+      tooltip:{formatter:`爆大量 ${dates[i]}<br>成交量為 20 根均量 2.5 倍以上,低點 ${o[i][2]}`}});
+  });
+  if(!areas.length&&!mpts.length)return[];
+  return[{name:'缺口量能',type:'line',data:[],xAxisIndex:0,yAxisIndex:0,silent:false,showSymbol:false,
+    markArea:{silent:true,data:areas,animation:false},
+    markPoint:{silent:false,data:mpts,animation:false}}];
+}
+/* 跳空缺口(未回補色帶)佔位註解結束 */
 function divMarkSeries(){
   if(!curDivs||!curDivs.length||localStorage.getItem('kDV')==='0'||!curDates||!curDates.length)return[];
   const mob=innerWidth<640;   // 手機:標籤只留圖示,避免互相蓋住
@@ -5669,8 +5726,8 @@ async function loadCreditTrend(s,e){
     tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12},
       valueFormatter:v=>v!=null?(+v).toLocaleString('zh-TW')+' 張':'—'},
     grid:{left:innerWidth<640?48:64,right:innerWidth<640?42:64,top:30,bottom:innerWidth<640?36:24},
-    xAxis:{type:'category',data:d,axisLabel:{color:CT.axis,fontSize:9.5,rotate:innerWidth<640?30:0,
-      interval:Math.ceil(d.length/(innerWidth<640?5:9)),formatter:v=>String(v).slice(5).replace('-','/')},axisLine:{lineStyle:{color:CT.border}}},
+    xAxis:{type:'category',data:d,axisLabel:{color:CT.axis,fontSize:9.5,rotate:innerWidth<640?30:0,showMinLabel:true,showMaxLabel:true,
+      interval:Math.ceil(d.length/(innerWidth<640?6:9)),formatter:v=>String(v).slice(5).replace('-','/')},axisLine:{lineStyle:{color:CT.border}}},
     yAxis:[{type:'value',name:innerWidth<640?'':'融資(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
            {type:'value',name:innerWidth<640?'':'券/借券(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
     dataZoom:[{type:'inside'}],
@@ -5827,7 +5884,7 @@ async function showFutDetail(){
         legend:{data:[`${label} 淨未平倉`,...(idx?['加權指數']:[])],top:0,textStyle:{color:CT.legend,fontSize:11}},
         tooltip:{trigger:'axis',axisPointer:{type:'shadow'},backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
         grid:{left:innerWidth<640?48:60,right:innerWidth<640?46:60,top:30,bottom:innerWidth<640?36:24},
-        xAxis:{type:'category',data:ds,axisLabel:{color:CT.axis,fontSize:9.5,rotate:innerWidth<640?30:0,interval:Math.ceil(ds.length/(innerWidth<640?5:9)),formatter:x=>String(x).slice(5)},axisLine:{lineStyle:{color:CT.border}}},
+        xAxis:{type:'category',data:ds,axisLabel:{color:CT.axis,fontSize:9.5,rotate:innerWidth<640?30:0,showMinLabel:true,showMaxLabel:true,interval:Math.ceil(ds.length/(innerWidth<640?6:9)),formatter:x=>String(x).slice(5)},axisLine:{lineStyle:{color:CT.border}}},
         yAxis:[{type:'value',name:innerWidth<640?'':'口',axisLabel:{color:CT.axis,fontSize:10,formatter:x=>Math.abs(x)>=1000?(x/1000).toFixed(0)+'K':x},splitLine:{lineStyle:{color:CT.split}}},
                {type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10,formatter:x=>(x/1000).toFixed(1)+'K'},splitLine:{show:false}}],
         dataZoom:[{type:'inside'}],
@@ -5910,7 +5967,7 @@ function showCreditDetail(){
       legend:{data:['融資餘額(億)','融券餘額(萬張)'],top:0,textStyle:{color:CT.legend,fontSize:11}},
       tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
       grid:{left:_m6?52:64,right:_m6?46:64,top:30,bottom:_m6?36:24},
-      xAxis:{type:'category',data:c.h.d,axisLabel:{color:CT.axis,fontSize:9.5,rotate:_m6?30:0,interval:Math.ceil(c.h.d.length/(_m6?5:9)),formatter:v=>String(v).slice(5).replace('-','/')},axisLine:{lineStyle:{color:CT.border}}},
+      xAxis:{type:'category',data:c.h.d,axisLabel:{color:CT.axis,fontSize:9.5,rotate:_m6?30:0,showMinLabel:true,showMaxLabel:true,interval:Math.ceil(c.h.d.length/(_m6?6:9)),formatter:v=>String(v).slice(5).replace('-','/')},axisLine:{lineStyle:{color:CT.border}}},
       yAxis:[{type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
              {type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
       dataZoom:[{type:'inside'}],
@@ -5930,7 +5987,7 @@ function showCreditDetail(){
         legend:{data:['融資餘額(張)','融券餘額(張)'],top:0,textStyle:{color:CT.legend,fontSize:11}},
         tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
         grid:{left:_m6?58:70,right:_m6?46:64,top:30,bottom:_m6?36:24},
-        xAxis:{type:'category',data:o.d,axisLabel:{color:CT.axis,fontSize:9.5,rotate:_m6?30:0,interval:Math.ceil(o.d.length/(_m6?5:9)),formatter:v=>String(v).slice(5).replace('-','/')},axisLine:{lineStyle:{color:CT.border}}},
+        xAxis:{type:'category',data:o.d,axisLabel:{color:CT.axis,fontSize:9.5,rotate:_m6?30:0,showMinLabel:true,showMaxLabel:true,interval:Math.ceil(o.d.length/(_m6?6:9)),formatter:v=>String(v).slice(5).replace('-','/')},axisLine:{lineStyle:{color:CT.border}}},
         yAxis:[{type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10,formatter:x=>(x/1e4).toFixed(0)+'萬'},splitLine:{lineStyle:{color:CT.split}}},
                {type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
         series:[
