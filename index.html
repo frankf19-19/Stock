@@ -5389,14 +5389,38 @@ function renderDivTimeline(s){
     return;
   }
   const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);
+  const px=(s.price&&s.price>0)?s.price:null;
+  const pxBefore=d=>{                      // 除息前一日收盤價(用已載入的K線資料查)
+    try{
+      if(!baseK||!Array.isArray(baseK.dates))return null;
+      const ds=baseK.dates;
+      for(let j=ds.length-1;j>=0;j--){if(ds[j]<d)return baseK.ohlc[j][3]||null;}
+    }catch(e){}
+    return null;
+  };
   const up=curDivs.filter(e=>e.d>=today);
   const past=curDivs.filter(e=>e.d<today).slice(-8).reverse();
-  const line=e=>`<div><dt>${e.d}${e.yr?`(${e.yr} 年度)`:''}</dt><dd>${e.t==='除息'?'💰 除息':'🎁 除權'} ${(+e.v).toFixed(2)} 元${e.pay?` · 發放日 ${e.pay}`:''}</dd></div>`;
+  // 近一年(過去365天已除息 + 已公告未到的場次)現金股利合計 → 以現價計殖利率
+  const yago=new Date(Date.now()-365*86400000).toISOString().slice(0,10);
+  const cashTTM=curDivs.filter(e=>e.t==='除息'&&e.d>=yago).reduce((a,e)=>a+(+e.v||0),0);
+  const ttmY=(px&&cashTTM>0)?(cashTTM/px*100):null;
+  const line=e=>{
+    let extra='';
+    if(e.t==='除息'){
+      const p0=pxBefore(e.d);
+      if(p0)extra=` · 殖利率 ${((+e.v)/p0*100).toFixed(2)}%(除息前收盤 ${(+p0).toFixed(1)})`;
+      else if(px)extra=` · 以現價計約 ${((+e.v)/px*100).toFixed(2)}%`;
+    }
+    return `<div><dt>${e.d}${e.yr?`(${e.yr} 年度)`:''}</dt><dd>${e.t==='除息'?'💰 除息':'🎁 除權'} ${(+e.v).toFixed(2)} 元${extra}${e.pay?` · 發放日 ${e.pay}`:''}</dd></div>`;
+  };
+  const upTxt=e=>`${e.d} ${e.t} ${(+e.v).toFixed(2)} 元`+
+    (e.t==='除息'&&px?`(以現價 ${px} 計,殖利率約 ${((+e.v)/px*100).toFixed(2)}%)`:'')+
+    (e.pay?`(發放日 ${e.pay})`:'');
   el.innerHTML=`<div class="dim-block" style="border-left:4px solid #C792EA">
-    <h3>📅 除權息與重大時間 <span class="ds">${up.length?'下一場 '+up[0].d:'近三年 '+curDivs.length+' 筆'}</span></h3>
-    ${up.length?`<div class="thesis" style="border-color:#C792EA"><b style="color:#C792EA">⏰ 即將到來:</b>${up.map(e=>`${e.d} ${e.t} ${(+e.v).toFixed(2)} 元${e.pay?`(發放日 ${e.pay})`:''}`).join('、')}——除權息日前一天為最後過戶基準,參與與否請留意稅務與貼息風險。</div>`:''}
+    <h3>📅 除權息與重大時間 <span class="ds">${ttmY!=null?`近一年現金股利 ${cashTTM.toFixed(2)} 元 · 現金殖利率約 ${ttmY.toFixed(2)}%`:(up.length?'下一場 '+up[0].d:'近三年 '+curDivs.length+' 筆')}</span></h3>
+    ${up.length?`<div class="thesis" style="border-color:#C792EA"><b style="color:#C792EA">⏰ 即將到來:</b>${up.map(upTxt).join('、')}——除權息日前一天為最後過戶基準,參與與否請留意稅務與貼息風險。</div>`:''}
     ${past.length?`<div class="kv">${past.map(line).join('')}</div>`:''}
-    <div class="dim-note">來源:FinMind 股利政策(公司公告後自動出現)。K 線圖上的 💰/🎁 垂直虛線即為歷次除權息日,可用 K 線區「除權息」鈕開關。股東會、法說會等行事曆以公開資訊觀測站為準。</div>
+    <div class="dim-note">殖利率說明:標題列為「近一年現金股利合計 ÷ 現價」;歷史各場次以「該次除息前一日收盤價」計算,較能反映當時的實際殖利率;若當日價格不在已載入的K線範圍內,則以現價概算。殖利率高低請搭配填息紀錄與獲利穩定度一起看,高殖利率若長年貼息反而侵蝕本金。來源:FinMind 股利政策。K 線圖上的 💰/🎁 垂直虛線為歷次除權息日,可用 K 線區「除權息」鈕開關;股東會、法說會以公開資訊觀測站為準。</div>
   </div>`;
 }
 function divMarkSeries(){
