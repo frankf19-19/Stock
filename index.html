@@ -1307,8 +1307,8 @@ async function refreshLive(auto){
                    EURTWD:+(r.TWD/r.EUR).toFixed(3),USDJPY:+r.JPY.toFixed(2)};
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
-  diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r79</span>');
+  diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
+  diag.push('<span style="color:var(--dim)">build r81</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1351,7 +1351,7 @@ async function yToday(sym){
   const today=tpDay(Date.now()/1000);
   const idx=[];
   d5.t.forEach((ts,i)=>{if(tpDay(ts)===today)idx.push(i);});
-  if(idx.length<4)return null;
+  if(idx.length<2)return null;
   const pick=a=>Array.isArray(a)?idx.map(i=>a[i]):[];
   // 昨收=今天第一根之前最後一個有效收盤
   let prev=d5.prev;
@@ -2341,7 +2341,7 @@ setInterval(()=>{
   if(!mm)return;
   const s=(DATA.stocks||[]).find(x=>x.id===decodeURIComponent(mm[1]));
   if(s&&s.market==='TW')loadIntraDetail(s);
-},30000);
+},20000);
 
 /* ── 秒級即時報價:瀏覽器直連證交所 MIS 快照(每10秒,僅更新畫面上的個股)── */
 const RT={lastOk:0};
@@ -2556,9 +2556,7 @@ async function fetchMIS(chans){
   const mis='https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch='
     +chans.join('|')+'&json=1&delay=0&_='+Date.now();
   const routes=[u=>u,
-    u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
-    u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
-    u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)];
+    u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
   for(const r of routes){
     try{const res=await fT(r(mis),5000);
         if(!res.ok)continue;
@@ -2597,18 +2595,29 @@ async function rtTick(){
   const allTW=DATA.stocks.filter(s=>s.market==='TW'&&!seen.has(s.id)).map(s=>s.id);
   if(allTW.length){
     RT.cursor=(RT.cursor||0)%allTW.length;
-    for(let k=0;k<130&&k<allTW.length;k++)
+    for(let k=0;k<120&&k<allTW.length;k++)
       ids.push(allTW[(RT.cursor+k)%allTW.length]);
-    RT.cursor=(RT.cursor+130)%allTW.length;
+    if(RT.tickN%3===0)RT.cursor=(RT.cursor+120)%allTW.length;
   }
   const exOf=id=>{const s=DATA.stocks.find(x=>x.id===id);return (s&&s.ex==='otc')?'otc':'tse';};
+  // 禮貌節奏:單一大請求(指數+優先股),避免觸發證交所限流;輪動每3輪補一批
+  RT.tickN=(RT.tickN||0)+1;
   const stockChans=ids.map(id=>`${exOf(id)}_${id}.tw`);
-  const reqs=[fetchMIS(['tse_t00.tw',OTC_CH])];   // 指數獨立請求:不與股票混批,保證每輪必到
-  for(let i=0;i<stockChans.length;i+=45)reqs.push(fetchMIS(stockChans.slice(i,i+45)));
-  const parts=await Promise.all(reqs);            // 全部並行:一輪只花最慢那一趟的時間
+  const priCh=['tse_t00.tw',OTC_CH,...stockChans.slice(0,140)];
+  const reqs=[fetchMIS(priCh)];
+  if(RT.tickN%3===0&&stockChans.length>140)
+    reqs.push(fetchMIS(stockChans.slice(140,260)));   // 輪動批:約每18秒一發
+  const parts=await Promise.all(reqs);
   let arr=[],okN=0;
   parts.forEach(p=>{if(p){arr=arr.concat(p);okN++;}});
-  if(!okN)arr=null;
+  if(!okN){
+    arr=null;
+    RT.failN=(RT.failN||0)+1;
+    if(RT.failN>=3){
+      const sb=document.getElementById('srcBadge');
+      if(sb){sb.textContent='● 報價來源暫斷,自動重試中';sb.className='badge warn';}
+    }
+  }else RT.failN=0;
   if(!arr||!arr.length)return; // 通道暫時不通:維持5分鐘機制,不吵使用者
   let n=0;
   arr.forEach(m=>{
