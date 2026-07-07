@@ -1397,7 +1397,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r119</span>');
+  diag.push('<span style="color:var(--dim)">build r120</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4098,12 +4098,12 @@ async function showDetail(id){
     </div>`})()}
     ${s.disp?`<div class="thesis" style="border-color:#FF8A8E"><b style="color:#FF8A8E">⚠ 處置中${s.disp.p?`(${s.disp.p})`:''}:</b>${s.disp.t||'交易受管制'}${s.disp.m?`——改為每 <b>${s.disp.m} 分鐘</b>集合競價撮合一次`:''}。掛單不會即時成交、流動性下降、波動放大,短線進出請特別留意;處置期滿自動恢復。</div>`:''}
     ${s.thesis&&!s.etf?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
-    ${planBlock(s)}
+    ${s.etf?'':planBlock(s)}
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
       <span class="ticker-label">📰 ${s.name} 新聞</span>
       <div class="ticker-track" id="sTickTrack"></div>
     </div>
-    <div class="sec-title" data-sec="stk_k">📈 走勢・價位・進場策略 <span style="font-weight:400;font-size:12px;letter-spacing:0">K線・關鍵價位・除權息時間</span></div><div class="sec-body" id="sb-stk_k">
+    <div class="sec-title" data-sec="stk_k">${s.etf?`📈 走勢`:`📈 走勢・價位・進場策略`} <span style="font-weight:400;font-size:12px;letter-spacing:0">${s.etf?`K線・配息時間`:`K線・關鍵價位・除權息時間`}</span></div><div class="sec-body" id="sb-stk_k">
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
     <div id="divTL"></div>
     </div>
@@ -6227,6 +6227,8 @@ function renderEtf(){
     .sort((a,b)=>b.perf.q-a.perf.q).slice(0,10);
   const dyRows=scope.filter(s=>s.hold&&s.hold.dy>0&&s.hold.dy<60)
     .sort((a,b)=>b.hold.dy-a.hold.dy).slice(0,10);
+  const chgRows=scope.filter(s=>typeof s.chg==='number'&&!(sub==='tw'&&s.sub==='lev'))
+    .sort((a,b)=>b.chg-a.chg).slice(0,10);
   const board=(title,rows,val)=>rows.length?`
     <div style="background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px 14px">
       <div style="font-size:13px;font-weight:900;color:var(--amber);letter-spacing:.05em;margin-bottom:6px">${title}</div>
@@ -6235,10 +6237,15 @@ function renderEtf(){
         <span style="flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="font-family:var(--mono)">${s.id}</b> ${s.name}</span>
         <b style="font-family:var(--mono);font-size:13px">${val(s)}</b></div>`).join('')}
     </div>`:'';
-  const boards=board('📈 績效排行|近 3 月'+(sub==='tw'?'(不含槓反)':''),pfRows,
-      s=>`<span style="color:${s.perf.q>=0?CT.up2:CT.dn2}">${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%</span>`)
-    +board('💰 殖利率排行|近一年',dyRows,
-      s=>`<span style="color:var(--amber)">${s.hold.dy.toFixed(2)}%</span>`);
+  const ph=title=>`<div style="background:var(--panel2);border:1px dashed var(--line);border-radius:11px;padding:12px 14px">
+      <div style="font-size:13px;font-weight:900;color:var(--amber);letter-spacing:.05em;margin-bottom:6px">${title}</div>
+      <div style="font-size:12px;color:var(--dim);line-height:1.8">資料待「每日資料更新」(Actions)執行後出現——請確認 update_data.py 已更新到最新版並手動跑一次。</div></div>`;
+  const boards=board('🚀 今日漲幅排行'+(sub==='tw'?'(不含槓反)':''),chgRows,
+      s=>chgHtml(s.chg))
+    +(pfRows.length?board('📈 績效排行|近 3 月'+(sub==='tw'?'(不含槓反)':''),pfRows,
+      s=>`<span style="color:${s.perf.q>=0?CT.up2:CT.dn2}">${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%</span>`):ph('📈 績效排行|近 3 月'))
+    +(dyRows.length?board('💰 殖利率排行|近一年',dyRows,
+      s=>`<span style="color:var(--amber)">${s.hold.dy.toFixed(2)}%</span>`):ph('💰 殖利率排行|近一年'));
   const srt=window.__etfSort||'q';
   const val=s=>srt==='chg'?(s.chg??-9e9):((s.perf||{})[srt]??-9e9);
   L.sort((a,b)=>val(b)-val(a));
