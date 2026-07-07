@@ -41,9 +41,9 @@ html[data-theme="light"]{
   --up:#D6323A; --down:#0F8A57;
 }
 html[data-theme="mocha"]{
-  --bg:#0D1411; --panel:#131C17; --panel2:#1A271F; --line:#27392E;
-  --txt:#E9F2EC; --mut:#93AC9C; --dim:#5E7568; --txt2:#C6D8CC;
-  --amber:#D6A85F; --hdr:#101915;
+  --bg:#F3F7F1; --panel:#FFFFFF; --panel2:#EAF1E7; --line:#D8E4D3;
+  --txt:#22301F; --mut:#5B7351; --dim:#8AA081; --txt2:#465841;
+  --amber:#A2703A; --hdr:#EEF4EC;
 }
 html[data-theme="teal"]{
   --bg:#F2F5FA; --panel:#FFFFFF; --panel2:#E9EEF7; --line:#D6DEEC;
@@ -1354,7 +1354,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r102</span>');
+  diag.push('<span style="color:var(--dim)">build r103</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3306,9 +3306,9 @@ const CHART_THEMES={
   light:{legend:'#5A6478',axis:'#6B7280',split:'#E4E8F0',border:'#D9DEE8',
     ttBg:'#FFFFFF',ttText:'#1B2233',inactive:'#C4CBD6',ma60:'#4A5568',
     up2:'#C4333B',dn2:'#0F8A57'},
-  mocha:{legend:'#93AC9C',axis:'#6C8577',split:'#1B2721',border:'#2A3D31',
-    ttBg:'#16211B',ttText:'#EDF5EF',inactive:'#31463A',ma60:'#F0F6F1',
-    up2:'#FF8A8E',dn2:'#4BD695'},
+  mocha:{legend:'#5B7351',axis:'#7E9174',split:'#E5EDE1',border:'#CFDECA',
+    ttBg:'#FFFFFF',ttText:'#22301F',inactive:'#BFCFB7',ma60:'#3A4A34',
+    up2:'#C4333B',dn2:'#0F8A57'},
   teal:{legend:'#5A6880',axis:'#7A87A0',split:'#E4EAF4',border:'#D0D9E9',
     ttBg:'#FFFFFF',ttText:'#1B2438',inactive:'#C0CBDE',ma60:'#2F3C57',
     up2:'#C4333B',dn2:'#0F8A57'},
@@ -3419,16 +3419,16 @@ function natureFX(theme){
     g.addColorStop(0,'rgba(255,222,140,.4)');g.addColorStop(1,'rgba(255,222,140,0)');
     cx.fillStyle=g;cx.fillRect(0,0,W*.5,H*.35);
     for(let i=0;i<3;i++){                                                // 光束(呼吸明滅)
-      const a=.05+.04*Math.sin(t*.35+i*2.1);
+      const a=.07+.05*Math.sin(t*.35+i*2.1);
       if(a<=0)continue;
-      cx.fillStyle=`rgba(255,230,160,${a.toFixed(3)})`;
+      cx.fillStyle=`rgba(255,214,110,${a.toFixed(3)})`;
       const x0=W*(.08+i*.09);
       cx.beginPath();cx.moveTo(x0,0);cx.lineTo(x0+W*.05,0);
       cx.lineTo(x0+W*.16,H*.75);cx.lineTo(x0+W*.07,H*.75);cx.closePath();cx.fill();
     }
     SC.trees.forEach(tr=>{                                               // 遠景松樹
       const x=W*tr.x, s=tr.s, base=gTop+4;
-      cx.fillStyle='rgba(16,28,21,.9)';
+      cx.fillStyle='rgba(54,84,58,.82)';
       for(let k=0;k<3;k++){
         const w=(46-k*12)*s, y=base-(k*26+8)*s;
         cx.beginPath();cx.moveTo(x,y-30*s);cx.lineTo(x-w/2,y);cx.lineTo(x+w/2,y);cx.closePath();cx.fill();
@@ -3436,12 +3436,12 @@ function natureFX(theme){
       cx.fillRect(x-3*s,base-8*s,6*s,10*s);
     });
     g=cx.createLinearGradient(0,gTop,0,H);                               // 草地
-    g.addColorStop(0,'#16241B');g.addColorStop(1,'#0E1712');
+    g.addColorStop(0,'#DEEAD6');g.addColorStop(1,'#CBDDBF');
     cx.fillStyle=g;cx.fillRect(0,gTop,W,gndH);
     cx.lineWidth=1.4;cx.lineCap='round';
     SC.grass.forEach(b=>{                                                // 隨風搖的草
       const x=W*b.x, sway=Math.sin(t*1.15+b.ph)*3;
-      cx.strokeStyle=b.lt?'rgba(78,118,90,.9)':'rgba(48,80,60,.9)';
+      cx.strokeStyle=b.lt?'rgba(96,138,88,.95)':'rgba(64,104,64,.95)';
       cx.beginPath();cx.moveTo(x,gTop+3);
       cx.quadraticCurveTo(x+sway*.5,gTop-b.h*.55,x+sway,gTop-b.h);cx.stroke();
     });
