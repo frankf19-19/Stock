@@ -1308,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r76</span>');
+  diag.push('<span style="color:var(--dim)">build r77</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2180,6 +2180,8 @@ function stkLiveStart(s){
         const keep=(st.innerHTML.split(' · ').slice(1)||[]).join(' · ');
         st.innerHTML=intraStatTxt(s,keep||null);
       }
+      const lp=document.getElementById('lvPx');
+      if(lp)lp.textContent=s.price;
       try{alertCheck(s,m,last);}catch(e){}
     }catch(e){}
   };
@@ -2936,8 +2938,12 @@ async function applyKView(s){
     if(!baseK.__up){
       baseK.__up=1;
       (async()=>{
-        let d2=await yOHLC(s,'2y','1d');
-        if(!d2){await new Promise(r=>setTimeout(r,8000));d2=await yOHLC(s,'2y','1d');}
+        let d2=null;
+        for(let t=0;t<8&&!d2;t++){
+          if(location.hash!==KHASH)return;   // 已離頁,停止
+          d2=await yOHLC(s,'2y','1d');
+          if(!d2)await new Promise(r=>setTimeout(r,30000));
+        }
         if(d2&&d2.ohlc&&d2.ohlc.length>baseK.ohlc.length+40){
           KVC[key]=d2;
           if(location.hash===KHASH&&kView.rng==='2y'&&kView.itv==='1d'){
@@ -3490,7 +3496,7 @@ async function showDetail(id){
       <div id="kbox" style="height:560px"></div>
     </div>
     <div class="dim-block">
-      <h3>關鍵價位(規則化計算)<span class="ds">現價 ${s.price??'—'}</span></h3>
+      <h3>關鍵價位(規則化計算)<span class="ds">現價 <b id="lvPx">${s.price??'—'}</b></span></h3>
       <div class="kv">
         <div><dt>壓力 2|前波高(60日)</dt><dd class="pos">${lv.h60.toFixed(1)}</dd></div>
         <div><dt>壓力 1|近月高(20日)</dt><dd class="pos">${lv.h20.toFixed(1)}</dd></div>
