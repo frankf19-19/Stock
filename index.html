@@ -1308,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r78</span>');
+  diag.push('<span style="color:var(--dim)">build r79</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2182,6 +2182,9 @@ function stkLiveStart(s){
       }
       const lp=document.getElementById('lvPx');
       if(lp)lp.textContent=s.price;
+      const px0=document.getElementById('dPx'),ch0=document.getElementById('dChg');
+      if(px0)px0.textContent=s.price;
+      if(ch0)ch0.innerHTML=chgHtml(s.chg);
       try{alertCheck(s,m,last);}catch(e){}
     }catch(e){}
   };
@@ -2235,6 +2238,9 @@ async function seedStk(s){
     try{candleFromMIS(s.id,m,last);}catch(e){}
     const st=document.getElementById('intraStat');
     if(st&&location.hash===KHASH)st.innerHTML=intraStatTxt(s);
+    const px0=document.getElementById('dPx'),ch0=document.getElementById('dChg');
+    if(px0)px0.textContent=s.price;
+    if(ch0)ch0.innerHTML=chgHtml(s.chg);
   }catch(e){}
 }
 async function loadIntraDetail(s,accOnly){
