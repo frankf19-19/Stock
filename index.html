@@ -1334,7 +1334,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r86</span>');
+  diag.push('<span style="color:var(--dim)">build r87</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5641,25 +5641,90 @@ async function showFutDetail(){
                  chip('十大交易人',Lp('b10')),chip('十大特定法人',Lp('sp')),chip('散戶小台(反指標)',Lp('rt'),true)].join('');
       return row?`<div class="idx-row compact" style="margin-bottom:14px">${row}</div>`:'';})()}
     ${!f||!f.h?'<div class="dim-block"><div class="dim-note">期貨籌碼資料尚未產生——執行每日自動更新(Actions)後,這裡會有 60 日歷史圖與規則化判讀。</div></div>':`
-    <div class="chart-box"><h3 style="font-size:14px">三大法人 台指期淨未平倉(口)</h3><div id="futC1" style="height:280px"></div></div>
-    <div class="chart-box"><h3 style="font-size:14px">十大交易人 vs 十大特定法人 淨部位</h3><div id="futC2" style="height:250px"></div></div>
-    <div class="chart-box"><h3 style="font-size:14px">散戶小台淨部位(反向法人近似)</h3><div id="futC3" style="height:250px"></div></div>
+    <div class="chart-box">
+      <div class="ind-head" style="flex-wrap:wrap;gap:8px">
+        <h3 style="font-size:14px">淨未平倉(口)· 灰線為加權指數</h3>
+        <div class="ind-seg kseg-row" id="futSeg" style="display:flex"></div>
+      </div>
+      <div id="futC1" style="height:300px"></div>
+    </div>
+    <div class="dim-block">
+      <h3>逐日明細 <span class="ds" id="futTblTitle"></span></h3>
+      <div id="futTbl"></div>
+    </div>
     <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>規則化判讀</h3><div class="dim-note" id="futNote"></div></div>`}
     <div class="dim-block"><h3>這是什麼</h3><div class="dim-note">期貨「淨未平倉口數」=多單減空單後留倉的部位。<b>外資</b>期貨部位常被視為對台股後市的態度(注意可能包含現貨部位的避險單);<b>十大交易人</b>是市場最大的十個帳戶(其中「特定法人」多為外資機構),代表最大資金的方向;<b>散戶小台</b>用「法人反向」推算——散戶整體與法人對作時,長期而言法人勝率較高,因此被視為反向指標。</div></div>
     <div class="dim-block"><h3>怎麼看</h3><div class="dim-note">重點不是絕對數字,而是<b>方向轉變與極端值</b>:①外資淨空快速回補(空單縮減)常是行情轉多前兆;②散戶淨多創階段新高,常出現在高檔(反指標亮燈);③十大特定法人與外資同步翻多,是較可信的中期多方訊號。搭配首頁的大盤防守線一起看——法人翻空+指數跌破月線=訊號共振,倉位要更保守。</div></div>
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   if(!f||!f.h)return;
-  const h=f.h,ds=h.d.map(x=>String(x).slice(5));
-  futChart('futC1',ds,[
-    {name:'外資',type:'bar',data:h.fx,itemStyle:{color:p=>p.value>=0?UPC:DNC}},
-    {name:'投信',type:'line',data:h.it,symbol:'none',lineStyle:{width:1.6,color:'#E8B44A'}},
-    {name:'自營商',type:'line',data:h.dl,symbol:'none',lineStyle:{width:1.4,color:'#7FB4FF'}}]);
-  futChart('futC2',ds,[
-    {name:'十大交易人',type:'line',data:h.b10,symbol:'none',lineStyle:{width:1.8,color:'#C792EA'},areaStyle:{opacity:.08}},
-    {name:'十大特定法人',type:'line',data:h.sp,symbol:'none',lineStyle:{width:1.6,color:'#FF9A5A'}}]);
-  futChart('futC3',ds,[
-    {name:'散戶小台',type:'bar',data:h.rt,itemStyle:{color:p=>p.value>=0?UPC:DNC}}]);
+  const h=f.h;
+  /* 加權指數疊圖線(FinMind,快取於全域;台指期與加權走勢幾乎一致) */
+  if(!window.__futIdx){
+    try{
+      const start=new Date(Date.now()-130*86400000).toISOString().slice(0,10);
+      const r=await fT(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=TAIEX&start_date=${start}`,10000);
+      if(r&&r.ok){const j=await r.json();const m={};((j&&j.data)||[]).forEach(x=>{m[x.date]=+x.close;});
+        if(Object.keys(m).length)window.__futIdx=m;}
+    }catch(e){}
+  }
+  const GROUPS=[['fx','外資'],['it','投信'],['dl','自營商'],['b10','十大交易人'],['sp','十大特定人'],['rt','散戶小台']]
+    .filter(([k])=>Array.isArray(h[k])&&h[k].some(v=>v!=null));
+  if(!GROUPS.length)return;
+  if(!window.__futKey||!GROUPS.some(([k])=>k===window.__futKey))window.__futKey=GROUPS[0][0];
+  const seg=document.getElementById('futSeg');
+  const drawFut=()=>{
+    const key=window.__futKey,label=(GROUPS.find(([k])=>k===key)||[])[1]||'';
+    if(seg)seg.innerHTML=GROUPS.map(([k,n])=>`<button data-k="${k}" class="${k===key?'on':''}">${n}</button>`).join(''),
+      seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{window.__futKey=b.dataset.k;drawFut();});
+    const v=h[key]||[],ds=h.d.map(x=>String(x).slice(5));
+    const idx=window.__futIdx?h.d.map(x=>window.__futIdx[String(x).replace(/\//g,'-')]??null):null;
+    /* 主圖:淨未平倉紅綠柱 + 加權指數灰線(雙軸) */
+    const box=document.getElementById('futC1');
+    if(box&&window.echarts){
+      echarts.dispose(box);box.innerHTML='';
+      const ch=echarts.init(box);
+      ch.setOption({backgroundColor:'transparent',animation:false,
+        textStyle:{fontFamily:'IBM Plex Mono,monospace'},
+        legend:{data:[`${label} 淨未平倉`,...(idx?['加權指數']:[])],top:0,textStyle:{color:CT.legend,fontSize:11}},
+        tooltip:{trigger:'axis',axisPointer:{type:'shadow'},backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
+        grid:{left:innerWidth<640?48:60,right:innerWidth<640?46:60,top:30,bottom:24},
+        xAxis:{type:'category',data:ds,axisLabel:{color:CT.axis,fontSize:10,interval:Math.ceil(ds.length/(innerWidth<640?5:9))},axisLine:{lineStyle:{color:CT.border}}},
+        yAxis:[{type:'value',name:innerWidth<640?'':'口',axisLabel:{color:CT.axis,fontSize:10,formatter:x=>Math.abs(x)>=1000?(x/1000).toFixed(0)+'K':x},splitLine:{lineStyle:{color:CT.split}}},
+               {type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10,formatter:x=>(x/1000).toFixed(1)+'K'},splitLine:{show:false}}],
+        dataZoom:[{type:'inside'}],
+        series:[
+          {name:`${label} 淨未平倉`,type:'bar',data:v,barMaxWidth:8,
+           itemStyle:{color:p=>p.value>=0?UPC:DNC}},
+          ...(idx?[{name:'加權指數',type:'line',yAxisIndex:1,data:idx,symbol:'none',connectNulls:true,
+           lineStyle:{width:1.5,color:'#AAB4C6'},z:3}]:[])
+        ]});
+    }
+    /* 逐日明細表:日期 / 淨未平倉 / 增減(近 15 個交易日,新→舊) */
+    const tb=document.getElementById('futTbl'),tt=document.getElementById('futTblTitle');
+    if(tt)tt.textContent=`${label} · 近 15 個交易日`;
+    if(tb){
+      const rows=[];
+      for(let i=v.length-1;i>=0&&rows.length<15;i--){
+        if(v[i]==null)continue;
+        let j=i-1;while(j>=0&&v[j]==null)j--;
+        rows.push([h.d[i],v[i],j>=0?v[i]-v[j]:null]);
+      }
+      const cell=(x,em)=>x==null?'<span style="color:var(--dim)">—</span>':
+        `<span style="color:${x>=0?UPC:DNC};${em?'font-weight:700':''}">${x>=0?'+':''}${x.toLocaleString()}</span>`;
+      tb.innerHTML=`<div style="display:grid;grid-template-columns:86px 1fr 1fr;gap:0 10px;font-family:var(--mono);font-size:13px">
+        <div style="color:var(--mut);padding:4px 0;border-bottom:1px solid var(--line)">日期</div>
+        <div style="color:var(--mut);padding:4px 0;border-bottom:1px solid var(--line);text-align:right">淨未平倉(口)</div>
+        <div style="color:var(--mut);padding:4px 0;border-bottom:1px solid var(--line);text-align:right">增減(口)</div>
+        ${rows.map(([d0,vv,cc])=>`
+          <div style="padding:6px 0;border-bottom:1px solid var(--line);color:var(--txt2)">${String(d0).slice(5)}</div>
+          <div style="padding:6px 0;border-bottom:1px solid var(--line);text-align:right">${cell(vv,true)}</div>
+          <div style="padding:6px 0;border-bottom:1px solid var(--line);text-align:right">${cell(cc)}</div>`).join('')}
+      </div>
+      <div class="dim-note" style="margin-top:8px">紅=淨多/增加、綠=淨空/減少(台股慣例)。${key==='rt'?'散戶小台為法人反向推算,常作反向指標。':key==='fx'?'外資部位可能包含現貨避險單,方向轉變比絕對值重要。':''}</div>`;
+    }
+  };
+  drawFut();
   const nn=document.getElementById('futNote');
   if(nn){
     const L=a=>Array.isArray(a)&&a.length?a[a.length-1]:null;
