@@ -1308,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場80秒·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r77</span>');
+  diag.push('<span style="color:var(--dim)">build r78</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2189,6 +2189,38 @@ function stkLiveStart(s){
   STK_TIMER=setInterval(tick,6000);
 }
 function stkLiveStop(){if(STK_TIMER){clearInterval(STK_TIMER);STK_TIMER=null;}}
+async function misIntraday(s){
+  // 證交所 MIS 站內分線端點(非正式):成功=瞬間補全 09:00 起走勢;失敗=無感回退
+  try{
+    const ch=`${s.ex==='otc'?'otc':'tse'}_${s.id}.tw`;
+    const r=await fT(`https://mis.twse.com.tw/stock/api/getChartOhlcStatis.jsp?ex_ch=${ch}&_=${Date.now()}`,5000);
+    if(!r.ok)return null;
+    const j=await r.json();
+    const y=s.mg&&0||null;
+    // 彈性掃描:在回應樹中找「長度>=5 的數字陣列,值域貼近昨收±15%」= 分線收盤序列
+    const prev=(RTC[s.id]&&RTC[s.id].y)||s.price/(1+(s.chg||0)/100);
+    let best=null;
+    const scan=(o,depth)=>{
+      if(depth>4||!o)return;
+      if(Array.isArray(o)){
+        const nums=o.map(x=>parseFloat(Array.isArray(x)?x[1]??x[0]:x)).filter(v=>isFinite(v));
+        if(nums.length>=5&&prev>0){
+          const inBand=nums.filter(v=>v>prev*0.8&&v<prev*1.2).length;
+          if(inBand>=nums.length*0.8&&(!best||nums.length>best.length))best=nums;
+        }
+        o.forEach(x=>scan(x,depth+1));
+      }else if(typeof o==='object'){Object.values(o).forEach(x=>scan(x,depth+1));}
+    };
+    scan(j,0);
+    if(!best||best.length<5)return null;
+    // 以 09:00 起、每點一分鐘組時間軸
+    const base=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    base.setHours(9,0,0,0);
+    const t0=Math.floor(base.getTime()/1000);
+    return {t:best.map((_,i)=>t0+i*60),c:best.map(v=>+v.toFixed(2)),
+            v:best.map(()=>0),prev:+prev.toFixed(2)};
+  }catch(e){return null;}
+}
 async function seedStk(s){
   // 開頁即刻抓一筆即時報價當種子(不等 10 秒輪),圖更快出現
   try{
@@ -2244,9 +2276,15 @@ async function loadIntraDetail(s,accOnly){
     }else if(marketOpen()){
       if(acc.c.length>=2){d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev||((d&&d.prev)||null)};window.__stkToday=true;}
       else{
-        window.__stkToday=false;
-        if(stat)stat.innerHTML=intraStatTxt(s,'走勢累積中(約20秒)');
-        return;
+        const md=await misIntraday(s);
+        if(md&&location.hash===KHASH){
+          d=md;window.__stkToday=true;
+          (RT.lastYD=RT.lastYD||{})[s.id]=md;   // 當底圖,累積點續接
+        }else{
+          window.__stkToday=false;
+          if(stat)stat.innerHTML=intraStatTxt(s,'走勢累積中·09:00起完整走勢約09:25後自動補齊');
+          return;
+        }
       }
     }else{
       window.__stkToday=false;   // 顯示最近完整一日,禁止即時戳點
