@@ -7,7 +7,15 @@
 <link rel="dns-prefetch" href="https://www.tpex.org.tw">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>麻吉股研所|好友限定 · 產業 × 基本面 × 籌碼 × 技術</title>
+<title>麻吉股研所|台美股選股儀表板</title>
+<meta name="description" content="麻吉股研所:台股全市場+美股 S&P500 的免費選股儀表板。即時走勢、法人籌碼、月營收、估值評價、白話解釋,好友限定分享。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="麻吉股研所">
+<meta property="og:title" content="麻吉股研所|台美股選股儀表板">
+<meta property="og:description" content="即時走勢・法人籌碼・月營收・估值評價,全部白話看得懂。">
+<meta property="og:image" content="https://frankf19-19.github.io/Stock/icon.png">
+<meta name="twitter:card" content="summary">
+<meta name="apple-mobile-web-app-title" content="麻吉股研所">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230C111D'/><rect x='10' y='34' width='10' height='19' rx='2.5' fill='%238a6a1f'/><rect x='27' y='23' width='10' height='30' rx='2.5' fill='%23E8B44A'/><rect x='44' y='11' width='10' height='42' rx='2.5' fill='%23E5484D'/></svg>">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="theme-color" content="#0C111D">
@@ -38,9 +46,9 @@ html[data-theme="mocha"]{
   --amber:#EDB94E; --hdr:#1C1710;
 }
 html[data-theme="teal"]{
-  --bg:#F2F7F4; --panel:#FFFFFF; --panel2:#E9F2EC; --line:#D5E4DA;
-  --txt:#1E2B24; --mut:#5F7469; --dim:#8CA095; --txt2:#3D5247;
-  --amber:#1D8A66; --hdr:#EDF4EF;
+  --bg:#F2F5FA; --panel:#FFFFFF; --panel2:#E9EEF7; --line:#D6DEEC;
+  --txt:#1B2438; --mut:#5A6880; --dim:#8B97AC; --txt2:#39465F;
+  --amber:#2563C9; --hdr:#EDF1F8;
 }
 html[data-theme="graphite"]{
   --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
@@ -480,7 +488,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <option value="black">⬛ 純黑金</option>
           <option value="light">☀️ 明亮日盤</option>
           <option value="mocha">🥃 琥珀夜盤</option>
-          <option value="teal">🍃 青瓷亮綠</option>
+          <option value="teal">🔷 湛藍亮</option>
           <option value="graphite">🪨 石墨銀</option>
           <option value="dawn">🌇 曙光橙</option>
           <option value="sepia">📜 護眼米黃</option>
@@ -1340,7 +1348,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r96</span>');
+  diag.push('<span style="color:var(--dim)">build r97</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3277,8 +3285,8 @@ const CHART_THEMES={
   mocha:{legend:'#AC9F88',axis:'#7E7159',split:'#261F14',border:'#3E3424',
     ttBg:'#2C2419',ttText:'#F3EEE5',inactive:'#4A3E2B',ma60:'#F7F1E4',
     up2:'#FF9A8E',dn2:'#5BD9A0'},
-  teal:{legend:'#5F7469',axis:'#7C9187',split:'#E2EDE6',border:'#CFE0D5',
-    ttBg:'#FFFFFF',ttText:'#1E2B24',inactive:'#BFD2C6',ma60:'#33473C',
+  teal:{legend:'#5A6880',axis:'#7A87A0',split:'#E4EAF4',border:'#D0D9E9',
+    ttBg:'#FFFFFF',ttText:'#1B2438',inactive:'#C0CBDE',ma60:'#2F3C57',
     up2:'#C4333B',dn2:'#0F8A57'},
   graphite:{legend:'#9BA1AB',axis:'#6D737D',split:'#1F2125',border:'#34383F',
     ttBg:'#26292E',ttText:'#ECEDEF',inactive:'#3E434B',ma60:'#F0F1F3',
