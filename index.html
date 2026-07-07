@@ -1308,7 +1308,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r82</span>');
+  diag.push('<span style="color:var(--dim)">build r83</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2928,6 +2928,33 @@ function boxDetect(o,thr,maxW,minW){
   }
   return null;
 }
+/* 自動趨勢線:轉折點擬合——上升線=連接波段低點且全程未被跌破;下降線=連接波段高點且全程未被突破 */
+function trendLines(o){
+  const n=o.length;
+  if(n<30)return null;
+  const S=Math.max(0,n-130);
+  const H=[],L=[];
+  for(let i=Math.max(S,2);i<n-2;i++){
+    const hi=o[i][1],lo=o[i][2];
+    if(hi>=o[i-1][1]&&hi>=o[i-2][1]&&hi>=o[i+1][1]&&hi>=o[i+2][1])H.push([i,hi]);
+    if(lo<=o[i-1][2]&&lo<=o[i-2][2]&&lo<=o[i+1][2]&&lo<=o[i+2][2])L.push([i,lo]);
+  }
+  const pick=(P,isLow)=>{
+    for(let b=P.length-1;b>=1;b--)for(let a=b-1;a>=0;a--){
+      const [x1,y1]=P[a],[x2,y2]=P[b];
+      if(x2-x1<8)continue;
+      const k=(y2-y1)/(x2-x1);
+      let ok=true;
+      for(let i=x1;i<n;i++){
+        const yl=y1+k*(i-x1);
+        if(isLow?(o[i][2]<yl*0.99):(o[i][1]>yl*1.01)){ok=false;break;}
+      }
+      if(ok)return {x1,y1,k,ye:+(y1+k*(n-1-x1)).toFixed(2)};
+    }
+    return null;
+  };
+  return {up:pick(L,true),dn:pick(H,false)};
+}
 function keyLevels(o){
   const closes=o.map(x=>x[3]), highs=o.map(x=>x[1]), lows=o.map(x=>x[2]);
   const h20=Math.max(...highs.slice(-20)), l20=Math.min(...lows.slice(-20));
@@ -3176,6 +3203,18 @@ function liveKBar(idOrKey){
   }
 }
 function bindKControls(sLike){
+  const tl=document.getElementById('tlSeg');
+  if(tl){
+    const cur=localStorage.getItem('kTL')!=='0';
+    tl.querySelectorAll('button').forEach(b=>{
+      b.classList.toggle('on',(b.dataset.t==='1')===cur);
+      b.onclick=()=>{
+        localStorage.setItem('kTL',b.dataset.t);
+        tl.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+        try{drawKChart();}catch(e){}
+      };
+    });
+  }
   document.querySelectorAll('#rngSeg button').forEach(b=>b.onclick=()=>{
     kView.rng=b.dataset.r;
     document.querySelectorAll('#rngSeg button').forEach(x=>x.classList.toggle('on',x===b));
@@ -3201,6 +3240,7 @@ function kChartBoxHTML(){
             `<button data-r="${v}" class="${v==='2y'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
@@ -3345,7 +3385,22 @@ function drawKChart(){
                  label:chip(UPC,'insideStartTop')},
                 {name:'📦 箱底',yAxis:window.__kBox.bot,
                  lineStyle:{color:DNC,type:'solid',width:1.3},
-                 label:chip(DNC,'insideStartBottom')}]:[])
+                 label:chip(DNC,'insideStartBottom')}]:[]),
+              ...(function(){
+                if(localStorage.getItem('kTL')==='0')return [];
+                const tl=trendLines(o);
+                if(!tl)return [];
+                const mk=[];
+                if(tl.up)mk.push([{name:'↗ 上升趨勢線',coord:[curDates[tl.up.x1],tl.up.y1],
+                  lineStyle:{color:'#4BD695',width:1.6,type:'solid'},
+                  label:{show:true,position:'end',formatter:'↗ 趨勢支撐',color:'#4BD695',fontSize:10.5}},
+                  {coord:[curDates[o.length-1],tl.up.ye]}]);
+                if(tl.dn)mk.push([{name:'↘ 下降壓力線',coord:[curDates[tl.dn.x1],tl.dn.y1],
+                  lineStyle:{color:'#FF8A8E',width:1.6,type:'solid'},
+                  label:{show:true,position:'end',formatter:'↘ 趨勢壓力',color:'#FF8A8E',fontSize:10.5}},
+                  {coord:[curDates[o.length-1],tl.dn.ye]}]);
+                return mk;
+              })()
             ]},
           markArea:{silent:true,itemStyle:{color:hexA(ACC,.12)},
             label:{show:true,position:'insideLeft',fontSize:10.5,fontWeight:600,color:ACC,
@@ -3590,6 +3645,7 @@ async function showDetail(id){
             `<button data-r="${v}" class="${v==='2y'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
