@@ -714,10 +714,11 @@ def _taifex_csv_fallback():
             ci_pb = next((i for i,h in enumerate(hdr) if "十大" in h and "特定" in h and "買" in h), None)
             ci_ps = next((i for i,h in enumerate(hdr) if "十大" in h and "特定" in h and "賣" in h), None)
             ci_t = col("類別")   # 「交易人類別」列格式
-            if ok2 == 0 and qd == dates2[0]:
-                print(f"  [debug] 大額表頭全列:{hdr}")
             if None in (ci_d, ci_c, ci_b, ci_s):
                 continue
+            if ok2 == 0:
+                print(f"  [debug] 大額表頭(成功日 {qd}):{hdr}")
+                print(f"  [debug] 首列樣本:{rows[1][:10] if len(rows)>1 else '無'}")
             import re as _r2
             def num(v):
                 m = _r2.match(r"\s*\"?([\d,]+)", str(v))
@@ -793,11 +794,29 @@ def fetch_credit_stocks(stocks):
         print(f"  [warn] 融資融券(MI_MARGN): {e}")
     n2 = 0
     try:
-        arr = get_json("https://openapi.twse.com.tw/v1/exchangeReport/TWT93U", timeout=60)
+        arr = None
+        d0 = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+        for back in range(6):
+            qd = (d0 - dt.timedelta(days=back))
+            if qd.weekday() >= 5: continue
+            u = f"https://www.twse.com.tw/rwd/zh/afterTrading/TWT93U?date={qd.strftime('%Y%m%d')}&response=json"
+            try:
+                j = get_json(u, timeout=30)
+                if isinstance(j, dict) and j.get("stat") == "OK" and j.get("data"):
+                    flds = j.get("fields") or []
+                    arr = [dict(zip(flds, row)) for row in j["data"]]
+                    print(f"  借券賣出資料日:{qd.strftime('%Y/%m/%d')}")
+                    break
+            except Exception:
+                continue
+        if not arr:
+            raise RuntimeError("rwd TWT93U 無資料")
         keys = list(arr[0].keys())
         kc = pick(keys, "Code") or pick(keys, "代號")
-        klt = pick(keys, "SBL", "TheDay") or pick(keys, "Lending", "TheDay") or pick(keys, "借券", "當日餘額") or pick(keys, "借券", "今日餘額")
-        klp = pick(keys, "SBL", "Previous") or pick(keys, "Lending", "Previous") or pick(keys, "借券", "前日餘額")
+        klt = pick(keys, "借券", "當日餘額") or pick(keys, "借券", "今日餘額") or pick(keys, "SBL", "TheDay") or pick(keys, "Lending", "TheDay")
+        klp = pick(keys, "借券", "前日餘額") or pick(keys, "SBL", "Previous") or pick(keys, "Lending", "Previous")
+        if not klt:
+            print(f"  [debug] TWT93U 欄位:{keys[:14]}")
         if not all((kc, klt)):
             print(f"  [debug] TWT93U 欄位:{keys[:12]}")
         else:
@@ -834,7 +853,7 @@ def fetch_credit_macro(prev):
             d0 = str(r.get("date", ""))
             try: bal = float(r.get("TodayBalance", r.get("balance", 0)))
             except Exception: continue
-            hist[d0] = round(bal / 1e5, 1)                  # 仟元 → 億
+            hist[d0] = round(bal / 1e8, 1)                  # 元 → 億
         if not hist and prev: return prev
         ds = sorted(hist)[-60:]
         if not ds: return prev
