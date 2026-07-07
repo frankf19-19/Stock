@@ -26,48 +26,53 @@
 :root{
   --bg:#0C111D; --panel:#141B2B; --panel2:#1A2337; --line:#232D42;
   --up:#E5484D; --down:#21A466; --amber:#E8B44A;
-  --txt:#E9EDF5; --mut:#8B95AB; --dim:#5A6478; --txt2:#C4CBDA; --hdr:#111828;
+  --txt:#E9EDF5; --mut:#8B95AB; --dim:#6A7486; --txt2:#C4CBDA; --hdr:#111828;
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
 }
 html[data-theme="black"]{
   --bg:#000000; --panel:#0E0E11; --panel2:#17171C; --line:#26262E;
-  --txt:#F2F2F4; --mut:#9A9AA6; --dim:#5C5C68; --txt2:#CFCFD9;
+  --txt:#F2F2F4; --mut:#9A9AA6; --dim:#696974; --txt2:#CFCFD9;
   --amber:#F0B94F; --hdr:#0A0A0D;
 }
 html[data-theme="light"]{
   --bg:#F3F5F9; --panel:#FFFFFF; --panel2:#EDF0F6; --line:#D9DEE8;
-  --txt:#1B2233; --mut:#5A6478; --dim:#8B94A6; --txt2:#3A4356;
+  --txt:#1B2233; --mut:#5A6478; --dim:#757C8B; --txt2:#3A4356;
   --amber:#B07A18; --hdr:#E9EDF5;
   --up:#D6323A; --down:#0F8A57;
 }
 html[data-theme="mocha"]{
-  --bg:#FDF8EE; --panel:#FFFFFF; --panel2:#F7EFDD; --line:#EBDFC4;
-  --txt:#3A2E1B; --mut:#84744F; --dim:#B3A582; --txt2:#5C4E33;
-  --amber:#D98E2B; --hdr:#FAF4E6;
+  --bg:#E8EFF5; --panel:#FFFFFF; --panel2:#DEE9F1; --line:#CBDAE6;
+  --txt:#233240; --mut:#516A80; --dim:#677884; --txt2:#3D5162;
+  --amber:#B67724; --hdr:#E3ECF3;
 }
 html[data-theme="teal"]{
-  --bg:#F0EEE7; --panel:#FBFAF6; --panel2:#E9E6DC; --line:#D8D3C4;
-  --txt:#2B2A24; --mut:#6C6856; --dim:#9B967F; --txt2:#4C4A3E;
-  --amber:#4A7A96; --hdr:#ECEAE1;
+  --bg:#EBF3F1; --panel:#FFFFFF; --panel2:#E0ECE8; --line:#CBDCD6;
+  --txt:#1E312E; --mut:#4F6A64; --dim:#627C75; --txt2:#3C534E;
+  --amber:#2C6E8F; --hdr:#E6F0ED;
 }
 html[data-theme="sakura"]{
   --bg:#FBF5F7; --panel:#FFFFFF; --panel2:#F7EBEF; --line:#EDD8DF;
-  --txt:#2E222A; --mut:#8A6E7B; --dim:#B396A2; --txt2:#54414C;
+  --txt:#2E222A; --mut:#7F6571; --dim:#8C757E; --txt2:#54414C;
   --amber:#B84D8A; --hdr:#F9F0F3;
+}
+html[data-theme="lucky"]{
+  --bg:#FAF3EC; --panel:#FFFFFF; --panel2:#F3E9DC; --line:#E7D9C6;
+  --txt:#38291E; --mut:#775E48; --dim:#8A7159; --txt2:#5A4636;
+  --amber:#A2691A; --hdr:#F6EFE4;
 }
 html[data-theme="graphite"]{
   --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
-  --txt:#ECEDEF; --mut:#9BA1AB; --dim:#62676F; --txt2:#CDD1D7;
+  --txt:#ECEDEF; --mut:#9BA1AB; --dim:#6F737B; --txt2:#CDD1D7;
   --amber:#D8B364; --hdr:#17181B;
 }
 html[data-theme="dawn"]{
   --bg:#F4F8FA; --panel:#FFFFFF; --panel2:#E8F2F6; --line:#D3E5EC;
-  --txt:#16303B; --mut:#5B7C8A; --dim:#8FADB9; --txt2:#3A5866;
+  --txt:#16303B; --mut:#54727F; --dim:#6A8089; --txt2:#3A5866;
   --amber:#0F86A8; --hdr:#EEF5F8;
 }
 html[data-theme="sepia"]{
   --bg:#F5F1E8; --panel:#FFFDF7; --panel2:#EFE9DA; --line:#DCD3BE;
-  --txt:#2A2418; --mut:#6E6552; --dim:#988E77; --txt2:#4A4232;
+  --txt:#2A2418; --mut:#6E6552; --dim:#807764; --txt2:#4A4232;
   --amber:#A9761B; --hdr:#EEE7D6;
   --up:#C43A3A; --down:#0E7D52;
 }
@@ -505,7 +510,8 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <option value="black">⬛ 純黑金</option>
           <option value="light">☀️ 明亮日盤</option>
           <option value="mocha">🌼 花園</option>
-          <option value="teal">🏔 山嵐水墨</option>
+          <option value="teal">🐟 錦鯉池</option>
+          <option value="lucky">🧧 招財</option>
           <option value="sakura">🌸 櫻花</option>
           <option value="graphite">🪨 石墨銀</option>
           <option value="dawn">🌊 海邊</option>
@@ -620,7 +626,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   </div>
 </div>
 <div class="tabPane" id="tp-etf">
-  <div class="sec-title">🧺 ETF 總覽 <span style="font-weight:400;font-size:12px;letter-spacing:0">台股全部 ETF・主動式・槓桿反向・債券・美股精選,點列進 K 線與籌碼頁</span></div>
+  <div class="sec-title"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13.5l9 5 9-5"/><path d="M3 18l9 5 9-5" opacity=".45"/></svg> ETF 總覽 <span style="font-weight:400;font-size:12px;letter-spacing:0">台股全部 ETF・主動式・槓桿反向・債券・美股精選,點列進 K 線與籌碼頁</span></div>
   <div class="sec-body">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:2px 0 12px">
       <div class="ind-seg kseg-row" id="etfSub" style="display:flex">
@@ -1391,7 +1397,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r109</span>');
+  diag.push('<span style="color:var(--dim)">build r115</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3343,19 +3349,22 @@ const CHART_THEMES={
   light:{legend:'#5A6478',axis:'#6B7280',split:'#E4E8F0',border:'#D9DEE8',
     ttBg:'#FFFFFF',ttText:'#1B2233',inactive:'#C4CBD6',ma60:'#4A5568',
     up2:'#C4333B',dn2:'#0F8A57'},
-  mocha:{legend:'#84744F',axis:'#9F9070',split:'#F3EBD8',border:'#E7DABB',
-    ttBg:'#FFFFFF',ttText:'#3A2E1B',inactive:'#D5C8A6',ma60:'#4E4127',
+  mocha:{legend:'#516A80',axis:'#7E94A7',split:'#DCE7EF',border:'#C7D7E3',
+    ttBg:'#FFFFFF',ttText:'#233240',inactive:'#B4C8D6',ma60:'#33485A',
     up2:'#C4333B',dn2:'#0F8A57'},
-  teal:{legend:'#6C6856',axis:'#8B8672',split:'#E5E2D6',border:'#D3CEBE',
-    ttBg:'#FBFAF6',ttText:'#2B2A24',inactive:'#C6C0AC',ma60:'#43413A',
+  teal:{legend:'#4F6A64',axis:'#718882',split:'#DFEAE6',border:'#C7D9D2',
+    ttBg:'#FFFFFF',ttText:'#1E312E',inactive:'#B2C7C0',ma60:'#2E4540',
     up2:'#C4333B',dn2:'#0F8A57'},
-  sakura:{legend:'#8A6E7B',axis:'#A28D98',split:'#F3E4E9',border:'#E8D3DB',
+  sakura:{legend:'#7F6571',axis:'#A28D98',split:'#F3E4E9',border:'#E8D3DB',
     ttBg:'#FFFFFF',ttText:'#2E222A',inactive:'#D9C2CB',ma60:'#4A3540',
+    up2:'#C4333B',dn2:'#0F8A57'},
+  lucky:{legend:'#775E48',axis:'#96805F',split:'#F1E7D8',border:'#E2D3BC',
+    ttBg:'#FFFFFF',ttText:'#38291E',inactive:'#D4C3A6',ma60:'#4E3B2A',
     up2:'#C4333B',dn2:'#0F8A57'},
   graphite:{legend:'#9BA1AB',axis:'#6D737D',split:'#1F2125',border:'#34383F',
     ttBg:'#26292E',ttText:'#ECEDEF',inactive:'#3E434B',ma60:'#F0F1F3',
     up2:'#FF8A8E',dn2:'#4BD695'},
-  dawn:{legend:'#5B7C8A',axis:'#7C99A6',split:'#E2EEF3',border:'#CDE0E8',
+  dawn:{legend:'#54727F',axis:'#7C99A6',split:'#E2EEF3',border:'#CDE0E8',
     ttBg:'#FFFFFF',ttText:'#16303B',inactive:'#BCD4DD',ma60:'#2C4855',
     up2:'#C4333B',dn2:'#0F8A57'},
   sepia:{legend:'#6E6552',axis:'#7A7160',split:'#E7E0CF',border:'#DCD3BE',
@@ -3366,7 +3375,7 @@ const CHART_THEMES={
    櫻花=花瓣飄落|海邊=太陽・飄雲・海浪・沙灘・沙堡(旗飄)・海鷗・氣泡|森林=陽光光束・松樹・搖曳草地・落葉
    全程式繪製、畫在背景層不擋內容;尊重「減少動態」;切主題自動清除重建 */
 function natureFX(theme){
-  const kind={sakura:'petal',dawn:'beach',mocha:'garden',teal:'ink'}[theme]||null;
+  const kind={sakura:'petal',dawn:'beach',mocha:'garden',teal:'koi',lucky:'lucky'}[theme]||null;
   const old=document.getElementById('natureFx');
   if(!kind){window.__nfRun=false;if(old)old.remove();return;}
   try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;}catch(e){}
@@ -3379,11 +3388,14 @@ function natureFX(theme){
   fit();addEventListener('resize',fit,{passive:true});
   const mob=innerWidth<640, R=Math.random;
   /* ── 粒子 ── */
-  const N=kind==='ink'?0:kind==='garden'?(mob?7:11):kind==='beach'?(mob?7:12):(mob?10:18);
+  const N=kind==='koi'?0:kind==='lucky'?(mob?9:14):kind==='garden'?(mob?7:11):kind==='beach'?(mob?7:12):(mob?10:18);
   const LEAF_C=[['#8FBF7A','#6FA35F'],['#C9C06A','#A89B4E'],['#D6A85F','#B5854A']];
   const mk=init=>{
     if(kind==='beach')return{x:R()*innerWidth,y:init?R()*innerHeight:cv.height+16,
       s:2+R()*4.5,vy:-(.2+R()*.35),ph:R()*6.28,sw:.16+R()*.35,o:.10+R()*.15};
+    if(kind==='lucky')return{x:R()*innerWidth,y:init?R()*innerHeight:-26,
+      s:5.5+R()*4,vy:.34+R()*.5,ph:R()*6.28,sw:.2+R()*.45,rot:R()*6.28,
+      vr:(R()-.5)*.02,o:.5+R()*.35,env:R()<.3};
     if(kind==='garden')return{x:R()*innerWidth,y:init?R()*innerHeight:cv.height+14,
       s:2.4+R()*2.2,vy:-(.16+R()*.26),ph:R()*6.28,sw:.3+R()*.5,rot:R()*6.28,vr:(R()-.5)*.02,o:.28+R()*.3};
     const b={x:R()*innerWidth,y:init?R()*innerHeight:-24,ph:R()*6.28,rot:R()*6.28,hue:R()};
@@ -3399,12 +3411,15 @@ function natureFX(theme){
     SC.gulls=Array.from({length:mob?1:2},()=>({x:R()*innerWidth,y:60+R()*90,v:.35+R()*.3,ph:R()*6.28}));
     SC.castleX=.16+R()*.1;
   }
-  if(kind==='ink'){
-    SC.mts=[{b:.72,a1:.06,k1:.0032,a2:.025,k2:.011,o1:R()*9,o2:R()*9,c:'168,176,162',al:.30},
-            {b:.80,a1:.075,k1:.0026,a2:.03,k2:.009,o1:R()*9,o2:R()*9,c:'118,132,118',al:.40},
-            {b:.88,a1:.05,k1:.0040,a2:.02,k2:.013,o1:R()*9,o2:R()*9,c:'74,88,78',al:.52}];
-    SC.mist=Array.from({length:mob?2:3},(_,i)=>({y:.70+i*.075,x:R()*innerWidth,v:.10+R()*.10,w:.5+R()*.4,al:.14+R()*.10}));
-    SC.gulls=Array.from({length:mob?1:2},()=>({x:R()*innerWidth,y:60+R()*100,v:.24+R()*.2,ph:R()*6.28}));
+  if(kind==='lucky'){
+    SC.spark=Array.from({length:mob?8:14},()=>({x:R(),y:R()*.85,r:3+R()*3.5,ph:R()*6.28,sp:.7+R()*1.4}));
+  }
+  if(kind==='koi'){
+    SC.pads=Array.from({length:mob?2:3},()=>({x:.1+R()*.8,y:.15+R()*.7,r:26+R()*20,rot:R()*6.28,ph:R()*6.28}));
+    SC.koi=Array.from({length:mob?2:3},()=>({x:R()*innerWidth,y:R()*innerHeight,
+      ang:R()*6.28,spd:.35+R()*.3,ph:R()*6.28,s:9+R()*5,
+      col:R()<.6?'#E8853C':'#E4E4E8',patch:R()<.7}));
+    SC.rip=[];SC.ripNext=1+R()*2;
   }
   if(kind==='garden'){
     SC.flowers=Array.from({length:mob?14:26},()=>({x:R(),h:14+R()*16,ph:R()*6.28,
@@ -3494,36 +3509,125 @@ function natureFX(theme){
       cx.quadraticCurveTo(x+sway*.5,gTop-b.h*.55,x+sway,gTop-b.h);cx.stroke();
     });
   }
-  function inkScene(t){
+  function luckyScene(t){
     const W=cv.width,H=cv.height;
-    let g=cx.createRadialGradient(W*.78,H*.14,6,W*.78,H*.14,H*.13);    // 山後淡日
-    g.addColorStop(0,'rgba(214,196,150,.30)');g.addColorStop(1,'rgba(214,196,150,0)');
-    cx.fillStyle=g;cx.fillRect(W*.55,0,W*.45,H*.3);
-    SC.mts.forEach((m,i)=>{                                            // 三層水墨山巒(遠→近)
-      cx.fillStyle=`rgba(${m.c},${m.al})`;
-      cx.beginPath();cx.moveTo(0,H);
-      for(let x=0;x<=W;x+=16){
-        const y=H*m.b-(Math.sin(x*m.k1+m.o1)*m.a1+Math.sin(x*m.k2+m.o2)*m.a2)*H;
-        cx.lineTo(x,y);
-      }
-      cx.lineTo(W,H);cx.closePath();cx.fill();
-      const mi=SC.mist[i];                                             // 層間流動霧帶
-      if(mi){
-        mi.x+=mi.v;if(mi.x>W+W*mi.w)mi.x=-W*mi.w;
-        const mg=cx.createLinearGradient(mi.x-W*mi.w*.5,0,mi.x+W*mi.w*.5,0);
-        mg.addColorStop(0,'rgba(248,246,240,0)');
-        mg.addColorStop(.5,`rgba(248,246,240,${mi.al})`);
-        mg.addColorStop(1,'rgba(248,246,240,0)');
-        cx.fillStyle=mg;
-        cx.fillRect(mi.x-W*mi.w*.5,H*mi.y-14+Math.sin(t*.3+i)*4,W*mi.w,30);
-      }
+    SC.spark.forEach(sp=>{                                             // 金色十字光點閃爍
+      const a=.12+.42*Math.abs(Math.sin(t*sp.sp+sp.ph));
+      const x=W*sp.x,y=H*sp.y,r=sp.r*(.6+.4*Math.abs(Math.sin(t*sp.sp+sp.ph)));
+      cx.strokeStyle=`rgba(206,158,54,${a.toFixed(3)})`;cx.lineWidth=1.2;cx.lineCap='round';
+      cx.beginPath();cx.moveTo(x-r,y);cx.lineTo(x+r,y);cx.moveTo(x,y-r);cx.lineTo(x,y+r);cx.stroke();
     });
-    SC.gulls.forEach(gl=>{                                             // 遠山飛鳥
-      gl.x+=gl.v;gl.ph+=.05;if(gl.x>W+40)gl.x=-40;
-      const y=gl.y+Math.sin(gl.ph*.5)*6,f=Math.sin(gl.ph)*2.5;
-      cx.strokeStyle='rgba(80,84,72,.55)';cx.lineWidth=1.3;cx.lineCap='round';
-      cx.beginPath();cx.moveTo(gl.x-7,y);cx.quadraticCurveTo(gl.x-3,y-3.5-f,gl.x,y);
-      cx.quadraticCurveTo(gl.x+3,y-3.5-f,gl.x+7,y);cx.stroke();
+    /* 招財貓 v2:圓潤比例・柔輪廓・腮紅・小判金牌・肉球招手 */
+    const cs=(innerWidth<640?.72:1), bx=W-88*cs, by=H-14*cs;
+    cx.save();cx.translate(bx,by);cx.scale(cs,cs);cx.globalAlpha=.93;
+    const SOFT='rgba(122,104,82,.35)';
+    cx.fillStyle='rgba(60,45,30,.08)';                                 // 地面陰影
+    cx.beginPath();cx.ellipse(0,-2,36,7,0,0,6.29);cx.fill();
+    const bodyG=cx.createLinearGradient(0,-64,0,0);                    // 身體(微漸層)
+    bodyG.addColorStop(0,'#FFFEFB');bodyG.addColorStop(1,'#F4EDE0');
+    cx.fillStyle=bodyG;cx.strokeStyle=SOFT;cx.lineWidth=1.2;
+    cx.beginPath();cx.ellipse(0,-30,27,30,0,0,6.29);cx.fill();cx.stroke();
+    cx.strokeStyle=SOFT;cx.lineWidth=1.6;                              // 尾巴小捲
+    cx.beginPath();cx.arc(30,-16,8,3.6,1.2);cx.stroke();
+    cx.fillStyle=bodyG;cx.strokeStyle=SOFT;cx.lineWidth=1.2;           // 頭(大而圓)
+    cx.beginPath();cx.ellipse(0,-72,29,26,0,0,6.29);cx.fill();cx.stroke();
+    [[-1],[1]].forEach(([d])=>{                                        // 圓角耳
+      cx.beginPath();cx.moveTo(d*11,-92);
+      cx.quadraticCurveTo(d*20,-108,d*25,-96);
+      cx.quadraticCurveTo(d*26,-88,d*17,-88);cx.closePath();
+      cx.fillStyle='#FFFEFB';cx.fill();cx.stroke();
+      cx.beginPath();cx.moveTo(d*14,-92);
+      cx.quadraticCurveTo(d*19,-101,d*22,-94);cx.closePath();
+      cx.fillStyle='#F2BAC5';cx.fill();
+    });
+    cx.strokeStyle='#4A3A2C';cx.lineWidth=2;cx.lineCap='round';        // 瞇瞇笑眼 ∩ ∩
+    [[-10],[10]].forEach(([d])=>{cx.beginPath();cx.arc(d,-73,4.5,3.28,6.14);cx.stroke();});
+    cx.fillStyle='rgba(242,163,176,.55)';                              // 腮紅
+    [[-17],[17]].forEach(([d])=>{cx.beginPath();cx.ellipse(d,-66,4.5,3,0,0,6.29);cx.fill();});
+    cx.fillStyle='#D96A5A';                                            // 鼻
+    cx.beginPath();cx.ellipse(0,-68,2.2,1.7,0,0,6.29);cx.fill();
+    cx.strokeStyle='#4A3A2C';cx.lineWidth=1.3;                         // ω 嘴
+    cx.beginPath();cx.arc(-2.6,-64.5,2.8,.3,2.9);cx.stroke();
+    cx.beginPath();cx.arc(2.6,-64.5,2.8,.3,2.9);cx.stroke();
+    cx.strokeStyle='rgba(140,120,96,.55)';cx.lineWidth=1;              // 短鬍鬚
+    [[-1],[1]].forEach(([d])=>{for(let k2=0;k2<2;k2++){
+      cx.beginPath();cx.moveTo(d*14,-69+k2*4);cx.lineTo(d*23,-70+k2*6);cx.stroke();}});
+    cx.fillStyle='#CB4B3F';                                            // 紅項圈(貼合弧)
+    cx.beginPath();cx.ellipse(0,-49,17,6,0,0,3.14);cx.fill();
+    const bell=cx.createRadialGradient(-1.5,-45,1,0,-43,6);            // 金鈴(帶高光)
+    bell.addColorStop(0,'#F6DC8C');bell.addColorStop(1,'#C9992E');
+    cx.fillStyle=bell;cx.beginPath();cx.arc(0,-43,5,0,6.29);cx.fill();
+    cx.strokeStyle='#A87E22';cx.lineWidth=.9;cx.stroke();
+    cx.beginPath();cx.moveTo(0,-43);cx.lineTo(0,-39);cx.stroke();
+    const kb=cx.createLinearGradient(0,-38,0,-8);                      // 小判金牌
+    kb.addColorStop(0,'#F1D27A');kb.addColorStop(1,'#CDA032');
+    cx.fillStyle=kb;cx.strokeStyle='#A87E22';cx.lineWidth=1.1;
+    cx.beginPath();cx.ellipse(0,-22,13,17,0,0,6.29);cx.fill();cx.stroke();
+    cx.strokeStyle='rgba(168,126,34,.8)';cx.lineWidth=1;               // 小判紋
+    cx.beginPath();cx.ellipse(0,-22,9.5,13,0,0,6.29);cx.stroke();
+    cx.beginPath();cx.moveTo(-7,-22);cx.lineTo(7,-22);cx.stroke();
+    cx.fillStyle='#FFFEFB';cx.strokeStyle=SOFT;cx.lineWidth=1.2;       // 右手扶金牌
+    cx.beginPath();cx.ellipse(15,-14,7.5,11,-.5,0,6.29);cx.fill();cx.stroke();
+    cx.save();cx.translate(-22,-56);cx.rotate(-.5+Math.sin(t*2.4)*.34);// 左手招呼
+    cx.fillStyle='#FFFEFB';cx.strokeStyle=SOFT;
+    cx.beginPath();cx.roundRect(-6.5,-24,13,26,6.5);cx.fill();cx.stroke();
+    cx.fillStyle='rgba(242,163,176,.7)';                               // 肉球+指節
+    cx.beginPath();cx.ellipse(0,-17,3.6,2.8,0,0,6.29);cx.fill();
+    cx.strokeStyle='rgba(122,104,82,.4)';cx.lineWidth=.9;
+    [-3,0,3].forEach(dx=>{cx.beginPath();cx.moveTo(dx,-24);cx.lineTo(dx,-21);cx.stroke();});
+    cx.restore();
+    cx.restore();cx.globalAlpha=1;
+  }
+  function koiScene(t){
+    const W=cv.width,H=cv.height;
+    if(t>SC.ripNext){                                                  // 隨機漣漪(含錦鯉尾波)
+      const src=Math.random()<.5&&SC.koi.length?SC.koi[Math.floor(Math.random()*SC.koi.length)]:null;
+      SC.rip.push({x:src?src.x:Math.random()*W,y:src?src.y:Math.random()*H,t0:t});
+      SC.ripNext=t+1.4+Math.random()*2.4;
+      if(SC.rip.length>6)SC.rip.shift();
+    }
+    SC.rip.forEach(r=>{                                                // 兩圈擴散淡出
+      const a=(t-r.t0)/3;if(a>=1)return;
+      cx.strokeStyle=`rgba(120,160,152,${(.30*(1-a)).toFixed(3)})`;cx.lineWidth=1.2;
+      [0,.18].forEach(d=>{const aa=a-d;if(aa<=0)return;
+        cx.beginPath();cx.arc(r.x,r.y,10+aa*70,0,6.29);cx.stroke();});
+    });
+    SC.pads.forEach(p=>{                                               // 蓮葉(邊緣缺口+輕晃)
+      const x=W*p.x,y=H*p.y+Math.sin(t*.5+p.ph)*2;
+      cx.save();cx.translate(x,y);cx.rotate(p.rot);
+      cx.fillStyle='rgba(116,158,120,.55)';
+      cx.beginPath();cx.moveTo(p.r*.28,0);
+      cx.arc(0,0,p.r,.28,6.0);cx.closePath();cx.fill();
+      cx.strokeStyle='rgba(88,128,94,.5)';cx.lineWidth=1;
+      for(let k=0;k<5;k++){const a2=.6+k*1.1;
+        cx.beginPath();cx.moveTo(0,0);cx.lineTo(Math.cos(a2)*p.r*.85,Math.sin(a2)*p.r*.85);cx.stroke();}
+      cx.restore();
+    });
+    SC.koi.forEach(k=>{                                                // 錦鯉:游動+擺尾
+      k.ph+=.05;
+      k.ang+=Math.sin(t*.32+k.ph)*.006+Math.sin(t*.11+k.ph*2)*.004;
+      k.x+=Math.cos(k.ang)*k.spd;k.y+=Math.sin(k.ang)*k.spd;
+      const M=40;
+      if(k.x<-M)k.x=W+M;else if(k.x>W+M)k.x=-M;
+      if(k.y<-M)k.y=H+M;else if(k.y>H+M)k.y=-M;
+      const s=k.s,wig=Math.sin(k.ph*1.6)*.5;
+      cx.save();cx.translate(k.x,k.y);cx.rotate(k.ang);cx.globalAlpha=.8;
+      cx.fillStyle=k.col;                                              // 身體(前寬後窄)
+      cx.beginPath();cx.moveTo(s*1.4,0);
+      cx.bezierCurveTo(s*.9,-s*.62,-s*.7,-s*.5,-s*1.3,wig*s*.35);
+      cx.bezierCurveTo(-s*.7,s*.5,s*.9,s*.62,s*1.4,0);cx.fill();
+      cx.save();cx.translate(-s*1.3,wig*s*.35);cx.rotate(wig*.7);      // 尾鰭
+      cx.beginPath();cx.moveTo(0,0);
+      cx.quadraticCurveTo(-s*.9,-s*.55,-s*1.15,-s*.15);
+      cx.quadraticCurveTo(-s*.75,0,-s*1.15,s*.15);
+      cx.quadraticCurveTo(-s*.9,s*.55,0,0);cx.fill();cx.restore();
+      if(k.patch){                                                     // 白斑
+        cx.fillStyle='rgba(250,250,252,.85)';
+        cx.beginPath();cx.ellipse(s*.35,-s*.1,s*.5,s*.32,.3,0,6.29);cx.fill();
+      }
+      cx.fillStyle='rgba(30,49,46,.55)';                               // 眼
+      cx.beginPath();cx.arc(s*1.05,-s*.18,s*.09,0,6.29);cx.fill();
+      cx.restore();
     });
   }
   function gardenScene(t){
@@ -3567,6 +3671,30 @@ function natureFX(theme){
       for(let k=0;k<7;k++){const a=k/7*6.283;
         cx.beginPath();cx.moveTo(0,0);cx.lineTo(Math.cos(a)*p.s*2.4,Math.sin(a)*p.s*2.4);cx.stroke();}
       cx.beginPath();cx.arc(0,0,p.s*.5,0,6.29);cx.fillStyle='#F2E8CF';cx.fill();
+      cx.restore();
+    },
+    lucky(p){
+      cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);cx.globalAlpha=p.o;
+      if(p.env){                                                       // 紅包(金封線+圓印)
+        const w=p.s*1.5,ht=p.s*2.1;
+        cx.fillStyle='#C8483C';
+        cx.beginPath();cx.roundRect(-w/2,-ht/2,w,ht,2.5);cx.fill();
+        cx.strokeStyle='#E8C25A';cx.lineWidth=1;
+        cx.beginPath();cx.moveTo(-w/2,-ht*.14);cx.lineTo(w/2,-ht*.14);cx.stroke();
+        cx.fillStyle='#E8C25A';cx.beginPath();cx.arc(0,ht*.12,p.s*.34,0,6.29);cx.fill();
+      }else{                                                           // 古錢(方孔,翻面)
+        const flip=.25+.75*Math.abs(Math.sin(p.ph*1.35));
+        cx.scale(flip,1);
+        const g=cx.createLinearGradient(-p.s,0,p.s,0);
+        g.addColorStop(0,'#EFD27E');g.addColorStop(1,'#C0902A');
+        cx.fillStyle=g;
+        cx.beginPath();cx.arc(0,0,p.s,0,6.29);cx.fill();
+        cx.strokeStyle='#A87E22';cx.lineWidth=1;cx.stroke();
+        cx.globalCompositeOperation='destination-out';
+        cx.fillRect(-p.s*.3,-p.s*.3,p.s*.6,p.s*.6);
+        cx.globalCompositeOperation='source-over';
+        cx.strokeStyle='#A87E22';cx.strokeRect(-p.s*.3,-p.s*.3,p.s*.6,p.s*.6);
+      }
       cx.restore();
     },
     petal(p){
@@ -3613,7 +3741,8 @@ function natureFX(theme){
       const t=(performance.now()-t0)/1000;
       cx.clearRect(0,0,cv.width,cv.height);
       if(kind==='beach')beachScene(t);
-      else if(kind==='ink')inkScene(t);
+      else if(kind==='koi')koiScene(t);
+      else if(kind==='lucky')luckyScene(t);
       else if(kind==='garden')gardenScene(t);
       P.forEach(p=>{
         p.ph+=kind==='beach'?.016:.011;
@@ -6147,9 +6276,13 @@ function setHomeTab(t){
       try{const ch=echarts.getInstanceByDom(el);if(ch)ch.resize();}catch(e){}});},90);
 }
 window.__etfSub='tw';
+(function waitData(n){                                   // 資料就緒後補渲染 ETF 清單
+  if(typeof DATA!=='undefined'&&DATA&&Array.isArray(DATA.stocks)){try{renderEtf();}catch(e){}return;}
+  if(n>0)setTimeout(()=>waitData(n-1),500);
+})(60);
 function renderEtf(){
   const box=document.getElementById('etfBody');
-  if(!box||!window.DATA||!DATA.stocks)return;
+  if(!box||typeof DATA==='undefined'||!DATA||!Array.isArray(DATA.stocks))return;
   let L=DATA.stocks.filter(s=>s.etf);
   if(!L.length){
     box.innerHTML='<div class="dim-note">ETF 名單將於下一次「每日資料更新」(Actions)執行後自動產生——台股全部 ETF(含主動式/槓反/債券)與美股精選的名單、K 線、法人買賣超、融資券都會納入,跑完重新整理即可。</div>';
@@ -6224,7 +6357,7 @@ function etfSec(s){
       <div class="links" style="margin-top:12px"><a href="${yhold}" target="_blank" rel="noopener">完整持股 · Yahoo ↗</a></div>
       <div class="dim-note" style="margin-top:8px">來源:Yahoo/Morningstar,每日自動更新;此為前十大持股,<b>完整每日成分(PCF)以發行商官網為準</b>。「現金」是尚未投入市場的部位——比重偏高代表基金留了子彈或正在調倉。台股成分點列可直接跳到該檔個股頁看報價與籌碼。</div>`;
   })();
-  return `<div class="sec-title" data-sec="stk_e">🧺 成分股與規模 <span style="font-weight:400;font-size:12px;letter-spacing:0">前十大持股・資產配置・每日更新</span></div><div class="sec-body" id="sb-stk_e"><div class="dim-block" style="border-left:4px solid var(--amber)">${inner}</div></div>`;
+  return `<div class="sec-title" data-sec="stk_e"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13.5l9 5 9-5"/><path d="M3 18l9 5 9-5" opacity=".45"/></svg> 成分股與規模 <span style="font-weight:400;font-size:12px;letter-spacing:0">前十大持股・資產配置・每日更新</span></div><div class="sec-body" id="sb-stk_e"><div class="dim-block" style="border-left:4px solid var(--amber)">${inner}</div></div>`;
 }
 /* 個股頁收合:沿用首頁 sec-title 機制;手機預設收合圖表/新聞/公司區,展開後重算圖表尺寸 */
 function wireDetailSecs(){
