@@ -46,9 +46,9 @@ html[data-theme="mocha"]{
   --amber:#B67724; --hdr:#E3ECF3;
 }
 html[data-theme="teal"]{
-  --bg:#EBF3F1; --panel:#FFFFFF; --panel2:#E0ECE8; --line:#CBDCD6;
-  --txt:#1E312E; --mut:#4F6A64; --dim:#627C75; --txt2:#3C534E;
-  --amber:#2C6E8F; --hdr:#E6F0ED;
+  --bg:#F9F0E4; --panel:#FFFFFF; --panel2:#F2E6D2; --line:#E6D5B9;
+  --txt:#38291A; --mut:#785E3F; --dim:#8A6E50; --txt2:#5A462E;
+  --amber:#A55D1E; --hdr:#F6ECDC;
 }
 html[data-theme="sakura"]{
   --bg:#FBF5F7; --panel:#FFFFFF; --panel2:#F7EBEF; --line:#EDD8DF;
@@ -56,9 +56,9 @@ html[data-theme="sakura"]{
   --amber:#B84D8A; --hdr:#F9F0F3;
 }
 html[data-theme="lucky"]{
-  --bg:#FAF3EC; --panel:#FFFFFF; --panel2:#F3E9DC; --line:#E7D9C6;
-  --txt:#38291E; --mut:#775E48; --dim:#8A7159; --txt2:#5A4636;
-  --amber:#A2691A; --hdr:#F6EFE4;
+  --bg:#101725; --panel:#161E30; --panel2:#1D2740; --line:#2C3A5C;
+  --txt:#EAF0FA; --mut:#96A7C8; --dim:#7688AC; --txt2:#C8D3E8;
+  --amber:#86B9E8; --hdr:#121A2B;
 }
 html[data-theme="graphite"]{
   --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
@@ -510,8 +510,8 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <option value="black">⬛ 純黑金</option>
           <option value="light">☀️ 明亮日盤</option>
           <option value="mocha">🌼 花園</option>
-          <option value="teal">🐟 錦鯉池</option>
-          <option value="lucky">🧧 招財</option>
+          <option value="teal">🍁 楓葉</option>
+          <option value="lucky">❄️ 冬夜</option>
           <option value="sakura">🌸 櫻花</option>
           <option value="graphite">🪨 石墨銀</option>
           <option value="dawn">🌊 海邊</option>
@@ -1397,7 +1397,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r115</span>');
+  diag.push('<span style="color:var(--dim)">build r119</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3352,15 +3352,15 @@ const CHART_THEMES={
   mocha:{legend:'#516A80',axis:'#7E94A7',split:'#DCE7EF',border:'#C7D7E3',
     ttBg:'#FFFFFF',ttText:'#233240',inactive:'#B4C8D6',ma60:'#33485A',
     up2:'#C4333B',dn2:'#0F8A57'},
-  teal:{legend:'#4F6A64',axis:'#718882',split:'#DFEAE6',border:'#C7D9D2',
-    ttBg:'#FFFFFF',ttText:'#1E312E',inactive:'#B2C7C0',ma60:'#2E4540',
+  teal:{legend:'#785E3F',axis:'#97805F',split:'#F1E4D0',border:'#E2D0B2',
+    ttBg:'#FFFFFF',ttText:'#38291A',inactive:'#D5C29E',ma60:'#4C3A24',
     up2:'#C4333B',dn2:'#0F8A57'},
   sakura:{legend:'#7F6571',axis:'#A28D98',split:'#F3E4E9',border:'#E8D3DB',
     ttBg:'#FFFFFF',ttText:'#2E222A',inactive:'#D9C2CB',ma60:'#4A3540',
     up2:'#C4333B',dn2:'#0F8A57'},
-  lucky:{legend:'#775E48',axis:'#96805F',split:'#F1E7D8',border:'#E2D3BC',
-    ttBg:'#FFFFFF',ttText:'#38291E',inactive:'#D4C3A6',ma60:'#4E3B2A',
-    up2:'#C4333B',dn2:'#0F8A57'},
+  lucky:{legend:'#96A7C8',axis:'#67789E',split:'#1A2338',border:'#2C3A5C',
+    ttBg:'#1D2740',ttText:'#EEF3FC',inactive:'#344467',ma60:'#EEF2FA',
+    up2:'#FF8A8E',dn2:'#4BD695'},
   graphite:{legend:'#9BA1AB',axis:'#6D737D',split:'#1F2125',border:'#34383F',
     ttBg:'#26292E',ttText:'#ECEDEF',inactive:'#3E434B',ma60:'#F0F1F3',
     up2:'#FF8A8E',dn2:'#4BD695'},
@@ -3375,7 +3375,7 @@ const CHART_THEMES={
    櫻花=花瓣飄落|海邊=太陽・飄雲・海浪・沙灘・沙堡(旗飄)・海鷗・氣泡|森林=陽光光束・松樹・搖曳草地・落葉
    全程式繪製、畫在背景層不擋內容;尊重「減少動態」;切主題自動清除重建 */
 function natureFX(theme){
-  const kind={sakura:'petal',dawn:'beach',mocha:'garden',teal:'koi',lucky:'lucky'}[theme]||null;
+  const kind={sakura:'petal',dawn:'beach',mocha:'garden',teal:'maple',lucky:'winter'}[theme]||null;
   const old=document.getElementById('natureFx');
   if(!kind){window.__nfRun=false;if(old)old.remove();return;}
   try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;}catch(e){}
@@ -3388,14 +3388,16 @@ function natureFX(theme){
   fit();addEventListener('resize',fit,{passive:true});
   const mob=innerWidth<640, R=Math.random;
   /* ── 粒子 ── */
-  const N=kind==='koi'?0:kind==='lucky'?(mob?9:14):kind==='garden'?(mob?7:11):kind==='beach'?(mob?7:12):(mob?10:18);
+  const N=kind==='maple'?(mob?10:15):kind==='winter'?(mob?16:26):kind==='garden'?(mob?7:11):kind==='beach'?(mob?7:12):(mob?10:18);
   const LEAF_C=[['#8FBF7A','#6FA35F'],['#C9C06A','#A89B4E'],['#D6A85F','#B5854A']];
   const mk=init=>{
     if(kind==='beach')return{x:R()*innerWidth,y:init?R()*innerHeight:cv.height+16,
       s:2+R()*4.5,vy:-(.2+R()*.35),ph:R()*6.28,sw:.16+R()*.35,o:.10+R()*.15};
-    if(kind==='lucky')return{x:R()*innerWidth,y:init?R()*innerHeight:-26,
-      s:5.5+R()*4,vy:.34+R()*.5,ph:R()*6.28,sw:.2+R()*.45,rot:R()*6.28,
-      vr:(R()-.5)*.02,o:.5+R()*.35,env:R()<.3};
+    if(kind==='winter')return{x:R()*innerWidth,y:init?R()*innerHeight:-14,
+      s:.9+R()*2.2,vy:.28+R()*.5,ph:R()*6.28,sw:.25+R()*.55,o:.32+R()*.4};
+    if(kind==='maple')return{x:R()*innerWidth,y:init?R()*innerHeight:-26,
+      s:7+R()*6,vy:.3+R()*.45,ph:R()*6.28,sw:.35+R()*.6,rot:R()*6.28,
+      vr:(R()-.5)*.035,o:.55+R()*.3,col:[['#C9502B','#9E3A20'],['#DD8629','#B4661C'],['#C9A227','#A3821C'],['#B03A2E','#8A2A22']][Math.floor(R()*4)]};
     if(kind==='garden')return{x:R()*innerWidth,y:init?R()*innerHeight:cv.height+14,
       s:2.4+R()*2.2,vy:-(.16+R()*.26),ph:R()*6.28,sw:.3+R()*.5,rot:R()*6.28,vr:(R()-.5)*.02,o:.28+R()*.3};
     const b={x:R()*innerWidth,y:init?R()*innerHeight:-24,ph:R()*6.28,rot:R()*6.28,hue:R()};
@@ -3411,8 +3413,13 @@ function natureFX(theme){
     SC.gulls=Array.from({length:mob?1:2},()=>({x:R()*innerWidth,y:60+R()*90,v:.35+R()*.3,ph:R()*6.28}));
     SC.castleX=.16+R()*.1;
   }
-  if(kind==='lucky'){
-    SC.spark=Array.from({length:mob?8:14},()=>({x:R(),y:R()*.85,r:3+R()*3.5,ph:R()*6.28,sp:.7+R()*1.4}));
+  if(kind==='winter'){
+    SC.pines=Array.from({length:mob?3:5},(_,i)=>({x:(i+.5+(R()-.5)*.4)/(mob?3:5),s:.6+R()*.7}));
+    SC.spark=Array.from({length:mob?12:22},()=>({x:R(),ph:R()*6.28,sp:.8+R()*1.5}));
+  }
+  if(kind==='maple'){
+    SC.ground=Array.from({length:mob?10:20},()=>({x:R(),dy:R()*.035,s:5+R()*4,rot:R()*6.28,
+      col:[['#C9502B','#9E3A20'],['#DD8629','#B4661C'],['#C9A227','#A3821C'],['#B03A2E','#8A2A22']][Math.floor(R()*4)]}));
   }
   if(kind==='koi'){
     SC.pads=Array.from({length:mob?2:3},()=>({x:.1+R()*.8,y:.15+R()*.7,r:26+R()*20,rot:R()*6.28,ph:R()*6.28}));
@@ -3509,126 +3516,61 @@ function natureFX(theme){
       cx.quadraticCurveTo(x+sway*.5,gTop-b.h*.55,x+sway,gTop-b.h);cx.stroke();
     });
   }
-  function luckyScene(t){
-    const W=cv.width,H=cv.height;
-    SC.spark.forEach(sp=>{                                             // 金色十字光點閃爍
-      const a=.12+.42*Math.abs(Math.sin(t*sp.sp+sp.ph));
-      const x=W*sp.x,y=H*sp.y,r=sp.r*(.6+.4*Math.abs(Math.sin(t*sp.sp+sp.ph)));
-      cx.strokeStyle=`rgba(206,158,54,${a.toFixed(3)})`;cx.lineWidth=1.2;cx.lineCap='round';
-      cx.beginPath();cx.moveTo(x-r,y);cx.lineTo(x+r,y);cx.moveTo(x,y-r);cx.lineTo(x,y+r);cx.stroke();
-    });
-    /* 招財貓 v2:圓潤比例・柔輪廓・腮紅・小判金牌・肉球招手 */
-    const cs=(innerWidth<640?.72:1), bx=W-88*cs, by=H-14*cs;
-    cx.save();cx.translate(bx,by);cx.scale(cs,cs);cx.globalAlpha=.93;
-    const SOFT='rgba(122,104,82,.35)';
-    cx.fillStyle='rgba(60,45,30,.08)';                                 // 地面陰影
-    cx.beginPath();cx.ellipse(0,-2,36,7,0,0,6.29);cx.fill();
-    const bodyG=cx.createLinearGradient(0,-64,0,0);                    // 身體(微漸層)
-    bodyG.addColorStop(0,'#FFFEFB');bodyG.addColorStop(1,'#F4EDE0');
-    cx.fillStyle=bodyG;cx.strokeStyle=SOFT;cx.lineWidth=1.2;
-    cx.beginPath();cx.ellipse(0,-30,27,30,0,0,6.29);cx.fill();cx.stroke();
-    cx.strokeStyle=SOFT;cx.lineWidth=1.6;                              // 尾巴小捲
-    cx.beginPath();cx.arc(30,-16,8,3.6,1.2);cx.stroke();
-    cx.fillStyle=bodyG;cx.strokeStyle=SOFT;cx.lineWidth=1.2;           // 頭(大而圓)
-    cx.beginPath();cx.ellipse(0,-72,29,26,0,0,6.29);cx.fill();cx.stroke();
-    [[-1],[1]].forEach(([d])=>{                                        // 圓角耳
-      cx.beginPath();cx.moveTo(d*11,-92);
-      cx.quadraticCurveTo(d*20,-108,d*25,-96);
-      cx.quadraticCurveTo(d*26,-88,d*17,-88);cx.closePath();
-      cx.fillStyle='#FFFEFB';cx.fill();cx.stroke();
-      cx.beginPath();cx.moveTo(d*14,-92);
-      cx.quadraticCurveTo(d*19,-101,d*22,-94);cx.closePath();
-      cx.fillStyle='#F2BAC5';cx.fill();
-    });
-    cx.strokeStyle='#4A3A2C';cx.lineWidth=2;cx.lineCap='round';        // 瞇瞇笑眼 ∩ ∩
-    [[-10],[10]].forEach(([d])=>{cx.beginPath();cx.arc(d,-73,4.5,3.28,6.14);cx.stroke();});
-    cx.fillStyle='rgba(242,163,176,.55)';                              // 腮紅
-    [[-17],[17]].forEach(([d])=>{cx.beginPath();cx.ellipse(d,-66,4.5,3,0,0,6.29);cx.fill();});
-    cx.fillStyle='#D96A5A';                                            // 鼻
-    cx.beginPath();cx.ellipse(0,-68,2.2,1.7,0,0,6.29);cx.fill();
-    cx.strokeStyle='#4A3A2C';cx.lineWidth=1.3;                         // ω 嘴
-    cx.beginPath();cx.arc(-2.6,-64.5,2.8,.3,2.9);cx.stroke();
-    cx.beginPath();cx.arc(2.6,-64.5,2.8,.3,2.9);cx.stroke();
-    cx.strokeStyle='rgba(140,120,96,.55)';cx.lineWidth=1;              // 短鬍鬚
-    [[-1],[1]].forEach(([d])=>{for(let k2=0;k2<2;k2++){
-      cx.beginPath();cx.moveTo(d*14,-69+k2*4);cx.lineTo(d*23,-70+k2*6);cx.stroke();}});
-    cx.fillStyle='#CB4B3F';                                            // 紅項圈(貼合弧)
-    cx.beginPath();cx.ellipse(0,-49,17,6,0,0,3.14);cx.fill();
-    const bell=cx.createRadialGradient(-1.5,-45,1,0,-43,6);            // 金鈴(帶高光)
-    bell.addColorStop(0,'#F6DC8C');bell.addColorStop(1,'#C9992E');
-    cx.fillStyle=bell;cx.beginPath();cx.arc(0,-43,5,0,6.29);cx.fill();
-    cx.strokeStyle='#A87E22';cx.lineWidth=.9;cx.stroke();
-    cx.beginPath();cx.moveTo(0,-43);cx.lineTo(0,-39);cx.stroke();
-    const kb=cx.createLinearGradient(0,-38,0,-8);                      // 小判金牌
-    kb.addColorStop(0,'#F1D27A');kb.addColorStop(1,'#CDA032');
-    cx.fillStyle=kb;cx.strokeStyle='#A87E22';cx.lineWidth=1.1;
-    cx.beginPath();cx.ellipse(0,-22,13,17,0,0,6.29);cx.fill();cx.stroke();
-    cx.strokeStyle='rgba(168,126,34,.8)';cx.lineWidth=1;               // 小判紋
-    cx.beginPath();cx.ellipse(0,-22,9.5,13,0,0,6.29);cx.stroke();
-    cx.beginPath();cx.moveTo(-7,-22);cx.lineTo(7,-22);cx.stroke();
-    cx.fillStyle='#FFFEFB';cx.strokeStyle=SOFT;cx.lineWidth=1.2;       // 右手扶金牌
-    cx.beginPath();cx.ellipse(15,-14,7.5,11,-.5,0,6.29);cx.fill();cx.stroke();
-    cx.save();cx.translate(-22,-56);cx.rotate(-.5+Math.sin(t*2.4)*.34);// 左手招呼
-    cx.fillStyle='#FFFEFB';cx.strokeStyle=SOFT;
-    cx.beginPath();cx.roundRect(-6.5,-24,13,26,6.5);cx.fill();cx.stroke();
-    cx.fillStyle='rgba(242,163,176,.7)';                               // 肉球+指節
-    cx.beginPath();cx.ellipse(0,-17,3.6,2.8,0,0,6.29);cx.fill();
-    cx.strokeStyle='rgba(122,104,82,.4)';cx.lineWidth=.9;
-    [-3,0,3].forEach(dx=>{cx.beginPath();cx.moveTo(dx,-24);cx.lineTo(dx,-21);cx.stroke();});
-    cx.restore();
-    cx.restore();cx.globalAlpha=1;
-  }
-  function koiScene(t){
-    const W=cv.width,H=cv.height;
-    if(t>SC.ripNext){                                                  // 隨機漣漪(含錦鯉尾波)
-      const src=Math.random()<.5&&SC.koi.length?SC.koi[Math.floor(Math.random()*SC.koi.length)]:null;
-      SC.rip.push({x:src?src.x:Math.random()*W,y:src?src.y:Math.random()*H,t0:t});
-      SC.ripNext=t+1.4+Math.random()*2.4;
-      if(SC.rip.length>6)SC.rip.shift();
-    }
-    SC.rip.forEach(r=>{                                                // 兩圈擴散淡出
-      const a=(t-r.t0)/3;if(a>=1)return;
-      cx.strokeStyle=`rgba(120,160,152,${(.30*(1-a)).toFixed(3)})`;cx.lineWidth=1.2;
-      [0,.18].forEach(d=>{const aa=a-d;if(aa<=0)return;
-        cx.beginPath();cx.arc(r.x,r.y,10+aa*70,0,6.29);cx.stroke();});
-    });
-    SC.pads.forEach(p=>{                                               // 蓮葉(邊緣缺口+輕晃)
-      const x=W*p.x,y=H*p.y+Math.sin(t*.5+p.ph)*2;
-      cx.save();cx.translate(x,y);cx.rotate(p.rot);
-      cx.fillStyle='rgba(116,158,120,.55)';
-      cx.beginPath();cx.moveTo(p.r*.28,0);
-      cx.arc(0,0,p.r,.28,6.0);cx.closePath();cx.fill();
-      cx.strokeStyle='rgba(88,128,94,.5)';cx.lineWidth=1;
-      for(let k=0;k<5;k++){const a2=.6+k*1.1;
-        cx.beginPath();cx.moveTo(0,0);cx.lineTo(Math.cos(a2)*p.r*.85,Math.sin(a2)*p.r*.85);cx.stroke();}
-      cx.restore();
-    });
-    SC.koi.forEach(k=>{                                                // 錦鯉:游動+擺尾
-      k.ph+=.05;
-      k.ang+=Math.sin(t*.32+k.ph)*.006+Math.sin(t*.11+k.ph*2)*.004;
-      k.x+=Math.cos(k.ang)*k.spd;k.y+=Math.sin(k.ang)*k.spd;
-      const M=40;
-      if(k.x<-M)k.x=W+M;else if(k.x>W+M)k.x=-M;
-      if(k.y<-M)k.y=H+M;else if(k.y>H+M)k.y=-M;
-      const s=k.s,wig=Math.sin(k.ph*1.6)*.5;
-      cx.save();cx.translate(k.x,k.y);cx.rotate(k.ang);cx.globalAlpha=.8;
-      cx.fillStyle=k.col;                                              // 身體(前寬後窄)
-      cx.beginPath();cx.moveTo(s*1.4,0);
-      cx.bezierCurveTo(s*.9,-s*.62,-s*.7,-s*.5,-s*1.3,wig*s*.35);
-      cx.bezierCurveTo(-s*.7,s*.5,s*.9,s*.62,s*1.4,0);cx.fill();
-      cx.save();cx.translate(-s*1.3,wig*s*.35);cx.rotate(wig*.7);      // 尾鰭
-      cx.beginPath();cx.moveTo(0,0);
-      cx.quadraticCurveTo(-s*.9,-s*.55,-s*1.15,-s*.15);
-      cx.quadraticCurveTo(-s*.75,0,-s*1.15,s*.15);
-      cx.quadraticCurveTo(-s*.9,s*.55,0,0);cx.fill();cx.restore();
-      if(k.patch){                                                     // 白斑
-        cx.fillStyle='rgba(250,250,252,.85)';
-        cx.beginPath();cx.ellipse(s*.35,-s*.1,s*.5,s*.32,.3,0,6.29);cx.fill();
+  function winterScene(t){
+    const W=cv.width,H=cv.height,gTop=H*.93;
+    let g=cx.createRadialGradient(W*.80,H*.10,6,W*.80,H*.10,H*.22);    // 月亮+光暈
+    g.addColorStop(0,'rgba(205,224,255,.38)');g.addColorStop(1,'rgba(205,224,255,0)');
+    cx.fillStyle=g;cx.fillRect(W*.5,0,W*.5,H*.36);
+    cx.beginPath();cx.arc(W*.80,H*.10,H*.030,0,6.29);
+    cx.fillStyle='rgba(228,238,255,.9)';cx.fill();
+    SC.pines.forEach(p=>{                                              // 掛雪松樹
+      const x=W*p.x,s=p.s,base=gTop+4;
+      for(let k=0;k<3;k++){
+        const w=(50-k*13)*s, y=base-(k*24+6)*s, ht=26*s;
+        cx.fillStyle='rgba(24,38,50,.95)';
+        cx.beginPath();cx.moveTo(x,y-ht);cx.lineTo(x-w/2,y);cx.lineTo(x+w/2,y);cx.closePath();cx.fill();
+        cx.fillStyle='rgba(228,238,252,.85)';                          // 積雪覆頂
+        cx.beginPath();cx.moveTo(x,y-ht);cx.lineTo(x-w*.30,y-ht*.42);
+        cx.quadraticCurveTo(x,y-ht*.30,x+w*.30,y-ht*.42);cx.closePath();cx.fill();
       }
-      cx.fillStyle='rgba(30,49,46,.55)';                               // 眼
-      cx.beginPath();cx.arc(s*1.05,-s*.18,s*.09,0,6.29);cx.fill();
+      cx.fillStyle='rgba(40,32,26,.9)';cx.fillRect(x-3*s,base-6*s,6*s,8*s);
+    });
+    g=cx.createLinearGradient(0,gTop,0,H);                             // 地面積雪
+    g.addColorStop(0,'rgba(222,234,252,.16)');g.addColorStop(1,'rgba(222,234,252,.05)');
+    cx.fillStyle=g;cx.fillRect(0,gTop,W,H-gTop);
+    SC.spark.forEach(sp=>{                                             // 雪面冰晶閃爍
+      const a=.15+.5*Math.abs(Math.sin(t*sp.sp+sp.ph));
+      cx.globalAlpha=a;cx.fillStyle='#DCE8FC';
+      cx.beginPath();cx.arc(W*sp.x,gTop+6+Math.sin(sp.ph)*8,1,0,6.29);cx.fill();
+    });
+    cx.globalAlpha=1;
+  }
+  function drawMaple(s,col){                                           // 五裂楓葉(十點星形+葉柄)
+    const g=cx.createLinearGradient(0,-s,0,s);
+    g.addColorStop(0,col[0]);g.addColorStop(1,col[1]);
+    cx.fillStyle=g;
+    cx.beginPath();
+    for(let i=0;i<10;i++){
+      const a=-Math.PI/2+i*Math.PI/5, r=i%2?s*.42:s;
+      const x=Math.cos(a)*r,y=Math.sin(a)*r;
+      i?cx.lineTo(x,y):cx.moveTo(x,y);
+    }
+    cx.closePath();cx.fill();
+    cx.strokeStyle=col[1];cx.lineWidth=1;
+    cx.beginPath();cx.moveTo(0,s*.2);cx.lineTo(0,s*1.15);cx.stroke();
+  }
+  function mapleScene(t){
+    const W=cv.width,H=cv.height;
+    let g=cx.createRadialGradient(W*.16,H*.08,8,W*.16,H*.08,H*.2);     // 秋陽
+    g.addColorStop(0,'rgba(240,190,110,.4)');g.addColorStop(1,'rgba(240,190,110,0)');
+    cx.fillStyle=g;cx.fillRect(0,0,W*.5,H*.3);
+    SC.ground.forEach(l=>{                                             // 地面積葉(靜置微顫)
+      cx.save();cx.translate(W*l.x,H*(.965+l.dy));
+      cx.rotate(l.rot+Math.sin(t*.6+l.rot)*.04);cx.globalAlpha=.5;
+      drawMaple(l.s,l.col);
       cx.restore();
     });
+    cx.globalAlpha=1;
   }
   function gardenScene(t){
     const W=cv.width,H=cv.height,gTop=H*.93;
@@ -3673,28 +3615,15 @@ function natureFX(theme){
       cx.beginPath();cx.arc(0,0,p.s*.5,0,6.29);cx.fillStyle='#F2E8CF';cx.fill();
       cx.restore();
     },
-    lucky(p){
+    winter(p){
+      cx.save();cx.globalAlpha=p.o;
+      cx.beginPath();cx.arc(p.x,p.y,p.s,0,6.29);
+      cx.fillStyle='#E8F0FE';cx.fill();
+      cx.restore();
+    },
+    maple(p){
       cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);cx.globalAlpha=p.o;
-      if(p.env){                                                       // 紅包(金封線+圓印)
-        const w=p.s*1.5,ht=p.s*2.1;
-        cx.fillStyle='#C8483C';
-        cx.beginPath();cx.roundRect(-w/2,-ht/2,w,ht,2.5);cx.fill();
-        cx.strokeStyle='#E8C25A';cx.lineWidth=1;
-        cx.beginPath();cx.moveTo(-w/2,-ht*.14);cx.lineTo(w/2,-ht*.14);cx.stroke();
-        cx.fillStyle='#E8C25A';cx.beginPath();cx.arc(0,ht*.12,p.s*.34,0,6.29);cx.fill();
-      }else{                                                           // 古錢(方孔,翻面)
-        const flip=.25+.75*Math.abs(Math.sin(p.ph*1.35));
-        cx.scale(flip,1);
-        const g=cx.createLinearGradient(-p.s,0,p.s,0);
-        g.addColorStop(0,'#EFD27E');g.addColorStop(1,'#C0902A');
-        cx.fillStyle=g;
-        cx.beginPath();cx.arc(0,0,p.s,0,6.29);cx.fill();
-        cx.strokeStyle='#A87E22';cx.lineWidth=1;cx.stroke();
-        cx.globalCompositeOperation='destination-out';
-        cx.fillRect(-p.s*.3,-p.s*.3,p.s*.6,p.s*.6);
-        cx.globalCompositeOperation='source-over';
-        cx.strokeStyle='#A87E22';cx.strokeRect(-p.s*.3,-p.s*.3,p.s*.6,p.s*.6);
-      }
+      drawMaple(p.s,p.col);
       cx.restore();
     },
     petal(p){
@@ -3741,8 +3670,8 @@ function natureFX(theme){
       const t=(performance.now()-t0)/1000;
       cx.clearRect(0,0,cv.width,cv.height);
       if(kind==='beach')beachScene(t);
-      else if(kind==='koi')koiScene(t);
-      else if(kind==='lucky')luckyScene(t);
+      else if(kind==='maple')mapleScene(t);
+      else if(kind==='winter')winterScene(t);
       else if(kind==='garden')gardenScene(t);
       P.forEach(p=>{
         p.ph+=kind==='beach'?.016:.011;
@@ -4157,9 +4086,9 @@ async function showDetail(id){
       <div><h2 style="font-size:24px;font-weight:900"><span class="fav-tg ${favHas(s.id)?'on':''}" data-fav="${s.id}" id="dFav" title="收藏/取消收藏" style="font-size:23px">${favHas(s.id)?'★':'☆'}</span> ${s.name} <span class="c-code">${s.id}</span>${s.lead?`<span class="tagL" data-g="產業龍頭" style="cursor:help">👑 產業龍頭</span>`:''}${s.disp?`<span class="tagW" data-g="處置股" style="cursor:help">⚠ 處置股</span>`:''}</h2>
         <div class="c-full">${s.full||''}|${isTW?'台股':'美股'} · ${s.sector}</div>
         <div class="c-price"><span class="px" id="dPx" style="font-size:26px">${s.price??'—'}</span><span id="dChg">${chgHtml(s.chg)}</span></div></div>
-      <div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>
+      ${s.etf?`<div class="score-ring" style="--sc:${Math.min(100,Math.max(0,50+((s.perf||{}).q||0)*2))}"><div class="score-in"><b style="font-size:15px">${(s.perf&&s.perf.q!=null)?((s.perf.q>=0?"+":"")+s.perf.q.toFixed(1)+"%"):"—"}</b><span>近3月</span></div></div>`:`<div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>`}
     </div>
-    ${(()=>{const v=aiVerdict(s);return `
+    ${s.etf?'':(()=>{const v=aiVerdict(s);return `
     <div class="dim-block" style="border-left:4px solid var(--amber)">
       <h3>AI 綜合研判 <span class="ds ${v.tone==='pos'?'pos':v.tone==='neg'?'neg':''}">${v.tier} · 綜合 ${v.T} 分</span></h3>
       ${v.pros.length?`<div class="dim-note" style="margin-top:4px"><b style="color:#4BD695">未來性所在:</b><ul class="ai-ul">${v.pros.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
@@ -4168,7 +4097,7 @@ async function showDetail(id){
       <div class="dim-note" style="color:var(--dim)">此為依營收、籌碼、技術、產業四面向的規則化研判,不構成投資建議;數據品質受來源限制,重大決策請再查證。</div>
     </div>`})()}
     ${s.disp?`<div class="thesis" style="border-color:#FF8A8E"><b style="color:#FF8A8E">⚠ 處置中${s.disp.p?`(${s.disp.p})`:''}:</b>${s.disp.t||'交易受管制'}${s.disp.m?`——改為每 <b>${s.disp.m} 分鐘</b>集合競價撮合一次`:''}。掛單不會即時成交、流動性下降、波動放大,短線進出請特別留意;處置期滿自動恢復。</div>`:''}
-    ${s.thesis?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
+    ${s.thesis&&!s.etf?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
     ${planBlock(s)}
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
       <span class="ticker-label">📰 ${s.name} 新聞</span>
@@ -4179,19 +4108,19 @@ async function showDetail(id){
     <div id="divTL"></div>
     </div>
     ${s.etf?etfSec(s):''}
-    <div class="sec-title" data-sec="stk_3">⚖️ 三力檢視 <span style="font-weight:400;font-size:12px;letter-spacing:0">基本面・籌碼面・技術面評分 · 💡 點名詞看白話解釋</span></div><div class="sec-body" id="sb-stk_3">
-    ${dimBlock('基本面(權重40%)',s.f)}
-    ${s.t3?`<div class="thesis" style="border-color:#4BD695"><b style="color:#4BD695">✅ 營收三率三升(${s.t3.q}):</b>毛利率 ${s.t3.gm[0]}→${s.t3.gm[1]}%、營益率 ${s.t3.om[0]}→${s.t3.om[1]}%、淨利率 ${s.t3.nm[0]}→${s.t3.nm[1]}%${s.t3.ry!=null?`,月營收年增 +${s.t3.ry}%`:''}——獲利品質與營收動能同步向上。</div>`:''}
+    <div class="sec-title" data-sec="stk_3">${s.etf?'📊 籌碼與技術':'⚖️ 三力檢視'} <span style="font-weight:400;font-size:12px;letter-spacing:0">${s.etf?'法人動向・技術線型':'基本面・籌碼面・技術面評分'} · 💡 點名詞看白話解釋</span></div><div class="sec-body" id="sb-stk_3">
+    ${s.etf?'':dimBlock('基本面(權重40%)',s.f)}
+    ${s.t3&&!s.etf?`<div class="thesis" style="border-color:#4BD695"><b style="color:#4BD695">✅ 營收三率三升(${s.t3.q}):</b>毛利率 ${s.t3.gm[0]}→${s.t3.gm[1]}%、營益率 ${s.t3.om[0]}→${s.t3.om[1]}%、淨利率 ${s.t3.nm[0]}→${s.t3.nm[1]}%${s.t3.ry!=null?`,月營收年增 +${s.t3.ry}%`:''}——獲利品質與營收動能同步向上。</div>`:''}
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',cAug)}
     ${dimBlock('技術線型(權重25%)',s.t)}
     </div>
     <div class="sec-title" data-sec="stk_c">📊 籌碼與營收圖表 <span style="font-weight:400;font-size:12px;letter-spacing:0">營收趨勢・法人・大戶・信用交易</span></div><div class="sec-body" id="sb-stk_c">
-    ${s.market==='TW'?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
+    ${s.market==='TW'&&!s.etf?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
     <div id="chipwrap"></div>
     </div>
     ${s.market==='TW'&&!s.etf?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:12px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}</div>`:''}
     <div class="sec-title" data-sec="stk_m">🎯 市場觀點與新聞 <span style="font-weight:400;font-size:12px;letter-spacing:0">目標價・研究報告・相關新聞</span></div><div class="sec-body" id="sb-stk_m">
-    <div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
+    ${s.etf?``:`<div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
       <h3>分析師觀點|目標價與研究報告</h3>
       <div id="anaBody"><div class="dim-note">分析師資料載入中…</div></div>
       <h3 style="margin-top:16px;font-size:14px">券商研究報告與目標價動態(即時,點標題閱讀原文)</h3>
@@ -4205,7 +4134,7 @@ async function showDetail(id){
         ${isTW?`<a href="https://tw.stock.yahoo.com/quote/${s.id}/news" target="_blank" rel="noopener">Yahoo 個股新聞 ↗</a>`
               :`<a href="https://finance.yahoo.com/quote/${s.id}/analysis" target="_blank" rel="noopener">Yahoo 分析師頁 ↗</a>`}
       </div>
-    </div>
+    </div>`}
     <div class="dim-block">
       <h3>相關新聞</h3>
       ${Array.isArray(s.news)&&s.news.length?`<div class="news" style="border:none;padding:0">${s.news.map(x=>
@@ -4218,7 +4147,7 @@ async function showDetail(id){
       </div>
     </div>
     </div>
-    <div class="sec-title" data-sec="stk_p">🏢 認識這家公司 <span style="font-weight:400;font-size:12px;letter-spacing:0">公司簡介・產業教學・外部連結</span></div><div class="sec-body" id="sb-stk_p">
+    ${s.etf?``:`<div class="sec-title" data-sec="stk_p">🏢 認識這家公司 <span style="font-weight:400;font-size:12px;letter-spacing:0">公司簡介・產業教學・外部連結</span></div><div class="sec-body" id="sb-stk_p">
     ${(()=>{const lm=SEC2LEARN.find(([k])=>String(s.sector).includes(k));return `
     <div class="dim-block" id="profBlock">
       <h3>公司簡介|做什麼・賣什麼 <span class="ds">${s.sector}</span></h3>
@@ -4230,7 +4159,7 @@ async function showDetail(id){
       </div>
     </div>`})()}
     <div class="links">${links.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}</div>
-    </div>
+    </div>`}
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   try{wireDetailSecs();}catch(e){}
@@ -6098,7 +6027,7 @@ function renderDivTimeline(s){
   const el=document.getElementById('divTL');
   if(!el)return;
   if(!curDivs||!curDivs.length){
-    el.innerHTML='<div class="dim-block"><h3>📅 除權息與重大時間</h3><div class="dim-note">尚無已公告的除權息資料(新掛牌、不配息或公司尚未公告)。股東會/法說會等其他重大行事曆,請以公開資訊觀測站公告為準。</div></div>';
+    el.innerHTML='<div class="dim-block"><h3>'+(s.etf?'📅 配息紀錄':'📅 除權息與重大時間')+'</h3><div class="dim-note">尚無已公告的除權息資料(新掛牌、不配息或公司尚未公告)。股東會/法說會等其他重大行事曆,請以公開資訊觀測站公告為準。</div></div>';
     return;
   }
   const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);
@@ -6130,7 +6059,7 @@ function renderDivTimeline(s){
     (e.t==='除息'&&px?`(以現價 ${px} 計,殖利率約 ${((+e.v)/px*100).toFixed(2)}%)`:'')+
     (e.pay?`(發放日 ${e.pay})`:'');
   el.innerHTML=`<div class="dim-block" style="border-left:4px solid #C792EA">
-    <h3>📅 除權息與重大時間 <span class="ds">${ttmY!=null?`近一年現金股利 ${cashTTM.toFixed(2)} 元 · 現金殖利率約 ${ttmY.toFixed(2)}%`:(up.length?'下一場 '+up[0].d:'近三年 '+curDivs.length+' 筆')}</span></h3>
+    <h3>${s.etf?'📅 配息與殖利率':'📅 除權息與重大時間'} <span class="ds">${ttmY!=null?`近一年現金股利 ${cashTTM.toFixed(2)} 元 · 現金殖利率約 ${ttmY.toFixed(2)}%`:(up.length?'下一場 '+up[0].d:'近三年 '+curDivs.length+' 筆')}</span></h3>
     ${up.length?`<div class="thesis" style="border-color:#C792EA"><b style="color:#C792EA">⏰ 即將到來:</b>${up.map(upTxt).join('、')}——除權息日前一天為最後過戶基準,參與與否請留意稅務與貼息風險。</div>`:''}
     ${past.length?`<div class="kv">${past.map(line).join('')}</div>`:''}
     <div class="dim-note">殖利率說明:標題列為「近一年現金股利合計 ÷ 現價」;歷史各場次以「該次除息前一日收盤價」計算,較能反映當時的實際殖利率;若當日價格不在已載入的K線範圍內,則以現價概算。殖利率高低請搭配填息紀錄與獲利穩定度一起看,高殖利率若長年貼息反而侵蝕本金。來源:FinMind 股利政策。K 線圖上的 💰/🎁 垂直虛線為歷次除權息日,可用 K 線區「除權息」鈕開關;股東會、法說會以公開資訊觀測站為準。</div>
@@ -6285,29 +6214,53 @@ function renderEtf(){
   if(!box||typeof DATA==='undefined'||!DATA||!Array.isArray(DATA.stocks))return;
   let L=DATA.stocks.filter(s=>s.etf);
   if(!L.length){
-    box.innerHTML='<div class="dim-note">ETF 名單將於下一次「每日資料更新」(Actions)執行後自動產生——台股全部 ETF(含主動式/槓反/債券)與美股精選的名單、K 線、法人買賣超、融資券都會納入,跑完重新整理即可。</div>';
+    box.innerHTML='<div class="dim-note">ETF 名單將於下一次「每日資料更新」(Actions)執行後自動產生。</div>';
     return;
   }
   const sub=window.__etfSub;
   L=L.filter(s=> sub==='us'?s.sub==='us' : sub==='tw'?s.market==='TW' : s.sub===sub);
   const q=((document.getElementById('etfQ')||{}).value||'').trim().toLowerCase();
   if(q)L=L.filter(s=>s.id.toLowerCase().includes(q)||String(s.name).toLowerCase().includes(q));
-  L.sort((a,b)=>(b.chg??-999)-(a.chg??-999));
+  // ── 排行榜(依目前子分頁範圍;台股全部時績效榜排除槓反以免正2永遠霸榜)──
+  const scope=L.slice();
+  const pfRows=scope.filter(s=>(s.perf||{}).q!=null&&!(sub==='tw'&&s.sub==='lev'))
+    .sort((a,b)=>b.perf.q-a.perf.q).slice(0,10);
+  const dyRows=scope.filter(s=>s.hold&&s.hold.dy>0&&s.hold.dy<60)
+    .sort((a,b)=>b.hold.dy-a.hold.dy).slice(0,10);
+  const board=(title,rows,val)=>rows.length?`
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px 14px">
+      <div style="font-size:13px;font-weight:900;color:var(--amber);letter-spacing:.05em;margin-bottom:6px">${title}</div>
+      ${rows.map((s,i)=>`<div data-id="${s.id}" style="display:flex;align-items:baseline;gap:8px;padding:5.5px 0;border-bottom:1px dashed var(--line);cursor:pointer">
+        <span style="font-family:var(--mono);font-size:11px;color:${i<3?'var(--amber)':'var(--dim)'};font-weight:800;width:16px">${i+1}</span>
+        <span style="flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="font-family:var(--mono)">${s.id}</b> ${s.name}</span>
+        <b style="font-family:var(--mono);font-size:13px">${val(s)}</b></div>`).join('')}
+    </div>`:'';
+  const boards=board('📈 績效排行|近 3 月'+(sub==='tw'?'(不含槓反)':''),pfRows,
+      s=>`<span style="color:${s.perf.q>=0?CT.up2:CT.dn2}">${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%</span>`)
+    +board('💰 殖利率排行|近一年',dyRows,
+      s=>`<span style="color:var(--amber)">${s.hold.dy.toFixed(2)}%</span>`);
+  const srt=window.__etfSort||'q';
+  const val=s=>srt==='chg'?(s.chg??-9e9):((s.perf||{})[srt]??-9e9);
+  L.sort((a,b)=>val(b)-val(a));
   const SUBN={active:'主動',lev:'槓反',bond:'債券',us:'美股',std:''};
-  const cell='cursor:pointer;padding:9px 2px;border-bottom:1px solid var(--line)';
-  box.innerHTML=`<div style="display:grid;grid-template-columns:1fr 76px 84px 56px;font-size:13px">
+  const cell='cursor:pointer;padding:9px 2px;border-bottom:1px solid var(--line);font-family:var(--mono);text-align:right';
+  const pf=(s,k)=>{const v=(s.perf||{})[k];return v==null?'—':`<span style="color:${v>=0?CT.up2:CT.dn2}">${v>=0?'+':''}${v.toFixed(1)}%</span>`;};
+  const hd=(k,lb)=>`<div data-srt="${k}" style="color:${srt===k?'var(--amber)':'var(--mut)'};text-align:right;padding:4px 2px;border-bottom:1px solid var(--line);cursor:pointer;font-weight:${srt===k?'800':'400'}">${lb}${srt===k?' ▼':''}</div>`;
+  box.innerHTML=`${boards?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin:2px 0 14px">${boards}</div>`:''}
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 66px 62px 62px 62px;font-size:12.5px">
     <div style="color:var(--mut);padding:4px 2px;border-bottom:1px solid var(--line)">名稱</div>
     <div style="color:var(--mut);text-align:right;padding:4px 2px;border-bottom:1px solid var(--line)">現價</div>
-    <div style="color:var(--mut);text-align:right;padding:4px 2px;border-bottom:1px solid var(--line)">漲跌%</div>
-    <div style="color:var(--mut);text-align:right;padding:4px 2px;border-bottom:1px solid var(--line)">綜合</div>
+    ${hd('chg','今日')}${hd('m','近1月')}${hd('q','近3月')}
     ${L.slice(0,300).map(s=>`
-      <div data-id="${s.id}" style="${cell}"><b style="font-family:var(--mono)">${s.id}</b> ${s.name}${SUBN[s.sub]?` <span style="font-size:10px;color:var(--amber);border:1px solid var(--amber);border-radius:4px;padding:0 4px;vertical-align:1px">${SUBN[s.sub]}</span>`:''}</div>
-      <div data-id="${s.id}" style="${cell};text-align:right;font-family:var(--mono)">${s.price??'—'}</div>
-      <div data-id="${s.id}" style="${cell};text-align:right;font-family:var(--mono)">${s.chg!=null?chgHtml(s.chg):'—'}</div>
-      <div data-id="${s.id}" style="${cell};text-align:right;font-family:var(--mono)">${total(s)}</div>`).join('')}
+      <div data-id="${s.id}" style="cursor:pointer;padding:9px 2px;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="font-family:var(--mono)">${s.id}</b> ${s.name}${SUBN[s.sub]?` <span style="font-size:10px;color:var(--amber);border:1px solid var(--amber);border-radius:4px;padding:0 4px;vertical-align:1px">${SUBN[s.sub]}</span>`:''}</div>
+      <div data-id="${s.id}" style="${cell}">${s.price??'—'}</div>
+      <div data-id="${s.id}" style="${cell}">${s.chg!=null?chgHtml(s.chg):'—'}</div>
+      <div data-id="${s.id}" style="${cell}">${pf(s,'m')}</div>
+      <div data-id="${s.id}" style="${cell}">${pf(s,'q')}</div>`).join('')}
   </div>
-  <div class="dim-note" style="margin-top:8px">共 ${L.length} 檔,依當日漲跌排序;點任一列進入 K 線・籌碼・參考價位頁。ETF 沒有月營收與本益比是正常的——它是一籃股票,請看追蹤指數與內扣費用。</div>`;
+  <div class="dim-note" style="margin-top:8px">共 ${L.length} 檔,點「今日/近1月/近3月」欄位標題換排序(現為${srt==='chg'?'今日':srt==='m'?'近1月':'近3月'}最強在前);績效為價格報酬未含息;殖利率為 Yahoo 近一年配息估算,債券與高股息 ETF 天生較高,別只看單一指標。點任一列或排行榜項目進 K 線・成分・配息頁。</div>`;
   box.querySelectorAll('[data-id]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.id;});
+  box.querySelectorAll('[data-srt]').forEach(el=>el.onclick=()=>{window.__etfSort=el.dataset.srt;renderEtf();});
 }
 (function(){
   const tabs=document.getElementById('homeTabs');
@@ -6357,7 +6310,22 @@ function etfSec(s){
       <div class="links" style="margin-top:12px"><a href="${yhold}" target="_blank" rel="noopener">完整持股 · Yahoo ↗</a></div>
       <div class="dim-note" style="margin-top:8px">來源:Yahoo/Morningstar,每日自動更新;此為前十大持股,<b>完整每日成分(PCF)以發行商官網為準</b>。「現金」是尚未投入市場的部位——比重偏高代表基金留了子彈或正在調倉。台股成分點列可直接跳到該檔個股頁看報價與籌碼。</div>`;
   })();
-  return `<div class="sec-title" data-sec="stk_e"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13.5l9 5 9-5"/><path d="M3 18l9 5 9-5" opacity=".45"/></svg> 成分股與規模 <span style="font-weight:400;font-size:12px;letter-spacing:0">前十大持股・資產配置・每日更新</span></div><div class="sec-body" id="sb-stk_e"><div class="dim-block" style="border-left:4px solid var(--amber)">${inner}</div></div>`;
+  return `<div class="sec-title" data-sec="stk_e"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13.5l9 5 9-5"/><path d="M3 18l9 5 9-5" opacity=".45"/></svg> 成分股與規模 <span style="font-weight:400;font-size:12px;letter-spacing:0">前十大持股・資產配置・每日更新</span></div><div class="sec-body" id="sb-stk_e"><div class="dim-block" style="border-left:4px solid var(--amber)">${inner}</div>${etfPerfBlock(s)}</div>`;
+}
+/* 📈 ETF 期間績效(價格報酬,由每日K線計算) */
+function etfPerfBlock(s){
+  const p=s.perf;
+  if(!p||!Object.keys(p).length)return '<div class="dim-block"><h3>📈 期間績效</h3><div class="dim-note">績效資料待下一次「每日資料更新」執行後產生。</div></div>';
+  const M=[['w','近 1 週'],['m','近 1 月'],['q','近 3 月'],['h','近 6 月'],['y','今年以來']];
+  const cells=M.filter(([k])=>p[k]!=null).map(([k,lb])=>{
+    const v=p[k];
+    return `<div style="text-align:center;padding:10px 4px;background:var(--panel2);border:1px solid var(--line);border-radius:9px">
+      <div style="font-size:11px;color:var(--mut)">${lb}</div>
+      <b style="font-family:var(--mono);font-size:16.5px;color:${v>=0?CT.up2:CT.dn2}">${v>=0?'+':''}${v.toFixed(1)}%</b></div>`;
+  }).join('');
+  return `<div class="dim-block" style="border-left:4px solid var(--amber)"><h3>📈 期間績效 <span class="ds">價格報酬</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-top:6px">${cells}</div>
+    <div class="dim-note" style="margin-top:8px">以收盤價計算的<b>價格報酬,未含配息</b>——高配息 ETF 的實際含息報酬會更高;配息紀錄與殖利率見下方。想找「哪檔最強」,回 ETF 總覽可用近 1 月 / 近 3 月排序全部比較。</div></div>`;
 }
 /* 個股頁收合:沿用首頁 sec-title 機制;手機預設收合圖表/新聞/公司區,展開後重算圖表尺寸 */
 function wireDetailSecs(){

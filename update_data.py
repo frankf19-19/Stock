@@ -1272,6 +1272,12 @@ def fetch_etf_holdings(stocks):
             if aum: hold["aum"] = int(aum)
             nav = info.get("navPrice")
             if nav: hold["nav"] = round(float(nav), 2)
+            dy = info.get("dividendYield") or info.get("yield") or info.get("trailingAnnualDividendYield")
+            try:
+                dy = float(dy)
+                if dy: hold["dy"] = round(dy * 100 if dy < 1 else dy, 2)   # 近一年殖利率 %
+            except Exception:
+                pass
             er = info.get("annualReportExpenseRatio") or info.get("netExpenseRatio")
             if er: hold["er"] = round(float(er) * (100 if er < 1 else 1), 2)   # 內扣費用%
             try:
@@ -1689,6 +1695,16 @@ def main():
         if bars and len(bars.get("o", [])) >= 2:
             try:
                 d = score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips)
+                if c.get("etf"):                      # ETF 期間績效(價格報酬,%)
+                    _cl=[x[3] for x in bars["o"]]; _ds=bars.get("d") or []
+                    _last=_cl[-1]
+                    _ret=lambda n:(round((_last/_cl[-n-1]-1)*100,2) if len(_cl)>n and _cl[-n-1] else None)
+                    _pf={"w":_ret(5),"m":_ret(21),"q":_ret(63),"h":_ret(126)}
+                    _yr=str(TODAY.year)
+                    _i=next((i for i,dd in enumerate(_ds) if str(dd).startswith(_yr)),None)
+                    if _i not in (None,0) and _cl[_i-1]:
+                        _pf["y"]=round((_last/_cl[_i-1]-1)*100,2)
+                    d["perf"]={k:v for k,v in _pf.items() if v is not None}
                 ok += 1
             except Exception as e:
                 print(f"  [error] {c['id']}: {e}")
