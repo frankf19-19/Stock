@@ -1,4 +1,5 @@
 # 放到 repo 的 .github/workflows/update_quotes.yml
+# rev: 2026-07-07 排程重新註冊(workflow 檔曾被刪除重建,cron 需藉由此次修改重新掛載)
 # 開盤時段(台北 09:00–13:55,週一至五)每 5 分鐘更新盤中報價備援
 name: intraday-quotes
 on:
