@@ -3988,7 +3988,7 @@ window.addEventListener('resize',()=>chipCharts.forEach(c=>{try{c.resize()}catch
 window.addEventListener('resize',setupSections);
 setTimeout(setupSections,400);
 
-/* ══════════════ 籌碼深度追蹤(法人65日/大戶26週/營收13月)══════════════ */
+/* ══════════════ 籌碼深度追蹤(法人130日/大戶52週/營收40月/信用130日)══════════════ */
 let curChips=null, chipCharts=[];
 const CCACHE={};
 function disposeChipCharts(){chipCharts.forEach(c=>{try{c.dispose()}catch(e){}});chipCharts=[];}
@@ -4008,14 +4008,16 @@ async function loadChipDetail(s){
   if(!box)return;
   if(s.market==='US'){box.innerHTML='';return;}
   if(DATA.source!=='live'){
-    box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">部署後開始累積:三大法人買賣超近 65 個交易日、400張大戶 26 週、月營收 13 個月。</div></div>';return;}
+    box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">部署後開始累積:三大法人買賣超近 130 個交易日、400張大戶 52 週、月營收 40 個月、融資融券借券 130 日。</div></div>';return;}
   box.innerHTML='<div class="chart-box"><h3>籌碼深度資料載入中…</h3></div>';
   const e=await loadChips(s);
   if(location.hash!==KHASH)return;
   if(!e||!(e.d&&e.d.length)){
-    box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">此檔法人歷史累積中(每日自動更新後逐步補齊至 65 個交易日),先參考上方籌碼面摘要。</div></div>';return;}
+    box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">此檔法人歷史累積中(每日自動更新後逐步補齊至 130 個交易日),先參考上方籌碼面摘要。</div><div class="chart-box" style="margin-top:10px"><div class="ind-head"><h3 style="font-size:14px">信用交易|融資・融券・借券賣出餘額(近一年)</h3><span class="c-code" id="credStat">載入中…</span></div><div id="credBox" style="height:250px"></div></div></div>';
+    loadCreditTrend(s,e);return;}
   curChips={s,e};
   renderChipCharts(s,e);
+  loadCreditTrend(s,e);
 }
 function renderChipCharts(s,e){
   const box=document.getElementById('chipwrap');
@@ -4039,7 +4041,8 @@ function renderChipCharts(s,e){
     <div class="chart-box" style="margin-top:10px"><h3 style="font-size:14px">三大法人買賣超(張)· 折線為外資累計 · 滾輪/雙指縮放</h3><div id="instBox" style="height:280px"></div></div>
     ${(e.bd&&e.bd.length>1)?`<div class="chart-box"><h3 style="font-size:14px">400張以上大戶持股比(每週,近 ${e.bd.length} 週)</h3><div id="bigBox" style="height:190px"></div></div>`:''}
     ${(e.rm&&e.rm.length>1)?`<div class="chart-box"><h3 style="font-size:14px">月營收年增率 YoY · 折線為當月營收(億)</h3><div id="revBox" style="height:210px"></div></div>`:''}
-    <div class="dim-note">單位:法人買賣超為「張」。來源:證交所 T86、櫃買法人日報表、集保 TDCC 股權分散表、月營收彙總。歷史自 v5 部署日起逐日累積,首月會逐步補齊。</div>
+    <div class="chart-box"><div class="ind-head"><h3 style="font-size:14px">信用交易|融資・融券・借券賣出餘額(近一年)</h3><span class="c-code" id="credStat">載入中…</span></div><div id="credBox" style="height:250px"></div></div>
+    <div class="dim-note">單位:法人買賣超與信用交易餘額皆為「張」。來源:證交所 T86、櫃買法人日報表、集保 TDCC 股權分散表、月營收彙總;信用交易為 FinMind 近一年歷史(失敗時回退站內每日累積)。法人/大戶歷史逐日累積,擴充至 130 日/52 週後首月會逐步補齊。</div>
   </div>`;
   if(!window.echarts)return;
   const ax={axisLabel:{color:CT.axis,fontSize:10},axisLine:{lineStyle:{color:CT.border}},splitLine:{lineStyle:{color:CT.split}}};
@@ -5289,6 +5292,63 @@ function syncRevCard(s,mm,yoy){
     if(kv)kv.innerHTML=Object.entries(s.f.kv).map(([k,val])=>`<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
     const n=b.querySelector('.dim-note'); if(n)n.textContent=s.f.note;
   });
+}
+/* 信用交易歷史:FinMind 直連近一年 融資/融券(TaiwanStockMarginPurchaseShortSale)
+   + 借券賣出餘額(TaiwanDailyShortSaleBalances);失敗回退站內每日累積(cd/mf/mv/sb) */
+async function loadCreditTrend(s,e){
+  const box=document.getElementById('credBox'),st=document.getElementById('credStat');
+  if(!box)return;
+  let d=[],mf=[],mv=[],sb=[],src='FinMind';
+  try{
+    const start=new Date(Date.now()-380*86400000).toISOString().slice(0,10);
+    const [r1,r2]=await Promise.all([
+      fT(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockMarginPurchaseShortSale&data_id=${s.id}&start_date=${start}`,12000),
+      fT(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanDailyShortSaleBalances&data_id=${s.id}&start_date=${start}`,12000)
+    ]);
+    const j1=r1&&r1.ok?await r1.json():null, j2=r2&&r2.ok?await r2.json():null;
+    const m={};
+    ((j1&&j1.data)||[]).forEach(x=>{
+      const o=m[x.date]=m[x.date]||{};
+      const f=+x.MarginPurchaseTodayBalance, v=+x.ShortSaleTodayBalance;   // 單位:張
+      if(isFinite(f))o.f=f; if(isFinite(v))o.s=v;
+    });
+    ((j2&&j2.data)||[]).forEach(x=>{
+      const o=m[x.date]=m[x.date]||{};
+      const v=+x.SBLShortSalesCurrentDayBalance;                            // 單位:股 → 張
+      if(isFinite(v))o.l=Math.round(v/1000);
+    });
+    const ks=Object.keys(m).sort();
+    if(ks.length>=5)ks.forEach(k=>{d.push(k.slice(5));mf.push(m[k].f!=null?m[k].f:null);mv.push(m[k].s!=null?m[k].s:null);sb.push(m[k].l!=null?m[k].l:null);});
+  }catch(err){}
+  if(!d.length&&e&&Array.isArray(e.cd)&&e.cd.length){                      // 站內累積回退
+    src='站內累積';
+    d=e.cd.map(x=>String(x).slice(5));mf=e.mf||[];mv=e.mv||[];sb=e.sb||[];
+  }
+  if(location.hash!=='#stock/'+s.id)return;
+  if(!d.length){if(st)st.textContent='信用交易資料暫缺(部分上櫃/新掛牌檔待累積)';return;}
+  const lastN=a=>{for(let i=a.length-1;i>=0;i--)if(a[i]!=null)return a[i];return null;};
+  const lf=lastN(mf),ls=lastN(mv),ll=lastN(sb);
+  const ratio=(lf&&ls!=null)?((ls/lf)*100).toFixed(1)+'%':'—';
+  if(st)st.textContent=`${d.length} 日(${src})· 融資 ${lf!=null?lf.toLocaleString():'—'} · 融券 ${ls!=null?ls.toLocaleString():'—'} · 借券賣 ${ll!=null?ll.toLocaleString():'—'} 張 · 券資比 ${ratio}`;
+  if(!window.echarts)return;
+  echarts.dispose(box);box.innerHTML='';
+  const ch=echarts.init(box);chipCharts.push(ch);
+  ch.setOption({
+    backgroundColor:'transparent',
+    textStyle:{fontFamily:'IBM Plex Mono,monospace'},
+    legend:{data:['融資餘額','融券餘額','借券賣出餘額'],top:0,textStyle:{color:CT.legend,fontSize:11}},
+    tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12},
+      valueFormatter:v=>v!=null?(+v).toLocaleString('zh-TW')+' 張':'—'},
+    grid:{left:64,right:64,top:30,bottom:24},
+    xAxis:{type:'category',data:d,axisLabel:{color:CT.axis,fontSize:9.5,interval:Math.ceil(d.length/9)},axisLine:{lineStyle:{color:CT.border}}},
+    yAxis:[{type:'value',name:'融資(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
+           {type:'value',name:'券/借券(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
+    dataZoom:[{type:'inside'}],
+    series:[
+      {name:'融資餘額',type:'line',data:mf,symbol:'none',lineStyle:{width:2,color:'#E8B44A'},areaStyle:{color:hexA('#E8B44A',.08)}},
+      {name:'融券餘額',type:'line',yAxisIndex:1,data:mv,symbol:'none',lineStyle:{width:1.6,color:'#FF8A8E'}},
+      {name:'借券賣出餘額',type:'line',yAxisIndex:1,data:sb,symbol:'none',lineStyle:{width:1.6,color:'#7FB4FF'}}
+    ]});
 }
 /* 個股營收趨勢:FinMind 直連近3年月營收(失敗回退站內累積) */
 async function loadRevTrend(s){

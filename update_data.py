@@ -28,9 +28,10 @@ KEEP_BARS = 130
 
 # ── 籌碼歷史(v5 新增):法人逐日 / 大戶逐週 / 營收逐月,分片存 c/*.json ──
 C_DIR = "c"            # 籌碼歷史分片資料夾
-CHIP_DAYS = 65         # 法人買賣超保留 65 個交易日(約 3 個月)
-BIG_WEEKS = 26         # 400張大戶保留 26 週(約半年)
-REV_MONTHS = 26        # 月營收保留 26 個月(兩年以上年增趨勢)
+CHIP_DAYS = 130        # 法人買賣超保留 130 個交易日(約 6 個月)
+BIG_WEEKS = 52         # 400張大戶保留 52 週(約一年)
+REV_MONTHS = 40        # 月營收保留 40 個月(三年以上年增趨勢)
+CRED_DAYS = 130        # 融資/融券/借券賣出餘額 逐日保留 130 個交易日
 CHIP_BACKFILL = 70     # 單次執行最多回補幾個交易日的法人資料(首次執行約需 7 分鐘)
 
 # ── 台股官方產業別代碼(t187ap03 若回傳代碼時使用)──
@@ -310,7 +311,7 @@ def update_chip_hist(chips, meta):
     """回補/續抓法人逐日資料,累積至 CHIP_DAYS 個交易日。同步累積大盤法人買賣金額(meta['mkt'])。"""
     have = set(meta.get("dates", []))
     want, d, walked = [], TODAY, 0
-    while walked < 110 and len(want) < CHIP_BACKFILL and (len(have) + len(want)) < CHIP_DAYS + 4:
+    while walked < 230 and len(want) < CHIP_BACKFILL and (len(have) + len(want)) < CHIP_DAYS + 4:
         if d.weekday() < 5 and d.isoformat() not in have:
             want.append(d)
         d -= dt.timedelta(days=1); walked += 1
@@ -941,7 +942,84 @@ def fetch_credit_stocks(stocks):
                 n2 += 1
     except Exception as e:
         print(f"  [warn] 借券賣出(TWT93U): {e}")
+    # ── FinMind 備援:上櫃融資融券(MI_MARGN 僅涵蓋上市)+ 借券賣出(TWT93U 常封鎖海外IP)──
+    miss_mg = [sid for sid, s in by_id.items() if (s.get("mg") or {}).get("f") is None]
+    if miss_mg or n2 == 0:
+        def _fm(dataset, day):
+            params = {"dataset": dataset, "start_date": day, "end_date": day}
+            tok = os.environ.get("FINMIND_TOKEN", "")
+            if tok: params["token"] = tok
+            j = get_json("https://api.finmindtrade.com/api/v4/data", params=params, timeout=60)
+            return (j.get("data") or []) if isinstance(j, dict) else []
+        days, d = [], dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+        while len(days) < 4:
+            if d.weekday() < 5: days.append(d.strftime("%Y-%m-%d"))
+            d -= dt.timedelta(days=1)
+        n3 = 0
+        try:
+            for day in days:                       # 由近往回找最近有資料的交易日
+                rows = _fm("TaiwanStockMarginPurchaseShortSale", day)
+                if not rows: continue
+                for r in rows:
+                    s = by_id.get(str(r.get("stock_id", "")).strip())
+                    if not s: continue
+                    mg = s.setdefault("mg", {})
+                    if mg.get("f") is not None: continue   # 官方已有就不覆蓋
+                    ft, fp = numf(r.get("MarginPurchaseTodayBalance")), numf(r.get("MarginPurchaseYesterdayBalance"))
+                    st_, sp = numf(r.get("ShortSaleTodayBalance")), numf(r.get("ShortSaleYesterdayBalance"))
+                    if ft is None: continue
+                    mg["f"] = int(ft); n3 += 1
+                    if fp is not None: mg["fd"] = int(ft - fp)
+                    if st_ is not None:
+                        mg["s"] = int(st_)
+                        if sp is not None: mg["sd"] = int(st_ - sp)
+                break
+        except Exception as e:
+            print(f"  [warn] FinMind 融資融券備援: {e}")
+        n4 = 0
+        try:
+            if n2 == 0:
+                for day in days:
+                    rows = _fm("TaiwanDailyShortSaleBalances", day)
+                    if not rows: continue
+                    for r in rows:
+                        s = by_id.get(str(r.get("stock_id", "")).strip())
+                        if not s: continue
+                        lt = numf(r.get("SBLShortSalesCurrentDayBalance"))
+                        if lt is None: continue
+                        mg = s.setdefault("mg", {})
+                        mg["l"] = round(lt / 1000)          # 股 → 張
+                        lp = numf(r.get("SBLShortSalesPreviousDayBalance"))
+                        if lp is not None: mg["ld"] = round(lt / 1000) - round(lp / 1000)
+                        n4 += 1
+                    break
+        except Exception as e:
+            print(f"  [warn] FinMind 借券備援: {e}")
+        if n3 or n4:
+            print(f"  FinMind 備援補入:融資融券 {n3} 檔、借券賣出 {n4} 檔")
     print(f"  信用交易:融資融券 {n1} 檔、借券賣出 {n2} 檔")
+
+def append_credit(chips, stocks):
+    """信用交易逐日累積:cd=日期 / mf=融資餘額 / mv=融券餘額 / sb=借券賣出餘額(張)。
+    保留 CRED_DAYS 個交易日;同日重跑覆蓋。作為前端 FinMind 直連失敗時的站內回退。"""
+    if TODAY.weekday() >= 5:   # 週末排程跑到的是週五資料,避免重複附加
+        return
+    day = TODAY.isoformat()
+    for s in stocks:
+        if s.get("market") != "TW": continue
+        mg = s.get("mg") or {}
+        if mg.get("f") is None and mg.get("l") is None: continue
+        e = chips.setdefault(s["id"], {})
+        cd = e.setdefault("cd", []); mf = e.setdefault("mf", [])
+        mv = e.setdefault("mv", []); sb = e.setdefault("sb", [])
+        for a in (mf, mv, sb):
+            while len(a) < len(cd): a.append(None)
+        if cd and cd[-1] == day:
+            mf[-1], mv[-1], sb[-1] = mg.get("f"), mg.get("s"), mg.get("l")
+        else:
+            cd.append(day); mf.append(mg.get("f")); mv.append(mg.get("s")); sb.append(mg.get("l"))
+        if len(cd) > CRED_DAYS:
+            e["cd"], e["mf"], e["mv"], e["sb"] = cd[-CRED_DAYS:], mf[-CRED_DAYS:], mv[-CRED_DAYS:], sb[-CRED_DAYS:]
 
 def fetch_credit_macro(prev):
     """大盤融資餘額(億元,FinMind 90 日歷史)。"""
@@ -1486,6 +1564,8 @@ def main():
         print(f"  [warn] 期貨籌碼跳過: {e}")
     try:
         fetch_credit_stocks(stocks)
+        append_credit(chips, stocks)        # 信用交易逐日累積進 c/*.json(供歷史圖回退)
+        save_chips(chips, cmeta, comps)     # 補寫一次分片,把 cd/mf/mv/sb 帶進去
     except Exception as e:
         print(f"  [warn] 信用交易跳過: {e}")
     try:
