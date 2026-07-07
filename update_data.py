@@ -1021,34 +1021,89 @@ def append_credit(chips, stocks):
         if len(cd) > CRED_DAYS:
             e["cd"], e["mf"], e["mv"], e["sb"] = cd[-CRED_DAYS:], mf[-CRED_DAYS:], mv[-CRED_DAYS:], sb[-CRED_DAYS:]
 
-def fetch_credit_macro(prev):
-    """大盤融資餘額(億元,FinMind 90 日歷史)。"""
+def fetch_credit_macro(prev, stocks=None):
+    """大盤信用交易:上市融資餘額(億)+融券(萬張,FinMind 90日歷史);
+    上櫃合計由站內個股快照逐日累積(FinMind 無櫃買總表)。"""
+    out = None
     try:
         start = (dt.datetime.now() - dt.timedelta(days=95)).strftime("%Y-%m-%d")
         j = get_json("https://api.finmindtrade.com/api/v4/data"
                      f"?dataset=TaiwanStockTotalMarginPurchaseShortSale&start_date={start}",
                      timeout=40)
         rows = j.get("data") if isinstance(j, dict) else (j if isinstance(j, list) else [])
-        hist = {}
+        hist, hist_sv = {}, {}
         for r in rows or []:
-            nm = str(r.get("name", ""))
-            if "MarginPurchaseMoney" not in nm: continue
-            d0 = str(r.get("date", ""))
+            nm, d0 = str(r.get("name", "")), str(r.get("date", ""))
             try: bal = float(r.get("TodayBalance", r.get("balance", 0)))
             except Exception: continue
-            hist[d0] = round(bal / 1e8, 1)                  # 元 → 億
-        if not hist and prev: return prev
-        ds = sorted(hist)[-60:]
-        if not ds: return prev
-        h = {"d": ds, "fin": [hist[d] for d in ds]}
-        last, p = h["fin"][-1], (h["fin"][-2] if len(ds) > 1 else None)
-        out = {"d": ds[-1], "fin": last,
-               "finD": round(last - p, 1) if p is not None else None, "h": h}
-        print(f"  大盤融資餘額:{last} 億(歷史 {len(ds)} 日)")
-        return out
+            if "MarginPurchaseMoney" in nm: hist[d0] = round(bal / 1e8, 1)      # 融資金額 元→億
+            elif "ShortSaleVolume" in nm:   hist_sv[d0] = round(bal / 1e4, 1)   # 融券張數 張→萬張
+        if hist:
+            ds = sorted(hist)[-60:]
+            h = {"d": ds, "fin": [hist[d] for d in ds],
+                 "sv": [hist_sv.get(d) for d in ds]}
+            last, p = h["fin"][-1], (h["fin"][-2] if len(ds) > 1 else None)
+            out = {"d": ds[-1], "fin": last,
+                   "finD": round(last - p, 1) if p is not None else None,
+                   "sv": h["sv"][-1], "h": h}
+            print(f"  大盤融資餘額:{last} 億 / 融券 {h['sv'][-1]} 萬張(歷史 {len(ds)} 日)")
     except Exception as e:
         print(f"  [warn] 大盤融資: {e}")
-        return prev
+    if out is None:
+        out = dict(prev) if prev else None
+    # ── 上櫃合計:加總站內 OTC 個股融資/融券張數,逐日累積 ──
+    try:
+        if stocks and out is not None and TODAY.weekday() < 5:
+            fsum = ssum = 0; n = 0
+            for s in stocks:
+                if s.get("ex") != "otc": continue
+                mg = s.get("mg") or {}
+                if mg.get("f") is not None: fsum += mg["f"]; n += 1
+                if mg.get("s") is not None: ssum += mg["s"]
+            if n > 200:   # 覆蓋夠多檔才可信
+                otc = dict((prev or {}).get("otc") or {})
+                od, of, os_ = list(otc.get("d") or []), list(otc.get("f") or []), list(otc.get("s") or [])
+                day = TODAY.isoformat()
+                if od and od[-1] == day: of[-1], os_[-1] = fsum, ssum
+                else: od.append(day); of.append(fsum); os_.append(ssum)
+                out["otc"] = {"d": od[-130:], "f": of[-130:], "s": os_[-130:]}
+                out["otcF"], out["otcS"] = fsum, ssum
+                print(f"  上櫃信用合計:融資 {fsum:,} 張 / 融券 {ssum:,} 張({n} 檔)")
+            elif (prev or {}).get("otc"):
+                out["otc"] = prev["otc"]
+                out["otcF"], out["otcS"] = prev.get("otcF"), prev.get("otcS")
+        elif (prev or {}).get("otc") and out is not None:
+            out["otc"] = prev["otc"]; out["otcF"], out["otcS"] = prev.get("otcF"), prev.get("otcS")
+    except Exception as e:
+        print(f"  [warn] 上櫃信用合計: {e}")
+    return out
+
+def fetch_pe_bulk():
+    """全市場本益比/股價淨值比:證交所 BWIBBU_ALL(上市)+ 櫃買 OpenAPI(上櫃)。"""
+    out = {}
+    def grab(url, tag):
+        try:
+            arr = get_json(url, timeout=40)
+            if not isinstance(arr, list) or not arr: return
+            keys = list(arr[0].keys())
+            k = lambda *ns: next((x for x in keys if all(n.lower() in x.lower() for n in ns)), None)
+            kid = k("code") or k("securitiescompanycode") or k("stock")
+            kpe = k("peratio") or k("priceearning")
+            kpb = k("pbratio") or k("pricebook")
+            if not kid or not kpe:
+                print(f"  [warn] 本益比({tag})欄位不符: {keys[:6]}"); return
+            n0 = len(out)
+            for r in arr:
+                sid = str(r.get(kid, "")).strip()
+                pe = numf(r.get(kpe)); pb = numf(r.get(kpb)) if kpb else None
+                if sid and pe and 0 < pe < 5000:
+                    out[sid] = (pe, pb)
+            print(f"  本益比({tag}):+{len(out)-n0} 檔")
+        except Exception as e:
+            print(f"  [warn] 本益比({tag}): {e}")
+    grab("https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL", "上市")
+    grab("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis", "上櫃")
+    return out
 
 def fetch_taifex(prev_fut=None):
     """台指期籌碼:三大法人/十大交易人/散戶小台,含 60 日歷史(供詳細頁畫圖)。"""
@@ -1569,9 +1624,35 @@ def main():
     except Exception as e:
         print(f"  [warn] 信用交易跳過: {e}")
     try:
-        _macro["credit"] = fetch_credit_macro((prev_all.get("macro") or {}).get("credit"))
+        _macro["credit"] = fetch_credit_macro((prev_all.get("macro") or {}).get("credit"), stocks)
     except Exception as e:
         print(f"  [warn] 大盤融資跳過: {e}")
+    # ── 估值:本益比/股價淨值比/EPS/預估本益比/同產業中位數 ──
+    _indpe = {}
+    try:
+        peb = fetch_pe_bulk()
+        from statistics import median
+        sec_pe = {}
+        for s in stocks:
+            if s.get("market") != "TW": continue
+            v = peb.get(s["id"])
+            if not v: continue
+            pe, pb = v
+            s["pe"] = round(pe, 1)
+            if pb: s["pb"] = round(pb, 2)
+            if s.get("price") and pe > 0:
+                eps = s["price"] / pe
+                s["eps"] = round(eps, 2)
+                rv = latest_rev(s["id"], rev_bulk, chips)
+                g = max(-0.5, min(1.0, rv[0] / 100.0)) if (rv and rv[0] is not None) else 0.0
+                if (1 + g) > 0.01:
+                    s["fpe"] = round(s["price"] / (eps * (1 + g)), 1)   # 簡易預估:EPS×(1+營收YoY)
+            if 0 < pe < 500:
+                sec_pe.setdefault(s.get("sector") or "其他", []).append(pe)
+        _indpe = {k: round(median(v), 1) for k, v in sec_pe.items() if len(v) >= 3}
+        print(f"  估值:{sum(1 for s in stocks if s.get('pe'))} 檔本益比,{len(_indpe)} 個產業中位數")
+    except Exception as e:
+        print(f"  [warn] 估值資料跳過: {e}")
     try:
         cob = fetch_cobasic()
         for s in stocks:
@@ -1585,7 +1666,7 @@ def main():
     except Exception as e:
         print(f"  [warn] 目標價/業務跳過: {e}")
     out = {"updated": taipei, "source": "live",
-           "macro": _macro, "news": _news, "stocks": stocks}
+           "macro": _macro, "news": _news, "indpe": _indpe, "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     sz = os.path.getsize("data.json") // 1024

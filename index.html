@@ -427,6 +427,12 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   #aiPanel{right:0;bottom:0;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
   .ai-m{max-width:94%}
 }
+/* K線工具列:右側還有按鈕時,右緣漸層淡出提示可滑動 */
+.kseg-row.has-more{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);
+  mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
+/* 白話辭典:可點名詞的視覺提示 */
+.kv dt{cursor:help;text-decoration:underline dotted rgba(150,160,180,.5);text-underline-offset:3px}
+.kv dt:active{color:var(--amber)}
 /* ── 手機版補強(r86):新元件在窄螢幕的收納 ── */
 @media(max-width:640px){
   /* K線工具列:改單列橫向滑動,不再擠成多排 */
@@ -1334,7 +1340,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r87</span>');
+  diag.push('<span style="color:var(--dim)">build r91</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2115,9 +2121,9 @@ async function refreshRisk(){
     d.className='idx-card';d.id='creditCard';
     d.style.cursor='pointer';
     d.onclick=()=>{location.hash='#macro/credit';};
-    d.innerHTML=`<div class="nm">融資餘額(上市) ›</div>
+    d.innerHTML=`<div class="nm">信用交易(上市+櫃買) ›</div>
       <div class="vl">${c.fin.toLocaleString()} 億</div>
-      <div class="ch ${(c.finD||0)>=0?'pos':'neg'}">${c.finD!=null?((c.finD>=0?'▲ +':'▼ ')+c.finD+' 億'):'—'}</div>`;
+      <div class="ch ${(c.finD||0)>=0?'pos':'neg'}">${c.finD!=null?((c.finD>=0?'▲ +':'▼ ')+c.finD+' 億'):'—'}${c.otcF!=null?` · 櫃買 ${(c.otcF/1e4).toFixed(1)} 萬張`:''}</div>`;
     box.appendChild(d);
   };
   setTimeout(()=>{try{window.__creditCard();}catch(e){}},400);
@@ -2916,6 +2922,51 @@ function dimBlock(title,d){
     <div class="kv">${Object.entries(d.kv).map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</div>
     <div class="dim-note">${d.note}</div></div>`;
 }
+/* 估值評價:本益比/EPS/預估本益比/同產業中位數 */
+function valBlock(s){
+  if(!s.pe&&!s.eps)return '';
+  const ind=(DATA.indpe||{})[s.sector];
+  const rel=(s.pe&&ind)?((s.pe/ind-1)*100):null;
+  let note='';
+  if(rel!=null){
+    note= rel<=-15?`本益比比同產業中位數<b>便宜約 ${Math.abs(rel).toFixed(0)}%</b>——可能被低估,也可能是市場認為它成長性較弱,搭配下方「未來性檢視」判斷是哪一種。`
+        : rel>=15?`本益比比同產業中位數<b>貴約 ${rel.toFixed(0)}%</b>——市場願意給更高評價,通常代表成長預期高;但也表示好消息已反映不少,若成長不如預期,估值修正的空間也大。`
+        :`本益比與同產業中位數相近,<b>評價中性</b>,股價貴不貴主要看之後的成長有沒有兌現。`;
+  }
+  const kv={};
+  if(s.pe)kv['本益比']=s.pe+' 倍';
+  if(ind)kv['同產業中位數']=ind+' 倍|'+(s.sector||'');
+  if(s.fpe)kv['預估本益比']=s.fpe+' 倍(站內估算)';
+  if(s.eps)kv['EPS(近四季)']=s.eps+' 元';
+  if(s.pb)kv['股價淨值比']=s.pb+' 倍';
+  return `<div class="dim-block" style="border-left:4px solid #7FB4FF"><h3>💰 估值評價 <span class="ds">${rel!=null?(rel<=-15?'相對便宜':rel>=15?'評價偏高':'評價中性'):''}</span></h3>
+    <div class="kv">${Object.entries(kv).map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</div>
+    <div class="dim-note">${note} 「預估本益比」為站內簡易估算:近四季 EPS ×(1+最新月營收年增率)推算未來一年,<b>不是分析師共識</b>;成長率波動大的公司誤差較大,僅供快速比價。</div></div>`;
+}
+/* 公司未來性檢視:成長動能/產業位置/法人態度/目標價,規則化整理 */
+function futureBlock(s){
+  const pts=[];
+  const yoy=parseFloat(String((s.f&&s.f.kv&&s.f.kv['月營收YoY'])||'').replace(/[+%]/g,''));
+  if(isFinite(yoy))pts.push(yoy>20?`最新月營收年增 <b>+${yoy.toFixed(1)}%</b>,生意明顯在放大——成長股最直接的證據就是營收。`
+    :yoy>0?`月營收年增 +${yoy.toFixed(1)}%,穩定但不算爆發,屬於「穩健型」而非「成長型」動能。`
+    :`月營收年減 ${yoy.toFixed(1)}%,短期動能偏弱——未來性要靠新產品、新客戶或產業回升接棒,留意每月 10 日前的營收公告有沒有轉正。`);
+  if(s.sector)pts.push(`所屬族群:<b>${s.sector}</b>。族群資金會互相帶動,同業一起漲的行情比單打獨鬥可靠;這個產業在供應鏈的角色,可到「小學堂」查白話介紹。`);
+  const ckv=(s.c&&s.c.kv)||{};
+  const f60=parseFloat(String(ckv['外資60日']||'').replace(/[+,張 ]/g,''));
+  const t20=parseFloat(String(ckv['投信20日']||'').replace(/[+,張 ]/g,''));
+  if(isFinite(f60)&&f60!==0)pts.push(f60>0?`外資近一季合計<b>買超 ${Math.abs(f60).toLocaleString()} 張</b>——大資金正在中長線布局,對未來性投下實體票。`
+    :`外資近一季合計<b>賣超 ${Math.abs(f60).toLocaleString()} 張</b>——大資金仍在退場,故事再好,法人還沒買單。`);
+  if(isFinite(t20)&&t20>0)pts.push(`投信近一個月買超 ${t20.toLocaleString()} 張——投信認養常伴隨波段行情,是中小型股未來性被「發現」的常見訊號。`);
+  if(s.tp&&s.tp.m&&s.price){
+    const up=(s.tp.m/s.price-1)*100;
+    pts.push(`分析師平均目標價 <b>${s.tp.m.toLocaleString()}</b>,相對現價 ${up>=0?'+':''}${up.toFixed(0)}%(區間 ${s.tp.l?s.tp.l.toLocaleString():'—'}~${s.tp.h?s.tp.h.toLocaleString():'—'})。目標價反映的是研究員對未來獲利的折現,常落後行情,看方向與調升/調降趨勢就好。`);
+  }
+  if(s.thesis)pts.push(`本站投資論點:${s.thesis}`);
+  if(!pts.length)return '';
+  return `<div class="dim-block" style="border-left:4px solid #5BD9C0"><h3>🔭 公司未來性檢視</h3>
+    <div class="dim-note" style="font-size:13px;line-height:2.05">${pts.map(p=>'• '+p).join('<br>')}</div>
+    <div class="dim-note">提醒:這裡是把「營收動能、產業位置、法人態度、市場評價」規則化整理,幫你快速抓重點;真正的未來性——新產品線、擴產計畫、訂單能見度——要看公司法說會簡報與產業新聞,數據無法替代質性研究。</div></div>`;
+}
 
 /* ── 個股專頁 ── */
 function seeded(id){let h=1779033703;for(let i=0;i<id.length;i++){h=Math.imul(h^id.charCodeAt(i),3432918353);h=h<<13|h>>>19;}
@@ -3267,6 +3318,12 @@ function liveKBar(idOrKey){
   }
 }
 function bindKControls(sLike){
+  document.querySelectorAll('.kseg-row').forEach(el=>{
+    if(el.dataset.hint)return;el.dataset.hint='1';
+    const upd=()=>el.classList.toggle('has-more',el.scrollWidth-el.clientWidth-el.scrollLeft>12);
+    el.addEventListener('scroll',upd,{passive:true});
+    setTimeout(upd,80);window.addEventListener('resize',upd,{passive:true});
+  });
   const lvs=document.getElementById('lvSeg');
   if(lvs){
     const cur=localStorage.getItem('kLV')!=='0';
@@ -3335,7 +3392,7 @@ function kChartBoxHTML(){
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="dim-note" style="margin:2px 0 8px">「全部」=有資料以來完整歷史 · MA5~MA240 全數預設顯示(點圖例可開關) · 滾輪/滑桿縮放<span id="kBoxNote"></span></div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=有資料以來完整歷史 · MA5~MA240 全數預設顯示(點圖例可開關) · 滾輪/滑桿縮放 · 手機:上方工具列可左右滑動<span id="kBoxNote"></span></div>
       <div id="kbox" style="height:560px"></div>
     </div>`;
 }
@@ -3444,11 +3501,13 @@ function drawKChart(){
     if(kr&&kr.legend)chartInst.setOption({legend:{selected:kr.legend}});
     window.__kRestore=null;
   }catch(e){}
-          // 徽章式標籤:帶底色/邊框,任何主題都清楚可讀
-          const chip=(c,pos)=>({show:true,position:pos,fontSize:10.5,fontWeight:600,color:c,
-            backgroundColor:CT.ttBg,borderColor:CT.border,borderWidth:1,
-            padding:[3,7],borderRadius:5,
-            formatter:p=>`${p.name} ${(+p.value).toFixed(1)}`});
+          // 徽章式標籤:桌面帶名稱;手機改「小價位牌靠右軸停靠」不遮K棒
+          const _mob=innerWidth<640;
+          const chip=(c,pos)=>({show:true,position:_mob?'end':pos,
+            fontSize:_mob?9:10.5,fontWeight:600,color:_mob?'#fff':c,
+            backgroundColor:_mob?c:CT.ttBg,borderColor:_mob?c:CT.border,borderWidth:1,
+            padding:_mob?[1,4]:[3,7],borderRadius:_mob?3:5,
+            formatter:p=>_mob?`${(+p.value).toFixed(0)}`:`${p.name} ${(+p.value).toFixed(1)}`});
           return {
           markLine:{symbol:'none',silent:true,
             data:[
@@ -3495,9 +3554,9 @@ function drawKChart(){
               })()
             ]},
           markArea:{silent:true,itemStyle:{color:hexA(ACC,.12)},
-            label:{show:true,position:'insideLeft',fontSize:10.5,fontWeight:600,color:ACC,
+            label:{show:true,position:'insideLeft',fontSize:_mob?8.5:10.5,fontWeight:600,color:ACC,
               backgroundColor:CT.ttBg,borderColor:CT.border,borderWidth:1,
-              padding:[3,7],borderRadius:5},
+              padding:_mob?[1,4]:[3,7],borderRadius:_mob?3:5},
             data:[
               ...(showLv&&window.__kBox?[[{name:`📦 箱型整理 ${window.__kBox.w}日`,
                     xAxis:curDates[curDates.length-window.__kBox.w],
@@ -3603,13 +3662,14 @@ async function showDetail(id){
         <div class="d-sec">📈 走勢・價位・進場策略</div>
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
     <div id="divTL"></div>
-    <div class="d-sec">⚖️ 三力檢視 <span>基本面・籌碼面・技術面</span></div>
+    <div class="d-sec">⚖️ 三力檢視 <span>基本面・籌碼面・技術面 · 💡 看不懂的名詞,點一下就有白話解釋</span></div>
     ${dimBlock('基本面(權重40%)',s.f)}
     ${s.t3?`<div class="thesis" style="border-color:#4BD695"><b style="color:#4BD695">✅ 營收三率三升(${s.t3.q}):</b>毛利率 ${s.t3.gm[0]}→${s.t3.gm[1]}%、營益率 ${s.t3.om[0]}→${s.t3.om[1]}%、淨利率 ${s.t3.nm[0]}→${s.t3.nm[1]}%${s.t3.ry!=null?`,月營收年增 +${s.t3.ry}%`:''}——獲利品質與營收動能同步向上。</div>`:''}
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',cAug)}
     ${s.market==='TW'?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
     <div id="chipwrap"></div>
     ${dimBlock('技術線型(權重25%)',s.t)}
+    ${s.market==='TW'?`<div class="d-sec">💰 估值與未來性 <span>股價貴不貴・成長在哪裡</span></div>${valBlock(s)}${futureBlock(s)}`:''}
     <div class="d-sec">🎯 市場觀點 <span>分析師目標價與研究報告</span></div>
     <div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
       <h3>分析師觀點|目標價與研究報告</h3>
@@ -4151,8 +4211,10 @@ function renderChipCharts(s,e){
     ch.setOption({
       tooltip:{trigger:'axis',axisPointer:{type:'shadow'},backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
       legend:{data:['外資','投信','自營商','外資累計'],textStyle:{color:CT.legend,fontSize:11},top:0},
-      grid:{left:58,right:58,top:30,bottom:24},
-      xAxis:{type:'category',data:e.d.map(x=>x.slice(5)),...ax,axisLabel:{color:CT.axis,fontSize:10,interval:Math.ceil(e.d.length/9)}},
+      grid:{left:58,right:58,top:30,bottom:innerWidth<640?36:24},
+      xAxis:{type:'category',data:e.d,...ax,axisLabel:{color:CT.axis,fontSize:9.5,
+        interval:Math.ceil(e.d.length/(innerWidth<640?5:9)),rotate:innerWidth<640?30:0,
+        formatter:v=>String(v).slice(5).replace('-','/')}},
       yAxis:[{type:'value',name:'張',...ax},{type:'value',name:'累計',...ax,splitLine:{show:false}}],
       dataZoom:[{type:'inside'}],
       series:[
@@ -4166,11 +4228,11 @@ function renderChipCharts(s,e){
   const bb=document.getElementById('bigBox');
   if(bb){
     const ch=echarts.init(bb);chipCharts.push(ch);
-    const bd=e.bd.map(x=>{const d=String(x);return d.length===8?d.slice(4,6)+'/'+d.slice(6):d;});
+    const bd=e.bd.map(x=>{const d=String(x);return d.length===8?d.slice(2,4)+'/'+d.slice(4,6)+'/'+d.slice(6):d;});
     ch.setOption({
       tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12},valueFormatter:v=>v+'%'},
       grid:{left:52,right:16,top:14,bottom:24},
-      xAxis:{type:'category',data:bd,...ax},
+      xAxis:{type:'category',data:bd,...ax,axisLabel:{color:CT.axis,fontSize:9.5,formatter:v=>String(v).slice(3)}},
       yAxis:{type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10,formatter:'{value}%'},splitLine:{lineStyle:{color:CT.split}}},
       series:[{type:'line',data:e.bp,showSymbol:e.bp.length<30,symbolSize:5,
         lineStyle:{width:2,color:'#E8B44A'},itemStyle:{color:'#E8B44A'},
@@ -5390,6 +5452,81 @@ function syncRevCard(s,mm,yoy){
     const n=b.querySelector('.dim-note'); if(n)n.textContent=s.f.note;
   });
 }
+/* ══════════ 白話辭典:全站數據名稱點一下就有大白話解釋 ══════════ */
+const GLOSS={
+'月營收YoY':'公司這個月的營收和「去年同一個月」比,成長或衰退了幾 %。+10% 就是生意比去年同月多做一成。<br><b>怎麼看:</b>正數且越大越好;連續好幾個月都正成長,代表生意越做越大。',
+'資料年月':'上面那個營收數字是「哪一個月」的。台灣規定公司每月 10 日前要公布上個月的營收。',
+'月營收':'公司一個月做了多少生意(還沒扣成本)。重點通常不是金額大小,而是和去年同月比的成長率。',
+'財報':'公司每三個月交一次的成績單,常看三個獲利率:毛利率(產品好不好賺)、營益率(扣掉營運開銷後)、淨利率(最後真正賺的)。<b>三率同時比上一季進步=體質變好。</b>',
+'外資5日':'外資=外國大型投資機構。這是他們最近 5 個交易日「合計買了還是賣了」多少張。<br><b>怎麼看:</b>正數=買超(看好)、負數=賣超(看壞或先獲利入袋)。',
+'外資20日':'外資最近 20 個交易日(約一個月)的合計買賣超。和 5 日一起看:短期、中期方向一致時,訊號比較可靠。',
+'外資60日':'外資最近 60 個交易日(約一季)的合計買賣超,看的是長線態度。',
+'外資連買':'外資「連續買超」的天數。連買越多天,代表態度越明確,通常是偏多訊號。',
+'投信5日':'投信=台灣的基金公司。他們買進的股票會直接影響基金績效,所以連續買超常帶出波段行情。正=買超、負=賣超。',
+'投信20日':'投信最近一個月的合計買賣超。投信偏好中小型股,認養時的影響力常比外資更直接。',
+'400張大戶':'持有這檔股票 400 張以上的大股東,合計抱著全部股份的百分比。<br><b>怎麼看:</b>比例上升=籌碼往大戶手裡集中(通常偏多);下降=大戶在慢慢出貨。每週更新一次。',
+'融資餘額':'散戶「借錢買股票」還沒還的總張數,括號內是最新一天的增減。<br><b>怎麼看:</b>融資暴增=散戶在追價,籌碼變不穩;股價漲但融資反而減少,通常比較健康。',
+'融券餘額':'「借股票先賣、賭它會跌」還沒買回來的張數。<br><b>怎麼看:</b>融券多=看空的人多;但若股價一直漲,這些人被迫回補反而推升股價(俗稱軋空)。',
+'券資比':'融券 ÷ 融資的比例。<br><b>怎麼看:</b>超過 30% 代表看空的人很多,一旦轉漲容易軋空大漲;只有零點幾 % 就沒這個題材。',
+'借券賣出':'法人版的「借股票來賣」,主角是外資等大資金,常用來看空或避險。餘額持續增加=有大錢在押它跌或對沖;持續下降=空方在撤退。',
+'距波段高點':'現在股價離最近一段時間的最高價還差幾 %。-5% 表示再漲 5% 就回到前高;越接近 0 越強勢。',
+'20/60MA':'均線=最近 N 天收盤價的平均,可以想成「這段時間買進的人的平均成本」。20MA≈近一個月、60MA≈近一季。<br><b>怎麼看:</b>股價站在均線上=多數人賺錢(偏多);跌破=平均套牢(偏空)。',
+'淨未平倉':'期貨市場某一群人「押上漲的單」減「押下跌的單」後的淨部位(口數)。<br><b>怎麼看:</b>正=整體偏多、負=偏空;重點是方向的轉變(由空翻多/由多翻空),不是數字大小。',
+'十大交易人':'期貨市場部位最大的前十名(法人+超級大戶),他們的淨部位方向代表市場最大資金的態度。',
+'十大特定人':'十大交易人裡面的「特定法人」(銀行、券商、外資機構等),排除了個人大戶,是更純粹的法人籌碼指標。',
+'散戶小台':'用小台指期貨反推的散戶多空傾向。<br><b>怎麼看:</b>散戶常常做反方向,所以很多人當「反向指標」——散戶一面倒看空時,行情反而容易漲。',
+'殖利率':'現金股利 ÷ 股價,概念像利息。5% = 買 100 元的股票,一年配 5 元現金。<br><b>注意:</b>要「配得穩」而且除息後股價漲得回來(填息)才是真的賺。',
+'現金殖利率':'現金股利 ÷ 股價,概念像利息。5% = 買 100 元股票一年領 5 元現金。要配得穩+會填息才算真報酬。',
+'除息':'公司發現金股利那天,股價會同額往下調(配 2 元,開盤參考價就少 2 元),之後漲回原價才叫「填息」,填息了才是真的賺到股利。',
+'除權':'公司發「股票股利」(配股),你的股數變多、股價按比例往下調,總價值當下不變。',
+'綜合分數':'本站把基本面(40%)+籌碼面(35%)+技術面(25%)合成的 0~100 分。66 分以上代表三方面同時不差。<b>它是縮小範圍的篩子,不是買賣建議。</b>',
+'基本面':'公司「生意做得好不好」:營收有沒有成長、賺不賺錢。',
+'籌碼面':'「誰在買、誰在賣」:法人、大戶、散戶的資金動向。大資金的腳印通常比消息可靠。',
+'技術面':'「價格走勢的慣性」:均線、突破、量能。反映的是市場所有人投票出來的結果。',
+'5日累計':'三大法人(外資+投信+自營商)最近 5 個交易日合計買超或賣超的金額。正=資金流入市場、負=流出。',
+'20日累計':'三大法人最近一個月的合計買賣超金額,看中期資金方向。',
+'60日累計':'三大法人最近一季的合計買賣超金額,看長期資金方向。',
+'分析師家數':'有出研究報告追蹤這檔股票的券商分析師人數,越多代表市場關注度越高、資訊越透明。',
+'RSI':'0~100 的「過熱/過冷」溫度計。<br><b>怎麼看:</b>80 以上=短線漲太快,容易休息;20 以下=殺過頭,容易反彈。',
+'MACD':'用兩條均線的距離變化看「動能」。柱狀圖縮短=原本的趨勢在減速;翻紅翻綠常是轉折的早期訊號。',
+'箱型':'股價在一個固定區間上下震盪,像被關在箱子裡。<b>帶量突破箱頂</b>常是新一波起漲的訊號;跌破箱底則反之。',
+'買進區':'本站定義的「月線~季線之間的均線帶」:多頭股回檔到這裡,是常見的分批留意區。<b>是參考區域,不是保證會漲的價位。</b>',
+'停損參考':'跌破這個價位,代表原本看多的理由已被破壞,一般會先出場控制虧損,保留資金等下一次機會。',
+'本益比':'股價 ÷ 每股一年賺的錢(EPS),意思是「用現在的獲利速度,幾年回本」。20 倍=不成長的話 20 年回本。<br><b>怎麼看:</b>數字越低越便宜,但要跟「同產業」比才有意義——高成長產業天生比較貴。',
+'預估本益比':'用「預估的未來一年 EPS」算的本益比。成長股常常「現在看很貴、用明年獲利看就合理」。<br><b>注意:</b>本站是用營收年增率簡易推算,不是分析師預估,參考方向就好。',
+'EPS':'每股盈餘=公司一年幫「每一股」賺了多少元。EPS 10 元、股價 200 元 → 本益比 20 倍。EPS 持續成長是股價長期上漲最根本的燃料。',
+'股價淨值比':'股價 ÷ 每股淨值(公司帳面上每股值多少)。低於 1 倍=用比帳面價值便宜的價格買到;但金融、景氣循環股常年低於 1 是常態,一樣要跟同業比。',
+'同產業中位數':'把同一個產業所有股票的本益比排隊,取中間那一個。個股比它便宜=評價相對低;比它貴=市場給它更高期待。'
+};
+function glossFind(t){
+  t=String(t||'').replace(/\(.*?\)|(.*?)|[|].*$/g,'').trim();
+  if(!t)return null;
+  if(GLOSS[t])return[t,GLOSS[t]];                    // 先查完全匹配(20/60MA 這種長得像日期的名詞優先命中)
+  if(/^\d{2,4}[-\/]|^—/.test(t))return null;         // 再排除日期格式(2026-07-15、07/07)
+  for(const k in GLOSS){if(t.indexOf(k)===0||(k.indexOf(t)===0&&t.length>=3))return[k,GLOSS[k]];}
+  return null;
+}
+function showGloss(anchor,term,txt){
+  let p=document.getElementById('glossPop');
+  if(!p){p=document.createElement('div');p.id='glossPop';document.body.appendChild(p);
+    p.addEventListener('click',e=>e.stopPropagation());}
+  p.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px"><b style="color:var(--amber);font-size:13px">💡 ${term}</b><span style="cursor:pointer;color:var(--dim)" onclick="this.closest('#glossPop').style.display='none'">✕</span></div><div style="margin-top:6px">${txt}</div>`;
+  p.style.cssText='position:fixed;z-index:998;max-width:min(330px,90vw);background:var(--card,#16181D);border:1px solid rgba(140,150,170,.35);border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.8;color:var(--txt2,#C6CDDB);box-shadow:0 8px 28px rgba(0,0,0,.5);display:block';
+  const r=anchor.getBoundingClientRect(),w=Math.min(330,innerWidth*0.9);
+  p.style.left=Math.min(Math.max(8,r.left),innerWidth-8-w)+'px';
+  p.style.top=(r.bottom+8)+'px';
+  requestAnimationFrame(()=>{const pr=p.getBoundingClientRect();
+    if(pr.bottom>innerHeight-8)p.style.top=Math.max(8,r.top-pr.height-8)+'px';});
+}
+document.addEventListener('click',ev=>{
+  const p=document.getElementById('glossPop');
+  if(p&&p.contains(ev.target))return;
+  const dt=ev.target.closest('.kv dt');
+  if(!dt){if(p)p.style.display='none';return;}
+  const hit=glossFind(dt.textContent);
+  if(hit)showGloss(dt,hit[0],hit[1]);
+  else if(p)p.style.display='none';
+});
 /* ══ 除權息與重大時間:FinMind 股利政策(近三年+已公告的未來場次)══ */
 let curDivs=null;
 async function loadDivEvents(s){
@@ -5510,11 +5647,11 @@ async function loadCreditTrend(s,e){
       if(isFinite(v))o.l=Math.round(v/1000);
     });
     const ks=Object.keys(m).sort();
-    if(ks.length>=5)ks.forEach(k=>{d.push(k.slice(5));mf.push(m[k].f!=null?m[k].f:null);mv.push(m[k].s!=null?m[k].s:null);sb.push(m[k].l!=null?m[k].l:null);});
+    if(ks.length>=5)ks.forEach(k=>{d.push(k);mf.push(m[k].f!=null?m[k].f:null);mv.push(m[k].s!=null?m[k].s:null);sb.push(m[k].l!=null?m[k].l:null);});
   }catch(err){}
   if(!d.length&&e&&Array.isArray(e.cd)&&e.cd.length){                      // 站內累積回退
     src='站內累積';
-    d=e.cd.map(x=>String(x).slice(5));mf=e.mf||[];mv=e.mv||[];sb=e.sb||[];
+    d=e.cd.slice();mf=e.mf||[];mv=e.mv||[];sb=e.sb||[];
   }
   if(location.hash!=='#stock/'+s.id)return;
   if(!d.length){if(st)st.textContent='信用交易資料暫缺(部分上櫃/新掛牌檔待累積)';return;}
@@ -5531,15 +5668,16 @@ async function loadCreditTrend(s,e){
     legend:{data:['融資餘額','融券餘額','借券賣出餘額'],top:0,textStyle:{color:CT.legend,fontSize:11}},
     tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12},
       valueFormatter:v=>v!=null?(+v).toLocaleString('zh-TW')+' 張':'—'},
-    grid:{left:innerWidth<640?48:64,right:innerWidth<640?42:64,top:30,bottom:24},
-    xAxis:{type:'category',data:d,axisLabel:{color:CT.axis,fontSize:9.5,interval:Math.ceil(d.length/(innerWidth<640?6:9))},axisLine:{lineStyle:{color:CT.border}}},
+    grid:{left:innerWidth<640?48:64,right:innerWidth<640?42:64,top:30,bottom:innerWidth<640?36:24},
+    xAxis:{type:'category',data:d,axisLabel:{color:CT.axis,fontSize:9.5,rotate:innerWidth<640?30:0,
+      interval:Math.ceil(d.length/(innerWidth<640?5:9)),formatter:v=>String(v).slice(5).replace('-','/')},axisLine:{lineStyle:{color:CT.border}}},
     yAxis:[{type:'value',name:innerWidth<640?'':'融資(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
            {type:'value',name:innerWidth<640?'':'券/借券(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
     dataZoom:[{type:'inside'}],
     series:[
-      {name:'融資餘額',type:'line',data:mf,symbol:'none',lineStyle:{width:2,color:'#E8B44A'},areaStyle:{color:hexA('#E8B44A',.08)}},
-      {name:'融券餘額',type:'line',yAxisIndex:1,data:mv,symbol:'none',lineStyle:{width:1.6,color:'#FF8A8E'}},
-      {name:'借券賣出餘額',type:'line',yAxisIndex:1,data:sb,symbol:'none',lineStyle:{width:1.6,color:'#7FB4FF'}}
+      {name:'融資餘額',type:'line',color:'#E8B44A',data:mf,symbol:'none',lineStyle:{width:2,color:'#E8B44A'},itemStyle:{color:'#E8B44A'},areaStyle:{color:hexA('#E8B44A',.08)}},
+      {name:'融券餘額',type:'line',color:'#FF8A8E',yAxisIndex:1,data:mv,symbol:'none',lineStyle:{width:1.6,color:'#FF8A8E'},itemStyle:{color:'#FF8A8E'}},
+      {name:'借券賣出餘額',type:'line',color:'#7FB4FF',yAxisIndex:1,data:sb,symbol:'none',lineStyle:{width:1.6,color:'#7FB4FF'},itemStyle:{color:'#7FB4FF'}}
     ]});
 }
 /* 個股營收趨勢:FinMind 直連近3年月營收(失敗回退站內累積) */
@@ -5677,7 +5815,7 @@ async function showFutDetail(){
     const key=window.__futKey,label=(GROUPS.find(([k])=>k===key)||[])[1]||'';
     if(seg)seg.innerHTML=GROUPS.map(([k,n])=>`<button data-k="${k}" class="${k===key?'on':''}">${n}</button>`).join(''),
       seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{window.__futKey=b.dataset.k;drawFut();});
-    const v=h[key]||[],ds=h.d.map(x=>String(x).slice(5));
+    const v=h[key]||[],ds=h.d;
     const idx=window.__futIdx?h.d.map(x=>window.__futIdx[String(x).replace(/\//g,'-')]??null):null;
     /* 主圖:淨未平倉紅綠柱 + 加權指數灰線(雙軸) */
     const box=document.getElementById('futC1');
@@ -5688,8 +5826,8 @@ async function showFutDetail(){
         textStyle:{fontFamily:'IBM Plex Mono,monospace'},
         legend:{data:[`${label} 淨未平倉`,...(idx?['加權指數']:[])],top:0,textStyle:{color:CT.legend,fontSize:11}},
         tooltip:{trigger:'axis',axisPointer:{type:'shadow'},backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
-        grid:{left:innerWidth<640?48:60,right:innerWidth<640?46:60,top:30,bottom:24},
-        xAxis:{type:'category',data:ds,axisLabel:{color:CT.axis,fontSize:10,interval:Math.ceil(ds.length/(innerWidth<640?5:9))},axisLine:{lineStyle:{color:CT.border}}},
+        grid:{left:innerWidth<640?48:60,right:innerWidth<640?46:60,top:30,bottom:innerWidth<640?36:24},
+        xAxis:{type:'category',data:ds,axisLabel:{color:CT.axis,fontSize:9.5,rotate:innerWidth<640?30:0,interval:Math.ceil(ds.length/(innerWidth<640?5:9)),formatter:x=>String(x).slice(5)},axisLine:{lineStyle:{color:CT.border}}},
         yAxis:[{type:'value',name:innerWidth<640?'':'口',axisLabel:{color:CT.axis,fontSize:10,formatter:x=>Math.abs(x)>=1000?(x/1000).toFixed(0)+'K':x},splitLine:{lineStyle:{color:CT.split}}},
                {type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10,formatter:x=>(x/1000).toFixed(1)+'K'},splitLine:{show:false}}],
         dataZoom:[{type:'inside'}],
@@ -5747,27 +5885,69 @@ function showCreditDetail(){
   dv.innerHTML=`<div class="detail-wrap">
     <button class="back" id="backBtn">← 回儀表板</button>
     <div class="m-head"><div>
-      <h2 style="font-size:24px;font-weight:900">融資餘額(上市)|散戶信心溫度計 <span class="c-sector">${c?c.d:''}</span></h2>
-      <div class="c-full" style="margin-top:4px">融資=借錢買股的部位,通常視為散戶信心與市場浮額的溫度計。</div>
+      <h2 style="font-size:24px;font-weight:900">大盤信用交易|上市＋櫃買 <span class="c-sector">${c?c.d:''}</span></h2>
+      <div class="c-full" style="margin-top:4px">融資=借錢買股(散戶信心溫度計);融券=借股票放空(看空力道)。兩個市場分開看:上市以權值股為主,櫃買以中小型股為主,散戶氣氛通常先反映在櫃買。</div>
     </div></div>
     ${!c||!c.h?'<div class="dim-block"><div class="dim-note">資料尚未產生,執行每日更新後出現。</div></div>':`
-    <div class="chart-box"><h3 style="font-size:14px">融資餘額 60 日走勢(億元)</h3><div id="crC1" style="height:280px"></div></div>
+    <div class="dim-block"><h3>目前數字</h3><div class="kv">
+      <div><dt>融資餘額|上市</dt><dd>${c.fin?c.fin.toLocaleString()+' 億':'—'}${c.finD!=null?`(${c.finD>=0?'+':''}${c.finD})`:''}</dd></div>
+      <div><dt>融券餘額|上市</dt><dd>${c.sv!=null?c.sv.toLocaleString()+' 萬張':'—'}</dd></div>
+      <div><dt>融資餘額|櫃買合計</dt><dd>${c.otcF!=null?c.otcF.toLocaleString()+' 張':'累積中(每日更新後出現)'}</dd></div>
+      <div><dt>融券餘額|櫃買合計</dt><dd>${c.otcS!=null?c.otcS.toLocaleString()+' 張':'累積中'}</dd></div>
+    </div></div>
+    <div class="chart-box"><h3 style="font-size:14px">上市|融資餘額(億)＋融券餘額(萬張)60 日</h3><div id="crC1" style="height:280px"></div></div>
+    <div class="chart-box"><h3 style="font-size:14px">櫃買合計|融資/融券餘額(張)· 站內逐日累積</h3><div id="crC2" style="height:240px"></div></div>
     <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>規則化判讀</h3><div class="dim-note" id="crNote"></div></div>`}
-    <div class="dim-block"><h3>怎麼看</h3><div class="dim-note"><b>融資緩增+指數上漲</b>=健康多頭;<b>融資急增+指數不漲</b>=散戶追高、籌碼轉浮,高檔警訊;<b>融資急降(俗稱斷頭清洗)</b>常出現在恐慌低點,洗完浮額反而是中期買點溫床;<b>融資創高但指數未創高</b>=背離留意。搭配個股頁的融資/借券欄位,可判斷「這檔是散戶在買還是法人在買」。</div></div>
+    <div class="dim-block"><h3>怎麼看</h3><div class="dim-note"><b>融資緩增+指數上漲</b>=健康多頭;<b>融資急增+指數不漲</b>=散戶追高、籌碼轉浮,高檔警訊;<b>融資急降(俗稱斷頭清洗)</b>常出現在恐慌低點,洗完浮額反而是中期買點溫床;<b>融券快速增加</b>=看空的人變多,若行情不跌反漲,回補力道會助漲(軋空)。櫃買融資對「散戶情緒」更敏感——中小型股的過熱與退潮,通常先反映在這裡。點名詞可看白話解釋。</div></div>
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   if(!c||!c.h)return;
-  const ds=c.h.d.map(x=>String(x).slice(5));
-  futChart('crC1',ds,[{name:'融資餘額(億)',type:'line',data:c.h.fin,symbol:'none',
-    lineStyle:{width:2,color:'#E8B44A'},areaStyle:{opacity:.1}}]);
+  const _m6=innerWidth<640;
+  const box1=document.getElementById('crC1');
+  if(box1&&window.echarts){
+    const ch=echarts.init(box1);
+    ch.setOption({backgroundColor:'transparent',textStyle:{fontFamily:'IBM Plex Mono,monospace'},
+      legend:{data:['融資餘額(億)','融券餘額(萬張)'],top:0,textStyle:{color:CT.legend,fontSize:11}},
+      tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
+      grid:{left:_m6?52:64,right:_m6?46:64,top:30,bottom:_m6?36:24},
+      xAxis:{type:'category',data:c.h.d,axisLabel:{color:CT.axis,fontSize:9.5,rotate:_m6?30:0,interval:Math.ceil(c.h.d.length/(_m6?5:9)),formatter:v=>String(v).slice(5).replace('-','/')},axisLine:{lineStyle:{color:CT.border}}},
+      yAxis:[{type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
+             {type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
+      dataZoom:[{type:'inside'}],
+      series:[
+        {name:'融資餘額(億)',type:'line',color:'#E8B44A',data:c.h.fin,symbol:'none',lineStyle:{width:2,color:'#E8B44A'},itemStyle:{color:'#E8B44A'},areaStyle:{color:hexA('#E8B44A',.08)}},
+        ...(c.h.sv&&c.h.sv.some(x=>x!=null)?[{name:'融券餘額(萬張)',type:'line',color:'#FF8A8E',yAxisIndex:1,data:c.h.sv,symbol:'none',connectNulls:true,lineStyle:{width:1.6,color:'#FF8A8E'},itemStyle:{color:'#FF8A8E'}}]:[])
+      ]});
+  }
+  const box2=document.getElementById('crC2');
+  if(box2&&window.echarts){
+    const o=c.otc;
+    if(!o||!o.d||o.d.length<2){
+      box2.innerHTML='<div class="dim-note" style="padding:20px 4px">櫃買合計由站內每日加總 880 檔上櫃個股的融資/融券張數而來(官方無免費總表),部署後逐日累積,兩三天後開始成線。</div>';
+    }else{
+      const ch=echarts.init(box2);
+      ch.setOption({backgroundColor:'transparent',textStyle:{fontFamily:'IBM Plex Mono,monospace'},
+        legend:{data:['融資餘額(張)','融券餘額(張)'],top:0,textStyle:{color:CT.legend,fontSize:11}},
+        tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
+        grid:{left:_m6?58:70,right:_m6?46:64,top:30,bottom:_m6?36:24},
+        xAxis:{type:'category',data:o.d,axisLabel:{color:CT.axis,fontSize:9.5,rotate:_m6?30:0,interval:Math.ceil(o.d.length/(_m6?5:9)),formatter:v=>String(v).slice(5).replace('-','/')},axisLine:{lineStyle:{color:CT.border}}},
+        yAxis:[{type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10,formatter:x=>(x/1e4).toFixed(0)+'萬'},splitLine:{lineStyle:{color:CT.split}}},
+               {type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
+        series:[
+          {name:'融資餘額(張)',type:'line',color:'#E8B44A',data:o.f,symbol:'none',lineStyle:{width:2,color:'#E8B44A'},itemStyle:{color:'#E8B44A'},areaStyle:{color:hexA('#E8B44A',.08)}},
+          {name:'融券餘額(張)',type:'line',color:'#FF8A8E',yAxisIndex:1,data:o.s,symbol:'none',lineStyle:{width:1.6,color:'#FF8A8E'},itemStyle:{color:'#FF8A8E'}}
+        ]});
+    }
+  }
   const nn=document.getElementById('crNote');
   if(nn){
     const a=c.h.fin,last=a[a.length-1];
     const w=a.slice(-5),chg5=w.length>1?+(last-w[0]).toFixed(1):null;
     const mx=Math.max(...a);
-    let t=`目前融資餘額 <b>${last.toLocaleString()} 億</b>${c.finD!=null?`,單日 ${c.finD>=0?'+':''}${c.finD} 億`:''}${chg5!=null?`,近五日 ${chg5>=0?'+':''}${chg5} 億`:''}。`;
-    if(last>=mx*0.99)t+=' 已在 60 日高檔區——散戶情緒偏熱,若指數同步創高屬健康,否則留意籌碼轉浮。';
-    else if(chg5!=null&&chg5<-(mx*0.02))t+=' 近五日明顯減肥——浮額清洗中,通常是中期健康訊號。';
+    let t=`上市融資餘額 <b>${last.toLocaleString()} 億</b>${c.finD!=null?`,單日 ${c.finD>=0?'+':''}${c.finD} 億`:''}${chg5!=null?`,近五日 ${chg5>=0?'+':''}${chg5} 億`:''}${c.sv!=null?`;融券 ${c.sv} 萬張`:''}。`;
+    if(last>=mx*0.99)t+=' 融資已在 60 日高檔區——散戶情緒偏熱,若指數同步創高屬健康,否則留意籌碼轉浮。';
+    else if(chg5!=null&&chg5<-(mx*0.02))t+=' 近五日融資明顯減肥——浮額清洗中,通常是中期健康訊號。';
+    if(c.otcF!=null)t+=` 櫃買融資合計 ${c.otcF.toLocaleString()} 張、融券 ${(c.otcS||0).toLocaleString()} 張,中小型股情緒請看上方累積趨勢。`;
     nn.innerHTML=t;
   }
 }
