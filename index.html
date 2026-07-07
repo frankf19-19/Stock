@@ -427,6 +427,32 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   #aiPanel{right:0;bottom:0;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
   .ai-m{max-width:94%}
 }
+/* ── 手機版補強(r86):新元件在窄螢幕的收納 ── */
+@media(max-width:640px){
+  /* K線工具列:改單列橫向滑動,不再擠成多排 */
+  .kseg-row{flex-wrap:nowrap!important;overflow-x:auto;margin-left:0!important;width:100%;
+    padding-bottom:5px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .kseg-row::-webkit-scrollbar{display:none}
+  .kseg-row .ind-seg{flex-shrink:0}
+  .ind-seg button{padding:6px 9px;font-size:11.5px;white-space:nowrap}
+  /* 圖表狀態列(融資融券摘要/營收月份/走勢狀態):改整行顯示、允許換行 */
+  .ind-head{align-items:flex-start}
+  .ind-head h3{font-size:13px}
+  #credStat,#revStat,#intraStat{display:block;width:100%;white-space:normal;
+    font-size:11px;line-height:1.55;color:var(--mut)}
+  /* 區塊標題右側長字串(殖利率/評分等):換行到第二行,不再左右互擠 */
+  .dim-block h3{flex-wrap:wrap;gap:2px 8px}
+  .dim-block h3 .ds{flex-basis:100%;font-size:11.5px}
+  /* 圖表高度再收一點,一屏能看到更多 */
+  #credBox{height:215px!important}
+  #revChart{height:225px!important}
+  #instBox{height:235px!important}
+  /* 提示泡泡 */
+  .toast{font-size:12.5px;padding:10px 12px}
+  /* 除權息醒目條與註解字級 */
+  .thesis{font-size:12.5px}
+  .dim-note{font-size:12px}
+}
 </style>
 </head>
 <body>
@@ -1308,7 +1334,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r85</span>');
+  diag.push('<span style="color:var(--dim)">build r86</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3297,7 +3323,7 @@ function kChartBoxHTML(){
   return `<div class="chart-box">
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
         <h3>K線圖 <span class="ds" id="kMeta">載入中…</span></h3>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
+        <div class="kseg-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
           <div class="ind-seg" id="rngSeg">${[['2y','2年'],['5y','5年'],['10y','10年'],['max','全部']].map(([v,n])=>
             `<button data-r="${v}" class="${v==='2y'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
@@ -3709,7 +3735,7 @@ async function showDetail(id){
     <div class="chart-box">
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
         <h3>K線圖 <span class="ds" id="kMeta">日K · ${k.ohlc.length} 根${k.demo?'(範例資料)':''}</span></h3>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
+        <div class="kseg-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
           <div class="ind-seg" id="rngSeg">${[['2y','2年'],['5y','5年'],['10y','10年'],['max','全部']].map(([v,n])=>
             `<button data-r="${v}" class="${v==='2y'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
@@ -5441,6 +5467,7 @@ function renderDivTimeline(s){
 }
 function divMarkSeries(){
   if(!curDivs||!curDivs.length||localStorage.getItem('kDV')==='0'||!curDates||!curDates.length)return[];
+  const mob=innerWidth<640;   // 手機:標籤只留圖示,避免互相蓋住
   const mk=[];
   curDivs.forEach(e=>{
     if(e.d<curDates[0]||e.d>curDates[curDates.length-1])return;   // 未來場次列在時間表,不畫進K線
@@ -5449,9 +5476,10 @@ function divMarkSeries(){
     const col=e.t==='除息'?'#C792EA':'#5BD9C0';
     mk.push({name:e.t,xAxis:curDates[idx],
       lineStyle:{color:col,type:'dashed',width:1.2},
-      label:{show:true,position:'end',formatter:`${e.t==='除息'?'💰':'🎁'}${(+e.v).toFixed(1)}`,
-        fontSize:10,color:col,backgroundColor:CT.ttBg,borderColor:CT.border,borderWidth:1,
-        padding:[2,6],borderRadius:5}});
+      label:{show:true,position:'end',
+        formatter:mob?(e.t==='除息'?'💰':'🎁'):`${e.t==='除息'?'💰':'🎁'}${(+e.v).toFixed(1)}`,
+        fontSize:mob?9:10,color:col,backgroundColor:CT.ttBg,borderColor:CT.border,borderWidth:1,
+        padding:mob?[1,3]:[2,6],borderRadius:5}});
   });
   if(!mk.length)return[];
   return [{name:'除權息',type:'line',xAxisIndex:0,yAxisIndex:0,data:[],showSymbol:false,silent:true,
@@ -5503,10 +5531,10 @@ async function loadCreditTrend(s,e){
     legend:{data:['融資餘額','融券餘額','借券賣出餘額'],top:0,textStyle:{color:CT.legend,fontSize:11}},
     tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12},
       valueFormatter:v=>v!=null?(+v).toLocaleString('zh-TW')+' 張':'—'},
-    grid:{left:64,right:64,top:30,bottom:24},
-    xAxis:{type:'category',data:d,axisLabel:{color:CT.axis,fontSize:9.5,interval:Math.ceil(d.length/9)},axisLine:{lineStyle:{color:CT.border}}},
-    yAxis:[{type:'value',name:'融資(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
-           {type:'value',name:'券/借券(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
+    grid:{left:innerWidth<640?48:64,right:innerWidth<640?42:64,top:30,bottom:24},
+    xAxis:{type:'category',data:d,axisLabel:{color:CT.axis,fontSize:9.5,interval:Math.ceil(d.length/(innerWidth<640?6:9))},axisLine:{lineStyle:{color:CT.border}}},
+    yAxis:[{type:'value',name:innerWidth<640?'':'融資(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
+           {type:'value',name:innerWidth<640?'':'券/借券(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
     dataZoom:[{type:'inside'}],
     series:[
       {name:'融資餘額',type:'line',data:mf,symbol:'none',lineStyle:{width:2,color:'#E8B44A'},areaStyle:{color:hexA('#E8B44A',.08)}},
@@ -5555,10 +5583,10 @@ async function loadRevTrend(s){
     textStyle:{fontFamily:'IBM Plex Mono,monospace'},
     legend:{top:0,textStyle:{color:CT.legend,fontSize:11}},
     tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12}},
-    grid:{left:56,right:56,top:30,bottom:24},
-    xAxis:{type:'category',data:mm,axisLabel:{color:CT.axis,fontSize:9.5,interval:Math.floor(mm.length/8)},axisLine:{lineStyle:{color:CT.border}}},
-    yAxis:[{type:'value',name:'營收(億)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
-           {type:'value',name:'YoY%',axisLabel:{color:CT.axis,fontSize:10,formatter:'{value}%'},splitLine:{show:false}}],
+    grid:{left:innerWidth<640?44:56,right:innerWidth<640?42:56,top:30,bottom:24},
+    xAxis:{type:'category',data:mm,axisLabel:{color:CT.axis,fontSize:9.5,interval:Math.floor(mm.length/(innerWidth<640?6:8))},axisLine:{lineStyle:{color:CT.border}}},
+    yAxis:[{type:'value',name:innerWidth<640?'':'營收(億)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
+           {type:'value',name:innerWidth<640?'':'YoY%',axisLabel:{color:CT.axis,fontSize:10,formatter:'{value}%'},splitLine:{show:false}}],
     series:[
       {name:'月營收(億)',type:'bar',data:rev,itemStyle:{color:hexA(cssVar('--amber'),.75)}},
       {name:'年增率%',type:'line',yAxisIndex:1,data:yoy,symbol:'none',
