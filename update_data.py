@@ -376,6 +376,18 @@ def append_rev(chips, rev_bulk):
         if len(rm) > REV_MONTHS:
             e["rm"], e["ry"], e["ra"] = rm[-REV_MONTHS:], ry[-REV_MONTHS:], ra[-REV_MONTHS:]
 
+def latest_rev(sid, rev_bulk, chips):
+    """回傳該股「最新月份」的 (YoY, 年月, 金額):比較本次官方彙總與站內逐月歷史,
+    一律取月份較新者。避免某次來源抓失敗時,基本面卡片倒退回舊月份、與營收趨勢圖不同步。"""
+    rv = rev_bulk.get(sid)                       # (yoy, ym, amt) 或 None
+    e = (chips or {}).get(sid) or {}
+    rm, ry = e.get("rm") or [], e.get("ry") or []
+    if rm and ry and ry[-1] is not None:
+        if (not rv) or (str(rm[-1]) > str(rv[1] or "")):
+            ra = e.get("ra") or []
+            rv = (ry[-1], rm[-1], ra[-1] if ra else None)
+    return rv
+
 def build_inst(chips):
     """從籌碼歷史彙算 5/20/60 日合計與外資連買天數,供評分與前端摘要。"""
     inst = {}
@@ -471,33 +483,73 @@ def fetch_rev_mops_live():
     y, m = (now.year, now.month - 1) if now.month > 1 else (now.year - 1, 12)
     roc = y - 1911
     for mk in ("sii", "otc"):
-        try:
-            u = f"https://mops.twse.com.tw/nas/t21/{mk}/t21sc03_{roc}_{m}_0.html"
-            r = requests.get(u, headers=UA, timeout=15)
-            if r.status_code != 200 or len(r.content) < 2000:
-                continue
-            html = r.content.decode("big5", errors="ignore")
-            tabs = pd.read_html(StringIO(html))
-            n0 = len(out)
-            for df in tabs:
-                cols = ["".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in df.columns]
-                def ci(*pats):
-                    return next((i for i, c in enumerate(cols) if all(p in c for p in pats)), None)
-                i_id  = ci("公司", "代號")
-                i_yoy = ci("去年同月", "增減")
-                i_amt = ci("當月營收")
-                if None in (i_id, i_yoy): continue
-                for _, row in df.iterrows():
-                    sid = str(row.iloc[i_id]).strip()
-                    if not (sid.isdigit() and 4 <= len(sid) <= 6): continue
-                    yoy = numf(row.iloc[i_yoy])
-                    if yoy is None: continue
-                    amt = numf(row.iloc[i_amt]) if i_amt is not None else None
-                    out[sid] = (yoy, f"{y}-{m:02d}", amt)
-            if len(out) > n0:
-                print(f"  MOPS 即時營收({mk} {y}-{m:02d}):+{len(out)-n0} 家")
-        except Exception as e:
-            print(f"  [warn] MOPS 即時營收({mk}): {e}")
+        for sfx in ("0", "1"):   # 0=國內公司、1=KY(國外)公司 —— 兩頁都要抓,否則 KY 股永遠沒即時營收
+            try:
+                u = f"https://mops.twse.com.tw/nas/t21/{mk}/t21sc03_{roc}_{m}_{sfx}.html"
+                r = requests.get(u, headers={**UA, "Referer": "https://mops.twse.com.tw/"}, timeout=20)
+                if r.status_code != 200 or len(r.content) < 2000:
+                    continue
+                html = r.content.decode("big5", errors="ignore")
+                tabs = pd.read_html(StringIO(html))
+                n0 = len(out)
+                for df in tabs:
+                    cols = ["".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in df.columns]
+                    def ci(*pats):
+                        return next((i for i, c in enumerate(cols) if all(p in c for p in pats)), None)
+                    i_id  = ci("公司", "代號")
+                    i_yoy = ci("去年同月", "增減")
+                    i_amt = ci("當月營收")
+                    if None in (i_id, i_yoy): continue
+                    for _, row in df.iterrows():
+                        sid = str(row.iloc[i_id]).strip()
+                        if not (sid.isdigit() and 4 <= len(sid) <= 6): continue
+                        yoy = numf(row.iloc[i_yoy])
+                        if yoy is None: continue
+                        amt = numf(row.iloc[i_amt]) if i_amt is not None else None
+                        out[sid] = (yoy, f"{y}-{m:02d}", amt)
+                if len(out) > n0:
+                    print(f"  MOPS 即時營收({mk}/{sfx} {y}-{m:02d}):+{len(out)-n0} 家")
+            except Exception as e:
+                print(f"  [warn] MOPS 即時營收({mk}/{sfx}): {e}")
+    return out
+
+def fetch_rev_finmind_bulk():
+    """FinMind 上月營收全市場備援(第三來源):MOPS 常封鎖 GitHub 海外 IP,
+    此路徑用單月 date-only 查詢 + 去年同月自算 YoY;若方案不支援(回空)則安靜略過。"""
+    out = {}
+    now = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+    y, m = (now.year, now.month - 1) if now.month > 1 else (now.year - 1, 12)
+
+    def _month(yy, mm2):
+        params = {"dataset": "TaiwanStockMonthRevenue",
+                  "start_date": f"{yy}-{mm2:02d}-01",
+                  "end_date": f"{yy}-{mm2:02d}-28"}
+        tok = os.environ.get("FINMIND_TOKEN", "")
+        if tok: params["token"] = tok
+        j = get_json("https://api.finmindtrade.com/api/v4/data", params=params, timeout=60)
+        rows = j.get("data") if isinstance(j, dict) else None
+        d = {}
+        for r in rows or []:
+            sid = str(r.get("stock_id", "")).strip()
+            rv = numf(r.get("revenue"))
+            if sid and rv:
+                d[sid] = rv
+        return d
+
+    try:
+        cur = _month(y, m)
+        if not cur:
+            return out
+        prv = _month(y - 1, m)
+        ym = f"{y}-{m:02d}"
+        for sid, rv in cur.items():
+            p = prv.get(sid)
+            if p:
+                out[sid] = (round((rv / p - 1) * 100, 2), ym, rv / 1000.0)  # FinMind 為元 → 千元對齊官方
+        if out:
+            print(f"  FinMind 營收備援({ym}):{len(out)} 家")
+    except Exception as e:
+        print(f"  [warn] FinMind 營收備援: {e}")
     return out
 
 def fetch_rev_bulk():
@@ -522,11 +574,23 @@ def fetch_rev_bulk():
         except Exception as e:
             print(f"  [warn] 營收彙總: {e}")
     live = fetch_rev_mops_live()
+    n_new = 0
     for sid, v in live.items():
         cur = out.get(sid)
         if not cur or v[1] > cur[1]:   # 只用「更新的月份」覆蓋
-            out[sid] = v
-    print(f"  月營收:{len(out)} 家(其中當月即時 {len(live)} 家)")
+            out[sid] = v; n_new += 1
+    # 第三來源:MOPS 抓不到或只抓到部分(海外IP被擋/KY頁缺漏)時,由 FinMind 補上月即時營收
+    now8 = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+    py, pm = (now8.year, now8.month - 1) if now8.month > 1 else (now8.year - 1, 12)
+    want = f"{py}-{pm:02d}"
+    cov = sum(1 for v in out.values() if v[1] >= want)
+    if out and cov < len(out) * 0.9:   # 上月覆蓋率不足 → 啟動備援補洞
+        fm = fetch_rev_finmind_bulk()
+        for sid, v in fm.items():
+            cur = out.get(sid)
+            if not cur or v[1] > cur[1]:
+                out[sid] = v; n_new += 1
+    print(f"  月營收:{len(out)} 家(其中上月即時 {n_new} 家)")
     return out
 
 def fetch_tdcc_bulk():
@@ -1118,7 +1182,7 @@ def load_prev():
 # ═══════════════ 評分與訊號 ═══════════════
 def avg(a): return sum(a) / len(a)
 
-def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev):
+def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
     sid, is_tw = c["id"], c["market"] == "TW"
     o = bars["o"]; closes = [x[3] for x in o]; vols = [x[4] for x in o]
     last = closes[-1]; prev_c = closes[-2] if len(closes) > 1 else last
@@ -1150,10 +1214,11 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev):
         out["t"] = {"score": 50, "kv": {"K線累積": f"{n}/60 天"},
                     "note": "K線資料累積中,滿60天後開始評分。"}
 
-    # 基本面(台股)
+    # 基本面(台股)—— 取「本次彙總 vs 站內逐月歷史」較新月份,卡片與營收趨勢圖同源不倒退
     f, f_kv = 50, {}
-    if is_tw and sid in rev_bulk:
-        yoy, ym = rev_bulk[sid][0], rev_bulk[sid][1]
+    rv = latest_rev(sid, rev_bulk, chips) if is_tw else None
+    if is_tw and rv:
+        yoy, ym = rv[0], rv[1]
         f_kv["月營收YoY"], f_kv["資料年月"] = f"{yoy:+.1f}%", ym
         f += 25 if yoy > 40 else 18 if yoy > 20 else 8 if yoy > 5 else -5 if yoy > -10 else -18
     elif not is_tw:
@@ -1347,7 +1412,7 @@ def main():
         bars = hist.get(c["id"])
         if bars and len(bars.get("o", [])) >= 2:
             try:
-                d = score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev)
+                d = score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips)
                 ok += 1
             except Exception as e:
                 print(f"  [error] {c['id']}: {e}")
@@ -1368,7 +1433,8 @@ def main():
         if c["market"] == "TW" and len(fq) >= 2:
             g, o2, n2, qr = me["gm"], me["om"], me["nm"], me.get("qr") or []
             if g[-1] > g[-2] and o2[-1] > o2[-2] and n2[-1] > n2[-2]:
-                yoy = rev_bulk.get(c["id"], (None,))[0] if c["id"] in rev_bulk else None
+                _rv = latest_rev(c["id"], rev_bulk, chips)
+                yoy = _rv[0] if _rv else None
                 rev_ok = (yoy is not None and yoy > 0) or (
                     len(qr) >= 2 and qr[-1] and qr[-2] and qr[-1] > qr[-2])
                 if rev_ok:

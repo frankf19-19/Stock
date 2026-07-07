@@ -5268,6 +5268,28 @@ function drawMkLive(misKey){
     if(stat)stat.textContent=marketOpen()?'今日走勢即時累積中,約 30 秒後出現':'走勢暫時載入不到';
   }
 }
+/* 基本面卡片即時同步:若營收趨勢圖(FinMind)月份比 data.json 新,直接更新卡片顯示,
+   確保「三力檢視-基本面」與圖表永遠同月份;分數待後端下次排程重算 */
+function syncRevCard(s,mm,yoy){
+  if(!s||!s.f||!mm||!mm.length)return;
+  let i=mm.length-1;
+  while(i>=0&&(yoy[i]==null))i--;          // 找最後一筆有 YoY 的月份
+  if(i<0)return;
+  const full='20'+mm[i];                    // '26-06' → '2026-06'
+  const cur=(s.f.kv&&s.f.kv['資料年月'])||'';
+  if(cur&&full<=cur)return;                 // 卡片已是最新(或更新)就不動
+  const v=+yoy[i], txt=(v>0?'+':'')+v.toFixed(1)+'%';
+  s.f.kv=s.f.kv||{}; delete s.f.kv['月營收'];
+  s.f.kv['月營收YoY']=txt; s.f.kv['資料年月']=full;
+  s.f.note=(v>40?'營收動能強勁。':v>5?'營收平穩。':'營收轉弱。')+'(已同步最新公告)';
+  document.querySelectorAll('#detailView .dim-block').forEach(b=>{
+    const h=b.querySelector('h3');
+    if(!h||h.textContent.indexOf('基本面')!==0)return;
+    const kv=b.querySelector('.kv');
+    if(kv)kv.innerHTML=Object.entries(s.f.kv).map(([k,val])=>`<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
+    const n=b.querySelector('.dim-note'); if(n)n.textContent=s.f.note;
+  });
+}
 /* 個股營收趨勢:FinMind 直連近3年月營收(失敗回退站內累積) */
 async function loadRevTrend(s){
   const box=document.getElementById('revChart'),st=document.getElementById('revStat');
@@ -5289,7 +5311,9 @@ async function loadRevTrend(s){
       yoy.push(by[py]?+(((by[ym]-by[py])/by[py])*100).toFixed(1):null);
     });
   }else{
-    const cc=curChips&&curChips[s.id];
+    /* 回退站內累積:curChips 結構是 {s,e};尚未載入時改讀分片快取 */
+    let cc=(curChips&&curChips.e&&curChips.s&&curChips.s.id===s.id)?curChips.e:null;
+    if(!cc){try{cc=(CCACHE['c/tw'+s.id[0]+'.json']||{})[s.id]||null;}catch(e){}}
     if(cc&&Array.isArray(cc.rm)&&cc.rm.length){
       mm=cc.rm.map(x=>String(x).slice(2));
       rev=(cc.ra||[]).map(x=>x!=null?+(x/1e5).toFixed(2):null);
@@ -5299,6 +5323,7 @@ async function loadRevTrend(s){
   if(location.hash!=='#stock/'+s.id)return;
   if(!mm.length){if(st)st.textContent='營收資料暫缺';return;}
   if(st)st.textContent=`${mm.length} 個月 · 最新 ${mm[mm.length-1]}`;
+  try{syncRevCard(s,mm,yoy);}catch(e){}
   if(!window.echarts)return;
   echarts.dispose(box);box.innerHTML='';
   const ch=echarts.init(box);
