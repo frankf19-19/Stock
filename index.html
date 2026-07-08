@@ -1425,7 +1425,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r129</span>');
+  diag.push('<span style="color:var(--dim)">build r130</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2661,7 +2661,7 @@ setInterval(alSeed,10*60*1000);
     panel=document.createElement('div');
     const r=b.getBoundingClientRect();
     panel.style.cssText=`position:fixed;top:${Math.round(r.bottom+8)}px;right:${Math.max(8,Math.round(innerWidth-r.right))}px;z-index:999;`+
-      `background:var(--card,#16181D);border:1px solid rgba(140,150,170,.3);border-radius:10px;padding:12px 14px;width:min(300px,86vw);box-shadow:0 8px 28px rgba(0,0,0,.45)`;
+      `background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;width:min(300px,86vw);box-shadow:0 8px 28px rgba(0,0,0,.25)`;
     document.body.appendChild(panel);
     render();
     setTimeout(()=>{document.addEventListener('click',function h(e2){
@@ -6126,7 +6126,7 @@ function showGloss(anchor,term,txt){
   if(!p){p=document.createElement('div');p.id='glossPop';document.body.appendChild(p);
     p.addEventListener('click',e=>e.stopPropagation());}
   p.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px"><b style="color:var(--amber);font-size:13px">💡 ${term}</b><span style="cursor:pointer;color:var(--dim)" onclick="this.closest('#glossPop').style.display='none'">✕</span></div><div style="margin-top:6px">${txt}</div>`;
-  p.style.cssText='position:fixed;z-index:998;max-width:min(330px,90vw);background:var(--card,#16181D);border:1px solid rgba(140,150,170,.35);border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.8;color:var(--txt2,#C6CDDB);box-shadow:0 8px 28px rgba(0,0,0,.5);display:block';
+  p.style.cssText='position:fixed;z-index:998;max-width:min(330px,90vw);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.8;color:var(--txt2);box-shadow:0 8px 28px rgba(0,0,0,.25);display:block';
   const r=anchor.getBoundingClientRect(),w=Math.min(330,innerWidth*0.9);
   p.style.left=Math.min(Math.max(8,r.left),innerWidth-8-w)+'px';
   p.style.top=(r.bottom+8)+'px';
