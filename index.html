@@ -1012,12 +1012,39 @@ let DATA=null, mkt="ALL", sector="全部", q="", sortBy="total", page=1;
 const W={f:.40,c:.35,t:.25};
 const total=s=>Math.round(s.f.score*W.f+s.c.score*W.c+s.t.score*W.t);
 
+/* 📸 即時價快照:掃到的每筆報價存 localStorage,開頁先蓋上「上次的真實價」,
+   消滅「先看到前一天、過一陣子才跳到最新」的體驗 */
+const SNAP_KEY='rtq1';
+window.__RTQ={};
+function snapPut(id,p,c){
+  if(typeof p!=='number')return;
+  window.__RTQ[id]=[p,c];window.__snapDirty=1;
+}
+setInterval(()=>{
+  if(!window.__snapDirty)return;window.__snapDirty=0;
+  try{localStorage.setItem(SNAP_KEY,JSON.stringify({ts:Date.now(),q:window.__RTQ}));}catch(e){}
+},20000);
+function snapLoad(){
+  try{
+    const j=JSON.parse(localStorage.getItem(SNAP_KEY)||'null');
+    if(!j||!j.q||Date.now()-j.ts>36*3600e3)return;   // 超過1.5天的快照不用
+    let n=0;
+    DATA.stocks.forEach(s=>{
+      const v=j.q[s.id];
+      if(v&&typeof v[0]==='number'&&v[0]>0){s.price=v[0];if(typeof v[1]==='number')s.chg=v[1];n++;}
+    });
+    window.__RTQ=Object.assign({},j.q);
+    if(n)console.log('快照覆蓋',n,'檔');
+  }catch(e){}
+}
 async function boot(){
   try{
     const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
     if(r.ok){ DATA=await r.json(); DATA.source='live'; }
   }catch(e){}
   if(!DATA) DATA=DEMO;
+  try{snapLoad();}catch(e){}
+  window.__sweepForce=Date.now()+5*60e3;   // 開頁後 5 分鐘內即使盤後也強制全市場掃一輪(MIS 收盤快照矯正舊資料)
   setBadges(); renderAll(); route();
 }
 window.addEventListener('error',e=>{
@@ -1398,7 +1425,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r128</span>');
+  diag.push('<span style="color:var(--dim)">build r129</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2306,6 +2333,7 @@ function stkLiveStart(s){
       // 單一事實來源:同筆報價更新所有元件
       s.price=+last.toFixed(2);
       if(y>0)s.chg=+(((last-y)/y)*100).toFixed(2);
+      try{snapPut(s.id,s.price,s.chg);}catch(e){}
       stkAccPush(s.id,last,y);
       try{candleFromMIS(s.id,m,last);}catch(e){}
       try{liveKBar(s.id);}catch(e){}
@@ -2375,6 +2403,7 @@ async function seedStk(s){
     if(!last)return;
     s.price=+last.toFixed(2);
     if(y>0)s.chg=+(((last-y)/y)*100).toFixed(2);
+    try{snapPut(s.id,s.price,s.chg);}catch(e){}
     stkAccPush(s.id,last,y);
     try{candleFromMIS(s.id,m,last);}catch(e){}
     const st=document.getElementById('intraStat');
@@ -2767,7 +2796,7 @@ function keepScroll(fn){
   }
 }
 async function rtTick(){
-  if(!openish()||!DATA)return;
+  if((!openish()&&Date.now()>(window.__sweepForce||0))||!DATA)return;
   const ids=rtTargets(); if(!ids.length)return;
   // 全市場輪動:每輪多掃一批未在畫面上的台股,約3分鐘涵蓋全市場
   const seen=new Set(ids);
@@ -2840,7 +2869,7 @@ async function rtTick(){
     }
     const s=DATA.stocks.find(x=>x.id===m.c);
     if(s){
-      s.price=+last.toFixed(2);s.chg=+(((last-y)/y)*100).toFixed(2);n++;
+      s.price=+last.toFixed(2);s.chg=+(((last-y)/y)*100).toFixed(2);n++;try{snapPut(s.id,s.price,s.chg);}catch(e){}
       try{alertCheck(s,m,last);}catch(e){}
       try{candleFromMIS(s.id,m,last);}catch(e){}
       if(s.market==='TW'){try{stkAccPush(s.id,last,parseFloat(m.y));}catch(e){}}
