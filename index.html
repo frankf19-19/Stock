@@ -445,7 +445,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   #aiPanel{right:0;bottom:0;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
   .ai-m{max-width:94%}
 }
-.gbulb{font-size:9.5px;margin-left:3px;opacity:.75;vertical-align:1px;cursor:help}
+.gbulb{font-size:12px;margin-left:4px;opacity:.92;vertical-align:0;cursor:help}
 /* 處置股/產業龍頭 標籤 */
 .tagW{display:inline-block;font-size:11px;font-weight:800;color:#FF8A8E;border:1px solid #FF8A8E;
   border-radius:5px;padding:1px 7px;margin-left:8px;vertical-align:3px;letter-spacing:.04em}
@@ -1425,7 +1425,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r130</span>');
+  diag.push('<span style="color:var(--dim)">build r131</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6110,6 +6110,15 @@ const GLOSS={
 'EPS':'每股盈餘=公司一年幫「每一股」賺了多少元。EPS 10 元、股價 200 元 → 本益比 20 倍。EPS 持續成長是股價長期上漲最根本的燃料。',
 '股價淨值比':'股價 ÷ 每股淨值(公司帳面上每股值多少)。低於 1 倍=用比帳面價值便宜的價格買到;但金融、景氣循環股常年低於 1 是常態,一樣要跟同業比。',
 '同產業中位數':'把同一個產業所有股票的本益比排隊,取中間那一個。個股比它便宜=評價相對低;比它貴=市場給它更高期待。',
+'收盤':'一天最後一筆成交的價格。技術分析幾乎都用收盤價,因為它是「多空吵了一整天的最終共識」,比盤中價有代表性。',
+'站上20MA':'股價是否高於 20 日均線(月線)。站上=最近一個月買的人平均在賺錢,籌碼安定;跌破=套牢盤增加,反彈常遇到解套賣壓。',
+'乖離':'股價偏離均線的百分比。乖離太大(例如高於月線 15%)=短線漲太急,像橡皮筋拉太開,隨時可能回彈修正;負乖離太深則常見超跌反彈。',
+'壓力':'上方賣壓集中的價位——通常是前波高點或大量套牢區,漲到這裡容易遇到解套賣單,需要放量才過得去。',
+'支撐':'下方買盤集中的價位——前波低點或均線所在,跌到這裡常有人接。跌破支撐=接的人不接了,通常要再找下一層。',
+'右側進場':'不猜底,等股價「確認轉強」(例如帶量突破前高)才進場。買貴一點換確定性高一點,是勝率型打法;相對的「左側」是下跌中分批接,是賭轉折。',
+'均線帶':'月線到季線之間的價格區間。多頭行情的回檔常在這個帶子被接住,所以拉回到均線帶=常見的分批買點;跌破整個帶子則趨勢轉弱。',
+'三率三升':'毛利率、營益率、淨利率三個獲利指標同時比上一季高——代表公司不只營收成長,「賺錢的效率」也在變好,是基本面最扎實的訊號之一。',
+'主力':'泛指有能力影響股價的大額資金(法人、大股東、實力派金主)。散戶跟主力的差別是資訊與資金;看籌碼的本質就是「跟著大錢的腳印走」。',
 '跳空缺口':'今天的最低價比昨天的最高價還高(向上跳空),K棒之間出現「空白」——通常是重大利多/利空讓大家搶著用更高(低)價成交。<br><b>怎麼看:</b>缺口=多空力道特別強的位置;沒回補的缺口常變成日後的支撐或壓力,回補(股價走回缺口區)前色帶會一直顯示。',
 '爆大量':'單日成交量超過近 20 根平均量的 2.5 倍(量能區的金色量柱,K棒下方有金色小三角定位)。<br><b>怎麼看:</b>大量=大資金在換手。低檔爆量收紅常是止跌起漲訊號;高檔爆量收黑要小心出貨。爆量那根K棒的最低點,常是日後多空的重要防線。'
 };
@@ -6156,13 +6165,12 @@ function decorateGloss(root){
   });
 }
 (function(){
-  const dv=document.getElementById('detailView');
-  if(dv&&window.MutationObserver){
+  if(window.MutationObserver){
     let tm;
-    new MutationObserver(()=>{clearTimeout(tm);tm=setTimeout(()=>{try{decorateGloss(dv);}catch(e){}},160);})
-      .observe(dv,{childList:true,subtree:true});
+    new MutationObserver(()=>{clearTimeout(tm);tm=setTimeout(()=>{try{decorateGloss(document);}catch(e){}},250);})
+      .observe(document.body,{childList:true,subtree:true});
   }
-  setTimeout(()=>{try{decorateGloss(document);}catch(e){}},1500);
+  setTimeout(()=>{try{decorateGloss(document);}catch(e){}},1200);
 })();
 
 /* ══ 除權息與重大時間:FinMind 股利政策(近三年+已公告的未來場次)══ */
