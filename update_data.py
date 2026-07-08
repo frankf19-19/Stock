@@ -476,6 +476,76 @@ def update_tw_prices(hist, tw_comps):
         print(f"  台股價格:{len(ok)+len(ok2)}/{len(tw_comps)} 檔(重試補回 {len(ok2)})")
     else:
         print(f"  台股價格:{len(ok)}/{len(tw_comps)} 檔")
+    # ── 官方備援:Yahoo 被擋時,用證交所/櫃買「全市場當日行情」把當天K棒接上 ──
+    try:
+        fill_tw_daily_official(hist, tw_comps)
+    except Exception as e:
+        print(f"  [warn] 官方日行情備援: {e}")
+
+def fill_tw_daily_official(hist, comps):
+    """證交所 STOCK_DAY_ALL + 櫃買 daily_close_quotes:一天各一次呼叫,
+    對「K線缺最新交易日」的個股用官方 OHLCV 追加當日K棒(Yahoo 限流時的保命線)。"""
+    def numf2(x):
+        try:
+            v = float(str(x).replace(",", "").strip())
+            return v if v > 0 else None
+        except Exception:
+            return None
+    def roc_iso(s):
+        s = "".join(ch for ch in str(s) if ch.isdigit())
+        if len(s) == 7:   # 民國 1150708
+            return f"{int(s[:3])+1911}-{s[3:5]}-{s[5:7]}"
+        if len(s) == 8:   # 西元 20260708
+            return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+        return None
+    rows = {}
+    def grab(url, tag):
+        try:
+            arr = get_json(url, timeout=50)
+            if not isinstance(arr, list) or not arr: return
+            keys = list(arr[0].keys())
+            k = lambda *ns: next((x for x in keys if any(n.lower() in x.lower() for n in ns)), None)
+            kid = k("code", "SecuritiesCompanyCode")
+            ko, kh, kl, kc = k("open"), k("high"), k("low"), k("clos")
+            kv2 = k("tradevolume", "tradingshares", "sharestraded", "volume")
+            kd = k("date", "日期")
+            if not (kid and kc):
+                print(f"  [warn] 官方日行情({tag})欄位不符: {keys[:6]}"); return
+            n = 0
+            for r in arr:
+                sid = str(r.get(kid, "")).strip().upper()
+                c2 = numf2(r.get(kc))
+                if not sid or c2 is None: continue
+                o2 = numf2(r.get(ko)) or c2
+                h2 = numf2(r.get(kh)) or max(o2, c2)
+                l2 = numf2(r.get(kl)) or min(o2, c2)
+                v2 = numf2(r.get(kv2)) or 0
+                d2 = roc_iso(r.get(kd)) if kd else None
+                rows[sid] = (d2, round(o2, 2), round(h2, 2), round(l2, 2), round(c2, 2), int(v2 // 1000))
+                n += 1
+            print(f"  官方日行情({tag}):{n} 檔")
+        except Exception as e:
+            print(f"  [warn] 官方日行情({tag}): {e}")
+    grab("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", "上市")
+    grab("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", "上櫃")
+    if not rows: return
+    # 官方資料日期(多數列相同,取眾數;缺日期欄則用今天/週五)
+    from collections import Counter
+    ds = Counter(d for d, *_ in rows.values() if d)
+    day = ds.most_common(1)[0][0] if ds else (
+        TODAY.isoformat() if TODAY.weekday() < 5 else None)
+    if not day: return
+    fixed = 0
+    for c in comps:
+        sid = c["id"]
+        e = hist.get(sid)
+        r = rows.get(sid)
+        if not e or not r or not e.get("d"): continue
+        if e["d"][-1] >= day: continue          # Yahoo 已是最新,不用補
+        d2, o2, h2, l2, c2, v2 = r
+        append_bar(hist, sid, d2 or day, o2, h2, l2, c2, v2)
+        fixed += 1
+    print(f"  官方備援補K棒:{fixed} 檔(交易日 {day})")
 
 # ═══════════════ 美股價格(批次)═══════════════
 def update_us_prices(hist, us_comps):
