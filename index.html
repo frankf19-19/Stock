@@ -1024,6 +1024,14 @@ setInterval(()=>{
   if(!window.__snapDirty)return;window.__snapDirty=0;
   try{localStorage.setItem(SNAP_KEY,JSON.stringify({ts:Date.now(),q:window.__RTQ}));}catch(e){}
 },20000);
+function applyRTQ(){
+  try{
+    const q=window.__RTQ||{};let n=0;
+    DATA.stocks.forEach(s=>{const v=q[s.id];
+      if(v&&typeof v[0]==='number'&&v[0]>0){s.price=v[0];if(typeof v[1]==='number')s.chg=v[1];n++;}});
+    return n;
+  }catch(e){return 0;}
+}
 function snapLoad(){
   try{
     const j=JSON.parse(localStorage.getItem(SNAP_KEY)||'null');
@@ -1033,7 +1041,7 @@ function snapLoad(){
       const v=j.q[s.id];
       if(v&&typeof v[0]==='number'&&v[0]>0){s.price=v[0];if(typeof v[1]==='number')s.chg=v[1];n++;}
     });
-    window.__RTQ=Object.assign({},j.q);
+    window.__RTQ=Object.assign({},j.q,window.__RTQ);   // 記憶體優先(較新)
     if(n)console.log('快照覆蓋',n,'檔');
   }catch(e){}
 }
@@ -1413,6 +1421,9 @@ async function refreshLive(auto){
   const diag=[];
   try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
       if(r.ok){DATA=await r.json();DATA.source='live';
+        try{snapLoad();}catch(e){}
+        try{applyRTQ();}catch(e){}                        // 立刻蓋回最新即時價,不閃舊資料
+        window.__sweepForce=Date.now()+5*60e3;            // 更新後強制再掃一輪矯正
         diag.push(`<span class="ok">✓</span> 資料 ${DATA.updated||''}`);}
       else diag.push(`<span class="bad">✗ data.json</span> HTTP ${r.status}(repo 裡還沒有 data.json?到 Actions 手動 Run daily-update)`);
   }catch(e){diag.push(`<span class="bad">✗ data.json</span> 讀取失敗(本機直接開檔案會這樣,請用 github.io 網址或 python -m http.server)`);}
@@ -1425,7 +1436,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r134</span>');
+  diag.push('<span style="color:var(--dim)">build r135</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
