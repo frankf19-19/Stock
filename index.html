@@ -1397,7 +1397,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r121</span>');
+  diag.push('<span style="color:var(--dim)">build r122</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3241,7 +3241,7 @@ function scenarioBands(o,price){
 
 /* ── ECharts 專業 K 線圖(MA 可開關、MACD/KD/RSI 副圖切換、縮放)── */
 let curOhlc=null,curDates=null,chartInst=null,indMode='MACD';
-let kView={rng:'2y',itv:'1d'},baseK=null,KHASH='';
+let kView={rng:'6m',itv:'1d'},baseK=null,KHASH='';
 const KVC={};  // 長天期K線快取(依 代號|範圍|週期)
 async function yOHLC(s,range,interval){
   const syms=s.syms?s.syms:(s.market==='TW'
@@ -3276,29 +3276,8 @@ const ITV_ZH={'1d':'日K','1wk':'週K','1mo':'月K'};
 async function applyKView(s){
   const key=`${s.id}|${kView.rng}|${kView.itv}`;
   let data;
-  if(kView.rng==='2y'&&kView.itv==='1d'&&baseK&&!KVC[key]){
-    data=baseK;   // 先用內建近半年資料秒開,背景補滿 2 年
-    if(!baseK.__up){
-      baseK.__up=1;
-      (async()=>{
-        let d2=null;
-        for(let t=0;t<8&&!d2;t++){
-          if(location.hash!==KHASH)return;   // 已離頁,停止
-          d2=await yOHLC(s,'2y','1d');
-          if(!d2)await new Promise(r=>setTimeout(r,30000));
-        }
-        if(d2&&d2.ohlc&&d2.ohlc.length>baseK.ohlc.length+40){
-          KVC[key]=d2;
-          if(location.hash===KHASH&&kView.rng==='2y'&&kView.itv==='1d'){
-            curOhlc=d2.ohlc;curDates=d2.dates;
-            if(kView.itv==='1d'&&d2.ohlc.length>=60)curLevels=keyLevels(d2.ohlc.slice(-130));
-            window.__kBox=boxDetect(d2.ohlc,KHASH.startsWith('#macro/')?0.06:0.10);
-            window.__kSig='';   // 資料替換:套用新預設縮放(顯示完整2年)
-            try{drawKChart();}catch(e){}
-          }
-        }
-      })();
-    }
+  if(kView.rng==='6m'&&kView.itv==='1d'&&baseK){
+    data=baseK;   // 內建近半年K線,秒開零外部請求
   }
   else if(KVC[key])data=KVC[key];
   else{
@@ -3307,7 +3286,7 @@ async function applyKView(s){
       if(chartInst){try{chartInst.dispose();}catch(e){} chartInst=null;}
       box.innerHTML='<div class="dim-note" style="padding:48px;text-align:center">📡 長天期資料載入中…(來源 Yahoo,首次約幾秒)</div>';
     }
-    data=await yOHLC(s,kView.rng,kView.itv);
+    data=await yOHLC(s,({'6m':'6mo'})[kView.rng]||kView.rng,kView.itv);
     if(data)KVC[key]=data;
   }
   if(location.hash!==KHASH)return;
@@ -3818,8 +3797,8 @@ function kChartBoxHTML(){
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
         <h3>K線圖 <span class="ds" id="kMeta">載入中…</span></h3>
         <div class="kseg-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
-          <div class="ind-seg" id="rngSeg">${[['2y','2年'],['5y','5年'],['10y','10年'],['max','全部']].map(([v,n])=>
-            `<button data-r="${v}" class="${v==='2y'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="rngSeg">${[['6m','6個月'],['1y','1年'],['max','全部']].map(([v,n])=>
+            `<button data-r="${v}" class="${v==='6m'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
@@ -4228,7 +4207,7 @@ async function showDetail(id){
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
-  kView={rng:'2y',itv:'1d'}; baseK=k;
+  kView={rng:'6m',itv:'1d'}; baseK=k;
   curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
   window.__kBox=boxDetect(k.ohlc,0.10);
   const lv=curLevels;
@@ -4249,8 +4228,8 @@ async function showDetail(id){
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
         <h3>K線圖 <span class="ds" id="kMeta">日K · ${k.ohlc.length} 根${k.demo?'(範例資料)':''}</span></h3>
         <div class="kseg-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
-          <div class="ind-seg" id="rngSeg">${[['2y','2年'],['5y','5年'],['10y','10年'],['max','全部']].map(([v,n])=>
-            `<button data-r="${v}" class="${v==='2y'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="rngSeg">${[['6m','6個月'],['1y','1年'],['max','全部']].map(([v,n])=>
+            `<button data-r="${v}" class="${v==='6m'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
@@ -6709,7 +6688,7 @@ async function showMacroDetail(key){
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   // 完整 K 線(與個股同引擎:範圍/週期/均線/指標)
-  kView={rng:'2y',itv:'1d'}; baseK=null; curLevels=null; indMode='MACD';
+  kView={rng:'6m',itv:'1d'}; baseK=null; curLevels=null; indMode='MACD';
   KHASH='#macro/'+key;
   const pseudo={id:def.sym,market:'US',syms:[def.sym,...(def.alt||[])]};
   bindKControls(pseudo);
