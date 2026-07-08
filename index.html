@@ -445,6 +445,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   #aiPanel{right:0;bottom:0;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
   .ai-m{max-width:94%}
 }
+.gbulb{font-size:9.5px;margin-left:3px;opacity:.75;vertical-align:1px;cursor:help}
 /* 處置股/產業龍頭 標籤 */
 .tagW{display:inline-block;font-size:11px;font-weight:800;color:#FF8A8E;border:1px solid #FF8A8E;
   border-radius:5px;padding:1px 7px;margin-left:8px;vertical-align:3px;letter-spacing:.04em}
@@ -1397,7 +1398,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r125</span>');
+  diag.push('<span style="color:var(--dim)">build r126</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4700,6 +4701,43 @@ function renderChipCharts(s,e){
 
 /* ══════════════ 產業小學堂:半導體/科技供應鏈白話教學 ══════════════ */
 const LEARN={
+ kline:{t:'K線與均線,五分鐘看懂',tag:'投資基礎',one:'一根K棒就是一天的多空戰報;均線是大家的平均成本線',
+  secs:[
+   ['這是什麼','一根 K 棒記錄一天四個價位:<b>開盤、收盤、最高、最低</b>。台股習慣<b style="color:#E5484D">紅色=收盤比開盤高(漲)</b>、<b style="color:#21A466">綠色=收盤比開盤低(跌)</b>;上下兩根細線叫「影線」,是當天衝上去又被打回來的痕跡。均線(MA)是把最近 N 天收盤價平均——月線(20日)就是「最近一個月買的人的平均成本」。'],
+   ['怎麼用','兩件事就夠:① <b>價格在月線、季線上面=多數人賺錢=多頭</b>,在下面=空頭;② 影線很長=那個方向有人守——長下影線常代表「跌下去有人接」。均線糾結不表態時少動作,均線發散排列時順著方向做。'],
+   ['新手最常犯的錯','盯著一根K棒就下結論。K線要看「一排」:趨勢是連續劇不是單集;另外週K比日K雜訊少,中長線投資人先看週K再看日K,勝率高很多。']],
+  more:['inst','rot']},
+ inst:{t:'三大法人是誰?為什麼要看',tag:'投資基礎',one:'外資、投信、自營商——市場裡最大的三筆錢,跟著錢走比跟著消息走可靠',
+  secs:[
+   ['這是什麼','<b>外資</b>=國外大機構,錢最多、看最遠,買賣以「季」為單位;<b>投信</b>=國內基金公司,操作波段、愛認養中小型股;<b>自營商</b>=券商自己的交易部門,短進短出參考價值最低。三者每天的買賣超都會公告——等於大戶亮牌給你看。'],
+   ['怎麼用','個股頁看兩個數字:<b>外資 60 日</b>(一季的態度)與<b>投信 20 日</b>(一個月的動作)。外資連續買=中長線有人布局;投信突然開始連買中小型股=常是波段行情的起點。方向一致最有力,方向打架就先觀望。'],
+   ['新手最常犯的錯','看到「外資今天買超」就衝——單日買賣超常是調倉或期現貨對沖,沒有意義。要看<b>連續性</b>:連買 5 天以上、金額放大,才算表態。']],
+  more:['kline','mgn']},
+ divs:{t:'除權息與殖利率白話',tag:'投資基礎',one:'公司把賺的錢發給你,股價會同步扣掉——重點在之後能不能漲回來(填息)',
+  secs:[
+   ['這是什麼','公司賺錢後把一部分用現金發還股東=<b>除息</b>;發股票=<b>除權</b>。除息日當天股價會直接扣掉股利金額:配 5 元、前一天收 100,當天從 95 開始——<b>你沒有平白賺到 5 元</b>,錢只是從股價移到你口袋。'],
+   ['怎麼用','關鍵看「<b>填息</b>」:除息後股價漲回 100,那 5 元才真的入袋。會填息的通常是獲利持續成長的公司;年年配息卻年年貼息(漲不回去)的,等於左手換右手還倒貼稅。<b>殖利率=年股利÷股價</b>,5% 以上算高,但要配「填息紀錄」一起看。'],
+   ['新手最常犯的錯','除息前一天搶進去「領股利」。領到的股利要課稅與補充保費,股價又同步扣掉——若不填息就是純虧。參加除息的理由永遠是「看好它會填息」,不是「想領那筆錢」。']],
+  more:['etf101','kline']},
+ mgn:{t:'融資融券:借錢做多、借券做空',tag:'投資基礎',one:'融資=向券商借錢買股票;融券=借股票先賣——兩個都是槓桿,放大賺也放大賠',
+  secs:[
+   ['這是什麼','<b>融資</b>:自備四成、券商借你六成去買股票,看漲用;<b>融券</b>:向券商借股票先賣掉,之後跌了再買回來還,賺中間差價,看跌用。全市場的融資餘額因此成了「散戶信心溫度計」。'],
+   ['怎麼用','個股頁看融資餘額的<b>方向</b>:股價漲+融資降=籌碼從散戶流向大戶,健康;股價漲+融資暴增=散戶全上車了,行情常常不久。融券暴增後若股價不跌反漲,空單被迫回補會把股價越推越高(<b>軋空</b>)。'],
+   ['新手最常犯的錯','把融資當成「本金放大器」。維持率不足會被<b>斷頭</b>——券商強制在最低點幫你賣掉,連翻身機會都沒有。新手用現股就好,槓桿留給有停損紀律的人。']],
+  more:['inst','kline']},
+ etf101:{t:'ETF 白話入門:怎麼挑',tag:'投資基礎',one:'一次買一籃股票,免選股;挑 ETF 只要檢查三件事',
+  secs:[
+   ['這是什麼','ETF=幫你打包好的一籃股票,買一張等於按比例買進裡面全部成分股。市值型(0050)追大盤、高股息型(0056)重配息、主題型追產業、槓反型是短線工具<b>不適合長抱</b>(每日重設會損耗)。'],
+   ['怎麼用','挑之前檢查三件事:① <b>規模</b>——太小(台股約低於 2 億)有下市風險;② <b>內扣費用</b>——每年從淨值自動扣,0.3% 和 1% 長期複利差很大;③ <b>成分股</b>——打開前十大看看你買到的到底是什麼,很多「AI ETF」前十大其實是同一批權值股。本站 ETF 頁三個數字都有。'],
+   ['新手最常犯的錯','只看殖利率排行選高股息 ETF。配息可能來自「收益平準金」甚至本金,配得高不等於賺得多——<b>含息總報酬</b>才是真績效;另一個錯是把正2槓桿型當存股,盤整市它會自動磨損。']],
+  rel:[['0050 元大台灣50','#stock/0050'],['0056 元大高股息','#stock/0056']],
+  more:['divs','rot']},
+ rot:{t:'產業輪動:資金去哪裡',tag:'投資基礎',one:'股市的錢像潮水,在不同產業間輪流漲——看懂順序,就不會永遠慢一步',
+  secs:[
+   ['這是什麼','大盤上漲時不是所有股票一起漲,而是資金<b>一棒接一棒</b>:通常先漲龍頭權值(台積電),再擴散到同供應鏈的中小型股,最後連邊緣題材都漲=行情進入尾聲。反過來,跌的時候中小型股先崩、權值撐最久。'],
+   ['怎麼用','用本站「族群強度板」看今天錢在哪一族;點小學堂的產業課看這個族群在供應鏈的位置。<b>龍頭剛動、同族群還沒跟上</b>=最好的觀察窗口;族群裡最投機的小型股都噴出=該收手而不是進場。'],
+   ['新手最常犯的錯','追「已經漲一大段的族群裡最紅的那檔」。輪動的意思是錢會離開——你在派對最熱鬧時進場,常常是幫先來的人買單。寧可在下一個族群排隊,不要在上一個族群追高。']],
+  more:['inst','semi']},
  semi:{t:'半導體產業總覽',tag:'入門必讀',one:'從一顆晶片的誕生看懂設計、製造、封測三大環節',
   secs:[
    ['這是什麼',
@@ -4812,6 +4850,94 @@ const LEARN={
   rel:[['鴻海 2317','#stock/2317'],['廣達 2382','#stock/2382'],['緯穎 6669','#stock/6669'],['貿聯-KY 3665','#stock/3665'],['川湖 2059','#stock/2059'],['嘉澤 3533','#stock/3533']],more:['cooling','pcb','cpo']},
 };
 const LEARN_FIG={
+kline:`<svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg">
+<text x="180" y="22" text-anchor="middle" fill="var(--txt2)" font-size="13" font-weight="700">紅K(漲):收盤 > 開盤</text>
+<line x1="180" y1="40" x2="180" y2="180" stroke="#E5484D" stroke-width="2"/>
+<rect x="160" y="70" width="40" height="80" rx="3" fill="#E5484D"/>
+<text x="212" y="46" fill="var(--mut)" font-size="11.5">← 最高價(上影線頂)</text>
+<text x="212" y="76" fill="var(--mut)" font-size="11.5">← 收盤價</text>
+<text x="212" y="152" fill="var(--mut)" font-size="11.5">← 開盤價</text>
+<text x="212" y="184" fill="var(--mut)" font-size="11.5">← 最低價(下影線底)</text>
+<text x="560" y="22" text-anchor="middle" fill="var(--txt2)" font-size="13" font-weight="700">綠K(跌):收盤 < 開盤</text>
+<line x1="560" y1="40" x2="560" y2="180" stroke="#21A466" stroke-width="2"/>
+<rect x="540" y="70" width="40" height="80" rx="3" fill="none" stroke="#21A466" stroke-width="2.4"/>
+<text x="592" y="76" fill="var(--mut)" font-size="11.5">← 開盤價</text>
+<text x="592" y="152" fill="var(--mut)" font-size="11.5">← 收盤價</text>
+<text x="380" y="205" text-anchor="middle" fill="var(--dim)" font-size="11">影線越長=那個方向的攻防越激烈</text>
+</svg>`,
+inst:`<svg viewBox="0 0 760 205" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="arI" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9" fill="none" stroke="var(--dim)" stroke-width="1.6"/></marker></defs>
+<g><rect x="30" y="20" width="200" height="52" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="130" y="42" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="800">外資</text>
+<text x="130" y="60" text-anchor="middle" fill="var(--mut)" font-size="11">錢最多・以「季」布局</text></g>
+<g><rect x="280" y="20" width="200" height="52" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="380" y="42" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="800">投信</text>
+<text x="380" y="60" text-anchor="middle" fill="var(--mut)" font-size="11">做波段・認養中小型股</text></g>
+<g><rect x="530" y="20" width="200" height="52" rx="10" fill="var(--panel2)" stroke="var(--line)"/>
+<text x="630" y="42" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="800">自營商</text>
+<text x="630" y="60" text-anchor="middle" fill="var(--mut)" font-size="11">短進短出・參考性低</text></g>
+<line x1="130" y1="72" x2="330" y2="128" stroke="var(--dim)" stroke-width="1.4" marker-end="url(#arI)"/>
+<line x1="380" y1="72" x2="380" y2="128" stroke="var(--dim)" stroke-width="1.4" marker-end="url(#arI)"/>
+<line x1="630" y1="72" x2="430" y2="128" stroke="var(--dim)" stroke-width="1.4" marker-end="url(#arI)"/>
+<rect x="255" y="132" width="250" height="52" rx="10" fill="none" stroke="var(--amber)" stroke-width="1.6"/>
+<text x="380" y="154" text-anchor="middle" fill="var(--amber)" font-size="13" font-weight="800">台股市場</text>
+<text x="380" y="172" text-anchor="middle" fill="var(--mut)" font-size="11">每天收盤後公告買賣超=大戶亮牌</text>
+</svg>`,
+divs:`<svg viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg">
+<line x1="40" y1="70" x2="720" y2="70" stroke="var(--line)" stroke-width="2"/>
+<circle cx="120" cy="70" r="6" fill="var(--amber)"/>
+<text x="120" y="48" text-anchor="middle" fill="var(--txt2)" font-size="12.5" font-weight="700">除息前一天收 100</text>
+<circle cx="360" cy="70" r="6" fill="var(--amber)"/>
+<text x="360" y="34" text-anchor="middle" fill="var(--txt2)" font-size="12.5" font-weight="700">除息日:配 5 元</text>
+<text x="360" y="52" text-anchor="middle" fill="var(--mut)" font-size="11.5">股價自動變 95,股利進你口袋</text>
+<path d="M600 70 L680 34" stroke="#E5484D" stroke-width="2" fill="none"/>
+<text x="700" y="30" text-anchor="middle" fill="#E5484D" font-size="12.5" font-weight="700">填息:漲回 100 ✓ 真賺</text>
+<path d="M600 70 L680 118" stroke="#21A466" stroke-width="2" fill="none"/>
+<text x="695" y="136" text-anchor="middle" fill="#21A466" font-size="12.5" font-weight="700">貼息:回不去 ✗ 倒虧</text>
+<text x="380" y="185" text-anchor="middle" fill="var(--dim)" font-size="11.5">參加除息唯一的理由:看好它會填息</text>
+</svg>`,
+mgn:`<svg viewBox="0 0 760 205" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="arM" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9" fill="none" stroke="var(--dim)" stroke-width="1.6"/></marker></defs>
+<rect x="310" y="76" width="140" height="52" rx="10" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.6"/>
+<text x="380" y="106" text-anchor="middle" fill="var(--amber)" font-size="14" font-weight="800">你</text>
+<line x1="310" y1="90" x2="150" y2="52" stroke="var(--dim)" stroke-width="1.4" marker-end="url(#arM)"/>
+<rect x="24" y="22" width="196" height="58" rx="10" fill="none" stroke="#E5484D" stroke-width="1.6"/>
+<text x="122" y="45" text-anchor="middle" fill="#E5484D" font-size="13" font-weight="800">融資(看漲)</text>
+<text x="122" y="64" text-anchor="middle" fill="var(--mut)" font-size="11">自備4成+借6成 → 買股票</text>
+<line x1="450" y1="90" x2="610" y2="52" stroke="var(--dim)" stroke-width="1.4" marker-end="url(#arM)"/>
+<rect x="540" y="22" width="196" height="58" rx="10" fill="none" stroke="#21A466" stroke-width="1.6"/>
+<text x="638" y="45" text-anchor="middle" fill="#21A466" font-size="13" font-weight="800">融券(看跌)</text>
+<text x="638" y="64" text-anchor="middle" fill="var(--mut)" font-size="11">借股票先賣 → 跌了買回還</text>
+<text x="380" y="165" text-anchor="middle" fill="var(--txt2)" font-size="12.5" font-weight="700">兩個都是槓桿:賺賠都放大,維持率不足會被斷頭</text>
+<text x="380" y="188" text-anchor="middle" fill="var(--dim)" font-size="11.5">全市場融資餘額 = 散戶信心溫度計(大盤頁可看)</text>
+</svg>`,
+etf101:`<svg viewBox="0 0 760 205" xmlns="http://www.w3.org/2000/svg">
+<path d="M120 60 L300 60 L280 170 L140 170 Z" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.8"/>
+<path d="M150 60 C150 20 270 20 270 60" fill="none" stroke="var(--amber)" stroke-width="1.8"/>
+<rect x="150" y="84" width="34" height="34" rx="5" fill="var(--panel)" stroke="var(--line)"/><text x="167" y="106" text-anchor="middle" fill="var(--mut)" font-size="10">台積</text>
+<rect x="192" y="84" width="34" height="34" rx="5" fill="var(--panel)" stroke="var(--line)"/><text x="209" y="106" text-anchor="middle" fill="var(--mut)" font-size="10">鴻海</text>
+<rect x="234" y="84" width="34" height="34" rx="5" fill="var(--panel)" stroke="var(--line)"/><text x="251" y="106" text-anchor="middle" fill="var(--mut)" font-size="10">聯發</text>
+<rect x="171" y="126" width="34" height="34" rx="5" fill="var(--panel)" stroke="var(--line)"/><text x="188" y="148" text-anchor="middle" fill="var(--mut)" font-size="10">廣達</text>
+<rect x="213" y="126" width="34" height="34" rx="5" fill="var(--panel)" stroke="var(--line)"/><text x="230" y="148" text-anchor="middle" fill="var(--mut)" font-size="10">⋯</text>
+<text x="210" y="196" text-anchor="middle" fill="var(--txt2)" font-size="12" font-weight="700">買 1 張 = 按權重買下一整籃</text>
+<text x="500" y="52" fill="var(--txt)" font-size="13" font-weight="800">挑 ETF 三個檢查:</text>
+<text x="500" y="86" fill="var(--txt2)" font-size="12.5">① 規模夠大(避免下市)</text>
+<text x="500" y="116" fill="var(--txt2)" font-size="12.5">② 內扣費用低(每年偷扣)</text>
+<text x="500" y="146" fill="var(--txt2)" font-size="12.5">③ 前十大成分(買到什麼)</text>
+<text x="500" y="178" fill="var(--dim)" font-size="11.5">三個數字本站 ETF 頁都有</text>
+</svg>`,
+rot:`<svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="arR" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9" fill="none" stroke="var(--amber)" stroke-width="1.6"/></marker></defs>
+<path d="M380 40 A70 70 0 0 1 450 110" fill="none" stroke="var(--amber)" stroke-width="2" marker-end="url(#arR)"/>
+<path d="M450 112 A70 70 0 0 1 380 180" fill="none" stroke="var(--amber)" stroke-width="2" marker-end="url(#arR)"/>
+<path d="M378 180 A70 70 0 0 1 310 110" fill="none" stroke="var(--amber)" stroke-width="2" marker-end="url(#arR)"/>
+<path d="M310 108 A70 70 0 0 1 378 40" fill="none" stroke="var(--amber)" stroke-width="2" marker-end="url(#arR)"/>
+<text x="380" y="26" text-anchor="middle" fill="var(--txt)" font-size="12.5" font-weight="800">① 龍頭權值先漲</text>
+<text x="540" y="114" text-anchor="middle" fill="var(--txt)" font-size="12.5" font-weight="800">② 供應鏈中小型股跟上</text>
+<text x="380" y="202" text-anchor="middle" fill="var(--txt)" font-size="12.5" font-weight="800">③ 邊緣題材也噴=尾聲</text>
+<text x="222" y="114" text-anchor="middle" fill="var(--txt)" font-size="12.5" font-weight="800">④ 資金撤出找下一族</text>
+<text x="380" y="114" text-anchor="middle" fill="var(--dim)" font-size="11.5">錢像潮水輪流漲</text>
+</svg>`,
 semi:`<svg viewBox="0 0 760 215" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="ar1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9" fill="none" stroke="var(--dim)" stroke-width="1.6"/></marker></defs>
 <rect x="20" y="18" width="720" height="52" rx="10" fill="none" stroke="var(--line)" stroke-dasharray="4 4"/>
@@ -5052,7 +5178,7 @@ function showLearnIndex(){
     <button class="back" id="backBtn">← 回儀表板</button>
     <div class="m-head"><div>
       <h2 style="font-size:24px;font-weight:900">📚 產業小學堂</h2>
-      <div class="c-full" style="margin-top:4px">半導體與科技供應鏈白話教學——每篇都有示意圖,建議從「半導體產業總覽」開始,順著延伸閱讀讀完整條鏈。</div>
+      <div class="c-full" style="margin-top:4px">投資基礎 + 半導體供應鏈白話教學——每篇都有示意圖。新手建議從「K線與均線」開始把六堂投資基礎讀完,再進產業課,順著延伸閱讀讀完整條鏈。</div>
     </div></div>
     <div class="idx-row" style="margin-top:14px">${learnCards()}</div>
     <div class="dim-note" style="margin-top:14px">內容為產業知識教學,非投資建議。想加新主題(被動元件、重電、無人機…)歡迎提出。</div>
@@ -5971,10 +6097,33 @@ document.addEventListener('click',ev=>{
   if(p&&p.contains(ev.target))return;
   const dt=ev.target.closest('.kv dt')||ev.target.closest('[data-g]');
   if(!dt){if(p)p.style.display='none';return;}
-  const hit=glossFind(dt.dataset&&dt.dataset.g?dt.dataset.g:dt.textContent);
+  const hit=glossFind((dt.dataset&&dt.dataset.g?dt.dataset.g:dt.textContent).replace('💡','').trim());
   if(hit)showGloss(dt,hit[0],hit[1]);
   else if(p)p.style.display='none';
 });
+/* 💡 白話燈泡:凡辭典有解釋的欄位,自動在旁邊加上可點的燈泡 */
+function decorateGloss(root){
+  (root||document).querySelectorAll('.kv dt,[data-g]').forEach(el=>{
+    if(el.dataset.gb)return;
+    const term=(el.dataset&&el.dataset.g)?el.dataset.g:el.textContent.replace('💡','').trim();
+    if(!glossFind(term))return;
+    el.dataset.gb='1';
+    const b=document.createElement('span');
+    b.className='gbulb';b.textContent='💡';b.title='點我看白話解釋';
+    el.appendChild(b);
+    el.style.cursor='help';
+  });
+}
+(function(){
+  const dv=document.getElementById('detailView');
+  if(dv&&window.MutationObserver){
+    let tm;
+    new MutationObserver(()=>{clearTimeout(tm);tm=setTimeout(()=>{try{decorateGloss(dv);}catch(e){}},160);})
+      .observe(dv,{childList:true,subtree:true});
+  }
+  setTimeout(()=>{try{decorateGloss(document);}catch(e){}},1500);
+})();
+
 /* ══ 除權息與重大時間:FinMind 股利政策(近三年+已公告的未來場次)══ */
 let curDivs=null;
 async function loadDivEvents(s){
