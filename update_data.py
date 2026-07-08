@@ -482,6 +482,8 @@ def update_tw_prices(hist, tw_comps):
     except Exception as e:
         print(f"  [warn] 官方日行情備援: {e}")
 
+OFF_CHG = {}   # 官方當日漲跌%(fill_tw_daily_official 填入,主迴圈覆蓋 chg)
+
 def fill_tw_daily_official(hist, comps):
     """證交所 STOCK_DAY_ALL + 櫃買 daily_close_quotes:一天各一次呼叫,
     對「K線缺最新交易日」的個股用官方 OHLCV 追加當日K棒(Yahoo 限流時的保命線)。"""
@@ -509,6 +511,7 @@ def fill_tw_daily_official(hist, comps):
             ko, kh, kl, kc = k("open"), k("high"), k("low"), k("clos")
             kv2 = k("tradevolume", "tradingshares", "sharestraded", "volume")
             kd = k("date", "日期")
+            kch = k("change", "漲跌")
             if not (kid and kc):
                 print(f"  [warn] 官方日行情({tag})欄位不符: {keys[:6]}"); return
             n = 0
@@ -522,6 +525,14 @@ def fill_tw_daily_official(hist, comps):
                 v2 = numf2(r.get(kv2)) or 0
                 d2 = roc_iso(r.get(kd)) if kd else None
                 rows[sid] = (d2, round(o2, 2), round(h2, 2), round(l2, 2), round(c2, 2), int(v2 // 1000))
+                if kch is not None:
+                    try:
+                        chv = float(str(r.get(kch, "")).replace(",", "").replace("+", ""))
+                        base = c2 - chv
+                        if base > 0:
+                            OFF_CHG[sid] = round(chv / base * 100, 2)
+                    except Exception:
+                        pass
                 n += 1
             print(f"  官方日行情({tag}):{n} 檔")
         except Exception as e:
@@ -1765,6 +1776,8 @@ def main():
         if bars and len(bars.get("o", [])) >= 2:
             try:
                 d = score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips)
+                if c["id"] in OFF_CHG:              # 官方當日漲跌%優先(K棒缺口時仍正確)
+                    d["chg"] = OFF_CHG[c["id"]]
                 if c.get("etf"):                      # ETF 期間績效(價格報酬,%)
                     _cl=[x[3] for x in bars["o"]]; _ds=bars.get("d") or []
                     _last=_cl[-1]

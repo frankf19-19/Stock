@@ -1398,7 +1398,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r127</span>');
+  diag.push('<span style="color:var(--dim)">build r128</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2668,7 +2668,7 @@ function candlePaint(id){
   // 同步刷新卡片上的現價/漲跌(雷達、脈動、最愛卡片即時跳動)
   const d0=RTC[id];
   if(d0&&d0.c>0){
-    document.querySelectorAll(`.r-card[data-id="${id}"] .rpx`).forEach(el=>{el.textContent=d0.c;});
+    document.querySelectorAll(`.r-card[data-id="${id}"] .rpx`).forEach(el=>{el.textContent=String(+(+d0.c).toFixed(2));});
   }
   return candlePaint2(id);
 }
