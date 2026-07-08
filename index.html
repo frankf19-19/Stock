@@ -1397,7 +1397,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r122</span>');
+  diag.push('<span style="color:var(--dim)">build r123</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5809,12 +5809,12 @@ async function loadMMeta(){
   return MMETA;
 }
 function drawMacroLine(domId,d,dg){
-  const box=document.getElementById(domId);
-  if(!box||!window.echarts)return;
-  echarts.dispose(box);
-  const ch=echarts.init(box);chipCharts.push(ch);
   const pts=[],dts=[];
   for(let i=0;i<d.t.length;i++){if(d.c[i]!=null){pts.push(+d.c[i].toFixed(dg));dts.push(new Date(d.t[i]*1000).toLocaleDateString('zh-TW',{month:'2-digit',day:'2-digit'}));}}
+  const box=document.getElementById(domId);
+  if(!box||!window.echarts)return pts;    // 圖表已移除:仍回傳收盤數列供規則化判讀使用
+  echarts.dispose(box);
+  const ch=echarts.init(box);chipCharts.push(ch);
   const ma=(p)=>pts.map((_,i)=>i<p-1?null:+(pts.slice(i-p+1,i+1).reduce((a,b)=>a+b,0)/p).toFixed(dg));
   const last=pts[pts.length-1],first=pts[0],up=last>=first;
   ch.setOption({
@@ -6680,7 +6680,6 @@ async function showMacroDetail(key){
     <div class="chart-box"><div class="ind-head"><h3>即時走勢(1分線) · 黃線為均價 · 虛線為昨收</h3><span class="c-code" id="mkIntraStat"></span></div>
       <div id="mkIntra" style="height:230px"></div></div>
     ${kChartBoxHTML()}
-    <div class="chart-box"><h3 style="font-size:14px">近六個月收盤走勢 · 含 20/60 日均線</h3><div id="mkDaily" style="height:320px"></div></div>
     <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>規則化判讀</h3><div class="dim-note" id="mkTrend">計算中…</div></div>
     <div class="dim-block"><h3>這是什麼</h3><div class="dim-note">${def.about}</div></div>
     <div class="dim-block"><h3>怎麼看</h3><div class="dim-note">${def.how}</div></div>
@@ -6739,7 +6738,7 @@ async function showMacroDetail(key){
     const pts=drawMacroLine('mkDaily',daily,dg);
     document.getElementById('mkTrend').innerHTML=mkTrendText(pts,dg,def)||'資料不足。';
   }else{
-    document.getElementById('mkDaily').innerHTML='<div class="dim-note" style="padding:20px">日線資料暫時抓不到,稍後重試。</div>';
+    const _mk=document.getElementById('mkDaily'); if(_mk)_mk.innerHTML='<div class="dim-note" style="padding:20px">日線資料暫時抓不到,稍後重試。</div>';
     document.getElementById('mkTrend').textContent='資料暫缺。';
   }
 }
