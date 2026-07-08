@@ -1425,7 +1425,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r132</span>');
+  diag.push('<span style="color:var(--dim)">build r133</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3019,6 +3019,7 @@ function dimBlock(title,d){
 function planBlock(s){
   const a=s.al, px=s.price;
   if(!a||!px)return '';
+  const IM=(typeof invMode==='function')?invMode():'short';
   const T=total(s), fmt=v=>(+v).toLocaleString();
   const ok=!!a.bull&&T>=60;
   const why=[];
@@ -3036,11 +3037,11 @@ function planBlock(s){
   if(ok){
     const inZone=px<=a.z1*1.005&&px>=a.z0*0.995;
     const nearBrk=px>=a.h20*0.98&&px<a.h20*1.005;
-    buyCard=card('▼ 買進參考','#4BD695',
+    buyCard=card(IM==='long'?'▼ 左側分批參考':'▼ 買進參考','#4BD695',
       row('買進區','拉回分批',`${fmt(a.z0)} ~ ${fmt(a.z1)}`,
-        `月線~季線均線帶,分批承接不重押${inZone?' · <b style="color:#4BD695">現價就在區內</b>':''}`,'#4BD695')+
-      row('箱型','帶量突破',fmt(+(a.h20*1.005).toFixed(2)),
-        `站上近月高且量 > ${Math.round(a.v20*1.15).toLocaleString()} 張才算數${nearBrk?' · <b style="color:var(--amber)">接近觸發</b>':''}`,'#4BD695'));
+        `月線~季線均線帶,${IM==='long'?'越跌越接、分批攤平成本(左側思維,配合停損紀律)':'分批承接不重押'}${inZone?' · <b style="color:#4BD695">現價就在區內</b>':''}`,'#4BD695')+
+      (IM==='long'?'':row('箱型','帶量突破',fmt(+(a.h20*1.005).toFixed(2)),
+        `站上近月高且量 > ${Math.round(a.v20*1.15).toLocaleString()} 張才算數(右側確認)${nearBrk?' · <b style="color:var(--amber)">接近觸發</b>':''}`,'#4BD695')));
   }else{
     buyCard=card('▼ 買進參考','#FF8A8E',
       `<div style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.8">暫不提供買進區。${why.map(w=>'<br>• '+w).join('')}</div>`);
@@ -3055,11 +3056,11 @@ function planBlock(s){
       <span data-g="報酬風險比" style="font-size:11.5px;font-weight:800;color:var(--mut);cursor:help;border-bottom:1px dotted var(--dim)">報酬風險比</span>
       <b style="font-family:var(--mono);font-size:17px;color:${rr>=2?'#4BD695':rr<1?'#FF8A8E':'var(--txt)'}">${rr.toFixed(1)} : 1</b>
       <span style="font-size:11.5px;color:var(--dim)">${rr>=2?'≥2,賺賠空間划算,值得列入觀察':rr<1?'<1,現在的位置追進不划算':'介於 1~2,可等更好的價位'}</span></div>`:'';
-  return `<div class="dim-block" style="border-left:4px solid ${tone}"><h3>📐 參考價位劇本(規則化) <span class="ds">${ok?'✓ 可留意布局':'✗ 先觀望'}</span></h3>
+  return `<div class="dim-block" style="border-left:4px solid ${tone}"><h3>📐 ${IM==='long'?'左側布局參考(規則化)':'參考價位劇本(規則化)'} <span class="ds">${ok?'✓ 可留意布局':'✗ 先觀望'}</span></h3>
     ${ok?`<div class="dim-note" style="margin:2px 0 4px"><b style="color:#4BD695">符合留意條件:多頭排列+綜合 ${T} 分</b></div>`:''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:12px;margin-top:8px">${buyCard}${sellCard}</div>
     ${rrBar}
-    <div class="dim-note" style="margin-top:10px">把「回檔到均線帶分批、帶量突破追進、跌破停損離場、到目標分批獲利」四條常見紀律,套進這檔的實際數據自動算出的<b>劇本範本,不是投資建議</b>——它不知道你的成本與部位,價位每天隨數據更新,均線帶與近月高的位置可直接對照下方 K 線圖;到價要不要執行,由你自己決定。點虛線名詞可看白話解釋。</div></div>`;
+    <div class="dim-note" style="margin-top:10px">把「${IM==='long'?'回檔到均線帶分批、跌破停損離場、到目標分批獲利':'回檔到均線帶分批、帶量突破追進、跌破停損離場、到目標分批獲利'}」${IM==='long'?'三':'四'}條常見紀律,套進這檔的實際數據自動算出的<b>${IM==='long'?'布局範本':'劇本範本'},不是投資建議</b>——它不知道你的成本與部位,價位每天隨數據更新,均線帶與近月高的位置可直接對照下方 K 線圖;到價要不要執行,由你自己決定。點虛線名詞可看白話解釋。</div></div>`;
 }
 /* 估值評價:本益比/EPS/預估本益比/同產業中位數 */
 function valBlock(s){
@@ -4126,11 +4127,17 @@ async function showDetail(id){
     </div>`})()}
     ${s.disp?`<div class="thesis" style="border-color:#FF8A8E"><b style="color:#FF8A8E">⚠ 處置中${s.disp.p?`(${s.disp.p})`:''}:</b>${s.disp.t||'交易受管制'}${s.disp.m?`——改為每 <b>${s.disp.m} 分鐘</b>集合競價撮合一次`:''}。掛單不會即時成交、流動性下降、波動放大,短線進出請特別留意;處置期滿自動恢復。</div>`:''}
     ${s.thesis&&!s.etf?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
-    ${s.etf?'':`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 4px">
-      <div class="ind-seg" id="invSeg"><button data-m="short" class="${invMode()==='short'?'on':''}">⚡ 短期波段</button><button data-m="long" class="${invMode()==='long'?'on':''}">⚖️ 長期價值</button></div>
-      <span style="font-size:11.5px;color:var(--dim)">${invMode()==='long'?'長期視角:重估值・配息・基本面,週K,不顯示短線劇本':'短期視角:重籌碼・技術・參考價位劇本,日K'}</span>
-    </div>`}
-    ${s.etf||invMode()==='long'?'':planBlock(s)}
+    ${s.etf?'':(()=>{const im=invMode();
+      const card=(m,emoji,t,sub)=>{const on=im===m;
+        return `<button data-m="${m}" style="text-align:left;padding:12px 16px;border-radius:11px;cursor:pointer;transition:.15s;
+          background:${on?'var(--panel2)':'var(--panel)'};border:2px solid ${on?'var(--amber)':'var(--line)'};${on?'':'opacity:.72'}">
+          <div style="font-size:15px;font-weight:900;color:${on?'var(--amber)':'var(--txt2)'}">${emoji} ${t}${on?' ✓':''}</div>
+          <div style="font-size:11.5px;color:var(--mut);margin-top:4px;line-height:1.6">${sub}</div></button>`;};
+      return `<div id="invSeg" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin:14px 0 8px">
+        ${card('short','⚡','短期波段(右側交易)','看籌碼與技術・日K・等突破確認才進的完整劇本')}
+        ${card('long','⚖️','長期價值(左側布局)','看估值與配息・週K・拉回到便宜區分批的思維')}
+      </div>`;})()}
+    ${s.etf?'':planBlock(s)}
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
       <span class="ticker-label">📰 ${s.name} 新聞</span>
       <div class="ticker-track" id="sTickTrack"></div>
@@ -6445,6 +6452,7 @@ function renderEtf(){
   const actE=(sub==='tw'||sub==='active')
     ?DATA.stocks.filter(s=>s.sub==='active'&&s.act&&(s.hold||{}).aum)
        .sort((a,b)=>b.hold.aum-a.hold.aum).slice(0,5):[];
+  const _actAll=(sub==='tw'||sub==='active')?DATA.stocks.filter(s=>s.sub==='active'&&s.hold):[];
   const actSec=actE.length?`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:0 0 14px">
     <div style="font-size:13px;font-weight:900;color:#C792EA;letter-spacing:.05em;margin-bottom:2px">🔍 主動式 ETF 調倉觀察|規模前五</div>
     <div style="font-size:11px;color:var(--dim);margin-bottom:8px">前十大權重估算、已扣除股價漲跌效果(單位:權重百分點);點檔名看完整觀察</div>
@@ -6458,7 +6466,10 @@ function renderEtf(){
         <div style="font-weight:800;font-size:12.5px;margin-bottom:5px"><b style="font-family:var(--mono)">${s.id}</b> ${s.name} <span style="font-weight:400;font-size:10.5px;color:var(--dim)">${(s.hold.aum/1e8).toFixed(0)} 億</span></div>
         ${li||'<div style="font-size:11.5px;color:var(--dim)">今日無明顯調倉(±0.15pp 內)</div>'}</div>`;
     }).join('')}
-    </div></div>`:'';
+    </div></div>`
+  :(_actAll.length?`<div style="background:var(--panel2);border:1px dashed var(--line);border-radius:11px;padding:12px 14px;margin:0 0 14px">
+    <div style="font-size:13px;font-weight:900;color:#C792EA;letter-spacing:.05em;margin-bottom:4px">🔍 主動式 ETF 調倉觀察|規模前五</div>
+    <div style="font-size:12px;color:var(--dim);line-height:1.8">調倉估算需要<b>連續兩個交易日</b>的成分快照比對——今天的更新建立基準,<b>下一個交易日的資料更新後</b>就會出現第一批「加碼/減碼/新進/掉出」觀察。請確認 update_data.py 已更新到 r132 以上並每日執行。</div></div>`:'');
   const srt=window.__etfSort||'q';
   const val=s=>srt==='chg'?(s.chg??-9e9):((s.perf||{})[srt]??-9e9);
   L.sort((a,b)=>val(b)-val(a));
