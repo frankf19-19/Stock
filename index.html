@@ -1398,7 +1398,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r126</span>');
+  diag.push('<span style="color:var(--dim)">build r127</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3293,13 +3293,25 @@ async function applyKView(s){
       if(chartInst){try{chartInst.dispose();}catch(e){} chartInst=null;}
       box.innerHTML='<div class="dim-note" style="padding:48px;text-align:center">📡 長天期資料載入中…(來源 Yahoo,首次約幾秒)</div>';
     }
-    data=await yOHLC(s,({'6m':'6mo'})[kView.rng]||kView.rng,kView.itv);
+    const _yr=({'6m':'6mo'})[kView.rng]||kView.rng;
+    data=await yOHLC(s,_yr,kView.itv);
+    for(let _t=0;_t<2&&!data;_t++){                 // 免費代理不穩:自動補打兩次
+      await new Promise(r=>setTimeout(r,1100+_t*900));
+      if(location.hash!==KHASH)return;
+      data=await yOHLC(s,_yr,kView.itv);
+    }
     if(data)KVC[key]=data;
   }
   if(location.hash!==KHASH)return;
   const box=document.getElementById('kbox');
   if(!data){
-    if(box)box.innerHTML='<div class="dim-note" style="padding:48px;text-align:center">此範圍資料暫時抓不到,請換一個範圍/週期或稍後再試</div>';
+    if(box){
+      box.innerHTML='<div class="dim-note" style="padding:44px 20px;text-align:center">資料來源暫時塞車(免費通道偶爾會這樣)<br><br><button id="kRetry" class="btn-ghost" style="padding:8px 22px">🔄 立即重試</button><div style="margin-top:10px;font-size:11.5px;color:var(--dim)">6 秒後也會自動重試,不用重新整理頁面</div></div>';
+      const rb=document.getElementById('kRetry');
+      if(rb)rb.onclick=()=>{rb.disabled=true;rb.textContent='重試中…';applyKView(s);};
+    }
+    const _kh=KHASH,_kk=key;
+    setTimeout(()=>{if(location.hash===_kh&&!KVC[_kk]){try{applyKView(s);}catch(e){}}},6000);
     return;
   }
   curOhlc=data.ohlc;curDates=data.dates;
