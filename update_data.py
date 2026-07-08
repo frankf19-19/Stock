@@ -1336,11 +1336,38 @@ def fetch_taifex(prev_fut=None):
     print(f"  台指期籌碼:{last}(歷史 {len(ds)} 日/法人 {len(fut['inst'])} 項/十大 {'有' if fut['big'] else '無'})")
     return fut
 
+def _act_delta(prev_hold, hold, etf_chg, chg_map, today_iso):
+    """主動式ETF調倉估算:今日權重 − 昨日權重×(1+成分股日漲幅)/(1+ETF日漲幅)。
+    正值≈主動加碼(百分點),已扣除價格漲跌造成的被動權重變化;觀測範圍=前十大。"""
+    try:
+        pt = {r[0]: (r[1], r[2]) for r in (prev_hold or {}).get("top") or [] if r[2] is not None}
+        nt = {r[0]: (r[1], r[2]) for r in (hold or {}).get("top") or [] if r[2] is not None}
+        if not pt or not nt: return None
+        if (prev_hold or {}).get("d") == today_iso: return None      # 同日重跑不算
+        re_ = (etf_chg or 0) / 100.0
+        mv = []
+        for sym, (nm, w1) in nt.items():
+            if sym not in pt: continue
+            w0 = pt[sym][1]
+            rs = (chg_map.get(sym) or 0) / 100.0
+            passive = w0 * (1 + rs) / (1 + re_) if (1 + re_) != 0 else w0
+            adj = round(w1 - passive, 2)
+            if abs(adj) >= 0.15:
+                mv.append([sym, nm, w1, adj])
+        mv.sort(key=lambda x: -abs(x[3]))
+        ins  = [[s2, nt[s2][0], nt[s2][1]] for s2 in nt if s2 not in pt][:3]
+        outs = [[s2, pt[s2][0]] for s2 in pt if s2 not in nt][:3]
+        if not mv and not ins and not outs: return None
+        return {"d": today_iso, "mv": mv[:6], "in": ins, "out": outs}
+    except Exception:
+        return None
+
 def fetch_etf_holdings(stocks):
     """ETF 成分與規模(每日):前十大成分股+權重、AUM、淨值、股/債/現金配置。
     來源 Yahoo/Morningstar(yfinance funds_data);小型/新上市 ETF 可能缺資料,前端會給官網連結。"""
     import yfinance as yf
     etfs = [s for s in stocks if s.get("etf")]
+    _chgm = {s["id"]: s.get("chg") for s in stocks if s.get("chg") is not None}
     n_ok = 0
     for s in etfs:
         tk = s["id"] if s["market"] == "US" else f"{s['id']}.{'TW' if s['ex']=='tse' else 'TWO'}"
@@ -1382,6 +1409,13 @@ def fetch_etf_holdings(stocks):
             pass
         if hold.get("top") or hold.get("aum"):
             hold["d"] = TODAY.isoformat()
+            if s.get("sub") == "active":
+                act = _act_delta(s.get("hold"), hold, s.get("chg"), _chgm, TODAY.isoformat())
+                if act: s["act"] = act
+                elif s.get("act") and s["act"].get("d") and                      (dt.date.fromisoformat(TODAY.isoformat()) - dt.date.fromisoformat(s["act"]["d"])).days <= 3:
+                    pass                                     # 三天內的舊觀察保留
+                else:
+                    s.pop("act", None)
             s["hold"] = hold; n_ok += 1
         time.sleep(0.12)
     print(f"  ETF 成分/規模:{n_ok}/{len(etfs)} 檔")

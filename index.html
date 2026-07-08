@@ -1425,7 +1425,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r131</span>');
+  diag.push('<span style="color:var(--dim)">build r132</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4079,6 +4079,7 @@ async function loadK(s){
   const e=KCACHE[sh][s.id];
   return (e&&Array.isArray(e.o)&&e.o.length>5)?{ohlc:e.o,dates:e.d}:null;
 }
+function invMode(){try{return localStorage.getItem('inv3l')||'short';}catch(e){return 'short';}}
 async function showDetail(id){
   const s=DATA.stocks.find(x=>x.id===id);
   const home=document.getElementById('homeView'), dv=document.getElementById('detailView');
@@ -4125,7 +4126,11 @@ async function showDetail(id){
     </div>`})()}
     ${s.disp?`<div class="thesis" style="border-color:#FF8A8E"><b style="color:#FF8A8E">⚠ 處置中${s.disp.p?`(${s.disp.p})`:''}:</b>${s.disp.t||'交易受管制'}${s.disp.m?`——改為每 <b>${s.disp.m} 分鐘</b>集合競價撮合一次`:''}。掛單不會即時成交、流動性下降、波動放大,短線進出請特別留意;處置期滿自動恢復。</div>`:''}
     ${s.thesis&&!s.etf?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
-    ${s.etf?'':planBlock(s)}
+    ${s.etf?'':`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 4px">
+      <div class="ind-seg" id="invSeg"><button data-m="short" class="${invMode()==='short'?'on':''}">⚡ 短期波段</button><button data-m="long" class="${invMode()==='long'?'on':''}">⚖️ 長期價值</button></div>
+      <span style="font-size:11.5px;color:var(--dim)">${invMode()==='long'?'長期視角:重估值・配息・基本面,週K,不顯示短線劇本':'短期視角:重籌碼・技術・參考價位劇本,日K'}</span>
+    </div>`}
+    ${s.etf||invMode()==='long'?'':planBlock(s)}
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
       <span class="ticker-label">📰 ${s.name} 新聞</span>
       <div class="ticker-track" id="sTickTrack"></div>
@@ -4190,6 +4195,14 @@ async function showDetail(id){
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   try{wireDetailSecs();}catch(e){}
+  const _iv=document.getElementById('invSeg');
+  if(_iv)_iv.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    try{localStorage.setItem('inv3l',b.dataset.m);}catch(e){}
+    try{const st=JSON.parse(localStorage.getItem('secState')||'{}');
+      ['stk_k','stk_3','stk_c','stk_v','stk_m','stk_p'].forEach(k=>delete st[k]);
+      localStorage.setItem('secState',JSON.stringify(st));}catch(e){}
+    showDetail(id);                                  // 以新視角重繪
+  });
   dv.querySelectorAll('[data-goto]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.goto;});
   const dFav=document.getElementById('dFav');
   if(dFav)dFav.onclick=()=>favToggle(s.id);
@@ -4255,7 +4268,7 @@ async function showDetail(id){
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
-  kView={rng:'6m',itv:'1d'}; baseK=k;
+  kView={rng:'6m',itv:(typeof invMode==='function'&&invMode()==='long')?'1wk':'1d'}; baseK=k;
   curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
   window.__kBox=boxDetect(k.ohlc,0.10);
   const lv=curLevels;
@@ -6429,6 +6442,23 @@ function renderEtf(){
       s=>`<span style="color:${s.perf.q>=0?CT.up2:CT.dn2}">${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%</span>`):ph('📈 績效排行|近 3 月'))
     +(dyRows.length?board('💰 殖利率排行|近一年',dyRows,
       s=>`<span style="color:var(--amber)">${s.hold.dy.toFixed(2)}%</span>`):ph('💰 殖利率排行|近一年'));
+  const actE=(sub==='tw'||sub==='active')
+    ?DATA.stocks.filter(s=>s.sub==='active'&&s.act&&(s.hold||{}).aum)
+       .sort((a,b)=>b.hold.aum-a.hold.aum).slice(0,5):[];
+  const actSec=actE.length?`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:0 0 14px">
+    <div style="font-size:13px;font-weight:900;color:#C792EA;letter-spacing:.05em;margin-bottom:2px">🔍 主動式 ETF 調倉觀察|規模前五</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">前十大權重估算、已扣除股價漲跌效果(單位:權重百分點);點檔名看完整觀察</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">
+    ${actE.map(s=>{
+      const a=s.act;
+      const li=(a.mv||[]).slice(0,3).map(([sym,nm,w,adj])=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2.5px 0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sym} ${nm}</span><b style="font-family:var(--mono);color:${adj>0?CT.up2:CT.dn2}">${adj>0?'+':''}${adj.toFixed(2)}pp</b></div>`).join('')
+        +(a['in']||[]).slice(0,2).map(([sym,nm])=>`<div style="font-size:12px;padding:2.5px 0;color:var(--amber)">🆕 ${sym} ${nm} 新進</div>`).join('')
+        +(a['out']||[]).slice(0,2).map(([sym,nm])=>`<div style="font-size:12px;padding:2.5px 0;color:var(--dim)">↓ ${sym} ${nm} 掉出</div>`).join('');
+      return `<div data-id="${s.id}" style="background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 12px;cursor:pointer">
+        <div style="font-weight:800;font-size:12.5px;margin-bottom:5px"><b style="font-family:var(--mono)">${s.id}</b> ${s.name} <span style="font-weight:400;font-size:10.5px;color:var(--dim)">${(s.hold.aum/1e8).toFixed(0)} 億</span></div>
+        ${li||'<div style="font-size:11.5px;color:var(--dim)">今日無明顯調倉(±0.15pp 內)</div>'}</div>`;
+    }).join('')}
+    </div></div>`:'';
   const srt=window.__etfSort||'q';
   const val=s=>srt==='chg'?(s.chg??-9e9):((s.perf||{})[srt]??-9e9);
   L.sort((a,b)=>val(b)-val(a));
@@ -6437,6 +6467,7 @@ function renderEtf(){
   const pf=(s,k)=>{const v=(s.perf||{})[k];return v==null?'—':`<span style="color:${v>=0?CT.up2:CT.dn2}">${v>=0?'+':''}${v.toFixed(1)}%</span>`;};
   const hd=(k,lb)=>`<div data-srt="${k}" style="color:${srt===k?'var(--amber)':'var(--mut)'};text-align:right;padding:4px 2px;border-bottom:1px solid var(--line);cursor:pointer;font-weight:${srt===k?'800':'400'}">${lb}${srt===k?' ▼':''}</div>`;
   box.innerHTML=`${boards?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin:2px 0 14px">${boards}</div>`:''}
+  ${actSec}
   <div style="display:grid;grid-template-columns:minmax(0,1fr) 66px 62px 62px 62px;font-size:12.5px">
     <div style="color:var(--mut);padding:4px 2px;border-bottom:1px solid var(--line)">名稱</div>
     <div style="color:var(--mut);text-align:right;padding:4px 2px;border-bottom:1px solid var(--line)">現價</div>
@@ -6500,7 +6531,21 @@ function etfSec(s){
       <div class="links" style="margin-top:12px"><a href="${yhold}" target="_blank" rel="noopener">完整持股 · Yahoo ↗</a></div>
       <div class="dim-note" style="margin-top:8px">來源:Yahoo/Morningstar,每日自動更新;此為前十大持股,<b>完整每日成分(PCF)以發行商官網為準</b>。「現金」是尚未投入市場的部位——比重偏高代表基金留了子彈或正在調倉。台股成分點列可直接跳到該檔個股頁看報價與籌碼。</div>`;
   })();
-  return `<div class="sec-title" data-sec="stk_e"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13.5l9 5 9-5"/><path d="M3 18l9 5 9-5" opacity=".45"/></svg> 成分股與規模 <span style="font-weight:400;font-size:12px;letter-spacing:0">前十大持股・資產配置・每日更新</span></div><div class="sec-body" id="sb-stk_e"><div class="dim-block" style="border-left:4px solid var(--amber)">${inner}</div>${etfPerfBlock(s)}</div>`;
+  return `<div class="sec-title" data-sec="stk_e"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13.5l9 5 9-5"/><path d="M3 18l9 5 9-5" opacity=".45"/></svg> 成分股與規模 <span style="font-weight:400;font-size:12px;letter-spacing:0">前十大持股・資產配置・每日更新</span></div><div class="sec-body" id="sb-stk_e"><div class="dim-block" style="border-left:4px solid var(--amber)">${inner}</div>${etfPerfBlock(s)}${s.sub==='active'?etfActBlock(s):''}</div>`;
+}
+/* 🔍 主動式 ETF 調倉觀察(前十大權重估算,已扣股價漲跌效果) */
+function etfActBlock(s){
+  const a=s.act;
+  if(!a)return '';
+  const row=(sym,nm,txt,col)=>`<div data-goto="${sym}" style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line);cursor:pointer">
+    <b style="font-family:var(--mono)">${sym}</b><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</span>
+    <b style="font-family:var(--mono);color:${col}">${txt}</b></div>`;
+  const mv=(a.mv||[]).map(([sym,nm,w,adj])=>row(sym,nm,(adj>0?'加碼 +':'減碼 ')+adj.toFixed(2)+'pp',adj>0?CT.up2:CT.dn2)).join('');
+  const ins=(a['in']||[]).map(([sym,nm,w])=>row(sym,nm,'🆕 新進前十大('+w+'%)','var(--amber)')).join('');
+  const outs=(a['out']||[]).map(([sym,nm])=>row(sym,nm,'掉出前十大','var(--dim)')).join('');
+  return `<div class="dim-block" style="border-left:4px solid #C792EA"><h3>🔍 經理人調倉觀察 <span class="ds">${a.d}</span></h3>
+    ${mv}${ins}${outs}
+    <div class="dim-note" style="margin-top:8px">估算方式:今日權重 −(昨日權重 × 成分股漲幅 ÷ ETF 漲幅)——<b>已扣除股價漲跌造成的被動權重變化</b>,剩下的即接近經理人的主動加減碼(單位:權重百分點)。觀測範圍為前十大持股、非官方申報資料,方向參考用;完整每日 PCF 請看發行商官網。</div></div>`;
 }
 /* 📈 ETF 期間績效(價格報酬,由每日K線計算) */
 function etfPerfBlock(s){
@@ -6521,7 +6566,10 @@ function etfPerfBlock(s){
 function wireDetailSecs(){
   let saved={};try{saved=JSON.parse(localStorage.getItem('secState')||'{}');}catch(e){}
   const mob=innerWidth<640;
-  const defClosed={stk_c:mob,stk_m:mob,stk_p:mob};
+  const IM=(typeof invMode==='function')?invMode():'short';
+  const defClosed=IM==='long'
+    ?{stk_c:true,stk_m:mob,stk_p:mob}                 // 長期:收籌碼圖表,估值/配息展開
+    :{stk_c:mob,stk_v:mob,stk_m:mob,stk_p:mob};       // 短期:手機收估值,重籌碼技術
   document.querySelectorAll('#detailView .sec-title[data-sec]').forEach(t=>{
     const key=t.dataset.sec,body=document.getElementById('sb-'+key);
     if(!body)return;
