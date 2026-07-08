@@ -1425,7 +1425,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r133</span>');
+  diag.push('<span style="color:var(--dim)">build r134</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4144,7 +4144,7 @@ async function showDetail(id){
     </div>
     <div class="sec-title" data-sec="stk_k">${s.etf?`📈 走勢`:`📈 走勢・價位・進場策略`} <span style="font-weight:400;font-size:12px;letter-spacing:0">${s.etf?`K線・配息時間`:`K線・關鍵價位・除權息時間`}</span></div><div class="sec-body" id="sb-stk_k">
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
-    <div id="divTL"></div>
+    ${(s.etf||invMode()==='long')?'<div id="divTL"></div>':''}
     </div>
     ${s.etf?etfSec(s):''}
     <div class="sec-title" data-sec="stk_3">${s.etf?'📊 籌碼與技術':'⚖️ 三力檢視'} <span style="font-weight:400;font-size:12px;letter-spacing:0">${s.etf?'法人動向・技術線型':'基本面・籌碼面・技術面評分'} · 💡 點名詞看白話解釋</span></div><div class="sec-body" id="sb-stk_3">
@@ -4153,11 +4153,11 @@ async function showDetail(id){
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',cAug)}
     ${dimBlock('技術線型(權重25%)',s.t)}
     </div>
-    <div class="sec-title" data-sec="stk_c">📊 籌碼與營收圖表 <span style="font-weight:400;font-size:12px;letter-spacing:0">營收趨勢・法人・大戶・信用交易</span></div><div class="sec-body" id="sb-stk_c">
-    ${s.market==='TW'&&!s.etf?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
-    <div id="chipwrap"></div>
+    <div class="sec-title" data-sec="stk_c">${(s.etf||invMode()==='short')?'📊 籌碼圖表':'📊 營收趨勢'} <span style="font-weight:400;font-size:12px;letter-spacing:0">${(s.etf||invMode()==='short')?'法人買賣超・大戶持股・信用交易(6個月)':'月營收與年增率走勢'}</span></div><div class="sec-body" id="sb-stk_c">
+    ${s.market==='TW'&&!s.etf&&invMode()==='long'?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
+    ${(s.etf||invMode()==='short')?'<div id="chipwrap"></div>':''}
     </div>
-    ${s.market==='TW'&&!s.etf?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:12px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}</div>`:''}
+    ${s.market==='TW'&&!s.etf&&invMode()==='long'?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:12px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}</div>`:''}
     <div class="sec-title" data-sec="stk_m">🎯 市場觀點與新聞 <span style="font-weight:400;font-size:12px;letter-spacing:0">目標價・研究報告・相關新聞</span></div><div class="sec-body" id="sb-stk_m">
     ${s.etf?``:`<div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
       <h3>分析師觀點|目標價與研究報告</h3>
@@ -4186,7 +4186,7 @@ async function showDetail(id){
       </div>
     </div>
     </div>
-    ${s.etf?``:`<div class="sec-title" data-sec="stk_p">🏢 認識這家公司 <span style="font-weight:400;font-size:12px;letter-spacing:0">公司簡介・產業教學・外部連結</span></div><div class="sec-body" id="sb-stk_p">
+    ${(s.etf||invMode()==='short')?``:`<div class="sec-title" data-sec="stk_p">🏢 認識這家公司 <span style="font-weight:400;font-size:12px;letter-spacing:0">公司簡介・產業教學・外部連結</span></div><div class="sec-body" id="sb-stk_p">
     ${(()=>{const lm=SEC2LEARN.find(([k])=>String(s.sector).includes(k));return `
     <div class="dim-block" id="profBlock">
       <h3>公司簡介|做什麼・賣什麼 <span class="ds">${s.sector}</span></h3>
@@ -4671,7 +4671,7 @@ async function loadChipDetail(s){
   const e=await loadChips(s);
   if(location.hash!==KHASH)return;
   if(!e||!(e.d&&e.d.length)){
-    box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">此檔法人歷史累積中(每日自動更新後逐步補齊至 130 個交易日),先參考上方籌碼面摘要。</div><div class="chart-box" style="margin-top:10px"><div class="ind-head"><h3 style="font-size:14px">信用交易|融資・融券・借券賣出餘額(近一年)</h3><span class="c-code" id="credStat">載入中…</span></div><div id="credBox" style="height:250px"></div></div></div>';
+    box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">此檔法人歷史累積中(每日自動更新後逐步補齊至 130 個交易日),先參考上方籌碼面摘要。</div><div class="chart-box" style="margin-top:10px"><div class="ind-head"><h3 style="font-size:14px">信用交易|融資・融券・借券賣出+股價(6個月)</h3><span class="c-code" id="credStat">載入中…</span></div><div id="credBox" style="height:250px"></div></div></div>';
     loadCreditTrend(s,e);return;}
   curChips={s,e};
   renderChipCharts(s,e);
@@ -4699,7 +4699,7 @@ function renderChipCharts(s,e){
     <div class="chart-box" style="margin-top:10px"><h3 style="font-size:14px">三大法人買賣超(張)· 折線為外資累計 · 滾輪/雙指縮放</h3><div id="instBox" style="height:280px"></div></div>
     ${(e.bd&&e.bd.length>1)?`<div class="chart-box"><h3 style="font-size:14px">400張以上大戶持股比(每週,近 ${e.bd.length} 週)</h3><div id="bigBox" style="height:190px"></div></div>`:''}
     ${(e.rm&&e.rm.length>1)?`<div class="chart-box"><h3 style="font-size:14px">月營收年增率 YoY · 折線為當月營收(億)</h3><div id="revBox" style="height:210px"></div></div>`:''}
-    <div class="chart-box"><div class="ind-head"><h3 style="font-size:14px">信用交易|融資・融券・借券賣出餘額(近一年)</h3><span class="c-code" id="credStat">載入中…</span></div><div id="credBox" style="height:250px"></div></div>
+    <div class="chart-box"><div class="ind-head"><h3 style="font-size:14px">信用交易|融資・融券・借券賣出+股價(6個月)</h3><span class="c-code" id="credStat">載入中…</span></div><div id="credBox" style="height:250px"></div></div>
     <div class="dim-note">單位:法人買賣超與信用交易餘額皆為「張」。來源:證交所 T86、櫃買法人日報表、集保 TDCC 股權分散表、月營收彙總;信用交易為 FinMind 近一年歷史(失敗時回退站內每日累積)。法人/大戶歷史逐日累積,擴充至 130 日/52 週後首月會逐步補齊。</div>
   </div>`;
   if(!window.echarts)return;
@@ -6342,7 +6342,7 @@ async function loadCreditTrend(s,e){
   if(!box)return;
   let d=[],mf=[],mv=[],sb=[],src='FinMind';
   try{
-    const start=new Date(Date.now()-380*86400000).toISOString().slice(0,10);
+    const start=new Date(Date.now()-190*86400000).toISOString().slice(0,10);   // 近6個月
     const [r1,r2]=await Promise.all([
       fT(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockMarginPurchaseShortSale&data_id=${s.id}&start_date=${start}`,12000),
       fT(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanDailyShortSaleBalances&data_id=${s.id}&start_date=${start}`,12000)
@@ -6368,6 +6368,15 @@ async function loadCreditTrend(s,e){
   }
   if(location.hash!=='#stock/'+s.id)return;
   if(!d.length){if(st)st.textContent='信用交易資料暫缺(部分上櫃/新掛牌檔待累積)';return;}
+  if(d.length>132){const cut=d.length-132;d=d.slice(cut);mf=mf.slice(cut);mv=mv.slice(cut);sb=sb.slice(cut);}
+  let px=null;                                        // 疊股價:對照信用與價格的關係
+  try{
+    if(baseK&&baseK.dates&&baseK.ohlc){
+      const pm={};baseK.dates.forEach((k,i)=>pm[k]=baseK.ohlc[i][3]);
+      const arr=d.map(k=>pm[k]??null);
+      if(arr.some(v=>v!=null))px=arr;
+    }
+  }catch(e){}
   const lastN=a=>{for(let i=a.length-1;i>=0;i--)if(a[i]!=null)return a[i];return null;};
   const lf=lastN(mf),ls=lastN(mv),ll=lastN(sb);
   const ratio=(lf&&ls!=null)?((ls/lf)*100).toFixed(1)+'%':'—';
@@ -6378,20 +6387,23 @@ async function loadCreditTrend(s,e){
   ch.setOption({
     backgroundColor:'transparent',
     textStyle:{fontFamily:'IBM Plex Mono,monospace'},
-    legend:{data:['融資餘額','融券餘額','借券賣出餘額'],top:0,textStyle:{color:CT.legend,fontSize:11}},
+    legend:{data:['融資餘額','融券餘額','借券賣出餘額'].concat(px?['股價']:[]),top:0,textStyle:{color:CT.legend,fontSize:11}},
     tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12},
       valueFormatter:v=>v!=null?(+v).toLocaleString('zh-TW')+' 張':'—'},
     grid:{left:innerWidth<640?48:64,right:innerWidth<640?42:64,top:30,bottom:innerWidth<640?36:24},
     xAxis:{type:'category',data:d,axisLabel:{color:CT.axis,fontSize:9.5,rotate:innerWidth<640?30:0,showMinLabel:true,showMaxLabel:true,
       interval:Math.ceil(d.length/(innerWidth<640?6:9)),formatter:v=>String(v).slice(5).replace('-','/')},axisLine:{lineStyle:{color:CT.border}}},
     yAxis:[{type:'value',name:innerWidth<640?'':'融資(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{lineStyle:{color:CT.split}}},
-           {type:'value',name:innerWidth<640?'':'券/借券(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}}],
+           {type:'value',name:innerWidth<640?'':'券/借券(張)',axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}},
+           {type:'value',show:false,scale:true}],
     dataZoom:[{type:'inside'}],
     series:[
       {name:'融資餘額',type:'line',color:'#E8B44A',data:mf,symbol:'none',lineStyle:{width:2,color:'#E8B44A'},itemStyle:{color:'#E8B44A'},areaStyle:{color:hexA('#E8B44A',.08)}},
       {name:'融券餘額',type:'line',color:'#FF8A8E',yAxisIndex:1,data:mv,symbol:'none',lineStyle:{width:1.6,color:'#FF8A8E'},itemStyle:{color:'#FF8A8E'}},
       {name:'借券賣出餘額',type:'line',color:'#7FB4FF',yAxisIndex:1,data:sb,symbol:'none',lineStyle:{width:1.6,color:'#7FB4FF'},itemStyle:{color:'#7FB4FF'}}
-    ]});
+    ].concat(px?[{name:'股價',type:'line',color:CT.ma60,yAxisIndex:2,data:px,symbol:'none',connectNulls:true,
+      lineStyle:{width:2,color:CT.ma60},itemStyle:{color:CT.ma60},z:5,
+      tooltip:{valueFormatter:v=>v!=null?(+v).toLocaleString():'—'}}]:[])});
 }
 /* ══ 首頁分頁籤:大盤/個股/ETF ══ */
 function setHomeTab(t){
@@ -6579,8 +6591,8 @@ function wireDetailSecs(){
   const mob=innerWidth<640;
   const IM=(typeof invMode==='function')?invMode():'short';
   const defClosed=IM==='long'
-    ?{stk_c:true,stk_m:mob,stk_p:mob}                 // 長期:收籌碼圖表,估值/配息展開
-    :{stk_c:mob,stk_v:mob,stk_m:mob,stk_p:mob};       // 短期:手機收估值,重籌碼技術
+    ?{stk_m:mob,stk_p:mob}                            // 長期:營收趨勢/估值/配息全展開
+    :{stk_c:mob,stk_m:mob};                           // 短期:手機收圖表區
   document.querySelectorAll('#detailView .sec-title[data-sec]').forEach(t=>{
     const key=t.dataset.sec,body=document.getElementById('sb-'+key);
     if(!body)return;
