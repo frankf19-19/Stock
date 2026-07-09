@@ -1115,15 +1115,28 @@ function renderFav(){
     return;
   }
   const byId={};(DATA.stocks||[]).forEach(s=>byId[s.id]=s);
-  box.innerHTML=ids.map(id=>{
+  const card=id=>{
     const s=byId[id];
     if(!s)return `<div class="r-card" data-id="${id}"><span class="r-name">${id} <span class="c-code">資料更新後顯示</span></span></div>`;
     return `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
       <span class="r-name"><span class="fav-tg on" data-fav="${s.id}" title="移除收藏">★</span> ${s.name} <span class="c-code">${s.id}</span>
         <b class="rpx">${s.price??'—'}</b> <span style="font-family:var(--mono);font-size:12px">${chgHtml(s.chg)}</span><span class="mini-candle" data-candle="${s.id}"></span></span>
-      <span class="r-desc">綜合 ${total(s)} 分|基本 ${s.f.score} · 籌碼 ${s.c.score} · 技術 ${s.t.score}${s.sig&&s.sig.length?` · <b style="color:var(--amber)">${s.sig.map(x=>x.label).join('+')}</b>`:''}</span>
+      <span class="r-desc">${s.etf?`${(s.perf&&s.perf.q!=null)?`近3月 ${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%`:'ETF'}${s.hold&&s.hold.dy?` · 殖利率 ${s.hold.dy.toFixed(2)}%`:''}${s.hold&&s.hold.aum?` · 規模 ${(s.hold.aum/1e8).toFixed(0)} 億`:''}`
+        :`綜合 ${total(s)} 分|基本 ${s.f.score} · 籌碼 ${s.c.score} · 技術 ${s.t.score}${s.sig&&s.sig.length?` · <b style="color:var(--amber)">${s.sig.map(x=>x.label).join('+')}</b>`:''}`}</span>
     </div>`;
-  }).join('');
+  };
+  const g={tw:[],us:[],etf:[],other:[]};
+  ids.forEach(id=>{
+    const s=byId[id];
+    if(!s){g.other.push(id);return;}
+    if(s.etf)g.etf.push(id);
+    else if(s.market==='TW')g.tw.push(id);
+    else g.us.push(id);
+  });
+  const sec=(title,list)=>list.length?`
+    <div style="grid-column:1/-1;font-size:13px;font-weight:900;color:var(--amber);letter-spacing:.06em;margin:6px 0 -4px">${title} <span style="font-weight:400;color:var(--dim)">${list.length} 檔</span></div>
+    ${list.map(card).join('')}`:'';
+  box.innerHTML=sec('🇹🇼 台股',g.tw)+sec('🇺🇸 美股',g.us)+sec('🧺 ETF',g.etf)+sec('待更新',g.other);
   box.querySelectorAll('.r-card').forEach(c=>c.onclick=e=>{
     const st=e.target.closest('.fav-tg');
     if(st){e.stopPropagation();favToggle(st.dataset.fav);return;}
@@ -1436,7 +1449,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r142</span>');
+  diag.push('<span style="color:var(--dim)">build r143</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
