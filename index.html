@@ -1436,7 +1436,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r139</span>');
+  diag.push('<span style="color:var(--dim)">build r140</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3090,12 +3090,7 @@ function outlookBlock(s){
   const ckv=(s.c&&s.c.kv)||{};
   const f60=parseFloat(String(ckv['外資60日']||'').replace(/[+,張 ]/g,''));
   const t20=parseFloat(String(ckv['投信20日']||'').replace(/[+,張 ]/g,''));
-  const cr=(DATA.macro||{}).credit||{};
-  const env=[];
-  if(upR!=null)env.push(`大盤寬度:今日 <b>${upR}%</b> 個股收紅${upR>=60?'——普漲,順風':upR<=40?'——普跌,逆風,個股獨強要打折看':',中性'}`);
-  if(rel!=null)env.push(`族群位置:${s.sector} 中位數 ${secMed>=0?'+':''}${secMed}%,${rel>0.5?`<b style="color:${CT.up2}">強於大盤</b>——資金在這一族,順勢票`:rel<-0.5?`<b style="color:${CT.dn2}">弱於大盤</b>——資金不在這,反彈常只是跟漲`:'與大盤同步'}`);
-  if(isFinite(f60))env.push(`法人:外資近季${f60>0?'買':'賣'}超${isFinite(t20)&&t20>0?'、投信近月買超——中期籌碼有靠山':f60>0?'——中期方向偏多':'——中期仍在退場,反彈視為逃命波的機率高'}`);
-  if(cr.finD!=null&&s.market==='TW')env.push(`信用氛圍:大盤融資單日 ${cr.finD>=0?'+':''}${cr.finD} 億${Math.abs(cr.finD)>50?(cr.finD>0?'——散戶加速進場,行情偏熱':'——融資減肥中,浮額清洗'):''}`);
+  // 環境因子內部計算(不顯示,用於情境調校)
   // ── 個股已公布數據(營收/三率/估值/重訊/處置)──
   const fkv=(s.f&&s.f.kv)||{};
   const yoy=parseFloat(String(fkv['月營收YoY']||'').replace(/[+%]/g,''));
@@ -3165,6 +3160,8 @@ function outlookBlock(s){
     tomo.push(`<b>帶量收復 ${fmt(a.z1)}</b> 且站穩兩三天 → 才有資格談趨勢反轉,單日衝過不算`);
     tomo.push(`<b>續弱</b> → 前低附近觀察止跌訊號(長下影+爆量),沒訊號不接刀`);
   }
+  if(upR!=null&&upR<=40)tomo.unshift(`今日大盤普跌(僅 ${upR}% 收紅)——逆風日的個股訊號可信度降一級,明日情境觸發都要<b>配量確認</b>,反彈少追`);
+  else if(upR!=null&&upR>=60&&rel!=null&&rel>0.5)tomo.unshift(`大盤順風+族群資金流入中——情境觸發的可信度較高,但普漲日也別把運氣當實力`);
   if(s.disp)tomo.unshift(`<b style="color:${CT.up2}">⚠ 處置中${s.disp.m?`(每 ${s.disp.m} 分鐘撮合)`:''}</b>——流動性受限、掛單不即時成交,以下情境全部打折,短線以觀望為主`);
   // ── 下週關鍵 ──
   const wk=[];
@@ -3176,9 +3173,7 @@ function outlookBlock(s){
   if(rel!=null&&rel>0.5)wk.push(`族群動能:${s.sector} 若持續強於大盤,回檔會有資金接;族群轉弱則個股獨木難撐`);
   if(s.tp&&s.tp.m)wk.push(`市場定價:分析師平均目標 ${fmt(Math.round(s.tp.m))}(距現價 ${((s.tp.m/px-1)*100).toFixed(0)}%),留意本週有無調升/調降報告改變預期`);
   return `<div class="dim-block" style="border-left:4px solid #C792EA"><h3>🔮 明日與下週推演 <span class="ds">情境地圖・非預測</span></h3>
-    <div style="font-size:12px;font-weight:800;color:var(--mut);letter-spacing:.05em;margin:4px 0 2px">環境判讀</div>
-    <div class="dim-note" style="line-height:2">${env.map(e=>'• '+e).join('<br>')}</div>
-    ${body.length?`<div style="font-size:12px;font-weight:800;color:var(--mut);letter-spacing:.05em;margin:10px 0 2px">個股已公布數據</div>
+    ${body.length?`<div style="font-size:12px;font-weight:800;color:var(--mut);letter-spacing:.05em;margin:4px 0 2px">個股已公布數據</div>
     <div class="dim-note" style="line-height:2">${body.map(e=>'• '+e).join('<br>')}</div>`:''}
     ${chip.length?`<div style="font-size:12px;font-weight:800;color:var(--mut);letter-spacing:.05em;margin:10px 0 2px">籌碼動向(這檔的錢)</div>
     <div class="dim-note" style="line-height:2">${chip.map(e=>'• '+e).join('<br>')}</div>`:''}
