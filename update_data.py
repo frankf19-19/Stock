@@ -1420,6 +1420,178 @@ def fetch_etf_holdings(stocks):
         time.sleep(0.12)
     print(f"  ETF 成分/規模:{n_ok}/{len(etfs)} 檔")
 
+def build_fut_table():
+    """期貨籌碼先行指標表(近14個交易日):現貨成交值/三大法人現貨/外資期貨淨OI/
+    選擇權PCR/外資選擇權淨OI/小台散戶多空比(韭菜指數)/大台總OI。
+    來源:FinMind(歷史回補)+ 期交所 openapi(PCR)。全部每日盤後資料。"""
+    tok = os.environ.get("FINMIND_TOKEN", "")
+    start = (TODAY - dt.timedelta(days=30)).isoformat()
+
+    def _fm(dataset, data_id=None):
+        params = {"dataset": dataset, "start_date": start}
+        if data_id: params["data_id"] = data_id
+        if tok: params["token"] = tok
+        j = get_json("https://api.finmindtrade.com/api/v4/data", params=params, timeout=60)
+        return (j.get("data") or []) if isinstance(j, dict) else []
+
+    T = {}
+    def row(d2): return T.setdefault(d2, {"d": d2})
+    try:                                   # 繼承昨日表(讓僅有「當日源」的欄位可跨日累積)
+        with open("data.json", encoding="utf-8") as fp:
+            for r0 in (json.load(fp).get("macro", {}).get("futtab") or []):
+                if r0.get("d"): T[r0["d"]] = dict(r0)
+    except Exception:
+        pass
+
+    # 1. 現貨成交值(TWSE FMTQIK,自帶當月歷史)
+    try:
+        arr = get_json("https://openapi.twse.com.tw/v1/exchangeReport/FMTQIK", timeout=40) or []
+        for r in arr:
+            d2 = str(r.get("Date", ""))
+            d2 = f"{int(d2[:3])+1911}-{d2[3:5]}-{d2[5:7]}" if len(d2) == 7 and d2.isdigit() else d2.replace("/", "-")
+            v = None
+            for k in r:
+                if "TradeValue" in k or "成交金額" in k: v = r[k]
+            try: row(d2)["amt"] = round(float(str(v).replace(",", "")) / 1e8, 1)
+            except Exception: pass
+    except Exception as e:
+        print(f"  [warn] futtab 成交值: {e}")
+
+    # 2. 三大法人現貨買賣超(億)
+    try:
+        for r in _fm("TaiwanStockTotalInstitutionalInvestors"):
+            d2 = r.get("date"); nm = str(r.get("name", ""))
+            net = (numf(r.get("buy")) or 0) - (numf(r.get("sell")) or 0)
+            key = None
+            if ("Foreign" in nm or "外資" in nm) and "Dealer" not in nm and "自營" not in nm: key = "f"
+            elif "Trust" in nm or "投信" in nm: key = "t"
+            elif "Dealer" in nm or "自營" in nm: key = "dl"
+            if d2 and key:
+                row(d2)[key] = round(row(d2).get(key, 0) + net / 1e8, 1)
+    except Exception as e:
+        print(f"  [warn] futtab 法人現貨: {e}")
+
+    # 3. 期貨法人淨OI(TX 外資;MTX 三法人合計 → 韭菜)
+    def _fut_oi(pid):
+        out = {}
+        for r in _fm("TaiwanFuturesInstitutionalInvestors", pid):
+            d2 = r.get("date"); nm = str(r.get("institutional_investors", ""))
+            lo = numf(r.get("long_open_interest_balance_volume")) or 0
+            so = numf(r.get("short_open_interest_balance_volume")) or 0
+            out.setdefault(d2, {})[nm] = lo - so
+        return out
+    mtx = {}
+    try:
+        tx = _fut_oi("TX")
+        for d2, m in tx.items():
+            fk = next((k for k in m if "外資" in k or "Foreign" in k), None)
+            if fk: row(d2)["txf"] = int(m[fk])
+        mtx = _fut_oi("MTX")
+    except Exception as e:
+        print(f"  [warn] futtab 期貨法人: {e}")
+
+    # 4. 總OI + 韭菜指數
+    def _tot_oi(pid):
+        out = {}
+        for r in _fm("TaiwanFuturesDaily", pid):
+            if str(r.get("trading_session", "position")) != "position": continue
+            d2 = r.get("date"); oi = numf(r.get("open_interest")) or 0
+            out[d2] = out.get(d2, 0) + oi
+        return out
+    try:
+        txoi = _tot_oi("TX"); mtxoi = _tot_oi("MTX")
+        for d2, v in txoi.items(): row(d2)["oi"] = int(v)
+        for d2, tot in mtxoi.items():
+            inst = sum((mtx.get(d2) or {}).values())
+            if tot > 0: row(d2)["leek"] = round((-inst) / tot * 100, 2)
+    except Exception as e:
+        print(f"  [warn] futtab 總OI: {e}")
+
+    # 5. 選擇權外資淨OI + PCR
+    try:
+        opt = {}
+        for r in _fm("TaiwanOptionInstitutionalInvestors", "TXO"):
+            d2 = r.get("date"); nm = str(r.get("institutional_investors", ""))
+            if "外資" not in nm and "Foreign" not in nm: continue
+            lo = numf(r.get("long_open_interest_balance_volume")) or 0
+            so = numf(r.get("short_open_interest_balance_volume")) or 0
+            opt[d2] = opt.get(d2, 0) + (lo - so)
+        for d2, v in opt.items(): row(d2)["txo"] = int(v)
+    except Exception as e:
+        print(f"  [warn] futtab 選擇權法人: {e}")
+    try:
+        arr = get_json("https://openapi.taifex.com.tw/v1/PutCallRatio", timeout=40) or []
+        for r in arr:
+            keys = list(r.keys())
+            kd = next((k for k in keys if "date" in k.lower() or "日期" in k), None)
+            kp = next((k for k in keys if ("ratio" in k.lower() and "oi" in k.lower())), None) or \
+                 next((k for k in keys if "未平倉" in k and "比" in k), None) or \
+                 next((k for k in keys if "putcallratio" in k.lower().replace(" ", "")), None)
+            if not (kd and kp): continue
+            d2 = str(r[kd]).replace("/", "-")
+            try: row(d2)["pcr"] = round(float(str(r[kp]).replace("%", "").replace(",", "")), 1)
+            except Exception: pass
+    except Exception as e:
+        print(f"  [warn] futtab PCR: {e}")
+
+    # 6. 前五大/前十大交易人留倉(臺股期貨全月份・全部交易人)
+    def _net_from(r, tag):
+        ks = list(r.keys())
+        pick = lambda side: next((r[k] for k in ks
+            if tag in k.replace("_", "").replace(" ", "").lower() and side in k.lower()), None)
+        b = numf(pick("buy")) if pick("buy") is not None else numf(pick("長") or pick("多"))
+        s2 = numf(pick("sell")) if pick("sell") is not None else numf(pick("空"))
+        return (b - s2) if (b is not None and s2 is not None) else None
+    got_lt = 0
+    try:                                   # 主源:FinMind(可回補)
+        for r in _fm("TaiwanFuturesOpenInterestLargeTraders", "TX"):
+            d2 = r.get("date")
+            if not d2: continue
+            cd = str(r.get("contract_date", r.get("contract", "")))
+            nm2 = str(r.get("name", "")) + str(r.get("trader_type", ""))
+            if cd and not any(x in cd.lower() for x in ("999999", "all", "全部")): continue
+            if "特定" in nm2 and "非" not in nm2:  # 用「全部交易人」口徑,跳過純特定法人列
+                continue
+            n5 = _net_from(r, "top5"); n10 = _net_from(r, "top10")
+            if n5 is None and n10 is None:  # 另一種欄位風格:buy5/sell5
+                ks = {k.lower().replace("_", ""): k for k in r.keys()}
+                g = lambda p: numf(r.get(ks.get(p)))
+                b5, s5, b10, s10 = g("top5buy") or g("buy5"), g("top5sell") or g("sell5"), \
+                                   g("top10buy") or g("buy10"), g("top10sell") or g("sell10")
+                if b5 is not None and s5 is not None: n5 = b5 - s5
+                if b10 is not None and s10 is not None: n10 = b10 - s10
+            if n5 is not None: row(d2)["t5"] = int(n5); got_lt += 1
+            if n10 is not None: row(d2)["t10"] = int(n10)
+    except Exception as e:
+        print(f"  [warn] futtab 大額交易人(FinMind): {e}")
+    if not got_lt:
+        try:                               # 備援:期交所 openapi(僅當日,靠繼承機制累積)
+            arr = get_json("https://openapi.taifex.com.tw/v1/OpenInterestOfLargeTradersFutures", timeout=40) or []
+            for r in arr:
+                blob = json.dumps(r, ensure_ascii=False)
+                if ("臺股期貨" not in blob and "TX" not in blob) or ("週" in blob):
+                    continue
+                cd = str(r.get("ContractMonth", r.get("到期月份(週別)", "")))
+                if cd and not any(x in cd for x in ("999999", "all", "全部", "所有")): continue
+                ks = {k.replace(" ", ""): k for k in r.keys()}
+                g = lambda frag_all: next((numf(r[v]) for k2, v in ks.items()
+                       if all(f in k2 for f in frag_all)), None)
+                b5, s5 = g(("5", "買")), g(("5", "賣"))
+                b10, s10 = g(("10", "買")), g(("10", "賣"))
+                kd = next((v for k2, v in ks.items() if "日期" in k2 or "Date" in k2), None)
+                d2 = str(r.get(kd, TODAY.isoformat())).replace("/", "-") if kd else TODAY.isoformat()
+                if len(d2) == 7 and d2.replace("-", "").isdigit():
+                    d2 = f"{int(d2[:3])+1911}-{d2[3:5]}-{d2[5:7]}"
+                if b5 is not None and s5 is not None: row(d2)["t5"] = int(b5 - s5)
+                if b10 is not None and s10 is not None: row(d2)["t10"] = int(b10 - s10)
+        except Exception as e:
+            print(f"  [warn] futtab 大額交易人(期交所): {e}")
+
+    rows = [T[k] for k in sorted(T.keys()) if k >= (TODAY - dt.timedelta(days=26)).isoformat()]
+    rows = [r for r in rows if len(r) >= 3][-14:]
+    print(f"  期貨籌碼表:{len(rows)} 個交易日(最新 {rows[-1]['d'] if rows else '—'})")
+    return rows
+
 def fetch_disposal(stocks):
     """處置有價證券公告:標記處置中個股與撮合間隔分鐘。來源:證交所/櫃買公告 OpenAPI。"""
     import re
@@ -1955,6 +2127,10 @@ def main():
         mark_leaders(stocks)
     except Exception as e:
         print(f"  [warn] 龍頭標記跳過: {e}")
+    try:
+        _macro["futtab"] = build_fut_table()
+    except Exception as e:
+        print(f"  [warn] 期貨籌碼表跳過: {e}")
     out = {"updated": taipei, "source": "live",
            "macro": _macro, "news": _news, "indpe": _indpe, "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
