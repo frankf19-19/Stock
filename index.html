@@ -1491,7 +1491,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r145</span>');
+  diag.push('<span style="color:var(--dim)">build r146</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3132,115 +3132,88 @@ function planBlock(s){
     ${rrBar}
     <div class="dim-note" style="margin-top:10px">把「${IM==='long'?'回檔到均線帶分批、跌破停損離場、到目標分批獲利':'回檔到均線帶分批、帶量突破追進、跌破停損離場、到目標分批獲利'}」${IM==='long'?'三':'四'}條常見紀律,套進這檔的實際數據自動算出的<b>${IM==='long'?'布局範本':'劇本範本'},不是投資建議</b>——它不知道你的成本與部位,價位每天隨數據更新,均線帶與近月高的位置可直接對照下方 K 線圖;到價要不要執行,由你自己決定。點虛線名詞可看白話解釋。</div></div>`;
 }
-/* 🔮 明日與下週推演:大盤寬度+族群強弱+法人+信用+關鍵價位 → 規則化情境地圖(非預測) */
+/* 🔮 明日走勢預估:三劇本+機率+操作建議(規則化敘事,非預測) */
 function outlookBlock(s){
-  const a=s.al||null,px=s.price;
+  const px=s.price;
   if(!px)return '';
-  const tkv=(s.t&&s.t.kv)||{};
+  const a=s.al||null, fmt=v=>(+v).toLocaleString();
+  const tkv=(s.t&&s.t.kv)||{}, ckv=(s.c&&s.c.kv)||{}, fkv=(s.f&&s.f.kv)||{};
   const upMA=tkv['站上20MA']==='是', align=(tkv['20/60MA']||'').includes('多頭');
-  const fmt=v=>(+v).toLocaleString();
-  // ── 環境判讀 ──
-  const tw=DATA.stocks.filter(x=>x.market===s.market&&!x.etf&&typeof x.chg==='number');
-  const upR=tw.length?Math.round(tw.filter(x=>x.chg>0).length/tw.length*100):null;      // 大盤寬度
-  const sec=tw.filter(x=>x.sector===s.sector).map(x=>x.chg).sort((x,y)=>x-y);
-  const secMed=sec.length>=5?sec[Math.floor(sec.length/2)]:null;                         // 族群中位
-  const allMed=(()=>{const c=tw.map(x=>x.chg).sort((x,y)=>x-y);return c.length?c[Math.floor(c.length/2)]:null;})();
-  const rel=(secMed!=null&&allMed!=null)?+(secMed-allMed).toFixed(2):null;               // 族群相對強弱
-  const ckv=(s.c&&s.c.kv)||{};
-  const f60=parseFloat(String(ckv['外資60日']||'').replace(/[+,張 ]/g,''));
-  const t20=parseFloat(String(ckv['投信20日']||'').replace(/[+,張 ]/g,''));
-  // 環境因子內部計算(不顯示,用於情境調校)
-  // ── 個股已公布數據(營收/三率/估值/重訊/處置)──
-  const fkv=(s.f&&s.f.kv)||{};
-  const yoy=parseFloat(String(fkv['月營收YoY']||'').replace(/[+%]/g,''));
-  const ym=fkv['資料年月']||'';
-  const body=[];
-  if(isFinite(yoy))body.push(`最新月營收(${ym}已公布):YoY <b>${yoy>=0?'+':''}${yoy}%</b>${yoy>20?'——成長動能強,回檔通常有人接,劇本可看積極一線':yoy<0?'——動能熄火,反彈上檔容易受限,劇本保守看':',動能平穩'}`);
-  if(s.t3)body.push(`<b style="color:${CT.up2}">三率三升</b>(最新財報):毛利/營益/淨利率同步走高——基本面最扎實的訊號,中期回檔敢接的人多`);
-  if(s.pe){
-    const ind=(DATA.indpe||{})[s.sector];
-    const rel2=ind?((s.pe/ind-1)*100):null;
-    body.push(`估值位置:本益比 ${s.pe} 倍${rel2!=null?(rel2<=-15?`,比同業便宜約 ${Math.abs(rel2).toFixed(0)}%——利空鈍化、利多敏感`:rel2>=15?`,比同業貴約 ${rel2.toFixed(0)}%——好消息已反映不少,追高的安全邊際薄`:',與同業相當,漲跌看題材兌現'):''}`);
-  }
-  if(s.f&&s.f.note&&s.f.note.length>4&&s.f.note!=='營收平穩。')body.push(`體質註記:${s.f.note}`);
-  if(s.news&&s.news.length)body.push(`已公布訊息:${s.news.slice(0,2).map(n=>`「${String(n.t||'').slice(0,30)}${String(n.t||'').length>30?'…':''}」`).join('、')}——題材真假,看法人隔天有沒有用買單回應(下方新聞區可讀全文)`);
-  // ── 籌碼動向(這檔的錢:短中期交叉判讀)──
+  const bull=a?!!a.bull:(upMA&&align);
+  const cg=typeof s.chg==='number'?s.chg:0;
   const PN=t=>parseFloat(String(ckv[t]||'').replace(/[+,張 ]/g,''));
-  const f5=PN('外資5日'),t5=PN('投信5日');
-  const bigH=parseFloat(String(ckv['400張大戶']||'').replace('%',''));
+  const f5=PN('外資5日'), f60=PN('外資60日'), t20=PN('投信20日');
   const streak=ckv['外資連買'];
-  const chip=[];
-  if(isFinite(f5)&&isFinite(f60)){
-    if(f5>0&&f60>0)chip.push(`外資:短中期<b style="color:${CT.up2}">同步買超</b>(5日 +${Math.abs(f5).toLocaleString()} 張)${streak?`、已連買 ${streak}`:''}——加碼進行中,明日開低常有買盤承接`);
-    else if(f5<0&&f60>0)chip.push(`外資:中期買方、短線調節(5日 -${Math.abs(f5).toLocaleString()} 張)——多頭中的獲利了結,守住均線帶就無礙`);
-    else if(f5>0&&f60<0)chip.push(`外資:中期賣方、短線回頭買${streak?`(連買 ${streak})`:''}——可能是回補試單,連買三天以上且量增才算真轉向`);
-    else chip.push(`外資:短中期<b style="color:${CT.dn2}">同步賣超</b>(5日 -${Math.abs(f5).toLocaleString()} 張)——籌碼面主要壓力,反彈常成出貨點`);
-  }
-  if(isFinite(t5)&&isFinite(t20)){
-    if(t20>0&&t5>0)chip.push(`投信:短中期同買——認養進行中,月底/季底常有作帳買盤加持`);
-    else if(t20>0&&t5<0)chip.push(`投信:近月買超但近日調節——波段部位還在,短線震盪視為洗盤`);
-    else if(t20<0)chip.push(`投信:近月賣超——內資波段資金不站這邊,行情要靠外資或散戶推`);
-  }
-  if(isFinite(bigH))chip.push(`400張大戶持股 <b>${bigH}%</b>${bigH>=70?'——籌碼高度集中,大戶不賣就跌不深;但反過來大戶轉賣時也跑不快':bigH<=40?'——籌碼偏散戶,上漲容易你丟我撿、需要更大的量推動':',集中度中等'}`);
-  if(s.mg){
-    const fd=s.mg.fd,sd=s.mg.sd,parts=[];
-    if(fd!=null)parts.push(`融資 ${fd>=0?'+':''}${fd} 張`);
-    if(sd!=null)parts.push(`融券 ${sd>=0?'+':''}${sd} 張`);
-    if(parts.length){
-      let jud='';
-      const cg=s.chg||0;
-      if(fd>0&&cg<0)jud='——下跌日融資反增,散戶逆勢接刀、籌碼轉浮,反彈先看解套賣壓';
-      else if(fd<0&&cg>0)jud='——上漲且融資減,籌碼從散戶流向大戶,最健康的組合';
-      else if(fd<0&&cg<0&&Math.abs(fd)>Math.max(80,(s.mg.f||0)*0.03))jud='——下跌配融資大減(逾餘額3%),斷頭清洗中,洗完反而乾淨';
-      else if(sd>0&&sd>Math.abs(fd||1))jud='——空單明顯增加,若價格不跌反漲,回補會變助漲燃料(軋空)';
-      chip.push(`信用日變:${parts.join('、')}${jud}`);
-    }
-  }
-  if(s.c&&s.c.note&&s.c.note!=='籌碼中性。')chip.push(`籌碼註記:${s.c.note}`);
-  // ── 明日情境(依多空結構分岔)──
-  const nearZ=a?(px<=a.z1*1.02&&px>=a.z0*0.98):false, brk=a?+(a.h20*1.005).toFixed(2):null;
-  let tomo=[];
-  if(!a){
-    if(upMA&&align){
-      tomo.push(`目前<b>站上月線、均線多頭排列</b>——沿 20 日均線操作:收盤守住月線續抱,跌破月線先減碼`);
-      tomo.push(`大漲後隔日常見獲利了結,<b>開高走低不追</b>;拉回月線不破反而是加碼點`);
-    }else{
-      tomo.push(`目前<b>${upMA?'站上月線但均線尚未轉多':'位於月線之下'}</b>——均線之下不接刀,等收盤重新站回月線再評估`);
-      tomo.push(`反彈到 20 日均線附近若量縮翻黑,視為逃命波而非反轉`);
-    }
-    tomo.push(`此檔的數字化關鍵價位將隨每日 K 線資料累積自動生成`);
-  }
-  else if(a.bull){
-    tomo.push(`<b>守住 ${fmt(a.z1)}</b>(月線帶上緣)→ 結構不變,反覆震盪偏多,上方先看 ${fmt(a.h20)}(近月高)`);
-    tomo.push(`<b>帶量站上 ${fmt(brk)}</b>(量 > ${Math.round(a.v20*1.15).toLocaleString()} 張)→ 突破確認,空間打開`);
-    tomo.push(`<b>跌破 ${fmt(a.z0)}</b> → 回測整個均線帶,${fmt(a.stop)} 是多方最後防線,收盤失守趨勢轉弱`);
+  const yoy=parseFloat(String(fkv['月營收YoY']||'').replace(/[+%]/g,''));
+  // 明天的日期(跳過週末)
+  const nd=new Date(); do{nd.setDate(nd.getDate()+1);}while(nd.getDay()===0||nd.getDay()===6);
+  const dLab=`${nd.getMonth()+1}/${nd.getDate()}`;
+  // 整數關卡(靠近才提)
+  const step=px>=1000?100:px>=500?50:px>=100?10:px>=50?5:1;
+  const rdDn=Math.floor(px/step)*step;                          // 下方整數關(支撐語境)
+  const nearRd=(px-rdDn)/px<0.04&&rdDn>0?rdDn:null;
+  // 環境(內化)
+  const tw=DATA.stocks.filter(x=>x.market===s.market&&!x.etf&&typeof x.chg==='number');
+  const upR=tw.length?Math.round(tw.filter(x=>x.chg>0).length/tw.length*100):null;
+  // 素材句
+  const fundStr=isFinite(yoy)&&yoy>15?`基本面派的資金(看好營收年增 ${yoy>=0?'+':''}${yoy}%)`
+    :s.t3?'基本面派的資金(三率三升的體質)':'低接的資金';
+  const mktStr=s.market==='TW'?'台積電等權值股帶頭上攻、或外資明顯回頭買':'美股大盤與同族群龍頭轉強';
+  const fStr=isFinite(f5)?(f5>0?`外資近日買超${streak?`(連買 ${streak})`:''}`:'外資近日仍在調節'):null;
+  // ── 三劇本(依結構×今日收法分派機率)──
+  const sc=[];
+  const S=(t,pb,txt)=>sc.push({t,pb,txt});
+  if(a&&bull&&cg<0){
+    S('下探均線帶支撐','機率較高',`順著今天的跌勢${nearRd?`測試 ${fmt(nearRd)} 整數關與`:''}下探 <b>${fmt(a.z0)} ~ ${fmt(a.z1)}</b> 支撐帶。若出現下影線或量縮止跌,${fundStr}常會回頭布局——這一帶守住,回檔就只是洗盤。`);
+    S('低檔狹幅橫盤',              '中等',`${s.market==='TW'?'若今晚美股平穩,':''}在 <b>${fmt(a.z1)} ~ ${fmt(Math.round(px*1.015))}</b> 之間量縮整理、多空都不表態。此時不急著動作,等方向出來。`);
+    S('直接強勢反彈','需配合・機率較低',`必須 ${mktStr},才有機會直接開高收復 <b>${fmt(Math.round(a.h20*0.985))}</b> 一帶${fStr&&f5>0?`;${fStr},有一點底氣`:''}。`);
+  }else if(a&&bull){
+    S('沿月線帶震盪偏多','機率較高',`在 <b>${fmt(a.z1)} ~ ${fmt(a.h20)}</b> 區間偏多整理,拉回不破 ${fmt(a.z1)} 都算健康${fStr&&f5>0?`;${fStr}`:''}。`);
+    S('帶量挑戰突破',              '中等',`若量能放大(> ${Math.round((a.v20||0)*1.15).toLocaleString()} 張)站上 <b>${fmt(+(a.h20*1.005).toFixed(2))}</b>,突破確認、空間打開;沒量的假突破不追。`);
+    S('獲利了結回測','機率較低',`大漲後的常見劇本:開高走低回測 <b>${fmt(a.z0)} ~ ${fmt(a.z1)}</b>,只要收盤守住就不算轉弱。`);
+  }else if(a&&cg<0){
+    S('續弱探底','機率較高',`慣性向下${nearRd?`,留意 ${fmt(nearRd)} 整數關與`:',觀察'}前低附近有無止跌訊號(長下影+爆量)。沒訊號不接刀,弱勢股的「便宜」常常還有更便宜。`);
+    S('跌深反彈至均線帶',          '中等',`反彈到 <b>${fmt(a.z0)} ~ ${fmt(a.z1)}</b> 均線帶——空頭反彈的慣性遇壓區,量縮翻黑就是彈完,別把逃命波當反轉。`);
+    S('帶量收復轉強','需配合・機率較低',`必須 ${mktStr},且帶量站回 <b>${fmt(a.z1)}</b> 並站穩兩三天,才有資格談趨勢反轉。`);
   }else if(a){
-    tomo.push(`<b>反彈至 ${fmt(a.z0)}~${fmt(a.z1)}</b>(均線帶)→ 空頭反彈常在這裡遇壓,量縮翻黑就是彈完`);
-    tomo.push(`<b>帶量收復 ${fmt(a.z1)}</b> 且站穩兩三天 → 才有資格談趨勢反轉,單日衝過不算`);
-    tomo.push(`<b>續弱</b> → 前低附近觀察止跌訊號(長下影+爆量),沒訊號不接刀`);
+    S('反彈遇壓拉回','機率較高',`今天的反彈若無量,在 <b>${fmt(a.z0)} ~ ${fmt(a.z1)}</b> 均線帶附近容易遇壓回落——空頭結構裡,反彈先當逃命波看。`);
+    S('量縮回測今日低',            '中等',`縮量回測今日低點,守住則打底延續,跌破則續弱。`);
+    S('連續帶量站回','需配合・機率較低',`帶量站回 <b>${fmt(a.z1)}</b> 且連兩三日站穩(${mktStr}),結構才算開始修復。`);
+  }else{
+    // 無數字價位(美股等):均線原則三劇本
+    if(bull){
+      S('沿月線偏多整理','機率較高','收盤持續站在 20 日均線上,回檔到月線不破反而是布局點。');
+      S('大漲後獲利了結','中等','開高走低不追,等拉回月線的承接訊號。');
+      S('回測季線','機率較低','若跌破月線,下一站看季線支撐;跌破季線則趨勢轉弱。');
+    }else{
+      S('月線下整理','機率較高','均線之下不接刀,等收盤重新站回 20 日均線再評估。');
+      S('跌深反彈遇壓','中等','反彈至月線附近量縮翻黑=逃命波,不是反轉。');
+      S('帶量站回月線','需配合・機率較低','需大盤與族群同步轉強,帶量站回月線並站穩才算修復。');
+    }
   }
-  if(upR!=null&&upR<=40)tomo.unshift(`今日大盤普跌(僅 ${upR}% 收紅)——逆風日的個股訊號可信度降一級,明日情境觸發都要<b>配量確認</b>,反彈少追`);
-  else if(upR!=null&&upR>=60&&rel!=null&&rel>0.5)tomo.unshift(`大盤順風+族群資金流入中——情境觸發的可信度較高,但普漲日也別把運氣當實力`);
-  if(s.disp)tomo.unshift(`<b style="color:${CT.up2}">⚠ 處置中${s.disp.m?`(每 ${s.disp.m} 分鐘撮合)`:''}</b>——流動性受限、掛單不即時成交,以下情境全部打折,短線以觀望為主`);
-  // ── 下週關鍵 ──
-  const wk=[];
-  if(!a)wk.push(upMA&&align?`週線結構:均線偏多——回檔不破月線的前提下,拉回視為布局機會`:`週線結構:均線未轉多——下週重點是「止跌與否」,不搶反彈第一棒`);
-  else wk.push(a.bull?`週線結構:月線在季線上方——回檔只要不收破 ${fmt(a.stop)},週線多頭格局就還在,拉回是布局不是逃命`:`週線結構:均線空頭——下週的重點是「止跌」而不是「反彈多高」,底部需要時間,不搶第一根紅K`);
-  if(isFinite(yoy))wk.push(yoy>20?`基本面撐腰:營收 YoY +${yoy}% 的票,下週回檔預期較淺——法人調節通常用「時間換空間」而不是砍在低點`:yoy<0?`基本面拖累:營收年減中,下週任何反彈都先當「跌深反彈」看,不預設趨勢反轉`:'');
+  // ── 操作建議 ──
+  const ops=[];
+  if(isFinite(yoy)&&yoy>15)ops.push(`長線基本面無虞(營收年增 ${yoy>=0?'+':''}${yoy}%${s.t3?'、三率三升':''})`);
+  else if(s.t3)ops.push('長線體質扎實(三率三升)');
+  else if(isFinite(yoy)&&yoy<0)ops.push('長線動能待營收回溫驗證(目前年減)');
+  if(bull&&cg<-1.5)ops.push('短線在消化前波過熱的獲利賣壓');
+  else if(!bull)ops.push('短線技術結構仍偏弱');
+  let act;
+  if(bull&&a)act=`明天不建議開盤激進追價,先觀察 <b>${fmt(a.z0)}</b>${nearRd&&nearRd<=a.z1?`(${fmt(nearRd)} 整數關)`:''} 附近的支撐力道——<b>量縮不破,反而是波段分批布局的位置</b>;收盤跌破 ${fmt(a.stop)} 則按紀律退場。`;
+  else if(a)act=`反彈不急著上車,等帶量站回 <b>${fmt(a.z1)}</b> 並站穩再評估;在那之前,現金也是部位。`;
+  else act=bull?'沿月線操作:守住續抱、跌破減碼,不預測、只應對。':'等月線收復再談進場,空頭裡少動作就是多賺。';
   const dd=new Date().getDate();
-  if(s.market==='TW'&&dd>=6&&dd<=12)wk.push(`事件:每月 10 日前後公告上月營收——YoY 轉強/轉弱常直接改寫劇本,公告日留意跳空`);
-  if(rel!=null&&rel>0.5)wk.push(`族群動能:${s.sector} 若持續強於大盤,回檔會有資金接;族群轉弱則個股獨木難撐`);
-  if(s.tp&&s.tp.m)wk.push(`市場定價:分析師平均目標 ${fmt(Math.round(s.tp.m))}(距現價 ${((s.tp.m/px-1)*100).toFixed(0)}%),留意本週有無調升/調降報告改變預期`);
-  return `<div class="dim-block" style="border-left:4px solid #C792EA"><h3>🔮 明日與下週推演 <span class="ds">情境地圖・非預測</span></h3>
-    ${body.length?`<div style="font-size:12px;font-weight:800;color:var(--mut);letter-spacing:.05em;margin:4px 0 2px">個股已公布數據</div>
-    <div class="dim-note" style="line-height:2">${body.map(e=>'• '+e).join('<br>')}</div>`:''}
-    ${chip.length?`<div style="font-size:12px;font-weight:800;color:var(--mut);letter-spacing:.05em;margin:10px 0 2px">籌碼動向(這檔的錢)</div>
-    <div class="dim-note" style="line-height:2">${chip.map(e=>'• '+e).join('<br>')}</div>`:''}
-    <div style="font-size:12px;font-weight:800;color:var(--mut);letter-spacing:.05em;margin:10px 0 2px">明日情境(若…則…)</div>
-    <div class="dim-note" style="line-height:2">${tomo.map(e=>'• '+e).join('<br>')}</div>
-    <div style="font-size:12px;font-weight:800;color:var(--mut);letter-spacing:.05em;margin:10px 0 2px">下週關鍵</div>
-    <div class="dim-note" style="line-height:2">${wk.filter(Boolean).map(e=>'• '+e).join('<br>')}</div>
-    <div class="dim-note" style="margin-top:8px">這是把大盤寬度、族群強弱、法人、信用與這檔的關鍵價位,整理成「到什麼位置、該想什麼」的<b>劇本地圖——不是預測</b>。明天的走勢由明天的買賣單決定;地圖的價值是讓你到價時不用臨場慌張。價位每天隨數據更新。</div></div>`;
+  const wk=(s.market==='TW'&&dd>=6&&dd<=12)?'另外留意:每月 10 日前後公告上月營收,數字轉強/轉弱常直接改寫劇本。':'';
+  const disp=s.disp?`<div style="color:${CT.up2};font-weight:700;margin-bottom:6px">⚠ 處置股${s.disp.m?`(每 ${s.disp.m} 分鐘撮合)`:''}——流動性受限,以下劇本全部打折,短線以觀望為主。</div>`:'';
+  const windy=(upR!=null&&upR<=40)?`<div style="color:var(--mut);margin-bottom:6px">今日大盤普跌(僅 ${upR}% 收紅),逆風日的個股訊號可信度降一級,劇本觸發都要配量確認。</div>`:'';
+  return `<div class="dim-block" style="border-left:4px solid #C792EA"><h3>🔮 明天(${dLab})走勢預估與關鍵觀察點 <span class="ds">規則化推演・非預測</span></h3>
+    ${disp}${windy}
+    ${sc.map((x,i)=>`<div style="margin:8px 0 2px;font-weight:800;font-size:12.5px">劇本${['一','二','三'][i]}:${x.t} <span style="font-weight:700;color:${i===0?'var(--amber)':'var(--dim)'};font-size:11.5px">(${x.pb})</span></div>
+      <div class="dim-note" style="line-height:1.9">${x.txt}</div>`).join('')}
+    <div style="margin:10px 0 2px;font-weight:800;font-size:12.5px;color:var(--amber)">操作建議</div>
+    <div class="dim-note" style="line-height:1.9">${ops.length?ops.join(',')+'。':''}${act}${wk?'<br>'+wk:''}</div>
+    <div class="dim-note" style="margin-top:8px;opacity:.85">三個劇本與價位由這檔的均線結構、量能、法人與基本面數據每日自動推演——<b>是「到什麼位置該想什麼」的地圖,不是預測</b>;機率標註代表規則判定的相對可能性,明天永遠由明天的買賣單決定。</div>
+  </div>`;
 }
 /* 估值評價:本益比/EPS/預估本益比/同產業中位數 */
 function valBlock(s){
