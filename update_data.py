@@ -1444,10 +1444,12 @@ def build_fut_table():
     def row(d2): return T.setdefault(nrm(d2), {"d": nrm(d2)})
     try:                                   # 繼承昨日表(讓僅有「當日源」的欄位可跨日累積)
         with open("data.json", encoding="utf-8") as fp:
-            for r0 in (json.load(fp).get("macro", {}).get("futtab") or []):
-                if r0.get("d"): T[r0["d"]] = dict(r0)
-    except Exception:
-        pass
+            _old = (json.load(fp).get("macro", {}).get("futtab") or [])
+        for r0 in _old:
+            if r0.get("d"): T[r0["d"]] = dict(r0)
+        print(f"  futtab 繼承昨表:{len(_old)} 列")
+    except Exception as e:
+        print(f"  [warn] futtab 繼承失敗(將全新重建): {e}")
 
     # 1. 現貨成交值(TWSE FMTQIK,自帶當月歷史)
     try:
@@ -1531,7 +1533,9 @@ def build_fut_table():
             if "外資" not in nm and "Foreign" not in nm: continue
             lo = numf(r.get("long_open_interest_balance_volume")) or 0
             so = numf(r.get("short_open_interest_balance_volume")) or 0
-            opt[d2] = opt.get(d2, 0) + (lo - so)
+            cp = str(r.get("call_put", "")).lower()
+            sgn = -1 if ("put" in cp or "賣權" in cp) else 1     # Put 淨多=看空,方向取負
+            opt[d2] = opt.get(d2, 0) + sgn * (lo - so)
         for d2, v in opt.items(): row(d2)["txo"] = int(v)
     except Exception as e:
         print(f"  [warn] futtab 選擇權法人: {e}")
@@ -1596,9 +1600,10 @@ def build_fut_table():
                     continue
                 cd = str(r.get("ContractMonth", r.get("到期月份(週別)", "")))
                 if cd and not any(x in cd for x in ("999999", "all", "全部", "所有")): continue
-                ks = {k.replace(" ", ""): k for k in r.keys()}
-                g = lambda frag_all: next((numf(r[v]) for k2, v in ks.items()
-                       if all(f in k2 for f in frag_all)), None)
+                tt = str(r.get("TypeOfTraders", r.get("交易人類別", "")))
+                if "特定" in tt or "specific" in tt.lower(): continue   # 只用「全部交易人」列
+                ks = {k.replace(" ", ""): k for k in r.keys()
+                      if "specific" not in k.lower() and "特定" not in k}  # 排除特定法人欄位
                 gl = lambda n2, side: next((numf(r[v]) for k2, v in ks.items()
                        if n2 in k2 and any(w in k2.lower() for w in side)), None)
                 b5, s5 = gl("5", ("買", "buy", "long")), gl("5", ("賣", "sell", "short"))
