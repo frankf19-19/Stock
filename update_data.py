@@ -1435,7 +1435,13 @@ def build_fut_table():
         return (j.get("data") or []) if isinstance(j, dict) else []
 
     T = {}
-    def row(d2): return T.setdefault(d2, {"d": d2})
+    def nrm(d2):
+        d2 = str(d2 or "").strip().replace("/", "-")
+        dg = d2.replace("-", "")
+        if len(dg) == 8 and dg.isdigit(): return f"{dg[:4]}-{dg[4:6]}-{dg[6:8]}"
+        if len(dg) == 7 and dg.isdigit(): return f"{int(dg[:3])+1911}-{dg[3:5]}-{dg[5:7]}"
+        return d2
+    def row(d2): return T.setdefault(nrm(d2), {"d": nrm(d2)})
     try:                                   # 繼承昨日表(讓僅有「當日源」的欄位可跨日累積)
         with open("data.json", encoding="utf-8") as fp:
             for r0 in (json.load(fp).get("macro", {}).get("futtab") or []):
@@ -1454,6 +1460,14 @@ def build_fut_table():
                 if "TradeValue" in k or "成交金額" in k: v = r[k]
             try: row(d2)["amt"] = round(float(str(v).replace(",", "")) / 1e8, 1)
             except Exception: pass
+        pm = (TODAY.replace(day=1) - dt.timedelta(days=1))
+        j2 = get_json(f"https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK?date={pm.strftime('%Y%m')}01&response=json", timeout=40)
+        if isinstance(j2, dict) and j2.get("data"):
+            fields = j2.get("fields") or []
+            ai = next((i for i, f2 in enumerate(fields) if "成交金額" in str(f2)), 2)
+            for r in j2["data"]:
+                try: row(r[0])["amt"] = round(float(str(r[ai]).replace(",", "")) / 1e8, 1)
+                except Exception: pass
     except Exception as e:
         print(f"  [warn] futtab 成交值: {e}")
 
@@ -1502,7 +1516,9 @@ def build_fut_table():
         txoi = _tot_oi("TX"); mtxoi = _tot_oi("MTX")
         for d2, v in txoi.items(): row(d2)["oi"] = int(v)
         for d2, tot in mtxoi.items():
-            inst = sum((mtx.get(d2) or {}).values())
+            m2 = mtx.get(d2)
+            if not m2: continue                      # 法人OI未公布(盤中)不硬算
+            inst = sum(m2.values())
             if tot > 0: row(d2)["leek"] = round((-inst) / tot * 100, 2)
     except Exception as e:
         print(f"  [warn] futtab 總OI: {e}")
@@ -1521,16 +1537,20 @@ def build_fut_table():
         print(f"  [warn] futtab 選擇權法人: {e}")
     try:
         arr = get_json("https://openapi.taifex.com.tw/v1/PutCallRatio", timeout=40) or []
+        gotp = 0
         for r in arr:
             keys = list(r.keys())
             kd = next((k for k in keys if "date" in k.lower() or "日期" in k), None)
             kp = next((k for k in keys if ("ratio" in k.lower() and "oi" in k.lower())), None) or \
                  next((k for k in keys if "未平倉" in k and "比" in k), None) or \
-                 next((k for k in keys if "putcallratio" in k.lower().replace(" ", "")), None)
+                 next((k for k in keys if "ratio" in k.lower() or "比率" in k), None)
             if not (kd and kp): continue
-            d2 = str(r[kd]).replace("/", "-")
-            try: row(d2)["pcr"] = round(float(str(r[kp]).replace("%", "").replace(",", "")), 1)
+            try:
+                row(r[kd])["pcr"] = round(float(str(r[kp]).replace("%", "").replace(",", "")), 1)
+                gotp += 1
             except Exception: pass
+        if not gotp and arr:
+            print(f"  [diag] PCR 欄位樣本: {list(arr[0].keys())}")
     except Exception as e:
         print(f"  [warn] futtab PCR: {e}")
 
@@ -1562,6 +1582,9 @@ def build_fut_table():
                 if b10 is not None and s10 is not None: n10 = b10 - s10
             if n5 is not None: row(d2)["t5"] = int(n5); got_lt += 1
             if n10 is not None: row(d2)["t10"] = int(n10)
+        if not got_lt:
+            _s = _fm("TaiwanFuturesOpenInterestLargeTraders", "TX")[:1]
+            if _s: print(f"  [diag] FinMind大額欄位: {list(_s[0].keys())}")
     except Exception as e:
         print(f"  [warn] futtab 大額交易人(FinMind): {e}")
     if not got_lt:
@@ -1576,14 +1599,16 @@ def build_fut_table():
                 ks = {k.replace(" ", ""): k for k in r.keys()}
                 g = lambda frag_all: next((numf(r[v]) for k2, v in ks.items()
                        if all(f in k2 for f in frag_all)), None)
-                b5, s5 = g(("5", "買")), g(("5", "賣"))
-                b10, s10 = g(("10", "買")), g(("10", "賣"))
-                kd = next((v for k2, v in ks.items() if "日期" in k2 or "Date" in k2), None)
-                d2 = str(r.get(kd, TODAY.isoformat())).replace("/", "-") if kd else TODAY.isoformat()
-                if len(d2) == 7 and d2.replace("-", "").isdigit():
-                    d2 = f"{int(d2[:3])+1911}-{d2[3:5]}-{d2[5:7]}"
+                gl = lambda n2, side: next((numf(r[v]) for k2, v in ks.items()
+                       if n2 in k2 and any(w in k2.lower() for w in side)), None)
+                b5, s5 = gl("5", ("買", "buy", "long")), gl("5", ("賣", "sell", "short"))
+                b10, s10 = gl("10", ("買", "buy", "long")), gl("10", ("賣", "sell", "short"))
+                kd = next((v for k2, v in ks.items() if "日期" in k2 or "date" in k2.lower()), None)
+                d2 = r.get(kd) if kd else TODAY.isoformat()
                 if b5 is not None and s5 is not None: row(d2)["t5"] = int(b5 - s5)
                 if b10 is not None and s10 is not None: row(d2)["t10"] = int(b10 - s10)
+            if arr and not any("t5" in v or "t10" in v for v in T.values()):
+                print(f"  [diag] 大額交易人欄位樣本: {list(arr[0].keys())[:12]}")
         except Exception as e:
             print(f"  [warn] futtab 大額交易人(期交所): {e}")
 
