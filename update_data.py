@@ -2088,6 +2088,7 @@ def main():
             if p.get("tp") and not s.get("tp"): s["tp"] = p["tp"]; _c_tp += 1
             if p.get("bz") and not s.get("bz"): s["bz"] = p["bz"]; _c_bz += 1
             if p.get("hold") and not s.get("hold"): s["hold"] = p["hold"]
+            if p.get("act") and not s.get("act"): s["act"] = p["act"]   # 調倉觀察跨班次保留(同日晚班不得清空早班成果)
         print(f"  跨日繼承:目標價 {_c_tp} 檔、業務 {_c_bz} 檔")
     except Exception as e:
         print(f"  [warn] 繼承: {e}")
