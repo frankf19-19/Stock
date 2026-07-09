@@ -319,6 +319,10 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .cal-mini.closed #calTrack{display:none}
 .mini-cap{font-size:11px;color:var(--dim);margin:6px 2px 4px;letter-spacing:.08em;font-weight:700}
 .macro-side .mini-cap:first-child{margin-top:0}
+.macro-band{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;margin-top:12px;align-items:start}
+.macro-band .mini-cap{margin-top:0}
+.idx-row.band{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+@media(max-width:900px){.macro-band{grid-template-columns:1fr}}
 .sec-title.tap{cursor:pointer;user-select:none;transition:opacity .15s}
 .sec-title.tap:hover{opacity:.85}
 .sec-title.tap::before{content:'▾';color:var(--amber);margin-right:2px;display:inline-block;transition:transform .18s;align-self:center;font-size:14px}
@@ -574,11 +578,11 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       <div class="idx-row compact" id="idxRow"></div>
       <div class="mini-cap">匯率</div>
       <div class="idx-row compact" id="fxRow"></div>
-      <div class="mini-cap">風險溫度計</div>
-      <div class="idx-row compact" id="riskRow"></div>
-      <div class="mini-cap">三大法人(盤後)</div>
-      <div class="idx-row compact" id="instRow"></div>
     </div>
+  </div>
+  <div class="macro-band">
+    <div><div class="mini-cap">三大法人(盤後)</div><div class="idx-row band" id="instRow"></div></div>
+    <div><div class="mini-cap">風險溫度計</div><div class="idx-row band" id="riskRow"></div></div>
   </div>
   <div class="fx-note" id="macroNote">總經判讀載入中…</div>
 
@@ -1491,7 +1495,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r147</span>');
+  diag.push('<span style="color:var(--dim)">build r148</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
