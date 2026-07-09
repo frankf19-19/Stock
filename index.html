@@ -1500,7 +1500,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r156</span>');
+  diag.push('<span style="color:var(--dim)">build r157</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6615,7 +6615,9 @@ function renderEtf(){
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">
     ${actE.map(s=>{
       const a=s.act;
-      const li=(a.mv||[]).slice(0,3).map(([sym,nm,w,adj])=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2.5px 0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sym} ${nm}</span><b style="font-family:var(--mono);color:${adj>0?CT.up2:CT.dn2}">${adj>0?'+':''}${adj.toFixed(2)}pp</b></div>`).join('')
+      const li=(a.mv||[]).slice(0,3).map(r=>{const[sym,nm,w,adj,dsh,damt]=r;
+        const val=(dsh!=null&&damt!=null)?`估 ${dsh>0?'+':''}${dsh.toLocaleString()} 張(${damt>0?'+':''}${damt} 億)`:`${adj>0?'+':''}${adj.toFixed(2)}pp`;
+        return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2.5px 0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sym} ${nm}</span><b style="font-family:var(--mono);color:${adj>0?CT.up2:CT.dn2}">${val}</b></div>`;}).join('')
         +(a['in']||[]).slice(0,2).map(([sym,nm])=>`<div style="font-size:12px;padding:2.5px 0;color:var(--amber)">🆕 ${sym} ${nm} 新進</div>`).join('')
         +(a['out']||[]).slice(0,2).map(([sym,nm])=>`<div style="font-size:12px;padding:2.5px 0;color:var(--dim)">↓ ${sym} ${nm} 掉出</div>`).join('');
       return `<div data-id="${s.id}" style="background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 12px;cursor:pointer">
@@ -6710,12 +6712,14 @@ function etfActBlock(s){
   const row=(sym,nm,txt,col)=>`<div data-goto="${sym}" style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line);cursor:pointer">
     <b style="font-family:var(--mono)">${sym}</b><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</span>
     <b style="font-family:var(--mono);color:${col}">${txt}</b></div>`;
-  const mv=(a.mv||[]).map(([sym,nm,w,adj])=>row(sym,nm,(adj>0?'加碼 +':'減碼 ')+adj.toFixed(2)+'pp',adj>0?CT.up2:CT.dn2)).join('');
+  const mv=(a.mv||[]).map(r=>{const[sym,nm,w,adj,dsh,damt]=r;
+    const txt=(dsh!=null&&damt!=null)?`${adj>0?'加碼':'減碼'} 估 ${dsh>0?'+':''}${dsh.toLocaleString()} 張(${damt>0?'+':''}${damt} 億)`:( (adj>0?'加碼 +':'減碼 ')+adj.toFixed(2)+'pp');
+    return row(sym,nm,txt,adj>0?CT.up2:CT.dn2);}).join('');
   const ins=(a['in']||[]).map(([sym,nm,w])=>row(sym,nm,'🆕 新進前十大('+w+'%)','var(--amber)')).join('');
   const outs=(a['out']||[]).map(([sym,nm])=>row(sym,nm,'掉出前十大','var(--dim)')).join('');
   return `<div class="dim-block" style="border-left:4px solid #C792EA"><h3>🔍 經理人調倉觀察 <span class="ds">${a.d}</span></h3>
     ${mv}${ins}${outs}
-    <div class="dim-note" style="margin-top:8px">估算方式:今日權重 −(昨日權重 × 成分股漲幅 ÷ ETF 漲幅)——<b>已扣除股價漲跌造成的被動權重變化</b>,剩下的即接近經理人的主動加減碼(單位:權重百分點)。觀測範圍為前十大持股、非官方申報資料,方向參考用;完整每日 PCF 請看發行商官網。</div></div>`;
+    <div class="dim-note" style="margin-top:8px">估算方式:今日權重 −(昨日權重 × 成分股漲幅 ÷ ETF 漲幅);張數/金額=權重 × 基金規模 ÷ 股價 推估(標「估」即此口徑)——<b>已扣除股價漲跌造成的被動權重變化</b>,剩下的即接近經理人的主動加減碼(單位:權重百分點)。觀測範圍為前十大持股、非官方申報資料,方向參考用;完整每日 PCF 請看發行商官網。</div></div>`;
 }
 /* 📈 ETF 期間績效(價格報酬,由每日K線計算) */
 function etfPerfBlock(s){
