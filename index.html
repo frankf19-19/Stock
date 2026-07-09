@@ -1436,7 +1436,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r141</span>');
+  diag.push('<span style="color:var(--dim)">build r142</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2785,11 +2785,15 @@ async function fetchMIS(chans){
   return null;
 }
 function rtPx(m){
-  for(const k of ['z','b','y']){
-    const v=String(m[k]||'-').split('_')[0], f=parseFloat(v);
-    if(f>0)return f;
-  }
-  return null;
+  /* 取價鐵律:只信真實成交價;無成交(試撮/處置分盤間隔)寧可不更新,
+     絕不退回昨收——退昨收會製造「假 0.00%+分時圖懸崖」的錯誤畫面 */
+  const P=k=>{const v=String(m[k]||'-').split('_')[0],f=parseFloat(v);return f>0?f:null;};
+  const z=P('z');
+  if(z)return z;                       // 有成交:用成交價
+  const b=P('b'),a=P('a');
+  if(b&&!a)return b;                   // 漲停鎖死(只剩買單掛漲停):用買價
+  if(a&&!b)return a;                   // 跌停鎖死(只剩賣單掛跌停):用賣價
+  return null;                         // 無成交:保留上一筆真實價,等下一次撮合
 }
 /* 捲動位置保持:資料重繪不打斷閱讀 */
 function keepScroll(fn){
