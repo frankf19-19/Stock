@@ -1497,7 +1497,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r153</span>');
+  diag.push('<span style="color:var(--dim)">build r154</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6622,7 +6622,10 @@ function renderEtf(){
     </div></div>`
   :(_actAll.length?`<div style="background:var(--panel2);border:1px dashed var(--line);border-radius:11px;padding:12px 14px;margin:0 0 14px">
     <div style="font-size:13px;font-weight:900;color:#C792EA;letter-spacing:.05em;margin-bottom:4px">🔍 主動式 ETF 調倉觀察|規模前五</div>
-    <div style="font-size:12px;color:var(--dim);line-height:1.8">調倉估算需要<b>連續兩個交易日</b>的成分快照比對——今天的更新建立基準,<b>下一個交易日的資料更新後</b>就會出現第一批「加碼/減碼/新進/掉出」觀察。請確認 update_data.py 已更新到 r132 以上並每日執行。</div></div>`:'');
+    <div style="font-size:12px;color:var(--dim);line-height:1.8">${(()=>{
+      const bd=(_actAll[0]&&(_actAll[0].hold||{}).d)||null;
+      return bd?`✅ 基準快照已建立(${bd},${_actAll.length} 檔主動式 ETF 前十大已存檔)。調倉=兩天快照相減,<b>下一個交易日的第一班更新跑完</b>,這裡就會列出規模前五的「加碼/減碼/新進/掉出」與幅度,之後每天自動換新。今天不需要再做任何事。`
+      :`調倉估算需要<b>連續兩個交易日</b>的成分快照——請確認 update_data.py 為 r132 以上並每日執行,第一次執行建立基準、次日出現觀察。`;})()}</div></div>`:'');
   const srt=window.__etfSort||'q';
   const val=s=>srt==='chg'?(s.chg??-9e9):((s.perf||{})[srt]??-9e9);
   L.sort((a,b)=>val(b)-val(a));
