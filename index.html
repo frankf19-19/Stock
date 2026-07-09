@@ -249,6 +249,9 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .idx-row.compact .vl{font-size:15.5px}
 .idx-row.compact .ch{font-size:11.5px}
 @media(max-width:900px){.macro-grid{grid-template-columns:1fr}}
+.macro-grid>*,.macro-band>*{min-width:0}
+#futTab{max-width:100%;overflow:hidden}
+#futTab [style*="overflow-x"]{max-width:100%}
 .cal-date{flex-shrink:0;font-family:var(--mono);font-size:12px;color:var(--mut);width:86px}
 .cal-soon{color:var(--amber);font-weight:700}
 .cal-star{color:var(--amber);letter-spacing:1px;font-size:11px}
@@ -1497,7 +1500,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r154</span>');
+  diag.push('<span style="color:var(--dim)">build r156</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
