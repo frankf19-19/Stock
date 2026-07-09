@@ -1531,11 +1531,10 @@ def build_fut_table():
         for r in _fm("TaiwanOptionInstitutionalInvestors", "TXO"):
             d2 = r.get("date"); nm = str(r.get("institutional_investors", ""))
             if "外資" not in nm and "Foreign" not in nm: continue
-            lo = numf(r.get("long_open_interest_balance_volume")) or 0
-            so = numf(r.get("short_open_interest_balance_volume")) or 0
-            cp = str(r.get("call_put", "")).lower()
-            sgn = -1 if ("put" in cp or "賣權" in cp) else 1     # Put 淨多=看空,方向取負
-            opt[d2] = opt.get(d2, 0) + sgn * (lo - so)
+            lo = numf(r.get("long_open_interest_balance_amount")) or 0   # 契約金額(千元)
+            so = numf(r.get("short_open_interest_balance_amount")) or 0
+            opt[d2] = opt.get(d2, 0) + (lo - so)      # 買方金額−賣方金額(Call+Put 合計)
+            # 坊間慣用口徑:外資選擇權未平倉「淨契約金額」;外資慣做賣方,常態為負
         for d2, v in opt.items(): row(d2)["txo"] = int(v)
     except Exception as e:
         print(f"  [warn] futtab 選擇權法人: {e}")

@@ -1314,7 +1314,7 @@ function renderFutTab(){
   const num=(v,dec=0)=>v==null?'<span style="color:var(--dim)">—</span>':
     `<span class="${v>0?'pos':v<0?'neg':''}">${v>0?'+':''}${(+v).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec})}</span>`;
   const plain=(v,dec=0,suf='')=>v==null?'<span style="color:var(--dim)">—</span>':((+v).toLocaleString(undefined,{maximumFractionDigits:dec})+suf);
-  const H=['日期','成交值(億)','外資','投信','自營','外資期OI','前五大留倉','前十大留倉','選PCR','外資選OI','韭菜%','大台總OI'];
+  const H=['日期','成交值(億)','外資','投信','自營','外資期OI','前五大留倉','前十大留倉','選PCR','外(選)千元','韭菜%','大台總OI'];
   const hd=H.map(t=>`<div style="color:var(--mut);font-size:11px;padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap">${t}</div>`).join('');
   const body=rows.map((r,i)=>{
     const last=i===rows.length-1;
@@ -1339,7 +1339,7 @@ function renderFutTab(){
   el.innerHTML=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 12px">
     <div style="font-size:12.5px;font-weight:900;color:var(--amber);letter-spacing:.05em;margin-bottom:6px">📊 期貨籌碼先行指標 <span style="font-weight:400;color:var(--dim);font-size:11px">近 ${rows.length} 個交易日・盤後資料</span></div>
     <div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat(12,minmax(64px,auto));min-width:920px;font-size:12px">${hd}${body}</div></div>
-    <div class="dim-note" style="margin-top:8px">現貨買賣超單位:億元;期OI/留倉/選OI:口(正=淨多、負=淨空);<b>前五大/前十大留倉</b>=買方最大5/10家合計−賣方最大5/10家合計(全月份・全部交易人)——市場最大咖的淨方向,常比外資總部位更早轉向;<b>選PCR</b> >100 通常偏多氛圍;<b>韭菜%</b>=小台散戶淨多單佔總未平倉比例——散戶越樂觀(數字越高)行情反轉風險越常抬頭,慣用作反指標。期交所盤後 15:00~16:30 陸續公布,本站每日排程自動抓,★=最新;「—」=該欄當日尚未公布或該來源尚在累積(隔日排程會自動補)。</div>
+    <div class="dim-note" style="margin-top:8px">現貨買賣超單位:億元;期OI/留倉:口(正=淨多、負=淨空);<b>外(選)</b>=外資選擇權未平倉淨契約金額(千元,買方−賣方)——外資慣做選擇權賣方收權利金,此值常態為負,重點看「增減方向」:負值快速擴大=避險/壓空加重;<b>前五大/前十大留倉</b>=買方最大5/10家合計−賣方最大5/10家合計(全月份・全部交易人)——市場最大咖的淨方向,常比外資總部位更早轉向;<b>選PCR</b> >100 通常偏多氛圍;<b>韭菜%</b>=小台散戶淨多單佔總未平倉比例——散戶越樂觀(數字越高)行情反轉風險越常抬頭,慣用作反指標。期交所盤後 15:00~16:30 陸續公布,本站每日排程自動抓,★=最新;「—」=該欄當日尚未公布或該來源尚在累積(隔日排程會自動補)。</div>
   </div>`;
 }
 function renderMacro(){
@@ -1497,7 +1497,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r149</span>');
+  diag.push('<span style="color:var(--dim)">build r153</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
