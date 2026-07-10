@@ -196,7 +196,8 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .sec-title{font-size:17.5px;font-weight:900;letter-spacing:.05em;color:var(--txt);margin:32px 0 12px;display:flex;align-items:baseline;gap:10px;border-left:4px solid var(--amber);padding:2px 0 2px 12px;line-height:1.4}
 .sec-title::after{content:'';flex:1;align-self:center;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
 .sec-title span{font-weight:400;font-size:13.5px;color:var(--mut);letter-spacing:0}
-.idx-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.idx-row{display:flex;flex-wrap:wrap;gap:10px}
+.idx-row>.idx-card{flex:1 1 150px;min-width:150px}
 .idx-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .idx-card .nm{font-size:13px;color:var(--mut)}
 .idx-card .vl{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:2px}
@@ -249,7 +250,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .diag .ok{color:#4BD695} .diag .bad{color:#FF8A8E}
 
 .macro-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;align-items:start}
-.macro-side{display:flex;flex-direction:column;gap:8px;justify-content:space-between}
+.macro-side{display:flex;flex-direction:column;gap:10px}
 .idx-row.compact{gap:8px;grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}
 .idx-row.compact .idx-card{padding:9px 11px}
 .idx-row.compact .nm{font-size:12px}
@@ -331,9 +332,10 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .cal-mini.closed #calTrack{display:none}
 .mini-cap{font-size:12px;color:var(--dim);margin:6px 2px 4px;letter-spacing:.08em;font-weight:700}
 .macro-side .mini-cap:first-child{margin-top:0}
-.macro-band{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;margin-top:12px;align-items:start}
+.macro-band{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;align-items:start}
 .macro-band .mini-cap{margin-top:0}
-.idx-row.band{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.idx-row.band{gap:10px}
+.idx-row.band>.idx-card{flex:1 1 calc(50% - 5px);min-width:calc(50% - 5px)}
 @media(max-width:900px){.macro-band{grid-template-columns:1fr}}
 .sec-title.tap{cursor:pointer;user-select:none;transition:opacity .15s}
 .sec-title.tap:hover{opacity:.85}
@@ -363,8 +365,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
   #idxChart{height:200px!important}
   #kbox{height:400px!important}
   #intraChart{height:185px!important}
-  .idx-row.compact{grid-template-columns:repeat(2,1fr)}
-  .idx-row{grid-template-columns:repeat(2,1fr)}
+  .idx-row>.idx-card{flex:1 1 calc(50% - 5px);min-width:calc(50% - 5px)}
   .controls{gap:8px}
   .seg button{padding:7px 12px;font-size:14px}
   select,input[type=search]{padding:7px 10px;font-size:14px}
@@ -1508,7 +1509,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r178</span>');
+  diag.push('<span style="color:var(--dim)">build r179</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
