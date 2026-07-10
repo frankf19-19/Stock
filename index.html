@@ -243,6 +243,17 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .tg-turtle{background:rgba(91,217,192,.12);color:#5BD9C0;border:1px solid rgba(91,217,192,.45)}
 .tg-zt8{background:rgba(255,214,102,.12);color:#FFD666;border:1px solid rgba(255,214,102,.45)}
 .tg-gem{background:rgba(199,146,234,.10);color:#C792EA;border:1px solid rgba(199,146,234,.42)}
+.glb-tab{padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--txt2);font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
+.glb-tab.on{background:var(--amber);border-color:var(--amber);color:var(--panel);font-weight:900}
+.glb-row{display:flex;gap:10px;align-items:baseline;padding:9px 2px;border-bottom:1px dashed var(--line);line-height:1.65}
+.glb-row a{color:var(--txt);text-decoration:none;font-size:15px}
+.glb-row a:hover{color:var(--amber)}
+.glb-row .meta{flex-shrink:0;color:var(--dim);font-size:12.5px;white-space:nowrap}
+.hotw{color:var(--amber);font-weight:900}
+.glb-chip{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:800;background:rgba(91,217,192,.12);color:#5BD9C0;border:1px solid rgba(91,217,192,.4);vertical-align:1px;white-space:nowrap}
+.glb-row.crit{border-left:3px solid rgba(255,90,95,.7);padding-left:9px;background:rgba(255,90,95,.05);border-radius:6px}
+a.alert-pill{text-decoration:none;cursor:pointer;transition:transform .12s}
+a.alert-pill:hover{transform:translateY(-1px)}
 .alert-strip{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
 .alert-pill{display:inline-flex;align-items:center;gap:9px;padding:10px 15px;border-radius:11px;font-size:15.5px;font-weight:800;line-height:1.4;letter-spacing:.01em}
 .alert-pill .ico{font-size:20px;line-height:1;flex-shrink:0}
@@ -609,6 +620,11 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
     <div><div class="mini-cap">風險溫度計</div><div class="idx-row band" id="riskRow"></div></div>
   </div>
   <div class="fx-note" id="macroNote">總經判讀載入中…</div>
+  <div class="sec-title tap" data-sec="glb" style="margin-top:18px">🌍 國際供應鏈雷達 <span style="font-weight:400;font-size:13px;letter-spacing:0">缺貨・漲價・擴產第一手外電,自動標註對應台股族群</span> <span style="font-weight:400;font-size:12px;color:var(--dim)">點標題收合</span></div><div class="sec-body" id="sb-glb">
+  <div id="glbTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 8px"></div>
+  <div id="glbList"><div class="dim-note">外電載入中…</div></div>
+  <div class="dim-note" style="margin-top:8px">來源:Google News 英文外電聚合(Reuters、Tom's Hardware、DigiTimes、TrendForce 等第一手來源);點標題開原文。<b>族群標籤為關鍵字自動對應,供快速掃描非投資建議</b>;外電通常領先台股反應數日到數週,搭配「盤面脈動」確認資金是否開始輪動。</div>
+  </div>
 
   <div class="cal-mini" id="calBar" hidden>
     <div class="cal-mini-head"><b class="cm-tg" id="cmTg">📅 近期大事</b><a href="#events">完整行事曆 →</a></div>
@@ -1518,7 +1534,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r183</span>');
+  diag.push('<span style="color:var(--dim)">build r185</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2322,10 +2338,12 @@ function renderMacroAlerts(){
       if(f5<=-1500)add('amb','📉',`外資現貨 5 日累計賣超 ${Math.abs(f5).toFixed(0)} 億——資金持續流出台股`);
     }
   }catch(e){}
+  const news=(window.__glbAlerts||[]).map(x=>
+    `<a class="alert-pill alert-${x.lv}" href="${x.l}" target="_blank" rel="noopener"><span class="ico">${x.lv==='red'?'🚨':'📰'}</span><span>${x.lv==='red'?'重大外電:':'外電訊號:'}${x.t}${x.tags.length?` <b>→ ${x.tags.join('/')}</b>`:''}<span style="color:var(--dim);font-weight:600"> · ${x.ago} ↗</span></span></a>`).join('');
   el.style.display='';
-  el.innerHTML=A.length
-    ?A.map(a=>`<span class="alert-pill alert-${a.lv}"><span class="ico">${a.ico}</span><span>${a.txt}</span></span>`).join('')
-    :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>風險溫度計目前無特別警示</span></span>';
+  el.innerHTML=(A.length||news)
+    ?A.map(a=>`<span class="alert-pill alert-${a.lv}"><span class="ico">${a.ico}</span><span>${a.txt}</span></span>`).join('')+news
+    :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>風險溫度計與外電目前無特別警示</span></span>';
 }
 setTimeout(()=>{try{renderMacroAlerts();}catch(e){}},4500);
 function renderStkAlerts(s,k,tt){
@@ -6514,6 +6532,101 @@ async function yNews(q,count){
       .filter(x=>x.t&&x.l);
   }catch(e){return[];}
 }
+/* ══ 🌍 國際供應鏈雷達:英文外電 → 缺貨/漲價/擴產訊號 + 台股族群自動對應 ══ */
+const GLB_TOPICS=[
+ ['🔥 缺貨漲價','(shortage OR "price hike" OR "price increase" OR "supply crunch" OR allocation OR "tight supply" OR "sold out") (semiconductor OR chip OR memory OR DRAM OR NAND OR substrate OR PCB OR component)'],
+ ['🤖 AI 伺服器','("AI server" OR "data center" OR HBM OR CoWoS OR Nvidia OR "GB300") (demand OR orders OR capacity OR expansion OR shortage OR ramp)'],
+ ['🏭 晶圓/封裝','(TSMC OR foundry OR "advanced packaging" OR wafer) (price OR capacity OR expansion OR utilization OR order)'],
+ ['💡 光通訊','("optical module" OR "silicon photonics" OR "co-packaged optics" OR 800G OR "1.6T" OR transceiver)'],
+ ['⚡ 電源/散熱','("power supply" OR HVDC OR "800V" OR "liquid cooling" OR "immersion cooling") ("data center" OR AI OR Nvidia)']];
+const GLB_MAP=[
+ [/HBM|DRAM|NAND|\bmemory\b|flash/i,'記憶體'],[/ABF|substrate/i,'ABF載板'],
+ [/\bPCB\b|CCL|copper.?clad/i,'PCB'],[/optical|photonic|co.?packaged|800G|1\.6T|transceiver/i,'光通訊'],
+ [/liquid cooling|immersion|thermal|cooling/i,'散熱'],[/power supply|HVDC|800V|\bPSU\b/i,'電源'],
+ [/TSMC|foundry|wafer|packaging|CoWoS/i,'晶圓/封測'],[/Nvidia|AI server|GB200|GB300|data center/i,'AI伺服器'],
+ [/MLCC|passive component/i,'被動元件'],[/networking|switch|Ethernet/i,'網通']];
+const GLB_HOT=/(shortage|price hike|price increase|price hikes|sold out|allocation|tight supply|supply crunch|surge|record|expand|expansion|capacity|ramp)/gi;
+async function rssItemsEN(q,max){
+  const u='https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=en-US&gl=US&ceid=US:en';
+  const t=await fetchTextProxy(u);
+  if(!t)return [];
+  try{
+    const doc=new DOMParser().parseFromString(t,'text/xml');
+    return [...doc.querySelectorAll('item')].slice(0,max||10).map(it=>{
+      const title=(it.querySelector('title')||{textContent:''}).textContent||'';
+      const p=title.split(' - ');
+      const pd=(it.querySelector('pubDate')||{textContent:''}).textContent||'';
+      let ago='',hrs=null;
+      try{hrs=(Date.now()-new Date(pd).getTime())/36e5;
+          ago=hrs<1?'剛剛':hrs<24?Math.round(hrs)+' 小時前':Math.round(hrs/24)+' 天前';}catch(e){}
+      return {t:p.length>1?p.slice(0,-1).join(' - '):title,
+              s:p.length>1?p[p.length-1]:'',
+              l:(it.querySelector('link')||{textContent:'#'}).textContent||'#',
+              ago,hrs};
+    }).filter(x=>x.t);
+  }catch(e){return [];}
+}
+/* 重大外電分級:紅=供應中斷級事件;琥珀=重量級廠商的缺貨/漲價訊號 */
+const GLB_CRIT=/(halt(s|ed)?|suspend(s|ed)?|shut(s)? down|shutdown|fire|earthquake|explosion|export (ban|control|controls|curb|curbs)|ban(s|ned)?|recall|disruption|strike)/i;
+const GLB_BIG=/(TSMC|Nvidia|Samsung|SK [Hh]ynix|Micron|Intel|AMD|Apple|Foxconn|Broadcom|ASML)/;
+function glbGrade(t){
+  if(GLB_CRIT.test(t))return 'red';
+  const hot=(t.match(GLB_HOT)||[]).length;
+  if(hot>=2||(hot>=1&&GLB_BIG.test(t)))return 'amb';
+  return null;
+}
+async function glbScanAlerts(){
+  try{
+    const its=await rssItemsEN('(halt OR suspend OR fire OR earthquake OR "export ban" OR "export controls" OR disruption OR recall OR "price hike" OR shortage) (semiconductor OR chip OR TSMC OR memory OR fab OR "supply chain" OR Nvidia)',12);
+    const seen=new Set();
+    const picks=its
+      .map(x=>({...x,lv:glbGrade(x.t)}))
+      .filter(x=>x.lv&&x.hrs!=null&&x.hrs<=48)          // 48 小時內才算「現在重要」
+      .filter(x=>{const k=x.t.slice(0,40);if(seen.has(k))return false;seen.add(k);return true;})
+      .sort((a,b)=>(a.lv==='red'?0:1)-(b.lv==='red'?0:1)||a.hrs-b.hrs)
+      .slice(0,3)
+      .map(x=>({lv:x.lv,l:x.l,ago:x.ago,
+        tags:GLB_MAP.filter(([re])=>re.test(x.t)).slice(0,2).map(([,nm])=>nm),
+        t:x.t.length>72?x.t.slice(0,70)+'…':x.t}));
+    window.__glbAlerts=picks;
+    try{renderMacroAlerts();}catch(e){}
+  }catch(e){}
+}
+setTimeout(glbScanAlerts,8000);
+setInterval(glbScanAlerts,15*60e3);
+window.__glbCache={};
+async function glbLoad(i){
+  const tabs=document.getElementById('glbTabs'),list=document.getElementById('glbList');
+  if(!tabs||!list)return;
+  tabs.querySelectorAll('.glb-tab').forEach((b,k)=>b.classList.toggle('on',k===i));
+  const c=window.__glbCache[i];
+  const render=its=>{
+    if(!document.getElementById('glbList'))return;
+    if(!its.length){
+      list.innerHTML=`<div class="dim-note">外電暫時載入不到(免費代理偶爾塞車,稍後自動可用)——<a href="https://news.google.com/search?q=${encodeURIComponent(GLB_TOPICS[i][1])}&hl=en-US&gl=US&ceid=US:en" target="_blank" rel="noopener" style="color:var(--amber)">直接開 Google News 看這個主題 ↗</a></div>`;
+      return;
+    }
+    list.innerHTML=its.map(x=>{
+      const lv=glbGrade(x.t);
+      const tags=GLB_MAP.filter(([re])=>re.test(x.t)).slice(0,3)
+        .map(([,name])=>`<span class="glb-chip">→ ${name}</span>`).join('');
+      const tt=x.t.replace(GLB_HOT,'<span class="hotw">$1</span>');
+      return `<div class="glb-row${lv==='red'?' crit':''}"><span style="min-width:0">${lv==='red'?'🚨 ':''}<a href="${x.l}" target="_blank" rel="noopener">${tt}</a>${tags}</span><span class="meta">${x.s}${x.ago?' · '+x.ago:''}</span></div>`;
+    }).join('');
+  };
+  if(c&&Date.now()-c.t<10*60e3){render(c.items);return;}
+  list.innerHTML='<div class="dim-note">外電載入中…</div>';
+  const its=await rssItemsEN(GLB_TOPICS[i][1],10);
+  window.__glbCache[i]={t:Date.now(),items:its};
+  render(its);
+}
+(function glbInit(){
+  const tabs=document.getElementById('glbTabs');
+  if(!tabs)return;
+  tabs.innerHTML=GLB_TOPICS.map(([name],k)=>`<button class="glb-tab${k===0?' on':''}" data-g-i="${k}">${name}</button>`).join('');
+  tabs.querySelectorAll('.glb-tab').forEach(b=>b.onclick=()=>glbLoad(+b.dataset.gI));
+  setTimeout(()=>{try{glbLoad(0);}catch(e){}},6000);
+})();
 async function rssItems(q,max,sym){
   // 主力:Yahoo 搜尋 API(直連可用);備援:Google/Bing RSS(需代理)
   for(const key of [sym,q].filter(Boolean)){
