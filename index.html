@@ -1506,7 +1506,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r166</span>');
+  diag.push('<span style="color:var(--dim)">build r168</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5859,6 +5859,7 @@ function fT(url,ms,opts){  // 帶逾時的 fetch:代理掛掉也不會讓畫面�
   return fetch(url,Object.assign({cache:'no-store',signal:c.signal},opts||{})).finally(()=>clearTimeout(t));
 }
 const PROXY=[x=>x,
+  x=>'https://stock.frankccc199.workers.dev/?u='+encodeURIComponent(x),   // 專屬 Worker 代理(最穩)
   x=>'https://corsproxy.io/?url='+encodeURIComponent(x),
   x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x),
   x=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(x)];
@@ -6814,61 +6815,39 @@ async function loadTdcc(s){
   if(!box||box.dataset.busy||box.dataset.done)return;
   if(s.market!=='TW'||s.etf){box.dataset.done='1';box.innerHTML='<div class="dim-note">大戶持股結構僅適用台股個股(集保資料)。</div>';return;}
   box.dataset.busy='1';
-  const CK='tdcc1:'+s.id;
-  let rows=null;
-  try{const c=JSON.parse(localStorage.getItem(CK)||'null');
-    if(c&&Date.now()-c.t<864e5)rows=c.rows;}catch(e){}
-  if(!rows){
-    const st=new Date(Date.now()-540*864e5).toISOString().slice(0,10);
-    const u=`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockHoldingSharesPer&data_id=${s.id}&start_date=${st}`;
-    try{                                             // 代理競速(瀏覽器直連 FinMind 會被 CORS 擋)
-      const j=await Promise.any(PROXY.map(r=>
-        fT(r(u),9000).then(x=>{if(!x.ok)throw 0;return x.json();}).then(j2=>{
-          if(!j2||!Array.isArray(j2.data)||!j2.data.length)throw 0;return j2;})));
-      rows=j.data;
-      try{localStorage.setItem(CK,JSON.stringify({t:Date.now(),rows:rows.map(x=>[x.date,x.HoldingSharesLevel,x.percent])}));}catch(e){}
-    }catch(e){console.warn('tdcc',e);rows=null;}
+  let J=window.__tdcc;
+  if(!J){
+    try{const r=await fT('tdcc.json?'+Math.floor(Date.now()/36e5),12000);
+      if(r.ok)J=window.__tdcc=await r.json();}catch(e){}
   }
   box.dataset.busy='';
-  if(!rows||!rows.length){
-    box.innerHTML='<div class="dim-note">集保資料暫時抓不到。<button class="btn-ghost" id="tdccRetry" style="padding:4px 14px;margin-left:8px">🔄 重試</button></div>';
-    const rb=document.getElementById('tdccRetry');if(rb)rb.onclick=()=>loadTdcc(s);
+  const arr=J&&J.s&&J.s[s.id];
+  if(!J||!J.d||!J.d.length){
+    box.dataset.done='1';
+    box.innerHTML='<div class="dim-note">集保週趨勢資料將於下一次「每日資料更新」執行後開始累積(官方每週五結算、次週公布;本站每週自動加一筆,約兩個月累積出完整趨勢圖)。需 update_data.py r168+。</div>';
     return;
   }
   box.dataset.done='1';
-  const W={};                                        // 週 → {lvl:pct}
-  rows.forEach(x=>{
-    const d=Array.isArray(x)?x[0]:x.date, lv=String(Array.isArray(x)?x[1]:x.HoldingSharesLevel), p=+(Array.isArray(x)?x[2]:x.percent);
-    if(!d||isNaN(p))return;(W[d]=W[d]||{})[lv]=p;
-  });
-  const lvN=k=>{const m=k.match(/^(\d+)/);return m?+m[1]:(/1,000,001|1000001/.test(k)?15:0);};
-  const wk=Object.keys(W).sort().map(d=>{
-    const L=W[d];let big=0,ret=0;
-    for(const k in L){
-      const n=lvN(k)||(+k||0);
-      if(n>=15||/1,000,001/.test(k))big+=L[k];
-      else if(n>=1&&n<=10)ret+=L[k];
-    }
-    return {d,big:+big.toFixed(2),ret:+ret.toFixed(2)};
-  }).filter(x=>x.big>0||x.ret>0);
-  if(wk.length<4){box.innerHTML='<div class="dim-note">集保週資料樣本不足。</div>';return;}
-  const last=wk[wk.length-1], prev=wk[wk.length-2];
+  const wk=(J.d||[]).map((d,i)=>arr&&arr[i]?{d,big:arr[i][0],ret:arr[i][1]}:null).filter(Boolean);
+  if(!wk.length){box.innerHTML='<div class="dim-note">此檔尚無集保週資料(新掛牌或下次每週更新後納入)。</div>';return;}
+  const last=wk[wk.length-1], prev=wk.length>1?wk[wk.length-2]:last;
   const cell='padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--line);white-space:nowrap';
-  const tbl=wk.slice(-8).reverse().map((x,i,arr)=>{
-    const pv=wk[wk.length-1-(arr.length-1-i)-1]||x;
-    const chgB=+(x.big-(wk[wk.indexOf(x)-1]||x).big).toFixed(2);
+  const tbl=wk.slice(-8).reverse().map((x,i)=>{
+    const idx=wk.indexOf(x), pv=idx>0?wk[idx-1]:x;
+    const chgB=+(x.big-pv.big).toFixed(2);
     return `<div style="${cell};text-align:left;color:var(--txt2)">${x.d.slice(5)}</div>
       <div style="${cell}"><b>${x.big.toFixed(2)}%</b></div>
       <div style="${cell}"><span style="color:${chgB>0?CT.up2:chgB<0?CT.dn2:'var(--mut)'}">${chgB>0?'+':''}${chgB.toFixed(2)}</span></div>
       <div style="${cell}">${x.ret.toFixed(2)}%</div>`;
   }).join('');
-  box.innerHTML=`<h3>👑 千張大戶 vs 散戶(集保週資料) <span class="ds">近 ${wk.length} 週</span></h3>
-    <div id="tdccChart" style="height:220px"></div>
+  const one=wk.length<2;
+  box.innerHTML=`<h3>👑 千張大戶 vs 散戶(集保週資料) <span class="ds">${one?'累積第 1 週,趨勢圖將逐週長出':'近 '+wk.length+' 週'}</span></h3>
+    ${one?'':'<div id="tdccChart" style="height:220px"></div>'}
     <div style="overflow-x:auto;margin-top:8px"><div style="display:grid;grid-template-columns:64px repeat(3,1fr);min-width:340px">
       <div style="${cell};color:var(--mut);font-size:11px;text-align:left">週別</div><div style="${cell};color:var(--mut);font-size:11px">大戶>1000張</div><div style="${cell};color:var(--mut);font-size:11px">週增減</div><div style="${cell};color:var(--mut);font-size:11px">散戶<100張</div>
       ${tbl}</div></div>
-    <div class="dim-note" style="margin-top:8px">最新:千張大戶 <b>${last.big.toFixed(2)}%</b>(週${(last.big-prev.big)>=0?'增':'減'} ${Math.abs(last.big-prev.big).toFixed(2)}pp)、散戶 ${last.ret.toFixed(2)}%。<b>大戶增+散戶減=籌碼流向大手</b>,反之為派發訊號;集保每週五結算、次週更新,屬中期指標。主力分點買賣超為付費資料,暫以三大法人(上方籌碼卡)與本表替代。</div>`;
-  try{
+    <div class="dim-note" style="margin-top:8px">最新:千張大戶 <b>${last.big.toFixed(2)}%</b>${one?'':`(週${(last.big-prev.big)>=0?'增':'減'} ${Math.abs(last.big-prev.big).toFixed(2)}pp)`}、散戶 ${last.ret.toFixed(2)}%。<b>大戶增+散戶減=籌碼流向大手</b>,反之為派發訊號。資料源:集保官方週結算,本站每週自動累積一筆,零外部依賴。</div>`;
+  if(!one)try{
     const el=document.getElementById('tdccChart');
     echarts.dispose(el);const ch=echarts.init(el);chipCharts.push(ch);
     ch.setOption({
@@ -6878,8 +6857,8 @@ async function loadTdcc(s){
       xAxis:{type:'category',data:wk.map(x=>x.d.slice(5)),axisLabel:{color:CT.axis,fontSize:10},axisLine:{lineStyle:{color:CT.border}}},
       yAxis:[{type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10,formatter:'{value}%'},splitLine:{lineStyle:{color:CT.split}}},
              {type:'value',scale:true,axisLabel:{color:CT.axis,fontSize:10,formatter:'{value}%'},splitLine:{show:false}}],
-      series:[{name:'千張大戶%',type:'line',data:wk.map(x=>x.big),symbol:'none',lineStyle:{width:2.2,color:'#D08770'},itemStyle:{color:'#D08770'}},
-              {name:'散戶%',type:'line',yAxisIndex:1,data:wk.map(x=>x.ret),symbol:'none',lineStyle:{width:2,color:'#5FA88C'},itemStyle:{color:'#5FA88C'}}]
+      series:[{name:'千張大戶%',type:'line',data:wk.map(x=>x.big),symbol:'circle',symbolSize:5,lineStyle:{width:2.2,color:'#D08770'},itemStyle:{color:'#D08770'}},
+              {name:'散戶%',type:'line',yAxisIndex:1,data:wk.map(x=>x.ret),symbol:'circle',symbolSize:5,lineStyle:{width:2,color:'#5FA88C'},itemStyle:{color:'#5FA88C'}}]
     });
   }catch(e){}
 }

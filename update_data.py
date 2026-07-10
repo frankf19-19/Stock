@@ -1432,6 +1432,70 @@ def fetch_etf_holdings(stocks):
         time.sleep(0.12)
     print(f"  ETF 成分/規模:{n_ok}/{len(etfs)} 檔")
 
+def build_tdcc_trend(stocks):
+    """集保股權分散趨勢:官方 opendata 最新週(全市場一檔 CSV),逐週累積成 tdcc.json。
+    每股存 [千張大戶%, 散戶<100張%];歷史靠每週累積(官方僅提供最新週)。"""
+    import csv, io
+    try:
+        with open("tdcc.json", encoding="utf-8") as fp:
+            J = json.load(fp)
+    except Exception:
+        J = {"d": [], "s": {}}
+    try:
+        r = SESS.get("https://smart.tdcc.com.tw/opendata/getOD.ashx?id=1-5", timeout=90)
+        r.raise_for_status()
+        rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
+    except Exception as e:
+        print(f"  [warn] TDCC opendata: {e}")
+        return
+    if len(rows) < 10: return
+    hdr = rows[0]
+    ci = {}
+    for i, name in enumerate(hdr):
+        n = str(name)
+        if "日期" in n: ci["d"] = i
+        elif "代號" in n: ci["sid"] = i
+        elif "分級" in n: ci["lv"] = i
+        elif "比例" in n: ci["pct"] = i
+    if len(ci) < 4:
+        print(f"  [diag] TDCC 欄位: {hdr}")
+        return
+    agg = {}
+    date = None
+    for r2 in rows[1:]:
+        try:
+            d0 = str(r2[ci["d"]]).strip()
+            date = date or (f"{d0[:4]}-{d0[4:6]}-{d0[6:8]}" if len(d0) == 8 else d0)
+            sid = str(r2[ci["sid"]]).strip()
+            lv = int(str(r2[ci["lv"]]).strip())
+            pct = float(str(r2[ci["pct"]]).replace(",", ""))
+        except Exception:
+            continue
+        a = agg.setdefault(sid, [0.0, 0.0])
+        if lv == 15: a[0] += pct            # >1,000,000 股 = 千張大戶
+        elif 1 <= lv <= 10: a[1] += pct     # ≤100,000 股 = 散戶
+    if not date or not agg: return
+    if date in J["d"]:
+        print(f"  TDCC 週資料 {date} 已存在,略過")
+        return
+    J["d"].append(date)
+    if len(J["d"]) > 60:                    # 保留 60 週
+        cut = len(J["d"]) - 60
+        J["d"] = J["d"][cut:]
+        for sid in J["s"]: J["s"][sid] = J["s"][sid][cut:]
+    n_pad = len(J["d"]) - 1
+    ids = {s["id"] for s in stocks if s.get("market") == "TW" and not s.get("etf")}
+    for sid, a in agg.items():
+        if sid not in ids: continue
+        arr = J["s"].setdefault(sid, [None] * n_pad)
+        while len(arr) < n_pad: arr.append(None)
+        arr.append([round(a[0], 2), round(a[1], 2)])
+    for sid in list(J["s"].keys()):         # 齊長
+        while len(J["s"][sid]) < len(J["d"]): J["s"][sid].append(None)
+    with open("tdcc.json", "w", encoding="utf-8") as fp:
+        json.dump(J, fp, ensure_ascii=False, separators=(",", ":"))
+    print(f"  TDCC 週資料:{date} 新增,{len(J['d'])} 週 × {len(J['s'])} 檔")
+
 def build_fut_table():
     """期貨籌碼先行指標表(近14個交易日):現貨成交值/三大法人現貨/外資期貨淨OI/
     選擇權PCR/外資選擇權淨OI/小台散戶多空比(韭菜指數)/大台總OI。
@@ -2169,6 +2233,10 @@ def main():
         mark_leaders(stocks)
     except Exception as e:
         print(f"  [warn] 龍頭標記跳過: {e}")
+    try:
+        build_tdcc_trend(stocks)
+    except Exception as e:
+        print(f"  [warn] TDCC 趨勢跳過: {e}")
     try:
         _macro["futtab"] = build_fut_table()
     except Exception as e:
