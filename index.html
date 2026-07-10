@@ -266,6 +266,20 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .fst-wait{background:var(--panel2);color:var(--mut);border:1.5px solid var(--line)}
 .fst-weak{background:rgba(255,90,95,.12);color:#FF8A8E;border:1.5px solid rgba(255,90,95,.5)}
 .fav-fut{margin-left:7px;font-size:12px;font-weight:800;color:var(--dim)}
+.aef-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;cursor:pointer;transition:border-color .15s}
+.aef-card:hover{border-color:#C792EA}
+.aef-bdg{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:800;margin-left:5px;vertical-align:1px}
+.aef-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:8px}
+.aef-col{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-width:0}
+.aef-col h5{margin:0 0 5px;font-size:12.5px;font-weight:900;letter-spacing:.03em}
+.aef-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:3.5px 0;border-bottom:1px dashed var(--line);font-size:13.5px;min-width:0}
+.aef-row:last-child{border-bottom:none}
+.aef-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.aef-nm .cd{font-family:var(--mono);font-size:12px;color:var(--dim);margin-left:4px}
+.aef-val{font-family:var(--mono);text-align:right;white-space:nowrap;flex-shrink:0;line-height:1.45}
+.aef-val small{display:block;font-size:11.5px;opacity:.85}
+.aef-none{font-size:12.5px;color:var(--dim);padding:8px 0 4px;text-align:center}
+@media(max-width:640px){.aef-cols{grid-template-columns:1fr}}
 a.alert-pill{text-decoration:none;cursor:pointer;transition:transform .12s}
 a.alert-pill:hover{transform:translateY(-1px)}
 .alert-strip{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
@@ -1602,7 +1616,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r202</span>');
+  diag.push('<span style="color:var(--dim)">build r203</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7826,17 +7840,37 @@ function renderEtf(){
   const actSec=actE.length?`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:0 0 14px">
     <div style="font-size:14px;font-weight:900;color:#C792EA;letter-spacing:.05em;margin-bottom:2px">🔍 主動式 ETF 調倉觀察|規模前五</div>
     <div style="font-size:12px;color:var(--dim);margin-bottom:8px">前十大權重估算、已扣除股價漲跌效果(單位:權重百分點);點檔名看完整觀察</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px">
     ${actE.map(s=>{
       const a=s.act;
-      const li=(a.mv||[]).slice(0,3).map(r=>{const[sym,nm,w,adj,dsh,damt]=r;
-        const val=(dsh!=null&&damt!=null)?`估 ${dsh>0?'+':''}${dsh.toLocaleString()} 張(${damt>0?'+':''}${damt} 億)`:`${adj>0?'+':''}${adj.toFixed(2)}pp`;
-        return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:2.5px 0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sym} ${nm}</span><b style="font-family:var(--mono);color:${adj>0?CT.up2:CT.dn2}">${val}</b></div>`;}).join('')
-        +(a['in']||[]).slice(0,2).map(([sym,nm])=>`<div style="font-size:13px;padding:2.5px 0;color:var(--amber)">🆕 ${sym} ${nm} 新進</div>`).join('')
-        +(a['out']||[]).slice(0,2).map(([sym,nm])=>`<div style="font-size:13px;padding:2.5px 0;color:var(--dim)">↓ ${sym} ${nm} 掉出</div>`).join('');
-      return `<div data-id="${s.id}" style="background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 12px;cursor:pointer">
-        <div style="font-weight:800;font-size:13.5px;margin-bottom:5px"><b style="font-family:var(--mono)">${s.id}</b> ${s.name} <span style="font-weight:400;font-size:11.5px;color:var(--dim)">${(s.hold.aum/1e8).toFixed(0)} 億</span></div>
-        ${li||'<div style="font-size:12.5px;color:var(--dim)">今日無明顯調倉(±0.15pp 內)</div>'}</div>`;
+      const zhNm=(sym,nm)=>{                              // 中文股名優先
+        const st=(DATA.stocks||[]).find(x=>x.id===sym);
+        if(st)return st.name;
+        return /^\d{4,6}[A-Z]?$/.test(sym)?String(nm||sym).slice(0,10):sym;   // 美股顯示代號
+      };
+      const rows=(a.mv||[]).map(r=>{const[sym,nm,w,adj,dsh,damt]=r;
+        return {sym,zh:zhNm(sym,nm),adj,dsh,damt,amt:Math.abs(damt!=null?damt:adj)};});
+      const add=rows.filter(r=>(r.damt??r.adj)>0).sort((x,y)=>y.amt-x.amt).slice(0,4);
+      const cut=rows.filter(r=>(r.damt??r.adj)<0).sort((x,y)=>y.amt-x.amt).slice(0,4);
+      const ins=(a['in']||[]).slice(0,2), outs=(a['out']||[]).slice(0,2);
+      const item=(r,neg)=>`<div class="aef-row">
+        <span class="aef-nm">${r.zh}<span class="cd">${r.sym}</span></span>
+        <span class="aef-val" style="color:${neg?CT.dn2:CT.up2};font-weight:700">${r.dsh!=null?`${r.dsh>0?'+':''}${r.dsh.toLocaleString()} 張`:`${r.adj>0?'+':''}${r.adj.toFixed(2)}pp`}${r.damt!=null?`<small>${r.damt>0?'+':''}${r.damt} 億</small>`:''}</span></div>`;
+      const inRow=([sym,nm])=>`<div class="aef-row"><span class="aef-nm">🆕 ${zhNm(sym,nm)}<span class="cd">${sym}</span></span><span class="aef-val" style="color:var(--amber);font-weight:800">新進</span></div>`;
+      const outRow=([sym,nm])=>`<div class="aef-row"><span class="aef-nm">${zhNm(sym,nm)}<span class="cd">${sym}</span></span><span class="aef-val" style="color:var(--dim);font-weight:800">出清前十</span></div>`;
+      const bdg=(t,cnt,c)=>`<span class="aef-bdg" style="background:${c}22;color:${c};border:1px solid ${c}66">${t} ${cnt}</span>`;
+      return `<div class="aef-card" data-id="${s.id}">
+        <div style="font-weight:800;font-size:14px;line-height:1.5"><b style="font-family:var(--mono);color:#C792EA">${s.id}</b> ${s.name}
+          <span style="font-weight:400;font-size:11.5px;color:var(--dim)">${(s.hold.aum/1e8).toFixed(0)} 億</span><br>
+          ${bdg('新進',ins.length,'#FFB74A')}${bdg('加碼',add.length,CT.up2)}${bdg('減碼',cut.length,CT.dn2)}${bdg('出清',outs.length,'#9AA3B2')}</div>
+        <div class="aef-cols">
+          <div class="aef-col"><h5 style="color:${CT.up2}">加碼焦點(依金額)</h5>
+            ${(add.map(r=>item(r,false)).join('')+ins.map(inRow).join(''))||'<div class="aef-none">今日沒有明顯加碼</div>'}</div>
+          <div class="aef-col"><h5 style="color:${CT.dn2}">減碼焦點(依金額)</h5>
+            ${(cut.map(r=>item(r,true)).join('')+outs.map(outRow).join(''))||'<div class="aef-none">今日沒有明顯減碼</div>'}</div>
+        </div>
+        <div style="margin-top:8px;text-align:center;font-size:12.5px;color:#5BD9C0;font-weight:800;background:rgba(91,217,192,.08);border:1px solid rgba(91,217,192,.35);border-radius:8px;padding:5px">進 ETF 明細 →</div>
+      </div>`;
     }).join('')}
     </div></div>`
   :(_actAll.length?`<div style="background:var(--panel2);border:1px dashed var(--line);border-radius:11px;padding:12px 14px;margin:0 0 14px">
