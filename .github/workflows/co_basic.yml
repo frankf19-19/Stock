@@ -1,0 +1,32 @@
+name: 公司股本更新(每週)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 0 * * 1"    # 每週一 台北時間 08:30
+permissions:
+  contents: write
+jobs:
+  cap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+      - name: 設定 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 安裝套件
+        run: pip install requests
+      - name: 抓取股本
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python fetch_cap.py
+      - name: 提交結果
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add cap.json
+          git commit -m "股本更新 [CI Skip]" || echo "無變更"
+          git pull --rebase origin main || true
+          git push
