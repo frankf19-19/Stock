@@ -620,7 +620,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
     <div><div class="mini-cap">風險溫度計</div><div class="idx-row band" id="riskRow"></div></div>
   </div>
   <div class="fx-note" id="macroNote">總經判讀載入中…</div>
-  <div class="sec-title tap" data-sec="glb" style="margin-top:18px">🌍 國際供應鏈雷達 <span style="font-weight:400;font-size:13px;letter-spacing:0">缺貨・漲價・擴產第一手外電,自動標註對應台股族群</span> <span style="font-weight:400;font-size:12px;color:var(--dim)">點標題收合</span></div><div class="sec-body" id="sb-glb">
+  <div class="sec-title tap" data-sec="glb" style="margin-top:18px">🌍 國際供應鏈雷達 <span style="font-weight:400;font-size:13px;letter-spacing:0">缺貨・漲價・擴產第一手外電,自動標註對應台股族群</span></div><div class="sec-body" id="sb-glb">
   <div id="glbTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 8px"></div>
   <div id="glbList"><div class="dim-note">外電載入中…</div></div>
   <div class="dim-note" style="margin-top:8px">來源:Google News 英文外電聚合(Reuters、Tom's Hardware、DigiTimes、TrendForce 等第一手來源);點標題開原文。<b>族群標籤為關鍵字自動對應,供快速掃描非投資建議</b>;外電通常領先台股反應數日到數週,搭配「盤面脈動」確認資金是否開始輪動。</div>
@@ -1534,7 +1534,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r185</span>');
+  diag.push('<span style="color:var(--dim)">build r186</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6546,23 +6546,48 @@ const GLB_MAP=[
  [/TSMC|foundry|wafer|packaging|CoWoS/i,'晶圓/封測'],[/Nvidia|AI server|GB200|GB300|data center/i,'AI伺服器'],
  [/MLCC|passive component/i,'被動元件'],[/networking|switch|Ethernet/i,'網通']];
 const GLB_HOT=/(shortage|price hike|price increase|price hikes|sold out|allocation|tight supply|supply crunch|surge|record|expand|expansion|capacity|ramp)/gi;
+function glbAgo(pd){
+  let ago='',hrs=null;
+  try{hrs=(Date.now()-new Date(pd).getTime())/36e5;
+      if(isNaN(hrs))hrs=null;
+      else ago=hrs<1?'剛剛':hrs<24?Math.round(hrs)+' 小時前':Math.round(hrs/24)+' 天前';}catch(e){}
+  return {ago,hrs};
+}
+function glbSplit(title){
+  const p=String(title||'').split(' - ');
+  return {t:p.length>1?p.slice(0,-1).join(' - '):title,s:p.length>1?p[p.length-1]:''};
+}
 async function rssItemsEN(q,max){
+  max=max||10;
   const u='https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=en-US&gl=US&ceid=US:en';
-  const t=await fetchTextProxy(u);
-  if(!t)return [];
+  // 第一層:rss2json(回 JSON、原生允許跨網域,對 Google News 相容性最好)
   try{
-    const doc=new DOMParser().parseFromString(t,'text/xml');
-    return [...doc.querySelectorAll('item')].slice(0,max||10).map(it=>{
-      const title=(it.querySelector('title')||{textContent:''}).textContent||'';
-      const p=title.split(' - ');
-      const pd=(it.querySelector('pubDate')||{textContent:''}).textContent||'';
-      let ago='',hrs=null;
-      try{hrs=(Date.now()-new Date(pd).getTime())/36e5;
-          ago=hrs<1?'剛剛':hrs<24?Math.round(hrs)+' 小時前':Math.round(hrs/24)+' 天前';}catch(e){}
-      return {t:p.length>1?p.slice(0,-1).join(' - '):title,
-              s:p.length>1?p[p.length-1]:'',
-              l:(it.querySelector('link')||{textContent:'#'}).textContent||'#',
-              ago,hrs};
+    const r=await fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(u),10000);
+    if(r.ok){
+      const j=await r.json();
+      if(j&&j.status==='ok'&&Array.isArray(j.items)&&j.items.length){
+        return j.items.slice(0,max).map(it=>{
+          const {t,s}=glbSplit(it.title),{ago,hrs}=glbAgo(it.pubDate);
+          return {t,s,l:it.link||'#',ago,hrs};
+        }).filter(x=>x.t);
+      }
+    }
+  }catch(e){}
+  // 第二層:allorigins get(JSON 包 XML)
+  let xml=null;
+  try{
+    const r=await fT('https://api.allorigins.win/get?url='+encodeURIComponent(u),10000);
+    if(r.ok){const j=await r.json();if(j&&j.contents&&j.contents.length>200)xml=j.contents;}
+  }catch(e){}
+  // 第三層:一般文字代理
+  if(!xml)xml=await fetchTextProxy(u);
+  if(!xml)return [];
+  try{
+    const doc=new DOMParser().parseFromString(xml,'text/xml');
+    return [...doc.querySelectorAll('item')].slice(0,max).map(it=>{
+      const {t,s}=glbSplit((it.querySelector('title')||{textContent:''}).textContent);
+      const {ago,hrs}=glbAgo((it.querySelector('pubDate')||{textContent:''}).textContent);
+      return {t,s,l:(it.querySelector('link')||{textContent:'#'}).textContent||'#',ago,hrs};
     }).filter(x=>x.t);
   }catch(e){return [];}
 }
@@ -6616,8 +6641,10 @@ async function glbLoad(i){
   };
   if(c&&Date.now()-c.t<10*60e3){render(c.items);return;}
   list.innerHTML='<div class="dim-note">外電載入中…</div>';
-  const its=await rssItemsEN(GLB_TOPICS[i][1],10);
-  window.__glbCache[i]={t:Date.now(),items:its};
+  const its=await Promise.race([
+    rssItemsEN(GLB_TOPICS[i][1],10),
+    new Promise(r=>setTimeout(()=>r([]),15000))]);
+  if(its.length)window.__glbCache[i]={t:Date.now(),items:its};
   render(its);
 }
 (function glbInit(){
