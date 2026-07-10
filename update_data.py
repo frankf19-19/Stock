@@ -1433,14 +1433,15 @@ def fetch_etf_holdings(stocks):
     print(f"  ETF 成分/規模:{n_ok}/{len(etfs)} 檔")
 
 def build_tdcc_trend(stocks):
-    """集保股權分散趨勢:官方 opendata 最新週(全市場一檔 CSV),逐週累積成 tdcc.json。
-    每股存 [千張大戶%, 散戶<100張%];歷史靠每週累積(官方僅提供最新週)。"""
+    """集保股權分散 v2:每股每週存 9 組級距(可前端換算任意大戶/散戶門檻)。
+    g=[L15,L14,L13,L12,L11,L10,L9,L8,L1-7](% 各級距佔比;官方 15 級,張=千股)"""
     import csv, io
     try:
         with open("tdcc.json", encoding="utf-8") as fp:
             J = json.load(fp)
+        if J.get("v") != 2: J = {"v": 2, "d": [], "s": {}}
     except Exception:
-        J = {"d": [], "s": {}}
+        J = {"v": 2, "d": [], "s": {}}
     try:
         r = requests.get("https://smart.tdcc.com.tw/opendata/getOD.ashx?id=1-5",
                          headers={"User-Agent": "Mozilla/5.0"}, timeout=90)
@@ -1450,19 +1451,17 @@ def build_tdcc_trend(stocks):
         print(f"  [warn] TDCC opendata: {e}")
         return
     if len(rows) < 10: return
-    hdr = rows[0]
-    ci = {}
-    for i, name in enumerate(hdr):
+    hdr = rows[0]; ci = {}
+    for i2, name in enumerate(hdr):
         n = str(name)
-        if "日期" in n: ci["d"] = i
-        elif "代號" in n: ci["sid"] = i
-        elif "分級" in n: ci["lv"] = i
-        elif "比例" in n: ci["pct"] = i
+        if "日期" in n: ci["d"] = i2
+        elif "代號" in n: ci["sid"] = i2
+        elif "分級" in n: ci["lv"] = i2
+        elif "比例" in n: ci["pct"] = i2
     if len(ci) < 4:
-        print(f"  [diag] TDCC 欄位: {hdr}")
-        return
-    agg = {}
-    date = None
+        print(f"  [diag] TDCC 欄位: {hdr}"); return
+    GIDX = {15:0, 14:1, 13:2, 12:3, 11:4, 10:5, 9:6, 8:7}   # 其餘 1~7 → 8
+    agg = {}; date = None
     for r2 in rows[1:]:
         try:
             d0 = str(r2[ci["d"]]).strip()
@@ -1472,26 +1471,24 @@ def build_tdcc_trend(stocks):
             pct = float(str(r2[ci["pct"]]).replace(",", ""))
         except Exception:
             continue
-        a = agg.setdefault(sid, [0.0, 0.0])
-        if lv == 15: a[0] += pct            # >1,000,000 股 = 千張大戶
-        elif 1 <= lv <= 10: a[1] += pct     # ≤100,000 股 = 散戶
+        if not (1 <= lv <= 15): continue
+        g = agg.setdefault(sid, [0.0]*9)
+        g[GIDX.get(lv, 8)] += pct
     if not date or not agg: return
     if date in J["d"]:
-        print(f"  TDCC 週資料 {date} 已存在,略過")
-        return
+        print(f"  TDCC 週資料 {date} 已存在,略過"); return
     J["d"].append(date)
-    if len(J["d"]) > 60:                    # 保留 60 週
-        cut = len(J["d"]) - 60
-        J["d"] = J["d"][cut:]
+    if len(J["d"]) > 26:
+        cut = len(J["d"]) - 26; J["d"] = J["d"][cut:]
         for sid in J["s"]: J["s"][sid] = J["s"][sid][cut:]
     n_pad = len(J["d"]) - 1
     ids = {s["id"] for s in stocks if s.get("market") == "TW" and not s.get("etf")}
-    for sid, a in agg.items():
+    for sid, g in agg.items():
         if sid not in ids: continue
-        arr = J["s"].setdefault(sid, [None] * n_pad)
+        arr = J["s"].setdefault(sid, [None]*n_pad)
         while len(arr) < n_pad: arr.append(None)
-        arr.append([round(a[0], 2), round(a[1], 2)])
-    for sid in list(J["s"].keys()):         # 齊長
+        arr.append([round(x, 2) for x in g])
+    for sid in list(J["s"].keys()):
         while len(J["s"][sid]) < len(J["d"]): J["s"][sid].append(None)
     with open("tdcc.json", "w", encoding="utf-8") as fp:
         json.dump(J, fp, ensure_ascii=False, separators=(",", ":"))
