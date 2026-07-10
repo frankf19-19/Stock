@@ -711,6 +711,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
         <select id="aiProvSel">
           <option value="gemini">Google Gemini|完全免費・免綁卡(建議)</option>
           <option value="anthropic">Anthropic Claude|付費(需綁卡)</option>
+          <option value="shared">好友共用|輸入通行碼即可(免申請)</option>
         </select></label>
       <label>API Key
         <input type="password" id="aiKey" placeholder="" autocomplete="off"></label>
@@ -1538,7 +1539,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r187</span>');
+  diag.push('<span style="color:var(--dim)">build r188</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8086,18 +8087,39 @@ const AIP={
       ['claude-sonnet-4-6','Claude Sonnet 4.6|建議,聰明且划算'],
       ['claude-haiku-4-5-20251001','Claude Haiku 4.5|最快最省'],
       ['claude-opus-4-8','Claude Opus 4.8|最強,較貴']],
-    note:'付費方案(需綁卡):console.anthropic.com → API Keys。金鑰只存在你這台裝置的瀏覽器,切勿提交到 GitHub。'}
+    note:'付費方案(需綁卡):console.anthropic.com → API Keys。金鑰只存在你這台裝置的瀏覽器,切勿提交到 GitHub。'},
+  shared:{
+    label:'好友共用',keyPh:'通行碼(跟站主拿)',
+    models:[
+      ['gemini-2.5-flash','Gemini 2.5 Flash|共用免費額度'],
+      ['gemini-2.5-flash-lite','Gemini Flash-Lite|最快最省']],
+    note:'<b>不用自己申請金鑰</b>:輸入站主給的通行碼即可使用(共用站主的 Gemini 免費額度,先到先得、每日重置)。重度使用建議還是免費申辦自己的金鑰(選上方 Gemini)。<span id="aiMkr"></span>'}
 };
+/* 好友共用(免伺服器):站主用下方「站主打包」產生的密文貼在此;沒通行碼解不開,公開無妨 */
+const AI_SHARED_ENC='';
 const AI={
   prov:localStorage.getItem('ai_prov')||'gemini',
   keys:{gemini:localStorage.getItem('ai_key_gemini')||'',
-        anthropic:localStorage.getItem('ai_key_anthropic')||localStorage.getItem('ai_key')||''},
+        anthropic:localStorage.getItem('ai_key_anthropic')||localStorage.getItem('ai_key')||'',
+        shared:localStorage.getItem('ai_key_shared')||''},
   models:{gemini:localStorage.getItem('ai_model_gemini')||'gemini-2.5-flash',
-          anthropic:localStorage.getItem('ai_model_anthropic')||'claude-sonnet-4-6'},
+          anthropic:localStorage.getItem('ai_model_anthropic')||'claude-sonnet-4-6',
+          shared:localStorage.getItem('ai_model_shared')||'gemini-2.5-flash'},
   web:localStorage.getItem('ai_web')==='1',
   hist:[],busy:false,greeted:false
 };
 const $a=id=>document.getElementById(id);
+/* 關閉鍵防彈化:就算初始化中斷,X 與 Esc 永遠有效 */
+document.addEventListener('click',e=>{
+  if(!(e.target&&e.target.closest&&e.target.closest('#aiCloseBtn')))return;
+  const p=document.getElementById('aiPanel'),f=document.getElementById('aiFab');
+  if(p)p.hidden=true;if(f)f.style.display='';
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  const p=document.getElementById('aiPanel');
+  if(p&&!p.hidden){p.hidden=true;const f=document.getElementById('aiFab');if(f)f.style.display='';}
+});
 function aiKey(){return AI.keys[AI.prov]||'';}
 function aiModel(){return AI.models[AI.prov];}
 function aiEsc(x){return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -8130,6 +8152,27 @@ function aiFillCfg(){
   $a('aiModelSel').value=aiModel();
   $a('aiWebChk').checked=AI.web;
   $a('aiNote').innerHTML=p.note;
+  const mk=$a('aiMkr');
+  if(mk&&AI.prov==='shared'){
+    mk.innerHTML=AI_SHARED_ENC
+      ?'<br><span style="color:var(--dim)">✅ 本站共用通道已開通,直接輸入通行碼即可。</span>'
+      :`<br><details style="margin-top:6px"><summary style="cursor:pointer;color:var(--amber)">🔧 站主打包(產生密文,一次性)</summary>
+        <div style="margin-top:6px;display:flex;flex-direction:column;gap:6px">
+        <input id="mkKey" placeholder="你的 Gemini 金鑰 AIzaSy..." style="width:100%">
+        <input id="mkPass" placeholder="自訂通行碼(要夠強,發給朋友用)" style="width:100%">
+        <button class="btn-ghost" id="mkGo" style="align-self:flex-start">產生密文</button>
+        <textarea id="mkOut" rows="3" readonly placeholder="密文會出現在這裡" style="width:100%;font-family:var(--mono);font-size:12px"></textarea>
+        <span style="font-size:12.5px;color:var(--dim)">複製密文後,到 GitHub 網頁編輯 index.html,搜尋 <b>AI_SHARED_ENC=''</b>,貼進引號內存檔即完成。<b>只放免費 Gemini 金鑰</b>(可隨時作廢重發),絕不要放付費金鑰;通行碼別用生日或 1234。</span>
+        </div></details>`;
+    const go=$a('mkGo');
+    if(go)go.onclick=async()=>{
+      const k=$a('mkKey').value.trim(),ps=$a('mkPass').value.trim();
+      if(!k||!/^AIza/.test(k)){alert('請貼上 AIzaSy 開頭的 Gemini 金鑰(不接受其他金鑰)');return;}
+      if(ps.length<6){alert('通行碼至少 6 碼,建議混合中英數');return;}
+      $a('mkOut').value=await sharedPack(k,ps);
+      $a('mkOut').select();
+    };
+  }
 }
 function aiAddMsg(cls,html){
   const el=document.createElement('div');
@@ -8223,6 +8266,56 @@ async function callGemini(paint){
   });
   return {out,web};
 }
+/* ── 好友共用:通行碼 → 本地解密站主金鑰(AES-GCM + PBKDF2 25萬次)── */
+const _b64=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
+const _u8=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function _pbk(pass,salt){
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:250000,hash:'SHA-256'},
+    km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function sharedPack(key,pass){       // 站主打包:金鑰+通行碼 → 密文
+  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const k=await _pbk(pass,salt);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(key));
+  return _b64(salt)+'.'+_b64(iv)+'.'+_b64(ct);
+}
+async function sharedUnlock(pass){          // 朋友端:通行碼 → 金鑰(成功後本場快取)
+  if(window.__sharedKey)return window.__sharedKey;
+  if(!AI_SHARED_ENC)throw new Error('setup');
+  const [s,i,c]=AI_SHARED_ENC.split('.');
+  const k=await _pbk(pass,_u8(s));
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:_u8(i)},k,_u8(c)); // 通行碼錯會在此拋錯
+  return window.__sharedKey=new TextDecoder().decode(pt);
+}
+async function callShared(paint){
+  if(!AI_SHARED_ENC)throw new Error('setup:站主尚未開通共用通道(請站主在 ⚙ 用「站主打包」產生密文)');
+  let gk;
+  try{gk=await sharedUnlock(aiKey());}
+  catch(e){window.__sharedKey=null;throw new Error('401:通行碼不正確');}
+  const body={
+    system_instruction:{parts:[{text:aiSys()}]},
+    contents:AI.hist.slice(-16).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),
+    generationConfig:{maxOutputTokens:2048}
+  };
+  if(AI.web)body.tools=[{google_search:{}}];
+  const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(aiModel())}:streamGenerateContent?alt=sse&key=${encodeURIComponent(gk)}`,
+    {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  if(!res.ok){
+    let msg='';try{const j=await res.json();msg=(j.error&&j.error.message)||'';}catch(e){}
+    throw new Error(res.status+(msg?':'+msg.slice(0,180):''));
+  }
+  let out='',web=false;
+  await readSSE(res,ev=>{
+    const c=ev.candidates&&ev.candidates[0];
+    if(!c)return;
+    if(c.groundingMetadata)web=true;
+    const parts=(c.content&&c.content.parts)||[];
+    for(const p of parts)if(p.text)out+=p.text;
+    paint(out,web);
+  });
+  return {out,web};
+}
 async function callClaude(paint){
   const body={model:aiModel(),max_tokens:2048,stream:true,system:aiSys(),messages:AI.hist.slice(-16)};
   if(AI.web)body.tools=[{type:'web_search_20250305',name:'web_search',max_uses:3}];
@@ -8263,7 +8356,7 @@ async function aiSend(){
     aiScroll();
   };
   try{
-    const r=await (AI.prov==='gemini'?callGemini(paint):callClaude(paint));
+    const r=await (AI.prov==='gemini'?callGemini(paint):AI.prov==='shared'?callShared(paint):callClaude(paint));
     const out=r.out||'(沒有收到回應,請重試)';
     AI.hist.push({role:'assistant',content:out});
     paint(out,r.web);
@@ -8271,7 +8364,9 @@ async function aiSend(){
     el.classList.remove('thinking');
     const m=String(e.message||e);
     let hint='點 ⚙ 檢查設定。';
-    if(m.startsWith('400')||m.startsWith('401')||m.startsWith('403'))hint='金鑰無效或模型名稱不可用:點 ⚙ 重新貼上金鑰或換一個模型。';
+    if(m.startsWith('setup'))hint='這是給站主的提醒:到 Cloudflare 部署 Worker 後,把網址填入程式內的 AI_PROXY_URL。';
+    else if(AI.prov==='shared'&&(m.startsWith('401')||m.startsWith('403')))hint='通行碼不對——跟站主確認後,點 ⚙ 重新輸入。';
+    else if(m.startsWith('400')||m.startsWith('401')||m.startsWith('403'))hint='金鑰無效或模型名稱不可用:點 ⚙ 重新貼上金鑰或換一個模型。';
     else if(m.startsWith('429'))hint=AI.prov==='gemini'?'今日免費額度或每分鐘次數已達上限:稍等一下再問、換 Flash-Lite,或明天(美西午夜重置)再用。':'額度/頻率限制,稍後再試。';
     else if(m.startsWith('404'))hint='此模型名稱不存在:點 ⚙ 換一個模型即可。';
     el.innerHTML=mdLite('❌ 呼叫失敗:'+m+'\n\n'+hint);
