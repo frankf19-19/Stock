@@ -259,6 +259,13 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .glb-stk{display:inline-block;margin:0 6px 4px 0;padding:2px 10px;border-radius:999px;font-size:12.5px;font-weight:800;background:rgba(255,183,74,.12);color:var(--amber);border:1px solid rgba(255,183,74,.5);cursor:pointer;text-decoration:none;white-space:nowrap}
 .glb-stk:hover{background:rgba(255,183,74,.22)}
 .glb-stk.dim{opacity:.6;cursor:default}
+.fav-st{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:4px 11px;border-radius:9px;font-size:13.5px;font-weight:900;letter-spacing:.02em}
+.fst-brk{background:rgba(75,214,149,.13);color:#4BD695;border:1.5px solid rgba(75,214,149,.55)}
+.fst-gem{background:rgba(199,146,234,.12);color:#C792EA;border:1.5px solid rgba(199,146,234,.5)}
+.fst-up{background:rgba(127,180,255,.11);color:#7FB4FF;border:1.5px solid rgba(127,180,255,.45)}
+.fst-wait{background:var(--panel2);color:var(--mut);border:1.5px solid var(--line)}
+.fst-weak{background:rgba(255,90,95,.12);color:#FF8A8E;border:1.5px solid rgba(255,90,95,.5)}
+.fav-fut{margin-left:7px;font-size:12px;font-weight:800;color:var(--dim)}
 a.alert-pill{text-decoration:none;cursor:pointer;transition:transform .12s}
 a.alert-pill:hover{transform:translateY(-1px)}
 .alert-strip{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
@@ -1159,6 +1166,46 @@ function showFavPage(){
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   renderFav();
 }
+/* ⭐ 最愛卡片狀態徽章:訊號狀態(非投資建議),未來潛力併列 */
+function favState(s,o){
+  if(s.disp)return {cls:'fst-weak',txt:'⚠ 處置中·管制交易'};
+  const tt=(o&&o.length>=40)?turtleCalc(o,s.price):null;
+  if(tt&&tt.sigType)return {cls:'fst-brk',txt:`🚀 突破訊號(${tt.sigType}日)·帶量可追蹤`};
+  if(tt&&s.price&&tt.l10&&s.price<tt.l10)return {cls:'fst-weak',txt:`🔻 出場訊號·跌破10日低 ${tt.l10}`};
+  let ma20=null,ma60=null,ma20p=null;
+  if(o&&o.length>=65){
+    const cl=o.map(x=>x[3]),av=a=>a.reduce((x,y)=>x+y,0)/a.length;
+    ma20=av(cl.slice(-20));ma60=av(cl.slice(-60));ma20p=av(cl.slice(-25,-5));
+  }
+  if(ma60!=null&&s.price<ma60)return {cls:'fst-weak',txt:`🔻 季線 ${ma60.toFixed(0)} 之下·弱勢防守`};
+  if(tt&&s.f&&s.f.score>=72&&tt.gap20>=2){
+    const hot=(()=>{try{return zt8Hot();}catch(e){return new Set();}})();
+    const g=gemDiag(s,o,tt,hot);
+    if(g)return {cls:'fst-gem',txt:`💎 蓄勢待發·訊號 ${g.lit}/8·確認點 ${g.h20}`};
+  }
+  if(ma20!=null&&s.price>ma20&&ma20p!=null&&ma20>ma20p)
+    return {cls:'fst-up',txt:'📈 多頭順勢·月線上且翻揚'};
+  return {cls:'fst-wait',txt:'⏳ 區間整理·等訊號'};
+}
+async function favStateFill(){
+  const ids=favList().slice(0,24);
+  for(const id of ids){
+    const el=document.querySelector(`#favBox .r-card[data-id="${id}"] .fav-st`);
+    const s=(DATA.stocks||[]).find(x=>x.id===id);
+    if(!el||!s||s.etf)continue;
+    try{
+      const k=await loadK(s);
+      if(!k||k.demo)continue;
+      if(!document.querySelector(`#favBox .r-card[data-id="${id}"]`))return;  // 已離開頁面
+      const st=favState(s,k.ohlc);
+      let fut='';
+      try{const v=aiVerdict(s);if(v&&v.tier)fut=`<span class="fav-fut">未來性:${v.tier}</span>`;}catch(e){}
+      el.className='fav-st '+st.cls;
+      el.innerHTML=st.txt+fut;
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,120));
+  }
+}
 function renderFav(){
   const box=document.getElementById('favBox');
   if(!box)return;
@@ -1176,6 +1223,7 @@ function renderFav(){
         <b class="rpx">${s.price??'—'}</b> <span style="font-family:var(--mono);font-size:13px">${chgHtml(s.chg)}</span><span class="mini-candle" data-candle="${s.id}"></span></span>
       <span class="r-desc">${s.etf?`${(s.perf&&s.perf.q!=null)?`近3月 ${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%`:'ETF'}${s.hold&&s.hold.dy?` · 殖利率 ${s.hold.dy.toFixed(2)}%`:''}${s.hold&&s.hold.aum?` · 規模 ${(s.hold.aum/1e8).toFixed(0)} 億`:''}`
         :`綜合 ${total(s)} 分|基本 ${s.f.score} · 籌碼 ${s.c.score} · 技術 ${s.t.score}${s.sig&&s.sig.length?` · <b style="color:var(--amber)">${s.sig.map(x=>x.label).join('+')}</b>`:''}`}</span>
+      ${s.etf?'':'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>'}
     </div>`;
   };
   const g={tw:[],us:[],etf:[],other:[]};
@@ -1195,6 +1243,8 @@ function renderFav(){
     if(st){e.stopPropagation();favToggle(st.dataset.fav);return;}
     location.hash='#stock/'+c.dataset.id;
   });
+  clearTimeout(window.__favStT);
+  window.__favStT=setTimeout(()=>{try{favStateFill();}catch(e){}},800);
 }
 function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderFav(); renderMacro(); try{renderFutTab();}catch(e){} renderNews(); renderChips(); render(); setTimeout(hydrateSparks,300); }
 let T3_BUSY=false;
@@ -1542,7 +1592,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r191</span>');
+  diag.push('<span style="color:var(--dim)">build r192</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
