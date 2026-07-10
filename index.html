@@ -1506,7 +1506,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r165</span>');
+  diag.push('<span style="color:var(--dim)">build r166</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6819,13 +6819,15 @@ async function loadTdcc(s){
   try{const c=JSON.parse(localStorage.getItem(CK)||'null');
     if(c&&Date.now()-c.t<864e5)rows=c.rows;}catch(e){}
   if(!rows){
-    try{
-      const st=new Date(Date.now()-540*864e5).toISOString().slice(0,10);
-      const r=await fT(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockHoldingSharesPer&data_id=${s.id}&start_date=${st}`,15000);
-      const j=await r.json();rows=(j&&j.data)||[];
-      if(rows.length)try{localStorage.setItem(CK,JSON.stringify({t:Date.now(),rows:rows.map(x=>[x.date,x.HoldingSharesLevel,x.percent])}));}catch(e){}
-      else rows=null;
-    }catch(e){}
+    const st=new Date(Date.now()-540*864e5).toISOString().slice(0,10);
+    const u=`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockHoldingSharesPer&data_id=${s.id}&start_date=${st}`;
+    try{                                             // 代理競速(瀏覽器直連 FinMind 會被 CORS 擋)
+      const j=await Promise.any(PROXY.map(r=>
+        fT(r(u),9000).then(x=>{if(!x.ok)throw 0;return x.json();}).then(j2=>{
+          if(!j2||!Array.isArray(j2.data)||!j2.data.length)throw 0;return j2;})));
+      rows=j.data;
+      try{localStorage.setItem(CK,JSON.stringify({t:Date.now(),rows:rows.map(x=>[x.date,x.HoldingSharesLevel,x.percent])}));}catch(e){}
+    }catch(e){console.warn('tdcc',e);rows=null;}
   }
   box.dataset.busy='';
   if(!rows||!rows.length){
