@@ -1,0 +1,33 @@
+name: 股癌最新集自動整理
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 */4 * * *"    # 每 4 小時檢查一次(同集不重跑,零成本)
+permissions:
+  contents: write
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+      - name: 設定 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 安裝套件
+        run: pip install requests
+      - name: 聆聽整理
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          PYTHONUNBUFFERED: "1"
+        run: python listen_gooaye.py
+      - name: 提交結果
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add gooaye.json
+          git commit -m "股癌重點更新 [CI Skip]" || echo "無變更"
+          git pull --rebase origin main || true
+          git push || true
