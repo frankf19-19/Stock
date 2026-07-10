@@ -1602,7 +1602,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r200</span>');
+  diag.push('<span style="color:var(--dim)">build r201</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6828,18 +6828,28 @@ async function gaQueueRun(){
   if(GA_QRUN)return;
   GA_QRUN=true;
   const eps=window.__gaEps||[];
+  // 後台預整理檔:最新集重點已在 repo,秒開零等待
+  let pre=null;
+  try{const r=await fT('gooaye.json?'+Math.floor(Date.now()/6e5),8000);
+    if(r.ok)pre=await r.json();}catch(e){}
   for(let i=0;i<eps.length;i++){
     const b=document.getElementById('gaSum'+i);
     if(!b)continue;
-    // 已有「聽整集」快取 → 秒現
+    const epNo=(eps[i].t.match(/EP\s?(\d+)/i)||[])[1];
+    if(pre&&pre.s&&((pre.t&&pre.t===eps[i].t)||(epNo&&pre.ep&&String(pre.ep)===String(epNo)))){
+      b.innerHTML='🎧 <b>本集重點(AI 聽完全集)</b><div style="margin-top:3px">'+mdLite(pre.s)+'</div>';
+      continue;
+    }
     let lsn=null;
     try{lsn=JSON.parse(localStorage.getItem('ga_lsn_'+gaKey(eps[i].t))||'null');}catch(e){}
     if(lsn&&lsn.exp>Date.now()&&lsn.s){
       b.innerHTML='🎧 <b>本集重點(AI 聽完全集)</b><div style="margin-top:3px">'+mdLite(lsn.s)+'</div>';
       continue;
     }
-    if(i===0&&aiKey()){await gaListen(0);continue;}      // 最新一集自動聽
-    b.innerHTML=`<button class="glb-aibtn ga-lsnbtn" data-i="${i}" style="font-size:13px;padding:4px 12px">🎧 AI 聽整集整理(約 1~2 分鐘)</button>`;
+    b.innerHTML=(i===0
+      ?'<span style="color:var(--dim)">🎧 最新集重點由後台自動整理中(通常上片後 4 小時內出現)</span> '
+      :'')
+      +`<button class="glb-aibtn ga-lsnbtn" data-i="${i}" style="font-size:13px;padding:4px 12px">🎧 ${i===0?'等不及?立即':'AI '}聽整集整理(約 1~2 分鐘)</button>`;
   }
   GA_QRUN=false;
 }
