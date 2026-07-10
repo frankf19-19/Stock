@@ -252,6 +252,10 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .hotw{color:var(--amber);font-weight:900}
 .glb-chip{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:800;background:rgba(91,217,192,.12);color:#5BD9C0;border:1px solid rgba(91,217,192,.4);vertical-align:1px;white-space:nowrap}
 .glb-row.crit{border-left:3px solid rgba(255,90,95,.7);padding-left:9px;background:rgba(255,90,95,.05);border-radius:6px}
+.glb-brief{font-size:14px;color:var(--txt2);margin-top:3px;line-height:1.6}
+.glb-brief b{color:var(--amber)}
+.glb-aibtn{margin-left:8px;padding:1px 9px;border-radius:999px;border:1px solid rgba(199,146,234,.5);background:rgba(199,146,234,.08);color:#C792EA;font-size:12px;font-weight:800;cursor:pointer;vertical-align:1px}
+.glb-aibtn:hover{background:rgba(199,146,234,.18)}
 a.alert-pill{text-decoration:none;cursor:pointer;transition:transform .12s}
 a.alert-pill:hover{transform:translateY(-1px)}
 .alert-strip{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
@@ -1534,7 +1538,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r186</span>');
+  diag.push('<span style="color:var(--dim)">build r187</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6619,6 +6623,34 @@ async function glbScanAlerts(){
 }
 setTimeout(glbScanAlerts,8000);
 setInterval(glbScanAlerts,15*60e3);
+/* 規則式中文重點:標題 → 「誰 + 發生什麼 + 對台股方向」一句話 */
+const GLB_COMP=[[/TSMC/i,'台積電'],[/Samsung/i,'三星'],[/SK ?Hynix/i,'SK海力士'],[/Micron/i,'美光'],[/Nvidia/i,'輝達'],[/Intel/i,'英特爾'],[/\bAMD\b/,'超微'],[/Apple/i,'蘋果'],[/Foxconn/i,'鴻海'],[/Broadcom/i,'博通'],[/ASML/i,'ASML'],[/OpenAI/i,'OpenAI'],[/Microsoft/i,'微軟'],[/Google/i,'谷歌'],[/Amazon|AWS/i,'亞馬遜'],[/Meta\b/,'Meta']];
+const GLB_OBJ=[[/HBM/i,'HBM'],[/DRAM/i,'DRAM'],[/NAND|flash memory/i,'NAND'],[/\bmemory\b/i,'記憶體'],[/CoWoS|advanced packaging/i,'先進封裝'],[/foundry/i,'晶圓代工'],[/wafer/i,'晶圓'],[/ABF|substrate/i,'ABF載板'],[/\bPCB\b|CCL/i,'PCB'],[/optical (module|transceiver)|transceiver/i,'光模組'],[/silicon photonics|co-?packaged/i,'矽光子/CPO'],[/liquid cooling|immersion/i,'液冷'],[/power supply|HVDC|800V/i,'電源'],[/AI server/i,'AI伺服器'],[/data center/i,'資料中心'],[/\bGPU\b/i,'GPU'],[/chip(s|set)?\b/i,'晶片']];
+const GLB_ACT=[
+ [/price hikes?|price increases?|raises? prices?|hikes? prices?/i,'漲價','bull'],
+ [/shortage|tight supply|supply crunch|undersuppl/i,'缺貨/供給吃緊','bull'],
+ [/sold out|fully booked|allocation/i,'產能完售/配貨','bull'],
+ [/(demand|orders?)[^.]{0,14}(surge|soar|jump|record)|record (demand|orders)|strong demand/i,'需求大增','bull'],
+ [/expand(s|ing)?[^.]{0,20}capacity|capacity expansion|ramp(s|ing)?|add(s|ing)? capacity|new (fab|plant)/i,'擴產/放量','bull'],
+ [/invest(s|ing|ment)?[^.]{0,16}(fab|plant|capacity)|to build[^.]{0,12}(fab|plant)/i,'擴大投資/建廠','bull'],
+ [/halt|suspend|shut ?down|disruption|strike/i,'停產/供應中斷','cut'],
+ [/fire|earthquake|explosion/i,'發生災害事故','cut'],
+ [/export (bans?|controls?|curbs?)|sanction/i,'出口管制/禁令','bear'],
+ [/price cuts?|cuts? prices?|slump|\bglut\b|oversuppl|weak demand/i,'降價/需求轉弱','bear'],
+ [/delay(s|ed)?|postpone/i,'時程延後','bear']];
+function glbBrief(t,tags){
+  const act=GLB_ACT.find(([re])=>re.test(t));
+  if(!act)return null;
+  const comps=GLB_COMP.filter(([re])=>re.test(t)).map(([,x])=>x).slice(0,2);
+  const objs=GLB_OBJ.filter(([re])=>re.test(t)).map(([,x])=>x).slice(0,2);
+  const pct=(t.match(/(\d+(?:\.\d+)?)\s?%/)||[])[1];
+  const subj=[...comps,...objs].slice(0,3).join('、')||'供應鏈';
+  const tg=(tags&&tags.length)?tags.join('/'):null;
+  const dir=act[2]==='bull'?`→ 供不應求氛圍,${tg?`台股 <b>${tg}</b> 族群`:'相關台股'}偏多解讀`
+          :act[2]==='cut' ?`→ 供給中斷,留意${tg?` <b>${tg}</b> `:'同業'}轉單與漲價效應`
+          :`→ 偏空/政策風險,${tg?`<b>${tg}</b> 族群`:'相關台股'}留意`;
+  return `${subj} ${act[1]}${pct?`(約 ${pct}%)`:''} ${dir}`;
+}
 window.__glbCache={};
 async function glbLoad(i){
   const tabs=document.getElementById('glbTabs'),list=document.getElementById('glbList');
@@ -6631,12 +6663,17 @@ async function glbLoad(i){
       list.innerHTML=`<div class="dim-note">外電暫時載入不到(免費代理偶爾塞車,稍後自動可用)——<a href="https://news.google.com/search?q=${encodeURIComponent(GLB_TOPICS[i][1])}&hl=en-US&gl=US&ceid=US:en" target="_blank" rel="noopener" style="color:var(--amber)">直接開 Google News 看這個主題 ↗</a></div>`;
       return;
     }
-    list.innerHTML=its.map(x=>{
+    window.__glbActive=i;
+    list.innerHTML=its.map((x,ix)=>{
       const lv=glbGrade(x.t);
-      const tags=GLB_MAP.filter(([re])=>re.test(x.t)).slice(0,3)
-        .map(([,name])=>`<span class="glb-chip">→ ${name}</span>`).join('');
+      const tagNames=GLB_MAP.filter(([re])=>re.test(x.t)).slice(0,3).map(([,name])=>name);
+      const tags=tagNames.map(name=>`<span class="glb-chip">→ ${name}</span>`).join('');
       const tt=x.t.replace(GLB_HOT,'<span class="hotw">$1</span>');
-      return `<div class="glb-row${lv==='red'?' crit':''}"><span style="min-width:0">${lv==='red'?'🚨 ':''}<a href="${x.l}" target="_blank" rel="noopener">${tt}</a>${tags}</span><span class="meta">${x.s}${x.ago?' · '+x.ago:''}</span></div>`;
+      const brief=glbBrief(x.t,tagNames);
+      return `<div class="glb-row${lv==='red'?' crit':''}" style="flex-direction:column;align-items:stretch;gap:2px">
+        <div style="display:flex;gap:10px;align-items:baseline"><span style="min-width:0">${lv==='red'?'🚨 ':''}<a href="${x.l}" target="_blank" rel="noopener">${tt}</a>${tags}</span><span class="meta" style="margin-left:auto">${x.s}${x.ago?' · '+x.ago:''}</span></div>
+        <div class="glb-brief">${brief?`💡 <b>重點:</b>${brief}`:'💡 <span style="color:var(--dim)">重點:一般產業訊息(未偵測到明確供需訊號)</span>'}<button class="glb-aibtn" data-gix="${ix}">✦ AI 解讀</button></div>
+      </div>`;
     }).join('');
   };
   if(c&&Date.now()-c.t<10*60e3){render(c.items);return;}
@@ -6652,6 +6689,15 @@ async function glbLoad(i){
   if(!tabs)return;
   tabs.innerHTML=GLB_TOPICS.map(([name],k)=>`<button class="glb-tab${k===0?' on':''}" data-g-i="${k}">${name}</button>`).join('');
   tabs.querySelectorAll('.glb-tab').forEach(b=>b.onclick=()=>glbLoad(+b.dataset.gI));
+  const list=document.getElementById('glbList');
+  if(list)list.addEventListener('click',e=>{
+    const b=e.target.closest('.glb-aibtn');
+    if(!b)return;
+    const c=window.__glbCache[window.__glbActive];
+    const it=c&&c.items&&c.items[+b.dataset.gix];
+    if(!it)return;
+    try{aiAsk(`這是一則國際供應鏈外電標題:「${it.t}」(來源:${it.s||'外電'}${it.ago?'、'+it.ago:''})。請用繁體中文回答:\n1) 一句話說明發生什麼事\n2) 對台股哪些族群/代表公司可能有影響?方向是利多還是利空?為什麼?\n3) 接下來值得追蹤的確認點(例如報價、法說、月營收)\n標題資訊有限,推測的部分請明說。`);}catch(err){}
+  });
   setTimeout(()=>{try{glbLoad(0);}catch(e){}},6000);
 })();
 async function rssItems(q,max,sym){
