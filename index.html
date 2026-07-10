@@ -60,6 +60,11 @@ html[data-theme="lucky"]{
   --txt:#F2F6FE; --mut:#A7B6D6; --dim:#8B9BBE; --txt2:#D3DDF0;
   --amber:#9CC6F2; --hdr:#0E1628;
 }
+html[data-theme="rain"]{
+  --bg:#E9EEF3; --panel:#FFFFFF; --panel2:#DFE7EE; --line:#C9D6E0;
+  --txt:#232c34; --mut:#4c6172; --dim:#566e81; --txt2:#394855;
+  --amber:#2F5D87; --hdr:#E3EAF1;
+}
 html[data-theme="graphite"]{
   --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
   --txt:#ECEDEF; --mut:#9BA1AB; --dim:#6F737B; --txt2:#CDD1D7;
@@ -522,6 +527,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <option value="mocha">🌼 花園</option>
           <option value="teal">🍁 楓葉</option>
           <option value="lucky">❄️ 冬夜</option>
+          <option value="rain">🌧 午後雷雨</option>
           <option value="sakura">🌸 櫻花</option>
           <option value="graphite">🪨 石墨銀</option>
           <option value="dawn">🌊 海邊</option>
@@ -1500,7 +1506,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r157</span>');
+  diag.push('<span style="color:var(--dim)">build r158</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3551,6 +3557,9 @@ const CHART_THEMES={
   lucky:{legend:'#A7B6D6',axis:'#7484A8',split:'#1A2540',border:'#33436A',
     ttBg:'#1F2C46',ttText:'#F2F6FE',inactive:'#3A4C74',ma60:'#F0F4FC',
     up2:'#FF8A8E',dn2:'#4BD695'},
+  rain:{legend:'#4c6172',axis:'#78909F',split:'#DDE6ED',border:'#C5D3DD',
+    ttBg:'#FFFFFF',ttText:'#232c34',inactive:'#B4C4D0',ma60:'#394855',
+    up2:'#C4333B',dn2:'#0F8A57'},
   graphite:{legend:'#9BA1AB',axis:'#6D737D',split:'#1F2125',border:'#34383F',
     ttBg:'#26292E',ttText:'#ECEDEF',inactive:'#3E434B',ma60:'#F0F1F3',
     up2:'#FF8A8E',dn2:'#4BD695'},
@@ -3565,7 +3574,7 @@ const CHART_THEMES={
    櫻花=花瓣飄落|海邊=太陽・飄雲・海浪・沙灘・沙堡(旗飄)・海鷗・氣泡|森林=陽光光束・松樹・搖曳草地・落葉
    全程式繪製、畫在背景層不擋內容;尊重「減少動態」;切主題自動清除重建 */
 function natureFX(theme){
-  const kind={sakura:'petal',dawn:'beach',mocha:'garden',teal:'maple',lucky:'winter'}[theme]||null;
+  const kind={sakura:'petal',dawn:'beach',mocha:'garden',teal:'maple',lucky:'winter',rain:'rain'}[theme]||null;
   const old=document.getElementById('natureFx');
   if(!kind){window.__nfRun=false;if(old)old.remove();return;}
   try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;}catch(e){}
@@ -3578,11 +3587,13 @@ function natureFX(theme){
   fit();addEventListener('resize',fit,{passive:true});
   const mob=innerWidth<640, R=Math.random;
   /* ── 粒子 ── */
-  const N=kind==='maple'?(mob?8:12):kind==='winter'?(mob?12:20):kind==='garden'?(mob?7:11):kind==='beach'?(mob?7:12):(mob?10:18);
+  const N=kind==='rain'?(mob?24:40):kind==='maple'?(mob?8:12):kind==='winter'?(mob?12:20):kind==='garden'?(mob?7:11):kind==='beach'?(mob?7:12):(mob?10:18);
   const LEAF_C=[['#8FBF7A','#6FA35F'],['#C9C06A','#A89B4E'],['#D6A85F','#B5854A']];
   const mk=init=>{
     if(kind==='beach')return{x:R()*innerWidth,y:init?R()*innerHeight:cv.height+16,
       s:2+R()*4.5,vy:-(.2+R()*.35),ph:R()*6.28,sw:.16+R()*.35,o:.10+R()*.15};
+    if(kind==='rain')return{x:R()*(innerWidth+120)-60,y:init?R()*innerHeight:-24,
+      len:9+R()*11,vy:6.5+R()*3.5,vx:1.1+R()*.9,ph:0,sw:0,o:.16+R()*.22};
     if(kind==='winter')return{x:R()*innerWidth,y:init?R()*innerHeight:-14,
       s:.7+R()*1.5,vy:.26+R()*.45,ph:R()*6.28,sw:.25+R()*.5,o:.20+R()*.24};
     if(kind==='maple')return{x:R()*innerWidth,y:init?R()*innerHeight:-22,
@@ -3602,6 +3613,11 @@ function natureFX(theme){
     SC.clouds=Array.from({length:mob?2:3},(_,i)=>({x:R()*innerWidth,y:30+R()*70,s:.7+R()*.6,v:.08+R()*.1}));
     SC.gulls=Array.from({length:mob?1:2},()=>({x:R()*innerWidth,y:60+R()*90,v:.35+R()*.3,ph:R()*6.28}));
     SC.castleX=.16+R()*.1;
+  }
+  if(kind==='rain'){
+    SC.clouds=Array.from({length:mob?2:3},(_,i)=>({x:(i+.4+(R()-.5)*.5)/(mob?2:3),y:.05+R()*.05,s:.8+R()*.6,v:.10+R()*.08}));
+    SC.rip=[];SC.ripNext=.4;
+    SC.flash={next:4+R()*6,until:0,bolt:null,cx2:.5};
   }
   if(kind==='winter'){
     SC.pines=Array.from({length:mob?3:5},(_,i)=>({x:(i+.5+(R()-.5)*.4)/(mob?3:5),s:.6+R()*.7}));
@@ -3706,6 +3722,47 @@ function natureFX(theme){
       cx.quadraticCurveTo(x+sway*.5,gTop-b.h*.55,x+sway,gTop-b.h);cx.stroke();
     });
   }
+  function rainScene(t){
+    const W=cv.width,H=cv.height,F=SC.flash;
+    /* 閃電排程 */
+    if(t>F.next){
+      const c=SC.clouds[Math.floor(Math.random()*SC.clouds.length)];
+      F.cx2=c.x; F.until=t+.16+Math.random()*.12; F.next=t+6+Math.random()*9;
+      const pts=[[W*c.x,H*(c.y+.05)]];                                 // 鋸齒電光路徑
+      let px2=W*c.x, py2=H*(c.y+.05);
+      const gy=H*(.55+Math.random()*.3);
+      while(py2<gy){py2+=H*(.05+Math.random()*.05);px2+=(Math.random()-.5)*W*.05;pts.push([px2,py2]);}
+      F.bolt=pts;
+    }
+    if(t<F.until&&F.bolt){                                             // 天光+電光(克制)
+      const a=Math.min(1,(F.until-t)/.12);
+      cx.fillStyle=`rgba(255,253,235,${(.09*a).toFixed(3)})`;cx.fillRect(0,0,W,H);
+      cx.lineJoin='round';cx.lineCap='round';
+      cx.strokeStyle=`rgba(255,238,150,${(.28*a).toFixed(3)})`;cx.lineWidth=5;
+      cx.beginPath();F.bolt.forEach(([x,y],i)=>i?cx.lineTo(x,y):cx.moveTo(x,y));cx.stroke();
+      cx.strokeStyle=`rgba(255,246,190,${(.75*a).toFixed(3)})`;cx.lineWidth=1.8;
+      cx.beginPath();F.bolt.forEach(([x,y],i)=>i?cx.lineTo(x,y):cx.moveTo(x,y));cx.stroke();
+    }
+    SC.clouds.forEach(c=>{                                             // 雲層飄移
+      c.x+=c.v/W;if(c.x>1.2)c.x=-.2;
+      const x=W*c.x,y=H*c.y,s=c.s;
+      cx.fillStyle='rgba(214,224,233,.85)';
+      [[0,0,66],[52,8,48],[-50,9,46],[16,-13,42]].forEach(([dx,dy,r])=>{
+        cx.beginPath();cx.ellipse(x+dx*s,y+dy*s,r*s,r*.52*s,0,0,6.29);cx.fill();});
+      cx.fillStyle='rgba(150,166,181,.35)';                            // 雲底陰影
+      cx.beginPath();cx.ellipse(x,y+18*s,64*s,14*s,0,0,6.29);cx.fill();
+    });
+    if(t>SC.ripNext){                                                  // 地面雨點漣漪
+      SC.rip.push({x:Math.random()*W,y:H*(.94+Math.random()*.045),t0:t});
+      SC.ripNext=t+.25+Math.random()*.4;
+      if(SC.rip.length>10)SC.rip.shift();
+    }
+    SC.rip.forEach(r=>{
+      const a=(t-r.t0)/1.1;if(a>=1)return;
+      cx.strokeStyle=`rgba(110,140,165,${(.30*(1-a)).toFixed(3)})`;cx.lineWidth=1;
+      cx.beginPath();cx.ellipse(r.x,r.y,4+a*26,(4+a*26)*.28,0,0,6.29);cx.stroke();
+    });
+  }
   function winterScene(t){
     const W=cv.width,H=cv.height,gTop=H*.93;
     let g=cx.createRadialGradient(W*.80,H*.10,6,W*.80,H*.10,H*.22);    // 月亮+光暈
@@ -3805,6 +3862,12 @@ function natureFX(theme){
       cx.beginPath();cx.arc(0,0,p.s*.5,0,6.29);cx.fillStyle='#F2E8CF';cx.fill();
       cx.restore();
     },
+    rain(p){
+      cx.save();cx.globalAlpha=p.o;
+      cx.strokeStyle='#5A82AA';cx.lineWidth=1.1;cx.lineCap='round';
+      cx.beginPath();cx.moveTo(p.x,p.y);cx.lineTo(p.x-p.vx*2.2,p.y-p.len);cx.stroke();
+      cx.restore();
+    },
     winter(p){
       cx.save();cx.globalAlpha=p.o;
       cx.beginPath();cx.arc(p.x,p.y,p.s,0,6.29);
@@ -3862,10 +3925,11 @@ function natureFX(theme){
       if(kind==='beach')beachScene(t);
       else if(kind==='maple')mapleScene(t);
       else if(kind==='winter')winterScene(t);
+      else if(kind==='rain')rainScene(t);
       else if(kind==='garden')gardenScene(t);
       P.forEach(p=>{
         p.ph+=kind==='beach'?.016:.011;
-        p.y+=p.vy;p.x+=Math.sin(p.ph)*p.sw;
+        p.y+=p.vy;p.x+=Math.sin(p.ph)*p.sw;if(p.vx)p.x+=p.vx;
         if(p.rot!=null)p.rot+=p.vr+Math.sin(p.ph)*(kind==='forest'?.006:.0035);
         if(kind==='beach'||kind==='garden'){if(p.y<-20)Object.assign(p,mk(false));}
         else if(p.y>cv.height+26)Object.assign(p,mk(false));
