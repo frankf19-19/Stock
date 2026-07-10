@@ -1539,7 +1539,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r189</span>');
+  diag.push('<span style="color:var(--dim)">build r190</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6634,22 +6634,29 @@ const GLB_ACT=[
  [/sold out|fully booked|allocation/i,'產能完售/配貨','bull'],
  [/(demand|orders?)[^.]{0,16}(surge|soar|jump|record|boom|unprecedented|insatiable|robust|strong)|(drive|drives|fuel|fuels|boost|boosts)[^.]{0,26}demand|unprecedented[^.]{0,14}demand|record (demand|orders)|strong demand|demand boom/i,'需求大增','bull'],
  [/wins?[^.]{0,26}(order|orders|contract|deal)|order wins?|secured?[^.]{0,14}orders?|lands?[^.]{0,20}(order|deal|contract)/i,'接單捷報','good'],
- [/expand(s|ing)?[^.]{0,20}capacity|capacity expansion|ramp(s|ing)?|add(s|ing)? capacity|new (fab|plant)/i,'擴產/放量','bull'],
- [/invest(s|ing|ment)?[^.]{0,16}(fab|plant|capacity)|to build[^.]{0,12}(fab|plant)|invest(s|ing|ment)?[^.]{0,10}\$|\$\s?\d+\s?(b\b|billion)[^.]{0,24}(invest|spend|capex|plan)|capex/i,'擴大投資/建廠','bull'],
- [/beat(s)? (estimates|expectations)|record (revenue|profit|earnings|quarter)|(revenue|profit|earnings)[^.]{0,10}(record|surge|jump)/i,'財報/營收報捷','good'],
  [/halt|suspend|shut ?down|disruption|strike/i,'停產/供應中斷','cut'],
  [/fire\b|earthquake|explosion/i,'發生災害事故','cut'],
  [/export (bans?|controls?|curbs?)|sanction|tariff/i,'出口管制/關稅/禁令','bear'],
  [/price cuts?|cuts? prices?|slump|\bglut\b|oversuppl|weak(ening)? demand|demand (weakens?|falls?|drops?)/i,'降價/需求轉弱','bear'],
- [/delay(s|ed)?|postpone/i,'時程延後','bear'],
+ [/delay(s|ed|ing)?|postpone/i,'時程延後','bear'],
+ [/expand(s|ing)?[^.]{0,20}capacity|capacity expansion|ramp(s|ing)?|add(s|ing)? capacity|new (fab|plant)|expan(d|ds|ding|sion)[^.]{0,26}(data center|fab|plant|facility|factory)|(data center|fab|plant|facility)[^.]{0,14}expansion|\bexpansion\b|expands?\b/i,'擴建/擴產','bull'],
+ [/(surg|soar|boom)ing[^.]{0,26}demand|strains? (supply|supplies)|supply strain|(construction|building) boom|scramble to secure/i,'需求強勁/供給吃緊','bull'],
+ [/(stock|shares)[^.]{0,12}(jump|jumps|surge|surges|soar|soars|rall)/i,'股價勁揚(題材熱度)','neu'],
+ [/invest(s|ing|ment)?[^.]{0,16}(fab|plant|capacity)|to build[^.]{0,12}(fab|plant)|invest(s|ing|ment)?[^.]{0,10}\$|\$\s?\d+\s?(b\b|billion)[^.]{0,24}(invest|spend|capex|plan)|capex/i,'擴大投資/建廠','bull'],
+ [/beat(s)? (estimates|expectations)|record (revenue|profit|earnings|quarter)|(revenue|profit|earnings)[^.]{0,10}(record|surge|jump)/i,'財報/營收報捷','good'],
  [/acquir(e|es|ing)|acquisition|merger|buyout|takeover/i,'併購/整併','neu'],
  [/partnership|team(s)? up|collaborat/i,'合作結盟','neu']];
 function glbBrief(t,tags){
   const act=GLB_ACT.find(([re])=>re.test(t));
-  if(!act)return null;
   const comps=GLB_COMP.filter(([re])=>re.test(t)).map(([,x])=>x).slice(0,2);
   const objs=GLB_OBJ.filter(([re])=>re.test(t)).map(([,x])=>x).slice(0,2);
-  const pct=(t.match(/(\d+(?:\.\d+)?)\s?%/)||[])[1];
+  if(!act){
+    const subj=[...comps,...objs].slice(0,3).join('、');
+    const tg=(tags&&tags.length)?tags.join('/'):null;
+    if(subj||tg)return `${subj||tg} 相關產業動態 → ${tg?`<b>${tg}</b> 族群`:'供應鏈'}題材面持續關注(標題無明確供需方向)`;
+    return `供應鏈一般動態 → 產業氛圍觀察(標題無明確供需方向)`;
+  }
+  const pct=/漲價|降價/.test(act[1])?(t.match(/(\d+(?:\.\d+)?)\s?%/)||[])[1]:null;
   const subj=[...comps,...objs].slice(0,3).join('、')||'供應鏈';
   const tg=(tags&&tags.length)?tags.join('/'):null;
   const dir=act[2]==='bull'?`→ 供不應求氛圍,${tg?`台股 <b>${tg}</b> 族群`:'相關台股'}偏多解讀`
@@ -6681,7 +6688,7 @@ async function glbLoad(i){
       const brief=glbBrief(x.t,tagNames);
       return `<div class="glb-row${lv==='red'?' crit':''}" style="flex-direction:column;align-items:stretch;gap:2px">
         <div style="display:flex;gap:10px;align-items:baseline"><span style="min-width:0">${lv==='red'?'🚨 ':''}<a href="${x.l}" target="_blank" rel="noopener">${tt}</a>${tags}</span><span class="meta" style="margin-left:auto">${x.s}${x.ago?' · '+x.ago:''}</span></div>
-        <div class="glb-brief">${brief?`💡 <b>重點:</b>${brief}`:'💡 <span style="color:var(--dim)">重點:一般產業訊息(未偵測到明確供需訊號)</span>'}<button class="glb-aibtn" data-gix="${ix}">✦ AI 解讀</button></div>
+        <div class="glb-brief">💡 <b>重點:</b>${brief}<button class="glb-aibtn" data-gix="${ix}">✦ AI 解讀</button></div>
       </div>`;
     }).join('');
   };
