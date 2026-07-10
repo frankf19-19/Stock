@@ -20,19 +20,64 @@ def newest_episode():
     eps.sort(key=lambda x: x.get("releaseDate", ""), reverse=True)
     return eps[0] if eps else None
 
+def yt_title(url):
+    """oEmbed 驗證影片標題(免金鑰)"""
+    try:
+        j = requests.get("https://www.youtube.com/oembed",
+                         params={"url": url, "format": "json"}, headers=UA, timeout=15).json()
+        return j.get("title", "")
+    except Exception:
+        return ""
+
 def youtube_url(ep_no):
-    page = requests.get("https://www.youtube.com/@Gooaye", headers=UA, timeout=20).text
-    cid = (re.search(r'"channelId":"(UC[\w-]{22})"', page) or [None, None])[1]
-    if not cid:
-        log("⚠ 抓不到頻道 ID"); return None
-    xml = requests.get(f"https://www.youtube.com/feeds/videos.xml?channel_id={cid}",
-                       headers=UA, timeout=20).text
-    for m in re.finditer(r"<entry>(.*?)</entry>", xml, re.S):
-        blk = m.group(1)
-        t = (re.search(r"<title>(.*?)</title>", blk) or [None, ""])[1]
-        if re.search(rf"EP\s?{ep_no}\b", t, re.I):
-            u = (re.search(r'href="(https://www\.youtube\.com/watch\?v=[\w-]+)"', blk) or [None, None])[1]
-            return u
+    # 路線 A:頻道頁 → 頻道ID → RSS(加 CONSENT cookie 繞同意頁)
+    cid = None
+    for pu in ["https://www.youtube.com/@Gooaye/videos", "https://www.youtube.com/@Gooaye"]:
+        try:
+            page = requests.get(pu, headers=UA, timeout=20,
+                                cookies={"CONSENT": "YES+cb", "SOCS": "CAI"}).text
+            cid = (re.search(r'"channelId":"(UC[\w-]{22})"', page) or
+                   re.search(r'channel_id=(UC[\w-]{22})', page) or [None, None])[1]
+            if cid: break
+        except Exception as e:
+            log(f"  頻道頁 {pu} 失敗:{e}")
+    if cid:
+        try:
+            xml = requests.get(f"https://www.youtube.com/feeds/videos.xml?channel_id={cid}",
+                               headers=UA, timeout=20).text
+            for m in re.finditer(r"<entry>(.*?)</entry>", xml, re.S):
+                blk = m.group(1)
+                t = (re.search(r"<title>(.*?)</title>", blk) or [None, ""])[1]
+                if re.search(rf"EP\s?{ep_no}\b", t, re.I):
+                    u = (re.search(r'href="(https://www\.youtube\.com/watch\?v=[\w-]+)"', blk) or [None, None])[1]
+                    if u:
+                        log(f"  路線A(頻道RSS)找到:{u}")
+                        return u
+        except Exception as e:
+            log(f"  頻道 RSS 失敗:{e}")
+    else:
+        log("  路線A:抓不到頻道 ID(機房可能被 YouTube 擋)")
+    # 路線 B:請 Gemini 上網搜尋影片網址,再用 oEmbed 驗證標題含集數
+    try:
+        body = {"contents": [{"role": "user", "parts": [{"text":
+            f"搜尋台股 Podcast「股癌 Gooaye」EP{ep_no} 在 YouTube 官方頻道(@Gooaye)的完整影片。"
+            f"只回覆一行影片網址(https://www.youtube.com/watch?v=開頭),不要任何其他文字。"}]}],
+            "tools": [{"google_search": {}}],
+            "generationConfig": {"maxOutputTokens": 100}}
+        r = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}",
+            json=body, timeout=60)
+        txt = "".join(p.get("text", "") for p in
+              ((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
+        u = (re.search(r"https://www\.youtube\.com/watch\?v=[\w-]{6,}", txt) or [None])[0]
+        if u:
+            t = yt_title(u)
+            if re.search(rf"EP\s?{ep_no}\b", t, re.I):
+                log(f"  路線B(Gemini搜尋)找到並驗證:{u}({t[:40]})")
+                return u
+            log(f"  路線B找到 {u} 但標題不符({t[:40]}),棄用")
+    except Exception as e:
+        log(f"  路線B失敗:{e}")
     return None
 
 def listen(yt, title):
