@@ -1602,7 +1602,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r197</span>');
+  diag.push('<span style="color:var(--dim)">build r198</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6626,6 +6626,15 @@ function gaCodes(txt){                            // 描述中的台股代號 �
     return `<a class="glb-stk" href="#stock/${id}">${s.name} ${id}</a>`;
   }).join('');
 }
+function gaDate(pd){
+  try{
+    const d=new Date(pd);
+    if(isNaN(d))return '';
+    const tw=new Date(d.toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const wd='日一二三四五六'[tw.getDay()];
+    return `${tw.getMonth()+1}/${tw.getDate()}(${wd})`;
+  }catch(e){return '';}
+}
 function gaJsonp(url){                            // JSONP:瀏覽器原生跨網域,免代理
   return new Promise((res,rej)=>{
     const cb='__gaJp'+Math.random().toString(36).slice(2);
@@ -6639,7 +6648,7 @@ function gaJsonp(url){                            // JSONP:瀏覽器原生跨網
   });
 }
 async function gaEpisodes(force){
-  if(!force)try{const c=JSON.parse(localStorage.getItem('ga_eps')||'null');
+  if(!force)try{const c=JSON.parse(localStorage.getItem('ga_eps2')||'null');
     if(c&&Date.now()-c.t<10*60e3&&c.eps&&c.eps.length)return c.eps;}catch(e){}
   let eps=[];
   // 首選:Apple iTunes API 直接回集數(JSONP 免代理、輕量、含完整描述與音檔)
@@ -6652,6 +6661,7 @@ async function gaEpisodes(force){
       a:x.episodeUrl||'',
       l:x.trackViewUrl||('https://podcasts.apple.com/tw/podcast/id'+GA_ID),
       min:x.trackTimeMillis?Math.round(x.trackTimeMillis/60000):null,
+      dt:gaDate(x.releaseDate),
       ...glbAgo(x.releaseDate)
     })).filter(x=>x.t);
     eps.sort((a,b)=>(a.hrs??9e9)-(b.hrs??9e9));
@@ -6665,7 +6675,7 @@ async function gaEpisodes(force){
         if(r.ok){const j=await r.json();
           if(j&&j.status==='ok'&&Array.isArray(j.items))
             eps=j.items.map(it=>({t:it.title,d:gaClean(it.description||it.content),
-              a:(it.enclosure&&it.enclosure.link)||'',l:it.link||'#',min:null,...glbAgo(it.pubDate)}));}
+              a:(it.enclosure&&it.enclosure.link)||'',l:it.link||'#',min:null,dt:gaDate(it.pubDate),...glbAgo(it.pubDate)}));}
       }catch(e){}
       if(!eps.length){
         const xml=await fetchTextProxy(fu);
@@ -6675,13 +6685,13 @@ async function gaEpisodes(force){
             const q=s=>{const e2=it.querySelector(s);return e2?e2.textContent:'';};
             const enc=it.querySelector('enclosure');
             return {t:q('title'),d:gaClean(q('description')),
-              a:enc?enc.getAttribute('url')||'':'',l:q('link')||'#',min:null,...glbAgo(q('pubDate'))};
+              a:enc?enc.getAttribute('url')||'':'',l:q('link')||'#',min:null,dt:gaDate(q('pubDate')),...glbAgo(q('pubDate'))};
           }).filter(x=>x.t);
         }catch(e){}
       }
     }
   }
-  if(eps.length)try{localStorage.setItem('ga_eps',JSON.stringify({t:Date.now(),eps}));}catch(e){}
+  if(eps.length)try{localStorage.setItem('ga_eps2',JSON.stringify({t:Date.now(),eps}));}catch(e){}
   return eps;
 }
 function gaAdStrip(d){                            // 股癌描述=第一段是哏、之後全是業配 → 只留第一段
@@ -6773,7 +6783,7 @@ async function gooayeLoad(force){
     return `<div class="dim-block" style="border-left:4px solid ${i===0?'var(--amber)':'var(--line)'};margin-bottom:10px">
       <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
         <b style="font-size:15.5px">${i===0?'🆕 ':''}${e.t}</b>
-        <span style="color:var(--dim);font-size:12.5px;margin-left:auto;white-space:nowrap">${e.min?e.min+' 分鐘 · ':''}${e.ago||''}</span></div>
+        <span style="color:var(--dim);font-size:12.5px;margin-left:auto;white-space:nowrap">${e.dt?'📅 '+e.dt+' 上片':''}${e.min?' · '+e.min+' 分鐘':''}${e.ago?' · '+e.ago:''}</span></div>
       ${intro?`<div style="font-size:13.5px;color:var(--dim);line-height:1.7;margin-top:3px;white-space:pre-wrap">${intro}</div>`:''}
       <div class="ga-sum" id="gaSum${i}" style="font-size:14px;color:var(--txt2);line-height:1.75;margin-top:7px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 12px">
         <button class="glb-aibtn ga-sumbtn" data-i="${i}" style="font-size:13px;padding:4px 12px">✦ 產生本集重點(AI 上網整理)</button></div>
