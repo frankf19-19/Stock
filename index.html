@@ -1506,7 +1506,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r160</span>');
+  diag.push('<span style="color:var(--dim)">build r161</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4425,7 +4425,7 @@ async function showDetail(id){
     const t=document.querySelector('[data-sec="stk_s"]');
     if(t)t.addEventListener('click',()=>{
       setTimeout(()=>{const b=document.getElementById('sb-stk_s');
-        if(b&&b.style.display!=='none')loadSeason(s.id);},60);
+        if(b&&b.style.display!=='none')loadSeason(s);},60);
     });
   })();
   dv.querySelectorAll('[data-goto]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.goto;});
