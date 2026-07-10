@@ -1602,7 +1602,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r195</span>');
+  diag.push('<span style="color:var(--dim)">build r196</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6684,6 +6684,47 @@ async function gaEpisodes(){
   if(eps.length)try{localStorage.setItem('ga_eps',JSON.stringify({t:Date.now(),eps}));}catch(e){}
   return eps;
 }
+function gaAdStrip(d){                            // 股癌描述=第一段是哏、之後全是業配 → 只留第一段
+  const AD=/傳送門|專屬|活動價|優惠|禮盒|套組|折扣|下單|贈送|限量|業配|Hosting provided|linktr|https?:\/\/|www\.|NT?\$|\$\s?\d|獻上|新品|上市.{0,4}(茶|酒|課|品)/i;
+  const paras=String(d||'').split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+  if(!paras.length)return '';
+  const first=paras[0].split('\n').filter(ln=>!AD.test(ln)).join('\n').trim();
+  return (AD.test(paras[0])&&!first)?'':first.slice(0,200);
+}
+function gaKey(t){let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))>>>0;return 'ga_sum_'+h;}
+async function gaAiOnce(prompt){                   // 單次生成(不開聊天面板);gemini/共用限定
+  const prov=AI.prov==='shared'?'shared':'gemini';
+  let key=null;
+  if(prov==='shared'){try{key=await sharedUnlock(aiKey());}catch(e){throw new Error('通行碼未設定或不正確(⚙ 設定)');}}
+  else{key=AI.keys.gemini;if(!key)throw new Error('需要 Gemini 金鑰或共用通行碼(⚙ 設定)');}
+  const model=prov==='shared'?AI.models.shared:AI.models.gemini;
+  const body={contents:[{role:'user',parts:[{text:prompt}]}],
+    generationConfig:{maxOutputTokens:1024},tools:[{google_search:{}}]};
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+    {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){let m='';try{const j=await r.json();m=(j.error&&j.error.message)||'';}catch(e){}
+    throw new Error(r.status+(m?':'+m.slice(0,120):''));}
+  const j=await r.json();
+  const parts=(((j.candidates||[])[0]||{}).content||{}).parts||[];
+  return parts.map(p=>p.text||'').join('').trim();
+}
+async function gaSummarize(i){
+  const e=(window.__gaEps||[])[i];
+  const box=document.getElementById('gaSum'+i);
+  if(!e||!box)return;
+  const ck=gaKey(e.t);
+  try{const c=JSON.parse(localStorage.getItem(ck)||'null');
+    if(c&&c.exp>Date.now()&&c.s){box.innerHTML='📌 <b>本集重點(AI)</b><div style="margin-top:3px">'+mdLite(c.s)+'</div>';return;}}catch(err){}
+  box.innerHTML='<span style="color:var(--dim)">📌 AI 正在整理本集重點…(上網搜尋中)</span>';
+  try{
+    const s=await gaAiOnce(`請上網搜尋台股 Podcast「股癌」這一集的內容重點:「${e.t}」(${e.ago||'近期'}發布)。搜尋 PTT、Dcard、Threads、部落格上的重點整理與討論。用繁體中文條列 3~6 點:核心觀點、提及的台股族群與個股(股名+代號)、多空看法。找不到可靠資訊就直說「網路上尚無此集的重點整理」,不要編造。最後一行註明:AI 整理自網路討論,非節目官方摘要,非投資建議。`);
+    if(!s)throw new Error('空回應');
+    try{localStorage.setItem(ck,JSON.stringify({exp:Date.now()+7*864e5,s}));}catch(err){}
+    box.innerHTML='📌 <b>本集重點(AI)</b><div style="margin-top:3px">'+mdLite(s)+'</div>';
+  }catch(err){
+    box.innerHTML=`<span style="color:var(--dim)">📌 重點生成失敗(${String(err.message||err).slice(0,60)})</span> <button class="glb-aibtn ga-sumbtn" data-i="${i}">重試</button>`;
+  }
+}
 let GA_BUSY=false;
 async function gooayeLoad(force){
   const box=document.getElementById('gaEps');
@@ -6700,23 +6741,28 @@ async function gooayeLoad(force){
     return;
   }
   box.innerHTML=eps.map((e,i)=>{
-    const short=e.d.length>150?e.d.slice(0,148)+'…':e.d;
+    const intro=gaAdStrip(e.d);
     const codes=gaCodes(e.t+' '+e.d);
     return `<div class="dim-block" style="border-left:4px solid ${i===0?'var(--amber)':'var(--line)'};margin-bottom:10px">
       <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
         <b style="font-size:15.5px">${i===0?'🆕 ':''}${e.t}</b>
         <span style="color:var(--dim);font-size:12.5px;margin-left:auto;white-space:nowrap">${e.min?e.min+' 分鐘 · ':''}${e.ago||''}</span></div>
-      <div class="ga-desc" style="font-size:14px;color:var(--txt2);line-height:1.7;margin-top:4px;white-space:pre-wrap">${short}</div>
-      ${e.d.length>150?`<a class="ga-more" data-i="${i}" style="color:var(--amber);font-size:13px;cursor:pointer">展開全文 ▾</a>`:''}
-      ${codes?`<div style="margin-top:5px;font-size:13px"><span style="color:var(--mut);font-weight:800">提及個股:</span>${codes}</div>`:''}
+      ${intro?`<div style="font-size:13.5px;color:var(--dim);line-height:1.7;margin-top:3px;white-space:pre-wrap">${intro}</div>`:''}
+      <div class="ga-sum" id="gaSum${i}" style="font-size:14px;color:var(--txt2);line-height:1.75;margin-top:7px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 12px">
+        <button class="glb-aibtn ga-sumbtn" data-i="${i}" style="font-size:13px;padding:4px 12px">✦ 產生本集重點(AI 上網整理)</button></div>
+      ${codes?`<div style="margin-top:6px;font-size:13px"><span style="color:var(--mut);font-weight:800">提及個股:</span>${codes}</div>`:''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
         ${e.a?`<button class="btn-ghost ga-play" data-i="${i}" style="padding:5px 14px">▶ 站內播放</button>`:''}
-        <button class="glb-aibtn ga-ai" data-i="${i}" style="font-size:13px;padding:4px 12px">✦ AI 重點摘要</button>
-        <a href="${e.l}" target="_blank" rel="noopener" style="color:var(--dim);font-size:13px;text-decoration:none">原頁面 ↗</a>
+        <a href="${e.l}" target="_blank" rel="noopener" style="color:var(--dim);font-size:13px;text-decoration:none">原頁面(含完整描述)↗</a>
       </div>
       <div class="ga-audio" id="gaAu${i}"></div>
     </div>`;
   }).join('');
+  // 最新一集自動生成重點(有金鑰/通行碼才跑);其餘各集有快取也直接顯示
+  setTimeout(()=>{eps.forEach((e,i)=>{
+    let has=false;try{const c=JSON.parse(localStorage.getItem(gaKey(e.t))||'null');has=!!(c&&c.exp>Date.now()&&c.s);}catch(err){}
+    if(has||(i===0&&aiKey()))gaSummarize(i);
+  });},200);
   window.__gaEps=eps;
   box.onclick=ev=>{
     const more=ev.target.closest('.ga-more');
@@ -6726,10 +6772,8 @@ async function gooayeLoad(force){
     if(pl){const i=+pl.dataset.i,e=window.__gaEps[i],au=document.getElementById('gaAu'+i);
       if(au&&!au.innerHTML)au.innerHTML=`<audio controls preload="none" src="${e.a}" style="width:100%;margin-top:8px"></audio>`;
       const el=au&&au.querySelector('audio');if(el)el.play().catch(()=>{});return;}
-    const ai=ev.target.closest('.ga-ai');
-    if(ai){const e=window.__gaEps[+ai.dataset.i];
-      try{aiAsk(`這是台股 Podcast「股癌」的一集:「${e.t}」(${e.ago||'近期'})。節目描述如下(可能不完整):\n${e.d.slice(0,1200)}\n\n${AI.web?'請先上網搜尋這一集的討論與重點整理,再':'請'}用繁體中文回答:\n1) 這集的重點主題與核心觀點(條列)\n2) 提到或暗示的台股族群與個股(股名+代號),多空看法各是什麼\n3) 有哪些值得追蹤的後續\n推測部分請明說;結尾提醒:此為節目觀點整理,非投資建議。`,true);}catch(err){}
-      return;}
+    const sb=ev.target.closest('.ga-sumbtn');
+    if(sb){gaSummarize(+sb.dataset.i);return;}
   };
   // 觀點報導(中文新聞聚合)
   const nb=document.getElementById('gaNews');
