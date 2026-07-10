@@ -582,7 +582,6 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       <div id="idxAnalysis"></div>
       <div class="mini-cap" style="margin-top:12px">期貨籌碼(台指・盤後)</div>
       <div class="idx-row compact" id="futRow"><div class="idx-card" data-mk="fut"><div class="nm">台指期籌碼 ›</div><div class="vl" style="font-size:13px;color:var(--dim)">每日更新後顯示,點我看說明</div></div></div>
-      <div id="futTab" style="margin-top:10px"></div>
     </div>
     <div class="macro-side">
       <div class="mini-cap">指數</div>
@@ -591,6 +590,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       <div class="idx-row compact" id="fxRow"></div>
     </div>
   </div>
+  <div id="futTab" style="margin-top:12px"></div>
   <div class="macro-band">
     <div><div class="mini-cap">三大法人(盤後)</div><div class="idx-row band" id="instRow"></div></div>
     <div><div class="mini-cap">風險溫度計</div><div class="idx-row band" id="riskRow"></div></div>
@@ -1506,7 +1506,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r158</span>');
+  diag.push('<span style="color:var(--dim)">build r159</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
