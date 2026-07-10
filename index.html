@@ -1518,7 +1518,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r182</span>');
+  diag.push('<span style="color:var(--dim)">build r183</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2893,8 +2893,8 @@ async function turtleSeed(){
       try{
         if(t&&s.f&&s.f.score>=78&&!t.sigType&&!t.brk20&&t.gap20>=3&&t.gap20<=20){
           const g=gemDiag(s,e.o,t,hot);
-          if(g)gems.push({id,g:{type:'gem',label:'💎 蓄勢好股',
-            desc:`基本面 ${g.f} 分未發動 · 距20日高 ${g.gap}% · 主因:${g.reasons[0].t.split('——')[0].split(':')[0]} · 起漲觀察:帶量過 ${g.h20}`}});
+          if(g)gems.push({id,g:{type:'gem',label:`💎 蓄勢好股 ${g.lit}/8`,
+            desc:`基本面 ${g.f} 分未發動 · 發動訊號已亮 ${g.lit}/8 · 主因:${g.reasons[0].t.split('——')[0].split(':')[0]} · 確認點:帶量過 ${g.h20}(+${g.gap}%)`}});
         }
       }catch(e2){}
       if(!t||!t.sigType)return;
@@ -3051,31 +3051,44 @@ function gemDiag(s,o,tt,hot){
     R('💰',`估值便宜(本益比 ${s.pe} 倍)但「便宜」本身不是催化劑——市場在等獲利或題材的確認`);
   if(!reasons.length)
     R('⏳','數據上找不到明顯壓抑因素——可能只是輪動時間未到,持續觀察下方訊號');
-  // ── 什麼訊號可能是起漲點(給具體價位)──
-  G('🚀',`帶量站上 20 日高 <b>${tt.h20}</b>(距現價 +${tt.gap20}%),且當日量 ≥ 20 日均量 1.5 倍——🐢 海龜訊號會同步觸發,雷達自動亮燈`);
-  try{
-    const bx=window.__kBox;
-    if(bx&&bx.top&&px<=bx.top)G('📦',`突破箱頂 <b>${bx.top}</b>——箱體整理的結束訊號`);
-  }catch(e){}
-  if(ma60!=null&&px<ma60)G('📈',`收盤站回季線 <b>${ma60.toFixed(1)}</b> 且季線走平翻揚——中期趨勢反轉的第一步`);
-  else if(ma20!=null&&px<ma20)G('📈',`收盤站回月線 <b>${ma20.toFixed(1)}</b> 且月線翻揚`);
-  G('🏦','外資/投信轉為連續買超、千張大戶週增由負轉正——法人進場腳印');
-  G('🔥',`${s.sector||'所屬族群'} 進入當日強勢族群前五名——資金輪動到位的訊號`);
-  G('📊','單日爆量紅K(量 ≥ 20 日均量 2 倍)——主力進場最直接的痕跡');
-  return {reasons,trigs,gap:tt.gap20,h20:tt.h20,f:s.f.score};
+  // ── 發動訊號即時檢核(8 項,逐一比對現況)──
+  const sig=[];const S=(ico,t,ok)=>sig.push({ico,t,ok:!!ok});
+  let ma10=null,ma20prev=null,ma5=null;
+  if(Array.isArray(o)&&o.length>=65){
+    const cl=o.map(x=>x[3]);
+    const avgOf=a=>a.reduce((x,y)=>x+y,0)/a.length;
+    ma10=avgOf(cl.slice(-10));ma5=avgOf(cl.slice(-5));
+    ma20prev=avgOf(cl.slice(-25,-5));                 // 5 日前的月線,判翻揚
+  }
+  S('📈',`站上 10 日線${ma10!=null?` ${ma10.toFixed(1)}`:''}——短線先轉強`,ma10!=null&&px>ma10);
+  S('📈',`站回月線${ma20!=null?` ${ma20.toFixed(1)}`:''}`,ma20!=null&&px>ma20);
+  S('📈',`站回季線${ma60!=null?` ${ma60.toFixed(1)}`:''}——中期趨勢門檻`,ma60!=null&&px>ma60);
+  S('🔄','月線翻揚(20日均線高於 5 日前)',ma20!=null&&ma20prev!=null&&ma20>ma20prev);
+  S('📊',`量能回溫:5日均量 ≥ 20日的 1.2 倍${(v5&&v20)?`(現 ${Math.round(v5/v20*100)}%)`:''}`,v5!=null&&v20>0&&v5>=v20*1.2);
+  S('🏦',`外資或投信近 5 日轉買超(外資 ${(r.f5||0).toLocaleString()}、投信 ${(r.t5||0).toLocaleString()} 張)`,(r.f5||0)>0||(r.t5||0)>0);
+  S('👑',`千張大戶週增轉正(${r.bigw!=null?((r.bigw>0?'+':'')+(+r.bigw).toFixed(1))+'pp':'—'})`,r.bigw!=null&&r.bigw>0);
+  S('🔥',`${s.sector||'族群'} 進入當日強勢族群`,!!(hot&&s.sector&&hot.has(s.sector)));
+  const lit=sig.filter(x=>x.ok).length;
+  let boxTop=null;try{const bx=window.__kBox;if(bx&&bx.top&&px<=bx.top)boxTop=bx.top;}catch(e){}
+  return {reasons,sig,lit,gap:tt.gap20,h20:tt.h20,boxTop,f:s.f.score};
 }
 function gemBlock(s,g){
   if(!g)return '';
   let tier='';try{const v=aiVerdict(s);tier=v&&v.tier?` · 未來性:${v.tier}`:'';}catch(e){}
   const li=x=>`<div style="display:flex;gap:9px;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);line-height:1.7"><span style="flex-shrink:0;font-size:17px">${x.ico}</span><span>${x.t}</span></div>`;
+  const litCol=g.lit>=5?'#4BD695':g.lit>=3?'var(--amber)':'var(--mut)';
+  const pill=x=>`<div style="background:var(--panel2);border:1px solid ${x.ok?'rgba(75,214,149,.5)':'var(--line)'};border-radius:10px;padding:9px 11px;${x.ok?'':'opacity:.62'}">
+    <div style="font-size:14px;font-weight:800;line-height:1.5">${x.ok?'✅':'⬜'} ${x.ico} ${x.t}</div></div>`;
   return `<div class="dim-block" style="border-left:4px solid #C792EA">
-    <h3>💎 好股蓄勢診斷 <span class="ds">基本面 ${g.f} 分${tier} · 距 20 日高 ${g.gap}%</span></h3>
-    <div class="dim-note" style="margin:2px 0 6px"><b style="color:#C792EA">體質不差,但股價還沒發動</b>——以下是數據上「還沒漲」的可能原因,以及值得盯的起漲訊號。</div>
+    <h3>💎 好股蓄勢診斷 <span class="ds">基本面 ${g.f} 分${tier} · 距 20 日高 ${g.gap}% · <b style="color:${litCol}">發動訊號已亮 ${g.lit}/8</b></span></h3>
+    <div class="dim-note" style="margin:2px 0 6px"><b style="color:#C792EA">體質不差,但股價還沒發動</b>——先看數據上「還沒漲」的原因,再看發動訊號現在亮了幾個。</div>
     <div style="font-size:14px;font-weight:900;color:var(--mut);letter-spacing:.06em;margin-top:6px">為什麼還沒漲</div>
     <div style="font-size:14.5px;color:var(--txt2)">${g.reasons.map(li).join('')}</div>
-    <div style="font-size:14px;font-weight:900;color:var(--mut);letter-spacing:.06em;margin-top:12px">什麼訊號可能是起漲點</div>
-    <div style="font-size:14.5px;color:var(--txt2)">${g.trigs.map(li).join('')}</div>
-    <div class="dim-note" style="margin-top:8px;color:var(--dim)">此為規則化診斷:「沒漲的原因」是由籌碼/量能/位階/族群數據反推的<b>可能解釋</b>,市場永遠可能有數據外的原因;訊號出現也不保證起漲,<b>不構成投資建議</b>,請搭配自己的停損紀律。</div>
+    <div style="font-size:14px;font-weight:900;color:var(--mut);letter-spacing:.06em;margin-top:12px">發動訊號檢核 <span style="color:${litCol}">已亮 ${g.lit} / 8</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:6px">${g.sig.map(pill).join('')}</div>
+    <div style="margin-top:10px;background:rgba(199,146,234,.10);border:1.5px solid rgba(199,146,234,.45);border-radius:11px;padding:11px 14px;font-size:15px;font-weight:800;color:#C792EA;line-height:1.6">
+      🚀 最終確認:帶量站上 20 日高 <b>${g.h20}</b>(距現價 +${g.gap}%,量 ≥ 20 日均量 1.5 倍)${g.boxTop?` · 或突破箱頂 <b>${g.boxTop}</b>`:''} —— 🐢 海龜訊號同步觸發,雷達自動亮燈</div>
+    <div class="dim-note" style="margin-top:8px;color:var(--dim)">訊號亮越多代表發動條件越齊,但<b>亮滿也不保證上漲</b>;「沒漲的原因」是數據反推的可能解釋,不構成投資建議,請搭配自己的停損紀律。</div>
   </div>`;
 }
 /* 鈴鐺:點擊開啟設定面板(總開關 + 策略選擇);首次造訪提示開關位置 */
