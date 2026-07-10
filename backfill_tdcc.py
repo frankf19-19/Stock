@@ -1,4 +1,5 @@
-"""一次性回補 v3:集保官方開放資料 CSV + Wayback Machine 歷史快照 → tdcc.json(v2, 9組級距)
+"""TDCC 大戶持股收數 v4:集保官方 CSV(每週自動)+ Wayback 歷史快照(手動完整模式)→ tdcc.json
+模式:MODE=weekly(排程用)只抓官方最新一週,約 1 分鐘;未設定(手動)跑完整流程含 Wayback。
 背景:FinMind 已將「股權分散表」移至贊助等級,免費 token 無法使用,故改用零成本官方來源。
 來源:
   1. 集保 TDCC 開放資料 CSV(id=1-5,含全市場最新一週)
@@ -138,6 +139,10 @@ def main():
         absorb("官方最新", date, data)
     except Exception as e:
         log(f"⚠ 官方 CSV 下載失敗:{e}(繼續嘗試歷史快照)")
+
+    if os.environ.get("MODE", "") == "weekly":
+        log("weekly 模式:官方最新週已處理,收工(Wayback 掃描僅手動模式執行)。")
+        return
 
     # 2) Wayback 歷史快照
     ts_list = [t for t in wayback_snapshots() if t not in done_ts]
