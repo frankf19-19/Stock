@@ -1508,7 +1508,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r176</span>');
+  diag.push('<span style="color:var(--dim)">build r177</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2906,7 +2906,7 @@ async function zt8Seed(){
   if(ZT8_SEEDED||!DATA||DATA.source!=='live')return;
   ZT8_SEEDED=true;
   let cap={};
-  try{const cb=await coBasic();Object.keys(cb||{}).forEach(id=>{if(cb[id]&&cb[id].cap)cap[id]=cb[id].cap;});}catch(e){}
+  try{cap=await capMap()||{};}catch(e){}
   const ctx={cap,hot:zt8Hot()};
   const byId={};(DATA.stocks||[]).forEach(s=>{if(s.market==='TW'&&!s.etf&&s.price!=null)byId[s.id]=s;});
   const out=[];
@@ -4741,11 +4741,11 @@ async function showDetail(id){
     }catch(e){console.warn('zt8Block',e);}};
     paintZ(null,true);
     (async()=>{try{
-      const cb=await coBasic();
+      const cm=await capMap();
       const cap={};
-      if(cb&&cb[s.id]&&cb[s.id].cap)cap[s.id]=cb[s.id].cap;
+      if(cm&&cm[s.id]!=null)cap[s.id]=cm[s.id];
       paintZ(cap,false);
-    }catch(e){console.warn('zt8 coBasic',e);}})();
+    }catch(e){console.warn('zt8 capMap',e);}})();
   }
   const lv=curLevels;
   const zoneName=lv.bull?'參考買進區|月線~季線均線帶':'支撐帶|空頭排列,先觀望';
@@ -6003,12 +6003,33 @@ async function coBasic(){
   if(good(d))try{localStorage.setItem('co_basic3',JSON.stringify({exp:Date.now()+864e5,d}));}catch(e){}
   return d;
 }
-/* 股本規模分類(台股慣例,與漲停8招 50 億門檻一致) */
+/* 股本規模分類(台股慣例,與漲停8招 50 億門檻一致);v 可為「元字串」或「億數字」 */
 function capSize(v){
-  const n=parseFloat(String(v).replace(/,/g,''));
+  let n=parseFloat(String(v).replace(/,/g,''));
   if(!n||n<=0)return null;
-  const e=n/1e8;
+  const e=n>1e6?n/1e8:n;                       // >百萬視為元,否則已是億
   return e<50?{t:'小型股',c:'#5BD9C0',e}:e<100?{t:'中型股',c:'var(--amber)',e}:{t:'大型股',c:'#7FB4FF',e};
+}
+/* 股本快取:優先讀 repo 內的 cap.json(30KB,秒開);沒有才退回瀏覽器直抓證交所(慢) */
+let CAPMAP=null;
+async function capMap(){
+  const good=d=>d&&Object.keys(d).length>300;
+  if(good(CAPMAP))return CAPMAP;
+  try{const c=JSON.parse(localStorage.getItem('capmap1')||'null');
+    if(c&&c.exp>Date.now()&&good(c.d)){CAPMAP=c.d;return CAPMAP;}}catch(e){}
+  try{
+    const r=await fT('cap.json?'+Math.floor(Date.now()/864e5),10000);
+    if(r.ok){const j=await r.json();const d=(j&&j.c)||{};
+      if(good(d)){CAPMAP=d;
+        try{localStorage.setItem('capmap1',JSON.stringify({exp:Date.now()+864e5,d}));}catch(e){}
+        return d;}}
+  }catch(e){}
+  try{                                          // 深度備援:瀏覽器直抓(cap.json 尚未產生時)
+    const cb=await coBasic();const d={};
+    Object.keys(cb||{}).forEach(id=>{const z=capSize(cb[id]&&cb[id].cap);if(z)d[id]=z.e;});
+    if(good(d))CAPMAP=d;
+    return d;
+  }catch(e){return {};}
 }
 function fmtCap(v){
   const n=parseFloat(String(v).replace(/,/g,''));
@@ -6060,6 +6081,14 @@ async function loadProfileDetail(s){
     el.innerHTML=(facts+desc)||'<div class="dim-note">公司資料載入中…</div>';
   };
   paint();
+  if(isTW&&!fmtCap(co.cap)){                   // 股本快速通道:cap.json 秒補
+    try{
+      const cm=await capMap();
+      const e=cm&&cm[s.id];
+      if(e){co={...co,cap:String(Math.round(e*1e8))};
+        facts=factRow(co);paint();}
+    }catch(e){}
+  }
   if(facts&&desc&&fmtCap(co.cap))return;       // 後端資料齊全「且含股本」才秒開收工
   if(isTW){                                    // 備援:瀏覽器直連證交所補基本資料(含股本)
     try{
