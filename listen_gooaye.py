@@ -83,13 +83,22 @@ def youtube_url(ep_no):
 def listen(yt, title):
     body = {"contents": [{"role": "user", "parts": [
         {"file_data": {"file_uri": yt}},
-        {"text": f"""請完整聽完這一集台股 Podcast「股癌」({title}),用繁體中文整理,直接條列不要開場白:
-1) 本集主題大綱(依節目順序)
-2) 對市場/總經的核心觀點與理由
-3) 提及的台股/美股族群與個股(股名+代號),各自的多空看法
-4) 值得追蹤的後續
-請忽略開頭與中間的業配廣告段落。最後一行固定:AI 聆聽全集整理,觀點屬節目主持人,非投資建議。"""}]}],
-        "generationConfig": {"maxOutputTokens": 1600}}
+        {"text": f"""請完整聽完這一集台股 Podcast「股癌」({title}),用繁體中文寫一份「聽完可以不用再聽」等級的詳細整理,總長 800~1500 字,直接開始不要開場白。
+
+格式要求:
+## 依節目順序,每個主題一個段落
+每段:**主題小標** + 他實際講了什麼(3~5 句,務必包含他舉的具體例子、數字、公司名、比喻)+ 他的結論或立場是什麼。不要只寫一句話標題,要寫出內容本身。
+
+## 市場/總經觀點
+他對大盤、產業循環、資金環境的判斷,以及**他給的理由**(不是只寫結論)。
+
+## 提及的個股與族群(有講才寫,沒講就整段省略)
+每檔:股名+代號、他怎麼說的(原話意思)、偏多/偏空/中性、他的邏輯。
+
+## 值得追蹤的後續(有才寫)
+
+規則:純閒聊哏可以一句帶過;業配段落完全跳過;他沒講的不要腦補;聽不清楚的段落註明。最後一行固定:AI 聆聽全集整理,觀點屬節目主持人,非投資建議。"""}]}],
+        "generationConfig": {"maxOutputTokens": 8192}}
     r = requests.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}",
         json=body, timeout=600)
@@ -110,8 +119,8 @@ def main():
     try:
         with open(OUT, encoding="utf-8") as f: old = json.load(f)
     except Exception: pass
-    if old.get("t") == title and old.get("s"):
-        log("同一集已整理過,結束(零成本)。"); return
+    if old.get("t") == title and old.get("s") and old.get("v") == 3:
+        log("同一集已整理過(v3),結束(零成本)。"); return
     ep_no = (re.search(r"EP\s?(\d+)", title, re.I) or [None, None])[1]
     if not ep_no:
         log("⚠ 標題無集數編號,跳過"); return
@@ -123,7 +132,7 @@ def main():
     if not s:
         log("✗ 空回應"); sys.exit(1)
     with open(OUT, "w", encoding="utf-8") as f:
-        json.dump({"t": title, "ep": ep_no, "dt": ep.get("releaseDate", ""),
+        json.dump({"v": 3, "t": title, "ep": ep_no, "dt": ep.get("releaseDate", ""),
                    "yt": yt, "s": s}, f, ensure_ascii=False)
     log(f"完成:gooaye.json({len(s)} 字)")
 
