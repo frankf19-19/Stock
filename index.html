@@ -1508,7 +1508,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r175</span>');
+  diag.push('<span style="color:var(--dim)">build r176</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2841,7 +2841,8 @@ function zt8Calc(s,o,ctx){
   // 股:股本 < 50 億(證交所/櫃買公司基本資料,實收資本額)
   const capRaw=ctx&&ctx.cap&&ctx.cap[s.id];
   const cz=capSize(capRaw);
-  add('股',cz!=null&&cz.e<50,cz?`股本 ${cz.e>=100?cz.e.toFixed(0):cz.e.toFixed(1)} 億·${cz.t}${cz.e<50?'':'(≥50億)'}`:'股本資料缺(稍後重整再看)');
+  add('股',cz!=null&&cz.e<50,cz?`股本 ${cz.e>=100?cz.e.toFixed(0):cz.e.toFixed(1)} 億·${cz.t}${cz.e<50?'':'(≥50億)'}`
+    :(ctx&&ctx.loading?'股本載入中…(證交所資料抓取中)':'股本資料缺(稍後重整再看)'));
   // 價:< 200 元
   const px=s.price;
   add('價',px!=null&&px<200,px!=null?`價格 ${px} 元${px<200?'':'(≥200)'}`:'無報價');
@@ -4730,17 +4731,22 @@ async function showDetail(id){
     if(tBox)tBox.innerHTML=tt?turtleBlock(s,tt):'';
     if(tt)window.__kTurtle={l10:tt.l10,sig:!!tt.sigType};
   }catch(e){}
-  /* ⚡ 漲停8招:8 項條件檢核(股本需另抓公司基本資料,非同步補上) */
-  if(s.market==='TW'&&!s.etf){(async()=>{
-    try{
-      let cap={};
-      try{const cb=await coBasic();if(cb&&cb[s.id]&&cb[s.id].cap)cap[s.id]=cb[s.id].cap;}catch(e){}
+  /* ⚡ 漲停8招:兩段式渲染 —— 先畫 K 線七招(股本顯示載入中),證交所股本到位後補上 */
+  if(s.market==='TW'&&!s.etf){
+    const paintZ=(cap,loading)=>{try{
       if(location.hash!=='#stock/'+s.id)return;
-      const z=zt8Calc(s,k.demo?null:k.ohlc,{cap,hot:zt8Hot()});
+      const z=zt8Calc(s,k.demo?null:k.ohlc,{cap:cap||{},hot:zt8Hot(),loading});
       const b=document.getElementById('zt8Box');
       if(b)b.innerHTML=zt8Block(s,z);
-    }catch(e){}
-  })();}
+    }catch(e){console.warn('zt8Block',e);}};
+    paintZ(null,true);
+    (async()=>{try{
+      const cb=await coBasic();
+      const cap={};
+      if(cb&&cb[s.id]&&cb[s.id].cap)cap[s.id]=cb[s.id].cap;
+      paintZ(cap,false);
+    }catch(e){console.warn('zt8 coBasic',e);}})();
+  }
   const lv=curLevels;
   const zoneName=lv.bull?'參考買進區|月線~季線均線帶':'支撐帶|空頭排列,先觀望';
   kwrap.innerHTML=`<div class="chart-box">
