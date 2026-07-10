@@ -1506,7 +1506,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r162</span>');
+  diag.push('<span style="color:var(--dim)">build r163</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4363,8 +4363,8 @@ async function showDetail(id){
     <div id="divTL"></div>
     </div>
     ${s.etf?etfSec(s):''}
-    <div class="sec-title" data-sec="stk_s">📅 歷史月份行情 <span style="font-weight:400;font-size:12px;letter-spacing:0">季節性統計・點開載入(全歷史月K)</span></div><div class="sec-body" id="sb-stk_s">
-    <div id="seasonBox" class="dim-block"><div class="dim-note">點上方標題展開後自動載入歷史資料(約 1~3 秒,來源 Yahoo)。</div></div>
+    <div class="sec-title" data-sec="stk_s">📅 歷史月份行情 <span style="font-weight:400;font-size:12px;letter-spacing:0">季節性統計・各年度月份漲跌</span></div><div class="sec-body" id="sb-stk_s">
+    <div id="seasonBox" class="dim-block"><div class="dim-note">📡 歷史月K自動載入中…</div></div>
     </div>
     <div class="sec-title" data-sec="stk_3">${s.etf?'📊 籌碼與技術':'⚖️ 三力檢視'} <span style="font-weight:400;font-size:12px;letter-spacing:0">${s.etf?'法人動向・技術線型':'基本面・籌碼面・技術面評分'} · 💡 點名詞看白話解釋</span></div><div class="sec-body" id="sb-stk_3">
     ${s.etf?'':dimBlock('基本面(權重40%)',s.f)}
@@ -4421,13 +4421,7 @@ async function showDetail(id){
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   try{wireDetailSecs();}catch(e){}
-  (function(){
-    const t=document.querySelector('[data-sec="stk_s"]');
-    if(t)t.addEventListener('click',()=>{
-      setTimeout(()=>{const b=document.getElementById('sb-stk_s');
-        if(b&&b.style.display!=='none'&&!document.getElementById('seasonBox').dataset.done)loadSeason(s);},60);
-    });
-  })();
+  setTimeout(()=>{try{loadSeason(s);}catch(e){}},350);   // 進頁自動載入季節性
   dv.querySelectorAll('[data-goto]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.goto;});
   const dFav=document.getElementById('dFav');
   if(dFav)dFav.onclick=()=>favToggle(s.id);
@@ -6868,7 +6862,7 @@ async function loadSeason(s){
 function wireDetailSecs(){
   let saved={};try{saved=JSON.parse(localStorage.getItem('secState')||'{}');}catch(e){}
   const mob=innerWidth<640;
-  const defClosed={stk_s:true,stk_c:mob,stk_m:mob,stk_p:mob};
+  const defClosed={stk_c:mob,stk_m:mob,stk_p:mob};
   document.querySelectorAll('#detailView .sec-title[data-sec]').forEach(t=>{
     const key=t.dataset.sec,body=document.getElementById('sb-'+key);
     if(!body)return;
