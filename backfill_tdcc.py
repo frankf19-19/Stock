@@ -1,81 +1,27 @@
-"""一次性回補:FinMind 股權分散表 → tdcc.json(v2, 9組級距, 近~18週)
-v2 改版重點:
-  1. token 改用 Authorization: Bearer header(FinMind 正式認證方式;URL 參數同時保留)
-  2. 開跑先自我檢查 token 是否生效,無效立刻大聲報錯,不再默默匿名空轉
-  3. 每 150 檔 commit 一次(斷頭/取消只損失最後一批),tdcc_state.json 記錄進度
-  4. 重跑自動從斷點續補(已完成的檔直接跳過)
-  5. 全程即時進度輸出(搭配 yml 的 PYTHONUNBUFFERED=1)
-  6. 連續限流 → 保存進度後提前結束,不空耗時數
-用法:GitHub Actions 手動觸發 backfill_tdcc.yml;有 token 約 3~3.5 小時,可分多次跑完。"""
-import json, os, re, sys, time, subprocess, datetime as dt
+"""一次性回補 v3:集保官方開放資料 CSV + Wayback Machine 歷史快照 → tdcc.json(v2, 9組級距)
+背景:FinMind 已將「股權分散表」移至贊助等級,免費 token 無法使用,故改用零成本官方來源。
+來源:
+  1. 集保 TDCC 開放資料 CSV(id=1-5,含全市場最新一週)
+  2. Internet Archive 對同一 CSV 的歷史快照(每份快照 = 完整一週 × 全市場)
+特性:每處理完一週 commit 一次、tdcc_state.json 斷點續傳、進度即時輸出、不需任何 token。
+誠實聲明:歷史涵蓋率取決於 Archive 快照密度,可能非每週都有;缺週由每週例行更新自然補齊。"""
+import csv, io, json, os, sys, subprocess, datetime as dt
 import requests
 
-TOK        = os.environ.get("FINMIND_TOKEN", "").strip()
-START      = (dt.date.today() - dt.timedelta(days=130)).isoformat()
-API        = "https://api.finmindtrade.com/api/v4/data"
+CSV_URL    = "https://opendata.tdcc.com.tw/getOD.ashx?id=1-5"
+CDX_API    = "https://web.archive.org/cdx/search/cdx"
 STATE_FILE = "tdcc_state.json"
 OUT_FILE   = "tdcc.json"
-BATCH      = 150          # 每幾檔 commit 一次
-SLEEP      = 6.1          # 600次/hr → 每 6 秒 1 次(保險值)
+DAYS_BACK  = 190          # 往回撈多少天的快照(~27週,取到 26 週上限)
 
 SES = requests.Session()
-if TOK:
-    SES.headers["Authorization"] = "Bearer " + TOK   # ← 正確的認證方式
+SES.headers["User-Agent"] = "Mozilla/5.0 (tdcc-backfill; personal dashboard)"
 
 def log(*a): print(*a, flush=True)
 
-def lv_group(label):
-    """FinMind 級距標籤 → 9 組索引(以級距下限股數判斷)"""
-    digs = re.findall(r"[\d,]+", str(label))
-    lo = int(digs[0].replace(",", "")) if digs else 0
-    if lo >= 1000001: return 0      # L15 >1000張
-    if lo >= 800001:  return 1      # L14
-    if lo >= 600001:  return 2      # L13
-    if lo >= 400001:  return 3      # L12
-    if lo >= 200001:  return 4      # L11
-    if lo >= 100001:  return 5      # L10
-    if lo >= 50001:   return 6      # L9
-    if lo >= 40001:   return 7      # L8
-    return 8                        # L1-7(「差異數調整」等雜項已排除)
-
-def fetch(sid):
-    """抓一檔;回傳 (週資料dict, 狀態字串)。狀態:'ok' / 'rate' / 'err'"""
-    p = {"dataset": "TaiwanStockHoldingSharesPer", "data_id": sid, "start_date": START}
-    if TOK: p["token"] = TOK        # 參數也帶,雙保險
-    try:
-        r = SES.get(API, params=p, timeout=45)
-        j = r.json()
-    except Exception as e:
-        return None, f"err:{e}"
-    msg = str(j.get("msg", ""))
-    if j.get("status") == 402 or "level" in msg.lower() or "upper limit" in msg.lower():
-        return None, "rate"
-    wk = {}
-    for row in j.get("data") or []:
-        lab = row.get("HoldingSharesLevel", "")
-        if "調整" in str(lab): continue
-        d = row.get("date"); g = wk.setdefault(d, [0.0] * 9)
-        g[lv_group(lab)] += float(row.get("percent") or 0)
-    return {d: [round(x, 2) for x in g] for d, g in wk.items()}, "ok"
-
-def token_selfcheck():
-    """開跑前確認 token 真的生效:抓 2330 一小段,看回應是否正常"""
-    if not TOK:
-        log("⚠ 未設定 FINMIND_TOKEN — 將以匿名身分執行。GitHub runner 的共用 IP")
-        log("  匿名額度幾乎必定已被耗盡,強烈建議設定免費註冊 token 後再跑。")
-        return
-    log(f"token 已載入(長度 {len(TOK)}),自我檢查中…")
-    wk, st = fetch("2330")
-    if st == "rate":
-        log("✗ 自我檢查:立刻被限流 — token 很可能無效或未生效!")
-        log("  請確認 Secret 值是 eyJ0 開頭的完整字串(不含 Bearer 字樣、無多餘空白換行)。")
-        sys.exit(1)
-    if st.startswith("err"):
-        log(f"⚠ 自我檢查:網路錯誤({st}),繼續嘗試主流程。")
-    else:
-        log(f"✓ 自我檢查通過:2330 取得 {len(wk or {})} 週資料。")
-        log("  (跑幾分鐘後可到 FinMind 會員頁確認「api 已使用次數」在增加)")
-    time.sleep(SLEEP)
+# 集保 CSV 持股分級(1~15)→ 9 組索引;16=差異數調整、17=合計 → 跳過
+LV9 = {15:0, 14:1, 13:2, 12:3, 11:4, 10:5, 9:6, 8:7,
+       1:8, 2:8, 3:8, 4:8, 5:8, 6:8, 7:8}
 
 def git(*args):
     return subprocess.run(["git", *args], capture_output=True, text=True)
@@ -97,7 +43,6 @@ def load_json(path):
     except Exception: return None
 
 def build_output(raw):
-    """raw: {sid: {date: [9]}} → v2 對齊格式,寫入 OUT_FILE"""
     dates = sorted({d for m in raw.values() for d in m})[-26:]
     J = {"v": 2, "d": dates,
          "s": {sid: [m.get(d) for d in dates] for sid, m in raw.items() if m}}
@@ -105,68 +50,120 @@ def build_output(raw):
         json.dump(J, f, ensure_ascii=False, separators=(",", ":"))
     return len(dates), len(J["s"])
 
+def parse_csv(text, want):
+    """CSV 內容 → (資料日期 'YYYY-MM-DD', {sid: [9組%]});want=要保留的股票代號集合"""
+    rd = csv.reader(io.StringIO(text))
+    header = next(rd, None)
+    if not header: return None, {}
+    date, out = None, {}
+    for row in rd:
+        if len(row) < 6: continue
+        d, sid, lv = row[0].strip(), row[1].strip(), row[2].strip()
+        if sid not in want: continue
+        try: lv = int(lv)
+        except ValueError: continue
+        gi = LV9.get(lv)
+        if gi is None: continue                     # 16 差異調整 / 17 合計
+        try: pct = float(row[5])
+        except ValueError: continue
+        g = out.setdefault(sid, [0.0]*9)
+        g[gi] += pct
+        if date is None and len(d) >= 8:
+            dd = d.replace("-", "")
+            date = f"{dd[:4]}-{dd[4:6]}-{dd[6:8]}"
+    return date, {sid: [round(x, 2) for x in g] for sid, g in out.items()}
+
+def download(url, timeout=300):
+    r = SES.get(url, timeout=timeout)
+    r.raise_for_status()
+    b = r.content
+    for enc in ("utf-8-sig", "utf-8", "cp950"):
+        try: return b.decode(enc)
+        except UnicodeDecodeError: continue
+    return b.decode("utf-8", errors="replace")
+
+def wayback_snapshots():
+    """回傳近 DAYS_BACK 天的快照 timestamp 清單(新→舊)"""
+    frm = (dt.date.today() - dt.timedelta(days=DAYS_BACK)).strftime("%Y%m%d")
+    try:
+        r = SES.get(CDX_API, params={
+            "url": CSV_URL, "output": "json", "from": frm,
+            "filter": "statuscode:200", "collapse": "timestamp:8", "limit": "300"
+        }, timeout=60)
+        rows = r.json()
+    except Exception as e:
+        log(f"⚠ 查詢 Wayback 快照清單失敗:{e}")
+        return []
+    ts = [x[1] for x in rows[1:]] if rows and len(rows) > 1 else []
+    ts.sort(reverse=True)
+    return ts
+
 def main():
     reset = os.environ.get("RESET", "") == "true"
     with open("data.json", encoding="utf-8") as f:
-        stocks = [s["id"] for s in json.load(f)["stocks"]
-                  if s.get("market") == "TW" and not s.get("etf")]
+        want = {s["id"] for s in json.load(f)["stocks"]
+                if s.get("market") == "TW" and not s.get("etf")}
+    log(f"目標股池 {len(want)} 檔(台股個股)")
 
-    # 斷點續傳:讀 state + 既有 tdcc.json 還原 raw
-    done, raw = set(), {}
+    # 續傳:還原既有 tdcc.json + 已處理快照清單
+    done_ts, raw = set(), {}
     if not reset:
         st = load_json(STATE_FILE)
-        if st and st.get("start") == START:
-            done = set(st.get("done") or [])
+        if st: done_ts = set(st.get("ts") or [])
         old = load_json(OUT_FILE)
-        if done and old and old.get("v") == 2:
+        if old and old.get("v") == 2 and old.get("d"):
             for sid, arr in (old.get("s") or {}).items():
                 raw[sid] = {d: g for d, g in zip(old["d"], arr or []) if g}
-    todo = [s for s in stocks if s not in done]
-    log(f"回補 {len(stocks)} 檔(已完成 {len(done)},本次待補 {len(todo)}),起日 {START}")
-    if not todo:
-        log("全部完成,無需回補。"); return
+            log(f"讀入既有 tdcc.json:{len(old['d'])} 週 × {len(raw)} 檔")
+    have_dates = {d for m in raw.values() for d in m}
 
-    token_selfcheck()
-    rate_streak = 0
-    for k, sid in enumerate(todo, 1):
-        wk, st = None, ""
-        for attempt in range(3):
-            wk, st = fetch(sid)
-            if st == "ok":
-                rate_streak = 0; break
-            if st == "rate":
-                rate_streak += 1
-                if rate_streak >= 6:
-                    log(f"✗ 連續 {rate_streak} 次限流 — 保存進度後提前結束(re-run 會從斷點續跑)。")
-                    build_output(raw)
-                    with open(STATE_FILE, "w") as f:
-                        json.dump({"start": START, "done": sorted(done)}, f)
-                    commit_push(f"TDCC 回補中斷點 {len(done)}/{len(stocks)}")
-                    sys.exit(1)
-                log(f"  [限流] {sid} 休息 5 分鐘後重試({attempt+1}/3)…")
-                time.sleep(300)
-            else:
-                time.sleep(8)
-        if st == "ok" and wk is not None:
-            for d, g in wk.items(): raw.setdefault(sid, {})[d] = g
-            done.add(sid)
-        else:
-            log(f"  [跳過] {sid}({st})")
-            done.add(sid)   # 記為已處理避免每輪重卡同一檔;要重抓可用 RESET
-        if k % 25 == 0:
-            log(f"  進度 {k}/{len(todo)}(累計完成 {len(done)}/{len(stocks)})")
-        if k % BATCH == 0:
-            w, n = build_output(raw)
-            with open(STATE_FILE, "w") as f:
-                json.dump({"start": START, "done": sorted(done)}, f)
-            commit_push(f"TDCC 回補進度 {len(done)}/{len(stocks)}({w} 週×{n} 檔)")
-        time.sleep(SLEEP)
+    def absorb(label, date, data):
+        if not date or not data:
+            log(f"  {label}:無有效資料,跳過"); return False
+        if date in have_dates:
+            log(f"  {label}:{date} 已存在,跳過"); return False
+        for sid, g in data.items(): raw.setdefault(sid, {})[date] = g
+        have_dates.add(date)
+        w, n = build_output(raw)
+        with open(STATE_FILE, "w") as f:
+            json.dump({"ts": sorted(done_ts)}, f)
+        commit_push(f"TDCC 回補 {date}(累計 {w} 週×{n} 檔)")
+        return True
+
+    # 1) 官方最新一週
+    log("下載集保官方最新 CSV…")
+    try:
+        date, data = parse_csv(download(CSV_URL), want)
+        log(f"  最新週:{date},{len(data)} 檔")
+        absorb("官方最新", date, data)
+    except Exception as e:
+        log(f"⚠ 官方 CSV 下載失敗:{e}(繼續嘗試歷史快照)")
+
+    # 2) Wayback 歷史快照
+    ts_list = [t for t in wayback_snapshots() if t not in done_ts]
+    log(f"Wayback 找到 {len(ts_list)} 份待處理快照(近 {DAYS_BACK} 天)")
+    if not ts_list and len(have_dates) <= 1:
+        log("⚠ Archive 沒有可用的歷史快照 — 歷史只能靠每週例行更新自然累積。")
+    ok = 0
+    for i, t in enumerate(ts_list, 1):
+        u = f"https://web.archive.org/web/{t}id_/{CSV_URL}"
+        log(f"[{i}/{len(ts_list)}] 快照 {t[:8]} 下載中…")
+        try:
+            date, data = parse_csv(download(u), want)
+            if absorb(f"快照{t[:8]}", date, data): ok += 1
+        except Exception as e:
+            log(f"  快照 {t[:8]} 失敗:{e}(跳過)")
+        done_ts.add(t)
+        with open(STATE_FILE, "w") as f:
+            json.dump({"ts": sorted(done_ts)}, f)
 
     w, n = build_output(raw)
-    if os.path.exists(STATE_FILE): os.remove(STATE_FILE)
-    git("rm", "--cached", STATE_FILE)
-    commit_push(f"TDCC 歷史回補完成({w} 週×{n} 檔)")
-    log(f"完成:{w} 週 × {n} 檔")
+    if os.path.exists(STATE_FILE):
+        os.remove(STATE_FILE); git("rm", "--cached", STATE_FILE)
+    commit_push(f"TDCC 歷史回補完成({w} 週×{n} 檔,本輪新增 {ok} 週)")
+    log(f"完成:tdcc.json 共 {w} 週 × {n} 檔;本輪由快照新增 {ok} 週。")
+    if w < 8:
+        log("提醒:目前累積週數仍少,趨勢圖會先短一點,之後每週自動 +1 週。")
 
 if __name__ == "__main__":
     main()
