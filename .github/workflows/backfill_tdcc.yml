@@ -1,6 +1,16 @@
-name: 大戶持股歷史回補(手動一次性)
+name: 大戶持股週更(TDCC)
 on:
   workflow_dispatch:
+    inputs:
+      reset:
+        description: "從頭重跑(true=清除進度重來;預設接續斷點)"
+        required: false
+        default: "false"
+  schedule:
+    - cron: "15 2 * * 6"    # 每週六 台北 10:15(集保週五盤後公布)
+    - cron: "15 2 * * 0"    # 週日同時段補跑保險(已有當週資料會直接跳過)
+permissions:
+  contents: write
 jobs:
   backfill:
     runs-on: ubuntu-latest
@@ -14,15 +24,18 @@ jobs:
           python-version: "3.11"
       - name: 安裝套件
         run: pip install requests
-      - name: 執行回補(約 3~4 小時)
+      - name: 執行回補(進度即時顯示,每150檔自動存檔)
         env:
-          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+          PYTHONUNBUFFERED: "1"
+          RESET: ${{ github.event.inputs.reset }}
+          MODE: ${{ github.event_name == 'schedule' && 'weekly' || '' }}
         run: python backfill_tdcc.py
-      - name: 提交結果
+      - name: 提交結果(保險網)
+        if: always()
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
-          if [ -f tdcc.json ]; then git add tdcc.json; fi
-          git commit -m "TDCC 歷史回補 [CI Skip]" || echo "無變更"
+          git add tdcc.json tdcc_state.json 2>/dev/null || true
+          git commit -m "TDCC 大戶週更 [CI Skip]" || echo "無變更"
           git pull --rebase origin main || true
-          git push
+          git push || true
