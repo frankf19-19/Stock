@@ -1616,7 +1616,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r204</span>');
+  diag.push('<span style="color:var(--dim)">build r205</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8002,13 +8002,14 @@ function etfActBlock(s){
   const a=s.act;
   if(!a)return '';
   const row=(sym,nm,txt,col)=>`<div data-goto="${sym}" style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line);cursor:pointer">
-    <b style="font-family:var(--mono)">${sym}</b><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</span>
+    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${nm}</b> <b style="font-family:var(--mono);font-size:12px;color:var(--dim)">${sym}</b></span>
     <b style="font-family:var(--mono);color:${col}">${txt}</b></div>`;
   const mv=(a.mv||[]).map(r=>{const[sym,nm,w,adj,dsh,damt]=r;
+    const z=etfZh(sym,nm);
     const txt=(dsh!=null&&damt!=null)?`${adj>0?'加碼':'減碼'} 估 ${dsh>0?'+':''}${dsh.toLocaleString()} 張(${damt>0?'+':''}${damt} 億)`:( (adj>0?'加碼 +':'減碼 ')+adj.toFixed(2)+'pp');
-    return row(sym,nm,txt,adj>0?CT.up2:CT.dn2);}).join('');
-  const ins=(a['in']||[]).map(([sym,nm,w])=>row(sym,nm,'🆕 新進前十大('+w+'%)','var(--amber)')).join('');
-  const outs=(a['out']||[]).map(([sym,nm])=>row(sym,nm,'掉出前十大','var(--dim)')).join('');
+    return row(z.id,z.zh,txt,adj>0?CT.up2:CT.dn2);}).join('');
+  const ins=(a['in']||[]).map(([sym,nm,w])=>{const z=etfZh(sym,nm);return row(z.id,z.zh,'🆕 新進前十大('+w+'%)','var(--amber)');}).join('');
+  const outs=(a['out']||[]).map(([sym,nm])=>{const z=etfZh(sym,nm);return row(z.id,z.zh,'掉出前十大','var(--dim)');}).join('');
   return `<div class="dim-block" style="border-left:4px solid #C792EA"><h3>🔍 經理人調倉觀察 <span class="ds">${a.d}</span></h3>
     ${mv}${ins}${outs}
     <div class="dim-note" style="margin-top:8px">估算方式:今日權重 −(昨日權重 × 成分股漲幅 ÷ ETF 漲幅);張數/金額=權重 × 基金規模 ÷ 股價 推估(標「估」即此口徑)——<b>已扣除股價漲跌造成的被動權重變化</b>,剩下的即接近經理人的主動加減碼(單位:權重百分點)。觀測範圍為前十大持股、非官方申報資料,方向參考用;完整每日 PCF 請看發行商官網。</div></div>`;
