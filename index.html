@@ -238,6 +238,8 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .radar-note{font-size:12px;color:var(--dim);margin-top:8px}
 
 .tg-whale{background:rgba(199,146,234,.12);color:#D9B8F5;border:1px solid rgba(199,146,234,.4)}
+.tg-turtle{background:rgba(91,217,192,.12);color:#5BD9C0;border:1px solid rgba(91,217,192,.45)}
+.tg-zt8{background:rgba(255,214,102,.12);color:#FFD666;border:1px solid rgba(255,214,102,.45)}
 .ind-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .ind-seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .ind-seg button{background:none;border:none;color:var(--mut);padding:5px 12px;font-size:12.5px;cursor:pointer;font-family:var(--mono)}
@@ -1506,7 +1508,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r170</span>');
+  diag.push('<span style="color:var(--dim)">build r174</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2707,6 +2709,226 @@ async function alSeed(){
 }
 setTimeout(alSeed,9000);
 setInterval(alSeed,10*60*1000);
+/* ══ 戰法模組 #1:🐢 海龜交易法則(EP.334)══
+   規則:①突破20日新高進場(上次20日突破若獲利→本次跳過,改看55日突破)
+        ②初始停損 = 進場價 − 2N(N = ATR20)
+        ③金字塔加碼:每上漲 0.5N 加一單,最多加 3 次(共 4 Units)
+        ④出場:跌破 10 日低點
+   架構:之後的戰法(螺旋起漲區…)照同樣模式擴充 → xxxCalc(單檔計算) + xxxSeed(分片掃描) + STRATS 註冊 + 個股詳情區塊。*/
+function calcATR(o,endEx,p){ // o=[[開,高,低,收,量]...];取 endEx(不含)往前 p 期 TR 簡單平均
+  p=p||20;const e=endEx==null?o.length:endEx;
+  if(e<p+1)return null;
+  let sum=0;
+  for(let i=e-p;i<e;i++){
+    const h=o[i][1],l=o[i][2],pc=o[i-1][3];
+    sum+=Math.max(h-l,Math.abs(h-pc),Math.abs(l-pc));
+  }
+  return sum/p;
+}
+function turtleCalc(o,livePx){
+  if(!Array.isArray(o)||o.length<40)return null;
+  const n=o.length;
+  const hiOf=(a,b)=>{let m=-Infinity;for(let i=Math.max(0,a);i<b;i++)m=Math.max(m,o[i][1]);return m;};
+  const loOf=(a,b)=>{let m=Infinity;for(let i=Math.max(0,a);i<b;i++)m=Math.min(m,o[i][2]);return m;};
+  const last=(livePx&&livePx>0)?livePx:o[n-1][3];
+  const h20=hiOf(n-21,n-1);                       // 不含今日的前 20 日最高
+  const h55=n>=57?hiOf(n-56,n-1):null;            // 不含今日的前 55 日最高
+  const l10=loOf(n-11,n-1);                       // 不含今日的前 10 日最低(出場線)
+  const N=calcATR(o,null,20);
+  if(!N||!(last>0)||!(h20>0))return null;
+  const brk20=last>h20, brk55=h55!=null&&last>h55;
+  // 濾網:回測「最近一次已完成的 20 日突破」;獲利 → 依法則跳過本次 20 日訊號
+  let lastRes=null;
+  for(let i=n-2;i>=22;i--){
+    const hh=hiOf(i-20,i);
+    if(o[i][3]>hh && o[i-1][3]<=hiOf(i-21,i-1)){  // i = 收盤首次突破日
+      const entry=o[i][3], Ni=calcATR(o,i+1,20)||N, stop=entry-2*Ni;
+      for(let j=i+1;j<n;j++){
+        if(o[j][2]<=stop){lastRes='loss';break;}
+        if(o[j][3]<loOf(j-10,j)){lastRes=(o[j][3]>entry)?'win':'loss';break;}
+      }
+      break;                                       // 只評估最近一次
+    }
+  }
+  const skip20=lastRes==='win';
+  const sigType=(brk20&&!skip20)?'20':(brk55?'55':null);
+  return {N:+N.toFixed(2),h20:+h20.toFixed(2),h55:h55!=null?+h55.toFixed(2):null,
+    l10:+l10.toFixed(2),last:+(+last).toFixed(2),brk20,brk55,skip20,lastRes,sigType,
+    stop:+(last-2*N).toFixed(2),
+    adds:[1,2,3].map(k=>+(last+0.5*N*k).toFixed(2)),
+    riskPct:+(2*N/last*100).toFixed(1),
+    gap20:+((h20-last)/last*100).toFixed(1)};
+}
+/* 個股詳情:🐢 海龜法則檢視區塊 */
+function turtleBlock(s,t){
+  if(!t)return '';
+  const fmt=v=>(+v).toLocaleString();
+  const st=t.sigType==='20'
+      ?'<b style="color:#5BD9C0">✅ 今日觸發 20 日突破</b>'
+    :t.sigType==='55'
+      ?'<b style="color:#5BD9C0">✅ 今日觸發 55 日突破</b>'+(t.skip20?'(上次 20 日突破獲利 → 依法則跳過 20 日訊號,改採 55 日)':'')
+    :(t.brk20&&t.skip20)
+      ?`<b style="color:var(--amber)">⏸ 已過 20 日高,但依法則跳過</b>(上次 20 日突破獲利 → 本次 20 日訊號不進場;等 55 日突破 ${t.h55!=null?fmt(t.h55):'—'})`
+      :`⏳ 尚未突破 —— 距 20 日高 ${fmt(t.h20)} 還差 <b>${t.gap20}%</b>`;
+  const resTxt=t.lastRes==='win'?'上次 20 日突破:<b style="color:#4BD695">獲利出場</b> → 本次 20 日訊號跳過'
+             :t.lastRes==='loss'?'上次 20 日突破:<b style="color:#FF8A8E">虧損出場</b> → 本次 20 日訊號有效'
+             :'近期資料內找不到已完成的 20 日突破紀錄 → 20 日訊號視為有效';
+  const cell=(g,k,v,d)=>`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px">
+    <div data-g="${g}" style="font-size:11px;color:var(--mut);font-weight:800;letter-spacing:.05em;cursor:help;border-bottom:1px dotted var(--dim);display:inline-block">${k}</div>
+    <div style="font-family:var(--mono);font-size:16px;font-weight:600;margin-top:4px">${v}</div>
+    <div style="font-size:11px;color:var(--dim);margin-top:3px;line-height:1.6">${d}</div></div>`;
+  return `<div class="dim-block" style="border-left:4px solid #5BD9C0">
+    <h3>🐢 海龜法則檢視 <span class="ds">20/55日突破 · ATR · 加碼 · 出場(規則化)</span></h3>
+    <div class="dim-note" style="margin:2px 0 8px">${st}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+      ${cell('ATR','N(ATR20)',fmt(t.N),'20 日平均真實波幅,海龜所有距離都用 N 度量')}
+      ${cell('停損','停損 −2N',fmt(t.stop),`以現價 ${fmt(t.last)} 進場試算,單筆風險約 ${t.riskPct}%`)}
+      ${cell('金字塔加碼','加碼三段 +0.5N',t.adds.map(fmt).join(' / '),'每上漲 0.5N 加一單,最多加 3 次(共 4 Units)')}
+      ${cell('出場','出場線·10日低',fmt(t.l10),'收盤跌破 10 日低點 → 短線趨勢轉弱,出場離場')}
+    </div>
+    <div class="dim-note" style="margin-top:8px">${resTxt}${t.h55!=null?` · 55 日高 ${fmt(t.h55)}`:''}。K 線圖上的 <b style="color:#5BD9C0">🐢 出場·10日低</b> 虛線每日隨資料更新。</div>
+    <div class="dim-note" style="color:var(--dim)">法則精神:趨勢是你的朋友、嚴格紀律執行、控制風險、讓利潤奔跑。此為以現價套入海龜參數的<b>規則化試算,不是投資建議</b>——它不知道你的實際成本與部位;到價要不要執行,由你自己決定。</div>
+  </div>`;
+}
+/* 背景掃描:載入台股 K 線分片,找出今日觸發海龜突破的個股(結果陸續補進雷達) */
+let TURTLE_SEEDED=false;
+async function turtleSeed(){
+  if(TURTLE_SEEDED||!DATA||DATA.source!=='live')return;
+  TURTLE_SEEDED=true;
+  const byId={};(DATA.stocks||[]).forEach(s=>{if(s.market==='TW'&&!s.etf&&s.price!=null)byId[s.id]=s;});
+  const out=[];
+  for(let d=0;d<10;d++){
+    const sh=`k/tw${d}.json`;
+    if(!(sh in KCACHE)){
+      try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),15000);
+          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
+    }
+    Object.keys(KCACHE[sh]||{}).forEach(id=>{
+      const s=byId[id];if(!s)return;
+      const e=KCACHE[sh][id];
+      if(!e||!Array.isArray(e.o)||e.o.length<40)return;
+      const vols=e.o.slice(-20).map(x=>x[4]||0);
+      if(avg(vols)<500)return;                    // 流動性濾網:20日均量 ≥ 500 張
+      const t=turtleCalc(e.o,s.price);
+      if(!t||!t.sigType)return;
+      out.push({id,g:{type:'turtle',
+        label:t.sigType==='55'?'🐢 55日突破':'🐢 20日突破',
+        desc:`突破${t.sigType}日高 ${t.sigType==='55'?t.h55:t.h20} · N=${t.N} · 現價進場停損 ${t.stop}(−2N) · 加碼 ${t.adds.join('/')} · 跌破10日低 ${t.l10} 出場`
+          +(t.sigType==='55'&&t.skip20?' · 上次20日突破獲利→依法則改採55日':'')}});
+    });
+    window.__TURTLE=out.slice();
+    if(document.getElementById('radar')){try{renderRadar();}catch(e){}}
+    await new Promise(r=>setTimeout(r,500));
+  }
+}
+setTimeout(turtleSeed,11000);
+/* ══ 戰法模組 #2:⚡ 漲停8招(股·價·大·漲·發·財·成·群)══
+   股:股本 < 50 億(籌碼集中拉升容易)  價:< 200 元(想像空間大)
+   大:大資金買超(大戶/法人持續買超)  漲:一波上漲中出現 ≥3 根漲停(漲基因)
+   發:剛站上月線或季線(趨勢剛轉強)  財:近期本益比 < 20 倍(安全邊際)
+   成:今日量 ≥ 昨日 2 倍(資金進場)  群:族群熱(當日強勢族群)*/
+function zt8Hot(){ // 當日強勢族群:平均漲幅前 5 且為正(至少 4 檔有報價)
+  const g={};
+  (DATA.stocks||[]).filter(s=>s.market==='TW'&&!s.etf&&typeof s.chg==='number')
+    .forEach(s=>{(g[s.sector]=g[s.sector]||[]).push(s.chg);});
+  return new Set(Object.entries(g).filter(([_,a])=>a.length>=4)
+    .map(([k,a])=>[k,a.reduce((x,y)=>x+y,0)/a.length])
+    .filter(([_,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k));
+}
+function zt8Calc(s,o,ctx){
+  const items=[];
+  const add=(k,ok,txt)=>items.push({k,ok:!!ok,txt});
+  // 股:股本 < 50 億(證交所/櫃買公司基本資料,實收資本額)
+  const capRaw=ctx&&ctx.cap&&ctx.cap[s.id];
+  const cap=capRaw?parseFloat(String(capRaw).replace(/,/g,''))/1e8:null;
+  add('股',cap!=null&&cap>0&&cap<50,(cap!=null&&cap>0)?`股本 ${cap>=100?cap.toFixed(0):cap.toFixed(1)} 億${cap<50?'':'(≥50億)'}`:'股本資料缺');
+  // 價:< 200 元
+  const px=s.price;
+  add('價',px!=null&&px<200,px!=null?`價格 ${px} 元${px<200?'':'(≥200)'}`:'無報價');
+  // 大:大資金買超(外資/投信 5 日買超 或 400張大戶週增)
+  const r=chipRaw(s);
+  const hits=[r.f5>0?'外資買超':null,r.t5>0?'投信買超':null,r.bigw>0?'大戶週增':null].filter(Boolean);
+  add('大',hits.length>0,hits.length?hits.join('+'):'外資/投信/大戶未見買超');
+  // K 線三條件:漲基因、剛發動、量增倍
+  let zt=0,launch=false,vol2=false,ztTxt='K線資料缺',lTxt='K線資料缺',vTxt='K線資料缺';
+  if(Array.isArray(o)&&o.length>=25){
+    const n=o.length,closes=o.map(x=>x[3]);
+    // 漲:自近 60 日最低點起的這一波,漲停(日漲 ≥9.5%)根數
+    const w=Math.min(60,n);let li=n-w;
+    for(let i=n-w;i<n;i++)if(o[i][2]<o[li][2])li=i;
+    for(let i=Math.max(li,1);i<n;i++)if(closes[i]>=closes[i-1]*1.095)zt++;
+    ztTxt=`波段內漲停 ${zt} 根${zt>=3?'':'(<3)'}`;
+    // 發:今日在月線/季線之上,且近 8 日內曾在該線之下(剛站上,不是早就在上面)
+    const ma=(p,i)=>{if(i<p-1)return null;let s2=0;for(let j=i-p+1;j<=i;j++)s2+=closes[j];return s2/p;};
+    const lastC=(px!=null&&px>0)?px:closes[n-1];
+    const chk=p=>{
+      const m=ma(p,n-1);if(m==null||lastC<=m)return false;
+      for(let i=Math.max(p-1,n-9);i<n-1;i++){const mi=ma(p,i);if(mi!=null&&closes[i]<mi)return true;}
+      return false;};
+    const on20=chk(20),on60=chk(60);
+    launch=on20||on60;
+    lTxt=launch?`剛站上${on20?'月線':''}${on20&&on60?'+':''}${on60?'季線':''}`:'未剛站上月/季線';
+    // 成:最新一根日K的量 ≥ 前一根 2 倍
+    const v1=o[n-1][4]||0,v0=o[n-2][4]||0;
+    vol2=v0>0&&v1>=v0*2;
+    vTxt=v0>0?`量 ${(v1/v0).toFixed(1)} 倍(${Math.round(v1).toLocaleString()} vs ${Math.round(v0).toLocaleString()} 張)`:'量能資料缺';
+  }
+  add('漲',zt>=3,ztTxt);
+  add('發',launch,lTxt);
+  // 財:近期本益比 < 20 倍
+  const pe=(s.pe&&s.pe>0)?s.pe:((s.fpe&&s.fpe>0)?s.fpe:null);
+  add('財',pe!=null&&pe<20,pe!=null?`本益比 ${pe} 倍${pe<20?'':'(≥20)'}`:'無本益比(近四季虧損或資料缺)');
+  add('成',vol2,vTxt);
+  // 群:族群熱
+  const hot=ctx&&ctx.hot?ctx.hot.has(s.sector):false;
+  add('群',hot,hot?`${s.sector} 為今日強勢族群`:`${s.sector||'族群'} 今日非熱門`);
+  return {items,score:items.filter(x=>x.ok).length};
+}
+/* 個股詳情:⚡ 漲停8招檢核區塊 */
+function zt8Block(s,z){
+  if(!z)return '';
+  const col=z.score>=6?'#FFD666':z.score>=4?'var(--amber)':'var(--dim)';
+  const pill=x=>`<div style="background:var(--panel2);border:1px solid ${x.ok?'rgba(255,214,102,.5)':'var(--line)'};border-radius:10px;padding:9px 11px;${x.ok?'':'opacity:.65'}">
+    <div style="font-size:13px;font-weight:900">${x.ok?'✅':'⬜'} ${x.k}</div>
+    <div style="font-size:11px;color:var(--dim);margin-top:3px;line-height:1.6">${x.txt}</div></div>`;
+  return `<div class="dim-block" style="border-left:4px solid #FFD666">
+    <h3>⚡ 漲停8招檢核 <span class="ds" style="color:${col}">符合 ${z.score} / 8 招</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:6px">
+      ${z.items.map(pill).join('')}</div>
+    <div class="dim-note" style="margin-top:8px">八招:<b>股</b>本小·<b>價</b>格低·<b>大</b>戶買·<b>漲</b>基因·剛<b>發</b>動·<b>財</b>務佳·<b>成</b>交量增·族<b>群</b>熱。K 線相關條件(漲/發/成)以最新日K資料為準,盤中看到的量能倍數是「昨日 vs 前日」,收盤更新後才是今日。</div>
+    <div class="dim-note" style="color:var(--dim)">此為 8 項條件的規則化檢核,<b>符合越多招不等於一定會漲停</b>,更不是投資建議——小股本+低價股波動與流動性風險本來就比較大,請搭配自己的停損紀律。</div>
+  </div>`;
+}
+/* 背景掃描:條件 ≥6 招的個股補進雷達(與海龜共用 K 線分片快取) */
+let ZT8_SEEDED=false;
+async function zt8Seed(){
+  if(ZT8_SEEDED||!DATA||DATA.source!=='live')return;
+  ZT8_SEEDED=true;
+  let cap={};
+  try{const cb=await coBasic();Object.keys(cb||{}).forEach(id=>{if(cb[id]&&cb[id].cap)cap[id]=cb[id].cap;});}catch(e){}
+  const ctx={cap,hot:zt8Hot()};
+  const byId={};(DATA.stocks||[]).forEach(s=>{if(s.market==='TW'&&!s.etf&&s.price!=null)byId[s.id]=s;});
+  const out=[];
+  for(let d=0;d<10;d++){
+    const sh=`k/tw${d}.json`;
+    if(!(sh in KCACHE)){
+      try{const r2=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),15000);
+          KCACHE[sh]=r2.ok?await r2.json():{};}catch(e){KCACHE[sh]={};}
+    }
+    Object.keys(KCACHE[sh]||{}).forEach(id=>{
+      const s=byId[id];if(!s)return;
+      const e=KCACHE[sh][id];if(!e||!Array.isArray(e.o))return;
+      const z=zt8Calc(s,e.o,ctx);
+      if(z.score<6)return;
+      out.push({id,g:{type:'zt8',label:`⚡ 漲停8招 ${z.score}/8`,
+        desc:z.items.map(x=>(x.ok?'✓':'✗')+x.k).join('')+' · '+z.items.filter(x=>x.ok).slice(0,3).map(x=>x.txt).join(' · ')}});
+    });
+    window.__ZT8=out.slice();
+    if(document.getElementById('radar')){try{renderRadar();}catch(e){}}
+    await new Promise(r=>setTimeout(r,300));
+  }
+}
+setTimeout(zt8Seed,18000);
 /* 鈴鐺:點擊開啟設定面板(總開關 + 策略選擇);首次造訪提示開關位置 */
 (function(){
   const b=document.getElementById('alertBtn');
@@ -4226,6 +4448,10 @@ function drawKChart(){
                 {name:'支撐·近月低',yAxis:+curLevels.l20.toFixed(2),
                  lineStyle:{color:CT.dn2,type:'dotted',width:1},
                  label:chip(CT.dn2,'insideEndTop')}]:[]),
+              ...(showLv&&isDay&&KHASH.startsWith('#stock/')&&window.__kTurtle?[
+                {name:'🐢 出場·10日低',yAxis:window.__kTurtle.l10,
+                 lineStyle:{color:'#5BD9C0',type:'dotted',width:1.4},
+                 label:chip('#5BD9C0','insideStartBottom')}]:[]),
               ...(showLv&&isDay&&window.__kBox?[
                 {name:'📦 箱頂',yAxis:window.__kBox.top,
                  lineStyle:{color:UPC,type:'solid',width:1.3},
@@ -4354,6 +4580,8 @@ async function showDetail(id){
     ${s.thesis&&!s.etf?`<div class="thesis"><b>投資論點:</b>${s.thesis}</div>`:''}
     ${s.etf?'':planBlock(s)}
     ${s.etf?'':outlookBlock(s)}
+    ${s.etf?'':'<div id="turtleBox"></div>'}
+    ${(s.etf||s.market!=='TW')?'':'<div id="zt8Box"></div>'}
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
       <span class="ticker-label">📰 ${s.name} 新聞</span>
       <div class="ticker-track" id="sTickTrack"></div>
@@ -4494,6 +4722,25 @@ async function showDetail(id){
   kView={rng:'6m',itv:'1d'}; baseK=k;
   curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
   window.__kBox=boxDetect(k.ohlc,0.10);
+  /* 🐢 海龜法則:計算 + 詳情區塊 + K 線出場線 */
+  window.__kTurtle=null;
+  try{
+    const tt=k.demo?null:turtleCalc(k.ohlc,s.price);
+    const tBox=document.getElementById('turtleBox');
+    if(tBox)tBox.innerHTML=tt?turtleBlock(s,tt):'';
+    if(tt)window.__kTurtle={l10:tt.l10,sig:!!tt.sigType};
+  }catch(e){}
+  /* ⚡ 漲停8招:8 項條件檢核(股本需另抓公司基本資料,非同步補上) */
+  if(s.market==='TW'&&!s.etf){(async()=>{
+    try{
+      let cap={};
+      try{const cb=await coBasic();if(cb&&cb[s.id]&&cb[s.id].cap)cap[s.id]=cb[s.id].cap;}catch(e){}
+      if(location.hash!=='#stock/'+s.id)return;
+      const z=zt8Calc(s,k.demo?null:k.ohlc,{cap,hot:zt8Hot()});
+      const b=document.getElementById('zt8Box');
+      if(b)b.innerHTML=zt8Block(s,z);
+    }catch(e){}
+  })();}
   const lv=curLevels;
   const zoneName=lv.bull?'參考買進區|月線~季線均線帶':'支撐帶|空頭排列,先觀望';
   kwrap.innerHTML=`<div class="chart-box">
@@ -4695,6 +4942,8 @@ const STRATS=[
   ['break','🚀 帶量突破'],
   ['dip','🎯 回檔機會'],
   ['strong','💪 三力強勢'],
+  ['turtle','🐢 海龜突破'],
+  ['zt8','⚡ 漲停8招'],
   ['left','◀ 左側·價值回檔'],
   ['right','▶ 右側·動能突破'],
   ['t3','📈 營收三率三升'],
@@ -4774,6 +5023,16 @@ function radarItems(){
     push(s,{type:'t3',label:'三率三升 '+t.q,
       desc:`毛 ${arrow(t.gm[0],t.gm[1])} · 營益 ${arrow(t.om[0],t.om[1])} · 淨利 ${arrow(t.nm[0],t.nm[1])}${t.ry!=null?` · 月營收 ${t.ry>0?'+':''}${t.ry}%`:''}`});
   });
+  // 🐢 海龜突破(瀏覽器背景掃描 K 線分片計算,結果陸續進場)
+  (window.__TURTLE||[]).forEach(x=>{
+    const s=byId[x.id];
+    if(s)push(s,x.g);
+  });
+  // ⚡ 漲停8招(股·價·大·漲·發·財·成·群 檢核 ≥6 項)
+  (window.__ZT8||[]).forEach(x=>{
+    const s=byId[x.id];
+    if(s)push(s,x.g);
+  });
   // 左側/右側交易分類(未來性濾網把關)
   sideItems().forEach(x=>items.push(x));
   // 研究觀點:潛在漲價/缺料
@@ -4802,7 +5061,7 @@ function renderRadar(){
       renderRadar();
     });
   }
-  const order={whale:0,dip:1,break:2,left:3,right:4,t3:5,price:6,strong:7,theme:8};
+  const order={whale:0,dip:1,break:2,turtle:2.5,zt8:2.6,left:3,right:4,t3:5,price:6,strong:7,theme:8};
   let show=items.filter(({g})=>curStrat==='all'||g.type===curStrat);
   show.sort((a,b)=>(order[a.g.type]??9)-(order[b.g.type]??9)||total(b.s)-total(a.s));
   if(curStrat==='all'){
@@ -6357,7 +6616,11 @@ const GLOSS={
 '三率三升':'毛利率、營益率、淨利率三個獲利指標同時比上一季高——代表公司不只營收成長,「賺錢的效率」也在變好,是基本面最扎實的訊號之一。',
 '主力':'泛指有能力影響股價的大額資金(法人、大股東、實力派金主)。散戶跟主力的差別是資訊與資金;看籌碼的本質就是「跟著大錢的腳印走」。',
 '跳空缺口':'今天的最低價比昨天的最高價還高(向上跳空),K棒之間出現「空白」——通常是重大利多/利空讓大家搶著用更高(低)價成交。<br><b>怎麼看:</b>缺口=多空力道特別強的位置;沒回補的缺口常變成日後的支撐或壓力,回補(股價走回缺口區)前色帶會一直顯示。',
-'爆大量':'單日成交量超過近 20 根平均量的 2.5 倍(量能區的金色量柱,K棒下方有金色小三角定位)。<br><b>怎麼看:</b>大量=大資金在換手。低檔爆量收紅常是止跌起漲訊號;高檔爆量收黑要小心出貨。爆量那根K棒的最低點,常是日後多空的重要防線。'
+'爆大量':'單日成交量超過近 20 根平均量的 2.5 倍(量能區的金色量柱,K棒下方有金色小三角定位)。<br><b>怎麼看:</b>大量=大資金在換手。低檔爆量收紅常是止跌起漲訊號;高檔爆量收黑要小心出貨。爆量那根K棒的最低點,常是日後多空的重要防線。',
+'ATR':'平均真實波幅——這檔股票「平常一天大概會動多少錢」。海龜法則把它叫做 N,停損距離、加碼間距都用 N 來量,讓波動大的股票自動用比較寬的停損,不會被正常震盪洗出場。',
+'停損':'跌破這個價位就出場控制虧損。海龜用「進場價 − 2N」:賠掉超過兩天的正常波動,代表判斷錯了,認賠保留資金等下一次。',
+'金字塔加碼':'股票照劇本上漲時才加碼:每漲 0.5N 加一單,最多加 3 次(共 4 單)。<b>越漲越買(但每次量不變)、越跌絕不攤平</b>——讓賺錢的部位放大、賠錢的部位保持最小,是趨勢交易放大利潤的核心。',
+'出場':'海龜的離場規則:收盤跌破「10 日低點」就出場,不預設目標價、不猜頭。<b>讓利潤奔跑,但趨勢一轉弱就走</b>,回吐一點沒關係,重點是抓住整段大趨勢。'
 };
 function glossFind(t){
   t=String(t||'').replace(/\(.*?\)|(.*?)|[|].*$/g,'').trim();
@@ -6861,7 +7124,7 @@ async function loadTdcc(s){
       <div style="overflow-x:auto;margin-top:8px"><div style="display:grid;grid-template-columns:64px repeat(3,1fr);min-width:340px">
         <div style="${cell};color:var(--mut);font-size:11px;text-align:left">週別</div><div style="${cell};color:var(--mut);font-size:11px">大戶>${bSel}張</div><div style="${cell};color:var(--mut);font-size:11px">週增減</div><div style="${cell};color:var(--mut);font-size:11px">散戶<${rSel}張</div>
         ${tbl}</div></div>
-      <div class="dim-note" style="margin-top:8px">最新:大戶(>${bSel}張)<b>${last.big.toFixed(2)}%</b>${one?'':`(週${(last.big-prev.big)>=0?'增':'減'} ${Math.abs(last.big-prev.big).toFixed(2)}pp)`}、散戶(<${rSel}張)${last.ret.toFixed(2)}%。<b>大戶增+散戶減=籌碼流向大手</b>;門檻可切換,設定會記住。集保每週結算,本站自動累積。</div>`;
+      <div class="dim-note" style="margin-top:8px">最新:大戶(>${bSel}張)<b>${last.big.toFixed(2)}%</b>${one?'':`(週${(last.big-prev.big)>=0?'增':'減'} ${Math.abs(last.big-prev.big).toFixed(2)}pp)`}、散戶(<${rSel}張)${last.ret.toFixed(2)}%。${one?'':(()=>{const f=wk[0],cB=last.big-f.big,cR=last.ret-f.ret;const dir=cB>0.3?'📈 籌碼流向大戶':cB<-0.3?'📉 大戶趨勢減碼':'➡️ 大戶持股大致持平';return `<b>自 ${f.d.slice(5)} 以來 ${wk.length} 週累計:大戶 <span style="color:${cB>0?CT.up2:cB<0?CT.dn2:'var(--mut)'}">${cB>=0?'+':''}${cB.toFixed(2)}pp</span>、散戶 <span style="color:${cR<0?CT.up2:cR>0?CT.dn2:'var(--mut)'}">${cR>=0?'+':''}${cR.toFixed(2)}pp</span> → ${dir}</b>。`;})()}<b>大戶增+散戶減=籌碼流向大手</b>;門檻可切換,設定會記住。集保每週結算,本站自動累積。</div>`;
     box.querySelectorAll('.tdcc-b').forEach(b=>b.onclick=()=>{bSel=+b.dataset.v;localStorage.setItem('tdccB',bSel);render();});
     box.querySelectorAll('.tdcc-r').forEach(b=>b.onclick=()=>{rSel=+b.dataset.v;localStorage.setItem('tdccR',rSel);render();});
     if(!one)try{
