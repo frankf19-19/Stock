@@ -1506,7 +1506,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r163</span>');
+  diag.push('<span style="color:var(--dim)">build r164</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6805,34 +6805,55 @@ function etfPerfBlock(s){
     <div class="dim-note" style="margin-top:8px">以收盤價計算的<b>價格報酬,未含配息</b>——高配息 ETF 的實際含息報酬會更高;配息紀錄與殖利率見下方。想找「哪檔最強」,回 ETF 總覽可用近 1 月 / 近 3 月排序全部比較。</div></div>`;
 }
 /* 📅 歷史月份行情:全歷史月K → 各月平均報酬與勝率 */
+async function ySeasonFetch(s){
+  /* 平行競速版月K:所有代理同發,先到先贏;上市/上櫃後綴各試一輪 */
+  const syms=s.market==='TW'
+    ?[`${s.id}.${s.ex==='tse'?'TW':'TWO'}`,`${s.id}.${s.ex==='tse'?'TWO':'TW'}`]
+    :[s.id];
+  for(const sym of syms){
+    const u=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1mo&range=max&includePrePost=false`;
+    try{
+      const q=await Promise.any(PROXY.map(r=>
+        fT(r(u),7000).then(x=>{if(!x.ok)throw 0;return x.json();}).then(j=>{
+          const q2=j&&j.chart&&j.chart.result&&j.chart.result[0];
+          if(!q2||!q2.timestamp||q2.timestamp.length<40)throw 0;
+          return q2;
+        })));
+      const cl=q.indicators.quote[0].close;
+      const dates=q.timestamp.map(x=>new Date(x*1000).toISOString().slice(0,10));
+      return {dates,cl};
+    }catch(e){}
+  }
+  return null;
+}
 async function loadSeason(s){
   const box=document.getElementById('seasonBox');
-  if(!box||box.dataset.busy)return;
+  if(!box||box.dataset.busy||box.dataset.done)return;
   box.dataset.busy='1';
-  box.innerHTML='<div class="dim-note">📡 歷史月K載入中…(免費來源,約 1~5 秒)</div>';
+  const CK='seas1:'+s.id;
   let d=null;
-  for(const rng of ['max','10y','5y']){                      // 退階重試:max→10y→5y,各兩次
-    for(let t2=0;t2<2&&!d;t2++){
-      try{d=await yOHLC(s,rng,'1mo');}catch(e){console.warn('season',rng,e);}
-      if(!d)await new Promise(r=>setTimeout(r,900));
-    }
-    if(d)break;
+  try{const c=JSON.parse(localStorage.getItem(CK)||'null');
+    if(c&&Date.now()-c.t<3*864e5&&c.cl&&c.cl.length>=40)d=c;}catch(e){}
+  if(!d){
+    box.innerHTML='<div class="dim-note">📡 歷史月K載入中…</div>';
+    d=await ySeasonFetch(s);
+    if(d)try{localStorage.setItem(CK,JSON.stringify({t:Date.now(),dates:d.dates,cl:d.cl}));}catch(e){}
   }
   box.dataset.busy='';
-  if(!d||!d.ohlc||d.ohlc.length<40){
+  if(!d||!d.cl||d.cl.length<40){
     box.innerHTML='<div class="dim-note">歷史月K暫時抓不到(免費通道塞車)。<button class="btn-ghost" id="seasonRetry" style="padding:4px 14px;margin-left:8px">🔄 重試</button></div>';
     const rb=document.getElementById('seasonRetry');
     if(rb)rb.onclick=()=>loadSeason(s);
     return;
   }
   box.dataset.done='1';
-  const cl=d.ohlc.map(o=>o[3]), dt2=d.dates;
+  const cl=d.cl, dt2=d.dates;
   const now=new Date(), curY=now.getFullYear(), curM=now.getMonth()+1;
-  const Y={};                                                 // Y[年][月]=報酬%
+  const Y={};
   for(let i=1;i<cl.length;i++){
     if(!cl[i]||!cl[i-1])continue;
     const dd=new Date(dt2[i]), y=dd.getFullYear(), m=dd.getMonth()+1;
-    if(y===curY&&m>=curM)continue;                            // 本月未完不計
+    if(y===curY&&m>=curM)continue;
     (Y[y]=Y[y]||{})[m]=+((cl[i]/cl[i-1]-1)*100).toFixed(1);
   }
   const years=Object.keys(Y).map(Number).sort((a,b)=>b-a).slice(0,15);
@@ -6856,7 +6877,7 @@ async function loadSeason(s){
       ${foot('平均',st=>st.avg==null?'—':fmt(+st.avg.toFixed(1)))}
       ${foot('勝率',st=>st.win==null?'—':`${st.win}%`)}
     </div></div>
-    <div class="dim-note" style="margin-top:8px">本月(${curM}月)欄位已底色標示:近 ${cs.n} 年平均 <b style="color:${(cs.avg||0)>=0?CT.up2:CT.dn2}">${(cs.avg||0)>=0?'+':''}${(cs.avg||0).toFixed(1)}%</b>、勝率 ${cs.win}%。季節性是歷史傾向不是保證,進出依據仍是趨勢與籌碼。</div>`;
+    <div class="dim-note" style="margin-top:8px">本月(${curM}月)欄位已底色標示:近 ${cs.n} 年平均 <b style="color:${(cs.avg||0)>=0?CT.up2:CT.dn2}">${(cs.avg||0)>=0?'+':''}${(cs.avg||0).toFixed(1)}%</b>、勝率 ${cs.win}%。季節性是歷史傾向不是保證,進出依據仍是趨勢與籌碼。快取三天,重整不重抓。</div>`;
 }
 /* 個股頁收合:沿用首頁 sec-title 機制;手機預設收合圖表/新聞/公司區,展開後重算圖表尺寸 */
 function wireDetailSecs(){
