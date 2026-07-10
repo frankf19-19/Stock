@@ -1442,7 +1442,8 @@ def build_tdcc_trend(stocks):
     except Exception:
         J = {"d": [], "s": {}}
     try:
-        r = SESS.get("https://smart.tdcc.com.tw/opendata/getOD.ashx?id=1-5", timeout=90)
+        r = requests.get("https://smart.tdcc.com.tw/opendata/getOD.ashx?id=1-5",
+                         headers={"User-Agent": "Mozilla/5.0"}, timeout=90)
         r.raise_for_status()
         rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
     except Exception as e:
