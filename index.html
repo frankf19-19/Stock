@@ -1539,7 +1539,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r188</span>');
+  diag.push('<span style="color:var(--dim)">build r189</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6628,17 +6628,22 @@ setInterval(glbScanAlerts,15*60e3);
 const GLB_COMP=[[/TSMC/i,'台積電'],[/Samsung/i,'三星'],[/SK ?Hynix/i,'SK海力士'],[/Micron/i,'美光'],[/Nvidia/i,'輝達'],[/Intel/i,'英特爾'],[/\bAMD\b/,'超微'],[/Apple/i,'蘋果'],[/Foxconn/i,'鴻海'],[/Broadcom/i,'博通'],[/ASML/i,'ASML'],[/OpenAI/i,'OpenAI'],[/Microsoft/i,'微軟'],[/Google/i,'谷歌'],[/Amazon|AWS/i,'亞馬遜'],[/Meta\b/,'Meta']];
 const GLB_OBJ=[[/HBM/i,'HBM'],[/DRAM/i,'DRAM'],[/NAND|flash memory/i,'NAND'],[/\bmemory\b/i,'記憶體'],[/CoWoS|advanced packaging/i,'先進封裝'],[/foundry/i,'晶圓代工'],[/wafer/i,'晶圓'],[/ABF|substrate/i,'ABF載板'],[/\bPCB\b|CCL/i,'PCB'],[/optical (module|transceiver)|transceiver/i,'光模組'],[/silicon photonics|co-?packaged/i,'矽光子/CPO'],[/liquid cooling|immersion/i,'液冷'],[/power supply|HVDC|800V/i,'電源'],[/AI server/i,'AI伺服器'],[/data center/i,'資料中心'],[/\bGPU\b/i,'GPU'],[/chip(s|set)?\b/i,'晶片']];
 const GLB_ACT=[
- [/price hikes?|price increases?|raises? prices?|hikes? prices?/i,'漲價','bull'],
- [/shortage|tight supply|supply crunch|undersuppl/i,'缺貨/供給吃緊','bull'],
+ [/(worker|labor|labour|talent|staff|engineer)s?[^.]{0,12}(shortage|shortfall|crunch|scarcity)/i,'缺工(海外擴廠受阻)','twp'],
+ [/price hikes?|price increases?|raises? prices?|hikes? prices?|(price|cost)s?[^.]{0,14}(rise|rising|climb|jump|surge|spike)|rise in[^.]{0,20}(price|cost)|higher (price|cost)s?/i,'漲價/成本上升','bull'],
+ [/shortage|shortfall|scarcity|scarce|tight supply|supply crunch|undersuppl|running (low|out)/i,'缺貨/供給吃緊','bull'],
  [/sold out|fully booked|allocation/i,'產能完售/配貨','bull'],
- [/(demand|orders?)[^.]{0,14}(surge|soar|jump|record)|record (demand|orders)|strong demand/i,'需求大增','bull'],
+ [/(demand|orders?)[^.]{0,16}(surge|soar|jump|record|boom|unprecedented|insatiable|robust|strong)|(drive|drives|fuel|fuels|boost|boosts)[^.]{0,26}demand|unprecedented[^.]{0,14}demand|record (demand|orders)|strong demand|demand boom/i,'需求大增','bull'],
+ [/wins?[^.]{0,26}(order|orders|contract|deal)|order wins?|secured?[^.]{0,14}orders?|lands?[^.]{0,20}(order|deal|contract)/i,'接單捷報','good'],
  [/expand(s|ing)?[^.]{0,20}capacity|capacity expansion|ramp(s|ing)?|add(s|ing)? capacity|new (fab|plant)/i,'擴產/放量','bull'],
- [/invest(s|ing|ment)?[^.]{0,16}(fab|plant|capacity)|to build[^.]{0,12}(fab|plant)/i,'擴大投資/建廠','bull'],
+ [/invest(s|ing|ment)?[^.]{0,16}(fab|plant|capacity)|to build[^.]{0,12}(fab|plant)|invest(s|ing|ment)?[^.]{0,10}\$|\$\s?\d+\s?(b\b|billion)[^.]{0,24}(invest|spend|capex|plan)|capex/i,'擴大投資/建廠','bull'],
+ [/beat(s)? (estimates|expectations)|record (revenue|profit|earnings|quarter)|(revenue|profit|earnings)[^.]{0,10}(record|surge|jump)/i,'財報/營收報捷','good'],
  [/halt|suspend|shut ?down|disruption|strike/i,'停產/供應中斷','cut'],
- [/fire|earthquake|explosion/i,'發生災害事故','cut'],
- [/export (bans?|controls?|curbs?)|sanction/i,'出口管制/禁令','bear'],
- [/price cuts?|cuts? prices?|slump|\bglut\b|oversuppl|weak demand/i,'降價/需求轉弱','bear'],
- [/delay(s|ed)?|postpone/i,'時程延後','bear']];
+ [/fire\b|earthquake|explosion/i,'發生災害事故','cut'],
+ [/export (bans?|controls?|curbs?)|sanction|tariff/i,'出口管制/關稅/禁令','bear'],
+ [/price cuts?|cuts? prices?|slump|\bglut\b|oversuppl|weak(ening)? demand|demand (weakens?|falls?|drops?)/i,'降價/需求轉弱','bear'],
+ [/delay(s|ed)?|postpone/i,'時程延後','bear'],
+ [/acquir(e|es|ing)|acquisition|merger|buyout|takeover/i,'併購/整併','neu'],
+ [/partnership|team(s)? up|collaborat/i,'合作結盟','neu']];
 function glbBrief(t,tags){
   const act=GLB_ACT.find(([re])=>re.test(t));
   if(!act)return null;
@@ -6649,6 +6654,9 @@ function glbBrief(t,tags){
   const tg=(tags&&tags.length)?tags.join('/'):null;
   const dir=act[2]==='bull'?`→ 供不應求氛圍,${tg?`台股 <b>${tg}</b> 族群`:'相關台股'}偏多解讀`
           :act[2]==='cut' ?`→ 供給中斷,留意${tg?` <b>${tg}</b> `:'同業'}轉單與漲價效應`
+          :act[2]==='good'?`→ 基本面利多,${tg?`<b>${tg}</b> 族群`:'相關台股'}偏多解讀`
+          :act[2]==='twp'?`→ 海外擴產卡關,<b>台廠製造/代工地位</b>相對受惠的解讀`
+          :act[2]==='neu'?`→ 產業題材動態,${tg?`<b>${tg}</b> 族群`:'相關台股'}保持關注(方向中性)`
           :`→ 偏空/政策風險,${tg?`<b>${tg}</b> 族群`:'相關台股'}留意`;
   return `${subj} ${act[1]}${pct?`(約 ${pct}%)`:''} ${dir}`;
 }
