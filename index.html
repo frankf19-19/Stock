@@ -198,6 +198,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .sec-title span{font-weight:400;font-size:13.5px;color:var(--mut);letter-spacing:0}
 .idx-row{display:flex;flex-wrap:wrap;gap:10px}
 .idx-row>.idx-card{flex:1 1 150px;min-width:150px}
+@media(min-width:641px){.macro-side .idx-row>.idx-card{flex:1 1 calc(33.333% - 7px);min-width:calc(33.333% - 7px)}}
 .idx-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .idx-card .nm{font-size:13px;color:var(--mut)}
 .idx-card .vl{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:2px}
@@ -241,6 +242,13 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .tg-whale{background:rgba(199,146,234,.12);color:#D9B8F5;border:1px solid rgba(199,146,234,.4)}
 .tg-turtle{background:rgba(91,217,192,.12);color:#5BD9C0;border:1px solid rgba(91,217,192,.45)}
 .tg-zt8{background:rgba(255,214,102,.12);color:#FFD666;border:1px solid rgba(255,214,102,.45)}
+.alert-strip{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.alert-pill{display:inline-flex;align-items:center;gap:9px;padding:10px 15px;border-radius:11px;font-size:15.5px;font-weight:800;line-height:1.4;letter-spacing:.01em}
+.alert-pill .ico{font-size:20px;line-height:1;flex-shrink:0}
+.alert-red{background:rgba(255,90,95,.15);color:#FF8A8E;border:1.5px solid rgba(255,90,95,.6)}
+.alert-amb{background:rgba(255,183,74,.14);color:var(--amber);border:1.5px solid rgba(255,183,74,.55)}
+.alert-ok{background:rgba(75,214,149,.10);color:#4BD695;border:1.5px solid rgba(75,214,149,.4);font-weight:700;font-size:14.5px}
+@media(max-width:640px){.alert-pill{flex:1 1 100%;font-size:14.5px;padding:9px 13px}}
 .ind-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .ind-seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .ind-seg button{background:none;border:none;color:var(--mut);padding:5px 12px;font-size:13.5px;cursor:pointer;font-family:var(--mono)}
@@ -568,6 +576,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   <button data-tab="etf"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13.5l9 5 9-5"/><path d="M3 18l9 5 9-5" opacity=".45"/></svg>ETF</button>
 </div>
 <div class="tabPane" id="tp-macro"><div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:13px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
+  <div class="alert-strip" id="macroAlerts" style="display:none"></div>
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
       <div class="ind-head">
@@ -901,7 +910,7 @@ updated:"範例資料(執行 update_data.py 後顯示真實日期)", source:"dem
 macro:{
  idx:[{name:"加權指數",val:28650,chg:0.8},{name:"S&P 500",val:6890,chg:0.3},
       {name:"那斯達克",val:23150,chg:0.5},{name:"費城半導體",val:6420,chg:1.1}],
- fx:{USDTWD:32.45,JPYTWD:0.2145,EURTWD:35.60,USDJPY:151.3}},
+ fx:{USDTWD:32.45,JPYTWD:0.2145,DXY:98.40}},
 news:[
  {title:"【範例】台積電法說釋出樂觀資本支出指引,AI 供應鏈同步走揚",source:"範例",link:"#",time:""},
  {title:"【範例】DRAM 合約價連三季上漲,記憶體族群獲利上修",source:"範例",link:"#",time:""},
@@ -1361,7 +1370,7 @@ function renderMacro(){
     return `<div class="idx-card"${k?` data-mk="${k}"`:''}><div class="nm">${i.name}</div><div class="vl">${Number(i.val).toLocaleString()}</div><div class="ch">${chgHtml(i.chg??0)}</div></div>`;}).join('')
     :'<div class="idx-card"><div class="nm">尚無指數資料,按「更新資訊」或執行 update_data.py</div></div>';
   const fx=m.fx||{};
-  const items=[["美元/台幣",fx.USDTWD,"usdtwd"],["日圓/台幣",fx.JPYTWD,"jpytwd"],["歐元/台幣",fx.EURTWD,"eurtwd"],["美元/日圓",fx.USDJPY,"usdjpy"]];
+  const items=[["美元/台幣",fx.USDTWD,"usdtwd"],["日圓/台幣",fx.JPYTWD,"jpytwd"],["美元指數 DXY",fx.DXY,"dxy"]];
   document.getElementById('fxRow').innerHTML=items.map(([n,v,k])=>
     `<div class="idx-card" data-mk="${k}"><div class="nm">${n}</div><div class="vl">${v??'—'}</div></div>`).join('');
   const tone=fx.USDTWD?(fx.USDTWD>=32.8?'台幣偏弱(外資匯出壓力,出口有匯兌收益但指數易承壓)':fx.USDTWD<=31.5?'台幣偏強(外資匯入,易走資金行情)':'台幣區間震盪'):null;
@@ -1438,7 +1447,7 @@ async function refreshUS(){
 setTimeout(refreshUS,2400);
 setInterval(refreshUS,60000);
 /* 匯率即時化:Yahoo FX 直連(er-api 免費版一天一值,僅作開站底圖) */
-const FX_LIVE=[['USDTWD','TWD=X',3],['JPYTWD','JPYTWD=X',4],['EURTWD','EURTWD=X',3],['USDJPY','JPY=X',2]];
+const FX_LIVE=[['USDTWD','TWD=X',3],['JPYTWD','JPYTWD=X',4],['DXY','DX-Y.NYB',2]];
 async function refreshFX(){
   const fx=(DATA.macro||{}).fx;
   if(!fx)return;
@@ -1504,12 +1513,11 @@ async function refreshLive(auto){
   try{ // 匯率(open.er-api.com,免金鑰、允許跨網域)
     const j=await (await fetch('https://open.er-api.com/v6/latest/USD')).json();
     const r=j.rates;
-    DATA.macro.fx={USDTWD:+r.TWD.toFixed(3),JPYTWD:+(r.TWD/r.JPY).toFixed(4),
-                   EURTWD:+(r.TWD/r.EUR).toFixed(3),USDJPY:+r.JPY.toFixed(2)};
+    DATA.macro.fx={USDTWD:+r.TWD.toFixed(3),JPYTWD:+(r.TWD/r.JPY).toFixed(4)};
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r179</span>');
+  diag.push('<span style="color:var(--dim)">build r181</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2285,6 +2293,67 @@ async function otcFromETF(){
   }
   return null;
 }
+/* ══ 風險示警系統:總經 + 個股,紅=危險、琥珀=注意 ══ */
+function renderMacroAlerts(){
+  const el=document.getElementById('macroAlerts');
+  if(!el)return;
+  const A=[];const add=(lv,ico,txt)=>A.push({lv,ico,txt});
+  const rv=window.__riskVals||{};
+  if(rv.vix!=null){
+    if(rv.vix>=28)add('red','🚨',`VIX ${rv.vix.toFixed(1)} 恐慌區——市場劇烈避險,倉位與槓桿務必控管`);
+    else if(rv.vix>=20)add('amb','⚠️',`VIX ${rv.vix.toFixed(1)} 警戒區——波動升溫,操作放謹慎`);
+  }
+  if(rv.y10!=null){
+    if(rv.y10>=5)add('red','🚨',`美債10年 ${rv.y10.toFixed(2)}% 破 5%——高估值成長股評價重壓`);
+    else if(rv.y10>=4.5)add('amb','⚠️',`美債10年 ${rv.y10.toFixed(2)}% 偏高水位——成長股評價承壓`);
+    if(rv.bp10!=null&&Math.abs(rv.bp10)>=5)add('amb','⚡',`殖利率單日${rv.bp10>0?'急升':'急落'} ${Math.abs(rv.bp10).toFixed(1)}bp——評價波動放大`);
+  }
+  if(rv.y5!=null&&rv.y10!=null&&rv.y5>rv.y10)add('amb','↩️','殖利率曲線倒掛(5年>10年)——債市對景氣示警');
+  try{
+    const ft=((DATA.macro||{}).futtab)||[];
+    if(ft.length){
+      const L=ft[ft.length-1];
+      if(L.txf!=null&&L.txf<=-60000)add('amb','⚠️',`外資期貨淨空單 ${Math.abs(L.txf).toLocaleString()} 口——期貨籌碼明顯偏空`);
+      if(L.leek!=null&&L.leek>=25)add('amb','🌱',`散戶小台多單比 ${L.leek.toFixed(1)}%——散戶過度樂觀,反向警訊`);
+      if(L.pcr!=null&&L.pcr>=130)add('amb','🌡️',`選擇權 PCR ${L.pcr.toFixed(0)}——樂觀情緒過熱`);
+      else if(L.pcr!=null&&L.pcr<=80)add('amb','🌡️',`選擇權 PCR ${L.pcr.toFixed(0)}——避險情緒濃厚`);
+      const f5=ft.slice(-5).reduce((a,r)=>a+(r.f||0),0);
+      if(f5<=-1500)add('amb','📉',`外資現貨 5 日累計賣超 ${Math.abs(f5).toFixed(0)} 億——資金持續流出台股`);
+    }
+  }catch(e){}
+  el.style.display='';
+  el.innerHTML=A.length
+    ?A.map(a=>`<span class="alert-pill alert-${a.lv}"><span class="ico">${a.ico}</span><span>${a.txt}</span></span>`).join('')
+    :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>風險溫度計目前無特別警示</span></span>';
+}
+setTimeout(()=>{try{renderMacroAlerts();}catch(e){}},4500);
+function renderStkAlerts(s,k,tt){
+  const el=document.getElementById('stkAlerts');
+  if(!el||location.hash!=='#stock/'+s.id)return;
+  const A=[];const add=(lv,ico,txt)=>A.push({lv,ico,txt});
+  if(s.disp)add('red','🚨','處置股——交易管制中,流動性差、波動放大,短線進出風險高');
+  try{
+    if(k&&!k.demo&&Array.isArray(k.ohlc)&&k.ohlc.length>=60&&s.price){
+      const cl=k.ohlc.map(x=>x[3]);
+      const ma=p=>cl.slice(-p).reduce((x,y)=>x+y,0)/p;
+      const m20=ma(20),m60=ma(60),px=s.price;
+      if(px<m60)add('red','🔻',`跌破季線 ${m60.toFixed(1)}——中期趨勢轉弱`);
+      else if(px<m20)add('amb','🔻',`跌破月線 ${m20.toFixed(1)}——短線轉弱,下一道防線季線 ${m60.toFixed(1)}`);
+      const bias=(px/m20-1)*100;
+      if(bias>=15)add('amb','🔥',`股價高於月線 ${bias.toFixed(0)}%——短線乖離過大,慎防急回檔`);
+    }
+  }catch(e){}
+  if(tt&&s.price&&tt.l10&&s.price<tt.l10)add('red','🐢',`跌破 10 日低點 ${tt.l10}——海龜法則出場訊號`);
+  try{
+    const r=chipRaw(s);
+    if(r&&r.f5<0&&r.t5<0)add('amb','📉','外資+投信 5 日同步賣超——法人籌碼轉弱');
+    if(r&&r.bigw!=null&&r.bigw<=-0.5)add('amb','👑',`千張大戶週減 ${Math.abs(r.bigw).toFixed(1)}pp——大戶調節持股`);
+  }catch(e){}
+  el.style.display='';
+  el.innerHTML=A.length
+    ?A.map(a=>`<span class="alert-pill alert-${a.lv}"><span class="ico">${a.ico}</span><span>${a.txt}</span></span>`).join('')
+    :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>目前無特別風險警示</span></span>';
+}
 /* ── 風險指標:VIX 恐慌指數 + 美債殖利率(每60秒即時更新)── */
 async function refreshRisk(){
   const box=document.getElementById('riskRow');
@@ -2352,6 +2421,12 @@ async function refreshRisk(){
   }
   window.__noteRisk=txt;
   composeMacroNote();
+  window.__riskVals={
+    vix:out.vix?out.vix.last:null,
+    y10:out.y10?out.y10.last/10:null,
+    bp10:out.y10?(out.y10.last-out.y10.prev)*10:null,
+    y5:out.y5?out.y5.last/10:null};
+  try{renderMacroAlerts();}catch(e){}
 }
 setTimeout(refreshRisk,2000);
 setInterval(refreshRisk,60000);
@@ -4570,6 +4645,7 @@ async function showDetail(id){
         <div class="c-price"><span class="px" id="dPx" style="font-size:26px">${s.price??'—'}</span><span id="dChg">${chgHtml(s.chg)}</span></div></div>
       ${s.etf?`<div class="score-ring" style="--sc:${Math.min(100,Math.max(0,50+((s.perf||{}).q||0)*2))}"><div class="score-in"><b style="font-size:13.5px;white-space:nowrap;letter-spacing:0">${(s.perf&&s.perf.q!=null)?((s.perf.q>=0?"+":"")+(Math.abs(s.perf.q)>=10?s.perf.q.toFixed(0):s.perf.q.toFixed(1))+"%"):"—"}</b><span>近3月</span></div></div>`:`<div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>`}
     </div>
+    <div class="alert-strip" id="stkAlerts" style="display:none"></div>
     ${s.etf?'':(()=>{const v=aiVerdict(s);return `
     <div class="dim-block" style="border-left:4px solid var(--amber)">
       <h3>AI 綜合研判 <span class="ds ${v.tone==='pos'?'pos':v.tone==='neg'?'neg':''}">${v.tier} · 綜合 ${v.T} 分</span></h3>
@@ -4732,6 +4808,7 @@ async function showDetail(id){
     if(tBox)tBox.innerHTML=tt?turtleBlock(s,tt):'';
     if(tt)window.__kTurtle={l10:tt.l10,sig:!!tt.sigType};
   }catch(e){}
+  try{renderStkAlerts(s,k,(k&&!k.demo)?turtleCalc(k.ohlc,s.price):null);}catch(e){console.warn('stkAlerts',e);}
   /* ⚡ 漲停8招:兩段式渲染 —— 先畫 K 線七招(股本顯示載入中),證交所股本到位後補上 */
   if(s.market==='TW'&&!s.etf){
     const paintZ=(cap,loading)=>{try{
@@ -6433,6 +6510,9 @@ const MK={
   jpytwd:{name:'日圓/台幣',sym:'JPYTWD=X',kind:'fx',dg:4,
     about:'1 日圓兌換多少台幣。哈日族與赴日旅遊的換匯參考;也反映日圓的國際強弱。',
     how:'日圓大幅升值時常代表全球避險情緒升溫(日圓是避險貨幣)或日本央行政策轉向,亞股波動會放大;對想去日本玩的人,數字越低換日幣越划算。'},
+  dxy:{name:'美元指數 DXY',sym:'DX-Y.NYB',kind:'fx',dg:2,
+    about:'美元對一籃子主要貨幣(歐元、日圓、英鎊等)的加權匯率指數,是「美元強弱」的全球標準溫度計。',
+    how:'美元指數走強=全球資金回流美元資產,新興市場(含台股)常見外資賣壓、台幣易貶;走弱=資金外溢風險資產,利多台股與原物料。105 以上屬強美元環境、100 以下偏弱;與美債殖利率通常同向,一起看更準。'},
   eurtwd:{name:'歐元/台幣',sym:'EURTWD=X',kind:'fx',dg:3,
     about:'1 歐元兌換多少台幣,反映歐元區經濟與利率預期相對台灣的強弱。',
     how:'歐元走強通常代表美元轉弱(歐元佔美元指數近六成),而弱美元環境對新興市場與台股資金面偏正面。'},
