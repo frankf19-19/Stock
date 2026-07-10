@@ -242,6 +242,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .tg-whale{background:rgba(199,146,234,.12);color:#D9B8F5;border:1px solid rgba(199,146,234,.4)}
 .tg-turtle{background:rgba(91,217,192,.12);color:#5BD9C0;border:1px solid rgba(91,217,192,.45)}
 .tg-zt8{background:rgba(255,214,102,.12);color:#FFD666;border:1px solid rgba(255,214,102,.45)}
+.tg-gem{background:rgba(199,146,234,.10);color:#C792EA;border:1px solid rgba(199,146,234,.42)}
 .alert-strip{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
 .alert-pill{display:inline-flex;align-items:center;gap:9px;padding:10px 15px;border-radius:11px;font-size:15.5px;font-weight:800;line-height:1.4;letter-spacing:.01em}
 .alert-pill .ico{font-size:20px;line-height:1;flex-shrink:0}
@@ -1517,7 +1518,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r181</span>');
+  diag.push('<span style="color:var(--dim)">build r182</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2873,6 +2874,8 @@ async function turtleSeed(){
   TURTLE_SEEDED=true;
   const byId={};(DATA.stocks||[]).forEach(s=>{if(s.market==='TW'&&!s.etf&&s.price!=null)byId[s.id]=s;});
   const out=[];
+  const gems=[];
+  const hot=(()=>{try{return zt8Hot();}catch(e){return new Set();}})();
   for(let d=0;d<10;d++){
     const sh=`k/tw${d}.json`;
     if(!(sh in KCACHE)){
@@ -2886,6 +2889,14 @@ async function turtleSeed(){
       const vols=e.o.slice(-20).map(x=>x[4]||0);
       if(avg(vols)<500)return;                    // 流動性濾網:20日均量 ≥ 500 張
       const t=turtleCalc(e.o,s.price);
+      // 💎 蓄勢好股:基本面 ≥78 分、未突破、距 20 日高 3~20%
+      try{
+        if(t&&s.f&&s.f.score>=78&&!t.sigType&&!t.brk20&&t.gap20>=3&&t.gap20<=20){
+          const g=gemDiag(s,e.o,t,hot);
+          if(g)gems.push({id,g:{type:'gem',label:'💎 蓄勢好股',
+            desc:`基本面 ${g.f} 分未發動 · 距20日高 ${g.gap}% · 主因:${g.reasons[0].t.split('——')[0].split(':')[0]} · 起漲觀察:帶量過 ${g.h20}`}});
+        }
+      }catch(e2){}
       if(!t||!t.sigType)return;
       out.push({id,g:{type:'turtle',
         label:t.sigType==='55'?'🐢 55日突破':'🐢 20日突破',
@@ -2893,6 +2904,7 @@ async function turtleSeed(){
           +(t.sigType==='55'&&t.skip20?' · 上次20日突破獲利→依法則改採55日':'')}});
     });
     window.__TURTLE=out.slice();
+    window.__GEM=gems.slice();
     if(document.getElementById('radar')){try{renderRadar();}catch(e){}}
     await new Promise(r=>setTimeout(r,500));
   }
@@ -3006,6 +3018,66 @@ async function zt8Seed(){
   }
 }
 setTimeout(zt8Seed,18000);
+/* ══ 戰法模組 #3:💎 好股蓄勢診斷 ══
+   目標:基本面強但股價尚未發動的股票——用資料說清楚「為什麼還沒漲」與「什麼訊號可能是起漲點」。*/
+function gemDiag(s,o,tt,hot){
+  if(!s||!s.f||s.f.score==null||!tt||!s.price)return null;
+  if(tt.sigType||tt.brk20)return null;               // 已突破=已發動,不屬此類
+  if(!(tt.gap20>=2))return null;                     // 距 20 日高太近視為醞釀完成
+  const reasons=[],trigs=[];
+  const R=(ico,t)=>reasons.push({ico,t}),G=(ico,t)=>trigs.push({ico,t});
+  const px=s.price;
+  let r={};try{r=chipRaw(s)||{};}catch(e){}
+  // ── 為什麼還沒漲(逐條依資料判定)──
+  if((r.f5||0)<=0&&(r.t5||0)<=0)
+    R('📉',`法人還沒進場:外資 5 日 ${(r.f5||0).toLocaleString()} 張、投信 ${(r.t5||0).toLocaleString()} 張——缺乏推升的大資金`);
+  if(r.bigw!=null&&r.bigw<=0)
+    R('👑',`千張大戶週持股未增(${r.bigw>0?'+':''}${(+r.bigw).toFixed(1)}pp)——大戶仍在觀望或調節`);
+  let ma20=null,ma60=null,v5=null,v20=null;
+  if(Array.isArray(o)&&o.length>=60){
+    const cl=o.map(x=>x[3]),vs=o.map(x=>x[4]||0);
+    const ma=p=>cl.slice(-p).reduce((a,b)=>a+b,0)/p;
+    ma20=ma(20);ma60=ma(60);
+    v5=vs.slice(-5).reduce((a,b)=>a+b,0)/5;
+    v20=vs.slice(-20).reduce((a,b)=>a+b,0)/20;
+    if(v20>0&&v5<v20*0.8)
+      R('💤',`量能萎縮:近 5 日均量僅 20 日的 ${(v5/v20*100).toFixed(0)}%——沒有量,行情就發不動`);
+    if(px<ma60)R('⛰️',`仍在季線 ${ma60.toFixed(1)} 之下——中期趨勢未翻多,大資金常等站回季線才進場`);
+    else if(px<ma20)R('⛰️',`壓在月線 ${ma20.toFixed(1)} 之下——短線趨勢未轉強`);
+  }
+  if(hot&&s.sector&&!hot.has(s.sector))
+    R('🧊',`族群未輪動:${s.sector} 目前不在盤面熱門族群——市場資金還沒轉到這一族`);
+  if(s.pe&&s.pe>0&&s.pe<12)
+    R('💰',`估值便宜(本益比 ${s.pe} 倍)但「便宜」本身不是催化劑——市場在等獲利或題材的確認`);
+  if(!reasons.length)
+    R('⏳','數據上找不到明顯壓抑因素——可能只是輪動時間未到,持續觀察下方訊號');
+  // ── 什麼訊號可能是起漲點(給具體價位)──
+  G('🚀',`帶量站上 20 日高 <b>${tt.h20}</b>(距現價 +${tt.gap20}%),且當日量 ≥ 20 日均量 1.5 倍——🐢 海龜訊號會同步觸發,雷達自動亮燈`);
+  try{
+    const bx=window.__kBox;
+    if(bx&&bx.top&&px<=bx.top)G('📦',`突破箱頂 <b>${bx.top}</b>——箱體整理的結束訊號`);
+  }catch(e){}
+  if(ma60!=null&&px<ma60)G('📈',`收盤站回季線 <b>${ma60.toFixed(1)}</b> 且季線走平翻揚——中期趨勢反轉的第一步`);
+  else if(ma20!=null&&px<ma20)G('📈',`收盤站回月線 <b>${ma20.toFixed(1)}</b> 且月線翻揚`);
+  G('🏦','外資/投信轉為連續買超、千張大戶週增由負轉正——法人進場腳印');
+  G('🔥',`${s.sector||'所屬族群'} 進入當日強勢族群前五名——資金輪動到位的訊號`);
+  G('📊','單日爆量紅K(量 ≥ 20 日均量 2 倍)——主力進場最直接的痕跡');
+  return {reasons,trigs,gap:tt.gap20,h20:tt.h20,f:s.f.score};
+}
+function gemBlock(s,g){
+  if(!g)return '';
+  let tier='';try{const v=aiVerdict(s);tier=v&&v.tier?` · 未來性:${v.tier}`:'';}catch(e){}
+  const li=x=>`<div style="display:flex;gap:9px;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);line-height:1.7"><span style="flex-shrink:0;font-size:17px">${x.ico}</span><span>${x.t}</span></div>`;
+  return `<div class="dim-block" style="border-left:4px solid #C792EA">
+    <h3>💎 好股蓄勢診斷 <span class="ds">基本面 ${g.f} 分${tier} · 距 20 日高 ${g.gap}%</span></h3>
+    <div class="dim-note" style="margin:2px 0 6px"><b style="color:#C792EA">體質不差,但股價還沒發動</b>——以下是數據上「還沒漲」的可能原因,以及值得盯的起漲訊號。</div>
+    <div style="font-size:14px;font-weight:900;color:var(--mut);letter-spacing:.06em;margin-top:6px">為什麼還沒漲</div>
+    <div style="font-size:14.5px;color:var(--txt2)">${g.reasons.map(li).join('')}</div>
+    <div style="font-size:14px;font-weight:900;color:var(--mut);letter-spacing:.06em;margin-top:12px">什麼訊號可能是起漲點</div>
+    <div style="font-size:14.5px;color:var(--txt2)">${g.trigs.map(li).join('')}</div>
+    <div class="dim-note" style="margin-top:8px;color:var(--dim)">此為規則化診斷:「沒漲的原因」是由籌碼/量能/位階/族群數據反推的<b>可能解釋</b>,市場永遠可能有數據外的原因;訊號出現也不保證起漲,<b>不構成投資建議</b>,請搭配自己的停損紀律。</div>
+  </div>`;
+}
 /* 鈴鐺:點擊開啟設定面板(總開關 + 策略選擇);首次造訪提示開關位置 */
 (function(){
   const b=document.getElementById('alertBtn');
@@ -4660,6 +4732,7 @@ async function showDetail(id){
     ${s.etf?'':outlookBlock(s)}
     ${s.etf?'':'<div id="turtleBox"></div>'}
     ${(s.etf||s.market!=='TW')?'':'<div id="zt8Box"></div>'}
+    ${s.etf?'':'<div id="gemBox"></div>'}
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
       <span class="ticker-label">📰 ${s.name} 新聞</span>
       <div class="ticker-track" id="sTickTrack"></div>
@@ -4809,6 +4882,16 @@ async function showDetail(id){
     if(tt)window.__kTurtle={l10:tt.l10,sig:!!tt.sigType};
   }catch(e){}
   try{renderStkAlerts(s,k,(k&&!k.demo)?turtleCalc(k.ohlc,s.price):null);}catch(e){console.warn('stkAlerts',e);}
+  /* 💎 好股蓄勢診斷 */
+  try{
+    const gBox=document.getElementById('gemBox');
+    if(gBox&&!k.demo){
+      const tt2=turtleCalc(k.ohlc,s.price);
+      const hot2=(()=>{try{return zt8Hot();}catch(e){return new Set();}})();
+      const g=(s.f&&s.f.score>=72)?gemDiag(s,k.ohlc,tt2,hot2):null;
+      gBox.innerHTML=g?gemBlock(s,g):'';
+    }
+  }catch(e){console.warn('gemBlock',e);}
   /* ⚡ 漲停8招:兩段式渲染 —— 先畫 K 線七招(股本顯示載入中),證交所股本到位後補上 */
   if(s.market==='TW'&&!s.etf){
     const paintZ=(cap,loading)=>{try{
@@ -5028,6 +5111,7 @@ const STRATS=[
   ['strong','💪 三力強勢'],
   ['turtle','🐢 海龜突破'],
   ['zt8','⚡ 漲停8招'],
+  ['gem','💎 蓄勢好股'],
   ['left','◀ 左側·價值回檔'],
   ['right','▶ 右側·動能突破'],
   ['t3','📈 營收三率三升'],
@@ -5117,6 +5201,11 @@ function radarItems(){
     const s=byId[x.id];
     if(s)push(s,x.g);
   });
+  // 💎 蓄勢好股(基本面強但價格未發動)
+  (window.__GEM||[]).forEach(x=>{
+    const s=byId[x.id];
+    if(s)push(s,x.g);
+  });
   // 左側/右側交易分類(未來性濾網把關)
   sideItems().forEach(x=>items.push(x));
   // 研究觀點:潛在漲價/缺料
@@ -5145,7 +5234,7 @@ function renderRadar(){
       renderRadar();
     });
   }
-  const order={whale:0,dip:1,break:2,turtle:2.5,zt8:2.6,left:3,right:4,t3:5,price:6,strong:7,theme:8};
+  const order={whale:0,dip:1,break:2,turtle:2.5,zt8:2.6,gem:2.8,left:3,right:4,t3:5,price:6,strong:7,theme:8};
   let show=items.filter(({g})=>curStrat==='all'||g.type===curStrat);
   show.sort((a,b)=>(order[a.g.type]??9)-(order[b.g.type]??9)||total(b.s)-total(a.s));
   if(curStrat==='all'){
