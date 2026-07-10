@@ -1602,7 +1602,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r194</span>');
+  diag.push('<span style="color:var(--dim)">build r195</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6626,31 +6626,60 @@ function gaCodes(txt){                            // 描述中的台股代號 �
     return `<a class="glb-stk" href="#stock/${id}">${s.name} ${id}</a>`;
   }).join('');
 }
+function gaJsonp(url){                            // JSONP:瀏覽器原生跨網域,免代理
+  return new Promise((res,rej)=>{
+    const cb='__gaJp'+Math.random().toString(36).slice(2);
+    const sc=document.createElement('script');
+    const done=v=>{try{delete window[cb];}catch(e){}sc.remove();v instanceof Error?rej(v):res(v);};
+    window[cb]=j=>done(j);
+    sc.onerror=()=>done(new Error('jsonp error'));
+    sc.src=url+(url.includes('?')?'&':'?')+'callback='+cb;
+    document.head.appendChild(sc);
+    setTimeout(()=>{if(window[cb])done(new Error('jsonp timeout'));},10000);
+  });
+}
 async function gaEpisodes(){
   try{const c=JSON.parse(localStorage.getItem('ga_eps')||'null');
     if(c&&Date.now()-c.t<10*60e3&&c.eps&&c.eps.length)return c.eps;}catch(e){}
-  const fu=await gaFeedUrl();
-  if(!fu)return [];
   let eps=[];
-  // 首選 rss2json(含 enclosure 音檔連結)
+  // 首選:Apple iTunes API 直接回集數(JSONP 免代理、輕量、含完整描述與音檔)
   try{
-    const r=await fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(fu)+'&count=12',10000);
-    if(r.ok){const j=await r.json();
-      if(j&&j.status==='ok'&&Array.isArray(j.items))
-        eps=j.items.map(it=>({t:it.title,d:gaClean(it.description||it.content),
-          a:(it.enclosure&&it.enclosure.link)||'',l:it.link||'#',...glbAgo(it.pubDate)}));}
+    const j=await gaJsonp('https://itunes.apple.com/lookup?id='+GA_ID+'&entity=podcastEpisode&limit=12&country=tw');
+    const rows=(j&&j.results||[]).filter(x=>x.kind==='podcast-episode'||x.wrapperType==='podcastEpisode');
+    eps=rows.map(x=>({
+      t:x.trackName||'',
+      d:gaClean(x.description||(x.shortDescription||'')),
+      a:x.episodeUrl||'',
+      l:x.trackViewUrl||('https://podcasts.apple.com/tw/podcast/id'+GA_ID),
+      min:x.trackTimeMillis?Math.round(x.trackTimeMillis/60000):null,
+      ...glbAgo(x.releaseDate)
+    })).filter(x=>x.t);
+    eps.sort((a,b)=>(a.hrs??9e9)-(b.hrs??9e9));
   }catch(e){}
-  if(!eps.length){                                // 備援:代理抓 XML
-    const xml=await fetchTextProxy(fu);
-    if(xml)try{
-      const doc=new DOMParser().parseFromString(xml,'text/xml');
-      eps=[...doc.querySelectorAll('item')].slice(0,12).map(it=>{
-        const q=s=>{const e2=it.querySelector(s);return e2?e2.textContent:'';};
-        const enc=it.querySelector('enclosure');
-        return {t:q('title'),d:gaClean(q('description')),
-          a:enc?enc.getAttribute('url')||'':'',l:q('link')||'#',...glbAgo(q('pubDate'))};
-      }).filter(x=>x.t);
-    }catch(e){}
+  // 備援:官方 RSS(rss2json → 代理)
+  if(!eps.length){
+    const fu=await gaFeedUrl();
+    if(fu){
+      try{
+        const r=await fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(fu)+'&count=12',10000);
+        if(r.ok){const j=await r.json();
+          if(j&&j.status==='ok'&&Array.isArray(j.items))
+            eps=j.items.map(it=>({t:it.title,d:gaClean(it.description||it.content),
+              a:(it.enclosure&&it.enclosure.link)||'',l:it.link||'#',min:null,...glbAgo(it.pubDate)}));}
+      }catch(e){}
+      if(!eps.length){
+        const xml=await fetchTextProxy(fu);
+        if(xml)try{
+          const doc=new DOMParser().parseFromString(xml,'text/xml');
+          eps=[...doc.querySelectorAll('item')].slice(0,12).map(it=>{
+            const q=s=>{const e2=it.querySelector(s);return e2?e2.textContent:'';};
+            const enc=it.querySelector('enclosure');
+            return {t:q('title'),d:gaClean(q('description')),
+              a:enc?enc.getAttribute('url')||'':'',l:q('link')||'#',min:null,...glbAgo(q('pubDate'))};
+          }).filter(x=>x.t);
+        }catch(e){}
+      }
+    }
   }
   if(eps.length)try{localStorage.setItem('ga_eps',JSON.stringify({t:Date.now(),eps}));}catch(e){}
   return eps;
@@ -6676,7 +6705,7 @@ async function gooayeLoad(force){
     return `<div class="dim-block" style="border-left:4px solid ${i===0?'var(--amber)':'var(--line)'};margin-bottom:10px">
       <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
         <b style="font-size:15.5px">${i===0?'🆕 ':''}${e.t}</b>
-        <span style="color:var(--dim);font-size:12.5px;margin-left:auto;white-space:nowrap">${e.ago||''}</span></div>
+        <span style="color:var(--dim);font-size:12.5px;margin-left:auto;white-space:nowrap">${e.min?e.min+' 分鐘 · ':''}${e.ago||''}</span></div>
       <div class="ga-desc" style="font-size:14px;color:var(--txt2);line-height:1.7;margin-top:4px;white-space:pre-wrap">${short}</div>
       ${e.d.length>150?`<a class="ga-more" data-i="${i}" style="color:var(--amber);font-size:13px;cursor:pointer">展開全文 ▾</a>`:''}
       ${codes?`<div style="margin-top:5px;font-size:13px"><span style="color:var(--mut);font-weight:800">提及個股:</span>${codes}</div>`:''}
