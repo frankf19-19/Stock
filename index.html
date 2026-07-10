@@ -1616,7 +1616,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r203</span>');
+  diag.push('<span style="color:var(--dim)">build r204</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7837,27 +7837,56 @@ function renderEtf(){
     ?DATA.stocks.filter(s=>s.sub==='active'&&s.act&&(s.hold||{}).aum)
        .sort((a,b)=>b.hold.aum-a.hold.aum).slice(0,5):[];
   const _actAll=(sub==='tw'||sub==='active')?DATA.stocks.filter(s=>s.sub==='active'&&s.hold):[];
+  const aefV=window.__aefView||'card';
+  const aefRows=s=>{                                    // 供列表模式使用的整備資料
+    const a=s.act||{};
+    const rows=(a.mv||[]).map(r=>{const[sym,nm,w,adj,dsh,damt]=r;
+      const z=etfZh(sym,nm);
+      return {sym:z.id,zh:z.zh,adj,dsh,damt,amt:Math.abs(damt!=null?damt:adj)};});
+    const add=rows.filter(r=>(r.damt??r.adj)>0).sort((x,y)=>y.amt-x.amt);
+    const cut=rows.filter(r=>(r.damt??r.adj)<0).sort((x,y)=>y.amt-x.amt);
+    const net=rows.reduce((t,r)=>t+(r.damt||0),0);
+    return {add,cut,ins:(a['in']||[]),outs:(a['out']||[]),net:+net.toFixed(2)};
+  };
+  const aefTog=`<span style="float:right;display:inline-flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12.5px">
+    <button data-aefv="card" style="padding:4px 12px;border:none;cursor:pointer;font-weight:800;background:${aefV==='card'?'var(--amber)':'var(--panel)'};color:${aefV==='card'?'var(--panel)':'var(--txt2)'}">卡片</button>
+    <button data-aefv="list" style="padding:4px 12px;border:none;cursor:pointer;font-weight:800;background:${aefV==='list'?'var(--amber)':'var(--panel)'};color:${aefV==='list'?'var(--panel)':'var(--txt2)'}">列表</button></span>`;
+  const aefList=()=>{
+    const c='padding:9px 8px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:top';
+    const foc=(arr,neg)=>arr.slice(0,2).map(r=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px"><b>${r.zh}</b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${r.sym}</span> <b style="font-family:var(--mono);color:${neg?CT.dn2:CT.up2}">${r.damt!=null?`${r.damt>0?'+':''}${r.damt} 億`:`${r.adj>0?'+':''}${r.adj.toFixed(2)}pp`}</b>${r.dsh!=null?`<span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)"> ${r.dsh>0?'+':''}${r.dsh.toLocaleString()} 張</span>`:''}</div>`).join('')||'<span style="color:var(--dim)">—</span>';
+    const bdg=(t,v,col)=>`<span style="display:inline-block;padding:0 7px;border-radius:999px;font-size:11px;font-weight:800;background:${col}1e;color:${col};border:1px solid ${col}55;margin:1px 2px 1px 0">${t}${v}</span>`;
+    return `<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:720px">
+      <tr>${['#','ETF / 名稱','規模','估淨買賣','異動','加碼焦點','減碼焦點',''].map(h=>`<th style="text-align:left;color:var(--mut);font-size:12px;font-weight:700;padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr>
+      ${actE.map((s,i)=>{
+        const R=aefRows(s);
+        return `<tr data-id="${s.id}" style="cursor:pointer">
+          <td style="${c};color:var(--dim);font-family:var(--mono)">${i+1}</td>
+          <td style="${c};min-width:150px"><b style="font-family:var(--mono);color:#C792EA">${s.id}</b><br><span style="font-weight:700">${s.name}</span><br><span style="font-size:11.5px;color:var(--dim)">${(s.hold.d||'')}</span></td>
+          <td style="${c};font-family:var(--mono);white-space:nowrap">${(s.hold.aum/1e8).toFixed(0)} 億</td>
+          <td style="${c};font-family:var(--mono);white-space:nowrap;font-weight:800;color:${R.net>0?CT.up2:R.net<0?CT.dn2:'var(--mut)'}">${R.net>0?'+':''}${R.net} 億</td>
+          <td style="${c};white-space:nowrap">${bdg('新 ',R.ins.length,'#FFB74A')}${bdg('加 ',R.add.length,CT.up2)}<br>${bdg('減 ',R.cut.length,CT.dn2)}${bdg('出 ',R.outs.length,'#9AA3B2')}</td>
+          <td style="${c}">${foc(R.add,false)}</td>
+          <td style="${c}">${foc(R.cut,true)}</td>
+          <td style="${c}"><span style="display:inline-block;background:rgba(91,217,192,.1);border:1px solid rgba(91,217,192,.4);color:#5BD9C0;font-weight:800;font-size:12px;border-radius:7px;padding:4px 10px;white-space:nowrap">進明細 →</span></td>
+        </tr>`;}).join('')}
+    </table></div>`;
+  };
   const actSec=actE.length?`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:0 0 14px">
-    <div style="font-size:14px;font-weight:900;color:#C792EA;letter-spacing:.05em;margin-bottom:2px">🔍 主動式 ETF 調倉觀察|規模前五</div>
-    <div style="font-size:12px;color:var(--dim);margin-bottom:8px">前十大權重估算、已扣除股價漲跌效果(單位:權重百分點);點檔名看完整觀察</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px">
-    ${actE.map(s=>{
+    <div style="font-size:14px;font-weight:900;color:#C792EA;letter-spacing:.05em;margin-bottom:2px">🔍 主動式 ETF 調倉觀察|規模前五 ${aefTog}</div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:8px">前十大權重估算、已扣除股價漲跌效果;估張數/金額為推算值,完整成分以發行商 PCF 為準</div>
+    ${aefV==='list'?aefList():`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px">${actE.map(s=>{
       const a=s.act;
-      const zhNm=(sym,nm)=>{                              // 中文股名優先
-        const st=(DATA.stocks||[]).find(x=>x.id===sym);
-        if(st)return st.name;
-        return /^\d{4,6}[A-Z]?$/.test(sym)?String(nm||sym).slice(0,10):sym;   // 美股顯示代號
-      };
       const rows=(a.mv||[]).map(r=>{const[sym,nm,w,adj,dsh,damt]=r;
-        return {sym,zh:zhNm(sym,nm),adj,dsh,damt,amt:Math.abs(damt!=null?damt:adj)};});
+        const z=etfZh(sym,nm);
+        return {sym:z.id,zh:z.zh,adj,dsh,damt,amt:Math.abs(damt!=null?damt:adj)};});
       const add=rows.filter(r=>(r.damt??r.adj)>0).sort((x,y)=>y.amt-x.amt).slice(0,4);
       const cut=rows.filter(r=>(r.damt??r.adj)<0).sort((x,y)=>y.amt-x.amt).slice(0,4);
       const ins=(a['in']||[]).slice(0,2), outs=(a['out']||[]).slice(0,2);
       const item=(r,neg)=>`<div class="aef-row">
         <span class="aef-nm">${r.zh}<span class="cd">${r.sym}</span></span>
         <span class="aef-val" style="color:${neg?CT.dn2:CT.up2};font-weight:700">${r.dsh!=null?`${r.dsh>0?'+':''}${r.dsh.toLocaleString()} 張`:`${r.adj>0?'+':''}${r.adj.toFixed(2)}pp`}${r.damt!=null?`<small>${r.damt>0?'+':''}${r.damt} 億</small>`:''}</span></div>`;
-      const inRow=([sym,nm])=>`<div class="aef-row"><span class="aef-nm">🆕 ${zhNm(sym,nm)}<span class="cd">${sym}</span></span><span class="aef-val" style="color:var(--amber);font-weight:800">新進</span></div>`;
-      const outRow=([sym,nm])=>`<div class="aef-row"><span class="aef-nm">${zhNm(sym,nm)}<span class="cd">${sym}</span></span><span class="aef-val" style="color:var(--dim);font-weight:800">出清前十</span></div>`;
+      const inRow=([sym,nm])=>{const z=etfZh(sym,nm);return `<div class="aef-row"><span class="aef-nm">🆕 ${z.zh}<span class="cd">${z.id}</span></span><span class="aef-val" style="color:var(--amber);font-weight:800">新進</span></div>`;};
+      const outRow=([sym,nm])=>{const z=etfZh(sym,nm);return `<div class="aef-row"><span class="aef-nm">${z.zh}<span class="cd">${z.id}</span></span><span class="aef-val" style="color:var(--dim);font-weight:800">出清前十</span></div>`;};
       const bdg=(t,cnt,c)=>`<span class="aef-bdg" style="background:${c}22;color:${c};border:1px solid ${c}66">${t} ${cnt}</span>`;
       return `<div class="aef-card" data-id="${s.id}">
         <div style="font-weight:800;font-size:14px;line-height:1.5"><b style="font-family:var(--mono);color:#C792EA">${s.id}</b> ${s.name}
@@ -7871,8 +7900,7 @@ function renderEtf(){
         </div>
         <div style="margin-top:8px;text-align:center;font-size:12.5px;color:#5BD9C0;font-weight:800;background:rgba(91,217,192,.08);border:1px solid rgba(91,217,192,.35);border-radius:8px;padding:5px">進 ETF 明細 →</div>
       </div>`;
-    }).join('')}
-    </div></div>`
+    }).join('')}</div>`}</div>`
   :(_actAll.length?`<div style="background:var(--panel2);border:1px dashed var(--line);border-radius:11px;padding:12px 14px;margin:0 0 14px">
     <div style="font-size:14px;font-weight:900;color:#C792EA;letter-spacing:.05em;margin-bottom:4px">🔍 主動式 ETF 調倉觀察|規模前五</div>
     <div style="font-size:13px;color:var(--dim);line-height:1.8">${(()=>{
@@ -7902,6 +7930,7 @@ function renderEtf(){
   <div class="dim-note" style="margin-top:8px">共 ${L.length} 檔,點「今日/近1月/近3月」欄位標題換排序(現為${srt==='chg'?'今日':srt==='m'?'近1月':'近3月'}最強在前);績效為價格報酬未含息;殖利率為 Yahoo 近一年配息估算,債券與高股息 ETF 天生較高,別只看單一指標。點任一列或排行榜項目進 K 線・成分・配息頁。</div>`;
   box.querySelectorAll('[data-id]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.id;});
   box.querySelectorAll('[data-srt]').forEach(el=>el.onclick=()=>{window.__etfSort=el.dataset.srt;renderEtf();});
+  box.querySelectorAll('[data-aefv]').forEach(el=>el.onclick=e=>{e.stopPropagation();window.__aefView=el.dataset.aefv;renderEtf();});
 }
 (function(){
   const tabs=document.getElementById('homeTabs');
@@ -7918,6 +7947,20 @@ function renderEtf(){
   let t='stocks';try{t=localStorage.getItem('homeTab')||'stocks';}catch(e){}
   setHomeTab(t);
 })();
+/* ETF 成分股共用工具:Yahoo 代號正規化(5536O/55360→5536)+ 中文名 */
+function etfSymFix(sym){
+  let s=String(sym||'').toUpperCase().replace(/\.(TWO|TW)$/,'');
+  const has=id=>(DATA.stocks||[]).some(x=>x.id===id);
+  if(/^\d{5}$/.test(s)&&/[0O]$/.test(s)&&!has(s)&&has(s.slice(0,4)))return s.slice(0,4);
+  if(/^\d{4}O$/.test(s))return s.slice(0,4);
+  return s;
+}
+function etfZh(sym,nm){
+  const id=etfSymFix(sym);
+  const st=(DATA.stocks||[]).find(x=>x.id===id);
+  if(st)return {id,zh:st.name,inPool:true};
+  return {id,zh:/^[A-Z][A-Z.\-]*$/.test(id)?id:String(nm||id).replace(/ (Corp|Co|Ltd|Inc|Ordinary|Sha).*$/i,'').slice(0,12),inPool:false};
+}
 /* 🧺 ETF 成分與規模區塊:前十大成分股(權重條)、AUM、資產配置、內扣費用 */
 function etfSec(s){
   const h=s.hold, isUS=s.market==='US';
@@ -7939,9 +7982,10 @@ function etfSec(s){
         ${alloc.map(([n,v,c])=>`<span><span style="display:inline-block;width:9px;height:9px;background:${c};border-radius:2px;margin-right:4px"></span>${n} ${v}%</span>`).join('')}
       </div></div>`:'';
     const topRows=(h.top||[]).map(([sym,nm,pct])=>{
-      const tw=/^\d{4,6}[A-Z]?$/.test(sym), link=tw||isUS;
-      return `<div ${link?`data-goto="${sym}"`:''} style="display:grid;grid-template-columns:1fr 124px 64px;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);${link?'cursor:pointer':''}">
-        <div><b style="font-family:var(--mono)">${sym}</b> <span style="color:var(--txt2)">${nm}</span></div>
+      const z=etfZh(sym,nm);
+      const tw=/^\d{4,6}[A-Z]?$/.test(z.id), link=(tw&&z.inPool)||isUS;
+      return `<div ${link?`data-goto="${z.id}"`:''} style="display:grid;grid-template-columns:1fr 124px 64px;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);${link?'cursor:pointer':''}">
+        <div><span style="color:var(--txt);font-weight:700">${z.zh}</span> <b style="font-family:var(--mono);font-size:12.5px;color:var(--dim)">${z.id}</b></div>
         <div style="height:9px;background:var(--panel2);border-radius:5px;overflow:hidden"><div style="width:${Math.min(100,(pct||0)*2.2)}%;height:100%;background:var(--amber);opacity:.85"></div></div>
         <div style="text-align:right;font-family:var(--mono)">${pct!=null?pct.toFixed(2)+'%':'—'}</div></div>`;
     }).join('');
