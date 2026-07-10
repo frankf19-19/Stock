@@ -1602,7 +1602,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r196</span>');
+  diag.push('<span style="color:var(--dim)">build r197</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6638,8 +6638,8 @@ function gaJsonp(url){                            // JSONP:瀏覽器原生跨網
     setTimeout(()=>{if(window[cb])done(new Error('jsonp timeout'));},10000);
   });
 }
-async function gaEpisodes(){
-  try{const c=JSON.parse(localStorage.getItem('ga_eps')||'null');
+async function gaEpisodes(force){
+  if(!force)try{const c=JSON.parse(localStorage.getItem('ga_eps')||'null');
     if(c&&Date.now()-c.t<10*60e3&&c.eps&&c.eps.length)return c.eps;}catch(e){}
   let eps=[];
   // 首選:Apple iTunes API 直接回集數(JSONP 免代理、輕量、含完整描述與音檔)
@@ -6725,14 +6725,41 @@ async function gaSummarize(i){
     box.innerHTML=`<span style="color:var(--dim)">📌 重點生成失敗(${String(err.message||err).slice(0,60)})</span> <button class="glb-aibtn ga-sumbtn" data-i="${i}">重試</button>`;
   }
 }
+/* 自動更新:每 10 分鐘檢查新集數;新集 → 分頁鈕亮紅點,分頁開著就即時換上 */
+function gaDot(on){
+  const b=document.querySelector('#homeTabs [data-tab="gooaye"]');
+  if(!b)return;
+  let d=b.querySelector('.ga-dot');
+  if(on&&!d){d=document.createElement('span');d.className='ga-dot';
+    d.style.cssText='display:inline-block;width:8px;height:8px;border-radius:50%;background:#FF5A5F;margin-left:6px;vertical-align:2px';
+    b.appendChild(d);}
+  if(!on&&d)d.remove();
+}
+setInterval(async()=>{
+  try{
+    const eps=await gaEpisodes(true);
+    if(!eps.length)return;
+    let last='';try{last=localStorage.getItem('ga_last')||'';}catch(e){}
+    if(eps[0].t!==last){
+      try{localStorage.setItem('ga_last',eps[0].t);}catch(e){}
+      const p=document.getElementById('tp-gooaye');
+      const visible=p&&p.style.display!=='none';
+      const box=document.getElementById('gaEps');
+      if(visible&&box){box.dataset.done='';gooayeLoad(true);}
+      else gaDot(true);
+    }
+  }catch(e){}
+},10*60e3);
 let GA_BUSY=false;
 async function gooayeLoad(force){
   const box=document.getElementById('gaEps');
   if(!box||GA_BUSY)return;
   if(box.dataset.done&&!force)return;
   GA_BUSY=true;
-  const eps=await Promise.race([gaEpisodes(),new Promise(r=>setTimeout(()=>r([]),15000))]);
+  const eps=await Promise.race([gaEpisodes(force),new Promise(r=>setTimeout(()=>r([]),15000))]);
   GA_BUSY=false;
+  window.__gaRenderT=Date.now();
+  if(eps.length)try{localStorage.setItem('ga_last',eps[0].t);}catch(e){}
   if(!document.getElementById('gaEps'))return;
   box.dataset.done='1';
   if(!eps.length){
@@ -7616,7 +7643,12 @@ function setHomeTab(t){
   });
   try{localStorage.setItem('homeTab',t);}catch(e){}
   if(t==='etf'){try{renderEtf();}catch(e){}}
-  if(t==='gooaye'){try{gooayeLoad();}catch(e){}}
+  if(t==='gooaye'){try{
+    gaDot(false);
+    const stale=!window.__gaRenderT||Date.now()-window.__gaRenderT>10*60e3;
+    if(stale){const b=document.getElementById('gaEps');if(b)b.dataset.done='';}
+    gooayeLoad(stale);
+  }catch(e){}}
   setTimeout(()=>{const p=document.getElementById('tp-'+t);              // 補算被隱藏時初始化的圖表
     if(p&&window.echarts)p.querySelectorAll('div').forEach(el=>{
       try{const ch=echarts.getInstanceByDom(el);if(ch)ch.resize();}catch(e){}});},90);
