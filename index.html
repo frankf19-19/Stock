@@ -1592,7 +1592,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r192</span>');
+  diag.push('<span style="color:var(--dim)">build r193</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6636,31 +6636,7 @@ function glbSplit(title){
   const p=String(title||'').split(' - ');
   return {t:p.length>1?p.slice(0,-1).join(' - '):title,s:p.length>1?p[p.length-1]:''};
 }
-async function rssItemsEN(q,max){
-  max=max||10;
-  const u='https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=en-US&gl=US&ceid=US:en';
-  // 第一層:rss2json(回 JSON、原生允許跨網域,對 Google News 相容性最好)
-  try{
-    const r=await fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(u),10000);
-    if(r.ok){
-      const j=await r.json();
-      if(j&&j.status==='ok'&&Array.isArray(j.items)&&j.items.length){
-        return j.items.slice(0,max).map(it=>{
-          const {t,s}=glbSplit(it.title),{ago,hrs}=glbAgo(it.pubDate);
-          return {t,s,l:it.link||'#',ago,hrs};
-        }).filter(x=>x.t);
-      }
-    }
-  }catch(e){}
-  // 第二層:allorigins get(JSON 包 XML)
-  let xml=null;
-  try{
-    const r=await fT('https://api.allorigins.win/get?url='+encodeURIComponent(u),10000);
-    if(r.ok){const j=await r.json();if(j&&j.contents&&j.contents.length>200)xml=j.contents;}
-  }catch(e){}
-  // 第三層:一般文字代理
-  if(!xml)xml=await fetchTextProxy(u);
-  if(!xml)return [];
+function glbParseXml(xml,max){
   try{
     const doc=new DOMParser().parseFromString(xml,'text/xml');
     return [...doc.querySelectorAll('item')].slice(0,max).map(it=>{
@@ -6669,6 +6645,30 @@ async function rssItemsEN(q,max){
       return {t,s,l:(it.querySelector('link')||{textContent:'#'}).textContent||'#',ago,hrs};
     }).filter(x=>x.t);
   }catch(e){return [];}
+}
+async function rssItemsEN(q,max){
+  max=max||10;
+  const u='https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=en-US&gl=US&ceid=US:en';
+  const need=its=>{if(!its||!its.length)throw 0;return its;};
+  // 兩路平行競速:誰先回有效資料用誰
+  const rA=fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(u),9000)
+    .then(r=>{if(!r.ok)throw 0;return r.json();})
+    .then(j=>{
+      if(!(j&&j.status==='ok'&&Array.isArray(j.items)&&j.items.length))throw 0;
+      return need(j.items.slice(0,max).map(it=>{
+        const {t,s}=glbSplit(it.title),{ago,hrs}=glbAgo(it.pubDate);
+        return {t,s,l:it.link||'#',ago,hrs};
+      }).filter(x=>x.t));
+    });
+  const rB=fT('https://api.allorigins.win/get?url='+encodeURIComponent(u),9000)
+    .then(r=>{if(!r.ok)throw 0;return r.json();})
+    .then(j=>{
+      if(!(j&&j.contents&&j.contents.length>200))throw 0;
+      return need(glbParseXml(j.contents,max));
+    });
+  try{return await Promise.any([rA,rB]);}catch(e){}
+  const xml=await fetchTextProxy(u);          // 最後保底
+  return xml?glbParseXml(xml,max):[];
 }
 /* 重大外電分級:紅=供應中斷級事件;琥珀=重量級廠商的缺貨/漲價訊號 */
 const GLB_CRIT=/(halt(s|ed)?|suspend(s|ed)?|shut(s)? down|shutdown|fire|earthquake|explosion|export (ban|control|controls|curb|curbs)|ban(s|ned)?|recall|disruption|strike)/i;
@@ -6768,11 +6768,17 @@ async function glbLoad(i){
     }).join('');
   };
   if(c&&Date.now()-c.t<10*60e3){render(c.items);return;}
+  try{const ls=JSON.parse(localStorage.getItem('glb_c_'+i)||'null');
+    if(ls&&Date.now()-ls.t<10*60e3&&ls.items&&ls.items.length){
+      window.__glbCache[i]=ls;render(ls.items);return;}}catch(e){}
   list.innerHTML='<div class="dim-note">外電載入中…</div>';
   const its=await Promise.race([
     rssItemsEN(GLB_TOPICS[i][1],10),
     new Promise(r=>setTimeout(()=>r([]),15000))]);
-  if(its.length)window.__glbCache[i]={t:Date.now(),items:its};
+  if(its.length){
+    window.__glbCache[i]={t:Date.now(),items:its};
+    try{localStorage.setItem('glb_c_'+i,JSON.stringify(window.__glbCache[i]));}catch(e){}
+  }
   render(its);
 }
 (function glbInit(){
@@ -6789,7 +6795,22 @@ async function glbLoad(i){
     if(!it)return;
     try{aiAsk(`這是一則國際供應鏈外電:「${it.t}」(來源:${it.s||'外電'}${it.ago?'、'+it.ago:''})。${AI.web?'請先上網搜尋這個標題、找到並閱讀原文內容後再回答。':'(若能上網請先讀原文;⚙ 可開啟上網搜尋)'}用繁體中文回答:\n1) 這篇新聞的內容重點(不只標題,講清楚脈絡與數字)\n2) 對應的台股族群,並具體列出 3~6 檔相關個股(股名+代號),說明各自關聯與利多/利空方向\n3) 接下來值得追蹤的確認點(報價、法說、月營收、訂單)\n推測的部分請明說,結尾提醒非投資建議。`,true);}catch(err){}
   });
-  setTimeout(()=>{try{glbLoad(0);}catch(e){}},6000);
+  setTimeout(async()=>{
+    try{await glbLoad(0);}catch(e){}
+    for(let i=1;i<GLB_TOPICS.length;i++){          // 背景預抓其餘主題
+      await new Promise(r=>setTimeout(r,900));
+      try{
+        if(window.__glbCache[i])continue;
+        let ls=null;try{ls=JSON.parse(localStorage.getItem('glb_c_'+i)||'null');}catch(e){}
+        if(ls&&Date.now()-ls.t<10*60e3&&ls.items&&ls.items.length){window.__glbCache[i]=ls;continue;}
+        const its=await rssItemsEN(GLB_TOPICS[i][1],10);
+        if(its.length){
+          window.__glbCache[i]={t:Date.now(),items:its};
+          try{localStorage.setItem('glb_c_'+i,JSON.stringify(window.__glbCache[i]));}catch(e){}
+        }
+      }catch(e){}
+    }
+  },6000);
 })();
 async function rssItems(q,max,sym){
   // 主力:Yahoo 搜尋 API(直連可用);備援:Google/Bing RSS(需代理)
