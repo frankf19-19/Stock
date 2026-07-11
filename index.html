@@ -1635,7 +1635,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r222</span>');
+  diag.push('<span style="color:var(--dim)">build r223</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7823,7 +7823,10 @@ function cfCalc(){
   const gEl=document.getElementById('cfGoal');
   const goal=+((gEl&&gEl.value)||window.__cfGoal||0);
   const ids=[...(window.__cfSel||new Set())];
-  const cfDy2=s=>{const c=(window.__cfCustom||{})[s.id];return (c!=null)?c:((s.hold&&s.hold.dy)||null);};
+  const cfDy2=s=>{
+    const c=(window.__cfCustom||{})[s.id];if(c!=null)return c;
+    const o=window.__dyJ&&window.__dyJ[s.id];if(o&&o.dy>0)return o.dy;
+    return (s.hold&&s.hold.dy)||null;};
   const es=ids.map(id=>DATA.stocks.find(s=>s.id===id)).filter(s=>s&&s.price&&cfDy2(s)>0)
     .map(s=>({...s,hold:{...(s.hold||{}),dy:cfDy2(s)}}));
   if(!goal||!es.length){out.innerHTML='<div class="dim-note">輸入目標金額並勾選至少一檔 ETF。</div>';return;}
@@ -7861,7 +7864,7 @@ function cfCalc(){
     <tr>${['ETF','近一年殖利率','現價','約需張數','約需資金','貢獻現金',''].map(h=>`<th style="text-align:right;padding:4px 8px;color:var(--mut);font-size:12px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('').replace('text-align:right','text-align:left')}</tr>
     ${rows}</table></div>
     <div style="margin-top:9px;background:var(--panel);border:1.5px solid var(--amber);border-radius:10px;padding:10px 14px;font-size:14.5px;line-height:1.8">
-    🎯 月領 <b>${goal} 萬</b>(年 ${yGoalW.toLocaleString()} 萬)共約需投入
+    🎯 月領 <b>${goal} 萬</b>(年 ${yGoalW.toLocaleString()} 萬)共約需投入 <span style="float:right;font-size:11.5px;color:var(--dim);font-family:var(--mono)">價格即時・${new Date().toLocaleTimeString('zh-TW',{hour12:false})} 重算</span>
     <b style="color:var(--amber);font-size:17px">${totW>=10000?(totW/10000).toFixed(2)+' 億':Math.round(totW).toLocaleString()+' 萬'}</b>
     · 組合加權殖利率 <b style="font-family:var(--mono)">${blend.toFixed(2)}%</b>
     <span style="color:var(--dim);font-size:12.5px">(稅前、未扣二代健保)</span></div>
@@ -7876,6 +7879,13 @@ function cfCalc(){
     renderEtf();
   });
 }
+setInterval(()=>{try{
+  const p=document.getElementById('tp-etf');
+  if(!p||p.style.display==='none'||window.__etfSub!=='cf')return;
+  const ae=document.activeElement;
+  if(ae&&(ae.id==='cfGoal'||ae.id==='cfSearch'||ae.id==='cfAddId'||ae.id==='cfAddDy'))return;  // 輸入中不干擾
+  cfCalc();                                                // 60秒隨最新報價/匯率重算
+}catch(e){}},60000);
 /* 🧭 組合調整思路:規則提示 + 一鍵試算(點了直接加入重算,用數字說話) */
 function cfAdvice(es,yGoalW,totW){
   const cfDy3=s=>{const c=(window.__cfCustom||{})[s.id];return (c!=null)?c:((s.hold&&s.hold.dy)||null);};
@@ -8256,7 +8266,20 @@ function renderEtf(){
   const SUBN={active:'主動',lev:'槓反',bond:'債券',us:'美股',std:''};
   const cell='cursor:pointer;padding:9px 2px;border-bottom:1px solid var(--line);font-family:var(--mono);text-align:right';
   try{window.__cfCustom=window.__cfCustom||JSON.parse(localStorage.getItem('cf_custom')||'{}');}catch(e){window.__cfCustom={};}
-  const cfDy=s=>{const c=window.__cfCustom[s.id];return (c!=null)?c:((s.hold&&s.hold.dy)||null);};
+  if(!window.__dyJ&&!window.__dyLoading){
+    window.__dyLoading=1;
+    fT('dy.json?'+Math.floor(Date.now()/216e5),8000).then(r=>r.ok?r.json():null)
+      .then(j=>{window.__dyJ=j||{};if(j&&window.__etfSub==='cf')renderEtf();})
+      .catch(()=>{window.__dyJ={};});
+  }
+  const cfDy=s=>{
+    const c=window.__cfCustom[s.id];if(c!=null)return c;
+    const o=window.__dyJ&&window.__dyJ[s.id];if(o&&o.dy>0)return o.dy;
+    return (s.hold&&s.hold.dy)||null;};
+  const cfSrc=s=>{
+    if(window.__cfCustom[s.id]!=null)return '自填';
+    const o=window.__dyJ&&window.__dyJ[s.id];if(o&&o.dy>0)return '實配';
+    return 'Yahoo';};
   const cfEtfs=DATA.stocks.filter(s=>s.etf&&s.price
       &&(()=>{const d=cfDy(s);const us=!/^\d/.test(s.id);
         return d!=null&&d>0.3&&d<(us?16:25);})())                             // 擋髒數據(美股門檻更嚴)
@@ -8285,7 +8308,7 @@ function renderEtf(){
         <span style="min-width:0"><b style="font-size:13.5px">${s.name}</b>${us?'<span style="font-size:9.5px;font-weight:800;color:#7FB4FF;border:1px solid #7FB4FF66;border-radius:5px;padding:0 4px;margin-left:4px;vertical-align:1px">US</span>':''}<br>
           <span style="font-family:var(--mono);font-size:11px;color:var(--dim)">${s.id} · ${s.price}</span>
           <span data-cfgo="${s.id}" style="font-size:11px;color:#5BD9C0;cursor:pointer;margin-left:5px">詳情 ↗</span></span>
-        <b data-cfyd="${s.id}" title="點擊修正殖利率" style="font-family:var(--mono);color:var(--amber);margin-left:auto;font-size:15px;cursor:pointer;border-bottom:1px dashed var(--amber)55">${cfDy(s).toFixed(1)}<small>%</small>${window.__cfCustom[s.id]!=null?'<span style="font-size:10px;color:var(--dim)">自填</span>':''}</b></label>`;}).join('')}
+        <b data-cfyd="${s.id}" title="點擊修正殖利率" style="font-family:var(--mono);color:var(--amber);margin-left:auto;font-size:15px;cursor:pointer;border-bottom:1px dashed var(--amber)55">${cfDy(s).toFixed(1)}<small>%</small><span style="font-size:9.5px;color:${cfSrc(s)==='實配'?'#4BD695':cfSrc(s)==='自填'?'var(--amber)':'var(--dim)'};display:block;text-align:right;line-height:1.2">${cfSrc(s)}</span></b></label>`;}).join('')}
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;font-size:13px">
       <span style="color:var(--dim)">清單裡沒有(資料源缺殖利率)?手動加入:</span>
