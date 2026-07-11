@@ -1635,7 +1635,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r223</span>');
+  diag.push('<span style="color:var(--dim)">build r224</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6742,7 +6742,8 @@ async function gaAiOnce(prompt,parts,noTools,maxTok){     // 單次生成(不開
   else{key=AI.keys.gemini;if(!key)throw new Error('需要 Gemini 金鑰或共用通行碼(⚙ 設定)');}
   const model=prov==='shared'?AI.models.shared:AI.models.gemini;
   const body={contents:[{role:'user',parts:parts||[{text:prompt}]}],
-    generationConfig:{maxOutputTokens:maxTok||1600}};
+    generationConfig:{maxOutputTokens:maxTok||2048}};
+  if(/2\.5|2\.0/.test(model))body.generationConfig.thinkingConfig={thinkingBudget:0};  // 關思考:不然思考吃掉輸出額度會斷頭
   if(!noTools)body.tools=[{google_search:{}}];
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
     {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
@@ -8129,7 +8130,7 @@ async function portAiInline(){
   }).filter(Boolean).join('\n');
   const prompt=`這是我目前的台股持股組合:\n${lines}\n\n請以中立教練角度,用繁體中文條列分析(直接開始,不要開場白,總長 300~500 字):\n1) 組合結構特徵與最大的 1~2 個風險\n2) 調整的 2~3 種思路(如分散/加碼信念股/增防禦),各自取捨一句話講清楚\n3) 每種思路下值得研究的「方向或類型」與理由(不要直接叫我買賣特定股票)\n最後一行:非投資建議,決定權在投資人。`;
   const once=()=>Promise.race([
-    gaAiOnce(prompt,null,true,1000),                       // 不上網:純推理,5~10 秒
+    gaAiOnce(prompt,null,true,2048),                       // 不上網:純推理,5~10 秒
     new Promise((_,rej)=>setTimeout(()=>rej(new Error('逾時')),45000))]);
   try{
     let txt;
