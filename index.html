@@ -1635,7 +1635,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r220</span>');
+  diag.push('<span style="color:var(--dim)">build r221</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8114,12 +8114,20 @@ async function portAiInline(){
     const mv=s.price*p.sh,pnl=(s.price-p.cost)*p.sh,pct=p.cost?((s.price-p.cost)/p.cost*100).toFixed(1):'0';
     return `${s.name}(${p.id}):${p.sh.toLocaleString()} 股、成本 ${p.cost}、現價 ${s.price}、市值約 ${Math.round(mv/1e4)} 萬、損益 ${pnl>=0?'+':''}${Math.round(pnl/1e4)} 萬(${pct}%)${s.sector?'、'+s.sector:''}${s.f?'、基本面 '+s.f.score+' 分':''}`;
   }).filter(Boolean).join('\n');
+  const prompt=`這是我目前的台股持股組合:\n${lines}\n\n請以中立教練角度,用繁體中文條列分析(直接開始,不要開場白,總長 300~500 字):\n1) 組合結構特徵與最大的 1~2 個風險\n2) 調整的 2~3 種思路(如分散/加碼信念股/增防禦),各自取捨一句話講清楚\n3) 每種思路下值得研究的「方向或類型」與理由(不要直接叫我買賣特定股票)\n最後一行:非投資建議,決定權在投資人。`;
+  const once=()=>Promise.race([
+    gaAiOnce(prompt,null,true,1000),                       // 不上網:純推理,5~10 秒
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('逾時')),45000))]);
   try{
-    const txt=await gaAiOnce(`這是我目前的台股持股組合:\n${lines}\n\n請以中立教練角度,用繁體中文條列分析(直接開始,不要開場白,總長 300~500 字):\n1) 組合結構特徵與最大的 1~2 個風險\n2) 調整的 2~3 種思路(如分散/加碼信念股/增防禦),各自取捨一句話講清楚\n3) 每種思路下值得研究的「方向或類型」與理由(不要直接叫我買賣特定股票)\n最後一行:非投資建議,決定權在投資人。`,null,false,1400);
+    let txt;
+    try{txt=await once();}
+    catch(e1){await new Promise(r=>setTimeout(r,2000));txt=await once();}   // 自動重試一次
     if(!txt)throw new Error('空回應');
     window.__ptAi={k,status:'done',txt};
   }catch(e){
-    window.__ptAi={k,status:'err',txt:String(e.message||e).slice(0,80)};
+    let m=String(e.message||e);
+    if(/Failed to fetch|NetworkError/i.test(m))m='連不上 AI 服務——常見原因:廣告攔截器擋了 googleapis、或網路不穩;關掉攔截器或換網路再試';
+    window.__ptAi={k,status:'err',txt:m.slice(0,90)};
   }
   renderPort();
 }
