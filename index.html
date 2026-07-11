@@ -1635,7 +1635,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r226</span>');
+  diag.push('<span style="color:var(--dim)">build r227</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7876,7 +7876,8 @@ function cfCalc(){
     <span style="font-size:13.5px">💵 扣二代健保補充保費後實拿約 <b style="font-family:var(--mono);color:var(--amber)">${netM.toFixed(1)} 萬/月</b>
     <span style="color:var(--dim);font-size:12px">(台股股利 ×97.89%;美股已按預扣稅折算——未含個人綜所稅/海外所得基本稅額,依個人級距而異)</span></span></div>
     ${window.__cfScen||''}
-    ${cfAdvice(es,yGoalW,totW)}`;
+    ${cfAdvice(es,yGoalW,totW)}
+    ${cfRoutes(es,goal,blend)}`;
   out.querySelectorAll('[data-cfadd]').forEach(ch=>ch.onclick=()=>{
     window.__cfSel.add(ch.dataset.cfadd);
     cfSelSave();
@@ -7895,6 +7896,40 @@ setInterval(()=>{try{
   if(ae&&(ae.id==='cfGoal'||ae.id==='cfSearch'||ae.id==='cfAddId'||ae.id==='cfAddDy'))return;  // 輸入中不干擾
   cfCalc();                                                // 60秒隨最新報價/匯率重算
 }catch(e){}},60000);
+/* 📈 三種路線:純高息 / 市值型+自製配息 / 混搭 —— 總報酬視角 */
+function cfRoutes(es,goal,blend){
+  const cfDy4=s=>{const c=(window.__cfCustom||{})[s.id];if(c!=null)return c;
+    const o=window.__dyJ&&window.__dyJ[s.id];if(o&&o.dy>0)return o.dy;
+    return (s.hold&&s.hold.dy)||null;};
+  let hiDy=blend>=4?blend:null;
+  if(!hiDy){
+    const top=DATA.stocks.filter(s=>s.etf&&s.price&&/^\d/.test(s.id)&&!/債/.test(s.name))
+      .map(s=>cfDy4(s)).filter(d=>d&&d>=5&&d<15).sort((a,b)=>b-a).slice(0,5);
+    hiDy=top.length?top.reduce((t,d)=>t+d,0)/top.length:7;
+  }
+  const WD=4;                                             // 總報酬提領率 4%(經典安全提領率)
+  const yGoal=goal*12;
+  const capHi=yGoal/(hiDy/100), capTR=yGoal/(WD/100);
+  const capMix=(yGoal/2)/(hiDy/100)+(yGoal/2)/(WD/100);
+  const F=w=>w>=10000?(w/10000).toFixed(2)+' 億':Math.round(w).toLocaleString()+' 萬';
+  const per1000=r=>(1000*r/100/12).toFixed(1);
+  const card=(t,cap,src2,trade,rate)=>`<div style="flex:1;min-width:250px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 16px">
+    <div style="font-weight:900;font-size:14.5px">${t}</div>
+    <div style="font-family:var(--mono);font-weight:900;font-size:21px;color:var(--amber);margin:5px 0 2px">${F(cap)}</div>
+    <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">每 1,000 萬 ≈ 月領 ${per1000(rate)} 萬</div>
+    <div style="font-size:12.5px;color:var(--txt2);line-height:1.65">💰 ${src2}</div>
+    <div style="font-size:12.5px;color:var(--mut);line-height:1.65;margin-top:4px">⚖️ ${trade}</div></div>`;
+  return `<div style="margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px 14px">
+    <div style="font-weight:900;font-size:13.5px;margin-bottom:2px">📈 別忘了價差也是報酬|月領 ${goal} 萬的三種路線</div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:9px">市值型(如 0050)配息少但長期股價成長——用「總報酬提領法」(每月賣一小部分)一樣能造現金流。以下用 ${hiDy.toFixed(1)}% 高息殖利率與 ${WD}% 提領率對照:</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${card('① 純高息(全靠配息)',capHi,'現金 100% 來自配息,不用賣股','殖利率隨市況波動;高息 ETF 長期總報酬通常輸市值型——「領得穩」換「賺得少」',hiDy)}
+      ${card('② 市值型+自製配息',capTR,`配息約 1~2%+每月賣股補足(年提領 ${WD}%)`,'需要的資金最多,但總報酬提領 4% < 市值型長期年化 ~7-9%,資產大概率越領越多;缺點:空頭年得賣在低點(序列風險),且要克服「賣股領錢」的心理關',WD)}
+      ${card('③ 五五混搭',capMix,'一半配息、一半提領——現金流穩定度與成長性各取一半','折衷路線:高息給底氣、市值給成長;再平衡一年做一次即可',(yGoal/capMix*100))}
+    </div>
+    <div class="dim-note" style="margin-top:8px">4% 提領率源自美股歷史回測(Trinity 研究),台股適用性學界仍有討論,僅供概念對照;三條路線都假設長期持有並承受波動。非投資建議,取捨在你。</div>
+  </div>`;
+}
 /* 🧭 組合調整思路:規則提示 + 一鍵試算(點了直接加入重算,用數字說話) */
 function cfAdvice(es,yGoalW,totW){
   const cfDy3=s=>{const c=(window.__cfCustom||{})[s.id];return (c!=null)?c:((s.hold&&s.hold.dy)||null);};
