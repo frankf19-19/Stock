@@ -1617,7 +1617,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r208</span>');
+  diag.push('<span style="color:var(--dim)">build r209</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7880,9 +7880,9 @@ function renderEtf(){
       const rows=(a.mv||[]).map(r=>{const[sym,nm,w,adj,dsh,damt]=r;
         const z=etfZh(sym,nm);
         return {sym:z.id,zh:z.zh,adj,dsh,damt,amt:Math.abs(damt!=null?damt:adj)};});
-      const add=rows.filter(r=>(r.damt??r.adj)>0).sort((x,y)=>y.amt-x.amt).slice(0,4);
-      const cut=rows.filter(r=>(r.damt??r.adj)<0).sort((x,y)=>y.amt-x.amt).slice(0,4);
-      const ins=(a['in']||[]).slice(0,2), outs=(a['out']||[]).slice(0,2);
+      const add=rows.filter(r=>(r.damt??r.adj)>0).sort((x,y)=>y.amt-x.amt).slice(0,10);
+      const cut=rows.filter(r=>(r.damt??r.adj)<0).sort((x,y)=>y.amt-x.amt).slice(0,10);
+      const ins=(a['in']||[]).slice(0,10), outs=(a['out']||[]).slice(0,10);
       const item=(r,neg)=>`<div class="aef-row">
         <span class="aef-nm">${r.zh}<span class="cd">${r.sym}</span></span>
         <span class="aef-val" style="color:${neg?CT.dn2:CT.up2};font-weight:700">${r.dsh!=null?`${r.dsh>0?'+':''}${r.dsh.toLocaleString()} 張`:`${r.adj>0?'+':''}${r.adj.toFixed(2)}pp`}${r.damt!=null?`<small>${r.damt>0?'+':''}${r.damt} 億</small>`:''}</span></div>`;
