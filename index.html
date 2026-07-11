@@ -267,6 +267,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .fst-wait{background:var(--panel2);color:var(--mut);border:1.5px solid var(--line)}
 .fst-weak{background:rgba(255,90,95,.12);color:#FF8A8E;border:1.5px solid rgba(255,90,95,.5)}
 .fav-fut{margin-left:7px;font-size:12px;font-weight:800;color:var(--dim)}
+.pt-row:hover td{background:var(--panel2)}
 .aef-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;cursor:pointer;transition:border-color .15s}
 .aef-card:hover{border-color:#C792EA}
 .aef-bdg{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:800;margin-left:5px;vertical-align:1px}
@@ -1633,7 +1634,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r213</span>');
+  diag.push('<span style="color:var(--dim)">build r215</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7820,7 +7821,9 @@ function cfCalc(){
   if(!out)return;
   const goal=+(window.__cfGoal||0);
   const ids=[...(window.__cfSel||new Set())];
-  const es=ids.map(id=>DATA.stocks.find(s=>s.id===id)).filter(s=>s&&s.price&&s.hold&&s.hold.dy>0);
+  const cfDy2=s=>{const c=(window.__cfCustom||{})[s.id];return (c!=null)?c:((s.hold&&s.hold.dy)||null);};
+  const es=ids.map(id=>DATA.stocks.find(s=>s.id===id)).filter(s=>s&&s.price&&cfDy2(s)>0)
+    .map(s=>({...s,hold:{...(s.hold||{}),dy:cfDy2(s)}}));
   if(!goal||!es.length){out.innerHTML='<div class="dim-note">輸入目標金額並勾選至少一檔 ETF。</div>';return;}
   const yGoalW=goal*12;                                   // 年目標(萬)
   const perW=yGoalW/es.length;
@@ -7882,26 +7885,31 @@ function portDiag(arr){
   if(tw.length>=1){
     const tot=tw.reduce((t,r)=>t+r.s.price*r.p.sh,0);
     const ws=tw.map(r=>({r,w:r.s.price*r.p.sh/tot*100})).sort((a,b)=>b.w-a.w);
-    if(ws[0].w>=35)F.push({ico:'⚠️',lv:'amb',t:`<b>${ws[0].r.s.name}</b> 占台股部位 <b>${ws[0].w.toFixed(0)}%</b>——集中度高,整體損益基本由它決定;集中是信念的展現、也是波動的來源,確認這是你「有意識的選擇」而非「不小心變成這樣」`});
+    if(ws[0].w>=35)F.push({ico:'⚠️',lv:'amb',h:`${ws[0].r.s.name} 占 ${ws[0].w.toFixed(0)}%——集中度高`,
+      d:'整體損益基本由它決定。集中是信念的展現、也是波動的來源——確認這是「有意識的選擇」而非「不小心變成這樣」。'});
     const sec={};
     ws.forEach(({r,w})=>{const k=r.s.etf?'ETF':(r.s.sector||'其他');sec[k]=(sec[k]||0)+w;});
     const top=Object.entries(sec).sort((a,b)=>b[1]-a[1]);
     if(top[0]&&top[0][1]>=60&&top[0][0]!=='ETF')
-      F.push({ico:'🧲',lv:'amb',t:`<b>${top[0][0]}</b> 相關占 <b>${top[0][1].toFixed(0)}%</b>——族群高度重疊,同漲同跌;景氣反轉時沒有部位能幫你踩剎車`});
+      F.push({ico:'🧲',lv:'amb',h:`${top[0][0]} 占 ${top[0][1].toFixed(0)}%——族群重疊`,
+        d:'高度同漲同跌,景氣反轉時沒有部位能幫你踩剎車;分散到不同邏輯的族群才有互補效果。'});
     const withF=ws.filter(({r})=>!r.s.etf&&r.s.f&&r.s.f.score!=null);
     if(withF.length){
       const avgF=withF.reduce((t,{r,w})=>t+r.s.f.score*w,0)/withF.reduce((t,{w})=>t+w,0);
       const weak=withF.filter(({r})=>r.s.f.score<55).map(({r})=>r.s.name);
       F.push({ico:'🧬',lv:avgF>=70?'ok':avgF>=60?'amb':'red',
-        t:`持股加權基本面 <b>${avgF.toFixed(0)} 分</b>${weak.length?`;體質偏弱(<55 分):${weak.join('、')}——弱體質靠題材撐,退潮時跌最快`:'——體質整體紮實'}`});
+        h:`加權基本面 ${avgF.toFixed(0)} 分${avgF>=70?'——體質紮實':avgF>=60?'——體質中等':'——體質偏弱'}`,
+        d:weak.length?`偏弱持股(<55 分):${weak.join('、')}——弱體質靠題材撐,退潮時跌最快,值得優先重新檢視。`:'各持股基本面分數健康,底子撐得住波動。'});
     }
     const loss=tw.map(r=>({r,pct:(r.s.price-r.p.cost)/r.p.cost*100}))
       .filter(x=>x.pct<=-15)
       .map(x=>`<b>${x.r.s.name}</b> ${x.pct.toFixed(1)}%`);
     if(loss.length)
-      F.push({ico:'🔻',lv:'amb',t:`虧損部位:${loss.join('、')}——回頭檢查<b>買進理由是否仍成立</b>(基本面?籌碼?題材?),理由消失才是出場的理由,帳面虧損本身不是;個股頁的三力與警示列可以幫你重新驗證`});
+      F.push({ico:'🔻',lv:'amb',h:`虧損部位:${loss.join('、').replace(/<[^>]+>/g,'')}`,
+        d:'回頭檢查買進理由是否仍成立(基本面?籌碼?題材?)——理由消失才是出場的理由,帳面虧損本身不是。點進個股頁用三力與警示列重新驗證。'});
     const etfW=sec['ETF']||0;
-    F.push({ico:'🧺',lv:'ok',t:`個股 ${ (100-etfW).toFixed(0)}%/ETF ${etfW.toFixed(0)}%——個股拼超額報酬、ETF 給底盤;比例沒有標準答案,取決於你想花多少時間盯盤`});
+    F.push({ico:'🧺',lv:'ok',h:`個股 ${(100-etfW).toFixed(0)}% / ETF ${etfW.toFixed(0)}%`,
+      d:'個股拼超額報酬、ETF 給底盤;比例沒有標準答案,取決於你想花多少時間盯盤與能承受的波動。'});
     return {F,ws,sec:Object.fromEntries(top)};
   }
   return {F,ws:[],sec:{}};
@@ -7933,21 +7941,24 @@ function renderPort(){
       mvT+=mv;costT+=ct;
       const col=pnl>0?CT.up2:pnl<0?CT.dn2:'var(--mut)';
       const shTxt=s.market==='US'?p.sh.toLocaleString()+' 股':(p.sh%1000===0?(p.sh/1000).toLocaleString()+' 張':p.sh.toLocaleString()+' 股');
-      return `<tr data-goto="${s.id}" style="cursor:pointer">
-        <td style="padding:7px 8px;border-bottom:1px dashed var(--line)"><b>${s.name}</b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span></td>
-        <td style="padding:7px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${shTxt}</td>
-        <td style="padding:7px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${p.cost}</td>
-        <td style="padding:7px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${s.price??'—'}</td>
-        <td style="padding:7px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${fmt(mv)}</td>
-        <td style="padding:7px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800;color:${col}">${pnl>=0?'+':''}${fmt(Math.abs(pnl))==='0'?Math.round(pnl):((pnl<0?'-':'')+fmt(Math.abs(pnl)))}</td>
-        <td style="padding:7px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800;color:${col}">${pct>=0?'+':''}${pct.toFixed(1)}%</td>
-        <td style="padding:7px 8px;border-bottom:1px dashed var(--line);text-align:center"><button class="pt-del" data-del="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:2px 9px;font-size:12px">刪</button></td>
+      const td='padding:10px;border-bottom:1px solid var(--line)';
+      return `<tr data-goto="${s.id}" class="pt-row" style="cursor:pointer">
+        <td style="${td}"><b style="font-size:14px">${s.name}</b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${s.sector?`<br><span style="font-size:11px;color:var(--dim)">${s.sector}</span>`:''}</td>
+        <td style="${td};text-align:right;font-family:var(--mono)">${shTxt}</td>
+        <td style="${td};text-align:right;font-family:var(--mono)">${p.cost}</td>
+        <td style="${td};text-align:right;font-family:var(--mono)">${s.price??'—'}</td>
+        <td style="${td};text-align:right;font-family:var(--mono);font-weight:700">${fmt(mv)}</td>
+        <td style="${td};text-align:right;font-family:var(--mono);font-weight:800;color:${col}">${pnl>=0?'+':'-'}${fmt(Math.abs(pnl))}</td>
+        <td style="${td};text-align:right"><span style="display:inline-block;min-width:64px;text-align:center;font-family:var(--mono);font-weight:900;font-size:12.5px;padding:3px 8px;border-radius:999px;background:${pnl>=0?'rgba(229,72,77,.12)':'rgba(33,164,102,.12)'};color:${col}">${pct>=0?'+':''}${pct.toFixed(1)}%</span></td>
+        <td style="${td};text-align:center;white-space:nowrap">
+          <button class="pt-edit" data-edit="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--txt2);cursor:pointer;padding:3px 10px;font-size:12px;margin-right:4px">✎ 改</button>
+          <button class="pt-del" data-del="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:3px 10px;font-size:12px">刪</button></td>
       </tr>`;}).join('');
     const pnlT=mvT-costT, pctT=costT?pnlT/costT*100:0, colT=pnlT>0?CT.up2:pnlT<0?CT.dn2:'var(--mut)';
     html+=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:12px">
       <div style="font-weight:900;font-size:14px;margin-bottom:4px">${gn} <span style="font-size:12px;color:var(--dim);font-weight:400">(${cur})</span></div>
       <div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:660px;font-size:13.5px">
-        <tr>${['標的','持有','成本','現價','市值','損益','報酬率',''].map((h,i)=>`<th style="text-align:${i===0?'left':'right'};padding:4px 8px;color:var(--mut);font-size:12px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr>
+        <tr>${['標的','持有','成本','現價','市值','損益','報酬率','動作'].map((h,i)=>`<th style="text-align:${i===0?'left':i===7?'center':'right'};padding:6px 10px;color:var(--mut);font-size:12px;font-weight:700;letter-spacing:.04em;border-bottom:1.5px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr>
         ${trs}
         <tr><td style="padding:8px;font-weight:900">小計</td><td></td><td></td><td></td>
           <td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:900">${fmt(mvT)}</td>
@@ -7955,22 +7966,57 @@ function renderPort(){
           <td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:900;color:${colT}">${pctT>=0?'+':''}${pctT.toFixed(1)}%</td><td></td></tr>
       </table></div></div>`;
   }
-  // 🩺 組合健檢
+  // 🧾 總覽英雄卡(台股小計)
+  try{
+    const twRows=arr.map(p=>({p,s:(DATA.stocks||[]).find(x=>x.id===p.id)})).filter(r=>r.s&&r.s.price&&r.s.market!=='US');
+    if(twRows.length){
+      let mv=0,ct=0;
+      twRows.forEach(({p,s})=>{mv+=s.price*p.sh;ct+=p.cost*p.sh;});
+      const pnl=mv-ct,pct=ct?pnl/ct*100:0,col=pnl>0?CT.up2:pnl<0?CT.dn2:'var(--mut)';
+      const hero=(lb,val,c)=>`<div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 16px">
+        <div style="font-size:12px;color:var(--mut);font-weight:800;letter-spacing:.05em">${lb}</div>
+        <div style="font-family:var(--mono);font-weight:900;font-size:21px;margin-top:3px;color:${c||'var(--txt)'}">${val}</div></div>`;
+      html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        ${hero('台股總市值',fmt(mv))}
+        ${hero('未實現損益',(pnl>=0?'+':'-')+fmt(Math.abs(pnl)),col)}
+        ${hero('報酬率',(pct>=0?'+':'')+pct.toFixed(1)+'%',col)}
+        ${hero('持股檔數',twRows.length+' 檔')}
+      </div>`+html;
+    }
+  }catch(e){}
+  // 🩺 組合健檢(等寬診斷卡)
   try{
     const D=portDiag(arr);
     if(D.F.length){
-      const cls={ok:'alert-ok',amb:'alert-amb',red:'alert-red'};
+      const bc={ok:'#4BD695',amb:'var(--amber)',red:'#FF8A8E'};
       const watch=portWatch(arr,D.sec);
-      html=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:12px">
-        <div style="font-weight:900;font-size:14px;margin-bottom:6px">🩺 組合健檢 <span style="font-weight:400;font-size:12px;color:var(--dim)">結構診斷(台股部位)・僅陳述事實與一般原則,加減碼決定權在你</span></div>
-        <div class="alert-strip">${D.F.map(f=>`<span class="alert-pill ${cls[f.lv]}" style="font-weight:600;font-size:13.5px"><span class="ico">${f.ico}</span><span>${f.t}</span></span>`).join('')}</div>
-        ${watch.length?`<div style="margin-top:8px;font-size:13.5px"><span style="color:var(--mut);font-weight:800">🔭 補角觀察名單</span> <span style="font-size:12px;color:var(--dim)">(規則產生:基本面 ≥75 分且非你現有重壓族群——是研究起點,<b>不是建議買進</b>)</span><br>
-          ${watch.map(s=>`<a class="glb-stk" href="#stock/${s.id}">${s.name} ${s.id} · ${s.sector} · 基 ${s.f.score}</a>`).join('')}</div>`:''}
-        <button class="glb-aibtn" id="ptAiBtn" style="margin-top:9px;font-size:13px;padding:5px 14px">✦ AI 組合診斷(深聊怎麼調整)</button>
-      </div>`+html;
+      html+=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 16px;margin-bottom:12px">
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px">
+          <span style="font-weight:900;font-size:15px">🩺 組合健檢</span>
+          <span style="font-size:12px;color:var(--dim)">結構診斷・僅陳述事實與一般原則,加減碼決定權在你</span>
+          <button class="glb-aibtn" id="ptAiBtn" style="margin-left:auto;font-size:12.5px;padding:4px 13px">✦ AI 深聊怎麼調整</button></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(295px,1fr));gap:9px">
+          ${D.F.map(f=>`<div style="background:var(--panel2);border:1px solid var(--line);border-left:4px solid ${bc[f.lv]};border-radius:11px;padding:10px 13px">
+            <div style="font-weight:900;font-size:13.5px;line-height:1.5">${f.ico} ${f.h}</div>
+            <div style="font-size:12.5px;color:var(--mut);line-height:1.65;margin-top:3px">${f.d}</div></div>`).join('')}
+        </div>
+        ${watch.length?`<div style="margin-top:11px;padding-top:10px;border-top:1px dashed var(--line);font-size:13.5px">
+          <span style="font-weight:900">🔭 補角觀察名單</span> <span style="font-size:11.5px;color:var(--dim)">規則產生:基本面 ≥75 且非你重壓族群——研究起點,<b>不是建議買進</b></span><br>
+          <div style="margin-top:6px">${watch.map(s=>`<a class="glb-stk" href="#stock/${s.id}">${s.name} ${s.id} · ${s.sector} · 基 ${s.f.score}</a>`).join('')}</div></div>`:''}
+      </div>`;
     }
   }catch(e){console.warn('portDiag',e);}
   box.innerHTML=html;
+  box.querySelectorAll('.pt-edit').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    const p=portGet().find(x=>x.id===b.dataset.edit);
+    if(!p)return;
+    document.getElementById('ptId').value=p.id;
+    document.getElementById('ptSh').value=p.sh;
+    document.getElementById('ptCost').value=p.cost;
+    document.getElementById('ptCost').focus();
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
   const ab=document.getElementById('ptAiBtn');
   if(ab)ab.onclick=()=>{
     const lines=arr.map(p=>{const s=(DATA.stocks||[]).find(x=>x.id===p.id);if(!s)return null;
@@ -8102,8 +8148,11 @@ function renderEtf(){
   L.sort((a,b)=>val(b)-val(a));
   const SUBN={active:'主動',lev:'槓反',bond:'債券',us:'美股',std:''};
   const cell='cursor:pointer;padding:9px 2px;border-bottom:1px solid var(--line);font-family:var(--mono);text-align:right';
-  const cfEtfs=DATA.stocks.filter(s=>s.etf&&s.price&&s.hold&&s.hold.dy>0.5&&s.hold.dy<60)
-    .sort((a,b)=>b.hold.dy-a.hold.dy).slice(0,16);
+  try{window.__cfCustom=window.__cfCustom||JSON.parse(localStorage.getItem('cf_custom')||'{}');}catch(e){window.__cfCustom={};}
+  const cfDy=s=>{const c=window.__cfCustom[s.id];return (c!=null)?c:((s.hold&&s.hold.dy)||null);};
+  const cfEtfs=DATA.stocks.filter(s=>s.etf&&s.price&&/^\d/.test(s.id)         // 台股 ETF 限定(美股幣別/稅制不同)
+      &&(()=>{const d=cfDy(s);return d!=null&&d>0.3&&d<25;})())               // 殖利率合理範圍,擋髒數據
+    .sort((a,b)=>cfDy(b)-cfDy(a));
   window.__cfSel=window.__cfSel||new Set(['0056']);
   const cfSec=(sub==='cf')?`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 14px">
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
@@ -8117,13 +8166,23 @@ function renderEtf(){
       <span style="font-size:15px;font-weight:800">萬元現金</span>
       <span style="font-size:12.5px;color:var(--dim)">= 年領 <b id="cfYr" style="font-family:var(--mono)">${((window.__cfGoal||20)*12).toLocaleString()}</b> 萬</span>
     </div>
-    <div style="font-size:13px;font-weight:800;color:var(--mut);margin-bottom:6px">選擇搭配的 ETF(可複選,金額平均分配)</div>
-    <div id="cfList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:8px">
-      ${cfEtfs.map(s=>`<label style="display:flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid ${window.__cfSel.has(s.id)?'var(--amber)':'var(--line)'};border-radius:11px;padding:9px 12px;cursor:pointer;transition:border-color .12s">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <span style="font-size:13px;font-weight:800;color:var(--mut)">選擇搭配的 ETF(可複選,金額平均分配・限台股 ETF,共 ${cfEtfs.length} 檔)</span>
+      <input id="cfSearch" placeholder="🔎 輸入代號或名稱過濾(如 0056、高股息)" style="flex:1;min-width:220px;max-width:340px;padding:6px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel)">
+    </div>
+    <div id="cfList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:8px;max-height:420px;overflow-y:auto">
+      ${cfEtfs.map(s=>`<label data-k="${s.id} ${s.name}" style="display:flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid ${window.__cfSel.has(s.id)?'var(--amber)':'var(--line)'};border-radius:11px;padding:9px 12px;cursor:pointer;transition:border-color .12s">
         <input type="checkbox" data-cf="${s.id}" ${window.__cfSel.has(s.id)?'checked':''} style="accent-color:var(--amber);width:15px;height:15px;flex-shrink:0">
         <span style="min-width:0"><b style="font-size:13.5px">${s.name}</b><br>
           <span style="font-family:var(--mono);font-size:11px;color:var(--dim)">${s.id} · ${s.price}</span></span>
-        <b style="font-family:var(--mono);color:var(--amber);margin-left:auto;font-size:15px">${s.hold.dy.toFixed(1)}<small>%</small></b></label>`).join('')}
+        <b style="font-family:var(--mono);color:var(--amber);margin-left:auto;font-size:15px">${cfDy(s).toFixed(1)}<small>%</small>${window.__cfCustom[s.id]!=null?'<span style="font-size:10px;color:var(--dim)">自填</span>':''}</b></label>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;font-size:13px">
+      <span style="color:var(--dim)">清單裡沒有(資料源缺殖利率)?手動加入:</span>
+      <input id="cfAddId" placeholder="代號(如 0050)" style="width:110px;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
+      <input id="cfAddDy" type="number" step="0.1" min="0.3" max="25" placeholder="近一年殖利率%" style="width:130px;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
+      <button class="btn-ghost" id="cfAddGo" style="padding:5px 14px;font-weight:800">＋ 加入</button>
+      <span style="font-size:11.5px;color:var(--dim)">殖利率請查發行商官網「近12個月配息 ÷ 現價」;自填項會標示</span>
     </div>
     <div id="cfOut" style="margin-top:14px"></div>
     <div class="dim-note" style="margin-top:10px">提醒:①股利單筆 ≥2 萬元有 2.11% 二代健保補充保費,且併入綜所稅(或 28% 分離課稅擇優)②市值型(如 0050)殖利率低但長期總報酬通常較佳——「月領現金」和「資產最大化」是兩個不同目標 ③各檔配息月份請查發行商行事曆(本站無配息月曆資料)④高股息殖利率隨市況大幅波動,過去配息不代表未來;試算非投資建議。</div>
@@ -8140,6 +8199,24 @@ function renderEtf(){
         cb.checked?window.__cfSel.add(cb.dataset.cf):window.__cfSel.delete(cb.dataset.cf);
         cb.closest('label').style.borderColor=cb.checked?'var(--amber)':'var(--line)';
         cfCalc();});
+      const sr=document.getElementById('cfSearch');
+      if(sr)sr.oninput=()=>{
+        const q=sr.value.trim().toLowerCase();
+        box.querySelectorAll('#cfList label').forEach(l=>{
+          l.style.display=(!q||l.dataset.k.toLowerCase().includes(q))?'':'none';});
+      };
+      const ag=document.getElementById('cfAddGo');
+      if(ag)ag.onclick=()=>{
+        const id=(document.getElementById('cfAddId').value||'').trim().toUpperCase();
+        const dy=+document.getElementById('cfAddDy').value;
+        const s=(DATA.stocks||[]).find(x=>x.id===id&&x.etf&&/^\d/.test(x.id));
+        if(!s){alert('找不到台股 ETF「'+id+'」(僅支援站內股池)');return;}
+        if(!(dy>=0.3&&dy<=25)){alert('殖利率請填 0.3~25 之間的合理數值(%)');return;}
+        window.__cfCustom[id]=dy;
+        try{localStorage.setItem('cf_custom',JSON.stringify(window.__cfCustom));}catch(e){}
+        window.__cfSel.add(id);
+        renderEtf();
+      };
       cfCalc();
     }
     return;
