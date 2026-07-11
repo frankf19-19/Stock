@@ -1652,7 +1652,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r237</span>');
+  diag.push('<span style="color:var(--dim)">build r238</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4830,75 +4830,6 @@ async function loadK(s){
   const e=KCACHE[sh][s.id];
   return (e&&Array.isArray(e.o)&&e.o.length>5)?{ohlc:e.o,dates:e.d}:null;
 }
-/* 🕵️ 主力足跡:從日K價量行為推論主力動作(規則化,非分點實據) */
-function mfDetect(ohlc){
-  if(!ohlc||ohlc.length<25)return null;
-  const N=ohlc.length;
-  const V=i=>ohlc[i][4]||0, C=i=>ohlc[i][3], O=i=>ohlc[i][0], H=i=>ohlc[i][1], L=i=>ohlc[i][2];
-  const vma=i=>{let t=0,c=0;for(let k=Math.max(0,i-20);k<i;k++){t+=V(k);c++;}return c?t/c:0;};
-  const hi60=Math.max(...ohlc.slice(-Math.min(60,N)).map(r=>r[1]));
-  const F=[];
-  const look=Math.min(20,N-1);
-  let acc=0,dump=0,burst=[],quiet=0;
-  for(let i=N-look;i<N;i++){
-    const vm=vma(i);if(!vm)continue;
-    const vr=V(i)/vm, chg=(C(i)-C(i-1))/C(i-1)*100;
-    const body=Math.abs(C(i)-O(i)), upSh=H(i)-Math.max(C(i),O(i));
-    if(vr>=2&&chg>=3&&C(i)>=H(i)-(H(i)-L(i))*0.25)burst.push(i);            // 爆量長紅
-    if(C(i)>=hi60*0.97&&vr>=2&&(chg<1.5||upSh>body))dump++;                  // 高檔爆量滯漲/長上影
-    if(vr>=1.3&&Math.abs(chg)<1.5&&C(i)>O(i))acc++;                          // 量增價穩收紅
-    if(C(i)>=hi60*0.97&&vr<0.6)quiet++;                                      // 高檔無量惜售
-  }
-  const last5v=ohlc.slice(-5).reduce((t,r)=>t+(r[4]||0),0)/5;
-  const prior20v=ohlc.slice(-25,-5).reduce((t,r)=>t+(r[4]||0),0)/20;
-  const rng=(()=>{const c5=ohlc.slice(-10).map(r=>r[3]);return (Math.max(...c5)-Math.min(...c5))/Math.min(...c5)*100;})();
-  const M={vr5:prior20v>0?+(last5v/prior20v).toFixed(2):null,
-    offHi:+((C(N-1)/hi60-1)*100).toFixed(1),
-    nBurst:burst.length,nAcc:acc,nDump:dump,nQuiet:quiet,rng:+rng.toFixed(1)};
-  if(burst.length)F.push({ico:'🚀',lv:CT.up2,h:`爆量長紅 ${burst.length} 次(近20日)`,
-    d:'單日量達均量2倍以上且收長紅——有力買盤進場的典型足跡;觀察後續是否縮量守住漲幅(守住=真吸,快速回吐=誘多)。'});
-  if(acc>=3)F.push({ico:'🧲',lv:CT.up2,h:`量增價穩 ${acc} 天——疑似吸籌`,
-    d:'量能放大但股價僅小漲,常見於主力在區間內慢慢收集;搭配上方集保「籌碼收斂」交叉驗證更可信。'});
-  if(prior20v>0&&last5v/prior20v>1.5&&rng<6)F.push({ico:'📦',lv:'var(--amber)',h:'近5日量能明顯放大、價格仍在區間',
-    d:`5日均量為前20日的 ${(last5v/prior20v).toFixed(1)} 倍,但10日價格波動僅 ${rng.toFixed(1)}%——區間換手轉劇,方向待突破表態。`});
-  if(dump>=2)F.push({ico:'⚠️',lv:CT.dn2,h:`高檔爆量滯漲 ${dump} 次`,
-    d:'股價在60日高點附近、爆大量卻漲不動或留長上影——出貨模式的典型長相,警覺追高風險。'});
-  if(quiet>=3)F.push({ico:'🔒',lv:CT.up2,h:`高檔無量惜售 ${quiet} 天`,
-    d:'在高檔但成交量萎縮到均量六成以下——籌碼安定、賣壓輕,常是續勢前的休息。'});
-  return {F,M};
-}
-async function mfBlock(s){
-  const box=document.getElementById('mfBox');
-  if(!box||box.dataset.done)return;
-  if(s.market!=='TW'&&s.market!=='US'){box.dataset.done='1';box.style.display='none';return;}
-  const K=await loadK(s);
-  box.dataset.done='1';
-  if(!K||K.demo){box.style.display='none';return;}
-  const R=mfDetect(K.ohlc);
-  if(!R){box.style.display='none';return;}
-  const {F,M}=R;
-  const stat=(lb,val,thr,hit)=>`<div style="flex:1;min-width:118px;background:var(--panel2);border:1px solid ${hit?'var(--amber)':'var(--line)'};border-radius:10px;padding:8px 10px;text-align:center">
-    <div style="font-size:11.5px;color:var(--mut);font-weight:800;white-space:nowrap">${lb}</div>
-    <div style="font-family:var(--mono);font-weight:900;font-size:16px;margin-top:1px;color:${hit?'var(--amber)':'var(--txt)'}">${val}</div>
-    <div style="font-size:10.5px;color:var(--dim);white-space:nowrap">門檻 ${thr}</div></div>`;
-  const dash=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-    ${stat('5日/20日均量',M.vr5!=null?M.vr5+' 倍':'—','≥1.5 倍',M.vr5>=1.5)}
-    ${stat('距60日高',M.offHi+'%','−3% 內為高檔',M.offHi>=-3)}
-    ${stat('爆量長紅',M.nBurst+' 天','≥1 天',M.nBurst>=1)}
-    ${stat('量增價穩',M.nAcc+' 天','≥3 天',M.nAcc>=3)}
-    ${stat('高檔滯漲',M.nDump+' 次','≥2 次',M.nDump>=2)}
-    ${stat('無量惜售',M.nQuiet+' 天','≥3 天',M.nQuiet>=3)}
-    ${stat('10日振幅',M.rng+'%','<6% 為區間',M.rng<6)}
-  </div>`;
-  const inner=F.length?F.map(f=>`<div style="background:var(--panel2);border:1px solid var(--line);border-left:4px solid ${f.lv};border-radius:11px;padding:10px 13px;margin-bottom:8px">
-      <div style="font-weight:900;font-size:14px">${f.ico} ${f.h}</div>
-      <div style="font-size:13px;color:var(--mut);line-height:1.65;margin-top:3px">${f.d}</div></div>`).join('')
-    :`<div style="background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--mut);border-radius:11px;padding:10px 13px">
-      <div style="font-weight:900;font-size:14px">➡️ 近20日無明顯主力足跡</div>
-      <div style="font-size:13px;color:var(--mut);line-height:1.65;margin-top:3px">上方七項指標均未達觸發門檻(量能 ${M.vr5!=null?M.vr5+' 倍':'—'}、爆量 ${M.nBurst} 天、吸籌 ${M.nAcc} 天、滯漲 ${M.nDump} 次)——量價平靜,主力若在裡面也還沒動作;可留意集保集中度是否默默變化。</div></div>`;
-  box.innerHTML=`<h3>🕵️ 主力足跡(價量行為推論) <span class="ds">近20日</span></h3>${dash}${inner}
-    <div class="dim-note" style="margin-top:6px">上方為實測數據(達門檻者金框標示),結論由數據推導——<b>是「行為推論」不是分點實據</b>(券商分點免費資料源已關閉);建議與「三大法人」「籌碼集中度」交叉驗證,三者同向可信度最高。非投資建議。</div>`;
-}
 async function showDetail(id){
   const s=DATA.stocks.find(x=>x.id===id);
   const home=document.getElementById('homeView'), dv=document.getElementById('detailView');
@@ -4964,7 +4895,6 @@ async function showDetail(id){
     <div id="seasonBox" class="dim-block"><div class="dim-note">📡 歷史月K自動載入中…</div></div>
     </div>
     <div class="sec-title" data-sec="stk_h">👑 大戶持股趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">集保週資料・千張大戶 vs 散戶</span></div><div class="sec-body" id="sb-stk_h">
-    <div id="mfBox" class="dim-block"><div class="dim-note">🕵️ 主力足跡分析中…</div></div>
     <div id="tdccBox" class="dim-block"><div class="dim-note">📡 集保股權資料載入中…</div></div>
     </div>
     <div class="sec-title" data-sec="stk_3">${s.etf?'📊 籌碼與技術':'⚖️ 三力檢視'} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.etf?'法人動向・技術線型':'基本面・籌碼面・技術面評分'} · 💡 點名詞看白話解釋</span></div><div class="sec-body" id="sb-stk_3">
@@ -5077,7 +5007,6 @@ async function showDetail(id){
   const aBtn=document.getElementById('anaAiBtn');
   if(aBtn)aBtn.onclick=()=>aiInline(aBtn,`請上網查詢並整理 ${s.name}(${s.id}) 近三個月外資與投顧研究報告的觀點(直接條列不要開場白):哪些券商出過報告或升降評、評等為何(買進/中立/賣出)、目標價各是多少、調整理由是什麼。最後一句總結市場共識與分歧點。若查不到個別報告,就整理新聞中提到的最新目標價。結尾一行:非投資建議。`,true,1600);
   loadProfileDetail(s);
-  try{const mb=document.getElementById('mfBox');if(mb)mb.dataset.done='';mfBlock(s);}catch(e){}
   loadAnalystDetail(s);
   loadChipDetail(s);
   KHASH='#stock/'+s.id;
