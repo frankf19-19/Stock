@@ -1289,7 +1289,7 @@ function renderFav(){
   window.__favStT=setTimeout(()=>{try{favStateFill();}catch(e){}},800);
 }
 function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderFav(); renderMacro(); try{renderFutTab();}catch(e){} renderNews(); renderChips(); render(); setTimeout(hydrateSparks,300);
-  try{const p=document.getElementById('tp-port');if(p&&p.style.display!=='none')renderPort();}catch(e){} }
+  try{if(!window.__ptEdit){const p=document.getElementById('tp-port');if(p&&p.style.display!=='none')renderPort();}}catch(e){} }
 let T3_BUSY=false;
 function t3ParseOpen(arr,cur){
   if(!Array.isArray(arr)||!arr.length)return;
@@ -1635,7 +1635,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r217</span>');
+  diag.push('<span style="color:var(--dim)">build r218</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7930,37 +7930,43 @@ function portDiag(arr){
   const rows=arr.map(p=>({p,s:(DATA.stocks||[]).find(x=>x.id===p.id)})).filter(r=>r.s&&r.s.price);
   const tw=rows.filter(r=>r.s.market!=='US');
   const F=[];
-  if(tw.length>=1){
-    const tot=tw.reduce((t,r)=>t+r.s.price*r.p.sh,0);
-    const ws=tw.map(r=>({r,w:r.s.price*r.p.sh/tot*100})).sort((a,b)=>b.w-a.w);
-    if(ws[0].w>=35)F.push({ico:'⚠️',lv:'amb',h:`${ws[0].r.s.name} 占 ${ws[0].w.toFixed(0)}%——集中度高`,
-      d:'整體損益基本由它決定。集中是信念的展現、也是波動的來源——確認這是「有意識的選擇」而非「不小心變成這樣」。'});
-    const sec={};
-    ws.forEach(({r,w})=>{const k=r.s.etf?'ETF':(r.s.sector||'其他');sec[k]=(sec[k]||0)+w;});
-    const top=Object.entries(sec).sort((a,b)=>b[1]-a[1]);
-    if(top[0]&&top[0][1]>=60&&top[0][0]!=='ETF')
-      F.push({ico:'🧲',lv:'amb',h:`${top[0][0]} 占 ${top[0][1].toFixed(0)}%——族群重疊`,
-        d:'高度同漲同跌,景氣反轉時沒有部位能幫你踩剎車;分散到不同邏輯的族群才有互補效果。'});
-    const withF=ws.filter(({r})=>!r.s.etf&&r.s.f&&r.s.f.score!=null);
-    if(withF.length){
-      const avgF=withF.reduce((t,{r,w})=>t+r.s.f.score*w,0)/withF.reduce((t,{w})=>t+w,0);
-      const weak=withF.filter(({r})=>r.s.f.score<55).map(({r})=>r.s.name);
-      F.push({ico:'🧬',lv:avgF>=70?'ok':avgF>=60?'amb':'red',
-        h:`加權基本面 ${avgF.toFixed(0)} 分${avgF>=70?'——體質紮實':avgF>=60?'——體質中等':'——體質偏弱'}`,
-        d:weak.length?`偏弱持股(<55 分):${weak.join('、')}——弱體質靠題材撐,退潮時跌最快,值得優先重新檢視。`:'各持股基本面分數健康,底子撐得住波動。'});
-    }
-    const loss=tw.map(r=>({r,pct:(r.s.price-r.p.cost)/r.p.cost*100}))
-      .filter(x=>x.pct<=-15)
-      .map(x=>`<b>${x.r.s.name}</b> ${x.pct.toFixed(1)}%`);
-    if(loss.length)
-      F.push({ico:'🔻',lv:'amb',h:`虧損部位:${loss.join('、').replace(/<[^>]+>/g,'')}`,
-        d:'回頭檢查買進理由是否仍成立(基本面?籌碼?題材?)——理由消失才是出場的理由,帳面虧損本身不是。點進個股頁用三力與警示列重新驗證。'});
-    const etfW=sec['ETF']||0;
-    F.push({ico:'🧺',lv:'ok',h:`個股 ${(100-etfW).toFixed(0)}% / ETF ${etfW.toFixed(0)}%`,
-      d:'個股拼超額報酬、ETF 給底盤;比例沒有標準答案,取決於你想花多少時間盯盤與能承受的波動。'});
-    return {F,ws,sec:Object.fromEntries(top)};
+  if(!tw.length)return {F,ws:[],sec:{}};
+  const tot=tw.reduce((t,r)=>t+r.s.price*r.p.sh,0);
+  const ws=tw.map(r=>({r,w:r.s.price*r.p.sh/tot*100})).sort((a,b)=>b.w-a.w);
+  // 集中度(狀態會翻轉:警示 ↔ 健康)
+  if(ws[0].w>=35)F.push({ico:'⚠️',lv:'amb',h:`${ws[0].r.s.name} 占 ${ws[0].w.toFixed(0)}%——集中度高`,
+    d:'整體損益基本由它決定。集中是信念的展現、也是波動的來源——確認這是「有意識的選擇」而非「不小心變成這樣」。'});
+  else F.push({ico:'✅',lv:'ok',h:`集中度健康——最大持股 ${ws[0].r.s.name} 僅 ${ws[0].w.toFixed(0)}%`,
+    d:'沒有單一持股綁架整體損益,結構有韌性。'});
+  // 族群
+  const sec={};
+  ws.forEach(({r,w})=>{const k=r.s.etf?'ETF':(r.s.sector||'其他');sec[k]=(sec[k]||0)+w;});
+  const top=Object.entries(sec).sort((a,b)=>b[1]-a[1]);
+  if(top[0]&&top[0][1]>=60&&top[0][0]!=='ETF')
+    F.push({ico:'🧲',lv:'amb',h:`${top[0][0]} 占 ${top[0][1].toFixed(0)}%——族群重疊`,
+      d:'高度同漲同跌,景氣反轉時沒有部位能幫你踩剎車;分散到不同邏輯的族群才有互補效果。'});
+  else if(top.length>=2)
+    F.push({ico:'✅',lv:'ok',h:`族群分佈健康——最大族群 ${top[0][0]} ${top[0][1].toFixed(0)}%`,
+      d:'持股橫跨多個族群,單一產業風暴不至於全軍覆沒。'});
+  // 體質
+  const withF=ws.filter(({r})=>!r.s.etf&&r.s.f&&r.s.f.score!=null);
+  if(withF.length){
+    const avgF=withF.reduce((t,{r,w})=>t+r.s.f.score*w,0)/withF.reduce((t,{w})=>t+w,0);
+    const weak=withF.filter(({r})=>r.s.f.score<55).map(({r})=>r.s.name);
+    F.push({ico:'🧬',lv:avgF>=70?'ok':avgF>=60?'amb':'red',
+      h:`加權基本面 ${avgF.toFixed(0)} 分${avgF>=70?'——體質紮實':avgF>=60?'——體質中等':'——體質偏弱'}`,
+      d:weak.length?`偏弱持股(<55 分):${weak.join('、')}——弱體質靠題材撐,退潮時跌最快,值得優先重新檢視。`:'各持股基本面分數健康,底子撐得住波動。'});
   }
-  return {F,ws:[],sec:{}};
+  // 虧損檢視
+  const loss=tw.map(r=>({r,pct:(r.s.price-r.p.cost)/r.p.cost*100})).filter(x=>x.pct<=-15)
+    .map(x=>`${x.r.s.name} ${x.pct.toFixed(1)}%`);
+  if(loss.length)F.push({ico:'🔻',lv:'amb',h:`虧損部位:${loss.join('、')}`,
+    d:'回頭檢查買進理由是否仍成立(基本面?籌碼?題材?)——理由消失才是出場的理由,帳面虧損本身不是。點進個股頁用三力與警示列重新驗證。'});
+  // 結構
+  const etfW=sec['ETF']||0;
+  F.push({ico:'🧺',lv:'ok',h:`個股 ${(100-etfW).toFixed(0)}% / ETF ${etfW.toFixed(0)}%`,
+    d:'個股拼超額報酬、ETF 給底盤;比例沒有標準答案,取決於你想花多少時間盯盤與能承受的波動。'});
+  return {F,ws,sec:Object.fromEntries(top)};
 }
 function portWatch(arr,sec){
   const held=new Set(arr.map(p=>p.id));
@@ -7976,114 +7982,122 @@ function renderPort(){
   const btn=document.getElementById('ptAdd');
   if(btn&&!btn.__wired){btn.__wired=1;btn.onclick=portAdd;}
   const arr=portGet();
-  if(!arr.length){box.innerHTML='<div class="dim-note" style="text-align:center;padding:24px 0">還沒有持股——上方輸入代號、股數、成本價開始記錄。</div>';return;}
-  const groups=[['🇹🇼 台股/ETF','NT$',x=>x.market!=='US'],['🇺🇸 美股','US$',x=>x.market==='US']];
+  if(!arr.length){box.innerHTML='<div class="dim-note" style="text-align:center;padding:28px 0;font-size:15px">還沒有持股——上方輸入代號、股數、成本價開始記錄。</div>';return;}
   const fmt=v=>v>=1e8?(v/1e8).toFixed(2)+' 億':v>=1e4?Math.round(v/1e4).toLocaleString()+' 萬':Math.round(v).toLocaleString();
+  const ts=new Date().toLocaleTimeString('zh-TW',{hour12:false});
   let html='';
+  // ── 英雄總覽 ──
+  const twRows=arr.map(p=>({p,s:(DATA.stocks||[]).find(x=>x.id===p.id)})).filter(r=>r.s&&r.s.price&&r.s.market!=='US');
+  if(twRows.length){
+    let mv=0,ct=0;
+    twRows.forEach(({p,s})=>{mv+=s.price*p.sh;ct+=p.cost*p.sh;});
+    const pnl=mv-ct,pct=ct?pnl/ct*100:0,col=pnl>0?CT.up2:pnl<0?CT.dn2:'var(--mut)';
+    const hero=(lb,val,c)=>`<div style="flex:1;min-width:170px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px">
+      <div style="font-size:13px;color:var(--mut);font-weight:800;letter-spacing:.05em">${lb}</div>
+      <div style="font-family:var(--mono);font-weight:900;font-size:26px;margin-top:4px;color:${c||'var(--txt)'}">${val}</div></div>`;
+    html+=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;font-size:12.5px;color:var(--dim)">
+      <span>🟢 自動即時——報價、健檢隨行情與庫存增減立即重算</span>
+      <span style="margin-left:auto;font-family:var(--mono)">更新 ${ts}</span></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      ${hero('台股總市值',fmt(mv))}${hero('未實現損益',(pnl>=0?'+':'-')+fmt(Math.abs(pnl)),col)}
+      ${hero('報酬率',(pct>=0?'+':'')+pct.toFixed(1)+'%',col)}${hero('持股檔數',twRows.length+' 檔')}</div>`;
+  }
+  // ── 持股行卡 ──
+  const groups=[['🇹🇼 台股/ETF','NT$',x=>x.market!=='US'],['🇺🇸 美股','US$',x=>x.market==='US']];
   for(const [gn,cur,filt] of groups){
     const rows=arr.map(p=>({p,s:(DATA.stocks||[]).find(x=>x.id===p.id)})).filter(r=>r.s&&filt(r.s));
     if(!rows.length)continue;
     let mvT=0,costT=0;
-    const trs=rows.map(({p,s})=>{
+    const cards=rows.map(({p,s})=>{
       const mv=s.price*p.sh, ct=p.cost*p.sh, pnl=mv-ct, pct=ct?pnl/ct*100:0;
       mvT+=mv;costT+=ct;
       const col=pnl>0?CT.up2:pnl<0?CT.dn2:'var(--mut)';
       const shTxt=s.market==='US'?p.sh.toLocaleString()+' 股':(p.sh%1000===0?(p.sh/1000).toLocaleString()+' 張':p.sh.toLocaleString()+' 股');
-      const td='padding:10px;border-bottom:1px solid var(--line)';
-      return `<tr data-goto="${s.id}" class="pt-row" style="cursor:pointer">
-        <td style="${td}"><b style="font-size:14px">${s.name}</b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${s.sector?`<br><span style="font-size:11px;color:var(--dim)">${s.sector}</span>`:''}</td>
-        <td style="${td};text-align:right;font-family:var(--mono)">${shTxt}</td>
-        <td style="${td};text-align:right;font-family:var(--mono)">${p.cost}</td>
-        <td style="${td};text-align:right;font-family:var(--mono)">${s.price??'—'}</td>
-        <td style="${td};text-align:right;font-family:var(--mono);font-weight:700">${fmt(mv)}</td>
-        <td style="${td};text-align:right;font-family:var(--mono);font-weight:800;color:${col}">${pnl>=0?'+':'-'}${fmt(Math.abs(pnl))}</td>
-        <td style="${td};text-align:right"><span style="display:inline-block;min-width:64px;text-align:center;font-family:var(--mono);font-weight:900;font-size:12.5px;padding:3px 8px;border-radius:999px;background:${pnl>=0?'rgba(229,72,77,.12)':'rgba(33,164,102,.12)'};color:${col}">${pct>=0?'+':''}${pct.toFixed(1)}%</span></td>
-        <td style="${td};text-align:center;white-space:nowrap">
-          <button class="pt-edit" data-edit="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--txt2);cursor:pointer;padding:3px 10px;font-size:12px;margin-right:4px">✎ 改</button>
-          <button class="pt-del" data-del="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:3px 10px;font-size:12px">刪</button></td>
-      </tr>`;}).join('');
-    const pnlT=mvT-costT, pctT=costT?pnlT/costT*100:0, colT=pnlT>0?CT.up2:pnlT<0?CT.dn2:'var(--mut)';
-    html+=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:12px">
-      <div style="font-weight:900;font-size:14px;margin-bottom:4px">${gn} <span style="font-size:12px;color:var(--dim);font-weight:400">(${cur})</span></div>
-      <div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:660px;font-size:13.5px">
-        <tr>${['標的','持有','成本','現價','市值','損益','報酬率','動作'].map((h,i)=>`<th style="text-align:${i===0?'left':i===7?'center':'right'};padding:6px 10px;color:var(--mut);font-size:12px;font-weight:700;letter-spacing:.04em;border-bottom:1.5px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr>
-        ${trs}
-        <tr><td style="padding:8px;font-weight:900">小計</td><td></td><td></td><td></td>
-          <td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:900">${fmt(mvT)}</td>
-          <td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:900;color:${colT}">${pnlT>=0?'+':'-'}${fmt(Math.abs(pnlT))}</td>
-          <td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:900;color:${colT}">${pctT>=0?'+':''}${pctT.toFixed(1)}%</td><td></td></tr>
-      </table></div></div>`;
+      const editing=window.__ptEdit===s.id;
+      const cell=(lb,val,c,big)=>`<div style="min-width:86px"><div style="font-size:12px;color:var(--dim)">${lb}</div>
+        <div style="font-family:var(--mono);font-weight:${big?'900':'700'};font-size:${big?'17px':'15.5px'};color:${c||'var(--txt)'}">${val}</div></div>`;
+      if(editing)return `<div class="pt-card" style="background:var(--panel);border:1.5px solid var(--amber);border-radius:13px;padding:14px 18px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="min-width:150px"><b style="font-size:17px">${s.name}</b> <span style="font-family:var(--mono);font-size:12.5px;color:var(--dim)">${s.id}</span></div>
+          <label style="font-size:13px;color:var(--mut)">股數 <input class="pt-e-sh" type="number" min="1" value="${p.sh}" style="width:120px;padding:6px 10px;font-size:15px;font-family:var(--mono)"></label>
+          <label style="font-size:13px;color:var(--mut)">成本 <input class="pt-e-cost" type="number" step="0.01" min="0" value="${p.cost}" style="width:110px;padding:6px 10px;font-size:15px;font-family:var(--mono)"></label>
+          <button class="pt-save" data-id="${s.id}" style="background:var(--amber);border:none;border-radius:9px;color:var(--panel);font-weight:900;cursor:pointer;padding:8px 20px;font-size:14px">儲存</button>
+          <button class="pt-cancel" style="background:none;border:1px solid var(--line);border-radius:9px;color:var(--txt2);cursor:pointer;padding:8px 16px;font-size:14px">取消</button>
+        </div></div>`;
+      return `<div class="pt-card" data-goto="${s.id}" style="background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 18px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:18px;flex-wrap:wrap;transition:border-color .12s">
+        <div style="min-width:150px;flex:1"><b style="font-size:17px">${s.name}</b> <span style="font-family:var(--mono);font-size:12.5px;color:var(--dim)">${s.id}</span>
+          ${s.sector?`<div style="font-size:12px;color:var(--dim);margin-top:2px">${s.sector}</div>`:''}</div>
+        ${cell('持有',shTxt)}${cell('成本',p.cost)}${cell('現價',s.price??'—')}
+        ${cell('市值',fmt(mv))}${cell('損益',(pnl>=0?'+':'-')+fmt(Math.abs(pnl)),col,1)}
+        <div style="min-width:88px"><span style="display:inline-block;min-width:80px;text-align:center;font-family:var(--mono);font-weight:900;font-size:15px;padding:6px 10px;border-radius:999px;background:${pnl>=0?'rgba(229,72,77,.12)':'rgba(33,164,102,.12)'};color:${col}">${pct>=0?'+':''}${pct.toFixed(1)}%</span></div>
+        <div style="white-space:nowrap;display:flex;gap:8px">
+          <button class="pt-edit" data-id="${s.id}" style="background:none;border:1.5px solid var(--line);border-radius:9px;color:var(--txt2);cursor:pointer;padding:8px 16px;font-size:14px;font-weight:700">✎ 改</button>
+          <button class="pt-del" data-id="${s.id}" style="background:none;border:1.5px solid var(--line);border-radius:9px;color:var(--dim);cursor:pointer;padding:8px 16px;font-size:14px;font-weight:700">刪</button></div>
+      </div>`;}).join('');
+    const pnlT=mvT-costT,pctT=costT?pnlT/costT*100:0,colT=pnlT>0?CT.up2:pnlT<0?CT.dn2:'var(--mut)';
+    html+=`<div style="margin-bottom:14px">
+      <div style="font-weight:900;font-size:15.5px;margin:4px 0 8px">${gn} <span style="font-size:12.5px;color:var(--dim);font-weight:400">(${cur})</span>
+        <span style="float:right;font-size:14px;font-family:var(--mono)">小計 ${fmt(mvT)} · <b style="color:${colT}">${pnlT>=0?'+':'-'}${fmt(Math.abs(pnlT))}(${pctT>=0?'+':''}${pctT.toFixed(1)}%)</b></span></div>
+      ${cards}</div>`;
   }
-  // 🧾 總覽英雄卡(台股小計)
-  try{
-    const twRows=arr.map(p=>({p,s:(DATA.stocks||[]).find(x=>x.id===p.id)})).filter(r=>r.s&&r.s.price&&r.s.market!=='US');
-    if(twRows.length){
-      let mv=0,ct=0;
-      twRows.forEach(({p,s})=>{mv+=s.price*p.sh;ct+=p.cost*p.sh;});
-      const pnl=mv-ct,pct=ct?pnl/ct*100:0,col=pnl>0?CT.up2:pnl<0?CT.dn2:'var(--mut)';
-      const hero=(lb,val,c)=>`<div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 16px">
-        <div style="font-size:12px;color:var(--mut);font-weight:800;letter-spacing:.05em">${lb}</div>
-        <div style="font-family:var(--mono);font-weight:900;font-size:21px;margin-top:3px;color:${c||'var(--txt)'}">${val}</div></div>`;
-      const ts=new Date().toLocaleTimeString('zh-TW',{hour12:false});
-      html=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;font-size:12px;color:var(--dim)">
-        <span>🟢 自動即時:報價與健檢隨行情更新,新增/修改當下立即重算</span>
-        <span style="margin-left:auto;font-family:var(--mono)">更新於 ${ts}</span>
-        <button id="ptRefresh" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--txt2);cursor:pointer;padding:2px 10px;font-size:12px">🔄 立即重算</button>
-      </div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-        ${hero('台股總市值',fmt(mv))}
-        ${hero('未實現損益',(pnl>=0?'+':'-')+fmt(Math.abs(pnl)),col)}
-        ${hero('報酬率',(pct>=0?'+':'')+pct.toFixed(1)+'%',col)}
-        ${hero('持股檔數',twRows.length+' 檔')}
-      </div>`+html;
-    }
-  }catch(e){}
-  // 🩺 組合健檢(等寬診斷卡)
+  // ── 健檢(動態狀態卡)──
   try{
     const D=portDiag(arr);
     if(D.F.length){
       const bc={ok:'#4BD695',amb:'var(--amber)',red:'#FF8A8E'};
       const watch=portWatch(arr,D.sec);
-      html+=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 16px;margin-bottom:12px">
-        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px">
-          <span style="font-weight:900;font-size:15px">🩺 組合健檢</span>
-          <span style="font-size:12px;color:var(--dim)">結構診斷・僅陳述事實與一般原則,加減碼決定權在你</span>
-          <button class="glb-aibtn" id="ptAiBtn" style="margin-left:auto;font-size:12.5px;padding:4px 13px">✦ AI 深聊怎麼調整</button></div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(295px,1fr));gap:9px">
-          ${D.F.map(f=>`<div style="background:var(--panel2);border:1px solid var(--line);border-left:4px solid ${bc[f.lv]};border-radius:11px;padding:10px 13px">
-            <div style="font-weight:900;font-size:13.5px;line-height:1.5">${f.ico} ${f.h}</div>
-            <div style="font-size:12.5px;color:var(--mut);line-height:1.65;margin-top:3px">${f.d}</div></div>`).join('')}
+      html+=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px">
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+          <span style="font-weight:900;font-size:16px">🩺 組合健檢</span>
+          <span style="font-size:12.5px;color:var(--dim)">依目前 ${arr.length} 檔・更新 ${ts}・卡片狀態會隨庫存增減翻轉(⚠️↔✅)</span>
+          <button class="glb-aibtn" id="ptAiBtn" style="margin-left:auto;font-size:13px;padding:5px 14px">✦ AI 深聊怎麼調整</button></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">
+          ${D.F.map(f=>`<div style="background:var(--panel2);border:1px solid var(--line);border-left:4px solid ${bc[f.lv]};border-radius:12px;padding:12px 15px">
+            <div style="font-weight:900;font-size:14.5px;line-height:1.5">${f.ico} ${f.h}</div>
+            <div style="font-size:13.5px;color:var(--mut);line-height:1.7;margin-top:4px">${f.d}</div></div>`).join('')}
         </div>
-        ${watch.length?`<div style="margin-top:11px;padding-top:10px;border-top:1px dashed var(--line);font-size:13.5px">
-          <span style="font-weight:900">🔭 補角觀察名單</span> <span style="font-size:11.5px;color:var(--dim)">規則產生:基本面 ≥75 且非你重壓族群——研究起點,<b>不是建議買進</b></span><br>
-          <div style="margin-top:6px">${watch.map(s=>`<a class="glb-stk" href="#stock/${s.id}">${s.name} ${s.id} · ${s.sector} · 基 ${s.f.score}</a>`).join('')}</div></div>`:''}
+        ${watch.length?`<div style="margin-top:12px;padding-top:11px;border-top:1px dashed var(--line);font-size:14px">
+          <span style="font-weight:900">🔭 補角觀察名單</span> <span style="font-size:12px;color:var(--dim)">規則產生:基本面 ≥75 且非你重壓族群——研究起點,<b>不是建議買進</b></span>
+          <div style="margin-top:7px">${watch.map(s=>`<a class="glb-stk" href="#stock/${s.id}" style="font-size:13px;padding:4px 12px">${s.name} ${s.id} · ${s.sector} · 基 ${s.f.score}</a>`).join('')}</div></div>`:''}
       </div>`;
     }
   }catch(e){console.warn('portDiag',e);}
   box.innerHTML=html;
-  const rf=document.getElementById('ptRefresh');
-  if(rf)rf.onclick=()=>renderPort();
-  box.querySelectorAll('.pt-edit').forEach(b=>b.onclick=e=>{
-    e.stopPropagation();
-    const p=portGet().find(x=>x.id===b.dataset.edit);
-    if(!p)return;
-    document.getElementById('ptId').value=p.id;
-    document.getElementById('ptSh').value=p.sh;
-    document.getElementById('ptCost').value=p.cost;
-    document.getElementById('ptCost').focus();
-    window.scrollTo({top:0,behavior:'smooth'});
-  });
-  const ab=document.getElementById('ptAiBtn');
-  if(ab)ab.onclick=()=>{
-    const lines=arr.map(p=>{const s=(DATA.stocks||[]).find(x=>x.id===p.id);if(!s)return null;
-      const mv=s.price*p.sh,pnl=(s.price-p.cost)*p.sh;
-      return `${s.name}(${p.id}):${p.sh.toLocaleString()} 股、成本 ${p.cost}、現價 ${s.price}、市值約 ${Math.round(mv/1e4)} 萬、損益 ${pnl>=0?'+':''}${Math.round(pnl/1e4)} 萬${s.sector?'、'+s.sector:''}${s.f?'、基本面 '+s.f.score+' 分':''}`;
-    }).filter(Boolean).join('\n');
-    try{aiAsk(`這是我目前的持股組合:\n${lines}\n\n請以中立教練的角度用繁體中文分析:\n1) 這個組合的結構特徵與主要風險(集中度、族群重疊、體質)\n2) 如果要「調整」,有哪幾種不同思路(例如分散 vs 加碼信念股 vs 增加防禦部位),各自的取捨是什麼\n3) 每種思路下值得研究的方向或標的類型(可舉例但請說明理由)\n請不要直接叫我買或賣特定股票,把取捨講清楚讓我自己決定;結尾提醒非投資建議。`,true);}catch(e){}
+  // ── 事件委派(單一 handler,不怕重繪競態)──
+  box.onclick=e=>{
+    const t=e.target;
+    const ed=t.closest&&t.closest('.pt-edit');
+    if(ed){e.stopPropagation();window.__ptEdit=ed.dataset.id;renderPort();return;}
+    const dl=t.closest&&t.closest('.pt-del');
+    if(dl){e.stopPropagation();if(confirm('刪除 '+dl.dataset.id+' 這筆持股?'))portDel(dl.dataset.id);return;}
+    const sv=t.closest&&t.closest('.pt-save');
+    if(sv){e.stopPropagation();
+      const card=sv.closest('.pt-card');
+      const sh=+card.querySelector('.pt-e-sh').value, cost=+card.querySelector('.pt-e-cost').value;
+      if(!(sh>0)||!(cost>0)){alert('股數與成本價都要大於 0');return;}
+      const arr2=portGet();const it=arr2.find(x=>x.id===sv.dataset.id);
+      if(it){it.sh=sh;it.cost=cost;portSet(arr2);}
+      window.__ptEdit=null;renderPort();return;}
+    if(t.closest&&t.closest('.pt-cancel')){e.stopPropagation();window.__ptEdit=null;renderPort();return;}
+    if(t.closest&&t.closest('input'))return;
+    const ai=t.closest&&t.closest('#ptAiBtn');
+    if(ai){portAiChat();return;}
+    const gs=t.closest&&t.closest('.glb-stk');
+    if(gs)return;                                        // 交給 <a href> 原生跳轉
+    const row=t.closest&&t.closest('[data-goto]');
+    if(row){location.hash='#stock/'+row.dataset.goto;}
   };
-  box.querySelectorAll('.pt-del').forEach(b=>b.onclick=e=>{e.stopPropagation();if(confirm('刪除 '+b.dataset.del+'?'))portDel(b.dataset.del);});
-  box.querySelectorAll('[data-goto]').forEach(r=>r.onclick=()=>{location.hash='#stock/'+r.dataset.goto;});
+}
+function portAiChat(){
+  const arr=portGet();
+  const lines=arr.map(p=>{const s=(DATA.stocks||[]).find(x=>x.id===p.id);if(!s)return null;
+    const mv=s.price*p.sh,pnl=(s.price-p.cost)*p.sh;
+    return `${s.name}(${p.id}):${p.sh.toLocaleString()} 股、成本 ${p.cost}、現價 ${s.price}、市值約 ${Math.round(mv/1e4)} 萬、損益 ${pnl>=0?'+':''}${Math.round(pnl/1e4)} 萬${s.sector?'、'+s.sector:''}${s.f?'、基本面 '+s.f.score+' 分':''}`;
+  }).filter(Boolean).join('\n');
+  try{aiAsk(`這是我目前的持股組合:\n${lines}\n\n請以中立教練的角度用繁體中文分析:\n1) 這個組合的結構特徵與主要風險(集中度、族群重疊、體質)\n2) 如果要「調整」,有哪幾種不同思路(例如分散 vs 加碼信念股 vs 增加防禦部位),各自的取捨是什麼\n3) 每種思路下值得研究的方向或標的類型(可舉例但請說明理由)\n請不要直接叫我買或賣特定股票,把取捨講清楚讓我自己決定;結尾提醒非投資建議。`,true);}catch(e){}
 }
 setInterval(()=>{try{
+  if(window.__ptEdit)return;                              // 編輯中不重繪,保護輸入
   const p=document.getElementById('tp-port');
   if(p&&p.style.display!=='none')renderPort();
 }catch(e){}},10000);
