@@ -46,9 +46,9 @@ html[data-theme="mocha"]{
   --amber:#B67724; --hdr:#E3ECF3;
 }
 html[data-theme="teal"]{
-  --bg:#F7EEDF; --panel:#FFFFFF; --panel2:#F0E4CE; --line:#E3D2B4;
-  --txt:#2A2013; --mut:#67553A; --dim:#77644A; --txt2:#4E3E28;
-  --amber:#96540F; --hdr:#F3E9D6;
+  --bg:#21222C; --panel:#282A36; --panel2:#343746; --line:#44475A;
+  --txt:#F8F8F2; --mut:#9DA3C4; --dim:#6E759B; --txt2:#D8D8D2;
+  --amber:#BD93F9; --hdr:#1D1E26;
 }
 html[data-theme="sakura"]{
   --bg:#FBF5F7; --panel:#FFFFFF; --panel2:#F7EBEF; --line:#EDD8DF;
@@ -56,14 +56,14 @@ html[data-theme="sakura"]{
   --amber:#B84D8A; --hdr:#F9F0F3;
 }
 html[data-theme="lucky"]{
-  --bg:#0B1220; --panel:#172236; --panel2:#1F2C46; --line:#33436A;
-  --txt:#F2F6FE; --mut:#A7B6D6; --dim:#8B9BBE; --txt2:#D3DDF0;
-  --amber:#9CC6F2; --hdr:#0E1628;
+  --bg:#242933; --panel:#2E3440; --panel2:#3B4252; --line:#4C566A;
+  --txt:#ECEFF4; --mut:#94A3BC; --dim:#7B8798; --txt2:#D8DEE9;
+  --amber:#88C0D0; --hdr:#272C36;
 }
 html[data-theme="rain"]{
-  --bg:#E9EEF3; --panel:#FFFFFF; --panel2:#DFE7EE; --line:#C9D6E0;
-  --txt:#232c34; --mut:#4c6172; --dim:#566e81; --txt2:#394855;
-  --amber:#2F5D87; --hdr:#E3EAF1;
+  --bg:#14161F; --panel:#1C202C; --panel2:#252B3B; --line:#363E54;
+  --txt:#EEF0F7; --mut:#939CB6; --dim:#6F7891; --txt2:#CCD2E3;
+  --amber:#F5C445; --hdr:#171A26;
 }
 html[data-theme="graphite"]{
   --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
@@ -71,15 +71,16 @@ html[data-theme="graphite"]{
   --amber:#D8B364; --hdr:#17181B;
 }
 html[data-theme="dawn"]{
-  --bg:#F4F8FA; --panel:#FFFFFF; --panel2:#E8F2F6; --line:#D3E5EC;
-  --txt:#16303B; --mut:#54727F; --dim:#6A8089; --txt2:#3A5866;
-  --amber:#0F86A8; --hdr:#EEF5F8;
+  --bg:#EFF1F5; --panel:#FFFFFF; --panel2:#E6E9EF; --line:#CCD0DA;
+  --txt:#40435C; --mut:#6C6F85; --dim:#8C8FA1; --txt2:#545770;
+  --amber:#1E66F5; --hdr:#E6E9EF;
+  --up:#D20F39; --down:#2E9440;
 }
 html[data-theme="sepia"]{
-  --bg:#F5F1E8; --panel:#FFFDF7; --panel2:#EFE9DA; --line:#DCD3BE;
-  --txt:#2A2418; --mut:#6E6552; --dim:#807764; --txt2:#4A4232;
-  --amber:#A9761B; --hdr:#EEE7D6;
-  --up:#C43A3A; --down:#0E7D52;
+  --bg:#FAF4ED; --panel:#FFFAF3; --panel2:#F2E9E1; --line:#DCD5CE;
+  --txt:#4A4568; --mut:#797593; --dim:#9893A5; --txt2:#5C5680;
+  --amber:#B4637A; --hdr:#F4EDE6;
+  --up:#C34043; --down:#1F8A5B;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:16px;line-height:1.6}
@@ -576,13 +577,13 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <option value="black">⬛ 純黑金</option>
           <option value="light">☀️ 明亮日盤</option>
           <option value="mocha">🌼 花園</option>
-          <option value="teal">🍁 楓葉</option>
-          <option value="lucky">❄️ 冬夜</option>
-          <option value="rain">🌧 午後雷雨</option>
+          <option value="teal">🧛 德古拉紫夜</option>
+          <option value="lucky">🧊 北歐雪松</option>
+          <option value="rain">⛈️ 午後雷雨(暗)</option>
           <option value="sakura">🌸 櫻花</option>
           <option value="graphite">🪨 石墨銀</option>
-          <option value="dawn">🌊 海邊</option>
-          <option value="sepia">📜 護眼米黃</option>
+          <option value="dawn">🥛 拿鐵奶油(亮)</option>
+          <option value="sepia">🌷 玫瑰晨曦(亮)</option>
         </select>
         <button class="btn-ghost" id="alertBtn" title="盤中警示:好股下殺至買進區/帶量突破時通知">🔔</button>
         <button class="btn-ghost" id="favBtn" title="我收藏的個股">⭐ 最愛</button>
@@ -1616,7 +1617,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r205</span>');
+  diag.push('<span style="color:var(--dim)">build r208</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4032,33 +4033,33 @@ const CHART_THEMES={
   mocha:{legend:'#516A80',axis:'#7E94A7',split:'#DCE7EF',border:'#C7D7E3',
     ttBg:'#FFFFFF',ttText:'#233240',inactive:'#B4C8D6',ma60:'#33485A',
     up2:'#C4333B',dn2:'#0F8A57'},
-  teal:{legend:'#67553A',axis:'#8A7554',split:'#EFE2CA',border:'#DFCDAC',
-    ttBg:'#FFFFFF',ttText:'#2A2013',inactive:'#D2BF9A',ma60:'#3E311E',
-    up2:'#C4333B',dn2:'#0F8A57'},
+  teal:{legend:'#9DA3C4',axis:'#6272A4',split:'#26272F',border:'#44475A',
+    ttBg:'#282A36',ttText:'#F8F8F2',inactive:'#494C63',ma60:'#F8F8F2',
+    up2:'#FF7B7B',dn2:'#50FA7B'},
   sakura:{legend:'#7F6571',axis:'#A28D98',split:'#F3E4E9',border:'#E8D3DB',
     ttBg:'#FFFFFF',ttText:'#2E222A',inactive:'#D9C2CB',ma60:'#4A3540',
     up2:'#C4333B',dn2:'#0F8A57'},
-  lucky:{legend:'#A7B6D6',axis:'#7484A8',split:'#1A2540',border:'#33436A',
-    ttBg:'#1F2C46',ttText:'#F2F6FE',inactive:'#3A4C74',ma60:'#F0F4FC',
+  lucky:{legend:'#94A3BC',axis:'#616E88',split:'#2A303C',border:'#4C566A',
+    ttBg:'#2E3440',ttText:'#ECEFF4',inactive:'#4A5468',ma60:'#ECEFF4',
     up2:'#FF8A8E',dn2:'#4BD695'},
-  rain:{legend:'#4c6172',axis:'#78909F',split:'#DDE6ED',border:'#C5D3DD',
-    ttBg:'#FFFFFF',ttText:'#232c34',inactive:'#B4C4D0',ma60:'#394855',
-    up2:'#C4333B',dn2:'#0F8A57'},
+  rain:{legend:'#939CB6',axis:'#5F6884',split:'#1E2332',border:'#363E54',
+    ttBg:'#1C202C',ttText:'#EEF0F7',inactive:'#3D465F',ma60:'#EDEFF6',
+    up2:'#FF8A8E',dn2:'#4BD695'},
   graphite:{legend:'#9BA1AB',axis:'#6D737D',split:'#1F2125',border:'#34383F',
     ttBg:'#26292E',ttText:'#ECEDEF',inactive:'#3E434B',ma60:'#F0F1F3',
     up2:'#FF8A8E',dn2:'#4BD695'},
-  dawn:{legend:'#54727F',axis:'#7C99A6',split:'#E2EEF3',border:'#CDE0E8',
-    ttBg:'#FFFFFF',ttText:'#16303B',inactive:'#BCD4DD',ma60:'#2C4855',
-    up2:'#C4333B',dn2:'#0F8A57'},
-  sepia:{legend:'#6E6552',axis:'#7A7160',split:'#E7E0CF',border:'#DCD3BE',
-    ttBg:'#FFFDF7',ttText:'#2A2418',inactive:'#CFC6B0',ma60:'#4A4232',
-    up2:'#B23037',dn2:'#0B6B47'}
+  dawn:{legend:'#6C6F85',axis:'#9CA0B0',split:'#E6E9EF',border:'#CCD0DA',
+    ttBg:'#FFFFFF',ttText:'#40435C',inactive:'#BCC0CC',ma60:'#4C4F69',
+    up2:'#D20F39',dn2:'#2E9440'},
+  sepia:{legend:'#797593',axis:'#A8A3B3',split:'#F0E8E0',border:'#DCD5CE',
+    ttBg:'#FFFAF3',ttText:'#4A4568',inactive:'#CEC7C0',ma60:'#575279',
+    up2:'#C34043',dn2:'#1F8A5B'}
 };
 /* 🌸🌊🌲 氛圍場景引擎 v2:
    櫻花=花瓣飄落|海邊=太陽・飄雲・海浪・沙灘・沙堡(旗飄)・海鷗・氣泡|森林=陽光光束・松樹・搖曳草地・落葉
    全程式繪製、畫在背景層不擋內容;尊重「減少動態」;切主題自動清除重建 */
 function natureFX(theme){
-  const kind={sakura:'petal',dawn:'beach',mocha:'garden',teal:'maple',lucky:'winter',rain:'rain'}[theme]||null;
+  const kind={sakura:'petal',sepia:'petal',mocha:'garden',lucky:'winter',rain:'rain'}[theme]||null;
   const old=document.getElementById('natureFx');
   if(!kind){window.__nfRun=false;if(old)old.remove();return;}
   try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;}catch(e){}
@@ -4230,10 +4231,10 @@ function natureFX(theme){
     SC.clouds.forEach(c=>{                                             // 雲層飄移
       c.x+=c.v/W;if(c.x>1.2)c.x=-.2;
       const x=W*c.x,y=H*c.y,s=c.s;
-      cx.fillStyle='rgba(214,224,233,.85)';
+      cx.fillStyle='rgba(92,102,124,.92)';
       [[0,0,66],[52,8,48],[-50,9,46],[16,-13,42]].forEach(([dx,dy,r])=>{
         cx.beginPath();cx.ellipse(x+dx*s,y+dy*s,r*s,r*.52*s,0,0,6.29);cx.fill();});
-      cx.fillStyle='rgba(150,166,181,.35)';                            // 雲底陰影
+      cx.fillStyle='rgba(18,20,30,.6)';                                // 雲底陰影
       cx.beginPath();cx.ellipse(x,y+18*s,64*s,14*s,0,0,6.29);cx.fill();
     });
     if(t>SC.ripNext){                                                  // 地面雨點漣漪
@@ -4243,7 +4244,7 @@ function natureFX(theme){
     }
     SC.rip.forEach(r=>{
       const a=(t-r.t0)/1.1;if(a>=1)return;
-      cx.strokeStyle=`rgba(110,140,165,${(.30*(1-a)).toFixed(3)})`;cx.lineWidth=1;
+      cx.strokeStyle=`rgba(150,178,210,${(.34*(1-a)).toFixed(3)})`;cx.lineWidth=1;
       cx.beginPath();cx.ellipse(r.x,r.y,4+a*26,(4+a*26)*.28,0,0,6.29);cx.stroke();
     });
   }
@@ -4348,7 +4349,7 @@ function natureFX(theme){
     },
     rain(p){
       cx.save();cx.globalAlpha=p.o;
-      cx.strokeStyle='#5A82AA';cx.lineWidth=1.1;cx.lineCap='round';
+      cx.strokeStyle='#9FBFE8';cx.lineWidth=1.1;cx.lineCap='round';
       cx.beginPath();cx.moveTo(p.x,p.y);cx.lineTo(p.x-p.vx*2.2,p.y-p.len);cx.stroke();
       cx.restore();
     },
