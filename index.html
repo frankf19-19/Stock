@@ -1288,7 +1288,8 @@ function renderFav(){
   clearTimeout(window.__favStT);
   window.__favStT=setTimeout(()=>{try{favStateFill();}catch(e){}},800);
 }
-function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderFav(); renderMacro(); try{renderFutTab();}catch(e){} renderNews(); renderChips(); render(); setTimeout(hydrateSparks,300); }
+function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderFav(); renderMacro(); try{renderFutTab();}catch(e){} renderNews(); renderChips(); render(); setTimeout(hydrateSparks,300);
+  try{const p=document.getElementById('tp-port');if(p&&p.style.display!=='none')renderPort();}catch(e){} }
 let T3_BUSY=false;
 function t3ParseOpen(arr,cur){
   if(!Array.isArray(arr)||!arr.length)return;
@@ -1634,7 +1635,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r215</span>');
+  diag.push('<span style="color:var(--dim)">build r217</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7819,7 +7820,8 @@ window.__etfSub='tw';
 function cfCalc(){
   const out=document.getElementById('cfOut');
   if(!out)return;
-  const goal=+(window.__cfGoal||0);
+  const gEl=document.getElementById('cfGoal');
+  const goal=+((gEl&&gEl.value)||window.__cfGoal||0);
   const ids=[...(window.__cfSel||new Set())];
   const cfDy2=s=>{const c=(window.__cfCustom||{})[s.id];return (c!=null)?c:((s.hold&&s.hold.dy)||null);};
   const es=ids.map(id=>DATA.stocks.find(s=>s.id===id)).filter(s=>s&&s.price&&cfDy2(s)>0)
@@ -7859,7 +7861,53 @@ function cfCalc(){
     <b style="color:var(--amber);font-size:17px">${totW>=10000?(totW/10000).toFixed(2)+' 億':Math.round(totW).toLocaleString()+' 萬'}</b>
     · 組合加權殖利率 <b style="font-family:var(--mono)">${blend.toFixed(2)}%</b>
     <span style="color:var(--dim);font-size:12.5px">(稅前、未扣二代健保)</span></div>
-    ${window.__cfScen||''}`;
+    ${window.__cfScen||''}
+    ${cfAdvice(es,yGoalW,totW)}`;
+  out.querySelectorAll('[data-cfadd]').forEach(ch=>ch.onclick=()=>{
+    window.__cfSel.add(ch.dataset.cfadd);
+    renderEtf();
+  });
+}
+/* 🧭 組合調整思路:規則提示 + 一鍵試算(點了直接加入重算,用數字說話) */
+function cfAdvice(es,yGoalW,totW){
+  const cfDy3=s=>{const c=(window.__cfCustom||{})[s.id];return (c!=null)?c:((s.hold&&s.hold.dy)||null);};
+  const pool=DATA.stocks.filter(s=>s.etf&&s.price&&/^\d/.test(s.id)
+    &&(()=>{const d=cfDy3(s);return d!=null&&d>0.3&&d<25;})());
+  const held=new Set(es.map(s=>s.id));
+  const isBond=s=>/債/.test(s.name);
+  const isMkt=s=>['0050','006208','00922','00923'].includes(s.id)||/市值|臺灣50|台灣50/.test(s.name);
+  const notes=[],chips=[];
+  const avgDy=es.reduce((t,s)=>t+s.hold.dy,0)/es.length;
+  // 情境判讀
+  if(es.length===1)
+    notes.push('目前只有一檔——現金流全押單一 ETF 的配息政策上;多一兩檔不同邏輯的標的,單檔減配時比較不傷。');
+  if(avgDy<4){
+    const hi=pool.filter(s=>!held.has(s.id)&&!isBond(s)&&cfDy3(s)>=6).sort((a,b)=>cfDy3(b)-cfDy3(a))[0];
+    if(hi){
+      const mixCap=es.reduce((t,s)=>t+(yGoalW/(es.length+1))/(s.hold.dy/100),0)+(yGoalW/(es.length+1))/(cfDy3(hi)/100);
+      notes.push(`組合殖利率僅 ${avgDy.toFixed(1)}%(偏市值型)——若目標是「月領現金」,資金效率偏低;試算加入一檔高息(如 ${hi.name}),總需資金可從 ${(totW/10000).toFixed(2)} 億 → 約 ${(mixCap/10000).toFixed(2)} 億。但注意:市值型長期總報酬通常較佳,「領得多」和「賺得多」是取捨。`);
+    }
+  }
+  if(es.length>=2&&es.every(s=>!isBond(s)&&!isMkt(s))&&avgDy>=6)
+    notes.push('全部是高股息型——同一種策略疊加,遇到高息退潮(景氣好、市場轉追成長股)會一起縮水;納入一檔市值型或債券型能讓現金流來源多元。');
+  if(es.some(isBond))
+    notes.push('含債券型——配息穩定度高,但淨值對利率敏感(降息利多、升息壓力),與股票型互補的效果正是來自這個特性。');
+  if(!notes.length)
+    notes.push('組合已混搭不同類型——記得檢查各檔配息月份(發行商行事曆),錯開月份才能真正做到每月有現金進帳。');
+  // 一鍵試算候選:未選的 前2高息 + 1市值 + 1債券
+  pool.filter(s=>!held.has(s.id)&&!isBond(s)&&!isMkt(s)).sort((a,b)=>cfDy3(b)-cfDy3(a)).slice(0,2)
+    .forEach(s=>chips.push({s,tag:'高息'}));
+  const mk=pool.find(s=>!held.has(s.id)&&isMkt(s));
+  if(mk)chips.push({s:mk,tag:'市值'});
+  const bd=pool.filter(s=>!held.has(s.id)&&isBond(s)).sort((a,b)=>cfDy3(b)-cfDy3(a))[0];
+  if(bd)chips.push({s:bd,tag:'債券'});
+  return `<div style="margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px 14px">
+    <div style="font-weight:900;font-size:13.5px;margin-bottom:5px">🧭 調整思路 <span style="font-weight:400;font-size:11.5px;color:var(--dim)">規則提示,取捨自己拿——不是建議買進</span></div>
+    ${notes.map(t=>`<div style="font-size:13px;color:var(--txt2);line-height:1.7;padding:3px 0">• ${t}</div>`).join('')}
+    ${chips.length?`<div style="margin-top:7px;font-size:13px"><span style="color:var(--mut);font-weight:800">➕ 一鍵試算加入:</span>
+      ${chips.map(({s,tag})=>`<span class="glb-stk" data-cfadd="${s.id}" style="cursor:pointer">${tag}|${s.name} ${cfDy3(s).toFixed(1)}%</span>`).join('')}
+      <span style="font-size:11px;color:var(--dim)">點了立即重算,不喜歡取消勾選即可</span></div>`:''}
+  </div>`;
 }
 /* 💼 持股分析 */
 function portGet(){try{return JSON.parse(localStorage.getItem('port1')||'[]');}catch(e){return [];}}
@@ -7976,7 +8024,12 @@ function renderPort(){
       const hero=(lb,val,c)=>`<div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:13px 16px">
         <div style="font-size:12px;color:var(--mut);font-weight:800;letter-spacing:.05em">${lb}</div>
         <div style="font-family:var(--mono);font-weight:900;font-size:21px;margin-top:3px;color:${c||'var(--txt)'}">${val}</div></div>`;
-      html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      const ts=new Date().toLocaleTimeString('zh-TW',{hour12:false});
+      html=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;font-size:12px;color:var(--dim)">
+        <span>🟢 自動即時:報價與健檢隨行情更新,新增/修改當下立即重算</span>
+        <span style="margin-left:auto;font-family:var(--mono)">更新於 ${ts}</span>
+        <button id="ptRefresh" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--txt2);cursor:pointer;padding:2px 10px;font-size:12px">🔄 立即重算</button>
+      </div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         ${hero('台股總市值',fmt(mv))}
         ${hero('未實現損益',(pnl>=0?'+':'-')+fmt(Math.abs(pnl)),col)}
         ${hero('報酬率',(pct>=0?'+':'')+pct.toFixed(1)+'%',col)}
@@ -8007,6 +8060,8 @@ function renderPort(){
     }
   }catch(e){console.warn('portDiag',e);}
   box.innerHTML=html;
+  const rf=document.getElementById('ptRefresh');
+  if(rf)rf.onclick=()=>renderPort();
   box.querySelectorAll('.pt-edit').forEach(b=>b.onclick=e=>{
     e.stopPropagation();
     const p=portGet().find(x=>x.id===b.dataset.edit);
@@ -8031,7 +8086,7 @@ function renderPort(){
 setInterval(()=>{try{
   const p=document.getElementById('tp-port');
   if(p&&p.style.display!=='none')renderPort();
-}catch(e){}},30000);
+}catch(e){}},10000);
 function renderEtf(){
   const box=document.getElementById('etfBody');
   if(!box||typeof DATA==='undefined'||!DATA||!Array.isArray(DATA.stocks))return;
