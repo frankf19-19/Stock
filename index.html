@@ -1635,7 +1635,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r218</span>');
+  diag.push('<span style="color:var(--dim)">build r220</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7842,6 +7842,7 @@ function cfCalc(){
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800">${lots.toLocaleString()} 張</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800;color:var(--amber)">${capW>=10000?(capW/10000).toFixed(2)+' 億':Math.round(capW).toLocaleString()+' 萬'}</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${(perW/12).toFixed(1)} 萬/月</td>
+      <td style="padding:6px 4px;border-bottom:1px dashed var(--line);text-align:center"><button data-cfdel="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:3px 10px;font-size:12.5px">✕ 移除</button></td>
     </tr>`;}).join('');
   const blend=yGoalW/totW*100;
   const scen=(dpp,label)=>{                              // 情境:殖利率整體位移 dpp 個百分點
@@ -7854,7 +7855,7 @@ function cfCalc(){
     ${scen(-1.5,'保守(殖利率 −1.5pp)')}${scen(0,'現況殖利率')}${scen(1,'樂觀(+1pp)')}
   </div>`;
   out.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:560px;font-size:13.5px">
-    <tr>${['ETF','近一年殖利率','現價','約需張數','約需資金','貢獻現金'].map(h=>`<th style="text-align:right;padding:4px 8px;color:var(--mut);font-size:12px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('').replace('text-align:right','text-align:left')}</tr>
+    <tr>${['ETF','近一年殖利率','現價','約需張數','約需資金','貢獻現金',''].map(h=>`<th style="text-align:right;padding:4px 8px;color:var(--mut);font-size:12px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('').replace('text-align:right','text-align:left')}</tr>
     ${rows}</table></div>
     <div style="margin-top:9px;background:var(--panel);border:1.5px solid var(--amber);border-radius:10px;padding:10px 14px;font-size:14.5px;line-height:1.8">
     🎯 月領 <b>${goal} 萬</b>(年 ${yGoalW.toLocaleString()} 萬)共約需投入
@@ -7865,6 +7866,10 @@ function cfCalc(){
     ${cfAdvice(es,yGoalW,totW)}`;
   out.querySelectorAll('[data-cfadd]').forEach(ch=>ch.onclick=()=>{
     window.__cfSel.add(ch.dataset.cfadd);
+    renderEtf();
+  });
+  out.querySelectorAll('[data-cfdel]').forEach(bt=>bt.onclick=()=>{
+    window.__cfSel.delete(bt.dataset.cfdel);
     renderEtf();
   });
 }
@@ -8050,7 +8055,7 @@ function renderPort(){
         <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
           <span style="font-weight:900;font-size:16px">🩺 組合健檢</span>
           <span style="font-size:12.5px;color:var(--dim)">依目前 ${arr.length} 檔・更新 ${ts}・卡片狀態會隨庫存增減翻轉(⚠️↔✅)</span>
-          <button class="glb-aibtn" id="ptAiBtn" style="margin-left:auto;font-size:13px;padding:5px 14px">✦ AI 深聊怎麼調整</button></div>
+          <button class="glb-aibtn" id="ptAiBtn" style="margin-left:auto;font-size:13px;padding:5px 14px">✦ 一鍵 AI 分析</button></div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">
           ${D.F.map(f=>`<div style="background:var(--panel2);border:1px solid var(--line);border-left:4px solid ${bc[f.lv]};border-radius:12px;padding:12px 15px">
             <div style="font-weight:900;font-size:14.5px;line-height:1.5">${f.ico} ${f.h}</div>
@@ -8059,6 +8064,15 @@ function renderPort(){
         ${watch.length?`<div style="margin-top:12px;padding-top:11px;border-top:1px dashed var(--line);font-size:14px">
           <span style="font-weight:900">🔭 補角觀察名單</span> <span style="font-size:12px;color:var(--dim)">規則產生:基本面 ≥75 且非你重壓族群——研究起點,<b>不是建議買進</b></span>
           <div style="margin-top:7px">${watch.map(s=>`<a class="glb-stk" href="#stock/${s.id}" style="font-size:13px;padding:4px 12px">${s.name} ${s.id} · ${s.sector} · 基 ${s.f.score}</a>`).join('')}</div></div>`:''}
+        <div id="ptAiOut">${(()=>{
+          const st=window.__ptAi;
+          if(!st||st.k!==portAiKey(arr))return '';
+          if(st.status==='run')return '<div style="margin-top:11px;font-size:13.5px;color:var(--dim)">✦ AI 分析中…(約 10~20 秒,完成後直接顯示在這裡)</div>';
+          if(st.status==='err')return `<div style="margin-top:11px;font-size:13.5px;color:var(--dim)">✦ 分析失敗(${st.txt})——再按一次重試</div>`;
+          return `<div style="margin-top:12px;background:rgba(199,146,234,.07);border:1.5px solid rgba(199,146,234,.4);border-radius:12px;padding:13px 16px;font-size:14px;line-height:1.8">
+            <div style="font-weight:900;color:#C792EA;margin-bottom:5px">✦ AI 組合分析 <span style="font-weight:400;font-size:11.5px;color:var(--dim)">依目前持股即席生成・非投資建議</span></div>
+            ${mdLite(st.txt)}</div>`;
+        })()}</div>
       </div>`;
     }
   }catch(e){console.warn('portDiag',e);}
@@ -8081,20 +8095,33 @@ function renderPort(){
     if(t.closest&&t.closest('.pt-cancel')){e.stopPropagation();window.__ptEdit=null;renderPort();return;}
     if(t.closest&&t.closest('input'))return;
     const ai=t.closest&&t.closest('#ptAiBtn');
-    if(ai){portAiChat();return;}
+    if(ai){portAiInline();return;}
     const gs=t.closest&&t.closest('.glb-stk');
     if(gs)return;                                        // 交給 <a href> 原生跳轉
     const row=t.closest&&t.closest('[data-goto]');
     if(row){location.hash='#stock/'+row.dataset.goto;}
   };
 }
-function portAiChat(){
+function portAiKey(arr){return arr.map(p=>p.id+':'+p.sh+':'+p.cost).sort().join('|');}
+async function portAiInline(){
   const arr=portGet();
+  if(!arr.length)return;
+  const k=portAiKey(arr);
+  if(window.__ptAi&&window.__ptAi.k===k&&window.__ptAi.status==='run')return;   // 進行中防重複
+  window.__ptAi={k,status:'run',txt:''};
+  renderPort();
   const lines=arr.map(p=>{const s=(DATA.stocks||[]).find(x=>x.id===p.id);if(!s)return null;
-    const mv=s.price*p.sh,pnl=(s.price-p.cost)*p.sh;
-    return `${s.name}(${p.id}):${p.sh.toLocaleString()} 股、成本 ${p.cost}、現價 ${s.price}、市值約 ${Math.round(mv/1e4)} 萬、損益 ${pnl>=0?'+':''}${Math.round(pnl/1e4)} 萬${s.sector?'、'+s.sector:''}${s.f?'、基本面 '+s.f.score+' 分':''}`;
+    const mv=s.price*p.sh,pnl=(s.price-p.cost)*p.sh,pct=p.cost?((s.price-p.cost)/p.cost*100).toFixed(1):'0';
+    return `${s.name}(${p.id}):${p.sh.toLocaleString()} 股、成本 ${p.cost}、現價 ${s.price}、市值約 ${Math.round(mv/1e4)} 萬、損益 ${pnl>=0?'+':''}${Math.round(pnl/1e4)} 萬(${pct}%)${s.sector?'、'+s.sector:''}${s.f?'、基本面 '+s.f.score+' 分':''}`;
   }).filter(Boolean).join('\n');
-  try{aiAsk(`這是我目前的持股組合:\n${lines}\n\n請以中立教練的角度用繁體中文分析:\n1) 這個組合的結構特徵與主要風險(集中度、族群重疊、體質)\n2) 如果要「調整」,有哪幾種不同思路(例如分散 vs 加碼信念股 vs 增加防禦部位),各自的取捨是什麼\n3) 每種思路下值得研究的方向或標的類型(可舉例但請說明理由)\n請不要直接叫我買或賣特定股票,把取捨講清楚讓我自己決定;結尾提醒非投資建議。`,true);}catch(e){}
+  try{
+    const txt=await gaAiOnce(`這是我目前的台股持股組合:\n${lines}\n\n請以中立教練角度,用繁體中文條列分析(直接開始,不要開場白,總長 300~500 字):\n1) 組合結構特徵與最大的 1~2 個風險\n2) 調整的 2~3 種思路(如分散/加碼信念股/增防禦),各自取捨一句話講清楚\n3) 每種思路下值得研究的「方向或類型」與理由(不要直接叫我買賣特定股票)\n最後一行:非投資建議,決定權在投資人。`,null,false,1400);
+    if(!txt)throw new Error('空回應');
+    window.__ptAi={k,status:'done',txt};
+  }catch(e){
+    window.__ptAi={k,status:'err',txt:String(e.message||e).slice(0,80)};
+  }
+  renderPort();
 }
 setInterval(()=>{try{
   if(window.__ptEdit)return;                              // 編輯中不重繪,保護輸入
