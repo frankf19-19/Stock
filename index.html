@@ -1652,7 +1652,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r230</span>');
+  diag.push('<span style="color:var(--dim)">build r231</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7026,13 +7026,21 @@ const GLB_TOPICS=[
  ['🤖 AI 伺服器','("AI server" OR "data center" OR HBM OR CoWoS OR Nvidia OR "GB300") (demand OR orders OR capacity OR expansion OR shortage OR ramp)'],
  ['🏭 晶圓/封裝','(TSMC OR foundry OR "advanced packaging" OR wafer) (price OR capacity OR expansion OR utilization OR order)'],
  ['💡 光通訊','("optical module" OR "silicon photonics" OR "co-packaged optics" OR 800G OR "1.6T" OR transceiver)'],
- ['⚡ 電源/散熱','("power supply" OR HVDC OR "800V" OR "liquid cooling" OR "immersion cooling") ("data center" OR AI OR Nvidia)']];
+ ['⚡ 電源/散熱','("power supply" OR HVDC OR "800V" OR "liquid cooling" OR "immersion cooling") ("data center" OR AI OR Nvidia)'],
+ ['🧠 記憶體','(HBM OR DRAM OR NAND OR "memory chip" OR "memory price") (Samsung OR "SK Hynix" OR Micron OR Kioxia OR shortage OR price OR capacity OR contract)'],
+ ['🟢 PCB/載板','(PCB OR CCL OR "copper clad" OR substrate OR ABF OR "printed circuit") (AI OR server OR price OR capacity OR upgrade OR demand)'],
+ ['🦾 機器人','("humanoid robot" OR robotics OR Optimus OR "Figure AI" OR "robot production") (Tesla OR supply OR component OR actuator OR "mass production")'],
+ ['🚗 電動車/儲能','(EV OR "electric vehicle" OR "energy storage" OR battery OR charging) (Tesla OR BYD OR supply OR orders OR "grid storage")'],
+ ['📡 網通/衛星','("low earth orbit" OR Starlink OR satellite OR "Ethernet switch" OR "800G switch" OR networking) (AI OR "data center" OR broadband OR launch OR orders)'],
+ ['🔬 設備/材料','(ASML OR "chip equipment" OR "semiconductor equipment" OR "wafer fab equipment" OR photoresist OR "specialty gas") (order OR spending OR capex OR expansion)']];
 const GLB_MAP=[
  [/HBM|DRAM|NAND|\bmemory\b|flash/i,'記憶體'],[/ABF|substrate/i,'ABF載板'],
  [/\bPCB\b|CCL|copper.?clad/i,'PCB'],[/optical|photonic|co.?packaged|800G|1\.6T|transceiver/i,'光通訊'],
  [/liquid cooling|immersion|thermal|cooling/i,'散熱'],[/power supply|HVDC|800V|\bPSU\b/i,'電源'],
  [/TSMC|foundry|wafer|packaging|CoWoS/i,'晶圓/封測'],[/Nvidia|AI server|GB200|GB300|data center/i,'AI伺服器'],
- [/MLCC|passive component/i,'被動元件'],[/networking|switch|Ethernet/i,'網通']];
+ [/MLCC|passive component/i,'被動元件'],[/networking|switch|Ethernet|satellite|Starlink|low earth orbit/i,'網通'],
+ [/humanoid|robot|Optimus|actuator/i,'機器人'],[/\bEV\b|electric vehicle|battery|energy storage|charging/i,'電動車儲能'],
+ [/ASML|chip equipment|semiconductor equipment|wafer fab|photoresist|specialty gas/i,'設備材料']];
 /* 族群 → 台股代表個股(供應鏈代表名單,點擊跳個股頁;僅為研究起點非投資建議) */
 const GLB_STOCKS={
  '記憶體':[['2408','南亞科'],['3260','威剛'],['8299','群聯'],['2344','華邦電'],['4967','十銓']],
@@ -7044,7 +7052,10 @@ const GLB_STOCKS={
  'AI伺服器':[['2317','鴻海'],['2382','廣達'],['6669','緯穎'],['3231','緯創'],['2356','英業達'],['2376','技嘉']],
  '晶圓/封測':[['2330','台積電'],['2303','聯電'],['6770','力積電'],['3711','日月光投控'],['6239','力成']],
  '被動元件':[['2327','國巨'],['2492','華新科'],['3026','禾伸堂']],
- '網通':[['2345','智邦'],['3596','智易'],['6285','啟碁'],['4906','正文']]};
+ '網通':[['2345','智邦'],['3596','智易'],['6285','啟碁'],['4906','正文']],
+ '機器人':[['2049','上銀'],['1536','和大'],['2308','台達電'],['4583','台灣精銳'],['2374','佳能']],
+ '電動車儲能':[['3665','貿聯-KY'],['2308','台達電'],['6605','帝寶'],['1519','華城'],['1513','中興電']],
+ '設備材料':[['3131','弘塑'],['3583','辛耘'],['3680','家登'],['5434','崇越'],['6640','均華']]};
 function glbStocks(tagNames){
   const seen=new Set(),out=[];
   (tagNames||[]).forEach(tg=>(GLB_STOCKS[tg]||[]).forEach(([id,nm])=>{
