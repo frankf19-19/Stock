@@ -1635,7 +1635,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r227</span>');
+  diag.push('<span style="color:var(--dim)">build r228</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7817,6 +7817,93 @@ window.__etfSub='tw';
   if(typeof DATA!=='undefined'&&DATA&&Array.isArray(DATA.stocks)){try{renderEtf();}catch(e){}return;}
   if(n>0)setTimeout(()=>waitData(n-1),500);
 })(60);
+/* 🤖 AI 幫我搭:條件 chips + 生成組合 */
+function cfAiBlock(){
+  const P=window.__cfPref;
+  const chip=(attr,val,lb,on)=>`<button ${attr}="${val}" style="padding:7px 15px;border-radius:999px;border:1.5px solid ${on?'var(--amber)':'var(--line)'};background:${on?'rgba(230,168,60,.14)':'var(--panel)'};color:${on?'var(--amber)':'var(--txt2)'};font-weight:800;font-size:13.5px;cursor:pointer">${lb}</button>`;
+  const plan=window.__cfPlan;
+  return `<div style="background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 17px">
+    <div style="font-size:13px;font-weight:900;color:var(--mut);margin-bottom:6px">① 市場</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      ${chip('data-pm','tw','🇹🇼 台股',P.mkt==='tw')}${chip('data-pm','us','🇺🇸 美股',P.mkt==='us')}${chip('data-pm','both','都可以',P.mkt==='both')}</div>
+    <div style="font-size:13px;font-weight:900;color:var(--mut);margin:11px 0 6px">② 喜歡的類型(可複選)</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      ${chip('data-ps','div','💰 高股息現金流',P.styles.has('div'))}
+      ${chip('data-ps','mkt','🏛️ 市值權值型(如 0050)',P.styles.has('mkt'))}
+      ${chip('data-ps','tech','🚀 科技・半導體(費半型)',P.styles.has('tech'))}
+      ${chip('data-ps','bond','🏦 債券穩定',P.styles.has('bond'))}
+      ${chip('data-ps','reit','🏢 不動產 REITs',P.styles.has('reit'))}</div>
+    <div style="font-size:13px;font-weight:900;color:var(--mut);margin:11px 0 6px">③ 配息頻率偏好</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      ${chip('data-pf','m','📅 月月有錢',P.freq==='m')}${chip('data-pf','q','季配就好',P.freq==='q')}${chip('data-pf','any','無所謂',P.freq==='any')}</div>
+    <button id="cfAiGo" class="glb-aibtn" style="margin-top:13px;font-size:14.5px;padding:9px 26px;font-weight:900">✦ 生成建議組合</button>
+    <span style="font-size:11.5px;color:var(--dim);margin-left:8px">AI 從符合條件的 ETF 挑 3~5 檔並說明理由;沒設金鑰會改用規則挑選</span>
+    <div id="cfAiPlan" style="margin-top:11px">${plan?`
+      <div style="background:rgba(199,146,234,.07);border:1.5px solid rgba(199,146,234,.4);border-radius:12px;padding:12px 15px">
+        <div style="font-weight:900;color:#C792EA;font-size:14px">✦ 建議組合 <span style="font-weight:400;font-size:11.5px;color:var(--dim)">${plan.src}・已套用到下方試算,可再手動增減・非投資建議</span></div>
+        <div style="font-size:13.5px;line-height:1.75;margin-top:5px">${plan.note||''}</div>
+        <div style="margin-top:6px">${plan.picks.map(id=>{
+          const s=(DATA.stocks||[]).find(x=>x.id===id);
+          return s?`<div style="font-size:13.5px;padding:3px 0;border-bottom:1px dashed var(--line)"><b>${s.name}</b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${id}</span> — ${(plan.why&&plan.why[id])||''}</div>`:'';}).join('')}</div>
+      </div>`:''}</div>
+  </div>`;
+}
+async function cfAiPlan(){
+  const P=window.__cfPref;
+  const cfDy5=s=>{const c=(window.__cfCustom||{})[s.id];if(c!=null)return c;
+    const o=window.__dyJ&&window.__dyJ[s.id];if(o&&o.dy>0)return o.dy;
+    return (s.hold&&s.hold.dy)||null;};
+  const TYPE=s=>{
+    if(/債/.test(s.name))return 'bond';
+    if(/不動產|REIT/i.test(s.name))return 'reit';
+    if(/半導體|科技|費半|電動車|綠能|AI|創新|那斯達克|NASDAQ|尖牙/i.test(s.name))return 'tech';
+    if(/高股息|高息|優息|存股|精選高|填息|收益/.test(s.name))return 'div';
+    return 'mkt';
+  };
+  let pool=DATA.stocks.filter(s=>s.etf&&s.price&&cfDy5(s)>0.3&&cfDy5(s)<25);
+  if(P.mkt==='tw')pool=pool.filter(s=>/^\d/.test(s.id));
+  else if(P.mkt==='us')pool=pool.filter(s=>!/^\d/.test(s.id));
+  if(P.styles.size)pool=pool.filter(s=>P.styles.has(TYPE(s)));
+  if(P.freq==='m'){
+    const m=pool.filter(s=>{const o=window.__dyJ&&window.__dyJ[s.id];return o&&o.n>=11;});
+    if(m.length>=3)pool=m;
+  }else if(P.freq==='q'){
+    const q=pool.filter(s=>{const o=window.__dyJ&&window.__dyJ[s.id];return o&&o.n>=3;});
+    if(q.length>=3)pool=q;
+  }
+  pool.sort((a,b)=>cfDy5(b)-cfDy5(a));
+  const cand=pool.slice(0,14);
+  const box=document.getElementById('cfAiPlan');
+  if(!cand.length){if(box)box.innerHTML='<div class="dim-note">沒有符合條件的 ETF——放寬一兩個條件再試。</div>';return;}
+  const apply=(picks,why,note,srcLb)=>{
+    window.__cfSel=new Set(picks);
+    cfSelSave();
+    window.__cfPlan={picks,why,note,src:srcLb};
+    renderEtf();
+  };
+  const fallback=()=>{                                    // 規則挑選:各類型取殖利率最高,最多4檔
+    const byT={};
+    cand.forEach(s=>{const t=(()=>{if(/債/.test(s.name))return 'bond';if(/不動產|REIT/i.test(s.name))return 'reit';if(/半導體|科技|費半|電動車|綠能|AI|創新|那斯達克/i.test(s.name))return 'tech';if(/高股息|高息|優息|存股|精選高|填息|收益/.test(s.name))return 'div';return 'mkt';})();
+      if(!byT[t])byT[t]=s;});
+    const picks=Object.values(byT).slice(0,4).map(s=>s.id);
+    const why={};picks.forEach(id=>{const s=cand.find(x=>x.id===id);why[id]=`符合條件中殖利率較高(${cfDy5(s).toFixed(1)}%)`;});
+    apply(picks,why,'規則挑選:各類型取殖利率最高者組成,金額平均分配。','規則挑選');
+  };
+  if(box)box.innerHTML='<div style="font-size:13.5px;color:var(--dim)">✦ AI 正在依你的條件搭配組合…(約 5~10 秒)</div>';
+  try{
+    const lines=cand.map(s=>{const o=window.__dyJ&&window.__dyJ[s.id];
+      return `${s.id} ${s.name} 殖利率${cfDy5(s).toFixed(1)}%${o&&o.n?' 年配'+o.n+'次':''}${!/^\d/.test(s.id)?' (美股)':''}`;}).join('\n');
+    const txt=await gaAiOnce(`使用者想存 ETF 領息,條件:市場=${P.mkt==='tw'?'台股':P.mkt==='us'?'美股':'台股美股皆可'};偏好類型=${[...P.styles].join(',')};配息頻率=${P.freq==='m'?'希望月月有現金':P.freq==='q'?'季配即可':'無偏好'}。
+候選 ETF(僅能從中挑選):\n${lines}\n
+請挑 3~5 檔組成互補的領息組合(金額將平均分配)。只回傳 JSON、不要 markdown 圍欄與任何其他文字,格式:
+{"picks":["代號1","代號2"],"why":{"代號1":"15字內理由"},"note":"組合整體思路40字內"}`,null,true,800);
+    const clean=txt.replace(/\`\`\`json|\`\`\`/g,'').trim();
+    const j=JSON.parse(clean);
+    const picks=(j.picks||[]).filter(id=>cand.some(s=>s.id===id)).slice(0,5);
+    if(picks.length<2)throw new Error('挑選無效');
+    apply(picks,j.why||{},j.note||'','AI 搭配');
+  }catch(e){fallback();}
+}
 /* 💰 存股領息試算 */
 function cfSelSave(){try{localStorage.setItem('cf_sel',JSON.stringify([...(window.__cfSel||[])]));}catch(e){}}
 function cfCalc(){
@@ -8338,6 +8425,8 @@ function renderEtf(){
     let saved=[];try{saved=JSON.parse(localStorage.getItem('cf_sel')||'[]');}catch(e){}
     window.__cfSel=new Set(saved);
   }
+  window.__cfMode=window.__cfMode||'self';
+  window.__cfPref=window.__cfPref||{mkt:'tw',styles:new Set(['div']),freq:'any'};
   const cfSec=(sub==='cf')?`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 14px">
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <span style="font-size:16px;font-weight:900;letter-spacing:.04em">💰 存股領息試算</span>
@@ -8350,7 +8439,11 @@ function renderEtf(){
       <span style="font-size:15px;font-weight:800">萬元現金</span>
       <span style="font-size:12.5px;color:var(--dim)">= 年領 <b id="cfYr" style="font-family:var(--mono)">${((window.__cfGoal||20)*12).toLocaleString()}</b> 萬</span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button data-cfmode="self" style="flex:1;max-width:240px;padding:9px;border-radius:11px;border:1.5px solid ${window.__cfMode!=='ai'?'var(--amber)':'var(--line)'};background:${window.__cfMode!=='ai'?'var(--amber)':'var(--panel)'};color:${window.__cfMode!=='ai'?'var(--panel)':'var(--txt2)'};font-weight:900;font-size:14px;cursor:pointer">🎯 自己選(配息為主)</button>
+      <button data-cfmode="ai" style="flex:1;max-width:240px;padding:9px;border-radius:11px;border:1.5px solid ${window.__cfMode==='ai'?'var(--amber)':'var(--line)'};background:${window.__cfMode==='ai'?'var(--amber)':'var(--panel)'};color:${window.__cfMode==='ai'?'var(--panel)':'var(--txt2)'};font-weight:900;font-size:14px;cursor:pointer">🤖 AI 幫我搭</button>
+    </div>
+    ${window.__cfMode==='ai'?cfAiBlock():`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
       <span style="font-size:13px;font-weight:800;color:var(--mut)">選擇搭配的 ETF(可複選,金額平均分配・含台股與美股,共 ${cfEtfs.length} 檔)</span>
       <input id="cfSearch" placeholder="🔎 輸入代號或名稱過濾(如 0056、高股息)" style="flex:1;min-width:220px;max-width:340px;padding:6px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel)">
     </div>
@@ -8370,7 +8463,7 @@ function renderEtf(){
       <input id="cfAddDy" type="number" step="0.1" min="0.3" max="25" placeholder="近一年殖利率%" style="width:130px;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
       <button class="btn-ghost" id="cfAddGo" style="padding:5px 14px;font-weight:800">＋ 加入</button>
       <span style="font-size:11.5px;color:var(--dim)">殖利率請查發行商官網「近12個月配息 ÷ 現價」;自填項會標示</span>
-    </div>
+    </div>`}
     <div id="cfOut" style="margin-top:14px"></div>
     <div class="dim-note" style="margin-top:10px">提醒:①股利單筆 ≥2 萬元有 2.11% 二代健保補充保費,且併入綜所稅(或 28% 分離課稅擇優)②市值型(如 0050)殖利率低但長期總報酬通常較佳——「月領現金」和「資產最大化」是兩個不同目標 ③各檔配息月份請查發行商行事曆(本站無配息月曆資料)④高股息殖利率隨市況大幅波動,過去配息不代表未來;試算非投資建議。</div>
   </div>`:'';
@@ -8393,6 +8486,18 @@ function renderEtf(){
         box.querySelectorAll('#cfList label').forEach(l=>{
           l.style.display=(!q||l.dataset.k.toLowerCase().includes(q))?'':'none';});
       };
+      box.querySelectorAll('[data-cfmode]').forEach(b=>b.onclick=()=>{
+        window.__cfMode=b.dataset.cfmode;renderEtf();});
+      box.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{
+        window.__cfPref.mkt=b.dataset.pm;renderEtf();});
+      box.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>{
+        const st=window.__cfPref.styles;
+        st.has(b.dataset.ps)?st.delete(b.dataset.ps):st.add(b.dataset.ps);
+        renderEtf();});
+      box.querySelectorAll('[data-pf]').forEach(b=>b.onclick=()=>{
+        window.__cfPref.freq=b.dataset.pf;renderEtf();});
+      const aig=document.getElementById('cfAiGo');
+      if(aig)aig.onclick=()=>cfAiPlan();
       box.querySelectorAll('[data-cfgo]').forEach(el=>el.onclick=e=>{
         e.preventDefault();e.stopPropagation();
         location.hash='#stock/'+el.dataset.cfgo;});
