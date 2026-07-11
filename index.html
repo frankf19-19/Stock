@@ -1452,7 +1452,7 @@ async function t3HistShow(sid,q,slot){
     const yoy=yoyAt(i), pv=rows[i+1]&&rows[i+1].v;
     return `<tr>
       <td style="${tds};text-align:left;color:var(--txt2)">${r.q}</td>
-      <td style="${tds};line-height:1.4"><b>${r.v.rev?(r.v.rev/1e5).toFixed(1):'—'}</b><br><span style="font-size:11.5px;font-weight:800;color:${yoy==null?'var(--mut)':yoy>0?'#FF8A8E':'#4BD695'}">${yoy==null?'YoY —':'YoY '+(yoy>0?'+':'')+yoy.toFixed(1)+'%'}</span></td>
+      <td style="${tds};line-height:1.4"><b>${r.v.rev?(r.v.rev/100).toFixed(0):'—'}</b><br><span style="font-size:11.5px;font-weight:800;color:${yoy==null?'var(--mut)':yoy>0?'#FF8A8E':'#4BD695'}">${yoy==null?'YoY —':'YoY '+(yoy>0?'+':'')+yoy.toFixed(1)+'%'}</span></td>
       <td style="${tds};color:${arrowC(r.v.gm,pv&&pv.gm)}">${r.v.gm.toFixed(1)}%</td>
       <td style="${tds};color:${arrowC(r.v.om,pv&&pv.om)}">${r.v.om.toFixed(1)}%</td>
       <td style="${tds};color:${arrowC(r.v.nm,pv&&pv.nm)}">${r.v.nm.toFixed(1)}%</td></tr>`;
@@ -1478,7 +1478,7 @@ async function t3HistShow(sid,q,slot){
         yAxis:[{type:'value',name:'億',axisLabel:{color:CT.axis,fontSize:10.5},splitLine:{lineStyle:{color:CT.split}}},
                {type:'value',name:'%',axisLabel:{color:CT.axis,fontSize:10.5,formatter:'{value}%'},splitLine:{show:false}}],
         series:[
-          {name:'營收(億)',type:'bar',data:asc.map(r=>+(r.v.rev/1e5).toFixed(1)),barMaxWidth:26,
+          {name:'營收(億)',type:'bar',data:asc.map(r=>+(r.v.rev/100).toFixed(0)),barMaxWidth:26,
             itemStyle:{color:'rgba(230,168,60,.55)',borderColor:'var(--amber)',borderRadius:[3,3,0,0]},
             label:{show:true,position:'top',fontSize:10,fontFamily:'monospace',
               color:CT.legend,
@@ -1760,7 +1760,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r241</span>');
+  diag.push('<span style="color:var(--dim)">build r242</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5002,8 +5002,11 @@ async function showDetail(id){
     <div class="sec-title" data-sec="stk_s">📅 歷史月份行情 <span style="font-weight:400;font-size:13px;letter-spacing:0">季節性統計・各年度月份漲跌</span></div><div class="sec-body" id="sb-stk_s">
     <div id="seasonBox" class="dim-block"><div class="dim-note">📡 歷史月K自動載入中…</div></div>
     </div>
-    <div class="sec-title" data-sec="stk_h">👑 大戶持股趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">集保週資料・千張大戶 vs 散戶</span></div><div class="sec-body" id="sb-stk_h">
+    ${s.market==='TW'&&!s.etf?`<div class="sec-title" data-sec="stk_r">💰 營收與獲利 <span style="font-weight:400;font-size:13px;letter-spacing:0">月營收趨勢・季報三率・近兩年</span></div><div class="sec-body" id="sb-stk_r">
+    <div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>
     <div id="t3qBox" class="dim-block"><div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div></div>
+    </div>`:''}
+    <div class="sec-title" data-sec="stk_h">👑 大戶持股趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">集保週資料・千張大戶 vs 散戶</span></div><div class="sec-body" id="sb-stk_h">
     <div id="tdccBox" class="dim-block"><div class="dim-note">📡 集保股權資料載入中…</div></div>
     </div>
     <div class="sec-title" data-sec="stk_3">${s.etf?'📊 籌碼與技術':'⚖️ 三力檢視'} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.etf?'法人動向・技術線型':'基本面・籌碼面・技術面評分'} · 💡 點名詞看白話解釋</span></div><div class="sec-body" id="sb-stk_3">
@@ -5012,8 +5015,7 @@ async function showDetail(id){
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',cAug)}
     ${dimBlock('技術線型(權重25%)',s.t)}
     </div>
-    <div class="sec-title" data-sec="stk_c">📊 籌碼與營收圖表 <span style="font-weight:400;font-size:13px;letter-spacing:0">營收趨勢・法人・大戶・信用交易(6個月)</span></div><div class="sec-body" id="sb-stk_c">
-    ${s.market==='TW'&&!s.etf?`<div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>`:''}
+    <div class="sec-title" data-sec="stk_c">📊 籌碼圖表 <span style="font-weight:400;font-size:13px;letter-spacing:0">法人買賣超・大戶・信用交易(6個月)</span></div><div class="sec-body" id="sb-stk_c">
     <div id="chipwrap"></div>
     </div>
     ${s.market==='TW'&&!s.etf?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:13px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}</div>`:''}
