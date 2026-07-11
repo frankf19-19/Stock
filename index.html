@@ -285,6 +285,24 @@ td,th{font-size:inherit}
 .tabPane button{font-size:inherit}
 .tg{font-size:12.5px !important}
 .ds{font-size:13px !important}
+/* ── r245 小學堂精緻化 ── */
+.learn-card{display:flex;flex-direction:column;gap:6px;min-height:118px;border-radius:13px;
+  transition:transform .14s,border-color .14s,box-shadow .14s;cursor:pointer;position:relative;overflow:hidden}
+.learn-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--amber);opacity:.75}
+.learn-card:hover{transform:translateY(-3px);border-color:var(--amber);box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.learn-card .ltag{align-self:flex-start;font-size:10.5px;font-weight:900;letter-spacing:.06em;color:var(--amber);
+  border:1px solid var(--amber);border-radius:999px;padding:1px 9px;opacity:.9}
+.learn-card .lt{font-size:15.5px;font-weight:900;line-height:1.4}
+.learn-card .lo{font-size:12.5px;color:var(--mut);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.learn-sec{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;margin:18px 0 4px;flex-basis:100%;width:100%}
+.learn-sec:first-child{margin-top:0}
+.learn-sec .h{font-size:17px;font-weight:900;letter-spacing:.04em}
+.learn-sec .c{font-size:12px;color:var(--dim);font-family:var(--mono)}
+.learn-sec::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent);align-self:center}
+.learn-nav{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 2px}
+.learn-nav a{text-decoration:none;font-size:13px;font-weight:800;color:var(--txt2);background:var(--panel);
+  border:1.5px solid var(--line);border-radius:999px;padding:6px 15px;transition:all .12s}
+.learn-nav a:hover{border-color:var(--amber);color:var(--amber)}
 .aef-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;cursor:pointer;transition:border-color .15s}
 .aef-card:hover{border-color:#C792EA}
 .aef-bdg{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:800;margin-left:5px;vertical-align:1px}
@@ -1760,7 +1778,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r244</span>');
+  diag.push('<span style="color:var(--dim)">build r245</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5980,6 +5998,24 @@ const LEARN={
    ['怎麼用','每年節奏固定:Q2 供應鏈開始備料(拉貨動能出現在月營收)、9 月發表、Q4 出貨高峰——<b>「發表會前漲、發表會後看銷量」</b>是老劇本。個股層面看「內容價值量增減」:這代 iPhone 你的零件是升級了還是被砍單降規,比 iPhone 總銷量重要。'],
    ['新手最常犯的錯','把蘋概股當成長股給高估值——多數環節已是成熟代工,賺的是穩定財;真正還有成長故事的是「單機價值量持續上升」的少數(如先進封裝、光學升級),分清楚誰在吃老本、誰在長新肉。']],
   more:['foundry','semi']},
+ biotech:{t:'生技製藥白話:賭桌與收租的兩種玩法',tag:'產業鏈',one:'新藥是十年磨一劍的樂透;學名藥和 CDMO 是穩穩收租——先分清你買的是哪種',
+  secs:[
+   ['這是什麼','生技股要拆三種:<b>新藥開發</b>——燒錢做臨床試驗(一期→二期→三期→藥證),成功是十倍股、失敗直接崩,解盲日就是開獎日;<b>學名藥/原料藥</b>——專利過期後做「公版藥」,賺製造財;<b>CDMO 代工</b>——幫國際藥廠代工生產(保瑞、台康),像藥界的台積電,吃訂單不賭研發。'],
+   ['怎麼用','買之前先問「它的錢從哪來」:有穩定營收的(CDMO、學名藥、醫材)用正常財報邏輯看;沒營收的新藥股,唯一重點是<b>臨床進度與現金水位</b>(燒完錢就要增資稀釋你)。解盲前的股價是「期望值遊戲」——重倉賭解盲和買樂透的差別只在張數。'],
+   ['新手最常犯的錯','聽「三期臨床即將解盲」就重押——解盲是二元事件,失敗跌五成起跳,部位要按樂透規格給;以及把生技當族群一起買,新藥和 CDMO 的風險結構天差地遠。']],
+  more:['stop','pe']},
+ greenenergy:{t:'綠能:太陽能、風電與憑證生意',tag:'產業鏈',one:'政策要淨零、AI 要綠電——發電的賺補貼與售電,做設備的賺標案',
+  secs:[
+   ['這是什麼','三條線:<b>太陽能</b>——模組(元晶、聯合再生)殺價競爭激烈,電廠營運(泓德、雲豹)賺長期售電;<b>離岸風電</b>——世紀鋼的水下基礎、台船的海事工程,吃國家標案;<b>綠電交易</b>——科技大廠(台積電們)被要求用綠電,RE100 需求讓「綠電憑證」變成搶手貨,售電業者長約在手。'],
+   ['怎麼用','這是<b>政策+長約</b>的生意:看能源局的併網目標與標案節奏、看售電業者手上的企業購售電合約(CPPA)年限;製造端(模組)受中國產能殺價壓制,長期看電廠與售電端的現金流模式較穩。AI 資料中心的綠電需求是新變數——供不應求的是綠電本身。'],
+   ['新手最常犯的錯','把「綠能概念」全當成長股——模組製造是殺價紅海,和收長約電費的電廠是兩種生意;以及低估工程延宕風險(風電的海事工程延一季,認列就延一季)。']],
+  more:['heavyelec','cycle']},
+ tourism:{t:'觀光內需:解封紅利之後看什麼',tag:'產業鏈',one:'航空、飯店、餐飲賺的是「人流×客單價」——匯率和連假天數都是變數',
+  secs:[
+   ['這是什麼','內需服務業的邏輯簡單直接:<b>航空</b>(長榮航、華航)看客運票價與貨運運價雙引擎,油價是最大成本;<b>飯店</b>(晶華、寒舍)看住房率×房價;<b>餐飲</b>(王品、瓦城)看展店數×同店成長。日圓便宜時台灣人出國多、來台觀光就吃虧——匯率直接改寫人流方向。'],
+   ['怎麼用','看先行指標:桃機出入境人次(每月公布)、票價指數、飯店住房率;航空股另看<b>貨運</b>——AI 伺服器空運需求讓貨運艙位變金雞。內需股的特性是穩定但天花板明顯,估值通常用殖利率思維而非成長股思維。'],
+   ['新手最常犯的錯','用「觀光復甦」一個題材買整個族群——航空賺貨運的邏輯和飯店賺住房率的邏輯完全不同步;以及忽略油價與匯率對航空獲利的巨大槓桿,票價再好一季匯損就吃光。']],
+  more:['fxrate','finstock']},
 };
 const LEARN_FIG={
 kline:`<svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg">
@@ -6293,6 +6329,92 @@ server:`<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">
 <line x1="458" y1="244" x2="484" y2="244" stroke="var(--dim)"/></g>
 <text x="380" y="292" text-anchor="middle" fill="var(--dim)" font-size="11.5">組裝:鴻海(機櫃市佔最大)・廣達(ODM 龍頭)・緯穎(直供 CSP)——一台機櫃,台廠含量八成</text></svg>`
 };
+/* ── 示意圖產生器:主題色自適應的四種版型 ── */
+function figFlow(steps,loop){
+  const n=steps.length,W=760,H=150,bw=Math.min(150,(W-40-(n-1)*34)/n),y=46,bh=58;
+  let x=(W-(bw*n+34*(n-1)))/2,out='';
+  const pos=[];
+  steps.forEach((st,i)=>{
+    const[h,sub]=Array.isArray(st)?st:[st,''];
+    pos.push(x);
+    out+=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="10" fill="var(--panel2)" stroke="var(--amber)" stroke-width="1.6"/>
+      <text x="${x+bw/2}" y="${y+(sub?24:34)}" text-anchor="middle" fill="var(--txt)" font-size="13" font-weight="800">${h}</text>
+      ${sub?`<text x="${x+bw/2}" y="${y+43}" text-anchor="middle" fill="var(--mut)" font-size="10.5">${sub}</text>`:''}`;
+    if(i<n-1)out+=`<text x="${x+bw+17}" y="${y+bh/2+5}" text-anchor="middle" fill="var(--amber)" font-size="17" font-weight="900">→</text>`;
+    x+=bw+34;
+  });
+  if(loop){
+    const x0=pos[0]+bw/2,x1=pos[n-1]+bw/2;
+    out+=`<path d="M ${x1} ${y+bh+8} L ${x1} ${y+bh+26} L ${x0} ${y+bh+26} L ${x0} ${y+bh+8}" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#lfArr)"/>
+    <defs><marker id="lfArr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--amber)"/></marker></defs>
+    <text x="${(x0+x1)/2}" y="${y+bh+41}" text-anchor="middle" fill="var(--mut)" font-size="11.5">循環往復</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${loop?H+42:H}" xmlns="http://www.w3.org/2000/svg">${out}</svg>`;
+}
+function figBars(items,unit){
+  const W=760,H=64+items.length*44,mx=Math.max(...items.map(x=>Math.abs(x[1])));
+  let out='';
+  items.forEach(([lb,v,col],i)=>{
+    const y=44+i*44,w=Math.max(8,Math.abs(v)/mx*380);
+    out+=`<text x="200" y="${y+18}" text-anchor="end" fill="var(--txt2)" font-size="13" font-weight="700">${lb}</text>
+      <rect x="214" y="${y}" width="${w}" height="26" rx="6" fill="${col||'var(--amber)'}" opacity=".82"/>
+      <text x="${214+w+10}" y="${y+18}" fill="var(--txt)" font-size="13.5" font-weight="900" font-family="monospace">${v}${unit||''}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${out}</svg>`;
+}
+function figSplit(L,R){
+  const W=760,H=176,bw=340;
+  const panel=(o,x,col)=>`<rect x="${x}" y="34" width="${bw}" height="126" rx="12" fill="var(--panel2)" stroke="${col}" stroke-width="1.8"/>
+    <text x="${x+bw/2}" y="60" text-anchor="middle" fill="${col}" font-size="14.5" font-weight="900">${o.h}</text>
+    ${o.lines.map((l,i)=>`<text x="${x+18}" y="${86+i*23}" fill="var(--txt2)" font-size="12.5">• ${l}</text>`).join('')}`;
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${panel(L,26,'#FF8A8E')}${panel(R,W-26-bw,'#4BD695')}<text x="${W/2}" y="102" text-anchor="middle" fill="var(--mut)" font-size="15" font-weight="900">vs</text></svg>`;
+}
+function figTrend(a,b,note){
+  const W=760,H=190,x0=60,x1=720,y0=150,y1=40;
+  const all=[...a.pts,...b.pts],mn=Math.min(...all),mxv=Math.max(...all);
+  const line=(s,col)=>{
+    const pts=s.pts.map((v,i)=>`${x0+(x1-x0)*i/(s.pts.length-1)},${y0-(v-mn)/(mxv-mn||1)*(y0-y1)}`).join(' ');
+    const lx=x1-4,ly=y0-(s.pts[s.pts.length-1]-mn)/(mxv-mn||1)*(y0-y1);
+    return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linejoin="round"/>
+      <text x="${lx}" y="${ly-8}" text-anchor="end" fill="${col}" font-size="12.5" font-weight="800">${s.label}</text>`;
+  };
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="var(--line)"/>
+    ${line(a,'#FF8A8E')}${line(b,'#7FB4FF')}
+    ${note?`<text x="${(x0+x1)/2}" y="${H-8}" text-anchor="middle" fill="var(--mut)" font-size="12">${note}</text>`:''}</svg>`;
+}
+Object.assign(LEARN_FIG,{
+ pe:figBars([['A 公司|EPS 5 元、股價 100',20,'#FF8A8E'],['B 公司|EPS 10 元、股價 100',10,'#4BD695']],' 年回本(本益比)'),
+ margin3:figBars([['一碗麵售價',200,'var(--amber)'],['毛利(扣食材)',120,'#FF8A8E'],['營業利益(再扣店租人事)',50,'#7FB4FF'],['稅後淨利(最後入袋)',40,'#4BD695']],' 元'),
+ earnq:figFlow([['每月 10 日','公布上月營收'],['季報','5/15・8/14・11/14'],['法說會','下季展望最會動股價']]),
+ stop:figBars([['虧 10% 後要漲',11,'#4BD695'],['虧 30% 後要漲',43,'var(--amber)'],['虧 50% 後要漲',100,'#FF8A8E']],'% 才回本'),
+ cycle:figFlow([['缺貨漲價'],['重複下單'],['瘋狂擴產'],['需求放緩砍單'],['殺價去庫存']],true),
+ tdcc:figTrend({label:'大戶持股%(收斂)',pts:[38,38.5,39,39.8,40.6,41.5]},{label:'散戶持股%',pts:[30,29.6,29,28.4,27.6,26.8]},'每週五結算一次——連續多週同向才有意義'),
+ daytrade:figSplit({h:'當沖',lines:['今天買、今天賣','收盤前必平倉','量大但不留倉','尾盤常翻臉']},{h:'隔日沖',lines:['今天鎖漲停','明天開盤倒貨','追高者接刀','看昨天誰鎖的漲停']}),
+ lev:figTrend({label:'指數:100→90→100(打平)',pts:[100,90,100]},{label:'正2:100→80→97.8(損耗)',pts:[100,80,97.8]},'震盪一趟,正2 偷偷少了 2.2%——盤整越久吃越多'),
+ bond:figSplit({h:'升息到 5%',lines:['你的舊借據只付 3%','沒人要用原價接','債券價格下跌','年期越長跌越兇']},{h:'降息到 1%',lines:['你的 3% 變搶手貨','大家出高價要買','債券價格上漲','長天期漲最多']}),
+ compound:figTrend({label:'複利(8%/年)',pts:[100,108,117,126,136,147,159,171,185,200]},{label:'單利',pts:[100,108,116,124,132,140,148,156,164,172]},'前面差不多、後面差很大——複利的陡峭段在後半場'),
+ limitup:figFlow([['正常交易','±10% 漲跌幅'],['注意股','黃牌警告'],['處置股','5/20 分鐘撮合一次'],['流動性凍結','短線客提前撤退']]),
+ fxrate:figSplit({h:'台幣升值',lines:['外資匯入買超(熱錢)','出口商毛利被吃','電子廠法說喊匯損','資金行情常伴隨']},{h:'台幣貶值',lines:['外資常匯出賣超','出口換回更多台幣','毛利率有匯兌甜頭','指數逆風居多']}),
+ indicators:figTrend({label:'股價:創新高',pts:[80,95,88,105,98,112]},{label:'指標:沒跟上(背離)',pts:[60,85,70,82,66,72]},'價格創高、指標沒創高=漲勢內力在退——背離是指標最有價值的訊號'),
+ roe:figBars([['A 公司:股東 100 萬 → 年賺',25,'#FF8A8E'],['B 公司:股東 100 萬 → 年賺',5,'#4BD695']],' 萬(ROE)'),
+ cashflow:figBars([['帳上獲利(EPS 看起來很棒)',10,'var(--amber)'],['營業現金流(存摺實收)',-2,'#4BD695']],' 億——對不上就是煙'),
+ capact:figSplit({h:'庫藏股/現金減資',lines:['公司買回或退錢','股數變少','每股價值變高','對股東偏多']},{h:'現金增資',lines:['印新股跟你要錢','股數變多被稀釋','大股東認不認是關鍵','常見於燒錢擴張期']}),
+ netcom:figFlow([['GPU 集群'],['800G 交換器','智邦'],['骨幹網路'],['衛星地面站/寬頻','啟碁・智易・中磊'],['用戶']]),
+ robotchain:figFlow([['AI 大腦'],['關節模組','上銀・和大・台灣精銳'],['伺服電控','台達電'],['感測視覺'],['整機量產','Tesla Optimus']]),
+ evchain:figFlow([['電池'],['高壓線束','貿聯-KY'],['電源電控','台達電'],['整車','Tesla/BYD'],['充電樁/儲能','華城・中興電']]),
+ passive:figBars([['一支手機 MLCC 用量',1,'#4BD695'],['一台 AI 伺服器',30,'var(--amber)'],['一台電動車',80,'#FF8A8E']],'x(相對倍數)'),
+ equipmat:figFlow([['設備','ASML・應材'],['進機安裝改裝','弘塑・辛耘'],['耗材載具','家登・崇越'],['晶圓廠量產','台積電']]),
+ heavyelec:figFlow([['發電','綠能・核火'],['輸電|變壓器','華城'],['配電|開關','中興電・士電'],['資料中心/工廠','用電暴增']]),
+ shipping:figTrend({label:'運價(需求一動就暴走)',pts:[100,120,95,180,140,260]},{label:'船隊供給(短期固定)',pts:[100,102,104,106,108,110]},'供給是死的、需求是活的——所以航運是波動之王'),
+ defense:figFlow([['國防預算','十年期政策財'],['軍機製造維修','漢翔'],['無人機','雷虎'],['飛彈雷達鏈','中科院供應商']]),
+ finstock:figSplit({h:'升息環境',lines:['銀行:利差擴大 👍','壽險:債券評價受壓','證券:中性看量能','存息選銀行型']},{h:'降息環境',lines:['銀行:利差縮小','壽險:債券回血 👍','證券:資金行情受惠','同一新聞、相反方向']}),
+ display:figFlow([['報價上漲'],['雙虎擴產'],['供過於求'],['虧損減產'],['供給收縮']],true),
+ applechain:figFlow([['A/M 晶片','台積電'],['鏡頭','大立光'],['機構件連接器'],['組裝','鴻海・和碩'],['iPhone 年出貨','約 2 億支']]),
+ biotech:figFlow([['臨床一期','安全性'],['二期','有效性'],['三期','大規模驗證'],['解盲','開獎日:十倍或腰斬'],['藥證上市']]),
+ greenenergy:figFlow([['太陽能/風電','發電端'],['併網工程','世紀鋼・台船'],['售電/憑證','長約現金流'],['企業買綠電','RE100・AI 資料中心']]),
+ tourism:figBars([['航空(客運+貨運)',3,'#FF8A8E'],['飯店(住房率×房價)',2,'var(--amber)'],['餐飲(展店×同店成長)',2,'#4BD695']],' 條獲利引擎')
+});
 function learnCards(){
   const CATS=[
     ['🎒 投資基礎',['投資基礎','入門必讀']],
@@ -6308,16 +6430,20 @@ function learnCards(){
   const all=Object.entries(LEARN);
   const used=new Set();
   let html='';
-  CATS.forEach(([cn,tags])=>{
+  CATS.forEach(([cn,tags],ci)=>{
     const items=all.filter(([k,v])=>tags.includes(v.tag));
     if(!items.length)return;
     items.forEach(([k])=>used.add(k));
-    html+=`<div style="grid-column:1/-1;font-weight:900;font-size:16.5px;margin:${html?'14px':'0'} 0 2px">${cn} <span style="font-weight:400;font-size:12.5px;color:var(--dim)">${items.length} 堂</span></div>`
+    html+=`<div class="learn-sec" id="lsec${ci}"><span class="h">${cn}</span><span class="c">${items.length} 堂</span></div>`
       +items.map(card).join('');
   });
   const rest=all.filter(([k])=>!used.has(k));
-  if(rest.length)html+=`<div style="grid-column:1/-1;font-weight:900;font-size:16.5px;margin:14px 0 2px">📎 其他 <span style="font-weight:400;font-size:12.5px;color:var(--dim)">${rest.length} 堂</span></div>`+rest.map(card).join('');
+  if(rest.length)html+=`<div class="learn-sec"><span class="h">📎 其他</span><span class="c">${rest.length} 堂</span></div>`+rest.map(card).join('');
   return html;
+}
+function learnNav(){
+  const CATS=['🎒 投資基礎','🧠 籌碼與市場機制','🧺 ETF 進階','🏭 半導體供應鏈','🌐 各產業白話'];
+  return `<div class="learn-nav">${CATS.map((c,i)=>`<a href="javascript:void(0)" data-lnav="${i}">${c}</a>`).join('')}</div>`;
 }
 function showLearnIndex(){
   const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
@@ -6330,11 +6456,15 @@ function showLearnIndex(){
       <h2 style="font-size:24px;font-weight:900">📚 產業小學堂</h2>
       <div class="c-full" style="margin-top:4px">五大分類、四十多堂白話課:投資基礎 → 籌碼與市場機制 → ETF → 半導體供應鏈 → 各產業。新手從「K線與均線」開始按分類順讀;每堂都有比喻、用法與「新手最常犯的錯」,看不懂就按課末的 AI 按鈕換個比喻再講一次。</div>
     </div></div>
-    <div class="idx-row" style="margin-top:14px">${learnCards()}</div>
+    ${learnNav()}
+    <div class="idx-row" style="margin-top:10px">${learnCards()}</div>
     <div class="dim-note" style="margin-top:14px">內容為產業知識教學,非投資建議。想加新主題(被動元件、重電、無人機…)歡迎提出。</div>
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   dv.querySelectorAll('[data-lk]').forEach(c=>c.onclick=()=>{location.hash='#learn/'+c.dataset.lk;});
+  dv.querySelectorAll('[data-lnav]').forEach(a=>a.onclick=()=>{
+    const el=document.getElementById('lsec'+a.dataset.lnav);
+    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});});
 }
 function showLearnDetail(key){
   const t=LEARN[key];
