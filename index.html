@@ -41,9 +41,10 @@ html[data-theme="light"]{
   --up:#D6323A; --down:#0F8A57;
 }
 html[data-theme="mocha"]{
-  --bg:#E8EFF5; --panel:#FFFFFF; --panel2:#DEE9F1; --line:#CBDAE6;
-  --txt:#233240; --mut:#516A80; --dim:#677884; --txt2:#3D5162;
-  --amber:#B67724; --hdr:#E3ECF3;
+  --bg:#EEF3EA; --panel:#FFFFFF; --panel2:#E4EDDF; --line:#CEDCC8;
+  --txt:#25331F; --mut:#5C7052; --dim:#75866C; --txt2:#3D5134;
+  --amber:#5E8C4A; --hdr:#E8EFE3;
+  --up:#C3423F; --down:#1F7A4D;
 }
 html[data-theme="teal"]{
   --bg:#21222C; --panel:#282A36; --panel2:#343746; --line:#44475A;
@@ -303,6 +304,19 @@ td,th{font-size:inherit}
 .learn-nav a{text-decoration:none;font-size:13px;font-weight:800;color:var(--txt2);background:var(--panel);
   border:1.5px solid var(--line);border-radius:999px;padding:6px 15px;transition:all .12s}
 .learn-nav a:hover{border-color:var(--amber);color:var(--amber)}
+/* ── r246 全站精修層:字級階層・圓角節奏・數字對齊 ── */
+body{letter-spacing:.012em;font-variant-numeric:tabular-nums}
+.sec-title{font-size:17.5px;font-weight:900;letter-spacing:.045em}
+.dim-block,.chart-box,.idx-card,.thesis{border-radius:13px}
+.dim-block{padding:15px 17px}
+.dim-block h3,.chart-box h3{font-size:16.5px;font-weight:900;letter-spacing:.035em;margin-bottom:8px}
+.idx-card{transition:transform .13s,border-color .13s,box-shadow .13s}
+.idx-card:hover{border-color:var(--amber)}
+.btn-ghost{border-radius:9px;font-weight:700}
+b,strong{font-weight:800}
+.c-full,.dim-note{line-height:1.78}
+.kseg-row button,.ind-seg button{border-radius:9px}
+table{font-variant-numeric:tabular-nums}
 .aef-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;cursor:pointer;transition:border-color .15s}
 .aef-card:hover{border-color:#C792EA}
 .aef-bdg{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:800;margin-left:5px;vertical-align:1px}
@@ -1778,7 +1792,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r245</span>');
+  diag.push('<span style="color:var(--dim)">build r246</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4191,8 +4205,8 @@ const CHART_THEMES={
   light:{legend:'#5A6478',axis:'#6B7280',split:'#E4E8F0',border:'#D9DEE8',
     ttBg:'#FFFFFF',ttText:'#1B2233',inactive:'#C4CBD6',ma60:'#4A5568',
     up2:'#C4333B',dn2:'#0F8A57'},
-  mocha:{legend:'#516A80',axis:'#7E94A7',split:'#DCE7EF',border:'#C7D7E3',
-    ttBg:'#FFFFFF',ttText:'#233240',inactive:'#B4C8D6',ma60:'#33485A',
+  mocha:{legend:'#5C7052',axis:'#8AA07E',split:'#E1EBDB',border:'#CBDAC4',
+    ttBg:'#FFFFFF',ttText:'#25331F',inactive:'#BCCDB3',ma60:'#3E5233',
     up2:'#C4333B',dn2:'#0F8A57'},
   teal:{legend:'#9DA3C4',axis:'#6272A4',split:'#26272F',border:'#44475A',
     ttBg:'#282A36',ttText:'#F8F8F2',inactive:'#494C63',ma60:'#F8F8F2',
