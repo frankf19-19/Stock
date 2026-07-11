@@ -1652,7 +1652,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r232</span>');
+  diag.push('<span style="color:var(--dim)">build r233</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8453,7 +8453,14 @@ function renderEtf(){
       return bd?`✅ 基準快照已建立(${bd},${_actAll.length} 檔主動式 ETF 前十大已存檔)。調倉=兩天快照相減,<b>下一個交易日的第一班更新跑完</b>,這裡就會列出規模前十的「加碼/減碼/新進/掉出」與幅度,之後每天自動換新。今天不需要再做任何事。`
       :`調倉估算需要<b>連續兩個交易日</b>的成分快照——請確認 update_data.py 為 r132 以上並每日執行,第一次執行建立基準、次日出現觀察。`;})()}</div></div>`:'');
   const srt=window.__etfSort||'q';
-  const val=s=>srt==='chg'?(s.chg??-9e9):((s.perf||{})[srt]??-9e9);
+  const dyOf=s=>{
+    const c=(window.__cfCustom||{})[s.id];if(c!=null)return c;
+    const o=window.__dyJ&&window.__dyJ[s.id];if(o&&o.dy>0)return o.dy;
+    const y=(s.hold&&s.hold.dy);return (y&&y>0&&y<25)?y:null;};
+  const val=s=>srt==='chg'?(s.chg??-9e9)
+    :srt==='aum'?((s.hold&&s.hold.aum)||-9e9)
+    :srt==='dy'?(dyOf(s)??-9e9)
+    :((s.perf||{})[srt]??-9e9);
   L.sort((a,b)=>val(b)-val(a));
   const SUBN={active:'主動',lev:'槓反',bond:'債券',us:'美股',std:''};
   const cell='cursor:pointer;padding:9px 2px;border-bottom:1px solid var(--line);font-family:var(--mono);text-align:right';
@@ -8596,18 +8603,20 @@ function renderEtf(){
   box.innerHTML=`${boards?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin:2px 0 14px">${boards}</div>`:''}
   ${actSec}
   ${cfSec}
-  <div style="display:grid;grid-template-columns:minmax(0,1fr) 72px 66px 66px 66px;font-size:13.5px">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 72px 66px 66px 66px 74px 68px;font-size:13.5px">
     <div style="color:var(--mut);padding:4px 2px;border-bottom:1px solid var(--line)">名稱</div>
     <div style="color:var(--mut);text-align:right;padding:4px 2px;border-bottom:1px solid var(--line)">現價</div>
-    ${hd('chg','今日')}${hd('m','近1月')}${hd('q','近3月')}
+    ${hd('chg','今日')}${hd('m','近1月')}${hd('q','近3月')}${hd('aum','規模')}${hd('dy','殖利率')}
     ${L.slice(0,300).map(s=>`
       <div data-id="${s.id}" style="cursor:pointer;padding:9px 2px;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="font-family:var(--mono)">${s.id}</b> ${s.name}${SUBN[s.sub]?` <span style="font-size:11px;color:var(--amber);border:1px solid var(--amber);border-radius:4px;padding:0 4px;vertical-align:1px">${SUBN[s.sub]}</span>`:''}</div>
       <div data-id="${s.id}" style="${cell}">${s.price??'—'}</div>
       <div data-id="${s.id}" style="${cell}">${s.chg!=null?chgHtml(s.chg):'—'}</div>
       <div data-id="${s.id}" style="${cell}">${pf(s,'m')}</div>
-      <div data-id="${s.id}" style="${cell}">${pf(s,'q')}</div>`).join('')}
+      <div data-id="${s.id}" style="${cell}">${pf(s,'q')}</div>
+      <div data-id="${s.id}" style="${cell};color:var(--txt2)">${(s.hold&&s.hold.aum)?((s.hold.aum/1e8>=1000)?(s.hold.aum/1e11).toFixed(1)+'千億':(s.hold.aum/1e8).toFixed(0)+'億'):'—'}</div>
+      <div data-id="${s.id}" style="${cell};color:var(--amber)">${(()=>{const d=dyOf(s);return d!=null?d.toFixed(1)+'%':'—';})()}</div>`).join('')}
   </div>
-  <div class="dim-note" style="margin-top:8px">共 ${L.length} 檔,點「今日/近1月/近3月」欄位標題換排序(現為${srt==='chg'?'今日':srt==='m'?'近1月':'近3月'}最強在前);績效為價格報酬未含息;殖利率為 Yahoo 近一年配息估算,債券與高股息 ETF 天生較高,別只看單一指標。點任一列或排行榜項目進 K 線・成分・配息頁。</div>`;
+  <div class="dim-note" style="margin-top:8px">共 ${L.length} 檔,點「今日/近1月/近3月/規模/殖利率」欄位標題換排序(現為${srt==='chg'?'今日':srt==='m'?'近1月':'近3月'}最強在前);績效為價格報酬未含息;殖利率為 Yahoo 近一年配息估算,債券與高股息 ETF 天生較高,別只看單一指標。點任一列或排行榜項目進 K 線・成分・配息頁。</div>`;
   box.querySelectorAll('[data-id]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.id;});
   box.querySelectorAll('[data-srt]').forEach(el=>el.onclick=()=>{window.__etfSort=el.dataset.srt;renderEtf();});
   box.querySelectorAll('[data-aefv]').forEach(el=>el.onclick=e=>{e.stopPropagation();window.__aefView=el.dataset.aefv;renderEtf();});
