@@ -1635,7 +1635,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r225</span>');
+  diag.push('<span style="color:var(--dim)">build r226</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7818,6 +7818,7 @@ window.__etfSub='tw';
   if(n>0)setTimeout(()=>waitData(n-1),500);
 })(60);
 /* 💰 存股領息試算 */
+function cfSelSave(){try{localStorage.setItem('cf_sel',JSON.stringify([...(window.__cfSel||[])]));}catch(e){}}
 function cfCalc(){
   const out=document.getElementById('cfOut');
   if(!out)return;
@@ -7878,10 +7879,12 @@ function cfCalc(){
     ${cfAdvice(es,yGoalW,totW)}`;
   out.querySelectorAll('[data-cfadd]').forEach(ch=>ch.onclick=()=>{
     window.__cfSel.add(ch.dataset.cfadd);
+    cfSelSave();
     renderEtf();
   });
   out.querySelectorAll('[data-cfdel]').forEach(bt=>bt.onclick=()=>{
     window.__cfSel.delete(bt.dataset.cfdel);
+    cfSelSave();
     renderEtf();
   });
 }
@@ -8296,7 +8299,10 @@ function renderEtf(){
       &&(()=>{const d=cfDy(s);const us=!/^\d/.test(s.id);
         return d!=null&&d>0.3&&d<(us?16:25);})())                             // 擋髒數據(美股門檻更嚴)
     .sort((a,b)=>cfDy(b)-cfDy(a));
-  window.__cfSel=window.__cfSel||new Set(['0056']);
+  if(!window.__cfSel){
+    let saved=[];try{saved=JSON.parse(localStorage.getItem('cf_sel')||'[]');}catch(e){}
+    window.__cfSel=new Set(saved);
+  }
   const cfSec=(sub==='cf')?`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 14px">
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <span style="font-size:16px;font-weight:900;letter-spacing:.04em">💰 存股領息試算</span>
@@ -8343,6 +8349,7 @@ function renderEtf(){
         cfCalc();};
       box.querySelectorAll('[data-cf]').forEach(cb=>cb.onchange=()=>{
         cb.checked?window.__cfSel.add(cb.dataset.cf):window.__cfSel.delete(cb.dataset.cf);
+        cfSelSave();
         cb.closest('label').style.borderColor=cb.checked?'var(--amber)':'var(--line)';
         cfCalc();});
       const sr=document.getElementById('cfSearch');
@@ -8376,6 +8383,7 @@ function renderEtf(){
         window.__cfCustom[id]=dy;
         try{localStorage.setItem('cf_custom',JSON.stringify(window.__cfCustom));}catch(e){}
         window.__cfSel.add(id);
+        cfSelSave();
         renderEtf();
       };
       cfCalc();
