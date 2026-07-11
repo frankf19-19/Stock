@@ -1462,6 +1462,29 @@ async function t3HistShow(sid,q,slot){
     ${body}</table></div>
     <div style="font-size:11.5px;color:var(--dim);margin-top:4px">紅=較上季升、綠=降;YoY=與去年同季營收相比(最早四季無同季基準顯示 —);資料:公開資訊觀測站季報,快取 7 天。</div>`;
 }
+function t3QNow(){                                       // 依申報時程推測最新可得季
+  const d=new Date(), y=d.getFullYear(), m=d.getMonth()+1, day=d.getDate();
+  if(m>11||(m===11&&day>=15))return y+'Q3';
+  if(m>8||(m===8&&day>=15))return y+'Q2';
+  if(m>5||(m===5&&day>=16))return y+'Q1';
+  return (y-1)+'Q4';                                       // Q4/年報 3/31 前後,保守用前一年Q4(4/1 起可得)
+}
+async function t3qBlock(s){
+  const box=document.getElementById('t3qBox');
+  if(!box)return;
+  if(s.market!=='TW'||s.etf||!/^\d{4}$/.test(s.id)){box.style.display='none';return;}
+  box.style.display='';
+  let q=t3QNow();
+  // 最新季可能剛好未出:先探一季,拿不到就退一季
+  const probe=await t3HistQ(q);
+  if(!probe||!probe[s.id]){
+    const qs=t3Qlist(q,2);
+    q=qs[1];
+  }
+  box.innerHTML=`<h3>📊 季報三率與營收 <span class="ds">近兩年</span></h3><div id="t3qSlot"></div>`;
+  const slot=document.getElementById('t3qSlot');
+  if(slot)await t3HistShow(s.id,q,slot);
+}
 function t3Render(items,note){
   const box=document.getElementById('t3Box');
   if(!box)return;
@@ -1709,7 +1732,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r239</span>');
+  diag.push('<span style="color:var(--dim)">build r240</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4952,6 +4975,7 @@ async function showDetail(id){
     <div id="seasonBox" class="dim-block"><div class="dim-note">📡 歷史月K自動載入中…</div></div>
     </div>
     <div class="sec-title" data-sec="stk_h">👑 大戶持股趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">集保週資料・千張大戶 vs 散戶</span></div><div class="sec-body" id="sb-stk_h">
+    <div id="t3qBox" class="dim-block"><div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div></div>
     <div id="tdccBox" class="dim-block"><div class="dim-note">📡 集保股權資料載入中…</div></div>
     </div>
     <div class="sec-title" data-sec="stk_3">${s.etf?'📊 籌碼與技術':'⚖️ 三力檢視'} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.etf?'法人動向・技術線型':'基本面・籌碼面・技術面評分'} · 💡 點名詞看白話解釋</span></div><div class="sec-body" id="sb-stk_3">
@@ -5064,6 +5088,7 @@ async function showDetail(id){
   const aBtn=document.getElementById('anaAiBtn');
   if(aBtn)aBtn.onclick=()=>aiInline(aBtn,`請上網查詢並整理 ${s.name}(${s.id}) 近三個月外資與投顧研究報告的觀點(直接條列不要開場白):哪些券商出過報告或升降評、評等為何(買進/中立/賣出)、目標價各是多少、調整理由是什麼。最後一句總結市場共識與分歧點。若查不到個別報告,就整理新聞中提到的最新目標價。結尾一行:非投資建議。`,true,1600);
   loadProfileDetail(s);
+  try{const tb=document.getElementById('t3qBox');if(tb){tb.style.display='';tb.innerHTML='<div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div>';}t3qBlock(s);}catch(e){}
   loadAnalystDetail(s);
   loadChipDetail(s);
   KHASH='#stock/'+s.id;
