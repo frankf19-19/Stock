@@ -1652,7 +1652,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r231</span>');
+  diag.push('<span style="color:var(--dim)">build r232</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7029,10 +7029,10 @@ const GLB_TOPICS=[
  ['⚡ 電源/散熱','("power supply" OR HVDC OR "800V" OR "liquid cooling" OR "immersion cooling") ("data center" OR AI OR Nvidia)'],
  ['🧠 記憶體','(HBM OR DRAM OR NAND OR "memory chip" OR "memory price") (Samsung OR "SK Hynix" OR Micron OR Kioxia OR shortage OR price OR capacity OR contract)'],
  ['🟢 PCB/載板','(PCB OR CCL OR "copper clad" OR substrate OR ABF OR "printed circuit") (AI OR server OR price OR capacity OR upgrade OR demand)'],
- ['🦾 機器人','("humanoid robot" OR robotics OR Optimus OR "Figure AI" OR "robot production") (Tesla OR supply OR component OR actuator OR "mass production")'],
- ['🚗 電動車/儲能','(EV OR "electric vehicle" OR "energy storage" OR battery OR charging) (Tesla OR BYD OR supply OR orders OR "grid storage")'],
+ ['🦾 機器人','"humanoid robot" OR Optimus OR "robot supply chain" OR actuator robotics'],
+ ['🚗 電動車/儲能','"EV supply chain" OR "energy storage" OR "battery orders" OR Tesla supplier'],
  ['📡 網通/衛星','("low earth orbit" OR Starlink OR satellite OR "Ethernet switch" OR "800G switch" OR networking) (AI OR "data center" OR broadband OR launch OR orders)'],
- ['🔬 設備/材料','(ASML OR "chip equipment" OR "semiconductor equipment" OR "wafer fab equipment" OR photoresist OR "specialty gas") (order OR spending OR capex OR expansion)']];
+ ['🔬 設備/材料','ASML OR "semiconductor equipment" OR lithography OR photoresist OR "fab capex"']];
 const GLB_MAP=[
  [/HBM|DRAM|NAND|\bmemory\b|flash/i,'記憶體'],[/ABF|substrate/i,'ABF載板'],
  [/\bPCB\b|CCL|copper.?clad/i,'PCB'],[/optical|photonic|co.?packaged|800G|1\.6T|transceiver/i,'光通訊'],
