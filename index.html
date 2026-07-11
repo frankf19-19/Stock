@@ -1414,6 +1414,54 @@ async function t3Fallback(){
   window.__T3=items;
   renderRadar();
 }
+function t3Qlist(qNow,cnt){                              // 由最新季往回枚舉 cnt 季
+  let[y,s]=[+qNow.slice(0,4),+qNow.slice(-1)];
+  const out=[];
+  for(let i=0;i<cnt;i++){out.push(y+'Q'+s);if(--s<1){s=4;y--;}}
+  return out;
+}
+async function t3HistQ(q){                                // 取單季全市場三率+營收(快取7天)
+  window.__t3H=window.__t3H||{};
+  if(window.__t3H[q])return window.__t3H[q];
+  try{const c=JSON.parse(localStorage.getItem('t3h_'+q)||'null');
+    if(c&&c.exp>Date.now()&&c.d){window.__t3H[q]=c.d;return c.d;}}catch(e){}
+  const d=await t3Mops(+q.slice(0,4),+q.slice(-1));
+  if(d&&Object.keys(d).length){
+    window.__t3H[q]=d;
+    try{localStorage.setItem('t3h_'+q,JSON.stringify({exp:Date.now()+7*864e5,d}));}catch(e){}
+    return d;
+  }
+  return null;
+}
+async function t3HistShow(sid,q,slot){
+  const qs=t3Qlist(q,8);
+  const rows=[];
+  for(let i=0;i<qs.length;i++){
+    slot.innerHTML=`<div style="font-size:13px;color:var(--dim);padding:6px 0">📊 讀取 ${qs[i]} 全市場季報…(${i+1}/8,首次約半分鐘、之後快取秒開)</div>`;
+    const d=await t3HistQ(qs[i]);
+    rows.push({q:qs[i],v:d?d[sid]:null});
+  }
+  // YoY:與往前4季比(在集合內才算)
+  const revOf=r=>r&&r.v&&r.v.rev?r.v.rev:null;
+  const tds='padding:5px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-size:13px;white-space:nowrap';
+  const arrowC=(cur,prev)=>prev==null?'var(--txt)':cur>prev?'#FF8A8E':cur<prev?'#4BD695':'var(--mut)';
+  const body=rows.map((r,i)=>{
+    if(!r.v)return `<tr><td style="${tds};text-align:left;color:var(--mut)">${r.q}</td><td style="${tds}" colspan="5" style="color:var(--dim)">無資料</td></tr>`;
+    const y4=rows[i+4], yoy=(revOf(r)&&y4&&revOf(y4))?((revOf(r)/revOf(y4)-1)*100):null;
+    const pv=rows[i+1]&&rows[i+1].v;
+    return `<tr>
+      <td style="${tds};text-align:left;color:var(--txt2)">${r.q}</td>
+      <td style="${tds}">${r.v.rev?(r.v.rev/1e5).toFixed(1):'—'}</td>
+      <td style="${tds};font-weight:800;color:${yoy==null?'var(--mut)':yoy>0?'#FF8A8E':'#4BD695'}">${yoy==null?'—':(yoy>0?'+':'')+yoy.toFixed(1)+'%'}</td>
+      <td style="${tds};color:${arrowC(r.v.gm,pv&&pv.gm)}">${r.v.gm.toFixed(1)}%</td>
+      <td style="${tds};color:${arrowC(r.v.om,pv&&pv.om)}">${r.v.om.toFixed(1)}%</td>
+      <td style="${tds};color:${arrowC(r.v.nm,pv&&pv.nm)}">${r.v.nm.toFixed(1)}%</td></tr>`;
+  }).join('');
+  slot.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:480px;margin-top:4px">
+    <tr>${['季度','營收(億)','YoY','毛利率','營益率','淨利率'].map((h,i)=>`<th style="text-align:${i===0?'left':'right'};padding:4px 8px;color:var(--mut);font-size:12px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr>
+    ${body}</table></div>
+    <div style="font-size:11.5px;color:var(--dim);margin-top:4px">紅=較上季升、綠=降;YoY=與去年同季營收相比(最早四季無同季基準顯示 —);資料:公開資訊觀測站季報,快取 7 天。</div>`;
+}
 function t3Render(items,note){
   const box=document.getElementById('t3Box');
   if(!box)return;
@@ -1429,10 +1477,19 @@ function t3Render(items,note){
     `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
       <span class="r-tag tg-strong">三率三升 ${t.q}</span>
       <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <b class="rpx">${s.price??'—'}</b> <span style="font-family:var(--mono);font-size:13px">${chgHtml(s.chg)}</span><span class="mini-candle" data-candle="${s.id}"></span><span class="c-code" style="flex:none">綜合 ${total(s)}</span></span>
-      <span class="r-desc">毛 ${arrow(t.gm[0],t.gm[1])} · 營益 ${arrow(t.om[0],t.om[1])} · 淨利 ${arrow(t.nm[0],t.nm[1])}${t.ry!=null?` · 月營收 <b style="color:#FF8A8E">${t.ry>0?'+':''}${t.ry}%</b>`:''}</span>
+      <span class="r-desc">毛 ${arrow(t.gm[0],t.gm[1])} · 營益 ${arrow(t.om[0],t.om[1])} · 淨利 ${arrow(t.nm[0],t.nm[1])}${t.ry!=null?` · 月營收 <b style="color:#FF8A8E">${t.ry>0?'+':''}${t.ry}%</b>`:''}
+        <button class="t3-hist" data-sid="${s.id}" data-q="${t.q}" style="margin-left:8px;background:none;border:1px solid var(--line);border-radius:7px;color:var(--txt2);cursor:pointer;padding:2px 10px;font-size:12px">📊 兩年數據 ▾</button></span>
+      <span class="t3-slot" style="display:block;width:100%"></span>
     </div>`).join('')
     +(list.length>24?`<div class="r-card" style="cursor:default;justify-content:center"><span class="r-desc">共 ${list.length} 檔符合,顯示綜合分前 24 名</span></div>`:'');
   box.querySelectorAll('[data-id]').forEach(c=>c.onclick=()=>{location.hash='#stock/'+c.dataset.id;});
+  box.querySelectorAll('.t3-hist').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    const slot=b.closest('.r-card').querySelector('.t3-slot');
+    if(slot.dataset.open){slot.dataset.open='';slot.innerHTML='';b.textContent='📊 兩年數據 ▾';return;}
+    slot.dataset.open='1';b.textContent='📊 收合 ▴';
+    t3HistShow(b.dataset.sid,b.dataset.q,slot);
+  });
 }
 function renderT3(){
   if(!(DATA.stocks||[]).some(s=>s.t3)&&!(window.__T3||[]).length)t3Fallback();
@@ -1652,7 +1709,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r238</span>');
+  diag.push('<span style="color:var(--dim)">build r239</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
