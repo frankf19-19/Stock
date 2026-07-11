@@ -1793,7 +1793,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r247</span>');
+  diag.push('<span style="color:var(--dim)">build r249</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4277,8 +4277,11 @@ function natureFX(theme){
   }
   if(kind==='rain'){
     SC.clouds=Array.from({length:mob?2:3},(_,i)=>({x:(i+.4+(R()-.5)*.5)/(mob?2:3),y:.05+R()*.05,s:.8+R()*.6,v:.10+R()*.08}));
-    SC.rip=[];SC.ripNext=.4;
+    SC.rip=[];SC.ripNext=.4;SC.spl=[];
     SC.flash={next:4+R()*6,until:0,bolt:null,cx2:.5};
+    SC.clear={next:12+R()*8,until:0};                     // 放晴時刻(陽光+彩虹)
+    SC.ppl=Array.from({length:mob?2:3},(_,i)=>({x:R(),dir:R()<.5?1:-1,
+      v:.00022+R()*.00018,s:.052+R()*.02,ph:R()*6.28,o:.4+R()*.2}));
   }
   if(kind==='winter'){
     SC.pines=Array.from({length:mob?3:5},(_,i)=>({x:(i+.5+(R()-.5)*.4)/(mob?3:5),s:.6+R()*.7}));
@@ -4384,9 +4387,36 @@ function natureFX(theme){
     });
   }
   function rainScene(t){
-    const W=cv.width,H=cv.height,F=SC.flash;
-    /* 閃電排程 */
-    if(t>F.next){
+    const W=cv.width,H=cv.height,F=SC.flash,CL=SC.clear;
+    /* ── 放晴時刻排程:雨中 → 陽光破雲+彩虹(約8秒)→ 回雨 ── */
+    if(t>CL.next){CL.until=t+7+Math.random()*3;CL.next=t+22+Math.random()*14;F.next=Math.max(F.next,CL.until+3);}
+    const clearing=t<CL.until;
+    const ca=clearing?Math.min(1,(CL.until-t)/1.5,(t-(CL.until-8))/1.5):0;   // 淡入淡出
+    if(ca>0){
+      /* 陽光破雲:左上暖光暈 + 三道光束 */
+      let sg=cx.createRadialGradient(W*.18,H*.06,8,W*.18,H*.06,H*.5);
+      sg.addColorStop(0,`rgba(255,242,200,${(.30*ca).toFixed(3)})`);
+      sg.addColorStop(1,'rgba(255,242,200,0)');
+      cx.fillStyle=sg;cx.fillRect(0,0,W,H*.7);
+      cx.save();
+      [[-.06,.14],[.02,.26],[.10,.38]].forEach(([dx,bw])=>{
+        const x0=W*(.18+dx);
+        const grd=cx.createLinearGradient(x0,0,x0+W*.10,H*.8);
+        grd.addColorStop(0,`rgba(255,238,180,${(.13*ca).toFixed(3)})`);
+        grd.addColorStop(1,'rgba(255,238,180,0)');
+        cx.fillStyle=grd;
+        cx.beginPath();cx.moveTo(x0,H*.02);cx.lineTo(x0+W*bw*.35,H*.02);
+        cx.lineTo(x0+W*bw,H*.85);cx.lineTo(x0+W*bw*.5,H*.85);cx.closePath();cx.fill();});
+      cx.restore();
+      /* 彩虹:七色同心弧,右側升起 */
+      const rcx=W*.72,rcy=H*1.02,r0=H*.62;
+      const RB=['232,80,80','240,150,60','245,210,80','110,190,110','90,160,220','110,110,210','160,90,190'];
+      RB.forEach((c,i)=>{
+        cx.strokeStyle=`rgba(${c},${(.16*ca).toFixed(3)})`;cx.lineWidth=Math.max(3,H*.011);
+        cx.beginPath();cx.arc(rcx,rcy,r0-i*Math.max(3,H*.011),Math.PI*1.02,Math.PI*1.98);cx.stroke();});
+    }
+    /* 閃電排程(放晴時不打雷) */
+    if(!clearing&&t>F.next){
       const c=SC.clouds[Math.floor(Math.random()*SC.clouds.length)];
       F.cx2=c.x; F.until=t+.16+Math.random()*.12; F.next=t+6+Math.random()*9;
       const pts=[[W*c.x,H*(c.y+.05)]];                                 // 鋸齒電光路徑
@@ -4404,23 +4434,81 @@ function natureFX(theme){
       cx.strokeStyle=`rgba(255,246,190,${(.75*a).toFixed(3)})`;cx.lineWidth=1.8;
       cx.beginPath();F.bolt.forEach(([x,y],i)=>i?cx.lineTo(x,y):cx.moveTo(x,y));cx.stroke();
     }
-    SC.clouds.forEach(c=>{                                             // 雲層飄移
+    SC.clouds.forEach(c=>{                                             // 雲層飄移(亮色調;放晴時雲變淡)
       c.x+=c.v/W;if(c.x>1.2)c.x=-.2;
-      const x=W*c.x,y=H*c.y,s=c.s;
-      cx.fillStyle='rgba(92,102,124,.92)';
+      const x=W*c.x,y=H*c.y,s=c.s,al=1-ca*.45;
+      cx.fillStyle=`rgba(126,142,168,${(.82*al).toFixed(3)})`;
       [[0,0,66],[52,8,48],[-50,9,46],[16,-13,42]].forEach(([dx,dy,r])=>{
         cx.beginPath();cx.ellipse(x+dx*s,y+dy*s,r*s,r*.52*s,0,0,6.29);cx.fill();});
-      cx.fillStyle='rgba(18,20,30,.6)';                                // 雲底陰影
+      cx.fillStyle=`rgba(240,246,252,${(.5*al).toFixed(3)})`;          // 雲頂受光
+      [[0,-16,50],[40,-8,36]].forEach(([dx,dy,r])=>{
+        cx.beginPath();cx.ellipse(x+dx*s,y+dy*s,r*s,r*.4*s,0,0,6.29);cx.fill();});
+      cx.fillStyle=`rgba(74,90,116,${(.5*al).toFixed(3)})`;            // 雲底陰影
       cx.beginPath();cx.ellipse(x,y+18*s,64*s,14*s,0,0,6.29);cx.fill();
     });
-    if(t>SC.ripNext){                                                  // 地面雨點漣漪
-      SC.rip.push({x:Math.random()*W,y:H*(.94+Math.random()*.045),t0:t});
-      SC.ripNext=t+.25+Math.random()*.4;
-      if(SC.rip.length>10)SC.rip.shift();
+    /* 遠景天際線 + 薄霧 + 積水反光帶 */
+    const hz=H*.955;
+    let mist=cx.createLinearGradient(0,hz-H*.09,0,hz);
+    mist.addColorStop(0,'rgba(213,226,240,0)');mist.addColorStop(1,'rgba(213,226,240,.55)');
+    cx.fillStyle=mist;cx.fillRect(0,hz-H*.09,W,H*.09);
+    /* 路燈(靜物,雨中亮燈、放晴漸暗) */
+    const lampX=W*.88, lampH=H*.10;
+    cx.strokeStyle='rgba(96,114,140,.5)';cx.lineWidth=Math.max(2,H*.004);
+    cx.beginPath();cx.moveTo(lampX,hz);cx.lineTo(lampX,hz-lampH);
+    cx.quadraticCurveTo(lampX,hz-lampH-H*.02,lampX-W*.015,hz-lampH-H*.02);cx.stroke();
+    const la=.5*(1-ca*.8);
+    let lg=cx.createRadialGradient(lampX-W*.015,hz-lampH-H*.02,1,lampX-W*.015,hz-lampH-H*.02,H*.05);
+    lg.addColorStop(0,`rgba(255,236,170,${la.toFixed(3)})`);lg.addColorStop(1,'rgba(255,236,170,0)');
+    cx.fillStyle=lg;cx.beginPath();cx.arc(lampX-W*.015,hz-lampH-H*.02,H*.05,0,6.29);cx.fill();
+    /* 撐傘行人(走路剪影) */
+    SC.ppl.forEach(p=>{
+      p.x+=p.v*p.dir;
+      if(p.x>1.08){p.x=1.08;p.dir=-1;}if(p.x<-.08){p.x=-.08;p.dir=1;}
+      p.ph+=.075;
+      const s=H*p.s, x=W*p.x, y=hz, d=p.dir;
+      const col=`rgba(88,106,132,${p.o.toFixed(2)})`;
+      cx.strokeStyle=col;cx.fillStyle=col;
+      cx.lineWidth=Math.max(1.6,s*.09);cx.lineCap='round';
+      const hip=y-s*.48, sh=y-s*.86, sw2=Math.sin(p.ph);
+      cx.beginPath();cx.moveTo(x,hip);                                 // 兩腿走路
+      cx.lineTo(x+sw2*s*.22*d,y);
+      cx.moveTo(x,hip);cx.lineTo(x-sw2*s*.22*d,y);cx.stroke();
+      cx.beginPath();cx.moveTo(x,hip);cx.lineTo(x,sh);cx.stroke();     // 身體
+      cx.beginPath();cx.arc(x,sh-s*.10,s*.105,0,6.29);cx.fill();       // 頭
+      const hx=x+s*.30*d, hy=sh-s*.02;
+      cx.beginPath();cx.moveTo(x,sh+s*.06);cx.lineTo(hx,hy);cx.stroke();// 手臂
+      const ux=hx+s*.04*d, uy=hy-s*.62, ur=s*.52, tilt=-.16*d;         // 傘(微傾向雨)
+      cx.beginPath();cx.moveTo(hx,hy);cx.lineTo(ux,uy);cx.stroke();    // 傘桿
+      cx.save();cx.translate(ux,uy);cx.rotate(tilt);
+      cx.beginPath();cx.arc(0,0,ur,Math.PI,0);                         // 傘面圓頂
+      [ur*2/3,0,-ur*2/3].forEach(c=>cx.arc(c,0,ur/3,0,Math.PI,false)); // 三瓣扇形邊
+      cx.closePath();cx.fill();
+      cx.restore();
+    });
+    let pud=cx.createLinearGradient(0,hz,0,H);
+    pud.addColorStop(0,`rgba(178,199,222,.5)`);pud.addColorStop(1,'rgba(178,199,222,.12)');
+    cx.fillStyle=pud;cx.fillRect(0,hz,W,H-hz);
+    if(ca>0){                                                          // 放晴時水面映陽光
+      cx.fillStyle=`rgba(255,240,190,${(.20*ca).toFixed(3)})`;
+      cx.beginPath();cx.ellipse(W*.20,hz+ (H-hz)*.5,W*.10,(H-hz)*.4,0,0,6.29);cx.fill();
     }
+    if(t>SC.ripNext){                                                  // 地面雨點漣漪(放晴時變稀)
+      SC.rip.push({x:Math.random()*W,y:H*(.958+Math.random()*.035),t0:t});
+      for(let k=0;k<2;k++)SC.spl.push({x:SC.rip[SC.rip.length-1].x+(Math.random()-.5)*10,
+        y:SC.rip[SC.rip.length-1].y,vx:(Math.random()-.5)*1.6,vy:-(1.2+Math.random()*1.2),t0:t});
+      SC.ripNext=t+(clearing?.7:.22)+Math.random()*.4;
+      if(SC.rip.length>12)SC.rip.shift();
+      if(SC.spl.length>26)SC.spl.splice(0,SC.spl.length-26);
+    }
+    SC.spl.forEach(s=>{                                                // 濺水花
+      const a=(t-s.t0)/.55;if(a>=1)return;
+      const sx=s.x+s.vx*a*22, sy=s.y+s.vy*a*16+22*a*a;
+      cx.fillStyle=`rgba(150,178,210,${(.5*(1-a)).toFixed(3)})`;
+      cx.beginPath();cx.arc(sx,sy,1.3,0,6.29);cx.fill();
+    });
     SC.rip.forEach(r=>{
       const a=(t-r.t0)/1.1;if(a>=1)return;
-      cx.strokeStyle=`rgba(150,178,210,${(.34*(1-a)).toFixed(3)})`;cx.lineWidth=1;
+      cx.strokeStyle=`rgba(130,160,196,${(.4*(1-a)).toFixed(3)})`;cx.lineWidth=1;
       cx.beginPath();cx.ellipse(r.x,r.y,4+a*26,(4+a*26)*.28,0,0,6.29);cx.stroke();
     });
   }
