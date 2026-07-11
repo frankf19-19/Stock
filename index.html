@@ -1445,22 +1445,50 @@ async function t3HistShow(sid,q,slot){
   const revOf=r=>r&&r.v&&r.v.rev?r.v.rev:null;
   const tds='padding:5px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-size:13px;white-space:nowrap';
   const arrowC=(cur,prev)=>prev==null?'var(--txt)':cur>prev?'#FF8A8E':cur<prev?'#4BD695':'var(--mut)';
+  const yoyAt=i=>{const r=rows[i],y4=rows[i+4];
+    return (revOf(r)&&y4&&revOf(y4))?((revOf(r)/revOf(y4)-1)*100):null;};
   const body=rows.map((r,i)=>{
-    if(!r.v)return `<tr><td style="${tds};text-align:left;color:var(--mut)">${r.q}</td><td style="${tds}" colspan="5" style="color:var(--dim)">無資料</td></tr>`;
-    const y4=rows[i+4], yoy=(revOf(r)&&y4&&revOf(y4))?((revOf(r)/revOf(y4)-1)*100):null;
-    const pv=rows[i+1]&&rows[i+1].v;
+    if(!r.v)return `<tr><td style="${tds};text-align:left;color:var(--mut)">${r.q}</td><td style="${tds};color:var(--dim)" colspan="4">無資料</td></tr>`;
+    const yoy=yoyAt(i), pv=rows[i+1]&&rows[i+1].v;
     return `<tr>
       <td style="${tds};text-align:left;color:var(--txt2)">${r.q}</td>
-      <td style="${tds}">${r.v.rev?(r.v.rev/1e5).toFixed(1):'—'}</td>
-      <td style="${tds};font-weight:800;color:${yoy==null?'var(--mut)':yoy>0?'#FF8A8E':'#4BD695'}">${yoy==null?'—':(yoy>0?'+':'')+yoy.toFixed(1)+'%'}</td>
+      <td style="${tds};line-height:1.4"><b>${r.v.rev?(r.v.rev/1e5).toFixed(1):'—'}</b><br><span style="font-size:11.5px;font-weight:800;color:${yoy==null?'var(--mut)':yoy>0?'#FF8A8E':'#4BD695'}">${yoy==null?'YoY —':'YoY '+(yoy>0?'+':'')+yoy.toFixed(1)+'%'}</span></td>
       <td style="${tds};color:${arrowC(r.v.gm,pv&&pv.gm)}">${r.v.gm.toFixed(1)}%</td>
       <td style="${tds};color:${arrowC(r.v.om,pv&&pv.om)}">${r.v.om.toFixed(1)}%</td>
       <td style="${tds};color:${arrowC(r.v.nm,pv&&pv.nm)}">${r.v.nm.toFixed(1)}%</td></tr>`;
   }).join('');
-  slot.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:480px;margin-top:4px">
-    <tr>${['季度','營收(億)','YoY','毛利率','營益率','淨利率'].map((h,i)=>`<th style="text-align:${i===0?'left':'right'};padding:4px 8px;color:var(--mut);font-size:12px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr>
+  const cid='t3c'+Math.random().toString(36).slice(2,8);
+  slot.innerHTML=`<div id="${cid}" style="height:240px;margin:2px 0 6px"></div>
+    <div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:440px;margin-top:2px">
+    <tr>${['季度','營收(億)/YoY','毛利率','營益率','淨利率'].map((h,i)=>`<th style="text-align:${i===0?'left':'right'};padding:4px 8px;color:var(--mut);font-size:12px;border-bottom:1px solid var(--line);white-space:nowrap">${h}</th>`).join('')}</tr>
     ${body}</table></div>
-    <div style="font-size:11.5px;color:var(--dim);margin-top:4px">紅=較上季升、綠=降;YoY=與去年同季營收相比(最早四季無同季基準顯示 —);資料:公開資訊觀測站季報,快取 7 天。</div>`;
+    <div style="font-size:11.5px;color:var(--dim);margin-top:4px">圖:長條=季營收(柱頂標 YoY)、折線=三率(右軸);表:紅=較上季升、綠=降;資料:公開資訊觀測站季報,快取 7 天。</div>`;
+  try{
+    const asc=[...rows].reverse().filter(r=>r.v);
+    const el=document.getElementById(cid);
+    if(el&&asc.length>=2&&typeof echarts!=='undefined'){
+      const ch=echarts.init(el);
+      if(typeof chipCharts!=='undefined')chipCharts.push(ch);
+      const idxMap=asc.map(r=>rows.indexOf(r));
+      ch.setOption({
+        grid:{left:46,right:44,top:30,bottom:24},
+        legend:{data:['營收(億)','毛利率','營益率','淨利率'],top:0,textStyle:{color:CT.legend,fontSize:11.5}},
+        tooltip:{trigger:'axis',backgroundColor:CT.ttBg,textStyle:{color:CT.ttText,fontSize:12.5}},
+        xAxis:{type:'category',data:asc.map(r=>r.q),axisLabel:{color:CT.axis,fontSize:11},axisLine:{lineStyle:{color:CT.border}}},
+        yAxis:[{type:'value',name:'億',axisLabel:{color:CT.axis,fontSize:10.5},splitLine:{lineStyle:{color:CT.split}}},
+               {type:'value',name:'%',axisLabel:{color:CT.axis,fontSize:10.5,formatter:'{value}%'},splitLine:{show:false}}],
+        series:[
+          {name:'營收(億)',type:'bar',data:asc.map(r=>+(r.v.rev/1e5).toFixed(1)),barMaxWidth:26,
+            itemStyle:{color:'rgba(230,168,60,.55)',borderColor:'var(--amber)',borderRadius:[3,3,0,0]},
+            label:{show:true,position:'top',fontSize:10,fontFamily:'monospace',
+              color:CT.legend,
+              formatter:p=>{const y=yoyAt(idxMap[p.dataIndex]);return y==null?'':(y>0?'+':'')+y.toFixed(0)+'%';}}},
+          {name:'毛利率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.gm),symbol:'circle',symbolSize:4,lineStyle:{width:2.2,color:'#FF8A8E'},itemStyle:{color:'#FF8A8E'}},
+          {name:'營益率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.om),symbol:'circle',symbolSize:4,lineStyle:{width:2,color:'#7FB4FF'},itemStyle:{color:'#7FB4FF'}},
+          {name:'淨利率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.nm),symbol:'circle',symbolSize:4,lineStyle:{width:2,color:'#4BD695'},itemStyle:{color:'#4BD695'}}]
+      });
+    }
+  }catch(e){}
 }
 function t3QNow(){                                       // 依申報時程推測最新可得季
   const d=new Date(), y=d.getFullYear(), m=d.getMonth()+1, day=d.getDate();
@@ -1732,7 +1760,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r240</span>');
+  diag.push('<span style="color:var(--dim)">build r241</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
