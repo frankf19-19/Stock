@@ -1652,7 +1652,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r229</span>');
+  diag.push('<span style="color:var(--dim)">build r230</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4983,7 +4983,7 @@ async function showDetail(id){
       ${!bz&&!sm?'<div class="dim-note">業務簡介累積中(每日更新自動補齊全市場)——也可按下方 AI 白話解讀立即生成。</div>':''}`;
   }
   const pBtn=document.getElementById('profAiBtn');
-  if(pBtn)pBtn.onclick=()=>aiAsk(`用繁體中文白話介紹 ${s.name}(${s.id}) 這家公司,格式如下:\n1) 一句話+一個比喻說明公司在做什麼\n2) 主要產品與服務(依類型分類條列,每類一句白話說明用途)\n3) 產品用在哪裡、主要客戶是誰\n4) 在產業鏈的上下游位置\n要簡單易懂,像對完全不懂股票的朋友解釋。`);
+  if(pBtn)pBtn.onclick=()=>aiInline(pBtn,`用繁體中文白話介紹 ${s.name}(${s.id}) 這家公司(直接開始不要開場白):\n1) 一句話+一個比喻說明公司在做什麼\n2) 主要產品與服務(依類型分類條列,每類一句白話說明用途)\n3) 產品用在哪裡、主要客戶是誰\n4) 在產業鏈的上下游位置\n要簡單易懂,像對完全不懂股票的朋友解釋。`,false,1600);
   (async()=>{  // 個股新聞跑馬燈
     const bar=document.getElementById('sTick'),tr=document.getElementById('sTickTrack');
     if(!bar||!tr)return;
@@ -5005,7 +5005,7 @@ async function showDetail(id){
     }catch(e){}
   })();
   const aBtn=document.getElementById('anaAiBtn');
-  if(aBtn)aBtn.onclick=()=>aiAsk(`請上網查詢並整理 ${s.name}(${s.id}) 近三個月外資與投顧研究報告的觀點:哪些券商出過報告或升降評、評等為何(買進/中立/賣出)、目標價各是多少、調整理由是什麼。條列整理,最後一句總結市場共識與分歧點。若查不到個別報告,就整理新聞中提到的最新目標價。`,true);
+  if(aBtn)aBtn.onclick=()=>aiInline(aBtn,`請上網查詢並整理 ${s.name}(${s.id}) 近三個月外資與投顧研究報告的觀點(直接條列不要開場白):哪些券商出過報告或升降評、評等為何(買進/中立/賣出)、目標價各是多少、調整理由是什麼。最後一句總結市場共識與分歧點。若查不到個別報告,就整理新聞中提到的最新目標價。結尾一行:非投資建議。`,true,1600);
   loadProfileDetail(s);
   loadAnalystDetail(s);
   loadChipDetail(s);
@@ -6066,7 +6066,7 @@ function showLearnDetail(key){
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='#learn';};
   const btn=document.getElementById('learnAiBtn');
-  if(btn)btn.onclick=()=>aiAsk(`我剛看完「${t.t}」的產業教學,請用一個生活化的比喻幫我把重點再講一次(3~5句就好),然後考我一個小問題確認我有懂。`);
+  if(btn)btn.onclick=()=>aiInline(btn,`我剛看完「${t.t}」的產業教學,請用一個生活化的比喻把重點再講一次(3~5句),然後出一個小問題考我(附上答案,答案用「💡 解答:」開頭放最後)。直接開始不要開場白。`,false,900);
 }
 /* 頂部快速搜尋:代號/名稱直達個股 */
 (function(){
@@ -6685,6 +6685,39 @@ function gaDate(pd){
     return `${tw.getMonth()+1}/${tw.getDate()}(${wd})`;
   }catch(e){return '';}
 }
+function aiInlHtml(t){
+  return '<div style="font-weight:900;color:#C792EA;margin-bottom:4px;font-size:13px">✦ AI 解讀 <span style="font-weight:400;font-size:11px;color:var(--dim)">依即時生成・非投資建議</span></div>'+mdLite(t);
+}
+async function aiInline(btn,prompt,useWeb,maxTok){        // 全站共用:解讀直接長在按鈕下方,不開小幫手
+  if(!btn)return;
+  let box=btn.__aiBox;
+  if(!box||!box.isConnected){
+    box=document.createElement('div');
+    box.style.cssText='margin:8px 0;background:rgba(199,146,234,.07);border:1.5px solid rgba(199,146,234,.4);border-radius:11px;padding:11px 14px;font-size:14px;line-height:1.75';
+    const host=btn.closest('div')||btn.parentElement;
+    host.parentElement.insertBefore(box,host.nextSibling);
+    btn.__aiBox=box;
+  }
+  let h=0;const pt=String(prompt);
+  for(let i=0;i<pt.length;i++)h=(h*31+pt.charCodeAt(i))>>>0;
+  const key='ai_'+h;
+  const C=window.__aiInl=window.__aiInl||{};
+  if(C[key]&&C[key].status==='done'){box.innerHTML=aiInlHtml(C[key].txt);return;}
+  if(C[key]&&C[key].status==='run')return;
+  box.innerHTML='<span style="color:var(--dim)">✦ AI 解讀中…(約 5~15 秒'+(useWeb?',含上網查證':'')+')</span>';
+  C[key]={status:'run'};
+  try{
+    const txt=await gaAiOnce(prompt,null,!useWeb,maxTok||1400);
+    if(!txt)throw new Error('空回應');
+    C[key]={status:'done',txt};
+    if(box.isConnected)box.innerHTML=aiInlHtml(txt);
+  }catch(e){
+    delete C[key];
+    let m=String(e.message||e);
+    if(/Failed to fetch|NetworkError/i.test(m))m='連不上 AI(廣告攔截器或網路問題)';
+    if(box.isConnected)box.innerHTML=`<span style="color:var(--dim)">✦ 解讀失敗(${m.slice(0,60)})——再點一次重試</span>`;
+  }
+}
 function gaJsonp(url){                            // JSONP:瀏覽器原生跨網域,免代理
   return new Promise((res,rej)=>{
     const cb='__gaJp'+Math.random().toString(36).slice(2);
@@ -7190,7 +7223,7 @@ async function glbLoad(i){
     const c=window.__glbCache[window.__glbActive];
     const it=c&&c.items&&c.items[+b.dataset.gix];
     if(!it)return;
-    try{aiAsk(`這是一則國際供應鏈外電:「${it.t}」(來源:${it.s||'外電'}${it.ago?'、'+it.ago:''})。${AI.web?'請先上網搜尋這個標題、找到並閱讀原文內容後再回答。':'(若能上網請先讀原文;⚙ 可開啟上網搜尋)'}用繁體中文回答:\n1) 這篇新聞的內容重點(不只標題,講清楚脈絡與數字)\n2) 對應的台股族群,並具體列出 3~6 檔相關個股(股名+代號),說明各自關聯與利多/利空方向\n3) 接下來值得追蹤的確認點(報價、法說、月營收、訂單)\n推測的部分請明說,結尾提醒非投資建議。`,true);}catch(err){}
+    try{aiInline(b,`這是一則國際供應鏈外電:「${it.t}」(來源:${it.s||'外電'}${it.ago?'、'+it.ago:''})。請先上網搜尋這個標題、找到並閱讀原文內容後再回答。用繁體中文條列(直接開始不要開場白):\n1) 新聞內容重點(不只標題,講清楚脈絡與數字)\n2) 對應台股族群與 3~6 檔相關個股(股名+代號),各自關聯與利多/利空方向\n3) 值得追蹤的確認點(報價、法說、月營收、訂單)\n推測的部分請明說,結尾一行:非投資建議。`,true);}catch(err){}
   });
   setTimeout(async()=>{
     try{await glbLoad(0);}catch(e){}
