@@ -576,8 +576,12 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 /* 首頁分頁籤 */
 .home-tabs{display:flex;gap:8px;margin:14px 0 4px;position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0}
 .home-tabs button{flex:1;max-width:180px;padding:11px 0;font-size:15.5px;font-weight:800;letter-spacing:.08em;
-  background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--mut);cursor:pointer;transition:.15s}
-.home-tabs button.on{color:var(--amber);border-color:var(--amber);background:var(--panel2)}
+  background:var(--panel);border:1.5px solid var(--line);border-radius:11px;color:var(--mut);cursor:pointer;
+  transition:transform .13s,border-color .13s,background .13s,color .13s,box-shadow .13s}
+.home-tabs button:hover{border-color:var(--amber);color:var(--txt2);transform:translateY(-1px)}
+.home-tabs button.on{color:var(--panel);background:var(--amber);border-color:var(--amber);font-weight:900;
+  box-shadow:0 5px 16px color-mix(in srgb,var(--amber) 38%,transparent);transform:translateY(-1px)}
+.home-tabs button.on:hover{filter:brightness(1.06)}
 @media(max-width:640px){.home-tabs button{font-size:14px;padding:10px 0}}
 /* K線工具列:右側還有按鈕時,右緣漸層淡出提示可滑動 */
 .kseg-row.has-more{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);
@@ -1797,7 +1801,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r257</span>');
+  diag.push('<span style="color:var(--dim)">build r258</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
