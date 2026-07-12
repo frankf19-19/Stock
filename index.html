@@ -24,9 +24,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
 <style>
 :root{
-  --bg:#F7F5F0; --panel:#FFFFFF; --panel2:#EFECE3; --line:#DCD7C9;
-  --up:#C0392F; --down:#0E8A57; --amber:#B08530;
-  --txt:#26221A; --mut:#6F6859; --dim:#8D8571; --txt2:#494234; --hdr:#F1EEE6;
+  --bg:#F8F7F2; --panel:#FFFFFF; --panel2:#EDEFE8; --line:#D9DCD0;
+  --up:#C0392F; --down:#0F8A57; --amber:#0D9B8E;
+  --txt:#1F231E; --mut:#68705F; --dim:#889081; --txt2:#3F463C; --hdr:#F0F1EA;
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
 }
 html[data-theme="black"]{
@@ -628,7 +628,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <div class="qs-drop" id="qsDrop" hidden></div>
         </div>
         <select id="themeSel" aria-label="介面主題">
-          <option value="navy">🏛 象牙金(亮)</option>
+          <option value="navy">🫧 白玉翡翠(亮)</option>
           <option value="black">🌆 夕陽橘</option>
           <option value="light">☀️ 明亮日盤</option>
           <option value="mocha">🌼 花園</option>
@@ -1797,7 +1797,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r253</span>');
+  diag.push('<span style="color:var(--dim)">build r255</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4199,9 +4199,9 @@ const UPC='#E5484D', DNC='#21A466';
 function cssVar(n){try{return getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#E8B44A';}catch(e){return'#E8B44A';}}
 function hexA(h,a){h=String(h).replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
 /* 圖表主題(ECharts 吃不到 CSS 變數,用 CT 同步)*/
-const CT={legend:'#6F6859',axis:'#A79E88',split:'#ECE8DC',border:'#DCD7C9',
-  ttBg:'#FFFFFF',ttText:'#26221A',inactive:'#CFC8B5',ma60:'#3A342A',
-  up2:'#C0392F',dn2:'#0E8A57'};
+const CT={legend:'#68705F',axis:'#A2AA97',split:'#EAEDE2',border:'#D9DCD0',
+  ttBg:'#FFFFFF',ttText:'#1F231E',inactive:'#C7CDBB',ma60:'#31382E',
+  up2:'#C0392F',dn2:'#0F8A57'};
 const CHART_THEMES={
   navy:{...CT},
   black:{legend:'#C0A88E',axis:'#8A7660',split:'#2A231C',border:'#4A3D30',
@@ -5371,6 +5371,7 @@ function route(){
   else if(location.hash.startsWith('#event/')) showEventDetail();
   else if(location.hash.startsWith('#learn/')) showLearnDetail(decodeURIComponent(location.hash.slice(7)));
   else if(location.hash==='#learn') showLearnIndex();
+  else if(location.hash==='#themes') showThemeLab();
   else{
     if(RT.dTimer){clearInterval(RT.dTimer);RT.dTimer=null;}
     disposeChipCharts(); curChips=null;
@@ -6551,6 +6552,61 @@ function learnCards(){
 function learnNav(){
   const CATS=['🎒 投資基礎','🧠 籌碼與市場機制','🧺 ETF 進階','🏭 半導體供應鏈','🌐 各產業白話'];
   return `<div class="learn-nav">${CATS.map((c,i)=>`<a href="javascript:void(0)" data-lnav="${i}">${c}</a>`).join('')}</div>`;
+}
+const THEME_LAB=[
+ {n:'1 琉璃靛(亮)',bg:'#F6F7FB',pn:'#FFFFFF',p2:'#ECEFF7',ln:'#D7DDEC',tx:'#1D2433',mu:'#66708A',ac:'#3056D3',up:'#C0392F',dn:'#0F8A57',hd:'#EFF1F8'},
+ {n:'2 朱印宣紙(亮)',bg:'#F9F7F1',pn:'#FFFFFF',p2:'#F0EDE2',ln:'#DFDACB',tx:'#25211B',mu:'#6F6A5C',ac:'#C8402F',up:'#B03A2E',dn:'#0F8A57',hd:'#F3F0E8'},
+ {n:'3 抹茶拿鐵(亮)',bg:'#F4F3E9',pn:'#FFFFFF',p2:'#EAE9DA',ln:'#D6D5C0',tx:'#26281C',mu:'#6C7058',ac:'#7A8B3E',up:'#C0392F',dn:'#127A50',hd:'#EEEDE0'},
+ {n:'4 灰瓷極簡(亮)',bg:'#F5F5F4',pn:'#FFFFFF',p2:'#ECECEA',ln:'#DBDBD8',tx:'#191919',mu:'#6E6E6A',ac:'#1A1A1A',up:'#C0392F',dn:'#0F8A57',hd:'#EFEFED'},
+ {n:'5 薰衣草奶霜(亮)',bg:'#F5F2FA',pn:'#FFFFFF',p2:'#ECE7F5',ln:'#DBD3EA',tx:'#292338',mu:'#6F677F',ac:'#7B5BD6',up:'#C0392F',dn:'#0F8A57',hd:'#F0ECF7'},
+ {n:'6 天空水色(亮)',bg:'#F0F7FC',pn:'#FFFFFF',p2:'#E2EEF6',ln:'#CCE0EC',tx:'#173040',mu:'#547082',ac:'#1E90CF',up:'#C4333B',dn:'#0F8A57',hd:'#EAF3F9'},
+ {n:'7 曜石翡翠(暗)',bg:'#101614',pn:'#17201D',p2:'#1F2B27',ln:'#31423C',tx:'#DDEBE5',mu:'#8FA79D',ac:'#2BC4A8',up:'#FF8A8E',dn:'#4BD695',hd:'#0D1311'},
+ {n:'8 深酒紅(暗)',bg:'#1D1216',pn:'#26181D',p2:'#312027',ln:'#4A3039',tx:'#F2E3E8',mu:'#B48E9B',ac:'#E76F8A',up:'#FF8A8E',dn:'#4BD695',hd:'#180F13'},
+ {n:'9 靛夜(暗)',bg:'#12141F',pn:'#181B29',p2:'#202436',ln:'#323752',tx:'#E4E7F5',mu:'#8B92B3',ac:'#6C7CFF',up:'#FF8A8E',dn:'#4BD695',hd:'#0F111A'},
+ {n:'10 咖啡歐蕾(暗)',bg:'#191412',pn:'#211B17',p2:'#2B231E',ln:'#42362E',tx:'#F0E4D8',mu:'#B39C88',ac:'#D9A066',up:'#FF8A8E',dn:'#4BD695',hd:'#15110F'},
+ {n:'11 極夜青檸(暗)',bg:'#0B0B0C',pn:'#131314',p2:'#1B1B1D',ln:'#2B2B2E',tx:'#F1F1EE',mu:'#9A9A94',ac:'#B4E34A',up:'#FF8A8E',dn:'#4BD695',hd:'#09090A'},
+ {n:'12 深墨藍經典(暗・原預設)',bg:'#0C111D',pn:'#141B2B',p2:'#1A2337',ln:'#232D42',tx:'#E9EDF5',mu:'#8B95AB',ac:'#E8B44A',up:'#FF8A8E',dn:'#4BD695',hd:'#111828'}];
+function showThemeLab(){
+  const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
+  disposeChipCharts();curChips=null;
+  home.style.display='none';dv.style.display='block';
+  const spark='M2,26 L14,20 L26,23 L38,12 L50,16 L62,7 L74,10';
+  dv.innerHTML=`<button class="btn-ghost" id="backBtn">← 回首頁</button>
+    <h2 style="font-size:24px;font-weight:900;margin:12px 0 4px">🪞 主題試衣間</h2>
+    <div style="color:var(--mut);font-size:14px;margin-bottom:14px">12 個候選配色的實景小樣——點卡片打勾圈選,回報編號(可複選),我照中選的做成正式主題。</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
+    ${THEME_LAB.map((t,i)=>`
+      <div class="lab-card" data-i="${i}" style="border:2px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;background:${t.bg};transition:transform .12s,border-color .12s">
+        <div style="background:${t.hd};padding:8px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid ${t.ln}">
+          <span style="font-weight:900;font-size:13px;color:${t.tx}">麻吉股研所</span>
+          <span style="margin-left:auto;width:34px;height:12px;border-radius:999px;background:${t.ac}"></span>
+        </div>
+        <div style="padding:10px 12px">
+          <div style="background:${t.pn};border:1px solid ${t.ln};border-radius:10px;padding:9px 11px">
+            <div style="display:flex;gap:10px;font-family:var(--mono);font-size:13px;font-weight:900">
+              <span style="color:${t.up}">▲ 2,330 +1.8%</span><span style="color:${t.dn}">▼ 0056 -0.4%</span></div>
+            <svg viewBox="0 0 76 30" style="width:100%;height:34px;margin-top:5px">
+              <path d="${spark}" fill="none" stroke="${t.ac}" stroke-width="2.4" stroke-linecap="round"/></svg>
+            <div style="font-size:12px;color:${t.mu};line-height:1.55;margin-top:3px">內文樣本:法人連買、大戶收斂,<b style="color:${t.tx}">重點字</b>與次要說明的對比。</div>
+          </div>
+          <div style="display:flex;gap:7px;margin-top:8px;align-items:center">
+            <span style="background:${t.ac};color:${t.bg};font-size:11.5px;font-weight:900;border-radius:8px;padding:4px 12px">主按鈕</span>
+            <span style="border:1.5px solid ${t.ln};color:${t.tx};font-size:11.5px;font-weight:700;border-radius:8px;padding:4px 12px;background:${t.p2}">次按鈕</span>
+            <span class="lab-check" style="margin-left:auto;font-size:18px;opacity:0">✅</span>
+          </div>
+          <div style="font-size:12.5px;font-weight:900;color:${t.tx};margin-top:8px">${t.n}</div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div class="dim-note" style="margin-top:12px">小樣即實際變數對照(底/面板/線框/主字/輔字/強調/漲跌)。圈好後告訴我:「要 3 和 7」這樣即可;也可以說「3 的底配 7 的強調色」混搭。</div>`;
+  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  dv.querySelectorAll('.lab-card').forEach(c=>c.onclick=()=>{
+    const on=c.dataset.on==='1';
+    c.dataset.on=on?'':'1';
+    c.style.borderColor=on?'var(--line)':'var(--amber)';
+    c.style.transform=on?'':'translateY(-3px)';
+    c.querySelector('.lab-check').style.opacity=on?0:1;
+  });
 }
 function showLearnIndex(){
   const home=document.getElementById('homeView'),dv=document.getElementById('detailView');
