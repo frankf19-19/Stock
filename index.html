@@ -1507,7 +1507,7 @@ async function t3HistShow(sid,q,slot){
   // YoY:與往前4季比(在集合內才算)
   const revOf=r=>r&&r.v&&r.v.rev?r.v.rev:null;
   const tds='padding:5px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-size:13px;white-space:nowrap';
-  const arrowC=(cur,prev)=>prev==null?'var(--txt)':cur>prev?'#FF8A8E':cur<prev?'#4BD695':'var(--mut)';
+  const arrowC=(cur,prev)=>prev==null?'var(--txt)':cur>prev?CT.up2:cur<prev?CT.dn2:'var(--mut)';
   const yoyAt=i=>{const r=rows[i],y4=rows[i+4];
     return (revOf(r)&&y4&&revOf(y4))?((revOf(r)/revOf(y4)-1)*100):null;};
   const body=rows.map((r,i)=>{
@@ -1515,7 +1515,7 @@ async function t3HistShow(sid,q,slot){
     const yoy=yoyAt(i), pv=rows[i+1]&&rows[i+1].v;
     return `<tr>
       <td style="${tds};text-align:left;color:var(--txt2)">${r.q}</td>
-      <td style="${tds};line-height:1.4"><b>${r.v.rev?(r.v.rev/100).toFixed(0):'—'}</b><br><span style="font-size:11.5px;font-weight:800;color:${yoy==null?'var(--mut)':yoy>0?'#FF8A8E':'#4BD695'}">${yoy==null?'YoY —':'YoY '+(yoy>0?'+':'')+yoy.toFixed(1)+'%'}</span></td>
+      <td style="${tds};line-height:1.4"><b>${r.v.rev?(r.v.rev/100).toFixed(0):'—'}</b><br><span style="font-size:11.5px;font-weight:800;color:${yoy==null?'var(--mut)':yoy>0?CT.up2:CT.dn2}">${yoy==null?'YoY —':'YoY '+(yoy>0?'+':'')+yoy.toFixed(1)+'%'}</span></td>
       <td style="${tds};color:${arrowC(r.v.gm,pv&&pv.gm)}">${r.v.gm.toFixed(1)}%</td>
       <td style="${tds};color:${arrowC(r.v.om,pv&&pv.om)}">${r.v.om.toFixed(1)}%</td>
       <td style="${tds};color:${arrowC(r.v.nm,pv&&pv.nm)}">${r.v.nm.toFixed(1)}%</td></tr>`;
@@ -1546,9 +1546,9 @@ async function t3HistShow(sid,q,slot){
             label:{show:true,position:'top',fontSize:10,fontFamily:'monospace',
               color:CT.legend,
               formatter:p=>{const y=yoyAt(idxMap[p.dataIndex]);return y==null?'':(y>0?'+':'')+y.toFixed(0)+'%';}}},
-          {name:'毛利率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.gm),symbol:'circle',symbolSize:4,lineStyle:{width:2.2,color:'#FF8A8E'},itemStyle:{color:'#FF8A8E'}},
-          {name:'營益率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.om),symbol:'circle',symbolSize:4,lineStyle:{width:2,color:'#7FB4FF'},itemStyle:{color:'#7FB4FF'}},
-          {name:'淨利率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.nm),symbol:'circle',symbolSize:4,lineStyle:{width:2,color:'#4BD695'},itemStyle:{color:'#4BD695'}}]
+          {name:'毛利率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.gm),symbol:'circle',symbolSize:4,lineStyle:{width:2.2,color:CT.up2},itemStyle:{color:CT.up2}},
+          {name:'營益率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.om),symbol:'circle',symbolSize:4,lineStyle:{width:2,color:CT.ttBg==='#FFFFFF'?'#2E62C9':'#7FB4FF'},itemStyle:{color:CT.ttBg==='#FFFFFF'?'#2E62C9':'#7FB4FF'}},
+          {name:'淨利率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.nm),symbol:'circle',symbolSize:4,lineStyle:{width:2,color:CT.dn2},itemStyle:{color:CT.dn2}}]
       });
     }
   }catch(e){}
@@ -1823,7 +1823,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r260</span>');
+  diag.push('<span style="color:var(--dim)">build r261</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8918,7 +8918,7 @@ function renderPort(){
   try{
     const D=portDiag(arr);
     if(D.F.length){
-      const bc={ok:'#4BD695',amb:'var(--amber)',red:'#FF8A8E'};
+      const bc={ok:CT.dn2,amb:'var(--amber)',red:CT.up2};
       const watch=portWatch(arr,D.sec);
       html+=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px">
         <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
