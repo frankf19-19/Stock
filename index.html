@@ -24,15 +24,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
 <style>
 :root{
-  --bg:#0C111D; --panel:#141B2B; --panel2:#1A2337; --line:#232D42;
-  --up:#E5484D; --down:#21A466; --amber:#E8B44A;
-  --txt:#E9EDF5; --mut:#8B95AB; --dim:#6A7486; --txt2:#C4CBDA; --hdr:#111828;
+  --bg:#F7F5F0; --panel:#FFFFFF; --panel2:#EFECE3; --line:#DCD7C9;
+  --up:#C0392F; --down:#0E8A57; --amber:#B08530;
+  --txt:#26221A; --mut:#6F6859; --dim:#8D8571; --txt2:#494234; --hdr:#F1EEE6;
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
 }
 html[data-theme="black"]{
-  --bg:#1A1B26; --panel:#1F2335; --panel2:#292E42; --line:#3B4261;
-  --txt:#C0CAF5; --mut:#8F9BC9; --dim:#6B749B; --txt2:#A9B1D6;
-  --amber:#7AA2F7; --hdr:#16161E;
+  --bg:#1F1915; --panel:#28211B; --panel2:#332A22; --line:#4A3D30;
+  --txt:#F5EADC; --mut:#C0A88E; --dim:#96826C; --txt2:#E3D2BC;
+  --amber:#FF9349; --hdr:#1A1511;
+  --up:#E5484D; --down:#21A466;
 }
 html[data-theme="light"]{
   --bg:#F3F5F9; --panel:#FFFFFF; --panel2:#EDF0F6; --line:#D9DEE8;
@@ -50,6 +51,7 @@ html[data-theme="teal"]{
   --bg:#282828; --panel:#32302F; --panel2:#3C3836; --line:#504945;
   --txt:#EBDBB2; --mut:#A89984; --dim:#8A7F6F; --txt2:#D5C4A1;
   --amber:#FABD2F; --hdr:#242220;
+  --up:#E5484D; --down:#21A466;
 }
 html[data-theme="sakura"]{
   --bg:#FBF5F7; --panel:#FFFFFF; --panel2:#F7EBEF; --line:#EDD8DF;
@@ -57,9 +59,10 @@ html[data-theme="sakura"]{
   --amber:#B84D8A; --hdr:#F9F0F3;
 }
 html[data-theme="lucky"]{
-  --bg:#2D353B; --panel:#343F44; --panel2:#3D484D; --line:#4A555B;
-  --txt:#D3C6AA; --mut:#9DA9A0; --dim:#7F897D; --txt2:#C0B494;
-  --amber:#A7C080; --hdr:#293136;
+  --bg:#191724; --panel:#1F1D2E; --panel2:#26233A; --line:#3B3654;
+  --txt:#E0DEF4; --mut:#908CAA; --dim:#6E6A86; --txt2:#C9C6E0;
+  --amber:#F6C177; --hdr:#15131F;
+  --up:#E5484D; --down:#21A466;
 }
 html[data-theme="rain"]{
   --bg:#E9EEF5; --panel:#FFFFFF; --panel2:#DDE6F0; --line:#C4D2E2;
@@ -71,12 +74,13 @@ html[data-theme="graphite"]{
   --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
   --txt:#ECEDEF; --mut:#9BA1AB; --dim:#6F737B; --txt2:#CDD1D7;
   --amber:#D8B364; --hdr:#17181B;
+  --up:#E5484D; --down:#21A466;
 }
 html[data-theme="dawn"]{
-  --bg:#FDF6E3; --panel:#FFFCF2; --panel2:#F3ECD8; --line:#E0D8C0;
-  --txt:#41504F; --mut:#657B83; --dim:#8B9A9B; --txt2:#586E75;
-  --amber:#B58900; --hdr:#F7F0DC;
-  --up:#CB4B16; --down:#2AA198;
+  --bg:#FAF1EA; --panel:#FFFFFF; --panel2:#F5E5DA; --line:#E9D3C4;
+  --txt:#3B2A22; --mut:#8A6F5F; --dim:#A18876; --txt2:#5C4536;
+  --amber:#E2704A; --hdr:#F6EBE1;
+  --up:#C4333B; --down:#0F8A57;
 }
 html[data-theme="sepia"]{
   --bg:#EDF4F8; --panel:#FFFFFF; --panel2:#E0EBF2; --line:#C9DBE6;
@@ -624,16 +628,16 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <div class="qs-drop" id="qsDrop" hidden></div>
         </div>
         <select id="themeSel" aria-label="介面主題">
-          <option value="navy">🌌 深墨藍</option>
-          <option value="black">🗼 東京夜</option>
+          <option value="navy">🏛 象牙金(亮)</option>
+          <option value="black">🌆 夕陽橘</option>
           <option value="light">☀️ 明亮日盤</option>
           <option value="mocha">🌼 花園</option>
           <option value="teal">🏜 復古大地</option>
-          <option value="lucky">🌲 森林墨綠</option>
+          <option value="lucky">🌙 夜玫瑰</option>
           <option value="rain">🌦 雨過天青(亮)</option>
           <option value="sakura">🌸 櫻花</option>
           <option value="graphite">🪨 石墨銀</option>
-          <option value="dawn">🌞 暖陽紙頁(亮)</option>
+          <option value="dawn">🍑 蜜桃奶茶(亮)</option>
           <option value="sepia">🧊 冰川湖水(亮)</option>
         </select>
         <button class="btn-ghost" id="alertBtn" title="盤中警示:好股下殺至買進區/帶量突破時通知">🔔</button>
@@ -1793,7 +1797,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r249</span>');
+  diag.push('<span style="color:var(--dim)">build r253</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4195,14 +4199,14 @@ const UPC='#E5484D', DNC='#21A466';
 function cssVar(n){try{return getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#E8B44A';}catch(e){return'#E8B44A';}}
 function hexA(h,a){h=String(h).replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
 /* 圖表主題(ECharts 吃不到 CSS 變數,用 CT 同步)*/
-const CT={legend:'#8B95AB',axis:'#5A6478',split:'#1A2337',border:'#232D42',
-  ttBg:'#1A2337',ttText:'#E9EDF5',inactive:'#3A4358',ma60:'#F2F2F2',
-  up2:'#FF8A8E',dn2:'#4BD695'};
+const CT={legend:'#6F6859',axis:'#A79E88',split:'#ECE8DC',border:'#DCD7C9',
+  ttBg:'#FFFFFF',ttText:'#26221A',inactive:'#CFC8B5',ma60:'#3A342A',
+  up2:'#C0392F',dn2:'#0E8A57'};
 const CHART_THEMES={
   navy:{...CT},
-  black:{legend:'#8F9BC9',axis:'#565F89',split:'#22263A',border:'#3B4261',
-    ttBg:'#1F2335',ttText:'#C0CAF5',inactive:'#414868',ma60:'#C0CAF5',
-    up2:'#F7768E',dn2:'#9ECE6A'},
+  black:{legend:'#C0A88E',axis:'#8A7660',split:'#2A231C',border:'#4A3D30',
+    ttBg:'#28211B',ttText:'#F5EADC',inactive:'#544738',ma60:'#F5EADC',
+    up2:'#FF8A80',dn2:'#7DD6A0'},
   light:{legend:'#5A6478',axis:'#6B7280',split:'#E4E8F0',border:'#D9DEE8',
     ttBg:'#FFFFFF',ttText:'#1B2233',inactive:'#C4CBD6',ma60:'#4A5568',
     up2:'#C4333B',dn2:'#0F8A57'},
@@ -4215,18 +4219,18 @@ const CHART_THEMES={
   sakura:{legend:'#7F6571',axis:'#A28D98',split:'#F3E4E9',border:'#E8D3DB',
     ttBg:'#FFFFFF',ttText:'#2E222A',inactive:'#D9C2CB',ma60:'#4A3540',
     up2:'#C4333B',dn2:'#0F8A57'},
-  lucky:{legend:'#9DA9A0',axis:'#7F897D',split:'#37413F',border:'#4A555B',
-    ttBg:'#343F44',ttText:'#D3C6AA',inactive:'#535E56',ma60:'#D3C6AA',
-    up2:'#E67E80',dn2:'#A7C080'},
+  lucky:{legend:'#908CAA',axis:'#6E6A86',split:'#211E31',border:'#3B3654',
+    ttBg:'#1F1D2E',ttText:'#E0DEF4',inactive:'#443F60',ma60:'#E0DEF4',
+    up2:'#EB8A96',dn2:'#63C8A8'},
   rain:{legend:'#5B7089',axis:'#8A9BB2',split:'#DCE5EF',border:'#C4D2E2',
     ttBg:'#FFFFFF',ttText:'#26344A',inactive:'#B3C3D6',ma60:'#33465F',
     up2:'#C4333B',dn2:'#0F8A57'},
   graphite:{legend:'#9BA1AB',axis:'#6D737D',split:'#1F2125',border:'#34383F',
     ttBg:'#26292E',ttText:'#ECEDEF',inactive:'#3E434B',ma60:'#F0F1F3',
     up2:'#FF8A8E',dn2:'#4BD695'},
-  dawn:{legend:'#657B83',axis:'#93A1A1',split:'#EEE8D5',border:'#E0D8C0',
-    ttBg:'#FFFCF2',ttText:'#41504F',inactive:'#CFC8B0',ma60:'#586E75',
-    up2:'#CB4B16',dn2:'#2AA198'},
+  dawn:{legend:'#8A6F5F',axis:'#B39682',split:'#F1E0D3',border:'#E9D3C4',
+    ttBg:'#FFFFFF',ttText:'#3B2A22',inactive:'#DAC3B1',ma60:'#4A3527',
+    up2:'#C4333B',dn2:'#0F8A57'},
   sepia:{legend:'#527282',axis:'#7E97A6',split:'#DFEAF1',border:'#C9DBE6',
     ttBg:'#FFFFFF',ttText:'#1E3944',inactive:'#B6CBD8',ma60:'#2B4A5A',
     up2:'#C4333B',dn2:'#0F8A57'}
@@ -4235,7 +4239,7 @@ const CHART_THEMES={
    櫻花=花瓣飄落|海邊=太陽・飄雲・海浪・沙灘・沙堡(旗飄)・海鷗・氣泡|森林=陽光光束・松樹・搖曳草地・落葉
    全程式繪製、畫在背景層不擋內容;尊重「減少動態」;切主題自動清除重建 */
 function natureFX(theme){
-  const kind={sakura:'petal',sepia:'winter',mocha:'garden',lucky:'forest',rain:'rain'}[theme]||null;
+  const kind={sakura:'petal',sepia:'winter',mocha:'garden',lucky:'petal',rain:'rain'}[theme]||null;
   const old=document.getElementById('natureFx');
   if(!kind){window.__nfRun=false;if(old)old.remove();return;}
   try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;}catch(e){}
