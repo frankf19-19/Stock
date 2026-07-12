@@ -583,6 +583,28 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   box-shadow:0 5px 16px color-mix(in srgb,var(--amber) 38%,transparent);transform:translateY(-1px)}
 .home-tabs button.on:hover{filter:brightness(1.06)}
 @media(max-width:640px){.home-tabs button{font-size:14px;padding:10px 0}}
+/* ── 手機重設計:目錄式首頁 ── */
+.mob-jump{display:none}
+#mobNav{display:none}
+@media(max-width:640px){
+  .home-tabs{display:none}                                 /* 頂部分頁讓位,導航移到底部 */
+  body{padding-bottom:76px}
+  .mob-jump{display:flex;gap:7px;overflow-x:auto;position:sticky;top:0;z-index:6;
+    background:var(--bg);padding:9px 2px;margin:0 0 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .mob-jump::-webkit-scrollbar{display:none}
+  .mob-jump button{flex-shrink:0;background:var(--panel);border:1.5px solid var(--line);border-radius:999px;
+    padding:7px 14px;font-size:13px;font-weight:800;color:var(--txt2);cursor:pointer;white-space:nowrap}
+  .mob-jump button:active{background:var(--amber);color:var(--panel);border-color:var(--amber)}
+  #mobNav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:var(--panel);border-top:1.5px solid var(--line);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(0,0,0,.08)}
+  #mobNav button{flex:1;background:none;border:none;cursor:pointer;color:var(--mut);
+    font-size:11px;font-weight:800;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0}
+  #mobNav button .mi{font-size:20px;line-height:1}
+  #mobNav button.on{color:var(--amber)}
+  #mobNav button.on .mi{transform:translateY(-1px)}
+  .sec-title{margin:14px 0 10px}                           /* 目錄模式下區塊間距收緊 */
+}
 /* K線工具列:右側還有按鈕時,右緣漸層淡出提示可滑動 */
 .kseg-row.has-more{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);
   mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
@@ -1801,7 +1823,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r258</span>');
+  diag.push('<span style="color:var(--dim)">build r259</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5665,7 +5687,7 @@ function setupSections(){
     if(!t.querySelector('.sec-hint')){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
-    const closed=(key in saved)?!!saved[key]:false;  // 各區塊預設展開,使用者收合會記住
+    const closed=(key in saved)?!!saved[key]:mob;    // 手機預設收合成目錄、桌機展開;使用者操作會記住
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
     t.onclick=()=>{
@@ -5681,8 +5703,52 @@ function setupSections(){
     };
   });
 }
+function setupMobileNav(){
+  /* 分頁內快速跳轉目錄列 */
+  document.querySelectorAll('.tabPane').forEach(p=>{
+    if(p.dataset.jump)return;
+    const secs=[...p.querySelectorAll('.sec-title[data-sec]')];
+    if(secs.length<2){p.dataset.jump='1';return;}
+    const bar=document.createElement('div');
+    bar.className='mob-jump';
+    bar.innerHTML=secs.map(t=>{
+      const nm=(t.childNodes[0]?.textContent||'').trim().slice(0,9);
+      return `<button data-jm="${t.dataset.sec}">${nm}</button>`;}).join('');
+    p.prepend(bar);
+    bar.querySelectorAll('[data-jm]').forEach(b=>b.onclick=()=>{
+      const t=document.querySelector(`.sec-title[data-sec="${b.dataset.jm}"]`);
+      const body=document.getElementById('sb-'+b.dataset.jm);
+      if(body&&body.classList.contains('closed'))t.click();   // 收合中→展開(沿用原機制含記憶與圖表重算)
+      setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),60);
+    });
+    p.dataset.jump='1';
+  });
+  /* 底部拇指導航 */
+  if(!document.getElementById('mobNav')){
+    const nav=document.createElement('div');
+    nav.id='mobNav';
+    const items=[['macro','📊','大盤'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','股癌'],['port','💼','持股']];
+    nav.innerHTML=items.map(([k,ic,lb])=>`<button data-mn="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('');
+    document.body.appendChild(nav);
+    const sync=()=>{
+      const cur=document.querySelector('#homeTabs button.on');
+      const k=cur?cur.dataset.tab:'macro';
+      nav.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.mn===k));
+    };
+    nav.querySelectorAll('[data-mn]').forEach(b=>b.onclick=()=>{
+      if(location.hash)location.hash='';                       // 從個股/小學堂等內頁先回首頁
+      const t=document.querySelector(`#homeTabs [data-tab="${b.dataset.mn}"]`);
+      if(t)t.click();
+      sync();
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+    document.getElementById('homeTabs')?.addEventListener('click',()=>setTimeout(sync,0));
+    sync();
+  }
+}
 window.addEventListener('resize',()=>chipCharts.forEach(c=>{try{c.resize()}catch(e){}}));
 window.addEventListener('resize',setupSections);
+setupMobileNav();
 setTimeout(setupSections,400);
 
 /* ══════════════ 籌碼深度追蹤(法人130日/大戶52週/營收40月/信用130日)══════════════ */
