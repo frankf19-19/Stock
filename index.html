@@ -1823,7 +1823,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r259</span>');
+  diag.push('<span style="color:var(--dim)">build r260</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5728,20 +5728,29 @@ function setupMobileNav(){
     const nav=document.createElement('div');
     nav.id='mobNav';
     const items=[['macro','📊','大盤'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','股癌'],['port','💼','持股']];
-    nav.innerHTML=items.map(([k,ic,lb])=>`<button data-mn="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('');
+    nav.innerHTML=items.map(([k,ic,lb])=>`<button data-mn="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('')
+      +`<button data-mn="__fav"><span class="mi">⭐</span>最愛</button>`;
     document.body.appendChild(nav);
     const sync=()=>{
+      const onFav=location.hash==='#fav';
       const cur=document.querySelector('#homeTabs button.on');
-      const k=cur?cur.dataset.tab:'macro';
+      const k=onFav?'__fav':(cur?cur.dataset.tab:'macro');
       nav.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.mn===k));
     };
     nav.querySelectorAll('[data-mn]').forEach(b=>b.onclick=()=>{
+      if(b.dataset.mn==='__fav'){
+        location.hash='#fav';
+        setTimeout(sync,0);
+        window.scrollTo({top:0,behavior:'smooth'});
+        return;
+      }
       if(location.hash)location.hash='';                       // 從個股/小學堂等內頁先回首頁
       const t=document.querySelector(`#homeTabs [data-tab="${b.dataset.mn}"]`);
       if(t)t.click();
       sync();
       window.scrollTo({top:0,behavior:'smooth'});
     });
+    window.addEventListener('hashchange',()=>setTimeout(sync,0));
     document.getElementById('homeTabs')?.addEventListener('click',()=>setTimeout(sync,0));
     sync();
   }
