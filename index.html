@@ -185,7 +185,9 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 @media(max-width:720px){.kv{grid-template-columns:1fr}}
 
 /* ── 更新按鈕 / 市場總覽 / 匯率 / 新聞 ── */
-.btn-upd{background:var(--amber);border:none;color:#1A1206;font-weight:700;border-radius:8px;padding:0 16px;height:38px;cursor:pointer;font-family:var(--sans);font-size:15px;display:inline-flex;align-items:center}
+.btn-upd{background:var(--amber);color:var(--panel);border:none;border-radius:10px;padding:9px 18px;font-weight:900;font-size:14.5px;cursor:pointer;letter-spacing:.05em;box-shadow:0 3px 10px color-mix(in srgb,var(--amber) 35%,transparent);transition:filter .12s,transform .12s}
+.btn-upd:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn-upd:disabled{opacity:.6;cursor:default;transform:none}
 .btn-ghost{background:var(--panel);border:1px solid var(--line);color:var(--txt2);font-weight:700;border-radius:8px;padding:0 16px;height:38px;cursor:pointer;font-family:var(--sans);font-size:15px;transition:border-color .15s,color .15s;display:inline-flex;align-items:center}
 .btn-ghost:hover{border-color:var(--amber);color:var(--amber)}
 .qs-wrap{position:relative}
@@ -1833,7 +1835,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r263</span>');
+  diag.push('<span style="color:var(--dim)">build r264</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
