@@ -24,9 +24,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
 <style>
 :root{
-  --bg:#F8F7F2; --panel:#FFFFFF; --panel2:#EDEFE8; --line:#D9DCD0;
-  --up:#C0392F; --down:#0F8A57; --amber:#0D9B8E;
-  --txt:#1F231E; --mut:#68705F; --dim:#889081; --txt2:#3F463C; --hdr:#F0F1EA;
+  --bg:#FCFCFA; --panel:#FFFFFF; --panel2:#F1F2EF; --line:#DDDFD9;
+  --up:#C62828; --down:#0B7A4B; --amber:#2456D6;
+  --txt:#14171A; --mut:#454C54; --dim:#5E6670; --txt2:#23282E; --hdr:#F4F5F2;
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
 }
 html[data-theme="black"]{
@@ -628,7 +628,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
           <div class="qs-drop" id="qsDrop" hidden></div>
         </div>
         <select id="themeSel" aria-label="介面主題">
-          <option value="navy">🫧 白玉翡翠(亮)</option>
+          <option value="navy">🔎 清晰墨白(亮)</option>
           <option value="black">🌆 夕陽橘</option>
           <option value="light">☀️ 明亮日盤</option>
           <option value="mocha">🌼 花園</option>
@@ -1797,7 +1797,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r255</span>');
+  diag.push('<span style="color:var(--dim)">build r256</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4199,9 +4199,9 @@ const UPC='#E5484D', DNC='#21A466';
 function cssVar(n){try{return getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#E8B44A';}catch(e){return'#E8B44A';}}
 function hexA(h,a){h=String(h).replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
 /* 圖表主題(ECharts 吃不到 CSS 變數,用 CT 同步)*/
-const CT={legend:'#68705F',axis:'#A2AA97',split:'#EAEDE2',border:'#D9DCD0',
-  ttBg:'#FFFFFF',ttText:'#1F231E',inactive:'#C7CDBB',ma60:'#31382E',
-  up2:'#C0392F',dn2:'#0F8A57'};
+const CT={legend:'#454C54',axis:'#8A929C',split:'#EEF0ED',border:'#DDDFD9',
+  ttBg:'#FFFFFF',ttText:'#14171A',inactive:'#C3C9CF',ma60:'#23282E',
+  up2:'#C62828',dn2:'#0B7A4B'};
 const CHART_THEMES={
   navy:{...CT},
   black:{legend:'#C0A88E',axis:'#8A7660',split:'#2A231C',border:'#4A3D30',
