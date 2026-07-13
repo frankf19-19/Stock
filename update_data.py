@@ -458,29 +458,44 @@ def _yahoo_batch(tickers, hist, idmap):
     return ok
 
 def update_tw_prices(hist, tw_comps):
-    idmap = {}
-    tickers = []
+    """v2 續寫制:官方全市場單日檔為主(證交所+櫃買各一請求,零 Yahoo)。
+    既有 K 線由 load_hist 讀回,每天只追加官方當日棒;
+    Yahoo 降級為「限量補洞工」——只處理全新個股或斷檔超過 7 天者,
+    每輪最多 300 檔,避免 GitHub 機房被 Yahoo 限流拖垮整條管線。"""
+    try:
+        fill_tw_daily_official(hist, tw_comps)
+    except Exception as e:
+        print(f"  [warn] 官方日行情: {e}")
+    import datetime as _dt
+    today = _dt.date.today()
+    stale = []
     for c in tw_comps:
+        e = hist.get(c["id"])
+        if not e or not e.get("d") or len(e["d"]) < 15:
+            stale.append(c); continue
+        try:
+            last = _dt.date.fromisoformat(e["d"][-1])
+            if (today - last).days > 7:
+                stale.append(c)
+        except Exception:
+            stale.append(c)
+    if not stale:
+        print(f"  台股價格:官方單日檔續寫完成({len(tw_comps)} 檔,零 Yahoo)")
+        return
+    stale = stale[:300]
+    idmap, tickers = {}, []
+    for c in stale:
         tk = f"{c['id']}.{'TW' if c['ex']=='tse' else 'TWO'}"
         idmap[tk] = c["id"]; tickers.append(tk)
     ok = _yahoo_batch(tickers, hist, idmap)
-    # 失敗者換另一個字尾再試(上市/上櫃標記偶有出入)
     retry, rmap = [], {}
-    for c in tw_comps:
+    for c in stale:
         tk = f"{c['id']}.{'TW' if c['ex']=='tse' else 'TWO'}"
         if tk in ok: continue
         alt = f"{c['id']}.{'TWO' if c['ex']=='tse' else 'TW'}"
         retry.append(alt); rmap[alt] = c["id"]
-    if retry:
-        ok2 = _yahoo_batch(retry, hist, rmap)
-        print(f"  台股價格:{len(ok)+len(ok2)}/{len(tw_comps)} 檔(重試補回 {len(ok2)})")
-    else:
-        print(f"  台股價格:{len(ok)}/{len(tw_comps)} 檔")
-    # ── 官方備援:Yahoo 被擋時,用證交所/櫃買「全市場當日行情」把當天K棒接上 ──
-    try:
-        fill_tw_daily_official(hist, tw_comps)
-    except Exception as e:
-        print(f"  [warn] 官方日行情備援: {e}")
+    ok2 = _yahoo_batch(retry, hist, rmap) if retry else set()
+    print(f"  缺口回補(限量 Yahoo):{len(ok)+len(ok2)}/{len(stale)} 檔;其餘 {max(0,len(tw_comps)-len(stale))} 檔走官方續寫")
 
 OFF_CHG = {}   # 官方當日漲跌%(fill_tw_daily_official 填入,主迴圈覆蓋 chg)
 
