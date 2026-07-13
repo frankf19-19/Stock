@@ -1834,13 +1834,16 @@ setInterval(refreshFX,60000);
    DIA→道瓊、SOXQ→費半(PHLX SOX)。金鑰只存本機 localStorage,絕不進 repo。 */
 const FH_ETF={gspc:['SPY','^GSPC'],ixic:['ONEQ','^IXIC'],dji:['DIA','^DJI'],sox:['SOXQ','^SOX']};
 /* 站台內建金鑰:公開網頁上任何人可見(瀏覽器端使用本來就藏不住)。
-   若被濫用導致額度吃緊,到 finnhub.io Dashboard 重生一組換掉這行即可。 */
-const FH_PUBKEY='d9agomhr01qg31s4kpfg';
-function fhKey(){try{return (localStorage.getItem('fh_key')||'').trim()||FH_PUBKEY;}catch(e){return FH_PUBKEY;}}
+   兩組候選(Dashboard 的 API Key 與另一串),遇 401 自動換下一組;
+   若被濫用導致額度吃緊,到 finnhub.io 重生一組換掉即可。 */
+const FH_KEYS=['d9agomhr01qg31s4kpg0','d9agomhr01qg31s4kpfg'];
+let __fhI=0;
+function fhKey(){try{const k=(localStorage.getItem('fh_key')||'').trim();if(k)return k;}catch(e){}return FH_KEYS[__fhI%FH_KEYS.length];}
+function fhRotate(){try{if((localStorage.getItem('fh_key')||'').trim())return;}catch(e){}__fhI++;}
 async function fhQuote(sym){
   try{
     const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${encodeURIComponent(fhKey())}`,8000);
-    if(!r.ok)return {err:'HTTP '+r.status};
+    if(!r.ok){if(r.status===401)fhRotate();return {err:'HTTP '+r.status};}
     const j=await r.json();
     if(!(j&&j.pc>0))return {err:'空回應'};
     if(!(j.c>0))return {err:'盤前盤後無成交'};
@@ -1989,7 +1992,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r289</span>');
+  diag.push('<span style="color:var(--dim)">build r290</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
