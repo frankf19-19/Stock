@@ -34,6 +34,9 @@ jobs:
         run: pip install requests pandas yfinance lxml
 
       - name: 執行每日更新(價格/法人/大戶/營收/評分)
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}      # 美股指數官方源(fetch_macro)
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}    # 可選;未設定則走免token額度
         run: python update_data.py
 
       - name: 提交結果
