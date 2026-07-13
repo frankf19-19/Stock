@@ -585,18 +585,19 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   box-shadow:0 5px 16px color-mix(in srgb,var(--amber) 38%,transparent);transform:translateY(-1px)}
 .home-tabs button.on:hover{filter:brightness(1.06)}
 @media(max-width:640px){.home-tabs button{font-size:14px;padding:10px 0}}
-/* ── 手機重設計:目錄式首頁 ── */
-.mob-jump{display:none}
+/* ── 分區快速跳轉列(全平台)+ 手機目錄式首頁 ── */
+.mob-jump{display:flex;gap:7px;overflow-x:auto;position:sticky;top:0;z-index:6;
+  background:var(--bg);padding:9px 2px;margin:0 0 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.mob-jump::-webkit-scrollbar{display:none}
+.mob-jump button{flex-shrink:0;background:var(--panel);border:1.5px solid var(--line);border-radius:999px;
+  padding:7px 15px;font-size:13.5px;font-weight:800;color:var(--txt2);cursor:pointer;white-space:nowrap;
+  transition:border-color .12s,color .12s,transform .12s}
+.mob-jump button:hover{border-color:var(--amber);color:var(--amber);transform:translateY(-1px)}
+.mob-jump button:active{background:var(--amber);color:var(--panel);border-color:var(--amber)}
 #mobNav{display:none}
 @media(max-width:640px){
   .home-tabs{display:none}                                 /* 頂部分頁讓位,導航移到底部 */
   body{padding-bottom:76px}
-  .mob-jump{display:flex;gap:7px;overflow-x:auto;position:sticky;top:0;z-index:6;
-    background:var(--bg);padding:9px 2px;margin:0 0 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-  .mob-jump::-webkit-scrollbar{display:none}
-  .mob-jump button{flex-shrink:0;background:var(--panel);border:1.5px solid var(--line);border-radius:999px;
-    padding:7px 14px;font-size:13px;font-weight:800;color:var(--txt2);cursor:pointer;white-space:nowrap}
-  .mob-jump button:active{background:var(--amber);color:var(--panel);border-color:var(--amber)}
   #mobNav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;
     background:var(--panel);border-top:1.5px solid var(--line);
     padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(0,0,0,.08)}
@@ -740,7 +741,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   <div class="dim-note" style="margin-top:8px">來源:Google News 英文外電聚合(Reuters、Tom's Hardware、DigiTimes、TrendForce 等第一手來源);點標題開原文。<b>族群標籤為關鍵字自動對應,供快速掃描非投資建議</b>;外電通常領先台股反應數日到數週,搭配「盤面脈動」確認資金是否開始輪動。</div>
   </div>
 
-  <div class="cal-mini" id="calBar" hidden>
+  <div class="cal-mini" id="calBar" data-jumpname="📅 近期大事" hidden>
     <div class="cal-mini-head"><b class="cm-tg" id="cmTg">📅 近期大事</b><a href="#events">完整行事曆 →</a></div>
     <div id="calTrack"></div>
   </div>
@@ -802,7 +803,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 <div class="tabPane" id="tp-gooaye" style="display:none">
   <div class="sec-title">🎙️ 股癌 Gooaye <span style="font-weight:400;font-size:13px;letter-spacing:0">最新集數即時更新・站內播放・AI 重點摘要</span></div>
   <div class="sec-body">
-    <div id="gaEps"><div class="dim-note">節目載入中…</div></div>
+    <div id="gaEps" data-jumpname="🎙 最新集數"><div class="dim-note">節目載入中…</div></div>
     <div class="sec-title tap" data-sec="gaNews" style="margin-top:18px">📰 股癌觀點・相關報導 <span style="font-weight:400;font-size:13px;letter-spacing:0">媒體引用與討論,即時聚合</span></div>
     <div class="sec-body" id="sb-gaNews"><div id="gaNews"><div class="dim-note">載入中…</div></div></div>
     <div class="dim-note" style="margin-top:10px">來源:節目官方 RSS(Apple Podcasts 目錄解析)與 Google 新聞聚合。<b>RSS 描述不等於完整內容</b>,深度請聽原音檔;「✦ AI 摘要」會盡力上網搜尋該集重點(需在 AI 小幫手設定金鑰或通行碼)。本站與股癌無任何關係,內容版權屬原節目所有。</div>
@@ -1835,7 +1836,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r264</span>');
+  diag.push('<span style="color:var(--dim)">build r268</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5282,6 +5283,7 @@ async function showDetail(id){
   if(aBtn)aBtn.onclick=()=>aiInline(aBtn,`請上網查詢並整理 ${s.name}(${s.id}) 近三個月外資與投顧研究報告的觀點(直接條列不要開場白):哪些券商出過報告或升降評、評等為何(買進/中立/賣出)、目標價各是多少、調整理由是什麼。最後一句總結市場共識與分歧點。若查不到個別報告,就整理新聞中提到的最新目標價。結尾一行:非投資建議。`,true,1600);
   loadProfileDetail(s);
   try{const tb=document.getElementById('t3qBox');if(tb){tb.style.display='';tb.innerHTML='<div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div>';}t3qBlock(s);}catch(e){}
+  try{buildJumpBar(document.getElementById('detailView'));}catch(e){}
   loadAnalystDetail(s);
   loadChipDetail(s);
   KHASH='#stock/'+s.id;
@@ -5715,26 +5717,36 @@ function setupSections(){
     };
   });
 }
-function setupMobileNav(){
-  /* 分頁內快速跳轉目錄列 */
-  document.querySelectorAll('.tabPane').forEach(p=>{
-    if(p.dataset.jump)return;
-    const secs=[...p.querySelectorAll('.sec-title[data-sec]')];
-    if(secs.length<2){p.dataset.jump='1';return;}
-    const bar=document.createElement('div');
-    bar.className='mob-jump';
-    bar.innerHTML=secs.map(t=>{
-      const nm=(t.childNodes[0]?.textContent||'').trim().slice(0,9);
-      return `<button data-jm="${t.dataset.sec}">${nm}</button>`;}).join('');
-    p.prepend(bar);
-    bar.querySelectorAll('[data-jm]').forEach(b=>b.onclick=()=>{
-      const t=document.querySelector(`.sec-title[data-sec="${b.dataset.jm}"]`);
-      const body=document.getElementById('sb-'+b.dataset.jm);
-      if(body&&body.classList.contains('closed'))t.click();   // 收合中→展開(沿用原機制含記憶與圖表重算)
-      setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),60);
-    });
-    p.dataset.jump='1';
+function buildJumpBar(root){
+  if(!root)return;
+  [...root.children].filter(c=>c.classList&&c.classList.contains('mob-jump')).forEach(c=>c.remove());
+  const secs=[...root.querySelectorAll('.sec-title[data-sec]')];
+  const named=[...root.querySelectorAll('[data-jumpname]')];
+  if(secs.length+named.length<2)return;
+  const bar=document.createElement('div');
+  bar.className='mob-jump';
+  bar.innerHTML=secs.map(t=>{
+    const nm=(t.childNodes[0]?.textContent||'').trim();
+    return `<button data-jm="${t.dataset.sec}">${nm}</button>`;}).join('')
+    +named.map(el=>`<button data-jmn="${el.id}">${el.dataset.jumpname}</button>`).join('');
+  root.prepend(bar);
+  bar.querySelectorAll('[data-jm]').forEach(b=>b.onclick=()=>{
+    const t=root.querySelector(`.sec-title[data-sec="${b.dataset.jm}"]`);
+    if(!t)return;
+    const body=document.getElementById('sb-'+b.dataset.jm);
+    if(body&&body.classList.contains('closed'))t.click();     // 收合中→展開(沿用原機制含記憶與圖表重算)
+    setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),60);
   });
+  bar.querySelectorAll('[data-jmn]').forEach(b=>b.onclick=()=>{
+    const el=document.getElementById(b.dataset.jmn);
+    if(!el)return;
+    if(el.hidden||el.offsetParent===null){alert('這個區塊目前沒有內容(近 35 天無排程事件時會自動隱藏)');return;}
+    el.classList.remove('closed');
+    el.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+}
+function setupMobileNav(){
+  document.querySelectorAll('.tabPane').forEach(p=>buildJumpBar(p));
   /* 底部拇指導航 */
   if(!document.getElementById('mobNav')){
     const nav=document.createElement('div');
@@ -8881,7 +8893,7 @@ function renderPort(){
     const hero=(lb,val,c)=>`<div style="flex:1;min-width:170px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px">
       <div style="font-size:13px;color:var(--mut);font-weight:800;letter-spacing:.05em">${lb}</div>
       <div style="font-family:var(--mono);font-weight:900;font-size:26px;margin-top:4px;color:${c||'var(--txt)'}">${val}</div></div>`;
-    html+=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;font-size:12.5px;color:var(--dim)">
+    html+=`<div id="ptHero" data-jumpname="💼 資產總覽" style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;font-size:12.5px;color:var(--dim)">
       <span>🟢 自動即時——報價、健檢隨行情與庫存增減立即重算</span>
       <span style="margin-left:auto;font-family:var(--mono)">更新 ${ts}</span></div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
@@ -8921,7 +8933,7 @@ function renderPort(){
           <button class="pt-del" data-id="${s.id}" style="background:none;border:1.5px solid var(--line);border-radius:9px;color:var(--dim);cursor:pointer;padding:8px 16px;font-size:14px;font-weight:700">刪</button></div>
       </div>`;}).join('');
     const pnlT=mvT-costT,pctT=costT?pnlT/costT*100:0,colT=pnlT>0?CT.up2:pnlT<0?CT.dn2:'var(--mut)';
-    html+=`<div style="margin-bottom:14px">
+    html+=`<div ${gn.includes('台股')?'id="ptList" data-jumpname="📋 持股明細"':''} style="margin-bottom:14px">
       <div style="font-weight:900;font-size:15.5px;margin:4px 0 8px">${gn} <span style="font-size:12.5px;color:var(--dim);font-weight:400">(${cur})</span>
         <span style="float:right;font-size:14px;font-family:var(--mono)">小計 ${fmt(mvT)} · <b style="color:${colT}">${pnlT>=0?'+':'-'}${fmt(Math.abs(pnlT))}(${pctT>=0?'+':''}${pctT.toFixed(1)}%)</b></span></div>
       ${cards}</div>`;
@@ -8932,7 +8944,7 @@ function renderPort(){
     if(D.F.length){
       const bc={ok:CT.dn2,amb:'var(--amber)',red:CT.up2};
       const watch=portWatch(arr,D.sec);
-      html+=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px">
+      html+=`<div id="ptDiag" data-jumpname="🩺 組合健檢" style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px">
         <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
           <span style="font-weight:900;font-size:16px">🩺 組合健檢</span>
           <span style="font-size:12.5px;color:var(--dim)">依目前 ${arr.length} 檔・更新 ${ts}・卡片狀態會隨庫存增減翻轉(⚠️↔✅)</span>
@@ -8958,6 +8970,7 @@ function renderPort(){
     }
   }catch(e){console.warn('portDiag',e);}
   box.innerHTML=html;
+  try{buildJumpBar(document.getElementById('tp-port'));}catch(e){}
   // ── 事件委派(單一 handler,不怕重繪競態)──
   box.onclick=e=>{
     const t=e.target;
