@@ -1841,7 +1841,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r275</span>');
+  diag.push('<span style="color:var(--dim)">build r277</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1919,7 +1919,7 @@ async function yChart(sym,range,interval){
     return q;
   };
   try{
-    const q=await Promise.any(routes.map(tryRoute));   // 七路並行,先到先贏
+    const q=await routeRace('yahoo',routes,tryRoute);   // 記憶最佳路線,失敗才換路
     return {t:q.timestamp,
             c:q.indicators.quote[0].close,
             v:q.indicators.quote[0].volume||[],
@@ -2918,7 +2918,7 @@ async function misIntraday(s){
       return j0;
     };
     let j;
-    try{j=await Promise.any(routes.map(one));}catch(e){return null;}
+    try{j=await routeRace('misohlc',routes,one);}catch(e){return null;}
     const y=s.mg&&0||null;
     // 彈性掃描:在回應樹中找「長度>=5 的數字陣列,值域貼近昨收±15%」= 分線收盤序列
     const prev=(RTC[s.id]&&RTC[s.id].y)||s.price/(1+(s.chg||0)/100);
@@ -3632,11 +3632,25 @@ function rtTargets(){
   (DATA.stocks||[]).forEach(s=>{
     if(s.price!=null&&typeof s.chg==='number'&&
        ((s.chg>=3.5&&total(s)>=58)||(s.chg<=-3.5&&total(s)>=68))) add(s);});
+  try{favList().slice(0,24).forEach(id=>add((DATA.stocks||[]).find(x=>x.id===id)));}catch(e){}      // ⭐ 最愛永遠即時
+  try{portGet().forEach(p=>add((DATA.stocks||[]).find(x=>x.id===p.id)));}catch(e){}                   // 💼 持股永遠即時
   (window.__shownIds||[]).forEach(id=>add((DATA.stocks||[]).find(x=>x.id===id)));
   document.querySelectorAll('[data-candle]').forEach(el=>add((DATA.stocks||[]).find(x=>x.id===el.dataset.candle)));
-  return [...ids].slice(0,140);
+  return [...ids].slice(0,180);
 }
 function myProxy(){try{return (localStorage.getItem('my_proxy')||'').trim();}catch(e){return '';}}
+const ROUTE_MEM={};
+function routeMemGet(k){if(ROUTE_MEM[k]!=null)return ROUTE_MEM[k];try{return ROUTE_MEM[k]=+(localStorage.getItem('rt_route_'+k)||0);}catch(e){return 0;}}
+function routeMemSet(k,i){ROUTE_MEM[k]=i;try{localStorage.setItem('rt_route_'+k,String(i));}catch(e){}}
+async function routeRace(kind,routes,runner){
+  // 平常只打「上次成功那條」(省流量防 429);失敗才並行剩餘路線並記住新贏家
+  const fav=Math.min(routeMemGet(kind),routes.length-1);
+  try{return await runner(routes[fav]);}catch(e){}
+  const rest=routes.map((r,i)=>[r,i]).filter(([,i])=>i!==fav);
+  const winner=await Promise.any(rest.map(async([r,i])=>{const v=await runner(r);return [v,i];}));
+  routeMemSet(kind,winner[1]);
+  return winner[0];
+}
 function myWrap(u){const p=myProxy();return p?p.replace(/\/+$/,'')+'/?url='+encodeURIComponent(u):null;}
 async function fetchMISOne(chans){
   const mis='https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch='
@@ -3656,7 +3670,7 @@ async function fetchMISOne(chans){
     if(j&&j.msgArray)return j.msgArray;
     throw 0;
   };
-  try{return await Promise.any(routes.map(one));}catch(e){return null;}
+  try{return await routeRace('mis',routes,one);}catch(e){return null;}
 }
 async function fetchMIS(chans){
   if(!chans||!chans.length)return null;
@@ -3722,8 +3736,7 @@ async function rtTick(){
     RT.failN=(RT.failN||0)+1;
     if(RT.failN>=3){
       const sb=document.getElementById('srcBadge');
-      if(sb){sb.innerHTML='● 報價來源暫斷,自動重試中 <u style="cursor:pointer">🔌 點我診斷</u>';sb.className='badge warn';
-        sb.onclick=()=>diagRoutes(sb);sb.style.cursor='pointer';}
+      if(sb){sb.textContent='● 報價來源暫斷,自動重試中';sb.className='badge warn';}
     }
   }else RT.failN=0;
   if(!arr||!arr.length)return; // 通道暫時不通:維持5分鐘機制,不吵使用者
