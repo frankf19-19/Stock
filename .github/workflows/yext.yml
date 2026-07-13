@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install yfinance
+      - run: echo "純標準庫,無需安裝套件"
       - run: python fetch_yext.py
       - name: 提交
         run: |
