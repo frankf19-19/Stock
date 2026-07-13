@@ -53,6 +53,38 @@ def fred_daily(series, days=200):
             continue
     return {"t": t[-140:], "c": c[-140:]} if len(t) >= 5 else None
 
+def nasdaq_daily(sym="SOX", days=200):
+    """費城半導體(SOX)是 Nasdaq 自家指數 → 直接向 Nasdaq 官方 chart API 取日線。
+    零 Yahoo。機房若被擋則略過,不影響其它資料。"""
+    d2 = datetime.date.today()
+    d1 = d2 - datetime.timedelta(days=days)
+    url = (f"https://api.nasdaq.com/api/quote/{sym}/chart"
+           f"?assetclass=index&fromdate={d1.isoformat()}&todate={d2.isoformat()}")
+    req = urllib.request.Request(url, headers={
+        "User-Agent": UA["User-Agent"],
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://www.nasdaq.com",
+        "Referer": "https://www.nasdaq.com/"})
+    try:
+        with urllib.request.urlopen(req, timeout=25) as r:
+            j = json.loads(r.read().decode("utf-8", "replace"))
+    except Exception as e:
+        print(f"  SOX Nasdaq 端點失敗: {e}", file=sys.stderr)
+        return None
+    rows = ((j.get("data") or {}).get("chart")) or []
+    tt, cc = [], []
+    for p in rows:
+        try:
+            x = p.get("x"); y = p.get("y")
+            if x is None or y is None:
+                continue
+            ts = int(x / 1000) if x > 10**11 else int(x)   # 毫秒→秒
+            v = float(str(y).replace(",", ""))
+            tt.append(ts); cc.append(round(v, 2))
+        except Exception:
+            continue
+    return {"t": tt[-140:], "c": cc[-140:]} if len(tt) >= 5 else None
+
 def mis_intraday(ch, prev=None):
     url = (f"https://mis.twse.com.tw/stock/api/getChartOhlcStatis.jsp"
            f"?ex_ch={ch}&_={int(time.time()*1000)}")
@@ -111,6 +143,13 @@ def main():
                     print(f"  {sym} FRED {sid} 失敗: {e}", file=sys.stderr)
                 time.sleep(1.2)
             time.sleep(0.4)
+    # 費城半導體:FRED 無此系列 → Nasdaq 官方端點(指數擁有者;零 Yahoo)
+    got_sox = nasdaq_daily("SOX")
+    if got_sox:
+        series["^SOX"] = {"d": got_sox}
+        print(f"  ^SOX ← Nasdaq 官方日線({len(got_sox['t'])} 根)")
+    else:
+        print("  ^SOX Nasdaq 未取得(機房被擋屬正常,本輪略過)")
     # 台股指數盤中(收盤後 MIS 清空屬正常,僅盤中班次會有)
     for sym, ch in MIS_INTRA.items():
         m = mis_intraday(ch)

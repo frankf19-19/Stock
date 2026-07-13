@@ -1707,7 +1707,7 @@ function renderMacro(){
   document.getElementById('idxRow').innerHTML=_cards.length?_cards.join('')
     :'<div class="idx-card" id="idxEmpty"><div class="nm">國際指數載入中…(由本站後端 yext.json 供應,約數秒)</div></div>';
   const fx=m.fx||{};
-  const items=[["美元/台幣",fx.USDTWD,"usdtwd"],["日圓/台幣",fx.JPYTWD,"jpytwd"],["美元指數 DXY",fx.DXY,"dxy"]];
+  const items=[["美元/台幣",fx.USDTWD,"usdtwd"],["日圓/台幣",fx.JPYTWD,"jpytwd"],["美元指數(Fed廣義)",fx.DXY,"dxy"]];
   document.getElementById('fxRow').innerHTML=items.map(([n,v,k])=>
     `<div class="idx-card" data-mk="${k}"><div class="nm">${n}</div><div class="vl">${v??'—'}</div></div>`).join('');
   const tone=fx.USDTWD?(fx.USDTWD>=32.8?'台幣偏弱(外資匯出壓力,出口有匯兌收益但指數易承壓)':fx.USDTWD<=31.5?'台幣偏強(外資匯入,易走資金行情)':'台幣區間震盪'):null;
@@ -1864,7 +1864,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r283</span>');
+  diag.push('<span style="color:var(--dim)">build r285</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1935,7 +1935,8 @@ async function yChart(sym,range,interval){
     const days={'1mo':22,'3mo':66,'6mo':130,'1y':252}[range];
     if(days&&t.length>days){t=t.slice(-days);c=c.slice(-days);}
   }
-  return {t,c,v:t.map(()=>0),prev:src2.prev??(e.d&&e.d.c&&e.d.c[e.d.c.length-2])??null};
+  return {t,c,v:t.map(()=>0),prev:src2.prev??(e.d&&e.d.c&&e.d.c[e.d.c.length-2])??null,
+          daily:useM&&!e.m};  // true=要分線但只有日線可給(FRED 日更),呼叫端勿當分時圖畫
 }
 let __yextCache=null,__yextAt=0;
 async function yextData(){
@@ -7082,36 +7083,7 @@ async function ySummary(s){
         website:wm?wm[1]:null,fullTimeEmployees:emp,city:null,country:null};
     }
     if(fd||(ap&&ap.longBusinessSummary))return {financialData:fd||{},assetProfile:ap||{}};
-    // ── 備援:三代理並行抓 Yahoo 個股頁萃取 ──
-    const page=`https://finance.yahoo.com/quote/${encodeURIComponent(sym)}/`;
-    const routes=[
-      u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
-      u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u),
-      u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
-    const html=await new Promise(resolve=>{
-      let done=false,fails=0;
-      routes.forEach(r=>{
-        fT(r(page),12000).then(res=>res.ok?res.text():null).then(t=>{
-          if(done)return;
-          if(t&&t.length>3000&&(t.includes('targetMeanPrice')||t.includes('longBusinessSummary'))){done=true;resolve(t);}
-          else if(++fails>=routes.length)resolve(null);
-        }).catch(()=>{if(!done&&++fails>=routes.length)resolve(null);});
-      });
-    });
-    if(html){
-      const fd2={targetMeanPrice:pickNum(html,'targetMeanPrice'),
-                 targetHighPrice:pickNum(html,'targetHighPrice'),
-                 targetLowPrice:pickNum(html,'targetLowPrice'),
-                 numberOfAnalystOpinions:pickNum(html,'numberOfAnalystOpinions'),
-                 recommendationKey:pickStr(html,'recommendationKey')};
-      const ap2={longBusinessSummary:pickStr(html,'longBusinessSummary'),
-                 industry:pickStr(html,'industryDisp')||pickStr(html,'industry'),
-                 website:pickStr(html,'website'),
-                 fullTimeEmployees:pickNum(html,'fullTimeEmployees'),
-                 city:pickStr(html,'city'),country:pickStr(html,'country')};
-      if(fd2.targetMeanPrice||ap2.longBusinessSummary)
-        return {financialData:fd2,assetProfile:ap2};
-    }
+    // 零 Yahoo 鐵律:不再有 Yahoo 網頁萃取備援;stockanalysis 也拿不到就誠實回空
     return null;
   })();
   return YSUM[sym];
@@ -8266,9 +8238,9 @@ const MK={
   jpytwd:{name:'日圓/台幣',sym:'JPYTWD=X',kind:'fx',dg:4,
     about:'1 日圓兌換多少台幣。哈日族與赴日旅遊的換匯參考;也反映日圓的國際強弱。',
     how:'日圓大幅升值時常代表全球避險情緒升溫(日圓是避險貨幣)或日本央行政策轉向,亞股波動會放大;對想去日本玩的人,數字越低換日幣越划算。'},
-  dxy:{name:'美元指數 DXY',sym:'DX-Y.NYB',kind:'fx',dg:2,
-    about:'美元對一籃子主要貨幣(歐元、日圓、英鎊等)的加權匯率指數,是「美元強弱」的全球標準溫度計。',
-    how:'美元指數走強=全球資金回流美元資產,新興市場(含台股)常見外資賣壓、台幣易貶;走弱=資金外溢風險資產,利多台股與原物料。105 以上屬強美元環境、100 以下偏弱;與美債殖利率通常同向,一起看更準。'},
+  dxy:{name:'美元指數(Fed廣義)',sym:'DX-Y.NYB',kind:'fx',dg:2,
+    about:'聯準會「廣義美元指數」:美元對主要貿易夥伴貨幣的加權匯率(官方FRED日更)。與市場慣稱的 DXY(ICE,約100上下)量級不同、趨勢高度一致——本站採官方源,數值約在110~130區間。',
+    how:'看「方向與速度」而非絕對數字:指數走強=全球資金回流美元資產,新興市場(含台股)常見外資賣壓、台幣易貶;走弱=資金外溢風險資產,利多台股與原物料。與美債殖利率通常同向,一起看更準。'},
   eurtwd:{name:'歐元/台幣',sym:'EURTWD=X',kind:'fx',dg:3,
     about:'1 歐元兌換多少台幣,反映歐元區經濟與利率預期相對台灣的強弱。',
     how:'歐元走強通常代表美元轉弱(歐元佔美元指數近六成),而弱美元環境對新興市場與台股資金面偏正面。'},
@@ -10166,9 +10138,9 @@ async function showMacroDetail(key){
   dv.innerHTML=`<div class="detail-wrap">
     <button class="back" id="backBtn">← 回儀表板</button>
     <div class="m-head"><div><h2 style="font-size:24px;font-weight:900">${def.name}</h2>
-      <div class="c-full">${def.kind==='fx'?'匯率':'指數'} · ${(key==='twii'||key==='otc')?'證交所即時(MIS)':'Yahoo Finance 即時'}</div>
+      <div class="c-full">${def.kind==='fx'?'匯率':'指數'} · ${(key==='twii'||key==='otc')?'證交所即時(MIS)':'FRED/官方源 日更'}</div>
       <div class="c-price"><span class="px" id="mkPx" style="font-size:26px">載入中…</span><span id="mkChg"></span></div></div></div>
-    <div class="chart-box"><div class="ind-head"><h3>即時走勢(1分線) · 黃線為均價 · 虛線為昨收</h3><span class="c-code" id="mkIntraStat"></span></div>
+    <div class="chart-box"><div class="ind-head"><h3>${(key==='twii'||key==='otc')?'即時走勢(1分線) · 黃線為均價 · 虛線為昨收':'日線走勢(近六個月) · MA20/MA60'}</h3><span class="c-code" id="mkIntraStat"></span></div>
       <div id="mkIntra" style="height:230px"></div></div>
     ${kChartBoxHTML()}
     <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>規則化判讀</h3><div class="dim-note" id="mkTrend">計算中…</div></div>
@@ -10221,12 +10193,14 @@ async function showMacroDetail(key){
   if(sc!==1&&intra){intra.c=intra.c.map(x=>x==null?null:x*sc);if(intra.prev)intra.prev*=sc;}
   if(sc!==1&&daily){daily.c=daily.c.map(x=>x==null?null:x*sc);}
   if(misKey)drawMkLive(misKey);
-  else if(intra&&intra.c.some(x=>x!=null))drawIntra('mkIntra',intra);
-  else document.getElementById('mkIntra').innerHTML='<div class="dim-note" style="padding:20px">目前非交易時段或無分時資料,請看下方日線。</div>';
+  else if(intra&&!intra.daily&&intra.c.some(x=>x!=null))drawIntra('mkIntra',intra);
+  else if(daily){/* FRED 日更來源:無分線,誠實畫日線(下方 if(daily) 一併處理判讀) */}
+  else document.getElementById('mkIntra').innerHTML='<div class="dim-note" style="padding:20px">目前非交易時段或無分時資料,請看下方K線。</div>';
   const box=document.getElementById('mkIntra');
   if(box){try{const inst=echarts.getInstanceByDom(box);if(inst)chipCharts.push(inst);}catch(e){}}
   if(daily){
-    const pts=drawMacroLine('mkDaily',daily,dg);
+    const hasIntra=misKey||(intra&&!intra.daily&&intra.c.some(x=>x!=null));
+    const pts=drawMacroLine(hasIntra?'mkDaily':'mkIntra',daily,dg);
     document.getElementById('mkTrend').innerHTML=mkTrendText(pts,dg,def)||'資料不足。';
   }else{
     const _mk=document.getElementById('mkDaily'); if(_mk)_mk.innerHTML='<div class="dim-note" style="padding:20px">日線資料暫時抓不到,稍後重試。</div>';
