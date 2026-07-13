@@ -1,0 +1,38 @@
+name: 月K庫更新(m/)
+
+on:
+  schedule:
+    - cron: '30 9 2 * *'    # 每月 2 日台北 17:30(月初補上一個月的月K)
+    - cron: '30 9 16 * *'   # 每月 16 日備援班
+  workflow_dispatch:         # 首次請手動觸發回補全歷史(約 40 分鐘)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monthly-k
+  cancel-in-progress: false
+
+jobs:
+  monthly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install yfinance
+      - run: python fetch_monthly.py
+      - name: 提交
+        run: |
+          git config user.name "bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add m
+          if git diff --cached --quiet; then echo "無變更"; exit 0; fi
+          git commit -m "monthly-k: $(TZ=Asia/Taipei date +'%Y-%m')"
+          for i in 1 2 3; do
+            git pull --rebase --autostash -X theirs origin main && git push && exit 0
+            git rebase --abort 2>/dev/null || true; sleep 8
+          done
+          exit 1

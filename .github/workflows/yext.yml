@@ -1,0 +1,41 @@
+name: 國際行情更新(yext)
+
+on:
+  schedule:
+    # 密集班次對抗 GitHub 排程塞車;腳本輕量(14檔、約40秒),公開 repo 分鐘數免費
+    - cron: '*/20 1-5 * * 1-5'     # 台北 09:00~13:40|台股時段(加權/櫃買分線)
+    - cron: '*/20 13-21 * * 1-5'   # 台北 21:00~05:40|美股時段(美指/期貨/DXY)
+    - cron: '10 7 * * 1-5'         # 台北 15:10|台股收盤快照
+    - cron: '40 22 * * 1-5'        # 台北 06:40|美股收盤快照
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: yext-update
+  cancel-in-progress: false
+
+jobs:
+  yext:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install yfinance
+      - run: python fetch_yext.py
+      - name: 提交
+        run: |
+          git config user.name "bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add yext.json
+          if git diff --cached --quiet; then echo "無變更"; exit 0; fi
+          git commit -m "yext: $(TZ=Asia/Taipei date +'%m-%d %H:%M')"
+          for i in 1 2 3; do
+            git pull --rebase --autostash -X theirs origin main && git push && exit 0
+            git rebase --abort 2>/dev/null || true; sleep 8
+          done
+          exit 1
