@@ -1829,6 +1829,96 @@ async function refreshFX(){
 }
 setTimeout(refreshFX,3200);
 setInterval(refreshFX,60000);
+/* ⚡ 秒級即時層(選用):Finnhub 免費金鑰(finnhub.io,免綁卡)——API 原生 CORS,瀏覽器直連。
+   以「真追蹤該指數的旗艦ETF」即時價換算指數點位:SPY→S&P500、ONEQ→那斯達克綜合、
+   DIA→道瓊、SOXQ→費半(PHLX SOX)。金鑰只存本機 localStorage,絕不進 repo。 */
+const FH_ETF={gspc:['SPY','^GSPC'],ixic:['ONEQ','^IXIC'],dji:['DIA','^DJI'],sox:['SOXQ','^SOX']};
+function fhKey(){try{return (localStorage.getItem('fh_key')||'').trim();}catch(e){return'';}}
+async function fhQuote(sym){
+  try{
+    const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${encodeURIComponent(fhKey())}`,8000);
+    if(!r.ok)return null;
+    const j=await r.json();
+    return (j&&j.c>0&&j.pc>0)?j:null;
+  }catch(e){return null;}
+}
+async function fhLiveIdx(mk){
+  const m=FH_ETF[mk];
+  if(!m||!fhKey())return null;
+  const q=await fhQuote(m[0]);
+  if(!q)return null;
+  const chg=+((q.c/q.pc-1)*100).toFixed(2);
+  let val=null;
+  try{
+    const j=await yextData();
+    const d=j&&j.series&&j.series[m[1]]&&j.series[m[1]].d;
+    if(d&&d.c&&d.c.length){
+      // 基準=與 ETF「昨收」同一交易日的指數收盤(FRED 若已含當日則退一根)
+      const dly=new Date(d.t[d.t.length-1]*1000).toISOString().slice(0,10);
+      const ses=new Date(((q.t||Date.now()/1000)-4*3600)*1000).toISOString().slice(0,10);
+      const base=(dly>=ses&&d.c.length>=2)?d.c[d.c.length-2]:d.c[d.c.length-1];
+      val=+(base*(q.c/q.pc)).toFixed(2);
+    }
+  }catch(e){}
+  return {val,chg,ts:q.t};
+}
+async function refreshUSLive(){          // 首頁卡片秒級層(有金鑰才啟動)
+  if(!fhKey()||location.hash||document.hidden)return;
+  const row=document.getElementById('idxRow');
+  if(!row)return;
+  window.__usCache=window.__usCache||{};
+  for(const mk of Object.keys(FH_ETF)){
+    const el=row.querySelector(`[data-mk="${mk}"]`);
+    if(!el)continue;
+    const r=await fhLiveIdx(mk);
+    if(!r)continue;
+    const ch=el.querySelector('.ch');
+    if(ch)ch.innerHTML=chgHtml(r.chg);
+    if(r.val!=null){
+      const vl=el.querySelector('.vl');
+      if(vl)vl.textContent=Number(r.val).toLocaleString();
+      window.__usCache[mk]={last:r.val,chg:r.chg};
+    }
+    const nm=el.querySelector('.nm');
+    if(nm&&nm.textContent.indexOf('⚡')<0)nm.insertAdjacentHTML('afterbegin','<span title="Finnhub 秒級即時(ETF換算)" style="color:var(--amber)">⚡</span>');
+  }
+}
+setInterval(refreshUSLive,15000);
+setTimeout(refreshUSLive,4000);
+function fhDetailLive(key,def){          // 指數詳情頁秒級層(約10秒一跳)
+  if(!FH_ETF[key])return;
+  const stat=document.getElementById('mkIntraStat');
+  const hash=location.hash;
+  if(!fhKey()){
+    if(stat){
+      stat.innerHTML='<a href="#" id="fhOn" style="color:var(--amber);text-decoration:none">⚡ 啟用秒級即時(免費金鑰)</a>';
+      const a=document.getElementById('fhOn');
+      if(a)a.onclick=e=>{e.preventDefault();
+        const k=prompt('秒級即時設定:\n1. 到 finnhub.io 免費註冊(免綁卡,一分鐘)\n2. Dashboard 複製 API Key 貼到下面\n金鑰只存在這台裝置的瀏覽器;留空並確定=停用。');
+        if(k===null)return;
+        try{localStorage.setItem('fh_key',(k||'').trim());}catch(_){}
+        if((k||'').trim())fhDetailLive(key,def);else if(stat)stat.textContent='';
+      };
+    }
+    return;
+  }
+  const dg=def.dg??2;
+  let miss=0;
+  const tick=async()=>{
+    if(location.hash!==hash)return;
+    const r=await fhLiveIdx(key);
+    if(location.hash!==hash)return;
+    if(r){
+      const px=document.getElementById('mkPx'),cg=document.getElementById('mkChg');
+      if(r.val!=null&&px)px.textContent=Number(+r.val.toFixed(dg)).toLocaleString();
+      if(cg)cg.innerHTML=chgHtml(r.chg)+' <span style="font-size:11px;color:var(--amber)">⚡ETF即時換算</span>';
+      if(stat)stat.textContent='⚡ 秒級即時:'+FH_ETF[key][0]+' 換算,約10秒一跳';
+      miss=0;
+    }else if(++miss>=3&&stat)stat.textContent='⚡ 即時層連線失敗(金鑰有效?額度?)——圖表仍為站台20分鐘更新';
+    setTimeout(tick,10000);
+  };
+  tick();
+}
 function ensureOtcCard(){
   const row=document.getElementById('idxRow');
   if(!row||document.getElementById('otcVal'))return;
@@ -1882,7 +1972,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r286</span>');
+  diag.push('<span style="color:var(--dim)">build r287</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10123,7 +10213,7 @@ async function showMacroDetail(key){
     <div class="m-head"><div><h2 style="font-size:24px;font-weight:900">${def.name}</h2>
       <div class="c-full">${def.kind==='fx'?'匯率':'指數'} · ${(key==='twii'||key==='otc')?'證交所即時(MIS)':'FRED/官方源 日更'}</div>
       <div class="c-price"><span class="px" id="mkPx" style="font-size:26px">載入中…</span><span id="mkChg"></span></div></div></div>
-    <div class="chart-box"><div class="ind-head"><h3>${(key==='twii'||key==='otc')?'即時走勢(1分線) · 黃線為均價 · 虛線為昨收':'日線走勢(近六個月) · MA20/MA60'}</h3><span class="c-code" id="mkIntraStat"></span></div>
+    <div class="chart-box"><div class="ind-head"><h3 id="mkIntraTitle">${(key==='twii'||key==='otc')?'即時走勢(1分線) · 黃線為均價 · 虛線為昨收':'走勢圖載入中…'}</h3><span class="c-code" id="mkIntraStat"></span></div>
       <div id="mkIntra" style="height:230px"></div></div>
     ${kChartBoxHTML()}
     <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>規則化判讀</h3><div class="dim-note" id="mkTrend">計算中…</div></div>
@@ -10175,6 +10265,13 @@ async function showMacroDetail(key){
   }else if(!misKey)document.getElementById('mkPx').textContent='—';
   if(sc!==1&&intra){intra.c=intra.c.map(x=>x==null?null:x*sc);if(intra.prev)intra.prev*=sc;}
   if(sc!==1&&daily){daily.c=daily.c.map(x=>x==null?null:x*sc);}
+  const _tt=document.getElementById('mkIntraTitle');
+  if(_tt&&!misKey){
+    _tt.textContent=(intra&&!intra.daily&&intra.c.some(x=>x!=null))
+      ?'盤中走勢(1分線) · 黃線為均價 · 虛線為昨收 · Nasdaq官方,站台約每20分鐘更新'
+      :'日線走勢(近六個月) · MA20/MA60';
+  }
+  if(!misKey&&FH_ETF[key])fhDetailLive(key,def);   // ⚡ 秒級即時層(有金鑰才生效)
   if(misKey)drawMkLive(misKey);
   else if(intra&&!intra.daily&&intra.c.some(x=>x!=null))drawIntra('mkIntra',intra);
   else if(daily){/* FRED 日更來源:無分線,誠實畫日線(下方 if(daily) 一併處理判讀) */}

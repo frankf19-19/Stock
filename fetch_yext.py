@@ -53,24 +53,16 @@ def fred_daily(series, days=200):
             continue
     return {"t": t[-140:], "c": c[-140:]} if len(t) >= 5 else None
 
-def nasdaq_daily(sym="SOX", days=200):
-    """費城半導體(SOX)是 Nasdaq 自家指數 → 直接向 Nasdaq 官方 chart API 取日線。
-    零 Yahoo。機房若被擋則略過,不影響其它資料。"""
-    d2 = datetime.date.today()
-    d1 = d2 - datetime.timedelta(days=days)
-    url = (f"https://api.nasdaq.com/api/quote/{sym}/chart"
-           f"?assetclass=index&fromdate={d1.isoformat()}&todate={d2.isoformat()}")
+def nasdaq_get(url):
     req = urllib.request.Request(url, headers={
         "User-Agent": UA["User-Agent"],
         "Accept": "application/json, text/plain, */*",
         "Origin": "https://www.nasdaq.com",
         "Referer": "https://www.nasdaq.com/"})
-    try:
-        with urllib.request.urlopen(req, timeout=25) as r:
-            j = json.loads(r.read().decode("utf-8", "replace"))
-    except Exception as e:
-        print(f"  SOX Nasdaq 端點失敗: {e}", file=sys.stderr)
-        return None
+    with urllib.request.urlopen(req, timeout=25) as r:
+        return json.loads(r.read().decode("utf-8", "replace"))
+
+def _nasdaq_points(j):
     rows = ((j.get("data") or {}).get("chart")) or []
     tt, cc = [], []
     for p in rows:
@@ -83,7 +75,38 @@ def nasdaq_daily(sym="SOX", days=200):
             tt.append(ts); cc.append(round(v, 2))
         except Exception:
             continue
+    return tt, cc
+
+def nasdaq_daily(sym="SOX", days=200):
+    """費城半導體(SOX)是 Nasdaq 自家指數 → 直接向 Nasdaq 官方 chart API 取日線。
+    零 Yahoo。機房若被擋則略過,不影響其它資料。"""
+    d2 = datetime.date.today()
+    d1 = d2 - datetime.timedelta(days=days)
+    try:
+        j = nasdaq_get(f"https://api.nasdaq.com/api/quote/{sym}/chart"
+                       f"?assetclass=index&fromdate={d1.isoformat()}&todate={d2.isoformat()}")
+    except Exception as e:
+        print(f"  {sym} Nasdaq 端點失敗: {e}", file=sys.stderr)
+        return None
+    tt, cc = _nasdaq_points(j)
     return {"t": tt[-140:], "c": cc[-140:]} if len(tt) >= 5 else None
+
+# 美股四大指數盤中 1 分線(Nasdaq 官方,延遲約15分;本排程美股時段每20分鐘一班)
+NASDAQ_INTRA = {"^GSPC": ["SPX"], "^IXIC": ["COMP"],
+                "^DJI": ["DJIA", "DJI"], "^SOX": ["SOX"]}
+
+def nasdaq_intraday(cands):
+    for sym in cands:
+        try:
+            j = nasdaq_get(f"https://api.nasdaq.com/api/quote/{sym}/chart?assetclass=index")
+        except Exception as e:
+            print(f"  {sym} Nasdaq 盤中失敗: {e}", file=sys.stderr)
+            continue
+        tt, cc = _nasdaq_points(j)
+        if len(tt) >= 5:
+            return {"t": tt, "c": cc}
+        time.sleep(0.6)
+    return None
 
 def mis_intraday(ch, prev=None):
     url = (f"https://mis.twse.com.tw/stock/api/getChartOhlcStatis.jsp"
@@ -150,6 +173,26 @@ def main():
         print(f"  ^SOX ← Nasdaq 官方日線({len(got_sox['t'])} 根)")
     else:
         print("  ^SOX Nasdaq 未取得(機房被擋屬正常,本輪略過)")
+    # 美股四大指數盤中分線(Nasdaq 官方;非交易時段回傳前一交易日全日走勢,同樣照存)
+    for fsym, cands in NASDAQ_INTRA.items():
+        m = nasdaq_intraday(cands)
+        if not m:
+            print(f"  {fsym} 盤中分線未取得(機房被擋或休市空檔,略過)")
+            continue
+        d = (series.get(fsym) or {}).get("d")
+        if d and d.get("t") and d.get("c"):
+            # 昨收:比對「分線最後一點的美東日期」與「FRED 日線最後一根日期」
+            et = datetime.timezone(datetime.timedelta(hours=-4))
+            intra_day = datetime.datetime.fromtimestamp(m["t"][-1], et).date()
+            daily_day = datetime.datetime.fromtimestamp(d["t"][-1],
+                        datetime.timezone.utc).date()
+            if daily_day >= intra_day and len(d["c"]) >= 2:
+                m["prev"] = d["c"][-2]     # FRED 已含當日 → 昨收=倒數第二根
+            else:
+                m["prev"] = d["c"][-1]     # FRED 尚未含當日 → 昨收=最後一根
+        series.setdefault(fsym, {})["m"] = m
+        print(f"  {fsym} ← Nasdaq 盤中({len(m['t'])} 點,昨收 {m.get('prev','—')})")
+        time.sleep(0.5)
     # 台股指數盤中(收盤後 MIS 清空屬正常,僅盤中班次會有)
     for sym, ch in MIS_INTRA.items():
         m = mis_intraday(ch)
