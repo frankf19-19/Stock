@@ -1846,9 +1846,10 @@ function fhRotate(){}
    TradingView 不開放給嵌入 Widget(會跳「此商品僅在TradingView上可用」)。
    改用嵌入友善的即時等價商品:指數CFD(24h即時)與 SOXX ETF。 */
 const TV_SYM={gspc:'FOREXCOM:SPXUSD',ixic:'FOREXCOM:NSXUSD',dji:'FOREXCOM:DJI',sox:'NASDAQ:SOXX',
-  vix:'TVC:VIX',n225:'TVC:NI225',y10:'TVC:US10Y',y30:'TVC:US30Y',y5:'TVC:US05Y',
-  dxy:'TVC:DXY',esf:'FOREXCOM:SPXUSD',nqf:'FOREXCOM:NSXUSD',ewt:'AMEX:EWT',
+  vix:'CAPITALCOM:VIX',n225:'FOREXCOM:JPN225',
+  esf:'FOREXCOM:SPXUSD',nqf:'FOREXCOM:NSXUSD',ewt:'AMEX:EWT',
   usdtwd:'FX_IDC:USDTWD',jpytwd:'FX_IDC:JPYTWD',eurtwd:'FX_IDC:EURTWD',usdjpy:'FX:USDJPY'};
+/* 美債 y10/y30/y5 與美元指數(Fed廣義)無嵌入等價品 → 不掛 TV,沿用 FRED 官方日線 */
 function tvWidget(domId,tvsym,opts){
   const box=document.getElementById(domId);
   if(!box)return false;
@@ -1895,7 +1896,7 @@ function tvTape(){                      // 首頁指數即時跑馬燈(掛一次
   const row=document.getElementById('idxRow');
   if(!row||!row.parentNode)return;
   const tape=document.createElement('div');
-  tape.id='tvTape';tape.style.cssText='margin:0 0 8px;border:1px solid var(--line);border-radius:11px;overflow:hidden';
+  tape.id='tvTape';tape.style.cssText='margin:0 0 8px;border:1px solid var(--line);border-radius:11px;overflow:hidden;height:78px';
   row.parentNode.insertBefore(tape,row);
   const wrap=document.createElement('div');
   wrap.className='tradingview-widget-container';
@@ -1908,8 +1909,8 @@ function tvTape(){                      // 首頁指數即時跑馬燈(掛一次
   sc.innerHTML=JSON.stringify({symbols:[
       {proName:'FOREXCOM:SPXUSD',title:'S&P 500'},{proName:'FOREXCOM:NSXUSD',title:'那指100'},
       {proName:'FOREXCOM:DJI',title:'道瓊'},{proName:'NASDAQ:SOXX',title:'費半ETF'},
-      {proName:'TVC:VIX',title:'VIX'},{proName:'TVC:US10Y',title:'美債10Y'},
-      {proName:'FX_IDC:USDTWD',title:'美元/台幣'},{proName:'TVC:DXY',title:'美元指數'}],
+      {proName:'CAPITALCOM:VIX',title:'VIX'},{proName:'FOREXCOM:JPN225',title:'日經225'},
+      {proName:'FX_IDC:USDTWD',title:'美元/台幣'},{proName:'FOREXCOM:XAUUSD',title:'黃金'}],
     showSymbolLogo:false,isTransparent:true,displayMode:'adaptive',colorTheme:'light',locale:'zh_TW'});
   wrap.appendChild(sc);
   window.__tvTape=1;
@@ -2066,7 +2067,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r293</span>');
+  diag.push('<span style="color:var(--dim)">build r295</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
