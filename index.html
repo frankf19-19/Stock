@@ -1710,6 +1710,7 @@ function renderFutTab(){
 }
 function renderMacro(){
   const m=DATA.macro||{};
+  try{tvTape();}catch(e){}   // 📺 指數即時跑馬燈(TradingView 官方,掛一次)
   const _uc=window.__usCache||{};
   const _seen=new Set();
   const _cards=(m.idx||[]).map(i=>{
@@ -1836,10 +1837,83 @@ const FH_ETF={gspc:['SPY','^GSPC'],ixic:['ONEQ','^IXIC'],dji:['DIA','^DJI'],sox:
 /* 站台內建金鑰:公開網頁上任何人可見(瀏覽器端使用本來就藏不住)。
    兩組候選(Dashboard 的 API Key 與另一串),遇 401 自動換下一組;
    若被濫用導致額度吃緊,到 finnhub.io 重生一組換掉即可。 */
-const FH_KEYS=['d9agomhr01qg31s4kpg0','d9agomhr01qg31s4kpfg'];
-let __fhI=0;
-function fhKey(){try{const k=(localStorage.getItem('fh_key')||'').trim();if(k)return k;}catch(e){}return FH_KEYS[__fhI%FH_KEYS.length];}
-function fhRotate(){try{if((localStorage.getItem('fh_key')||'').trim())return;}catch(e){}__fhI++;}
+/* Finnhub 層已退役(金鑰401),改由 TradingView 官方 Widget 提供即時;
+   保留手動覆寫:自行在 localStorage 設 fh_key 仍可啟用 */
+function fhKey(){try{return (localStorage.getItem('fh_key')||'').trim();}catch(e){return'';}}
+function fhRotate(){}
+/* 📺 TradingView 官方嵌入 Widget(免費、正式提供的嵌入產品)——指數即時走勢 */
+/* 注意:SP:SPX / NASDAQ:IXIC / DJ:DJI / NASDAQ:SOX 為交易所授權指數,
+   TradingView 不開放給嵌入 Widget(會跳「此商品僅在TradingView上可用」)。
+   改用嵌入友善的即時等價商品:指數CFD(24h即時)與 SOXX ETF。 */
+const TV_SYM={gspc:'FOREXCOM:SPXUSD',ixic:'FOREXCOM:NSXUSD',dji:'FOREXCOM:DJI',sox:'NASDAQ:SOXX',
+  vix:'TVC:VIX',n225:'TVC:NI225',y10:'TVC:US10Y',y30:'TVC:US30Y',y5:'TVC:US05Y',
+  dxy:'TVC:DXY',esf:'FOREXCOM:SPXUSD',nqf:'FOREXCOM:NSXUSD',ewt:'AMEX:EWT',
+  usdtwd:'FX_IDC:USDTWD',jpytwd:'FX_IDC:JPYTWD',eurtwd:'FX_IDC:EURTWD',usdjpy:'FX:USDJPY'};
+function tvWidget(domId,tvsym,opts){
+  const box=document.getElementById(domId);
+  if(!box)return false;
+  try{const inst=window.echarts&&echarts.getInstanceByDom(box);if(inst)inst.dispose();}catch(e){}
+  box.style.height='430px';
+  box.innerHTML='';
+  const wrap=document.createElement('div');
+  wrap.className='tradingview-widget-container';
+  wrap.style.cssText='height:100%;width:100%';
+  const inner=document.createElement('div');
+  inner.className='tradingview-widget-container__widget';
+  inner.style.cssText='height:100%;width:100%';
+  wrap.appendChild(inner);
+  box.appendChild(wrap);
+  const sc=document.createElement('script');
+  sc.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+  sc.async=true;
+  sc.innerHTML=JSON.stringify({autosize:true,symbol:tvsym,interval:(opts&&opts.interval)||'1',
+    timezone:'Asia/Taipei',theme:'light',style:(opts&&opts.style)||'3',locale:'zh_TW',
+    hide_top_toolbar:false,hide_legend:false,allow_symbol_change:false,save_image:false,
+    calendar:false,support_host:'https://www.tradingview.com'});
+  wrap.appendChild(sc);
+  return true;
+}
+function tvSingleQuote(domId,tvsym){   // 標頭即時報價(TradingView 官方單一報價 Widget)
+  const box=document.getElementById(domId);
+  if(!box)return false;
+  box.innerHTML='';
+  const wrap=document.createElement('div');
+  wrap.className='tradingview-widget-container';
+  const inner=document.createElement('div');
+  inner.className='tradingview-widget-container__widget';
+  wrap.appendChild(inner);box.appendChild(wrap);
+  const sc=document.createElement('script');
+  sc.src='https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js';
+  sc.async=true;
+  sc.innerHTML=JSON.stringify({symbol:tvsym,width:'100%',colorTheme:'light',
+    isTransparent:true,locale:'zh_TW'});
+  wrap.appendChild(sc);
+  return true;
+}
+function tvTape(){                      // 首頁指數即時跑馬燈(掛一次)
+  if(window.__tvTape)return;
+  const row=document.getElementById('idxRow');
+  if(!row||!row.parentNode)return;
+  const tape=document.createElement('div');
+  tape.id='tvTape';tape.style.cssText='margin:0 0 8px;border:1px solid var(--line);border-radius:11px;overflow:hidden';
+  row.parentNode.insertBefore(tape,row);
+  const wrap=document.createElement('div');
+  wrap.className='tradingview-widget-container';
+  const inner=document.createElement('div');
+  inner.className='tradingview-widget-container__widget';
+  wrap.appendChild(inner);tape.appendChild(wrap);
+  const sc=document.createElement('script');
+  sc.src='https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js';
+  sc.async=true;
+  sc.innerHTML=JSON.stringify({symbols:[
+      {proName:'FOREXCOM:SPXUSD',title:'S&P 500'},{proName:'FOREXCOM:NSXUSD',title:'那指100'},
+      {proName:'FOREXCOM:DJI',title:'道瓊'},{proName:'NASDAQ:SOXX',title:'費半ETF'},
+      {proName:'TVC:VIX',title:'VIX'},{proName:'TVC:US10Y',title:'美債10Y'},
+      {proName:'FX_IDC:USDTWD',title:'美元/台幣'},{proName:'TVC:DXY',title:'美元指數'}],
+    showSymbolLogo:false,isTransparent:true,displayMode:'adaptive',colorTheme:'light',locale:'zh_TW'});
+  wrap.appendChild(sc);
+  window.__tvTape=1;
+}
 async function fhQuote(sym){
   try{
     const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${encodeURIComponent(fhKey())}`,8000);
@@ -1992,7 +2066,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r290</span>');
+  diag.push('<span style="color:var(--dim)">build r293</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10245,9 +10319,18 @@ async function showMacroDetail(key){
   // 完整 K 線(與個股同引擎:範圍/週期/均線/指標)
   kView={rng:'6m',itv:'1d'}; baseK=null; curLevels=null; indMode='MACD';
   KHASH='#macro/'+key;
+  const _tv=(key!=='twii'&&key!=='otc'&&typeof TV_SYM!=='undefined')?TV_SYM[key]:null;
   const pseudo={id:def.sym,market:'US',syms:[def.sym,...(def.alt||[])]};
-  bindKControls(pseudo);
-  applyKView(pseudo);
+  if(_tv){                     // 📺 即時K線:TradingView 官方(日K起手,可切週期/指標)
+    const kb=document.getElementById('kbox')||document.querySelector('#kwrap .chart-box');
+    const kw=document.getElementById('kbox')?document.getElementById('kbox').closest('.chart-box'):null;
+    const host=(kw||kb);
+    if(host){host.innerHTML='<div class="ind-head"><h3>K線圖 · TradingView 即時(可切日K/週K/指標)</h3></div><div id="tvKbox" style="height:500px"></div>';
+      tvWidget('tvKbox',_tv,{interval:'D',style:'1'});}
+  }else{
+    bindKControls(pseudo);
+    applyKView(pseudo);
+  }
   // 加權/櫃買:即時走勢與標頭價改用證交所即時系統(session-safe,不吃 Yahoo 延遲)
   const misKey=key==='twii'?'tw':key==='otc'?'otc':null;
   window.__mkMis=misKey;
@@ -10272,34 +10355,41 @@ async function showMacroDetail(key){
   let last=null,prev=null;
   if(daily){const cs=daily.c.filter(x=>x!=null);last=cs[cs.length-1];prev=cs[cs.length-2];}
   if(intra){const cs=intra.c.filter(x=>x!=null);if(cs.length){last=cs[cs.length-1];prev=intra.prev||prev;}}
-  if(last!=null&&!misKey){
-    document.getElementById('mkPx').textContent=(last*sc).toFixed(dg)+unit;
-    if(prev){
+  const _px=document.getElementById('mkPx'),_cg=document.getElementById('mkChg');
+  if(_tv&&_px){                 // 📺 即時報價:官方單一報價 Widget 取代靜態數字
+    const pc=_px.closest('.c-price')||_px.parentNode;
+    pc.innerHTML='<div id="tvQ" style="min-width:240px;max-width:340px"></div>';
+    tvSingleQuote('tvQ',_tv);
+  }else if(last!=null&&!misKey&&_px){
+    _px.textContent=(last*sc).toFixed(dg)+unit;
+    if(prev&&_cg){
       if(def.bp){
         const b=(last-prev)*sc*100;
-        document.getElementById('mkChg').innerHTML=`<span class="${b>0?'pos':b<0?'neg':'flat'}">${b>0?'▲':b<0?'▼':'–'} ${Math.abs(b).toFixed(1)} bp</span>`;
+        _cg.innerHTML=`<span class="${b>0?'pos':b<0?'neg':'flat'}">${b>0?'▲':b<0?'▼':'–'} ${Math.abs(b).toFixed(1)} bp</span>`;
       }else{
-        const c=(last-prev)/prev*100;document.getElementById('mkChg').innerHTML=chgHtml(+c.toFixed(2));
+        const c=(last-prev)/prev*100;_cg.innerHTML=chgHtml(+c.toFixed(2));
       }
     }
-  }else if(!misKey)document.getElementById('mkPx').textContent='—';
+  }else if(!misKey&&_px)_px.textContent='—';
   if(sc!==1&&intra){intra.c=intra.c.map(x=>x==null?null:x*sc);if(intra.prev)intra.prev*=sc;}
   if(sc!==1&&daily){daily.c=daily.c.map(x=>x==null?null:x*sc);}
   const _tt=document.getElementById('mkIntraTitle');
   if(_tt&&!misKey){
-    _tt.textContent=(intra&&!intra.daily&&intra.c.some(x=>x!=null))
+    _tt.textContent=_tv?'即時走勢 · TradingView 官方嵌入(指數以CFD/連動商品即時呈現,走勢同步)'
+      :(intra&&!intra.daily&&intra.c.some(x=>x!=null))
       ?'盤中走勢(1分線) · 黃線為均價 · 虛線為昨收 · Nasdaq官方,站台約每20分鐘更新'
       :'日線走勢(近六個月) · MA20/MA60';
   }
-  if(!misKey&&FH_ETF[key])fhDetailLive(key,def);   // ⚡ 秒級即時層(有金鑰才生效)
+  if(!misKey&&!_tv&&fhKey()&&FH_ETF[key])fhDetailLive(key,def);   // ⚡ 僅手動設金鑰時作為備援
   if(misKey)drawMkLive(misKey);
+  else if(_tv&&tvWidget('mkIntra',_tv)){/* TradingView 即時圖已掛載 */}
   else if(intra&&!intra.daily&&intra.c.some(x=>x!=null))drawIntra('mkIntra',intra);
   else if(daily){/* FRED 日更來源:無分線,誠實畫日線(下方 if(daily) 一併處理判讀) */}
   else document.getElementById('mkIntra').innerHTML='<div class="dim-note" style="padding:20px">目前非交易時段或無分時資料,請看下方K線。</div>';
   const box=document.getElementById('mkIntra');
-  if(box){try{const inst=echarts.getInstanceByDom(box);if(inst)chipCharts.push(inst);}catch(e){}}
+  if(box&&!_tv){try{const inst=echarts.getInstanceByDom(box);if(inst)chipCharts.push(inst);}catch(e){}}
   if(daily){
-    const hasIntra=misKey||(intra&&!intra.daily&&intra.c.some(x=>x!=null));
+    const hasIntra=misKey||_tv||(intra&&!intra.daily&&intra.c.some(x=>x!=null));
     const pts=drawMacroLine(hasIntra?'mkDaily':'mkIntra',daily,dg);
     document.getElementById('mkTrend').innerHTML=mkTrendText(pts,dg,def)||'資料不足。';
   }else{
