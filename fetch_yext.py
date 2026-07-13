@@ -62,6 +62,18 @@ def nasdaq_get(url):
     with urllib.request.urlopen(req, timeout=25) as r:
         return json.loads(r.read().decode("utf-8", "replace"))
 
+def _et_fix(ts_fake):
+    """Nasdaq chart 的 x 是「美東牆上時間」偽裝成 UTC epoch → 轉回真實 epoch。
+    夏令時(3月第二個週日~11月第一個週日)=UTC-4,其餘 UTC-5。"""
+    d = datetime.datetime.fromtimestamp(ts_fake, datetime.timezone.utc)
+    y = d.year
+    def nth_sun(mo, n):
+        first = datetime.date(y, mo, 1)
+        off = (6 - first.weekday()) % 7
+        return datetime.date(y, mo, 1 + off + 7 * (n - 1))
+    dst = nth_sun(3, 2) <= d.date() < nth_sun(11, 1)
+    return ts_fake + (4 if dst else 5) * 3600
+
 def _nasdaq_points(j):
     rows = ((j.get("data") or {}).get("chart")) or []
     tt, cc = [], []
@@ -71,6 +83,7 @@ def _nasdaq_points(j):
             if x is None or y is None:
                 continue
             ts = int(x / 1000) if x > 10**11 else int(x)   # 毫秒→秒
+            ts = _et_fix(ts)                                # 美東牆上時間 → 真實 epoch
             v = float(str(y).replace(",", ""))
             tt.append(ts); cc.append(round(v, 2))
         except Exception:
