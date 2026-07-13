@@ -1841,7 +1841,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r277</span>');
+  diag.push('<span style="color:var(--dim)">build r278</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3803,13 +3803,17 @@ async function rtTick(){
   const t=new Date().toLocaleTimeString('zh-TW',{hour12:false});
   const sb=document.getElementById('srcBadge');
   if(sb){sb.textContent=`● 即時 ${t}(${n}檔)`;sb.className='badge live';}
-  renderPulse(); renderMacro();
+  RT.uiTick=(RT.uiTick||0)+1;
+  keepScroll(()=>{renderPulse(); if(RT.uiTick%2===0)renderMacro();});
   if(!location.hash.startsWith('#stock/')){
-    keepScroll(()=>{
-      render(); renderRadar(); renderT3(); try{renderPulse();}catch(e){}
-      if(location.hash==='#fav')renderFav();
-    });
-    hydrateSparks();
+    livePatchCards();                                    // 每 tick:原地改數字,零重繪零跳動
+    if(RT.uiTick%10===0){                                // 每 60 秒:才做排序/徽章的整批重畫
+      keepScroll(()=>{
+        render(); renderRadar(); renderT3();
+        if(location.hash==='#fav')renderFav();
+      });
+      hydrateSparks();
+    }
   }
   else{
     const s=DATA.stocks.find(x=>x.id===decodeURIComponent(location.hash.slice(7)));
@@ -3817,6 +3821,20 @@ async function rtTick(){
     if(s&&px){px.textContent=s.price??'—';}
     if(s&&ch){ch.innerHTML=chgHtml(s.chg);}
   }
+}
+function livePatchCards(){
+  // 原地更新所有清單卡片(.r-card)上的現價與漲跌,不動 DOM 結構
+  const byId={};(DATA.stocks||[]).forEach(s=>byId[s.id]=s);
+  document.querySelectorAll('.r-card[data-id]').forEach(card=>{
+    const s=byId[card.dataset.id];
+    if(!s||s.price==null)return;
+    const px=card.querySelector('.rpx');
+    if(!px)return;
+    const t=String(s.price);
+    if(px.textContent!==t)px.textContent=t;
+    const cg=px.nextElementSibling;
+    if(cg&&cg.tagName==='SPAN')cg.innerHTML=chgHtml(s.chg);
+  });
 }
 setInterval(rtTick,6000);
 setTimeout(rtTick,900);
