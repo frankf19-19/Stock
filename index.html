@@ -1779,7 +1779,12 @@ async function refreshFX(){
     fx[key]=+(+last).toFixed(dp);
     hit++;
   }
-  if(hit&&!location.hash)renderMacro();
+  window.__fxLive=hit>0;
+  if(!location.hash)renderMacro();
+  try{
+    const el=document.querySelector('[data-mk="dxy"] .nm');
+    if(el)el.innerHTML='美元指數 DXY'+(hit?'':' <span style="font-size:10px;color:var(--dim)">源斷·日更值</span>');
+  }catch(e){}
 }
 setTimeout(refreshFX,3200);
 setInterval(refreshFX,60000);
@@ -1836,7 +1841,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r269</span>');
+  diag.push('<span style="color:var(--dim)">build r272</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1849,22 +1854,54 @@ document.getElementById('updBtn').onclick=async()=>{
 };
 
 /* ── 即時走勢圖:Yahoo 1分線(經轉接通道),含量能與均價線 ── */
+async function diagRoutes(btn){
+  btn.disabled=true;btn.textContent='測試中…';
+  const u1='https://query1.finance.yahoo.com/v8/finance/chart/2330.TW?interval=1m&range=1d';
+  const u2=u1.replace('query1','query2');
+  const R=[['直連 query1',u1],['直連 query2',u2],
+    ['corsproxy.io','https://corsproxy.io/?url='+encodeURIComponent(u1)],
+    ['allorigins raw','https://api.allorigins.win/raw?url='+encodeURIComponent(u1)],
+    ['allorigins get','https://api.allorigins.win/get?url='+encodeURIComponent(u2)],
+    ['codetabs','https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u1)]];
+  const out=[];
+  for(const [nm,url] of R){
+    try{const r=await fT(url,7000);
+      out.push((r.ok?'✅':'⛔ '+r.status)+' '+nm);}
+    catch(e){out.push('❌ '+nm+'(連不上/被擋)');}
+  }
+  let box=document.getElementById('diagBox');
+  if(!box){box=document.createElement('div');box.id='diagBox';
+    box.style.cssText='margin:8px 0;padding:10px 13px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;font-size:12.5px;font-family:var(--mono);line-height:1.9';
+    btn.parentElement.parentElement.appendChild(box);}
+  const allDead=out.every(x=>!x.startsWith('✅'));
+  box.innerHTML=out.join('<br>')+'<br><span style="font-family:var(--sans);color:var(--mut)">'+
+    (allDead?'全滅:通常是廣告攔截器/公司網路擋了這些網域——把本站與 googleapis/yahoo 加白名單,或換網路試':
+     out[0].startsWith('✅')||out[1].startsWith('✅')?'直連可用但站內失敗屬異常——截圖此結果給開發者':
+     '直連被 CORS 擋是正常的,代理有 ✅ 就會自動恢復;全部代理 ❌ 為免費代理塞車,通常數十分鐘內自癒')+'</span>';
+  btn.disabled=false;btn.textContent='🔌 測試連線';
+}
 async function yChart(sym,range,interval){
-  const u=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval||'1m'}&range=${range||'1d'}&includePrePost=false`;
-  const routes=[x=>x,
-    x=>'https://corsproxy.io/?url='+encodeURIComponent(x),
-    x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x),
-    x=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(x)];
-  const tryRoute=async r=>{
-    const res=await fT(r(u),6000);
+  const qs=`?interval=${interval||'1m'}&range=${range||'1d'}&includePrePost=false`;
+  const u1=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}${qs}`;
+  const u2=`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}${qs}`;
+  const routes=[
+    [u1,0],[u2,0],
+    ['https://corsproxy.io/?url='+encodeURIComponent(u1),0],
+    ['https://api.allorigins.win/raw?url='+encodeURIComponent(u1),0],
+    ['https://api.allorigins.win/get?url='+encodeURIComponent(u2),1],  // 包裝格式:{contents:"json字串"}
+    ['https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u1),0],
+    ['https://corsproxy.io/?url='+encodeURIComponent(u2),0]];
+  const tryRoute=async ([url,wrap])=>{
+    const res=await fT(url,7000);
     if(!res.ok)throw 0;
-    const j=await res.json();
+    let j=await res.json();
+    if(wrap&&j&&j.contents){try{j=JSON.parse(j.contents);}catch(e){throw 0;}}
     const q=j&&j.chart&&j.chart.result&&j.chart.result[0];
     if(!q||!q.timestamp)throw 0;
     return q;
   };
   try{
-    const q=await Promise.any(routes.map(tryRoute));   // 四路並行,先到先贏
+    const q=await Promise.any(routes.map(tryRoute));   // 七路並行,先到先贏
     return {t:q.timestamp,
             c:q.indicators.quote[0].close,
             v:q.indicators.quote[0].volume||[],
@@ -2938,7 +2975,12 @@ async function loadIntraDetail(s,accOnly){
           (RT.lastYD=RT.lastYD||{})[s.id]=md;   // 當底圖,累積點續接
         }else{
           window.__stkToday=false;
-          if(stat)stat.innerHTML=intraStatTxt(s,'走勢累積中·09:00起完整走勢約09:25後自動補齊');
+          const early=(()=>{const h=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));return h.getHours()*60+h.getMinutes()<9*60+25;})();
+          if(stat)stat.innerHTML=intraStatTxt(s,early
+            ?'走勢累積中·09:00起完整走勢約09:25後自動補齊'
+            :'即時走勢源暫時連不上——報價仍即時、K線不受影響;45秒自動重試')
+            +(early?'':' <button class="btn-ghost" style="height:26px;padding:0 10px;font-size:12px" onclick="diagRoutes(this)">🔌 測試連線</button>');
+          if(!window.__intraRetry){window.__intraRetry=setTimeout(()=>{window.__intraRetry=null;try{if(location.hash===KHASH)drawIntraday(s);}catch(e){}},45000);}
           return;
         }
       }
@@ -3002,8 +3044,22 @@ const STK_ACC={};
 function stkAcc(id){
   const today=tpDay(Date.now()/1000);
   let a=STK_ACC[id];
-  if(!a||a.day!==today){a=STK_ACC[id]={day:today,t:[],c:[],v:[],prev:null};}
+  if(!a||a.day!==today){
+    a=STK_ACC[id]={day:today,t:[],c:[],v:[],prev:null};
+    try{const sv=JSON.parse(localStorage.getItem('sacc_'+id)||'null');   // 還原今日已累積的走勢
+      if(sv&&sv.day===today&&Array.isArray(sv.t)&&sv.t.length){
+        a.t=sv.t;a.c=sv.c;a.v=sv.t.map(()=>0);a.prev=sv.prev||null;}}catch(e){}
+  }
   return a;
+}
+let __saccSave=0;
+function stkAccSave(id){
+  const now=Date.now();
+  if(now-__saccSave<20000)return;                          // 20秒節流
+  __saccSave=now;
+  try{const a=STK_ACC[id];
+    if(a&&a.t.length)localStorage.setItem('sacc_'+id,
+      JSON.stringify({day:a.day,t:a.t.slice(-320),c:a.c.slice(-320),prev:a.prev}));}catch(e){}
 }
 function stkAccPush(id,last,y){
   if(!marketOpen())return;
@@ -3013,6 +3069,7 @@ function stkAccPush(id,last,y){
   const i=a.t.length-1;
   if(i<0||now-a.t[i]>=(a.t.length<3?8:25)){
     a.t.push(now);a.c.push(+(+last).toFixed(2));a.v.push(0);
+    stkAccSave(id);
     if(location.hash==='#stock/'+id){const s2=DATA.stocks.find(x=>x.id===id);if(s2)try{refreshIntraLight(s2);}catch(e){}}
   }else a.c[a.c.length-1]=+(+last).toFixed(2);
 }
@@ -3545,18 +3602,34 @@ function rtTargets(){
   document.querySelectorAll('[data-candle]').forEach(el=>add((DATA.stocks||[]).find(x=>x.id===el.dataset.candle)));
   return [...ids].slice(0,140);
 }
-async function fetchMIS(chans){
+async function fetchMISOne(chans){
   const mis='https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch='
     +chans.join('|')+'&json=1&delay=0&_='+Date.now();
-  const routes=[u=>u,
-    u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
-  for(const r of routes){
-    try{const res=await fT(r(mis),5000);
-        if(!res.ok)continue;
-        const j=await res.json();
-        if(j&&j.msgArray)return j.msgArray;}catch(e){}
-  }
-  return null;
+  const routes=[                                            // 五路並行,先到先贏(原本單押 corsproxy,一倒全滅)
+    [mis,0],
+    ['https://corsproxy.io/?url='+encodeURIComponent(mis),0],
+    ['https://api.allorigins.win/raw?url='+encodeURIComponent(mis),0],
+    ['https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(mis),0],
+    ['https://api.allorigins.win/get?url='+encodeURIComponent(mis),1]];
+  const one=async ([url,wrap])=>{
+    const res=await fT(url,6000);
+    if(!res.ok)throw 0;
+    let j=await res.json();
+    if(wrap&&j&&j.contents){try{j=JSON.parse(j.contents);}catch(e){throw 0;}}
+    if(j&&j.msgArray)return j.msgArray;
+    throw 0;
+  };
+  try{return await Promise.any(routes.map(one));}catch(e){return null;}
+}
+async function fetchMIS(chans){
+  if(!chans||!chans.length)return null;
+  const CH=90;                                              // MIS 批次上限保險:切 ≤90 檔多包並行
+  const parts=[];
+  for(let i=0;i<chans.length;i+=CH)parts.push(chans.slice(i,i+CH));
+  const res=await Promise.all(parts.map(fetchMISOne));
+  let out=null;
+  res.forEach(r=>{if(r){out=(out||[]).concat(r);}});
+  return out;
 }
 function rtPx(m){
   /* 取價鐵律:只信真實成交價;無成交(試撮/處置分盤間隔)寧可不更新,
