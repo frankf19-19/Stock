@@ -431,71 +431,72 @@ def build_inst(chips):
 
 # ═══════════════ 台股價格:Yahoo 批次(GitHub 機房可達)═══════════════
 def _yahoo_batch(tickers, hist, idmap):
-    """批次下載日K,寫入 hist。idmap: yahoo代碼 → 我們的代號。回傳成功集合。"""
-    import yfinance as yf
-    ok = set()
-    for i in range(0, len(tickers), 100):
-        chunk = tickers[i:i+100]
-        try:
-            df = yf.download(chunk, period="7mo", interval="1d",
-                             group_by="ticker", threads=True, progress=False,
-                             auto_adjust=False)
-            for tk in chunk:
-                try:
-                    sub = (df[tk] if len(chunk) > 1 else df).dropna(subset=["Close"])
-                    if len(sub) < 15: continue
-                    e = {"d": [], "o": []}
-                    for idx, r in sub.tail(KEEP_BARS).iterrows():
-                        e["d"].append(str(idx)[:10])
-                        e["o"].append([round(float(r["Open"]),2), round(float(r["High"]),2),
-                                       round(float(r["Low"]),2), round(float(r["Close"]),2),
-                                       int((r.get("Volume") or 0) // (1000 if tk.endswith((".TW",".TWO")) else 1))])
-                    hist[idmap[tk]] = e; ok.add(tk)
-                except Exception: continue
-        except Exception as e:
-            print(f"  [warn] Yahoo 批次: {e}")
-        time.sleep(1.5)
-    return ok
+    """已全面停用:本系統不再向 Yahoo 取得任何資料。"""
+    if tickers:
+        print(f"  [note] Yahoo 已停用,略過 {len(tickers)} 檔(改由官方源供應)")
+    return set()
 
 def update_tw_prices(hist, tw_comps):
-    """v2 續寫制:官方全市場單日檔為主(證交所+櫃買各一請求,零 Yahoo)。
-    既有 K 線由 load_hist 讀回,每天只追加官方當日棒;
-    Yahoo 降級為「限量補洞工」——只處理全新個股或斷檔超過 7 天者,
-    每輪最多 300 檔,避免 GitHub 機房被 Yahoo 限流拖垮整條管線。"""
+    """v3 純官方:證交所/櫃買全市場單日檔續寫+開檔(fill_tw_daily_official);
+    上市缺歷史者用證交所 STOCK_DAY(月檔)回補近七個月,每輪限量 60 檔;
+    上櫃缺歷史者由官方單日檔逐日長大。全程零 Yahoo。"""
     try:
         fill_tw_daily_official(hist, tw_comps)
     except Exception as e:
         print(f"  [warn] 官方日行情: {e}")
-    import datetime as _dt
-    today = _dt.date.today()
-    stale = []
-    for c in tw_comps:
-        e = hist.get(c["id"])
-        if not e or not e.get("d") or len(e["d"]) < 15:
-            stale.append(c); continue
+    stale = [c for c in tw_comps
+             if c.get("ex") == "tse"
+             and len((hist.get(c["id"]) or {}).get("d") or []) < 15][:60]
+    if stale:
+        fixed = 0
+        for c in stale:
+            try:
+                if backfill_twse_history(hist, c["id"]):
+                    fixed += 1
+            except Exception:
+                pass
+            time.sleep(0.4)
+        print(f"  歷史回補(證交所 STOCK_DAY):{fixed}/{len(stale)} 檔")
+    print(f"  台股價格:官方源續寫完成(零 Yahoo)")
+
+def backfill_twse_history(hist, sid, months=7):
+    """證交所 STOCK_DAY(個股月檔):回補近 N 個月日K,重建完整序列。"""
+    e = {"d": [], "o": []}
+    d0 = TODAY.replace(day=1)
+    heads = []
+    for k in range(months - 1, -1, -1):
+        y = d0.year
+        m = d0.month - k
+        while m <= 0:
+            m += 12; y -= 1
+        heads.append(f"{y}{m:02d}01")
+    for hd in heads:
         try:
-            last = _dt.date.fromisoformat(e["d"][-1])
-            if (today - last).days > 7:
-                stale.append(c)
+            j = get_json(f"https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY"
+                         f"?date={hd}&stockNo={sid}&response=json", timeout=25)
+            for row in (j or {}).get("data") or []:
+                try:
+                    ds = row[0].strip()          # 民國 115/07/01
+                    p3 = ds.split("/")
+                    iso = f"{int(p3[0])+1911}-{p3[1]}-{p3[2]}"
+                    vol = int(str(row[1]).replace(",", "")) // 1000   # 股→張
+                    o2 = float(str(row[3]).replace(",", ""))
+                    h2 = float(str(row[4]).replace(",", ""))
+                    l2 = float(str(row[5]).replace(",", ""))
+                    c2 = float(str(row[6]).replace(",", ""))
+                    if c2 <= 0: continue
+                    e["d"].append(iso)
+                    e["o"].append([round(o2,2), round(h2,2), round(l2,2), round(c2,2), vol])
+                except Exception:
+                    continue
         except Exception:
-            stale.append(c)
-    if not stale:
-        print(f"  台股價格:官方單日檔續寫完成({len(tw_comps)} 檔,零 Yahoo)")
-        return
-    stale = stale[:300]
-    idmap, tickers = {}, []
-    for c in stale:
-        tk = f"{c['id']}.{'TW' if c['ex']=='tse' else 'TWO'}"
-        idmap[tk] = c["id"]; tickers.append(tk)
-    ok = _yahoo_batch(tickers, hist, idmap)
-    retry, rmap = [], {}
-    for c in stale:
-        tk = f"{c['id']}.{'TW' if c['ex']=='tse' else 'TWO'}"
-        if tk in ok: continue
-        alt = f"{c['id']}.{'TWO' if c['ex']=='tse' else 'TW'}"
-        retry.append(alt); rmap[alt] = c["id"]
-    ok2 = _yahoo_batch(retry, hist, rmap) if retry else set()
-    print(f"  缺口回補(限量 Yahoo):{len(ok)+len(ok2)}/{len(stale)} 檔;其餘 {max(0,len(tw_comps)-len(stale))} 檔走官方續寫")
+            pass
+        time.sleep(0.35)
+    if len(e["d"]) >= 15:
+        e["d"] = e["d"][-KEEP_BARS:]; e["o"] = e["o"][-KEEP_BARS:]
+        hist[sid] = e
+        return True
+    return False
 
 OFF_CHG = {}   # 官方當日漲跌%(fill_tw_daily_official 填入,主迴圈覆蓋 chg)
 
@@ -562,41 +563,47 @@ def fill_tw_daily_official(hist, comps):
         TODAY.isoformat() if TODAY.weekday() < 5 else None)
     if not day: return
     fixed = 0
+    born = 0
     for c in comps:
         sid = c["id"]
         e = hist.get(sid)
         r = rows.get(sid)
-        if not e or not r or not e.get("d"): continue
-        if e["d"][-1] >= day: continue          # Yahoo 已是最新,不用補
+        if not r: continue
+        if not e or not e.get("d"):
+            hist[sid] = {"d": [], "o": []}       # 缺檔股:官方資料直接開檔,K線逐日長大(不等 Yahoo)
+            e = hist[sid]; born += 1
+        elif e["d"][-1] >= day:
+            continue                             # 已是最新,不用補
         d2, o2, h2, l2, c2, v2 = r
         append_bar(hist, sid, d2 or day, o2, h2, l2, c2, v2)
         fixed += 1
-    print(f"  官方備援補K棒:{fixed} 檔(交易日 {day})")
+    print(f"  官方日行情續寫:{fixed} 檔(交易日 {day}{f'、新開檔 {born}' if born else ''})")
 
 # ═══════════════ 美股價格(批次)═══════════════
 def update_us_prices(hist, us_comps):
-    idmap = {c["id"]: c["id"] for c in us_comps}
-    ok = _yahoo_batch(list(idmap), hist, idmap)
-    missing = [s for s in idmap if s not in ok][:40]
-    for sym in missing:  # Stooq 只救少量缺漏
+    """美股日K:Stooq(免金鑰 CSV),全面取代 Yahoo。"""
+    ok = 0
+    for c in us_comps:
+        sym = c["id"]
         try:
             d1 = (TODAY - dt.timedelta(days=230)).strftime("%Y%m%d")
             df = pd.read_csv(StringIO(requests.get(
                 f"https://stooq.com/q/d/l/?s={sym.lower()}.us&d1={d1}&d2={TODAY:%Y%m%d}&i=d",
                 headers=UA, timeout=20).text))
-            if "Close" not in df.columns or len(df) < 20: continue
+            if "Close" not in df.columns or len(df) < 20:
+                continue
             e = {"d": [], "o": []}
             for _, r in df.tail(KEEP_BARS).iterrows():
                 e["d"].append(str(r["Date"])[:10])
                 e["o"].append([round(float(r["Open"]),2), round(float(r["High"]),2),
                                round(float(r["Low"]),2), round(float(r["Close"]),2),
                                int(r.get("Volume") or 0)])
-            hist[sym] = e; ok.add(sym)
-            time.sleep(0.6)
-        except Exception: continue
-    print(f"  美股價格:{len(ok)}/{len(us_comps)} 檔")
+            hist[sym] = e; ok += 1
+        except Exception:
+            pass
+        time.sleep(0.6)
+    print(f"  美股價格(Stooq):{ok}/{len(us_comps)} 檔")
 
-# ═══════════════ 官方彙總:營收 / 法人 / 大戶 ═══════════════
 def fetch_rev_mops_live():
     """MOPS 當月即時彙總:公司 1~10 日陸續申報,申報當天此頁就有(上市+上櫃)。"""
     out = {}
@@ -1389,63 +1396,9 @@ def _act_delta(prev_hold, hold, etf_chg, chg_map, today_iso, px_map=None):
         return None
 
 def fetch_etf_holdings(stocks):
-    """ETF 成分與規模(每日):前十大成分股+權重、AUM、淨值、股/債/現金配置。
-    來源 Yahoo/Morningstar(yfinance funds_data);小型/新上市 ETF 可能缺資料,前端會給官網連結。"""
-    import yfinance as yf
-    etfs = [s for s in stocks if s.get("etf")]
-    _chgm = {s["id"]: s.get("chg") for s in stocks if s.get("chg") is not None}
-    _pxm = {s["id"]: s.get("price") for s in stocks if s.get("price")}
-    n_ok = 0
-    for s in etfs:
-        tk = s["id"] if s["market"] == "US" else f"{s['id']}.{'TW' if s['ex']=='tse' else 'TWO'}"
-        hold = {}
-        try:
-            t = yf.Ticker(tk)
-            try: info = t.get_info() or {}
-            except Exception: info = {}
-            aum = info.get("totalAssets") or info.get("netAssets")
-            if aum: hold["aum"] = int(aum)
-            nav = info.get("navPrice")
-            if nav: hold["nav"] = round(float(nav), 2)
-            dy = info.get("dividendYield") or info.get("yield") or info.get("trailingAnnualDividendYield")
-            try:
-                dy = float(dy)
-                if dy: hold["dy"] = round(dy * 100 if dy < 1 else dy, 2)   # 近一年殖利率 %
-            except Exception:
-                pass
-            er = info.get("annualReportExpenseRatio") or info.get("netExpenseRatio")
-            if er: hold["er"] = round(float(er) * (100 if er < 1 else 1), 2)   # 內扣費用%
-            try:
-                fd = t.funds_data
-                ac = fd.asset_classes or {}
-                for ks, kd in (("cashPosition", "cash"), ("stockPosition", "stk"), ("bondPosition", "bond")):
-                    v = ac.get(ks)
-                    if v is not None: hold[kd] = round(float(v) * 100, 2)
-                th = fd.top_holdings
-                if th is not None and len(th):
-                    top = []
-                    for sym, row in th.iterrows():
-                        pw = row.get("Holding Percent")
-                        top.append([str(sym).replace(".TW", "").replace(".TWO", ""),
-                                    str(row.get("Name", ""))[:24],
-                                    round(float(pw) * 100, 2) if pw == pw else None])
-                    hold["top"] = top[:10]
-            except Exception:
-                pass
-        except Exception:
-            pass
-        if hold.get("top") or hold.get("aum"):
-            hold["d"] = TODAY.isoformat()
-            if s.get("sub") == "active":
-                act = _act_delta(s.get("hold"), hold, s.get("chg"), _chgm, TODAY.isoformat(), _pxm)
-                if act: s["act"] = act
-                elif s.get("act") and s["act"].get("d") and                      (dt.date.fromisoformat(TODAY.isoformat()) - dt.date.fromisoformat(s["act"]["d"])).days <= 3:
-                    pass                                     # 三天內的舊觀察保留
-                else:
-                    s.pop("act", None)
-            s["hold"] = hold; n_ok += 1
-        time.sleep(0.12)
-    print(f"  ETF 成分/規模:{n_ok}/{len(etfs)} 檔")
+    """已停用(Yahoo 全面移除)——ETF 成分/規模改由前端官網連結;殖利率走 dy.json。"""
+    print("  ETF 成分:略過(Yahoo 已全面停用)")
+    return
 
 def build_tdcc_trend(stocks):
     """集保股權分散 v2:每股每週存 9 組級距(可前端換算任意大戶/散戶門檻)。
@@ -1806,57 +1759,9 @@ def fetch_biz(sid):
     return None
 
 def fetch_targets(stocks):
-    """用 yfinance 抓分析師目標價(自帶 cookie/crumb 處理,最穩)。
-    覆蓋:台股綜合分前150 + 精選論點股 + 美股前60,寫入 s["tp"]={m,h,l}。"""
-    try:
-        import yfinance as yf
-    except Exception as e:
-        print(f"  [warn] yfinance 不可用({e}),略過目標價")
-        return
-    def tot(s):
-        return s["f"]["score"]*0.4 + s["c"]["score"]*0.35 + s["t"]["score"]*0.25
-    tw = sorted([s for s in stocks if s["market"] == "TW"], key=lambda s: -tot(s))[:300]
-    thes = [s for s in stocks if s.get("thesis") and s not in tw]
-    us = sorted([s for s in stocks if s["market"] == "US"], key=lambda s: -tot(s))[:80]
-    picks, n = tw + thes + us, 0
-    t0, fails = time.time(), 0
-    for s in picks:
-        if time.time() - t0 > 600:
-            print("  [warn] 目標價超過時間預算(10分),提前收工"); break
-        if fails >= 10 and n == 0:
-            print("  [warn] 目標價連續失敗,來源可能被擋,跳過"); break
-        sym = (f"{s['id']}.{'TW' if s['ex']=='tse' else 'TWO'}"
-               if s["market"] == "TW" else s["id"])
-        try:
-            pt = yf.Ticker(sym).analyst_price_targets
-            if pt and pt.get("mean"):
-                s["tp"] = {"m": round(float(pt["mean"]), 2),
-                           "h": round(float(pt["high"]), 2) if pt.get("high") else None,
-                           "l": round(float(pt["low"]), 2) if pt.get("low") else None}
-                n += 1; fails = 0
-            else:
-                fails += 1
-        except Exception:
-            fails += 1
-        time.sleep(0.35)
-    print(f"  分析師目標價(yfinance):{n}/{len(picks)} 檔")
-    nb, bf, tb = 0, 0, time.time()
-    # 補洞優先:全市場尚無業務簡介者排前面(重點股其次刷新)——約兩週覆蓋全市場
-    holes = [s for s in stocks if s.get("market") == "TW" and not s.get("bz")]
-    todo = holes + [s for s in picks if s.get("market") == "TW" and s.get("bz")]
-    for s in todo:
-        if s["market"] != "TW": continue
-        if time.time() - tb > 300:
-            print("  [warn] 業務抓取超過時間預算(5分),提前收工"); break
-        if bf >= 8 and nb == 0:
-            print("  [warn] MOPS 連續失敗,來源可能封鎖 GitHub 機房,跳過"); break
-        bz = fetch_biz(s["id"])
-        if bz:
-            s["bz"] = bz; nb += 1; bf = 0
-        else:
-            bf += 1
-        time.sleep(0.6)
-    print(f"  主要經營業務(MOPS):{nb} 檔")
+    """已停用(Yahoo 全面移除)——前端保留 Yahoo 分析師頁外部連結供手動查看。"""
+    print("  分析師目標價:略過(Yahoo 已全面停用)")
+    return
 
 def load_prev():
     try:
@@ -2024,18 +1929,15 @@ def stooq_index(sym):
 
 def fetch_macro():
     idx = []
-    try:
-        import yfinance as yf
-        for name, tkr in [("加權指數", "^TWII"), ("S&P 500", "^GSPC"),
-                          ("那斯達克", "^IXIC"), ("費城半導體", "^SOX")]:
-            try:
-                h = yf.Ticker(tkr).history(period="5d")["Close"].dropna()
-                if len(h) >= 2:
-                    v, p = float(h.iloc[-1]), float(h.iloc[-2])
-                    idx.append({"name": name, "val": round(v, 2), "chg": round(pct(v, p), 2)})
-            except Exception as e:
-                print(f"  [warn] 指數 {tkr}: {e}")
-    except Exception: pass
+    # 指數一律 Stooq(Yahoo 已全面停用);加權另以官方管道在前端即時供應
+    for name, sym in [("加權指數", "^twse"), ("S&P 500", "^spx"),
+                      ("那斯達克", "^ndq"), ("費城半導體", "^sox")]:
+        try:
+            r2 = stooq_index(sym)
+            if r2:
+                idx.append({"name": name, "val": r2[0], "chg": r2[1]})
+        except Exception as e:
+            print(f"  [warn] 指數 {sym}: {e}")
     if not any(i["name"] == "S&P 500" for i in idx):  # Stooq 備援
         for name, sym in [("S&P 500", "^spx"), ("那斯達克", "^ndq"), ("費城半導體", "^sox")]:
             try:
