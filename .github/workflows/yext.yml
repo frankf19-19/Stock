@@ -27,6 +27,8 @@ jobs:
           python-version: '3.11'
       - run: echo "純標準庫,無需安裝套件"
       - run: python fetch_yext.py
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
       - name: 提交
         run: |
           git config user.name "bot"
