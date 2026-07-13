@@ -1538,9 +1538,15 @@ async function t3HistShow(sid,q,slot){
     if(el&&asc.length>=2&&typeof echarts!=='undefined'){
       let tries=0;
       const draw=()=>{
+      try{
       if(!el.isConnected)return;
-      if(el.clientWidth<40){if(++tries<12)setTimeout(draw,250);return;}   // 容器未就緒→稍後再畫
+      if(el.clientWidth<40||el.clientHeight<40){
+        if(++tries<16){setTimeout(draw,250);return;}
+        el.innerHTML='<div class="dim-note">圖表容器尺寸異常(寬'+el.clientWidth+'×高'+el.clientHeight+')——請截圖回報</div>';
+        return;
+      }
       const ch=echarts.init(el);
+      setTimeout(()=>{try{ch.resize();}catch(e){}},350);
       if(typeof chipCharts!=='undefined')chipCharts.push(ch);
       const idxMap=asc.map(r=>rows.indexOf(r));
       ch.setOption({
@@ -1560,6 +1566,9 @@ async function t3HistShow(sid,q,slot){
           {name:'營益率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.om),symbol:'circle',symbolSize:4,lineStyle:{width:2,color:CT.ttBg==='#FFFFFF'?'#2E62C9':'#7FB4FF'},itemStyle:{color:CT.ttBg==='#FFFFFF'?'#2E62C9':'#7FB4FF'}},
           {name:'淨利率',type:'line',yAxisIndex:1,data:asc.map(r=>r.v.nm),symbol:'circle',symbolSize:4,lineStyle:{width:2,color:CT.dn2},itemStyle:{color:CT.dn2}}]
       });
+      }catch(err){
+        el.innerHTML='<div class="dim-note">季報圖表繪製失敗:'+(err&&err.message||err)+'——請截圖回報,一截就能修</div>';
+      }
       };
       draw();
     }
@@ -1841,7 +1850,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r280</span>');
+  diag.push('<span style="color:var(--dim)">build r281</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
