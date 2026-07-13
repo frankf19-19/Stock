@@ -971,8 +971,8 @@ def _taifex_csv_fallback():
                 e = day.setdefault(dte, {})
                 net10 = num(r0[ci_b]) - num(r0[ci_s])
                 kind = r0[ci_t].strip() if (ci_t is not None and len(r0) > ci_t) else ""
-                if "特定" in kind:
-                    e["sp"] = net10                                   # 格式A:特定法人獨立「列」
+                if "特定" in kind or kind == "1":
+                    e["sp"] = net10                                   # 格式A/D:特定法人獨立「列」(D=期交所改用數字代碼 1)
                 else:
                     e["b10"] = net10
                     if ci_pb is not None and ci_ps is not None and len(r0) > max(ci_pb, ci_ps):
@@ -1042,6 +1042,14 @@ def fetch_credit_stocks(stocks):
                     break
             except Exception:
                 continue
+        if not arr:
+            try:   # 官方備援出口:OpenAPI(同一份融券借券資料,最新交易日)
+                oa = get_json("https://openapi.twse.com.tw/v1/exchangeReport/TWT93U", timeout=40)
+                if isinstance(oa, list) and oa:
+                    arr = oa
+                    print("  借券賣出資料日:OpenAPI 最新日")
+            except Exception:
+                pass
         if not arr:
             raise RuntimeError("rwd TWT93U 無資料")
         keys = list(arr[0].keys())
