@@ -1841,7 +1841,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r273</span>');
+  diag.push('<span style="color:var(--dim)">build r275</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2811,7 +2811,9 @@ setInterval(refreshRisk,60000);
 function intraStatTxt(s,extra){
   const px=s.price!=null?s.price:'—';
   const cg=s.chg!=null?` <span class="${s.chg>=0?'pos':'neg'}">${s.chg>=0?'▲':'▼'} ${Math.abs(s.chg).toFixed(2)}%</span>`:'';
-  return `<b style="font-family:var(--mono)">${px}</b>${cg}${extra?' · '+extra:''}`;
+  const mt=(window.__mkT||{})[s.id];
+  const tt=mt?` <span style="font-size:11px;color:var(--dim)" title="交易所成交時刻——跟你的時鐘差幾秒=實際延遲">成交 ${mt.slice(0,8)}</span>`:'';
+  return `<b style="font-family:var(--mono)">${px}</b>${cg}${tt}${extra?' · '+extra:''}`;
 }
 /* 個股即時解讀:開盤型態/日內位置/均價關係/短線動能/量能/關卡距離 */
 function stkRead(s){
@@ -2900,9 +2902,23 @@ async function misIntraday(s){
   // 證交所 MIS 站內分線端點(非正式):成功=瞬間補全 09:00 起走勢;失敗=無感回退
   try{
     const ch=`${s.ex==='otc'?'otc':'tse'}_${s.id}.tw`;
-    const r=await fT(`https://mis.twse.com.tw/stock/api/getChartOhlcStatis.jsp?ex_ch=${ch}&_=${Date.now()}`,5000);
-    if(!r.ok)return null;
-    const j=await r.json();
+    const u=`https://mis.twse.com.tw/stock/api/getChartOhlcStatis.jsp?ex_ch=${ch}&_=${Date.now()}`;
+    const routes=[
+      ...(myWrap(u)?[[myWrap(u),0]]:[]),
+      [u,0],
+      ['https://corsproxy.io/?url='+encodeURIComponent(u),0],
+      ['https://api.allorigins.win/raw?url='+encodeURIComponent(u),0],
+      ['https://api.allorigins.win/get?url='+encodeURIComponent(u),1]];
+    const one=async([url,wrap])=>{
+      const r0=await fT(url,6000);
+      if(!r0.ok)throw 0;
+      let j0=await r0.json();
+      if(wrap&&j0&&j0.contents){j0=JSON.parse(j0.contents);}
+      if(!j0)throw 0;
+      return j0;
+    };
+    let j;
+    try{j=await Promise.any(routes.map(one));}catch(e){return null;}
     const y=s.mg&&0||null;
     // 彈性掃描:在回應樹中找「長度>=5 的數字陣列,值域貼近昨收±15%」= 分線收盤序列
     const prev=(RTC[s.id]&&RTC[s.id].y)||s.price/(1+(s.chg||0)/100);
@@ -3754,6 +3770,7 @@ async function rtTick(){
     const s=DATA.stocks.find(x=>x.id===m.c);
     if(s){
       s.price=+last.toFixed(2);s.chg=+(((last-y)/y)*100).toFixed(2);n++;try{snapPut(s.id,s.price,s.chg);}catch(e){}
+      if(m.t&&/^\d\d:\d\d/.test(m.t)){(window.__mkT=window.__mkT||{})[s.id]=m.t;}
       try{alertCheck(s,m,last);}catch(e){}
       try{candleFromMIS(s.id,m,last);}catch(e){}
       if(s.market==='TW'){try{stkAccPush(s.id,last,parseFloat(m.y));}catch(e){}}
