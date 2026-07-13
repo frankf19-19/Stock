@@ -1809,7 +1809,7 @@ function renderNews(){
   if(!n.length){bar.hidden=true;return;}
   const items=n.map(x=>
     `<a href="${x.link||'#'}" ${x.link&&x.link!=='#'?'target="_blank" rel="noopener"':''}>` +
-    `<span>${x.title}</span><span class="src">${x.source||''}${x.time?' · '+x.time:''}</span></a>`).join('');
+    `<span>${x.title}</span><span class="src">${x.source||''}${credBadge(x.source)}${x.time?' · '+x.time:''}</span></a>`).join('');
   track.innerHTML=items+items;  // 兩份內容無縫循環
   track.style.animationDuration=Math.max(40,n.length*9)+'s';
   bar.hidden=false;
@@ -1836,7 +1836,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r268</span>');
+  diag.push('<span style="color:var(--dim)">build r269</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5202,7 +5202,7 @@ async function showDetail(id){
     <div class="dim-block">
       <h3>相關新聞</h3>
       ${Array.isArray(s.news)&&s.news.length?`<div class="news" style="border:none;padding:0">${s.news.map(x=>
-        `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s||''}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>`
+        `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s||''}${credBadge(x.s)}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>`
        :`<div class="dim-note">此檔未在每日新聞掃描名單(僅涵蓋訊號股與評分前段班),請用下方連結查看:</div>`}
       <div class="links" style="margin-top:10px">
         ${isTW?`<a href="https://tw.stock.yahoo.com/quote/${s.id}/news" target="_blank" rel="noopener">Yahoo 個股新聞 ↗</a>`
@@ -6969,7 +6969,7 @@ async function loadAnalystDetail(s){
       `<a class="btn-ghost" style="height:auto;padding:5px 12px;font-size:13.5px" href="${p.l}" target="_blank" rel="noopener">🎯 ${p.b} ${p.p} 元 ↗</a>`).join(' ');
     nb.innerHTML=(chips?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px">${chips}</div>`:'')+
       `<div class="news" style="border:none;padding:0">${its.map(x=>
-      `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>
+      `<a href="${x.l}" target="_blank" rel="noopener"><span>${x.t}</span><span class="src">${x.s}${credBadge(x.s)}${x.d?' · '+x.d:''}</span></a>`).join('')}</div>
       <div class="dim-note" style="margin-top:6px">點標題可閱讀完整報導;🎯 為標題自動摘取之券商目標價,請以原文為準。</div>`;
   })();
 }
@@ -7704,9 +7704,18 @@ async function gooayeLoad(force){
     const its=await rssItems('股癌 (台股 OR 謝孟恭 OR 觀點)',10);
     if(document.getElementById('gaNews'))
       nb.innerHTML=its.length?its.map(x=>
-        `<div class="glb-row"><span style="min-width:0"><a href="${x.l}" target="_blank" rel="noopener">${x.t}</a></span><span class="meta" style="margin-left:auto">${x.s}${x.d?' · '+x.d:''}</span></div>`).join('')
+        `<div class="glb-row"><span style="min-width:0"><a href="${x.l}" target="_blank" rel="noopener">${x.t}</a></span><span class="meta" style="margin-left:auto">${x.s}${credBadge(x.s)}${x.d?' · '+x.d:''}</span></div>`).join('')
         :'<div class="dim-note">暫無相關報導,稍後自動更新。</div>';
   }
+}
+/* 🛡 新聞來源信任度分級:1=一級信源(通訊社/官方/主流財經大報) 2=產業專業媒體 */
+const CRED_T1=/Reuters|路透|Bloomberg|彭博|Wall Street Journal|WSJ|Financial Times|\bFT\b|Nikkei|日經|Associated Press|\bAP\b|CNBC|中央社|CNA|經濟日報|工商時報|Investor's Business|Barron|The Economist|證交所|TWSE|金管會|公開資訊觀測站/i;
+const CRED_T2=/DigiTimes|電子時報|TrendForce|集邦|Tom's Hardware|AnandTech|The Information|TechCrunch|Ars Technica|科技新報|TechNews|MoneyDJ|鉅亨|Anue|財訊|今周刊|天下雜誌|商業周刊|The Verge|SemiAnalysis|EE Times|Caixin|財新|South China Morning Post|SCMP|Yahoo Finance|自由財經|聯合報|中時新聞|工研院|IDC|Gartner|Counterpoint|Canalys/i;
+function credBadge(src){
+  if(!src)return '';
+  if(CRED_T1.test(src))return '<span title="一級信源:國際通訊社/官方機構/主流財經大報" style="display:inline-block;font-size:10px;font-weight:900;color:var(--down);border:1px solid color-mix(in srgb,var(--down) 55%,transparent);border-radius:5px;padding:0 5px;margin-left:5px;vertical-align:1px">🛡 一級信源</span>';
+  if(CRED_T2.test(src))return '<span title="產業專業媒體:垂直領域可信來源" style="display:inline-block;font-size:10px;font-weight:900;color:#5A8CD6;border:1px solid #5A8CD666;border-radius:5px;padding:0 5px;margin-left:5px;vertical-align:1px">✓ 專業媒體</span>';
+  return '';
 }
 /* ══ 🌍 國際供應鏈雷達:英文外電 → 缺貨/漲價/擴產訊號 + 台股族群自動對應 ══ */
 const GLB_TOPICS=[
@@ -7890,7 +7899,7 @@ async function glbLoad(i){
       const tt=x.t.replace(GLB_HOT,'<span class="hotw">$1</span>');
       const brief=glbBrief(x.t,tagNames);
       return `<div class="glb-row${lv==='red'?' crit':''}" style="flex-direction:column;align-items:stretch;gap:2px">
-        <div style="display:flex;gap:10px;align-items:baseline"><span style="min-width:0">${lv==='red'?'🚨 ':''}<a href="${x.l}" target="_blank" rel="noopener">${tt}</a>${tags}</span><span class="meta" style="margin-left:auto">${x.s}${x.ago?' · '+x.ago:''}</span></div>
+        <div style="display:flex;gap:10px;align-items:baseline"><span style="min-width:0">${lv==='red'?'🚨 ':''}<a href="${x.l}" target="_blank" rel="noopener">${tt}</a>${tags}</span><span class="meta" style="margin-left:auto">${x.s}${credBadge(x.s)}${x.ago?' · '+x.ago:''}</span></div>
         <div class="glb-brief">💡 <b>重點:</b>${brief}<button class="glb-aibtn" data-gix="${ix}">✦ AI 解讀</button></div>
         ${(()=>{const ss=glbStocks(tagNames);return ss.length?`<div style="margin-top:3px;font-size:13px"><span style="color:var(--mut);font-weight:800">🎯 相關個股:</span>${ss.map(s=>s.inPool?`<a class="glb-stk" href="#stock/${s.id}">${s.nm} ${s.id}</a>`:`<span class="glb-stk dim">${s.nm} ${s.id}</span>`).join('')}<span style="color:var(--dim);font-size:11.5px">(供應鏈代表參考,非投資建議)</span></div>`:'';})()}
       </div>`;
