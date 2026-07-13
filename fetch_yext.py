@@ -206,12 +206,23 @@ def main():
         series.setdefault(fsym, {})["m"] = m
         print(f"  {fsym} ← Nasdaq 盤中({len(m['t'])} 點,昨收 {m.get('prev','—')})")
         time.sleep(0.5)
-    # 台股指數盤中(收盤後 MIS 清空屬正常,僅盤中班次會有)
+    # 台股指數盤中(收盤後 MIS 清空屬正常;此時沿用上一份檔案裡的當日走勢,不讓卡片開天窗)
+    old_series = {}
+    try:
+        with open("yext.json", encoding="utf-8") as f:
+            old_series = (json.load(f).get("series")) or {}
+    except Exception:
+        pass
     for sym, ch in MIS_INTRA.items():
         m = mis_intraday(ch)
         if m:
             series.setdefault(sym, {})["m"] = m
             print(f"  {sym} ← MIS 盤中({len(m['t'])} 點)")
+        else:
+            om = (old_series.get(sym) or {}).get("m")
+            if om:
+                series.setdefault(sym, {})["m"] = om
+                print(f"  {sym} ← 沿用前檔走勢(MIS 已收盤清空)")
         time.sleep(0.5)
     # 匯率
     if ERAPI_FX:

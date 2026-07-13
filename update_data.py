@@ -2058,6 +2058,25 @@ def fetch_macro():
             print(f"  加權指數 ← TWSE FMTQIK({closes[-1]:,.2f})")
     except Exception as e:
         print(f"  [warn] 加權指數 FMTQIK: {e}")
+    # 櫃買指數 → 櫃買中心官方 openapi(收盤後含當日;欄位防禦式解析)
+    try:
+        arr = get_json("https://www.tpex.org.tw/openapi/v1/tpex_mainborad_highlight",
+                       timeout=40) or []
+        r0 = arr[0] if isinstance(arr, list) and arr else (arr if isinstance(arr, dict) else None)
+        if r0:
+            kv = lambda *ns: next((r0[k] for k in r0 if all(n in k for n in ns)), None)
+            v = numf(kv("指數"))
+            chg = numf(kv("漲跌", "%")) or numf(kv("漲跌", "百分"))
+            if v is None:
+                print(f"  [diag] 櫃買 highlight 欄位: {list(r0.keys())[:10]}")
+            else:
+                if chg is None:
+                    d0 = numf(kv("漲跌"))
+                    chg = round(d0 / (v - d0) * 100, 2) if d0 is not None and v != d0 else 0.0
+                idx.append({"name": "櫃買指數", "val": round(v, 2), "chg": round(chg, 2)})
+                print(f"  櫃買指數 ← TPEx openapi({v})")
+    except Exception as e:
+        print(f"  [warn] 櫃買指數 TPEx: {e}")
     # 美股 → FRED 聯準會官方(零被擋風險;T+0~T+1 更新,盤中即時另由前端 yext 卡片供應)
     for name, sid in [("S&P 500", "SP500"), ("那斯達克", "NASDAQCOM"), ("道瓊工業", "DJIA")]:
         try:
