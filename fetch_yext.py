@@ -9,7 +9,9 @@
 import json, time, datetime, sys
 
 SYMS = ["^TWII","^TWOII","^GSPC","^IXIC","^SOX","^DJI","^N225","^VIX",
-        "ES=F","NQ=F","EWT","TWD=X","JPYTWD=X","DX-Y.NYB"]
+        "ES=F","NQ=F","EWT","TWD=X","JPYTWD=X","DX-Y.NYB",
+        "^TNX","^FVX","^TYX",          # 美債殖利率:10年/5年/30年
+        "EURTWD=X","JPY=X"]            # 歐元/台幣、美元/日圓
 
 def fetch_sym(t, sym):
     out = {}
