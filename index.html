@@ -1833,7 +1833,10 @@ setInterval(refreshFX,60000);
    以「真追蹤該指數的旗艦ETF」即時價換算指數點位:SPY→S&P500、ONEQ→那斯達克綜合、
    DIA→道瓊、SOXQ→費半(PHLX SOX)。金鑰只存本機 localStorage,絕不進 repo。 */
 const FH_ETF={gspc:['SPY','^GSPC'],ixic:['ONEQ','^IXIC'],dji:['DIA','^DJI'],sox:['SOXQ','^SOX']};
-function fhKey(){try{return (localStorage.getItem('fh_key')||'').trim();}catch(e){return'';}}
+/* 站台內建金鑰:公開網頁上任何人可見(瀏覽器端使用本來就藏不住)。
+   若被濫用導致額度吃緊,到 finnhub.io Dashboard 重生一組換掉這行即可。 */
+const FH_PUBKEY='d9agomhr01qg31s4kpfg';
+function fhKey(){try{return (localStorage.getItem('fh_key')||'').trim()||FH_PUBKEY;}catch(e){return FH_PUBKEY;}}
 async function fhQuote(sym){
   try{
     const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${encodeURIComponent(fhKey())}`,8000);
@@ -1972,7 +1975,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r287</span>');
+  diag.push('<span style="color:var(--dim)">build r288</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
