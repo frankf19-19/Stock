@@ -1692,10 +1692,20 @@ function renderFutTab(){
 }
 function renderMacro(){
   const m=DATA.macro||{};
-  document.getElementById('idxRow').innerHTML=(m.idx&&m.idx.length)?m.idx.map(i=>{
+  const _uc=window.__usCache||{};
+  const _seen=new Set();
+  const _cards=(m.idx||[]).map(i=>{
     const k=mkKeyIdx(i.name);
-    return `<div class="idx-card"${k?` data-mk="${k}"`:''}><div class="nm">${i.name}</div><div class="vl">${Number(i.val).toLocaleString()}</div><div class="ch">${chgHtml(i.chg??0)}</div></div>`;}).join('')
-    :'<div class="idx-card"><div class="nm">尚無指數資料,按「更新資訊」或執行 update_data.py</div></div>';
+    if(k)_seen.add(k);
+    return `<div class="idx-card"${k?` data-mk="${k}"`:''}><div class="nm">${i.name}</div><div class="vl">${Number(i.val).toLocaleString()}</div><div class="ch">${chgHtml(i.chg??0)}</div></div>`;});
+  // 後端 macro.idx 缺卡時,以前端 yext 即時快取補上(refreshUS 每分鐘寫入)
+  [['gspc','S&P 500'],['ixic','那斯達克'],['sox','費城半導體'],['dji','道瓊工業']].forEach(([mk,nm])=>{
+    const u=_uc[mk];
+    if(!u||_seen.has(mk))return;
+    _cards.push(`<div class="idx-card" data-mk="${mk}"><div class="nm">${nm}<span style="color:var(--dim)"> ›</span></div><div class="vl">${Number(u.last).toLocaleString()}</div><div class="ch">${chgHtml(u.chg)}</div></div>`);
+  });
+  document.getElementById('idxRow').innerHTML=_cards.length?_cards.join('')
+    :'<div class="idx-card" id="idxEmpty"><div class="nm">國際指數載入中…(由本站後端 yext.json 供應,約數秒)</div></div>';
   const fx=m.fx||{};
   const items=[["美元/台幣",fx.USDTWD,"usdtwd"],["日圓/台幣",fx.JPYTWD,"jpytwd"],["美元指數 DXY",fx.DXY,"dxy"]];
   document.getElementById('fxRow').innerHTML=items.map(([n,v,k])=>
@@ -1753,12 +1763,16 @@ const US_LIVE=[['^GSPC','gspc','S&P 500'],['^IXIC','ixic','那斯達克'],['^SOX
 async function refreshUS(){
   const row=document.getElementById('idxRow');
   if(!row)return;
+  window.__usCache=window.__usCache||{};
   for(const [sym,mk,nm] of US_LIVE){
     const d=await yChart(sym,'1d','5m');
     if(!d||!d.c)continue;
     const last=[...d.c].reverse().find(x=>x!=null);
     if(!last||!d.prev)continue;
     const chg=+(((last-d.prev)/d.prev)*100).toFixed(2);
+    window.__usCache[mk]={last:+last.toFixed(2),chg};   // 供 renderMacro 重繪時保留卡片
+    const _ph=document.getElementById('idxEmpty');
+    if(_ph)_ph.remove();
     const it=((DATA.macro||{}).idx||[]).find(x=>mkKeyIdx(x.name)===mk);
     if(it){it.val=+last.toFixed(2);it.chg=chg;}
     let el=row.querySelector(`[data-mk="${mk}"]`);
@@ -1850,7 +1864,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r282</span>');
+  diag.push('<span style="color:var(--dim)">build r283</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4309,20 +4323,61 @@ function scenarioBands(o,price){
 let curOhlc=null,curDates=null,chartInst=null,indMode='MACD';
 let kView={rng:'6m',itv:'1d'},baseK=null,KHASH='';
 const KVC={};  // 長天期K線快取(依 代號|範圍|週期)
+async function yextOHLC(s,range,interval){
+  /* 站內K線庫沒有的符號(國際指數/美債殖利率/匯率)→ 後端 yext.json(FRED 官方日收盤)。
+     合成K線:開=前一日收盤、高低=開收極值,無上下影線與量,僅供趨勢判讀。 */
+  const alias={'^TWO':'^TWOII'};
+  const j=await yextData();
+  if(!j||!j.series)return null;
+  let e=null;
+  for(const sy of (s.syms||[s.id])){
+    const cand=j.series[alias[sy]||sy];
+    if(cand&&cand.d&&cand.d.t&&cand.d.t.length>5){e=cand;break;}
+  }
+  if(!e)return null;
+  const t=e.d.t,c=e.d.c;
+  const dates=[],ohlc=[];
+  for(let i=0;i<t.length;i++){
+    if(c[i]==null)continue;
+    const cl=+c[i],op=ohlc.length?ohlc[ohlc.length-1][3]:cl;
+    dates.push(new Date(t[i]*1000).toISOString().slice(0,10));
+    ohlc.push([+op.toFixed(4),+Math.max(op,cl).toFixed(4),+Math.min(op,cl).toFixed(4),+cl.toFixed(4),0]);
+  }
+  if(ohlc.length<2)return null;
+  const agg=key=>{
+    const d2=[],o2=[];let k0=null,cur=null;
+    dates.forEach((ds,i)=>{
+      const kk=key(ds),[o,h,l,cl2]=ohlc[i];
+      if(kk!==k0){if(cur){d2.push(cur.ds);o2.push([cur.o,cur.h,cur.l,cur.c,0]);}k0=kk;cur={ds,o,h,l,c:cl2};}
+      else{cur.h=Math.max(cur.h,h);cur.l=Math.min(cur.l,l);cur.c=cl2;}
+    });
+    if(cur){d2.push(cur.ds);o2.push([cur.o,cur.h,cur.l,cur.c,0]);}
+    return {dates:d2,ohlc:o2};
+  };
+  let out={dates,ohlc};
+  if(interval==='1wk')out=agg(ds=>{const d3=new Date(ds+'T00:00:00');const mon=new Date(d3);mon.setDate(d3.getDate()-((d3.getDay()+6)%7));return mon.toISOString().slice(0,10);});
+  else if(interval==='1mo')out=agg(ds=>ds.slice(0,7));
+  else{const days={'6mo':130,'1y':252}[range];
+    if(days&&out.dates.length>days)out={dates:out.dates.slice(-days),ohlc:out.ohlc.slice(-days)};}
+  if(out.ohlc.length<2)return null;
+  out.synth=true;
+  return out;
+}
 async function yOHLC(s,range,interval){
   /* Yahoo 已停用。站內資料庫供應:
      日K = k/ 分片(近六個月);週K = 由日K現場合成(約26根);
-     月K = m/{id}.json(後端月K庫,上市以來全歷史)。 */
+     月K = m/{id}.json(後端月K庫,上市以來全歷史);
+     指數/殖利率/匯率 = yext.json 合成(yextOHLC 備援)。 */
   if(interval==='1mo'){
     const m=await mK(s);
-    if(!m||!m.d||!m.d.length)return null;
+    if(!m||!m.d||!m.d.length)return await yextOHLC(s,range,interval);
     let d=m.d,k=m.k;
     const take={'6mo':6,'1y':12}[range];
     if(take&&d.length>take){d=d.slice(-take);k=k.slice(-take);}
     return {dates:d.slice(),ohlc:k.map(r=>r.slice())};
   }
   const base=await loadK(s);
-  if(!base||base.demo||!base.ohlc||!base.ohlc.length)return null;
+  if(!base||base.demo||!base.ohlc||!base.ohlc.length)return await yextOHLC(s,range,interval);
   if(interval==='1d')return {dates:base.dates.slice(),ohlc:base.ohlc.map(r=>r.slice())};
   if(interval==='1wk'){
     const dates=[],ohlc=[];
@@ -4402,7 +4457,7 @@ async function applyKView(s){
     :(kView.itv==='1d'?`<br>📦 箱型掃描:<b>目前未偵測到箱型整理</b>——近期高低震幅超過門檻(個股10%/指數6%),屬趨勢行情;等股價開始橫盤收斂,陰影框會自動出現。`
       :'');
   const meta=document.getElementById('kMeta');
-  if(meta)meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}`;
+  if(meta)meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}${data.synth?' · FRED官方收盤合成(開=前收,無影線)':''}`;
   drawKChart();
 }
 const UPC='#E5484D', DNC='#21A466';
@@ -8220,13 +8275,13 @@ const MK={
   usdjpy:{name:'美元/日圓',sym:'JPY=X',kind:'fx',dg:2,
     about:'1 美元兌換多少日圓,全球交易量最大的匯率之一,反映美日利差。',
     how:'數字急跌(日圓急升)時要留意:常伴隨利差交易(carry trade)平倉,全球股市易同步震盪(2024年8月即為典型案例)。'},
-  y10:{name:'美債10年期殖利率',sym:'^TNX',kind:'idx',dg:2,sc:0.1,unit:'%',bp:true,
+  y10:{name:'美債10年期殖利率',sym:'^TNX',kind:'idx',dg:2,unit:'%',bp:true,
     about:'美國10年期公債的市場利率,被稱為「全球資產定價之錨」——股票、房貸、企業債的評價都以它為基準。殖利率上升代表債券被賣(資金要求更高報酬),通常反映通膨或升息預期。',
     how:'對台股 AI 股尤其重要:殖利率急升(單日 +5bp 以上)時,高本益比成長股評價承壓,台股電子權值常首當其衝;殖利率回落則資金面轉鬆、利多成長股。4% 以上屬偏高水位、關注 4.5% 與 5% 整數關卡的攻防。'},
-  y30:{name:'美債30年期殖利率',sym:'^TYX',kind:'idx',dg:2,sc:0.1,unit:'%',bp:true,
+  y30:{name:'美債30年期殖利率',sym:'^TYX',kind:'idx',dg:2,unit:'%',bp:true,
     about:'美國最長天期公債利率,反映市場對長期通膨與美國財政赤字的看法,對利率政策的短期變動較不敏感。',
     how:'30年殖利率創高而10年沒跟上,常代表市場擔心的是「財政赤字/發債供給」而非景氣過熱;30年突破 5% 歷來都會引發全球股市評價修正的討論。'},
-  y5:{name:'美債5年期殖利率',sym:'^FVX',kind:'idx',dg:2,sc:0.1,unit:'%',bp:true,
+  y5:{name:'美債5年期殖利率',sym:'^FVX',kind:'idx',dg:2,unit:'%',bp:true,
     about:'美國5年期公債利率,對聯準會未來幾年的利率路徑最敏感,是觀察「市場押注降息幾碼」的好指標。',
     how:'重點看它與10年期的關係:5年高於10年=殖利率曲線倒掛,是債市對景氣衰退的經典警訊;倒掛解除(轉正)的過程反而常伴隨波動。'},
   foreign:{name:'外資買賣超(集中市場)',kind:'inst',sk:'f',

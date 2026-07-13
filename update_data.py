@@ -1513,13 +1513,15 @@ def build_fut_table():
             try: row(d2)["amt"] = round(float(str(v).replace(",", "")) / 1e8, 1)
             except Exception: pass
         pm = (TODAY.replace(day=1) - dt.timedelta(days=1))
-        j2 = get_json(f"https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK?date={pm.strftime('%Y%m')}01&response=json", timeout=40)
-        if isinstance(j2, dict) and j2.get("data"):
-            fields = j2.get("fields") or []
-            ai = next((i for i, f2 in enumerate(fields) if "成交金額" in str(f2)), 2)
-            for r in j2["data"]:
-                try: row(r[0])["amt"] = round(float(str(r[ai]).replace(",", "")) / 1e8, 1)
-                except Exception: pass
+        # rwd 官方檔收盤約 15:00 即含當日;openapi 版可能延遲——當月+上月都抓,以 rwd 為準
+        for ym in (f"{TODAY:%Y%m}", pm.strftime("%Y%m")):
+            j2 = get_json(f"https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK?date={ym}01&response=json", timeout=40)
+            if isinstance(j2, dict) and j2.get("data"):
+                fields = j2.get("fields") or []
+                ai = next((i for i, f2 in enumerate(fields) if "成交金額" in str(f2)), 2)
+                for r in j2["data"]:
+                    try: row(r[0])["amt"] = round(float(str(r[ai]).replace(",", "")) / 1e8, 1)
+                    except Exception: pass
     except Exception as e:
         print(f"  [warn] futtab 成交值: {e}")
 
@@ -1606,6 +1608,40 @@ def build_fut_table():
             print(f"  [diag] PCR 欄位樣本: {list(arr[0].keys())}")
     except Exception as e:
         print(f"  [warn] futtab PCR: {e}")
+    # 最新交易日仍缺 PCR → 期交所傳統 CSV 下載端點備援(pcRatioDown)
+    def _last_wd():
+        d0 = TODAY
+        while d0.weekday() >= 5:
+            d0 -= dt.timedelta(days=1)
+        return d0.isoformat()
+    _lw = _last_wd()
+    if _lw not in T or T[_lw].get("pcr") is None:
+        try:
+            import csv as _csv, io as _io
+            rr0 = requests.post("https://www.taifex.com.tw/cht/3/pcRatioDown",
+                data={"queryStartDate": (TODAY - dt.timedelta(days=20)).strftime("%Y/%m/%d"),
+                      "queryEndDate": TODAY.strftime("%Y/%m/%d")},
+                headers=UA, timeout=30)
+            txt = None
+            for enc in ("utf-8-sig", "big5", "cp950", "utf-8"):
+                try: txt = rr0.content.decode(enc); break
+                except Exception: continue
+            rows2 = [r for r in _csv.reader(_io.StringIO(txt or rr0.text))
+                     if r and any(c.strip() for c in r)]
+            hdr = rows2[0] if rows2 else []
+            pi = next((i for i, h in enumerate(hdr) if "未平倉" in h and "比" in h), None)
+            di = next((i for i, h in enumerate(hdr) if "日期" in h), 0)
+            got2 = 0
+            if pi is not None:
+                for rr in rows2[1:]:
+                    if len(rr) <= pi: continue
+                    v = numf(rr[pi])
+                    if v is None: continue
+                    row(rr[di])["pcr"] = round(v, 1); got2 += 1
+            print(f"  futtab PCR CSV 備援:+{got2} 日" if got2
+                  else f"  [diag] PCR CSV 表頭: {hdr[:8]}")
+        except Exception as e:
+            print(f"  [warn] futtab PCR CSV 備援: {e}")
 
     # 6. 前五大/前十大交易人留倉(臺股期貨全月份・全部交易人)
     def _net_from(r, tag):
@@ -1640,8 +1676,12 @@ def build_fut_table():
             if _s: print(f"  [diag] FinMind大額欄位: {list(_s[0].keys())}")
     except Exception as e:
         print(f"  [warn] futtab 大額交易人(FinMind): {e}")
-    if not got_lt:
-        try:                               # 備援:期交所 openapi(僅當日,靠繼承機制累積)
+    # 期交所值常帶「12,345(10.5%)」格式 → 去括號後再轉數字
+    import re as _re6
+    _ln = lambda v: numf(_re6.sub(r"\(.*?\)", "", str(v)))
+    # 備援觸發改為「最新交易日缺 t5 就跑」——FinMind 有舊資料不代表有今天的
+    if _lw not in T or T[_lw].get("t5") is None:
+        try:                               # 備援 1:期交所 openapi(僅當日,靠繼承機制累積)
             arr = get_json("https://openapi.taifex.com.tw/v1/OpenInterestOfLargeTradersFutures", timeout=40) or []
             for r in arr:
                 blob = json.dumps(r, ensure_ascii=False)
@@ -1653,7 +1693,7 @@ def build_fut_table():
                 if "特定" in tt or "specific" in tt.lower(): continue   # 只用「全部交易人」列
                 ks = {k.replace(" ", ""): k for k in r.keys()
                       if "specific" not in k.lower() and "特定" not in k}  # 排除特定法人欄位
-                gl = lambda n2, side: next((numf(r[v]) for k2, v in ks.items()
+                gl = lambda n2, side: next((_ln(r[v]) for k2, v in ks.items()
                        if n2 in k2 and any(w in k2.lower() for w in side)), None)
                 b5, s5 = gl("5", ("買", "buy", "long")), gl("5", ("賣", "sell", "short"))
                 b10, s10 = gl("10", ("買", "buy", "long")), gl("10", ("賣", "sell", "short"))
@@ -1664,7 +1704,47 @@ def build_fut_table():
             if arr and not any("t5" in v or "t10" in v for v in T.values()):
                 print(f"  [diag] 大額交易人欄位樣本: {list(arr[0].keys())[:12]}")
         except Exception as e:
-            print(f"  [warn] futtab 大額交易人(期交所): {e}")
+            print(f"  [warn] futtab 大額交易人(期交所openapi): {e}")
+    if _lw not in T or T[_lw].get("t5") is None:
+        try:                               # 備援 2:期交所傳統 CSV(largeTraderFutDown,近20日)
+            import csv as _csv2, io as _io2
+            rr0 = requests.post("https://www.taifex.com.tw/cht/3/largeTraderFutDown",
+                data={"queryStartDate": (TODAY - dt.timedelta(days=20)).strftime("%Y/%m/%d"),
+                      "queryEndDate": TODAY.strftime("%Y/%m/%d")},
+                headers=UA, timeout=30)
+            txt = None
+            for enc in ("utf-8-sig", "big5", "cp950", "utf-8"):
+                try: txt = rr0.content.decode(enc); break
+                except Exception: continue
+            rows3 = [r for r in _csv2.reader(_io2.StringIO(txt or rr0.text))
+                     if r and any(c.strip() for c in r)]
+            hdr = rows3[0] if rows3 else []
+            ci = lambda *pats: next((i for i, h in enumerate(hdr)
+                                     if all(p in h for p in pats)), None)
+            di2, pi2 = ci("日期"), ci("契約")
+            mi2, ti2 = (ci("月份") if ci("月份") is not None else ci("週別")), ci("類別")
+            b5i, s5i = ci("五", "買"), ci("五", "賣")
+            b10i, s10i = ci("十", "買"), ci("十", "賣")
+            got3 = 0
+            if None not in (di2, pi2, b5i, s5i):
+                for rr in rows3[1:]:
+                    if len(rr) <= max(b5i, s5i, b10i or 0, s10i or 0): continue
+                    if str(rr[pi2]).strip().upper() not in ("TX", "臺股期貨"): continue
+                    cd2 = str(rr[mi2]).strip() if mi2 is not None else ""
+                    if cd2 and not any(x in cd2 for x in ("999999", "全部", "所有")): continue
+                    tt2 = str(rr[ti2]).strip() if ti2 is not None else "0"
+                    if tt2 not in ("0", "全部交易人", ""): continue   # 0=全部交易人
+                    b5, s5 = _ln(rr[b5i]), _ln(rr[s5i])
+                    if b5 is None or s5 is None: continue
+                    row(rr[di2])["t5"] = int(b5 - s5); got3 += 1
+                    if b10i is not None and s10i is not None:
+                        b10, s10 = _ln(rr[b10i]), _ln(rr[s10i])
+                        if b10 is not None and s10 is not None:
+                            row(rr[di2])["t10"] = int(b10 - s10)
+            print(f"  futtab 大額交易人 CSV 備援:+{got3} 日" if got3
+                  else f"  [diag] 大額CSV 表頭: {hdr[:10]}")
+        except Exception as e:
+            print(f"  [warn] futtab 大額交易人(CSV): {e}")
 
     rows = [T[k] for k in sorted(T.keys()) if k >= (TODAY - dt.timedelta(days=26)).isoformat()]
     rows = [r for r in rows if len(r) >= 3][-14:]
@@ -1935,23 +2015,67 @@ def stooq_index(sym):
     v, p = float(df["Close"].iloc[-1]), float(df["Close"].iloc[-2])
     return round(v, 2), round(pct(v, p), 2)
 
+def fred_last2(series):
+    """FRED 官方 API:取該系列最近兩個有效值 → (最新值, 日變動%)。需 FRED_API_KEY。"""
+    key = os.environ.get("FRED_API_KEY", "").strip()
+    if not key:
+        return None
+    d2 = TODAY
+    d1 = d2 - dt.timedelta(days=25)
+    j = get_json("https://api.stlouisfed.org/fred/series/observations",
+                 params={"series_id": series, "api_key": key, "file_type": "json",
+                         "observation_start": d1.isoformat(),
+                         "observation_end": d2.isoformat()}, timeout=30)
+    vals = []
+    for o in (j or {}).get("observations", []):
+        v = numf(o.get("value"))
+        if v is not None:
+            vals.append(v)
+    if len(vals) < 2:
+        return None
+    return round(vals[-1], 2), round(pct(vals[-1], vals[-2]), 2)
+
 def fetch_macro():
     idx = []
-    # 指數一律 Stooq(Yahoo 已全面停用);加權另以官方管道在前端即時供應
-    for name, sym in [("加權指數", "^twse"), ("S&P 500", "^spx"),
-                      ("那斯達克", "^ndq"), ("費城半導體", "^sox")]:
+    # v2:Stooq 會擋 GitHub Actions 機房(fetch_yext 同款教訓),不再作為主源。
+    # 加權指數 → 證交所官方 FMTQIK(當月每日大盤統計,收盤約 15:00 後含當日)
+    try:
+        def _fmtqik_closes(ym):
+            j = get_json(f"https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK"
+                         f"?date={ym}01&response=json", timeout=40)
+            data = (j or {}).get("data") or []
+            fields = (j or {}).get("fields") or []
+            ti = _pick(fields, "發行量加權股價指數")
+            if ti is None: ti = 4
+            return [numf(r[ti]) for r in data if len(r) > ti and numf(r[ti]) is not None]
+        closes = _fmtqik_closes(f"{TODAY:%Y%m}")
+        if len(closes) < 2:   # 月初交易日不足 → 前接上月
+            pm = (TODAY.replace(day=1) - dt.timedelta(days=1))
+            closes = _fmtqik_closes(f"{pm:%Y%m}") + closes
+        if len(closes) >= 2:
+            idx.append({"name": "加權指數", "val": round(closes[-1], 2),
+                        "chg": round(pct(closes[-1], closes[-2]), 2)})
+            print(f"  加權指數 ← TWSE FMTQIK({closes[-1]:,.2f})")
+    except Exception as e:
+        print(f"  [warn] 加權指數 FMTQIK: {e}")
+    # 美股 → FRED 聯準會官方(零被擋風險;T+0~T+1 更新,盤中即時另由前端 yext 卡片供應)
+    for name, sid in [("S&P 500", "SP500"), ("那斯達克", "NASDAQCOM"), ("道瓊工業", "DJIA")]:
         try:
-            r2 = stooq_index(sym)
+            r2 = fred_last2(sid)
             if r2:
                 idx.append({"name": name, "val": r2[0], "chg": r2[1]})
+                print(f"  {name} ← FRED:{sid}")
         except Exception as e:
-            print(f"  [warn] 指數 {sym}: {e}")
-    if not any(i["name"] == "S&P 500" for i in idx):  # Stooq 備援
-        for name, sym in [("S&P 500", "^spx"), ("那斯達克", "^ndq"), ("費城半導體", "^sox")]:
-            try:
-                r = stooq_index(sym)
-                if r: idx.append({"name": name, "val": r[0], "chg": r[1]})
-            except Exception: pass
+            print(f"  [warn] 指數 FRED {sid}: {e}")
+        time.sleep(0.3)
+    if not any(i["name"] == "S&P 500" for i in idx):
+        print("  [warn] FRED 未取得美股指數(FRED_API_KEY 未設定或 API 異常)")
+    # 費城半導體:FRED 無此系列 → Stooq 盡力而為(機房常被擋,失敗即略過)
+    try:
+        r = stooq_index("^sox")
+        if r: idx.append({"name": "費城半導體", "val": r[0], "chg": r[1]})
+    except Exception:
+        pass
     fx = {}
     try:
         r = requests.get("https://open.er-api.com/v6/latest/USD", timeout=20).json()["rates"]
