@@ -1850,7 +1850,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r281</span>');
+  diag.push('<span style="color:var(--dim)">build r282</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3026,6 +3026,14 @@ async function loadIntraDetail(s,accOnly){
       }
     }else{
       window.__stkToday=false;   // 顯示最近完整一日,禁止即時戳點
+      if(!d){                    // Yahoo 停用後的收盤替補鏈:當日本機累積 → MIS 當日圖
+        const acc=stkAcc(s.id);
+        if(acc.c.length>=2)d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev};
+        else if(!accOnly){
+          const md=await misIntraday(s);
+          if(md&&location.hash===KHASH)d=md;
+        }
+      }
       if(d&&d.t&&d.t.length){
         const dd=tpDay(d.t[d.t.length-1]);
         if(dd!==today&&stat)setTimeout(()=>{const st2=document.getElementById('intraStat');
@@ -3035,7 +3043,7 @@ async function loadIntraDetail(s,accOnly){
   }else{
     window.__stkToday=!!d;
   }
-  if(!d){if(stat)stat.textContent='即時走勢暫時載入不到';return;}
+  if(!d){if(stat)stat.innerHTML=intraStatTxt(s,'今日分線暫不可得(收盤後來源已關;明日開盤起走勢會即時累積並保存)——K線圖與所有分析不受影響');return;}
   const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
   const yv=(curOhlc&&curOhlc.length)?curOhlc[curOhlc.length-1][4]:0; // 昨日量(張)
   const isTW=s.market==='TW';
