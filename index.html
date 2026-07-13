@@ -1841,7 +1841,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r272</span>');
+  diag.push('<span style="color:var(--dim)">build r273</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1855,29 +1855,46 @@ document.getElementById('updBtn').onclick=async()=>{
 
 /* ── 即時走勢圖:Yahoo 1分線(經轉接通道),含量能與均價線 ── */
 async function diagRoutes(btn){
-  btn.disabled=true;btn.textContent='測試中…';
-  const u1='https://query1.finance.yahoo.com/v8/finance/chart/2330.TW?interval=1m&range=1d';
-  const u2=u1.replace('query1','query2');
-  const R=[['直連 query1',u1],['直連 query2',u2],
-    ['corsproxy.io','https://corsproxy.io/?url='+encodeURIComponent(u1)],
-    ['allorigins raw','https://api.allorigins.win/raw?url='+encodeURIComponent(u1)],
-    ['allorigins get','https://api.allorigins.win/get?url='+encodeURIComponent(u2)],
-    ['codetabs','https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u1)]];
-  const out=[];
-  for(const [nm,url] of R){
+  btn.disabled=true;btn.textContent='測試中…(約10秒)';
+  const yq='https://query1.finance.yahoo.com/v8/finance/chart/2330.TW?interval=1m&range=1d';
+  const yq2=yq.replace('query1','query2');
+  const mis='https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_2330.tw&json=1&delay=0&_='+Date.now();
+  const mk=(nm,url)=>[nm,url];
+  const G1=[myProxy()?mk('🏠 自家代理→MIS',myWrap(mis)):null,
+    mk('直連 MIS',mis),
+    mk('corsproxy→MIS','https://corsproxy.io/?url='+encodeURIComponent(mis)),
+    mk('allorigins→MIS','https://api.allorigins.win/raw?url='+encodeURIComponent(mis)),
+    mk('codetabs→MIS','https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(mis))].filter(Boolean);
+  const G2=[myProxy()?mk('🏠 自家代理→Yahoo',myWrap(yq)):null,
+    mk('直連 Yahoo q1',yq),mk('直連 Yahoo q2',yq2),
+    mk('corsproxy→Yahoo','https://corsproxy.io/?url='+encodeURIComponent(yq)),
+    mk('allorigins→Yahoo','https://api.allorigins.win/raw?url='+encodeURIComponent(yq)),
+    mk('codetabs→Yahoo','https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(yq))].filter(Boolean);
+  const test=async ([nm,url])=>{
     try{const r=await fT(url,7000);
-      out.push((r.ok?'✅':'⛔ '+r.status)+' '+nm);}
-    catch(e){out.push('❌ '+nm+'(連不上/被擋)');}
-  }
+      if(!r.ok)return '⛔ '+r.status+' '+nm;
+      const tx=await r.text();
+      return (tx.includes('msgArray')||tx.includes('"chart"')?'✅ ':'🟡 通但格式怪 ')+nm;
+    }catch(e){return '❌ '+nm;}
+  };
+  const out=(await Promise.all([...G1,...G2].map(test)));
+  const misPart=out.slice(0,G1.length), yPart=out.slice(G1.length);
   let box=document.getElementById('diagBox');
   if(!box){box=document.createElement('div');box.id='diagBox';
-    box.style.cssText='margin:8px 0;padding:10px 13px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;font-size:12.5px;font-family:var(--mono);line-height:1.9';
-    btn.parentElement.parentElement.appendChild(box);}
-  const allDead=out.every(x=>!x.startsWith('✅'));
-  box.innerHTML=out.join('<br>')+'<br><span style="font-family:var(--sans);color:var(--mut)">'+
-    (allDead?'全滅:通常是廣告攔截器/公司網路擋了這些網域——把本站與 googleapis/yahoo 加白名單,或換網路試':
-     out[0].startsWith('✅')||out[1].startsWith('✅')?'直連可用但站內失敗屬異常——截圖此結果給開發者':
-     '直連被 CORS 擋是正常的,代理有 ✅ 就會自動恢復;全部代理 ❌ 為免費代理塞車,通常數十分鐘內自癒')+'</span>';
+    box.style.cssText='margin:8px 0;padding:11px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;font-size:12.5px;font-family:var(--mono);line-height:1.9;max-width:640px';
+    (btn.closest('.dim-block')||btn.parentElement.parentElement||document.body).appendChild(box);}
+  const misOK=misPart.some(x=>x.startsWith('✅')), yOK=yPart.some(x=>x.startsWith('✅'));
+  box.innerHTML='<b>台股報價(MIS)</b><br>'+misPart.join('<br>')
+    +'<br><b>國際/走勢(Yahoo)</b><br>'+yPart.join('<br>')
+    +`<br><span style="font-family:var(--sans);color:var(--mut)">${
+      misOK&&yOK?'兩邊都有 ✅——站台會自動恢復;若畫面仍不動,重新整理一次':
+      !misOK&&!yOK?'全滅:公共代理群整批塞車。<b>建議設定自家代理(免費,五分鐘)</b>——見下方':
+      misOK?'台股報價通、Yahoo 全斷:國際走勢暫缺但台股即時應恢復':'Yahoo 通、MIS 全斷:台股報價暫缺'}</span>
+    <div style="margin-top:8px;font-family:var(--sans)">
+      <span style="font-weight:800">🏠 自家代理(選填,設了永遠優先):</span>
+      <input id="myPxIn" value="${myProxy()}" placeholder="https://xxx.你的帳號.workers.dev" style="width:min(320px,90%);padding:5px 10px;margin:4px 6px 0 0;border:1px solid var(--line);border-radius:8px">
+      <button class="btn-ghost" style="height:30px;padding:0 12px;font-size:12.5px" onclick="try{localStorage.setItem('my_proxy',document.getElementById('myPxIn').value.trim());alert('已儲存,之後所有即時請求優先走你的代理');}catch(e){}">儲存</button>
+    </div>`;
   btn.disabled=false;btn.textContent='🔌 測試連線';
 }
 async function yChart(sym,range,interval){
@@ -1885,6 +1902,7 @@ async function yChart(sym,range,interval){
   const u1=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}${qs}`;
   const u2=`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}${qs}`;
   const routes=[
+    ...(myWrap(u1)?[[myWrap(u1),0]]:[]),
     [u1,0],[u2,0],
     ['https://corsproxy.io/?url='+encodeURIComponent(u1),0],
     ['https://api.allorigins.win/raw?url='+encodeURIComponent(u1),0],
@@ -3602,10 +3620,13 @@ function rtTargets(){
   document.querySelectorAll('[data-candle]').forEach(el=>add((DATA.stocks||[]).find(x=>x.id===el.dataset.candle)));
   return [...ids].slice(0,140);
 }
+function myProxy(){try{return (localStorage.getItem('my_proxy')||'').trim();}catch(e){return '';}}
+function myWrap(u){const p=myProxy();return p?p.replace(/\/+$/,'')+'/?url='+encodeURIComponent(u):null;}
 async function fetchMISOne(chans){
   const mis='https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch='
     +chans.join('|')+'&json=1&delay=0&_='+Date.now();
-  const routes=[                                            // 五路並行,先到先贏(原本單押 corsproxy,一倒全滅)
+  const routes=[                                            // 並行先到先贏;自家代理(若有設)永遠第一路
+    ...(myWrap(mis)?[[myWrap(mis),0]]:[]),
     [mis,0],
     ['https://corsproxy.io/?url='+encodeURIComponent(mis),0],
     ['https://api.allorigins.win/raw?url='+encodeURIComponent(mis),0],
@@ -3685,7 +3706,8 @@ async function rtTick(){
     RT.failN=(RT.failN||0)+1;
     if(RT.failN>=3){
       const sb=document.getElementById('srcBadge');
-      if(sb){sb.textContent='● 報價來源暫斷,自動重試中';sb.className='badge warn';}
+      if(sb){sb.innerHTML='● 報價來源暫斷,自動重試中 <u style="cursor:pointer">🔌 點我診斷</u>';sb.className='badge warn';
+        sb.onclick=()=>diagRoutes(sb);sb.style.cursor='pointer';}
     }
   }else RT.failN=0;
   if(!arr||!arr.length)return; // 通道暫時不通:維持5分鐘機制,不吵使用者
