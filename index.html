@@ -2088,7 +2088,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r304d</span>');
+  diag.push('<span style="color:var(--dim)">build r304e</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2357,7 +2357,7 @@ async function loadFFCal(){
   for(const u of urls){
     for(const r of routes){
       try{
-        const res=await fetch(r(u),{cache:'no-store'});
+        const res=await fT(r(u),3000);   // 3秒 timeout,失敗即換下一個,不拖慢
         if(!res.ok)continue;
         const arr=await res.json();
         if(!Array.isArray(arr))continue;
@@ -7839,7 +7839,7 @@ async function gaEpisodes(force){
     const fu=await gaFeedUrl();
     if(fu){
       try{
-        const r=await fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(fu)+'&count=12',10000);
+        const r=await fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(fu)+'&count=12',4000);
         if(r.ok){const j=await r.json();
           if(j&&j.status==='ok'&&Array.isArray(j.items))
             eps=j.items.map(it=>({t:it.title,d:gaClean(it.description||it.content),
@@ -7932,7 +7932,7 @@ async function gaYtList(){
   const fu='https://www.youtube.com/feeds/videos.xml?channel_id='+cid;
   let v=[];
   try{
-    const r=await fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(fu),9000);
+    const r=await fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(fu),4000);
     if(r.ok){const j=await r.json();
       if(j&&j.status==='ok')v=(j.items||[]).map(x=>({t:x.title||'',u:x.link||''}));}
   }catch(e){}
@@ -8186,7 +8186,7 @@ async function rssItemsEN(q,max){
   const u='https://news.google.com/rss/search?q='+encodeURIComponent(q)+'&hl=en-US&gl=US&ceid=US:en';
   const need=its=>{if(!its||!its.length)throw 0;return its;};
   // 兩路平行競速:誰先回有效資料用誰
-  const rA=fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(u),9000)
+  const rA=fT('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(u),4000)
     .then(r=>{if(!r.ok)throw 0;return r.json();})
     .then(j=>{
       if(!(j&&j.status==='ok'&&Array.isArray(j.items)&&j.items.length))throw 0;
@@ -8195,7 +8195,7 @@ async function rssItemsEN(q,max){
         return {t,s,l:it.link||'#',ago,hrs};
       }).filter(x=>x.t));
     });
-  const rB=fT('https://api.allorigins.win/get?url='+encodeURIComponent(u),9000)
+  const rB=fT('https://api.allorigins.win/get?url='+encodeURIComponent(u),4000)
     .then(r=>{if(!r.ok)throw 0;return r.json();})
     .then(j=>{
       if(!(j&&j.contents&&j.contents.length>200))throw 0;
