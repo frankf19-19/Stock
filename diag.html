@@ -1,0 +1,36 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>診斷</title>
+<style>body{font-family:sans-serif;font-size:18px;padding:20px;line-height:1.7}
+.ok{color:green}.bad{color:red;font-weight:bold}pre{background:#f4f4f4;padding:10px;overflow:auto;font-size:13px}</style></head><body>
+<h2>網站啟動診斷</h2><div id="out">載入 index.html 的程式中…</div>
+<script>
+const out=document.getElementById('out');
+// 攔截所有 JS 錯誤
+window.addEventListener('error',e=>{
+  out.innerHTML+='<br><span class="bad">❌ JS錯誤:'+e.message+'</span><br><pre>@ '+(e.filename||'').split('/').pop()+':'+e.lineno+':'+e.colno+'</pre>';
+});
+window.addEventListener('unhandledrejection',e=>{
+  out.innerHTML+='<br><span class="bad">❌ Promise錯誤:'+(e.reason&&e.reason.message||e.reason)+'</span><br><pre>'+(e.reason&&e.reason.stack||'').split('\n').slice(0,4).join('\n')+'</pre>';
+});
+// 載入實際的 index.html,把它的 script 抽出來執行
+fetch('index.html').then(r=>r.text()).then(html=>{
+  out.innerHTML='① index.html 載入成功('+(html.length/1024).toFixed(0)+'KB)<br>';
+  const scripts=[...html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]);
+  out.innerHTML+='② 找到 '+scripts.length+' 段 script<br>③ 執行主程式…<br>';
+  const big=scripts.sort((a,b)=>b.length-a.length)[0];
+  try{
+    // 注入一個假的 DOM 容器讓它跑
+    (0,eval)(big);
+    out.innerHTML+='<span class="ok">④ 主程式執行完成,無立即錯誤</span><br>';
+    if(typeof boot==='function'){
+      out.innerHTML+='⑤ 呼叫 boot()…<br>';
+      boot().then(()=>{
+        out.innerHTML+='<span class="ok">✅ boot 完成!DATA.source='+(window.DATA&&window.DATA.source)+'</span>';
+      }).catch(e=>{
+        out.innerHTML+='<br><span class="bad">❌ boot 內部爆:'+e.message+'</span><br><pre>'+(e.stack||'').split('\n').slice(0,5).join('\n')+'</pre>';
+      });
+    }else out.innerHTML+='<span class="bad">boot 不是函式</span>';
+  }catch(e){
+    out.innerHTML+='<br><span class="bad">❌ 主程式執行爆:'+e.message+'</span><br><pre>'+(e.stack||'').split('\n').slice(0,5).join('\n')+'</pre>';
+  }
+});
+</script></body></html>
