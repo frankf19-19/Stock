@@ -1739,7 +1739,6 @@ function renderFutTab(){
 }
 function renderMacro(){
   const m=DATA.macro||{};
-  try{tvTape();}catch(e){}   // 📺 指數即時跑馬燈(TradingView 官方,掛一次)
   const _skipUS={gspc:1,ixic:1,dji:1,sox:1};   // 📺 美股四卡改 TradingView 即時小部件(見 ensureUsTvCards)
   const _cards=(m.idx||[]).map(i=>{
     const k=mkKeyIdx(i.name);
@@ -1747,7 +1746,8 @@ function renderMacro(){
     return `<div class="idx-card"${k?` data-mk="${k}"`:''}><div class="nm">${i.name}</div><div class="vl">${Number(i.val).toLocaleString()}</div><div class="ch">${chgHtml(i.chg??0)}</div></div>`;}).filter(Boolean);
   document.getElementById('idxRow').innerHTML=_cards.length?_cards.join('')
     :'<div class="idx-card" id="idxEmpty"><div class="nm">台股指數載入中…</div></div>';
-  try{ensureUsTvCards();}catch(e){}
+  // 📺 TradingView(跑馬燈+美股四卡)延後掛載:先讓資料/版面渲染完、頁面立即可用,外部widget最後才載
+  setTimeout(()=>{try{tvTape();}catch(e){}try{ensureUsTvCards();}catch(e){}},50);
   const fx=m.fx||{};
   const items=[["美元/台幣",fx.USDTWD,"usdtwd"],["日圓/台幣",fx.JPYTWD,"jpytwd"],["美元指數(Fed廣義)",fx.DXY,"dxy"]];
   document.getElementById('fxRow').innerHTML=items.map(([n,v,k])=>
@@ -2018,7 +2018,6 @@ async function refreshUSLive(){          // 已退役(四卡改 TV 即時)
 }
 setInterval(refreshUSLive,15000);
 setTimeout(refreshUSLive,4000);
-try{tvTape();}catch(e){}   // 📺 跑馬燈提前預載:與 data.json 載入並行,縮短「— — —」等待
 function fhDetailLive(key,def){          // 指數詳情頁秒級層(約10秒一跳)
   if(!FH_ETF[key])return;
   const stat=document.getElementById('mkIntraStat');
@@ -2116,7 +2115,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r317</span>');
+  diag.push('<span style="color:var(--dim)">build r318</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
