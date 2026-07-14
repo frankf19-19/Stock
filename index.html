@@ -2088,7 +2088,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r304e</span>');
+  diag.push('<span style="color:var(--dim)">build r304f</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2376,7 +2376,7 @@ async function loadFFCal(){
   }
   if(out.length){window.__ffEvents=out;renderCalendar();}
 }
-setTimeout(loadFFCal,4000);
+setTimeout(loadFFCal,15000);   // 延後,不跟首頁資料搶頻寬
 setInterval(loadFFCal,4*3600e3);
 function buildCalendar(){
   const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
