@@ -1906,9 +1906,10 @@ function tvTape(){                      // 全站即時跑馬燈(首頁最上方
   const sc=document.createElement('script');
   sc.src='https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js';
   sc.async=true;
+  /* TWSE 代碼(加權/個股)在 TradingView 嵌入授權牆內,會跳🛑——台股即時另由證交所 MIS 大圖供應;
+     跑馬燈的台股代表改用美股掛牌的台灣ETF(EWT,即時可嵌) */
   sc.innerHTML=JSON.stringify({symbols:[
-      {proName:'TWSE:IX0001',title:'加權指數'},{proName:'TWSE:2330',title:'台積電'},
-      {proName:'TWSE:3665',title:'貿聯-KY'},
+      {proName:'AMEX:EWT',title:'台股ETF(EWT)'},
       {proName:'FOREXCOM:SPXUSD',title:'S&P 500'},{proName:'FOREXCOM:NSXUSD',title:'那指100'},
       {proName:'FOREXCOM:DJI',title:'道瓊'},{proName:'NASDAQ:SOXX',title:'費半ETF'},
       {proName:'CAPITALCOM:VIX',title:'VIX'},{proName:'CAPITALCOM:J225',title:'日經225'},
@@ -2070,7 +2071,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r298</span>');
+  diag.push('<span style="color:var(--dim)">build r299</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
