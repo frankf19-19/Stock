@@ -869,6 +869,32 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 </div>
 
 <script>
+/* 🛡️ getElementById 護盾:頂層綁定事件時元素可能還沒 render,
+   回傳安全假節點避免「Cannot set properties of null」讓整個 JS 中斷。
+   真實元素照常回傳;假節點的操作靜默無效,待元素出現後各自的重繪會補上。 */
+(function(){
+  if(window.__geiShield)return; window.__geiShield=1;
+  var _gei=document.getElementById.bind(document);
+  var noop=function(){};
+  function ghost(){
+    return new Proxy({}, {
+      get:function(t,k){
+        if(k==='style'||k==='dataset'||k==='classList')return ghost();
+        if(k==='addEventListener'||k==='removeEventListener'||k==='appendChild'||k==='remove'||k==='setAttribute'||k==='removeAttribute'||k==='add'||k==='toggle'||k==='observe')return noop;
+        if(k==='innerHTML'||k==='textContent'||k==='value'||k==='className')return '';
+        if(k==='children'||k==='childNodes')return [];
+        if(k==='querySelector'||k==='closest')return function(){return null;};
+        if(k==='querySelectorAll')return function(){return [];};
+        if(k==='getContext')return function(){return null;};
+        if(k==='__isGhost')return true;
+        return undefined;
+      },
+      set:function(){return true;}   // 對假節點賦值(onclick 等)靜默成功,不拋錯
+    });
+  }
+  document.getElementById=function(id){ return _gei(id) || ghost(); };
+})();
+
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -2119,17 +2145,18 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r311</span>');
+  diag.push('<span style="color:var(--dim)">build r313</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
   btn.disabled=false; btn.textContent='↻ 更新';
   keepScroll(()=>renderAll()); route();
 }
-document.getElementById('updBtn').onclick=async()=>{
-  await refreshLive(false);
-  try{drawIdxSel();renderFut();}catch(e){}
-};
+(function(){const _ub=document.getElementById('updBtn');
+  if(_ub)_ub.onclick=async()=>{
+    await refreshLive(false);
+    try{drawIdxSel();renderFut();}catch(e){}
+  };})();
 
 /* ── 即時走勢圖:Yahoo 1分線(經轉接通道),含量能與均價線 ── */
 async function diagRoutes(btn){
@@ -10905,6 +10932,17 @@ function aiGreet(){
 })();
 
 boot();
+
+/* 🛟 啟動保險:若主流程未成功套用即時資料(仍為範例),延遲重試 boot 一次 */
+window.addEventListener('load',function(){
+  setTimeout(function(){
+    try{
+      if(!window.DATA||DATA.source!=='live'){
+        if(typeof boot==='function')boot();
+      }
+    }catch(e){}
+  },1200);
+});
 </script>
 </body>
 </html>
