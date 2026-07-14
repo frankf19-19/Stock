@@ -1,0 +1,26 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>迷你版</title>
+<style>body{font-family:sans-serif;padding:20px}
+.card{display:inline-block;border:1px solid #ccc;border-radius:8px;padding:10px 16px;margin:6px}
+.up{color:#c00}.dn{color:#080}</style></head><body>
+<h1>麻吉股研所(迷你純淨版)</h1>
+<div id="status">載入中…</div>
+<div id="idx"></div>
+<h3>台股清單(前50檔)</h3>
+<div id="list"></div>
+<script>
+fetch('data.json').then(r=>r.json()).then(d=>{
+  document.getElementById('status').innerHTML='✅ 資料載入成功 · '+d.updated+' · 共 '+d.stocks.length+' 檔 · source='+d.source;
+  // 指數
+  const idx=(d.macro&&d.macro.idx||[]).map(i=>
+    '<div class="card"><b>'+i.name+'</b><br>'+Number(i.val).toLocaleString()+
+    ' <span class="'+(i.chg>=0?'up':'dn')+'">'+(i.chg>=0?'▲':'▼')+Math.abs(i.chg)+'%</span></div>').join('');
+  document.getElementById('idx').innerHTML=idx;
+  // 前50檔台股
+  const tw=d.stocks.filter(s=>s.market==='TW'&&!s.etf).slice(0,50);
+  document.getElementById('list').innerHTML=tw.map(s=>
+    '<div class="card">'+s.id+' '+s.name+'<br>'+s.price+
+    ' <span class="'+(s.chg>=0?'up':'dn')+'">'+(s.chg>=0?'+':'')+s.chg+'%</span></div>').join('');
+}).catch(e=>{
+  document.getElementById('status').innerHTML='❌ 失敗:'+e.message;
+});
+</script></body></html>
