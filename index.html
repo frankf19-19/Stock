@@ -1256,24 +1256,30 @@ function snapLoad(){
   }catch(e){}
 }
 async function boot(){
-  let okLoad=false;
+  let okLoad=false, dbg=[];
   for(let i=0;i<3;i++){
     try{
-      const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+      const r=await fetch('data.json',{cache:'no-store'});
+      dbg.push('第'+(i+1)+'次 HTTP '+r.status);
       if(r.ok){
         const txt=await r.text();
-        DATA=JSON.parse(txt); DATA.source='live'; okLoad=true; break;
-      }else{ window.__bootErr='data.json HTTP '+r.status; }
-    }catch(e){ window.__bootErr='data.json '+(e.message||e); }
-    await new Promise(z=>setTimeout(z,800));   // 退避重試(對抗 GitHub Pages 偶發 5xx / 快取穿透)
+        dbg.push('收到 '+txt.length+' 字元');
+        DATA=JSON.parse(txt); DATA.source='live'; okLoad=true;
+        dbg.push('解析成功 source='+DATA.source+' stocks='+(DATA.stocks?DATA.stocks.length:'?'));
+        break;
+      }else{ window.__bootErr='HTTP '+r.status; }
+    }catch(e){ window.__bootErr=(e.message||e); dbg.push('例外:'+(e.message||e)); }
+    await new Promise(z=>setTimeout(z,800));
   }
   if(!DATA) DATA=DEMO;
   if(!okLoad){
-    const dg=document.getElementById('diag');
-    if(dg)dg.innerHTML+=' &ensp;·&ensp; <span class="bad">⚠ 讀取即時資料失敗('+(window.__bootErr||'未知')+')·顯示範例·稍後按更新重試</span>';
+    const bar=document.createElement('div');
+    bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c00;color:#fff;padding:8px 14px;font-size:13px;line-height:1.5';
+    bar.textContent='⚠ 即時資料讀取失敗 · '+dbg.join(' / ')+' · '+(window.__bootErr||'');
+    document.body.appendChild(bar);
   }
   try{snapLoad();}catch(e){}
-  window.__sweepForce=Date.now()+5*60e3;   // 開頁後 5 分鐘內即使盤後也強制全市場掃一輪(MIS 收盤快照矯正舊資料)
+  window.__sweepForce=Date.now()+5*60e3;
   setBadges(); renderAll(); route();
 }
 window.addEventListener('error',e=>{
@@ -2150,7 +2156,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r314</span>');
+  diag.push('<span style="color:var(--dim)">build r315</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
