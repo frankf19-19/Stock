@@ -869,31 +869,10 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 </div>
 
 <script>
-/* 🛡️ getElementById 護盾:頂層綁定事件時元素可能還沒 render,
-   回傳安全假節點避免「Cannot set properties of null」讓整個 JS 中斷。
-   真實元素照常回傳;假節點的操作靜默無效,待元素出現後各自的重繪會補上。 */
-(function(){
-  if(window.__geiShield)return; window.__geiShield=1;
-  var _gei=document.getElementById.bind(document);
-  var noop=function(){};
-  function ghost(){
-    return new Proxy({}, {
-      get:function(t,k){
-        if(k==='style'||k==='dataset'||k==='classList')return ghost();
-        if(k==='addEventListener'||k==='removeEventListener'||k==='appendChild'||k==='remove'||k==='setAttribute'||k==='removeAttribute'||k==='add'||k==='toggle'||k==='observe')return noop;
-        if(k==='innerHTML'||k==='textContent'||k==='value'||k==='className')return '';
-        if(k==='children'||k==='childNodes')return [];
-        if(k==='querySelector'||k==='closest')return function(){return null;};
-        if(k==='querySelectorAll')return function(){return [];};
-        if(k==='getContext')return function(){return null;};
-        if(k==='__isGhost')return true;
-        return undefined;
-      },
-      set:function(){return true;}   // 對假節點賦值(onclick 等)靜默成功,不拋錯
-    });
-  }
-  document.getElementById=function(id){ return _gei(id) || ghost(); };
-})();
+/* 🛡️ 啟動安全網:元素還沒 render 時對 null 綁事件會中斷整段 JS。
+   這裡不改動 getElementById 的行為(維持原生、找不到就回 null),
+   而是把「可能在 DOM 未就緒時執行的頂層綁定」交給 DOMContentLoaded 後再跑(見檔尾 boot 觸發)。
+   全域點擊等監聽本身都有 `el && el.xxx` 防護,不受影響。 */
 
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
@@ -2156,7 +2135,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r315</span>');
+  diag.push('<span style="color:var(--dim)">build r316</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6300,8 +6279,8 @@ document.querySelectorAll('#mktSeg button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#mktSeg button').forEach(x=>x.classList.toggle('on',x===b));
   renderChips(); render();
 });
-document.getElementById('sortSel').onchange=e=>{sortBy=e.target.value;page=1;render();};
-document.getElementById('q').oninput=e=>{q=e.target.value.trim();page=1;render();};
+var _ss=document.getElementById('sortSel');if(_ss)_ss.onchange=e=>{sortBy=e.target.value;page=1;render();};
+var _qq=document.getElementById('q');if(_qq)_qq.oninput=e=>{q=e.target.value.trim();page=1;render();};
 
 /* ── 手機版分區摺疊(≤640px):點標題展開/收合 ── */
 /* 區塊收合:電腦與手機皆可點標題展開/收合,偏好記在本機 */
