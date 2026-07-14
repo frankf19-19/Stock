@@ -1555,7 +1555,25 @@ function t3RenderRows(sid,rows,slot,src){
       }
       const ch=echarts.init(el);
       setTimeout(()=>{try{ch.resize();}catch(e){}},350);
-      if(typeof chipCharts!=='undefined')chipCharts.push(ch);
+      if(!el.__ro&&window.ResizeObserver){
+        el.__ro=new ResizeObserver(()=>{try{const i=echarts.getInstanceByDom(el);if(i)i.resize();}catch(e){}});
+        el.__ro.observe(el);
+      }
+      /* 自癒巡檢:初始化後 12 秒內若實例/畫布被外力清掉 → 自動重畫(互斥假象終結者) */
+      el.__heal=(el.__heal||0);
+      let __hc=0;
+      const __heal=setInterval(()=>{
+        try{
+          if(++__hc>8||!el.isConnected){clearInterval(__heal);return;}
+          const inst=echarts.getInstanceByDom(el);
+          if(!inst||!el.querySelector('canvas')){
+            clearInterval(__heal);
+            if(el.__heal<3){el.__heal++;tries=0;draw();}
+          }
+        }catch(e){clearInterval(__heal);}
+      },1500);
+      /* 不加入 chipCharts:籌碼區重繪會 disposeChipCharts() 整批處決,
+         季報圖曾被誤殺(載入順序決定生死=互斥假象)。它隨自己的容器生滅即可。 */
       const idxMap=asc.map(r=>rows.indexOf(r));
       ch.setOption({
         grid:{left:46,right:44,top:30,bottom:24},
@@ -2090,7 +2108,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r309</span>');
+  diag.push('<span style="color:var(--dim)">build r310</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2209,13 +2227,30 @@ function flowHTML(d,unit){
       <div style="width:${bp}%;height:100%;background:#E5484D"></div></div>
     <span style="color:var(--dim);font-size:13px">依逐分鐘量價推估主動買賣盤。精確的大戶/散戶分點買賣超屬券商付費資料;本站的大戶視角以「盤後法人買賣超+每週集保大戶持股」補足。</span></div>`;
 }
-function drawIntra(domId,d){
+function drawIntra(domId,d,__try){
   const box=document.getElementById(domId);
   if(!box)return;
   if(!window.echarts){box.innerHTML='<div class="dim-note">圖表元件載入失敗</div>';return;}
+  if(box.clientWidth<40){          // 容器尚未展開/寬度為0:緩重試,避免畫成隱形圖(互斥假象元兇之二)
+    if((__try||0)<16)setTimeout(()=>drawIntra(domId,d,(__try||0)+1),250);
+    return;
+  }
   echarts.dispose(box);
   box.innerHTML='';
   const ch=echarts.init(box);
+  box.__heal=(box.__heal||0);       // 自癒巡檢:12秒內畫布被外力清掉就自動重畫(最多3次)
+  {let __hc=0;const __hv=setInterval(()=>{try{
+      if(++__hc>8||!box.isConnected){clearInterval(__hv);return;}
+      const i2=echarts.getInstanceByDom(box);
+      if(!i2||!box.querySelector('canvas')){clearInterval(__hv);
+        if(box.__heal<3){box.__heal++;drawIntra(domId,d);}}
+    }catch(e){clearInterval(__hv);}},1500);}
+  try{                              // 容器尺寸變動(收合展開/轉向)自動 resize
+    if(!box.__ro&&window.ResizeObserver){
+      box.__ro=new ResizeObserver(()=>{try{const i=echarts.getInstanceByDom(box);if(i)i.resize();}catch(e){}});
+      box.__ro.observe(box);
+    }
+  }catch(e){}
   const times=d.t.map(ts=>new Date(ts*1000).toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit'}));
   let cv=0,cpv=0;
   const avg=d.c.map((c,i)=>{const v=d.v[i]||0;
