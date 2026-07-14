@@ -1230,11 +1230,22 @@ function snapLoad(){
   }catch(e){}
 }
 async function boot(){
-  try{
-    const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
-    if(r.ok){ DATA=await r.json(); DATA.source='live'; }
-  }catch(e){}
+  let okLoad=false;
+  for(let i=0;i<3;i++){
+    try{
+      const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+      if(r.ok){
+        const txt=await r.text();
+        DATA=JSON.parse(txt); DATA.source='live'; okLoad=true; break;
+      }else{ window.__bootErr='data.json HTTP '+r.status; }
+    }catch(e){ window.__bootErr='data.json '+(e.message||e); }
+    await new Promise(z=>setTimeout(z,800));   // 退避重試(對抗 GitHub Pages 偶發 5xx / 快取穿透)
+  }
   if(!DATA) DATA=DEMO;
+  if(!okLoad){
+    const dg=document.getElementById('diag');
+    if(dg)dg.innerHTML+=' &ensp;·&ensp; <span class="bad">⚠ 讀取即時資料失敗('+(window.__bootErr||'未知')+')·顯示範例·稍後按更新重試</span>';
+  }
   try{snapLoad();}catch(e){}
   window.__sweepForce=Date.now()+5*60e3;   // 開頁後 5 分鐘內即使盤後也強制全市場掃一輪(MIS 收盤快照矯正舊資料)
   setBadges(); renderAll(); route();
@@ -2108,7 +2119,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r310</span>');
+  diag.push('<span style="color:var(--dim)">build r311</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
