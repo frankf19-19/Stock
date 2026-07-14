@@ -1236,8 +1236,7 @@ async function boot(){
   }catch(e){}
   if(!DATA) DATA=DEMO;
   try{snapLoad();}catch(e){}
-  window.__sweepForce=Date.now()+5*60e3;   // 開頁後 5 分鐘內即使盤後也強制全市場掃一輪(MIS 收盤快照矯正舊資料)
-  setBadges(); renderAll(); route();
+  setBadges(); renderAll(); route();   // 資料一到立即渲染,背景抓取由各計時器延後進行
 }
 window.addEventListener('error',e=>{
   try{
@@ -1769,7 +1768,7 @@ async function refreshFutCards(){
     el.innerHTML=`<div class="nm">${nm}</div><div class="vl">${last>=100?Number(last.toFixed(0)).toLocaleString():last.toFixed(2)}</div><div class="ch">${chgHtml(chg)}</div>`;
   }
 }
-setTimeout(refreshFutCards,2600);
+setTimeout(refreshFutCards,4000);
 setInterval(refreshFutCards,60000);
 /* 美股大盤即時動態(直連 Yahoo,60秒;收盤時顯示最後收盤) */
 const US_LIVE=[['^GSPC','gspc','S&P 500'],['^IXIC','ixic','那斯達克'],['^SOX','sox','費城半導體'],['^DJI','dji','道瓊工業']];
@@ -1799,7 +1798,7 @@ async function refreshUS(){
     el.innerHTML=`<div class="nm">${nm}<span style="color:var(--dim)"> ›</span></div><div class="vl">${Number(last.toFixed(2)).toLocaleString()}</div><div class="ch">${chgHtml(chg)}</div>`;
   }
 }
-setTimeout(refreshUS,2400);
+setTimeout(refreshUS,6000);
 setInterval(refreshUS,60000);
 /* 匯率即時化:Yahoo FX 直連(er-api 免費版一天一值,僅作開站底圖) */
 async function refreshFX(){
@@ -1824,7 +1823,7 @@ async function refreshFX(){
   window.__fxLive=hit>0;
   if(!location.hash)renderMacro();
 }
-setTimeout(refreshFX,3200);
+setTimeout(refreshFX,5000);
 setInterval(refreshFX,60000);
 /* ⚡ 秒級即時層(選用):Finnhub 免費金鑰(finnhub.io,免綁卡)——API 原生 CORS,瀏覽器直連。
    以「真追蹤該指數的旗艦ETF」即時價換算指數點位:SPY→S&P500、ONEQ→那斯達克綜合、
@@ -1989,7 +1988,7 @@ async function refreshUSLive(){          // 已退役(四卡改 TV 即時)
   }
 }
 setInterval(refreshUSLive,15000);
-setTimeout(refreshUSLive,4000);
+setTimeout(refreshUSLive,8000);
 function fhDetailLive(key,def){          // 指數詳情頁秒級層(約10秒一跳)
   if(!FH_ETF[key])return;
   const stat=document.getElementById('mkIntraStat');
@@ -2088,7 +2087,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r304f</span>');
+  diag.push('<span style="color:var(--dim)">build r304g</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2544,7 +2543,7 @@ async function loadInst(){
   window.__noteInst=`法人(${cur.date} 盤後):外資${dir(cur.f)}億、投信${dir(cur.t)}億、自營${dir(cur.d)}億;外資近5日累計 ${sum('f')>0?'+':''}${sum('f')} 億${sum('f')>300?',買盤積極':sum('f')<-300?',調節明顯':''}。`;
   composeMacroNote();
 }
-setTimeout(loadInst,3500);
+setTimeout(loadInst,7000);
 setInterval(loadInst,15*60*1000); // 每15分鐘檢查(15:00後會自動換上今日)
 
 /* ── 大盤即時解讀:走勢型態、日線趨勢、量能評估與預估量 ── */
@@ -2840,7 +2839,7 @@ async function refreshIdx(){
     drawIdxSel();
   });
 })();
-setTimeout(refreshIdx,1100);
+setTimeout(refreshIdx,2000);
 setInterval(()=>{if(openish())refreshIdx();},30000);
 setTimeout(async()=>{IDX.lv.tw=await idxLevels('tw');IDX.lv.otc=await idxLevels('otc');paintDefense();},2500);
 setInterval(async()=>{if(marketOpen()){IDX.lv.tw=IDX.lv.tw||await idxLevels('tw');IDX.lv.otc=IDX.lv.otc||await idxLevels('otc');}},600000);
@@ -3067,7 +3066,7 @@ async function refreshRisk(){
     y5:out.y5?out.y5.last/10:null};
   try{renderMacroAlerts();}catch(e){}
 }
-setTimeout(refreshRisk,2000);
+setTimeout(refreshRisk,5000);
 setInterval(refreshRisk,60000);
 
 /* ── 個股即時走勢(個股頁載入,60秒更新)── */
@@ -4108,7 +4107,7 @@ function livePatchCards(){
   });
 }
 setInterval(rtTick,6000);
-setTimeout(rtTick,900);
+setTimeout(rtTick,3000);
 
 /* ── 開盤時段自動更新:台北週一至五 08:55–13:40,每 60 秒重抓 data.json ── */
 function openish(){
@@ -8231,7 +8230,7 @@ async function glbScanAlerts(){
     try{renderMacroAlerts();}catch(e){}
   }catch(e){}
 }
-setTimeout(glbScanAlerts,8000);
+setTimeout(glbScanAlerts,12000);
 setInterval(glbScanAlerts,15*60e3);
 /* 規則式中文重點:標題 → 「誰 + 發生什麼 + 對台股方向」一句話 */
 const GLB_COMP=[[/TSMC/i,'台積電'],[/Samsung/i,'三星'],[/SK ?Hynix/i,'SK海力士'],[/Micron/i,'美光'],[/Nvidia/i,'輝達'],[/Intel/i,'英特爾'],[/\bAMD\b/,'超微'],[/Apple/i,'蘋果'],[/Foxconn/i,'鴻海'],[/Broadcom/i,'博通'],[/ASML/i,'ASML'],[/OpenAI/i,'OpenAI'],[/Microsoft/i,'微軟'],[/Google/i,'谷歌'],[/Amazon|AWS/i,'亞馬遜'],[/Meta\b/,'Meta']];
