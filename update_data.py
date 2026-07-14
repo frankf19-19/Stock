@@ -838,6 +838,24 @@ def fetch_margin_mops(year, season):
                 _walk(j)
             except Exception as e:
                 print(f"    [warn] mops新API {typek} {year}Q{season}: {str(e)[:80]}")
+        if not got:   # 第四層:借道免費代理 POST(前端季報舊路徑已驗證 MOPS 可經代理取得)
+            import urllib.parse as _up
+            target = "https://mopsov.twse.com.tw/mops/web/ajax_t163sb06"
+            for mk_proxy in (lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe=""),
+                             lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")):
+                if got: break
+                try:
+                    r = requests.post(mk_proxy(target),
+                        data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
+                              "isQuery": "Y", "TYPEK": typek, "year": y_roc, "season": ss},
+                        headers=UA, timeout=60)
+                    if r.ok and "毛利率" in r.text:
+                        for df in pd.read_html(StringIO(r.text)):
+                            got += _absorb_df(df)
+                        if got: print(f"    {typek} {year}Q{season} ← 代理路徑 +{got}")
+                except Exception as e:
+                    print(f"    [warn] 代理 {typek} {year}Q{season}: {str(e)[:70]}")
+                time.sleep(1.5)
         time.sleep(1.5)
     return out
 
