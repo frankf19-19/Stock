@@ -804,18 +804,38 @@ def fetch_margin_mops(year, season):
     return out
 
 def append_margins(chips, cur):
-    """把季度三率寫入籌碼歷史(fq/gm/om/nm/qr,保留8季);上一季不足時嘗試 MOPS 回補一次。"""
+    """把季度三率寫入籌碼歷史(fq/gm/om/nm/qr,保留8季)。
+    歷史深度不足(如剛上線只有最新一季)→ 向 MOPS 逐季回補八季(伺服器端直連,無CORS問題);
+    深度足夠 → 例行檢查上一季即可。回補為一次性成本(約2~4分鐘),補齊後不再觸發。"""
     if not cur: return
     q_now = max(v[0] for v in cur.values())
-    pq = prev_q(q_now)
-    have_prev = sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or []))
-    if have_prev < 200:
-        y, s_ = int(pq[:4]), int(pq[-1])
-        print(f"  上一季三率資料不足({have_prev} 家),向 MOPS 回補 {pq} …")
-        prev = fetch_margin_mops(y, s_)
-        print(f"  MOPS 回補:{len(prev)} 家")
-        for sid, (gm, om, nm, rv) in prev.items():
-            _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+    depths = [len(chips.get(sid, {}).get("fq") or []) for sid in cur]
+    med = sorted(depths)[len(depths) // 2] if depths else 0
+    if med < 7:
+        qs, q = [], q_now
+        for _ in range(8):
+            q = prev_q(q); qs.append(q)
+        print(f"  季報三率深度不足(中位數 {med} 季),向 MOPS 回補 {qs[-1]} ~ {qs[0]} …")
+        for pq in qs:
+            have = sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or []))
+            if have >= 200:
+                print(f"    {pq}:已有 {have} 家,跳過"); continue
+            y, s_ = int(pq[:4]), int(pq[-1])
+            prev = fetch_margin_mops(y, s_)
+            print(f"    {pq}:MOPS 回補 {len(prev)} 家")
+            for sid, (gm, om, nm, rv) in prev.items():
+                _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+            time.sleep(2)
+    else:
+        pq = prev_q(q_now)
+        have_prev = sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or []))
+        if have_prev < 200:
+            y, s_ = int(pq[:4]), int(pq[-1])
+            print(f"  上一季三率資料不足({have_prev} 家),向 MOPS 回補 {pq} …")
+            prev = fetch_margin_mops(y, s_)
+            print(f"  MOPS 回補:{len(prev)} 家")
+            for sid, (gm, om, nm, rv) in prev.items():
+                _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
     for sid, (q, gm, om, nm, rv) in cur.items():
         _put_margin(chips.setdefault(sid, {}), q, gm, om, nm, rv)
 
