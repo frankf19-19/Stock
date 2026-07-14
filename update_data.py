@@ -1721,6 +1721,44 @@ def build_fut_table():
             if tot > 0: row(d2)["leek"] = round((-inst) / tot * 100, 2)
     except Exception as e:
         print(f"  [warn] futtab 總OI: {e}")
+    # 備援:最新交易日 FinMind 日行情尚未同步 → 期交所 openapi 官方日行情(收盤約15:00即有)
+    _lw0 = TODAY
+    while _lw0.weekday() >= 5: _lw0 -= dt.timedelta(days=1)
+    _lw0 = _lw0.isoformat()
+    if _lw0 not in T or T[_lw0].get("oi") is None or T[_lw0].get("leek") is None:
+        try:
+            arr = get_json("https://openapi.taifex.com.tw/v1/DailyMarketReportFut", timeout=40) or []
+            tx_oi = mtx_oi = 0.0
+            kd = kc = ko = None
+            for r0 in arr:
+                if kd is None:
+                    ks = list(r0.keys())
+                    kd = next((k for k in ks if "日期" in k or "Date" in k), None)
+                    kc = next((k for k in ks if "契約" in k or "Contract" in k), None)
+                    ko = next((k for k in ks if "未沖銷" in k or "OpenInterest" in k or "未平倉" in k), None)
+                    if None in (kc, ko): break
+                cid = str(r0.get(kc, "")).strip().upper()
+                oi0 = numf(r0.get(ko))
+                if oi0 is None: continue
+                if cid in ("TX", "臺股期貨"): tx_oi += oi0
+                elif cid in ("MTX", "小型臺指", "小型臺指期貨"): mtx_oi += oi0
+            d2 = None
+            if arr and kd:
+                dd = str(arr[0].get(kd, "")).replace("/", "-").strip()
+                if len(dd) == 8 and dd.isdigit(): dd = f"{dd[:4]}-{dd[4:6]}-{dd[6:8]}"
+                d2 = dd if len(dd) == 10 else _lw0
+            else:
+                d2 = _lw0
+            if tx_oi > 0 and (d2 not in T or T[d2].get("oi") is None):
+                row(d2)["oi"] = int(tx_oi)
+            if mtx_oi > 0 and (d2 not in T or T[d2].get("leek") is None):
+                m2 = mtx.get(d2)
+                if m2:
+                    inst = sum(m2.values())
+                    row(d2)["leek"] = round((-inst) / mtx_oi * 100, 2)
+            print(f"  futtab 總OI 官方備援:{d2} 大台{int(tx_oi):,} 小台{int(mtx_oi):,}")
+        except Exception as e:
+            print(f"  [warn] futtab 總OI 官方備援: {e}")
 
     # 5. 選擇權外資淨OI + PCR
     try:
