@@ -1,0 +1,43 @@
+# 放到 repo 的 .github/workflows/update_quotes.yml
+# rev: 2026-07-07 排程重新註冊(workflow 檔曾被刪除重建,cron 需藉由此次修改重新掛載)
+# 開盤時段(台北 09:00–13:55,週一至五)每 5 分鐘更新盤中報價備援
+name: intraday-quotes
+on:
+  schedule:
+    - cron: "*/5 1-5 * * 1-5"   # UTC 01–05 時 = 台北 09:00–13:55
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: quotes
+  cancel-in-progress: true
+jobs:
+  quotes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests
+      - run: python update_quotes.py
+      - name: commit
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data.json
+          git add spark.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "沒有變更,略過"
+            exit 0
+          fi
+          git commit -m "quotes: $(TZ=Asia/Taipei date +%H:%M)"
+          # 與每日更新撞車時:禮讓——放棄本輪(報價5分鐘後自動再來,絕不覆蓋盤後資料)
+          for i in 1 2 3; do
+            if git pull --rebase origin main && git push; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            sleep 5
+          done
+          echo "推送撞車,本輪禮讓略過(下一輪自動再試)"
+          exit 0

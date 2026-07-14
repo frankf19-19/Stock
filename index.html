@@ -2090,7 +2090,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r308</span>');
+  diag.push('<span style="color:var(--dim)">build r309</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3230,6 +3230,21 @@ async function seedStk(s){
     if(ch0)ch0.innerHTML=chgHtml(s.chg);
   }catch(e){}
 }
+async function sparkLine(s){
+  /* 伺服器端5分鐘快照(spark.json,update_quotes 每5分累積)→ 盤後全裝置可畫當日走勢 */
+  try{
+    const r=await fT('spark.json?_='+Math.floor(Date.now()/300000),8000);
+    if(!r.ok)return null;
+    const sj=await r.json();
+    const arr=sj&&sj.s&&sj.s[s.id];
+    if(!arr||!sj.t||arr.filter(x=>x!=null).length<2)return null;
+    const t=[],c=[];
+    for(let i=0;i<Math.min(sj.t.length,arr.length);i++)
+      if(arr[i]!=null){t.push(sj.t[i]);c.push(arr[i]);}
+    const prev=(s.price&&s.chg!=null)?+(s.price/(1+s.chg/100)).toFixed(2):null;
+    return {t,c,v:t.map(()=>0),prev,spark:true};
+  }catch(e){return null;}
+}
 async function loadIntraDetail(s,accOnly){
   const box=document.getElementById('intraChart');
   if(!box)return;
@@ -3269,7 +3284,7 @@ async function loadIntraDetail(s,accOnly){
     }else if(marketOpen()){
       if(acc.c.length>=2){d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev||((d&&d.prev)||null)};window.__stkToday=true;}
       else{
-        const md=await misIntraday(s);
+        const md=await misIntraday(s)||await sparkLine(s);
         if(md&&location.hash===KHASH){
           d=md;window.__stkToday=true;
           (RT.lastYD=RT.lastYD||{})[s.id]=md;   // 當底圖,累積點續接
@@ -3290,7 +3305,7 @@ async function loadIntraDetail(s,accOnly){
         const acc=stkAcc(s.id);
         if(acc.c.length>=2)d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev};
         else if(!accOnly){
-          const md=await misIntraday(s);
+          const md=await misIntraday(s)||await sparkLine(s);
           if(md&&location.hash===KHASH)d=md;
         }
       }
@@ -3303,7 +3318,7 @@ async function loadIntraDetail(s,accOnly){
   }else{
     window.__stkToday=!!d;
   }
-  if(!d){if(stat)stat.innerHTML=intraStatTxt(s,'今日分線暫不可得(收盤後來源已關;明日開盤起走勢會即時累積並保存)——K線圖與所有分析不受影響');return;}
+  if(!d){if(stat)stat.innerHTML=intraStatTxt(s,'今日分線快照尚未累積(spark 快照自下一個交易日盤中起由排程自動累積,盤後所有裝置可回看)——K線圖與所有分析不受影響');return;}
   const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
   const yv=(curOhlc&&curOhlc.length)?curOhlc[curOhlc.length-1][4]:0; // 昨日量(張)
   const isTW=s.market==='TW';
