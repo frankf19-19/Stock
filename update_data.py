@@ -838,11 +838,19 @@ def fetch_margin_mops(year, season):
                 _walk(j)
             except Exception as e:
                 print(f"    [warn] mops新API {typek} {year}Q{season}: {str(e)[:80]}")
-        if not got:   # 第四層:借道免費代理 POST(前端季報舊路徑已驗證 MOPS 可經代理取得)
+        if not got:   # 第四層:借道代理 POST——自家 Cloudflare Worker 第一路(repo 的 proxy.json)
             import urllib.parse as _up
             target = "https://mopsov.twse.com.tw/mops/web/ajax_t163sb06"
-            for mk_proxy in (lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe=""),
-                             lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")):
+            _pxs = []
+            try:
+                _pu = json.load(open("proxy.json", encoding="utf-8")).get("url", "").strip()
+                if _pu.startswith("https://"):
+                    _pxs.append(lambda u, _p=_pu: _p + "/?url=" + _up.quote(u, safe=""))
+            except Exception:
+                pass
+            _pxs += [lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe=""),
+                     lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")]
+            for mk_proxy in _pxs:
                 if got: break
                 try:
                     r = requests.post(mk_proxy(target),

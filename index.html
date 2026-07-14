@@ -1396,7 +1396,8 @@ async function t3Mops(year,season){
     const form=new URLSearchParams({encodeURIComponent:'1',step:'1',firstin:'1',off:'1',isQuery:'Y',
       TYPEK:typek,year:String(year-1911),season:String(season).padStart(2,'0')}).toString();
     let html=null;
-    for(const mk of [u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
+    for(const mk of [...(myProxy()?[u=>myProxy()+'/?url='+encodeURIComponent(u)]:[]),   // 🏠 自家Worker第一路
+                     u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
                      u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)]){
       try{
         const res=await fT(mk(url),10000,{method:'POST',
@@ -1603,7 +1604,8 @@ async function t3qBlock(s){
       const rows=e.fq.map((q,i)=>({q,v:{gm:(e.gm||[])[i],om:(e.om||[])[i],nm:(e.nm||[])[i],rev:(e.qr||[])[i]??null}}))
         .filter(r=>[r.v.gm,r.v.om,r.v.nm].every(x=>x!=null&&isFinite(x)))
         .sort((a,b)=>b.q.localeCompare(a.q));           // 新→舊,對齊備援路徑的排序
-      if(rows.length){t3RenderRows(s.id,rows,slot,'本站後端每日排程・證交所/櫃買官方 OpenAPI');return;}
+      if(rows.length>=4){t3RenderRows(s.id,rows,slot,'本站後端每日排程・證交所/櫃買官方 OpenAPI');return;}
+      // 後端深度不足(<4季):不提早收工,改走 MOPS 路徑補齊 8 季(有自家Worker就穩)
     }
   }catch(err){}
   // 備援:瀏覽器端經免費代理抓 MOPS(品質看代理臉色;後端資料齊了就不會走到這)
@@ -2088,7 +2090,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r307</span>');
+  diag.push('<span style="color:var(--dim)">build r308</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
