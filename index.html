@@ -2088,7 +2088,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r304</span>');
+  diag.push('<span style="color:var(--dim)">build r305</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3910,6 +3910,17 @@ function rtTargets(){
   return [...ids].slice(0,180);
 }
 function myProxy(){try{return (localStorage.getItem('my_proxy')||'').trim();}catch(e){return '';}}
+(async function(){ /* 🏠 自家代理自動生效:repo 根目錄放 proxy.json({"url":"https://xxx.workers.dev"}),
+   所有裝置打開網頁即自動套用,免每台手動設定;本機已手動設定者優先。 */
+  try{
+    if(myProxy())return;
+    const r=await fetch('proxy.json?_='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    const j=await r.json();
+    const u=j&&String(j.url||'').trim();
+    if(u&&/^https:\/\//.test(u)){try{localStorage.setItem('my_proxy',u);console.log('🏠 自家代理已自動套用:',u);}catch(e){}}
+  }catch(e){}
+})();
 const ROUTE_MEM={};
 function routeMemGet(k){if(ROUTE_MEM[k]!=null)return ROUTE_MEM[k];try{return ROUTE_MEM[k]=+(localStorage.getItem('rt_route_'+k)||0);}catch(e){return 0;}}
 function routeMemSet(k,i){ROUTE_MEM[k]=i;try{localStorage.setItem('rt_route_'+k,String(i));}catch(e){}}
@@ -4619,7 +4630,7 @@ async function yOHLC(s,range,interval){
     if(take&&d.length>take){d=d.slice(-take);k=k.slice(-take);}
     return {dates:d.slice(),ohlc:k.map(r=>r.slice())};
   }
-  const base=await loadK(s);
+  const base=await loadK(s,true);
   if(!base||base.demo||!base.ohlc||!base.ohlc.length)return await yextOHLC(s,range,interval);
   if(interval==='1d')return {dates:base.dates.slice(),ohlc:base.ohlc.map(r=>r.slice())};
   if(interval==='1wk'){
@@ -5560,7 +5571,7 @@ function kChart(ohlc){ // 後備用簡易 SVG(ECharts 載入失敗時)
 }
 const KCACHE={};
 function shardOf(s){return s.market==='TW'?`k/tw${s.id[0]}.json`:`k/us_${s.id[0].toLowerCase()}.json`;}
-async function loadK(s){
+async function loadK(s,live){
   if(DATA.source!=='live') return {ohlc:demoOHLC(s),dates:demoDates(120),demo:true};
   const sh=shardOf(s);
   if(!(sh in KCACHE)){
@@ -5569,7 +5580,39 @@ async function loadK(s){
     catch(e){KCACHE[sh]={};}
   }
   const e=KCACHE[sh][s.id];
-  return (e&&Array.isArray(e.o)&&e.o.length>5)?{ohlc:e.o,dates:e.d}:null;
+  const base=(e&&Array.isArray(e.o)&&e.o.length>5)?{ohlc:e.o,dates:e.d}:null;
+  /* ⚡ 盤中即時K棒:僅個股詳情頁(live=true)啟用,今日這根由 MIS 即時 OHLC 現做 */
+  if(live&&base&&s.market==='TW'&&typeof marketOpen==='function'&&marketOpen()){
+    try{
+      const LB=window.__liveBar;
+      let m=null;
+      if(LB&&LB.id===s.id&&Date.now()-LB.ts<15000){m=LB.m;}
+      else{
+        const pref=s.ex==='otc'?['otc','tse']:['tse','otc'];
+        let arr=await fetchMIS([`${pref[0]}_${s.id}.tw`]);
+        if(!arr||!arr.length)arr=await fetchMIS([`${pref[1]}_${s.id}.tw`]);
+        m=arr&&arr[0]||null;
+        window.__liveBar={id:s.id,ts:Date.now(),m};
+      }
+      if(m){
+        const P=k=>{const f=parseFloat(String(m[k]||'-').split('_')[0]);return f>0?f:null;};
+        const o=P('o'),z=rtPx(m);
+        if(o&&z){
+          const h=Math.max(P('h')||z,o,z),l=Math.min(P('l')||z,o,z);
+          const v=Math.round(parseFloat(m.v)||0);
+          const today=(m.d&&String(m.d).length===8)
+            ?`${String(m.d).slice(0,4)}-${String(m.d).slice(4,6)}-${String(m.d).slice(6,8)}`
+            :new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);
+          const dts=base.dates.slice(),oh=base.ohlc.map(r2=>r2.slice());
+          const bar=[o,h,l,z,v];
+          if(dts[dts.length-1]===today)oh[oh.length-1]=bar;
+          else{dts.push(today);oh.push(bar);}
+          return {ohlc:oh,dates:dts,live:true};
+        }
+      }
+    }catch(err){}
+  }
+  return base;
 }
 async function showDetail(id){
   const s=DATA.stocks.find(x=>x.id===id);
@@ -5761,7 +5804,7 @@ async function showDetail(id){
   if(s.market==='TW')setTimeout(()=>{try{loadRevTrend(s);}catch(e){}},300);
   curDivs=null;                                             // 換股先清除,避免沿用上一檔的除權息標記
   if(s.market==='TW')setTimeout(()=>{try{loadDivEvents(s);}catch(e){}},500);
-  const k=await loadK(s);
+  const k=await loadK(s,true);
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
