@@ -1803,7 +1803,8 @@ setTimeout(refreshUS,2400);
 setInterval(refreshUS,60000);
 /* 匯率即時化:Yahoo FX 直連(er-api 免費版一天一值,僅作開站底圖) */
 async function refreshFX(){
-  const fx=(DATA.macro||{}).fx;
+  if(!window.DATA||!DATA.macro){return;}   // 🛡️ DATA 尚未載入(boot 未完成)→ 跳過,避免 null.macro 爆掉中斷渲染
+  const fx=DATA.macro.fx;
   if(!fx)return;
   let hit=0;
   try{  // 匯率:open.er-api.com——免金鑰、原生 CORS、不經任何代理(約每小時更新)
@@ -2087,7 +2088,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r304c</span>');
+  diag.push('<span style="color:var(--dim)">build r304d</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
