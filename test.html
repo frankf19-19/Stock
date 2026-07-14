@@ -1,0 +1,25 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>資料測試</title>
+<style>body{font-family:sans-serif;font-size:20px;padding:20px;line-height:1.8}
+.ok{color:green}.bad{color:red}</style></head><body>
+<h2>data.json 讀取測試</h2>
+<div id="out">測試中…請稍候</div>
+<script>
+const out=document.getElementById('out');
+const t0=Date.now();
+fetch('data.json',{cache:'no-store'})
+  .then(r=>{
+    out.innerHTML='① HTTP 狀態:<b class="'+(r.ok?'ok':'bad')+'">'+r.status+'</b><br>耗時 '+(Date.now()-t0)+' ms<br>';
+    return r.text();
+  })
+  .then(txt=>{
+    out.innerHTML+='② 收到大小:<b class="ok">'+(txt.length/1048576).toFixed(2)+' MB</b><br>';
+    const t1=Date.now();
+    const j=JSON.parse(txt);
+    out.innerHTML+='③ JSON 解析:<b class="ok">成功</b>('+(Date.now()-t1)+' ms)<br>';
+    out.innerHTML+='④ source=<b>'+j.source+'</b> · updated=<b>'+j.updated+'</b> · 股票數=<b>'+(j.stocks?j.stocks.length:'?')+'</b><br>';
+    out.innerHTML+='<br><b class="ok">✅ 一切正常!問題不在資料讀取。</b>';
+  })
+  .catch(e=>{
+    out.innerHTML+='<b class="bad">❌ 失敗:'+e.message+'</b><br>耗時 '+(Date.now()-t0)+' ms';
+  });
+</script></body></html>
