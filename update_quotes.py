@@ -17,6 +17,10 @@ BATCH = 80          # MIS 單次上限約百檔,取 80 保守
 TP = dt.timezone(dt.timedelta(hours=8))
 
 def proxy_url():
+    # Worker 已停用:proxy.json 不存在屬正常,回空字串即可(改用 MIS 直連)
+    import os
+    if not os.path.exists("proxy.json"):
+        return ""
     try:
         u = json.load(open("proxy.json", encoding="utf-8")).get("url", "").strip()
         return u if u.startswith("https://") else ""

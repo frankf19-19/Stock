@@ -842,10 +842,13 @@ def fetch_margin_mops(year, season):
             import urllib.parse as _up
             target = "https://mopsov.twse.com.tw/mops/web/ajax_t163sb06"
             _pxs = []
+            # Worker 已停用:proxy.json 不存在屬正常,只用公共代理
             try:
-                _pu = json.load(open("proxy.json", encoding="utf-8")).get("url", "").strip()
-                if _pu.startswith("https://"):
-                    _pxs.append(lambda u, _p=_pu: _p + "/?url=" + _up.quote(u, safe=""))
+                import os as _os
+                if _os.path.exists("proxy.json"):
+                    _pu = json.load(open("proxy.json", encoding="utf-8")).get("url", "").strip()
+                    if _pu.startswith("https://"):
+                        _pxs.append(lambda u, _p=_pu: _p + "/?url=" + _up.quote(u, safe=""))
             except Exception:
                 pass
             _pxs += [lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe=""),
