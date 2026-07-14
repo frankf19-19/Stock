@@ -775,33 +775,114 @@ def fetch_margin_bulk():
     return out
 
 def fetch_margin_mops(year, season):
-    """歷史季別營益彙總(公開資訊觀測站),用於首次回補上一季。"""
+    """歷史季別營益彙總。GitHub 機房常被 MOPS 擋——依序輪試:
+    mopsov 舊ajax → mops 舊ajax → mops 新版 JSON API,任一成功即回。"""
     out = {}
+    y_roc, ss = str(year - 1911), f"{season:02d}"
+    def _absorb_df(df):
+        n0 = len(out)
+        cols = [str(c) for c in df.columns]
+        if not any("毛利率" in c for c in cols): return 0
+        c_id = next(c for c in df.columns if "代號" in str(c))
+        c_gm = next(c for c in df.columns if "毛利率" in str(c))
+        c_om = next(c for c in df.columns if "營業利益率" in str(c))
+        c_nm = next(c for c in df.columns if "稅後純益率" in str(c))
+        c_rv = next((c for c in df.columns if "營業收入" in str(c)), None)
+        for _, row in df.iterrows():
+            sid = str(row[c_id]).strip()
+            if not (sid.isdigit() and len(sid) == 4): continue
+            gm, om, nm = numf(row[c_gm]), numf(row[c_om]), numf(row[c_nm])
+            if None in (gm, om, nm): continue
+            out[sid] = (gm, om, nm, numf(row[c_rv]) if c_rv is not None else None)
+        return len(out) - n0
     for typek in ("sii", "otc"):
-        try:
-            r = requests.post("https://mopsov.twse.com.tw/mops/web/ajax_t163sb06",
-                data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
-                      "isQuery": "Y", "TYPEK": typek,
-                      "year": str(year - 1911), "season": f"{season:02d}"},
-                headers=UA, timeout=60)
-            for df in pd.read_html(StringIO(r.text)):
-                cols = [str(c) for c in df.columns]
-                if not any("毛利率" in c for c in cols): continue
-                c_id = next(c for c in df.columns if "代號" in str(c))
-                c_gm = next(c for c in df.columns if "毛利率" in str(c))
-                c_om = next(c for c in df.columns if "營業利益率" in str(c))
-                c_nm = next(c for c in df.columns if "稅後純益率" in str(c))
-                c_rv = next((c for c in df.columns if "營業收入" in str(c)), None)
-                for _, row in df.iterrows():
-                    sid = str(row[c_id]).strip()
-                    if not (sid.isdigit() and len(sid) == 4): continue
-                    gm, om, nm = numf(row[c_gm]), numf(row[c_om]), numf(row[c_nm])
-                    if None in (gm, om, nm): continue
-                    out[sid] = (gm, om, nm, numf(row[c_rv]) if c_rv is not None else None)
-        except Exception as e:
-            print(f"  [warn] MOPS 營益 {typek} {year}Q{season}: {e}")
+        got = 0
+        for host in ("mopsov.twse.com.tw", "mops.twse.com.tw"):   # 舊 ajax(HTML 表格)
+            if got: break
+            try:
+                r = requests.post(f"https://{host}/mops/web/ajax_t163sb06",
+                    data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
+                          "isQuery": "Y", "TYPEK": typek, "year": y_roc, "season": ss},
+                    headers={**UA, "Referer": f"https://{host}/mops/web/t163sb06"}, timeout=60)
+                for df in pd.read_html(StringIO(r.text)):
+                    got += _absorb_df(df)
+            except Exception as e:
+                print(f"    [warn] {host} {typek} {year}Q{season}: {str(e)[:80]}")
+            time.sleep(1.2)
+        if not got:                                                # 新版 JSON API
+            try:
+                r = requests.post("https://mops.twse.com.tw/mops/api/t163sb06",
+                    json={"year": y_roc, "season": ss, "TYPEK": typek},
+                    headers={**UA, "Accept": "application/json"}, timeout=60)
+                j = r.json()
+                def _walk(o, depth=0):
+                    nonlocal got
+                    if depth > 4: return
+                    if isinstance(o, list) and o and isinstance(o[0], dict):
+                        ks = list(o[0].keys())
+                        kk = lambda *ns: next((x for x in ks if all(n in x for n in ns)), None)
+                        k_id, k_gm = kk("代號"), kk("毛利率")
+                        k_om, k_nm, k_rv = kk("營業利益率"), kk("稅後純益率"), kk("營業收入")
+                        if k_id and k_gm and k_om and k_nm:
+                            for r0 in o:
+                                sid = str(r0.get(k_id, "")).strip()
+                                gm, om, nm = numf(r0.get(k_gm)), numf(r0.get(k_om)), numf(r0.get(k_nm))
+                                if sid.isdigit() and len(sid) == 4 and None not in (gm, om, nm):
+                                    out[sid] = (gm, om, nm, numf(r0.get(k_rv)) if k_rv else None)
+                                    got += 1
+                            return
+                    if isinstance(o, dict):
+                        for v in o.values(): _walk(v, depth + 1)
+                    elif isinstance(o, list):
+                        for v in o[:5]: _walk(v, depth + 1)
+                _walk(j)
+            except Exception as e:
+                print(f"    [warn] mops新API {typek} {year}Q{season}: {str(e)[:80]}")
         time.sleep(1.5)
     return out
+
+def wayback_margins(want_qs):
+    """終極備援:Internet Archive 上 openapi 營益分析(t187ap17)的歷史快照。
+    每份快照=存檔當時的「最新季」全市場表 → 依內容年季歸檔,補齊缺季。
+    (同 TDCC 大戶回補的成熟套路;涵蓋率取決於快照密度。)"""
+    res = {q: {} for q in want_qs}
+    for url in ("https://openapi.twse.com.tw/v1/opendata/t187ap17_L",
+                "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap17_O"):
+        try:
+            cdx = requests.get("https://web.archive.org/cdx/search/cdx",
+                params={"url": url, "output": "json", "filter": "statuscode:200",
+                        "collapse": "timestamp:6", "from": "2024", "limit": "60"},
+                headers=UA, timeout=60).json()
+        except Exception as e:
+            print(f"    [warn] Wayback CDX {url.split('/')[2]}: {str(e)[:80]}"); continue
+        ts_list = [x[1] for x in cdx[1:]] if cdx and len(cdx) > 1 else []
+        print(f"    Wayback {url.split('/')[2]}:{len(ts_list)} 份快照")
+        for ts in ts_list:
+            try:
+                arr = requests.get(f"https://web.archive.org/web/{ts}id_/{url}",
+                                   headers=UA, timeout=120).json()
+            except Exception:
+                continue
+            if not (isinstance(arr, list) and arr and isinstance(arr[0], dict)): continue
+            ks = list(arr[0].keys())
+            kk = lambda *ns: next((x for x in ks if all(n in x for n in ns)), None)
+            k_id, k_y, k_s = kk("代號"), kk("年度"), kk("季")
+            k_gm, k_om, k_nm, k_rv = kk("毛利率"), kk("營業利益率"), kk("稅後純益率"), kk("營業收入")
+            if None in (k_id, k_gm, k_om, k_nm): continue
+            n0 = sum(len(d) for d in res.values())
+            for r0 in arr:
+                sid = str(r0.get(k_id, "")).strip()
+                gm, om, nm = numf(r0.get(k_gm)), numf(r0.get(k_om)), numf(r0.get(k_nm))
+                if not sid or None in (gm, om, nm): continue
+                y = int(numf(r0.get(k_y)) or 0); y = y + 1911 if 0 < y < 1900 else y
+                s_ = int(numf(r0.get(k_s)) or 0)
+                q = f"{y}Q{s_}"
+                if q in res and sid not in res[q]:
+                    res[q][sid] = (gm, om, nm, numf(r0.get(k_rv)))
+            n1 = sum(len(d) for d in res.values())
+            if n1 > n0: print(f"      快照 {ts[:8]}:+{n1-n0} 筆")
+            time.sleep(1)
+    return {q: d for q, d in res.items() if d}
 
 def append_margins(chips, cur):
     """把季度三率寫入籌碼歷史(fq/gm/om/nm/qr,保留8季)。
@@ -826,6 +907,20 @@ def append_margins(chips, cur):
             for sid, (gm, om, nm, rv) in prev.items():
                 _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
             time.sleep(2)
+        # 仍缺的季 → Wayback 快照終極備援(一次掃描補全部缺季)
+        missing = [pq for pq in qs
+                   if sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or [])) < 200]
+        if missing:
+            print(f"  MOPS 未補齊 {len(missing)} 季({','.join(missing)}),改走 Wayback 快照…")
+            wb = wayback_margins(missing)
+            for pq, data in wb.items():
+                print(f"    {pq}:Wayback 回補 {len(data)} 家")
+                for sid, (gm, om, nm, rv) in data.items():
+                    _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+            still = [pq for pq in missing if pq not in wb]
+            if still:
+                print(f"  [warn] 仍缺 {','.join(still)}(Archive 無該季快照)——"
+                      f"這些季度無零成本來源,將隨未來季報公布自然累積。")
     else:
         pq = prev_q(q_now)
         have_prev = sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or []))
