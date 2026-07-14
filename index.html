@@ -1285,6 +1285,11 @@ window.addEventListener('error',e=>{
   }catch(_){}
 });
 function setBadges(extra){
+  const ub=document.getElementById('updBadge'), sb=document.getElementById('srcBadge');
+  if((ub&&ub.__isGhost)||(sb&&sb.__isGhost)||!ub||!sb){   // DOM 還沒就緒(護盾假節點)→ 稍後重試
+    setTimeout(()=>{try{setBadges(extra);}catch(e){}},300);
+    return;
+  }
   const intr=DATA.intraday?` · 盤中 ${DATA.intraday}`:'';
   const _upd=DATA.source==='live'?DATA.updated:'範例';
   let tail='';
@@ -1296,9 +1301,9 @@ function setBadges(extra){
       tail=hm<15*60+55?'(盤後資料 15:40 搶先更新)':hm<18*60+45?'(15:40 首更未完成?18:30 將補跑)':' ⚠今日更新未完成,檢查 Actions';
     }
   }
-  document.getElementById('updBadge').textContent='盤後資料:'+_upd+tail+intr+(extra||'');
-  const sb=document.getElementById('srcBadge');
+  ub.textContent='盤後資料:'+_upd+tail+intr+(extra||'');
   if(DATA.source==='live'){ sb.textContent='● 報價即時'; sb.className='badge live'; }
+  else{ sb.textContent='⚠ 範例資料'; sb.className='badge demo'; }
 }
 function favList(){try{const a=JSON.parse(localStorage.getItem('fav_ids')||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}}
 function favHas(id){return favList().includes(id);}
@@ -2145,7 +2150,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r313</span>');
+  diag.push('<span style="color:var(--dim)">build r314</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10931,9 +10936,8 @@ function aiGreet(){
   inp.addEventListener('input',()=>{inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,120)+'px';});
 })();
 
-boot();
-
-/* 🛟 啟動保險:若主流程未成功套用即時資料(仍為範例),延遲重試 boot 一次 */
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);
+else boot();
 window.addEventListener('load',function(){
   setTimeout(function(){
     try{
