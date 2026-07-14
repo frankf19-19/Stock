@@ -1680,7 +1680,7 @@ function renderFutTab(){
   const num=(v,dec=0)=>v==null?'<span style="color:var(--dim)">—</span>':
     `<span class="${v>0?'pos':v<0?'neg':''}">${v>0?'+':''}${(+v).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec})}</span>`;
   const plain=(v,dec=0,suf='')=>v==null?'<span style="color:var(--dim)">—</span>':((+v).toLocaleString(undefined,{maximumFractionDigits:dec})+suf);
-  const H=['日期','成交值(億)','外資','投信','自營','外資期OI','前五大留倉','前十大留倉','選PCR','外(選)千元','韭菜%','大台總OI'];
+  const H=['日期','成交值(億)','外資','投信','自營','外資期OI(大+小/4)','前五大留倉','前十大留倉','選PCR','外(選)千元','韭菜%','大台總OI'];
   const hd=H.map(t=>`<div style="color:var(--mut);font-size:12px;padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap">${t}</div>`).join('');
   const body=rows.map((r,i)=>{
     const last=i===rows.length-1;
@@ -2088,7 +2088,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r305</span>');
+  diag.push('<span style="color:var(--dim)">build r307</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3180,8 +3180,9 @@ async function misIntraday(s){
       if(!j0)throw 0;
       return j0;
     };
-    let j;
-    try{j=await routeRace('misohlc',routes,one);}catch(e){return null;}
+    let j=null;
+    if(myWrap(u)){try{j=await one([myWrap(u),0]);}catch(e){}}   // 🏠 自家代理永遠先直試
+    if(!j){try{j=await routeRace('misohlc',routes,one);}catch(e){return null;}}
     const y=s.mg&&0||null;
     // 彈性掃描:在回應樹中找「長度>=5 的數字陣列,值域貼近昨收±15%」= 分線收盤序列
     const prev=(RTC[s.id]&&RTC[s.id].y)||s.price/(1+(s.chg||0)/100);

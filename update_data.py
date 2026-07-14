@@ -1684,10 +1684,14 @@ def build_fut_table():
     mtx = {}
     try:
         tx = _fut_oi("TX")
+        mtx = _fut_oi("MTX")
         for d2, m in tx.items():
             fk = next((k for k in m if "外資" in k or "Foreign" in k), None)
-            if fk: row(d2)["txf"] = int(m[fk])
-        mtx = _fut_oi("MTX")
+            if not fk: continue
+            # 坊間慣用口徑「外資大小」:大台 + 小台÷4(4口小台=1口大台);與各家籌碼表對得上
+            fm = next((v for k, v in (mtx.get(d2) or {}).items()
+                       if "外資" in k or "Foreign" in k), 0)
+            row(d2)["txf"] = int(round(m[fk] + fm / 4))
     except Exception as e:
         print(f"  [warn] futtab 期貨法人: {e}")
 
@@ -1718,8 +1722,10 @@ def build_fut_table():
             if "外資" not in nm and "Foreign" not in nm: continue
             lo = numf(r.get("long_open_interest_balance_amount")) or 0   # 契約金額(千元)
             so = numf(r.get("short_open_interest_balance_amount")) or 0
-            opt[d2] = opt.get(d2, 0) + (lo - so)      # 買方金額−賣方金額(Call+Put 合計)
-            # 坊間慣用口徑:外資選擇權未平倉「淨契約金額」;外資慣做賣方,常態為負
+            cp = str(r.get("call_put") or r.get("type") or "")
+            sign = -1 if ("賣" in cp or "put" in cp.lower()) else 1
+            # 坊間慣用口徑:外(選)= 買權淨額 −賣權淨額(方向調整後的多空力道,千元)
+            opt[d2] = opt.get(d2, 0) + sign * (lo - so)
         for d2, v in opt.items(): row(d2)["txo"] = int(v)
     except Exception as e:
         print(f"  [warn] futtab 選擇權法人: {e}")
