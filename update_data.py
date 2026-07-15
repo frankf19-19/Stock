@@ -1548,9 +1548,40 @@ def _act_delta(prev_hold, hold, etf_chg, chg_map, today_iso, px_map=None):
         return None
 
 def fetch_etf_holdings(stocks):
-    """已停用(Yahoo 全面移除)——ETF 成分/規模改由前端官網連結;殖利率走 dy.json。"""
-    print("  ETF 成分:略過(Yahoo 已全面停用)")
-    return
+    """主動式 ETF 持股:讀 etf_hold.json(由 fetch_etf.py 從 MoneyDJ 抓),
+    填入 s["hold"]["top"] 並用 _act_delta 算每日調倉(s["act"])。零 Yahoo。"""
+    try:
+        with open("etf_hold.json", encoding="utf-8") as f:
+            eh = json.load(f).get("h", {})
+    except Exception as e:
+        print(f"  ETF 持股:無 etf_hold.json,略過({e})"); return
+    if not eh:
+        print("  ETF 持股:etf_hold.json 空,略過"); return
+    by_id = {s["id"]: s for s in stocks}
+    chg_map = {s["id"]: s.get("chg") for s in stocks if s.get("chg") is not None}
+    px_map = {s["id"]: s.get("price") for s in stocks if s.get("price")}
+    n_hold = n_act = 0
+    for eid, hh in eh.items():
+        s = by_id.get(eid)
+        if not s or not hh.get("top"): continue
+        top = hh["top"]                                    # [[代號,名稱,權重%,股數],...]
+        prev_hold = dict(s.get("hold") or {})              # 昨日持股(算調倉用)
+        # 寫入今日持股(對齊既有格式:top=[代號,名稱,權重];股數存 sh 供調倉估算)
+        s.setdefault("hold", {})
+        s["hold"]["top"] = [[r[0], r[1], r[2]] for r in top]
+        s["hold"]["d"] = hh.get("d")
+        s["hold"]["sh"] = {r[0]: r[3] for r in top if len(r) > 3}   # 代號→股數
+        n_hold += 1
+        # 調倉估算:今日 vs 昨日(需昨日有 top)
+        try:
+            if prev_hold.get("top"):
+                delta = _act_delta(prev_hold, s["hold"], s.get("chg"),
+                                   chg_map, TODAY.isoformat(), px_map)
+                if delta:
+                    s["act"] = delta; n_act += 1
+        except Exception:
+            pass
+    print(f"  ETF 持股:更新 {n_hold} 檔(主動式調倉估算 {n_act} 檔)")
 
 def build_tdcc_trend(stocks):
     """集保股權分散 v2:每股每週存 9 組級距(可前端換算任意大戶/散戶門檻)。
