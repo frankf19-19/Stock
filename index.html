@@ -2087,7 +2087,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r304g</span>');
+  diag.push('<span style="color:var(--dim)">build r305a</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3908,7 +3908,7 @@ function rtTargets(){
   document.querySelectorAll('[data-candle]').forEach(el=>add((DATA.stocks||[]).find(x=>x.id===el.dataset.candle)));
   return [...ids].slice(0,180);
 }
-function myProxy(){return '';}   /* Worker 已停用:即時一律直連/公共代理,不走自架Worker(避免限流卡死整站) */
+function myProxy(){try{return (localStorage.getItem('my_proxy')||'').trim();}catch(e){return '';}}   /* Worker 網址存本機 localStorage,由「測試連線」面板手動設定;不自動讀 proxy.json,避免全站誤套用 */
 const ROUTE_MEM={};
 function routeMemGet(k){if(ROUTE_MEM[k]!=null)return ROUTE_MEM[k];try{return ROUTE_MEM[k]=+(localStorage.getItem('rt_route_'+k)||0);}catch(e){return 0;}}
 function routeMemSet(k,i){ROUTE_MEM[k]=i;try{localStorage.setItem('rt_route_'+k,String(i));}catch(e){}}
