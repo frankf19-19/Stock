@@ -2087,7 +2087,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r305a</span>');
+  diag.push('<span style="color:var(--dim)">build r305b</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5568,7 +5568,20 @@ async function loadK(s){
     catch(e){KCACHE[sh]={};}
   }
   const e=KCACHE[sh][s.id];
-  return (e&&Array.isArray(e.o)&&e.o.length>5)?{ohlc:e.o,dates:e.d}:null;
+  if(!(e&&Array.isArray(e.o)&&e.o.length>5))return null;
+  const dates=e.d.slice(), ohlc=e.o.map(r=>r.slice());
+  // 📌 補今日K棒:K線最後一根 < data.json 最新交易日,且該股有今日收盤價 → 補一根
+  //    (官方日K源常延遲數小時;開高低暫用收盤價,明天官方完整資料會自動覆蓋)
+  const today=DATA.updated;
+  if(s.market==='TW'&&today&&dates.length&&dates[dates.length-1]<today&&s.price>0){
+    const px=+s.price;
+    // 前一根收盤當今日開盤基準,若現價=收盤則平盤棒
+    const prevC=ohlc[ohlc.length-1][3];
+    const o=prevC>0?prevC:px;
+    dates.push(today);
+    ohlc.push([+o.toFixed(2),+Math.max(o,px).toFixed(2),+Math.min(o,px).toFixed(2),+px.toFixed(2),0]);
+  }
+  return {ohlc,dates};
 }
 async function showDetail(id){
   const s=DATA.stocks.find(x=>x.id===id);
