@@ -1,0 +1,26 @@
+name: ETF 持股更新(主動式)
+on:
+  schedule:
+    - cron: '0 10 * * 1-5'    # 台北 18:00 每交易日|MoneyDJ 傍晚較穩
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: etf-hold
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install requests
+      - run: python fetch_etf.py
+      - name: commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add etf_hold.json || true
+          git diff --cached --quiet || git commit -m "ETF 持股更新 [CI Skip]"
+          git push || true
