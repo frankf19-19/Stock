@@ -2145,7 +2145,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r312</span>');
+  diag.push('<span style="color:var(--dim)">build r314</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5490,6 +5490,20 @@ function bindKControls(sLike){
     el.addEventListener('scroll',upd,{passive:true});
     setTimeout(upd,80);window.addEventListener('resize',upd,{passive:true});
   });
+  const dseg=document.getElementById('drawSeg');
+  if(dseg&&!dseg.__b){dseg.__b=1;
+    dseg.querySelectorAll('button').forEach(b=>{
+      b.onclick=()=>{
+        const d=b.dataset.d;
+        if(d==='c'){
+          if(confirm('清除這檔的全部手繪線?')){try{localStorage.removeItem(kdrawKey());}catch(e){}KDRAW.mode=null;KDRAW.tmp=null;kdrawBtnSync();kdrawApply();}
+          return;
+        }
+        if(kView.itv!=='1d'){alert('手繪線目前僅支援日K(座標以日期定位)');return;}
+        KDRAW.mode=(KDRAW.mode===d)?null:d;KDRAW.tmp=null;kdrawBtnSync();
+      };
+    });
+  }
   const lvs=document.getElementById('lvSeg');
   if(lvs){
     const cur=localStorage.getItem('kLV')!=='0';
@@ -5564,6 +5578,7 @@ function kChartBoxHTML(){
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="drawSeg"><button data-d="h" title="點圖一下,在該價位畫水平線">➖ 水平線</button><button data-d="t" title="點圖兩下,兩點連成趨勢線">📐 趨勢線</button><button data-d="c" title="清除本檔全部手繪線">🧹</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
@@ -5574,6 +5589,55 @@ function kChartBoxHTML(){
       <div class="dim-note" style="margin:2px 0 8px">「全部」=有資料以來完整歷史 · MA5~MA240 全數預設顯示(點圖例可開關) · 滾輪/滑桿縮放 · 手機:上方工具列可左右滑動<span id="kBoxNote"></span></div>
       <div id="kbox" style="height:560px"></div>
     </div>`;
+}
+/* ✏️ K線手繪工具:水平線/趨勢線,點圖繪製、每檔自動保存(localStorage)、僅日K顯示 */
+const KDRAW={mode:null,tmp:null};
+function kdrawKey(){return 'kdraw_'+decodeURIComponent((location.hash||'').replace('#stock/','').replace('#macro/',''));}
+function kdrawLoad(){try{const o=JSON.parse(localStorage.getItem(kdrawKey())||'null');return (o&&o.h&&o.t)?o:{h:[],t:[]};}catch(e){return {h:[],t:[]};}}
+function kdrawSave(o){try{localStorage.setItem(kdrawKey(),JSON.stringify(o));}catch(e){}}
+function kdrawBtnSync(){
+  const seg=document.getElementById('drawSeg');
+  if(!seg)return;
+  seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.d===KDRAW.mode));
+}
+function kdrawApply(){
+  if(!chartInst)return;
+  const mk=[];
+  if(kView.itv==='1d'){                      // 手繪線僅日K顯示(座標以日K日期定位)
+    const o=kdrawLoad();
+    o.h.forEach(p=>mk.push({yAxis:p,lineStyle:{color:'#7c5cff',width:1.4,type:'solid'},
+      label:{formatter:String(p),position:'insideEndTop',color:'#7c5cff',fontSize:11}}));
+    o.t.forEach(seg=>{
+      if(curDates&&curDates.includes(seg[0])&&curDates.includes(seg[2]))
+        mk.push([{coord:[seg[0],seg[1]],lineStyle:{color:'#7c5cff',width:1.6}},{coord:[seg[2],seg[3]]}]);
+    });
+  }
+  try{chartInst.setOption({series:[{id:'kdraw',name:'手繪',type:'line',xAxisIndex:0,yAxisIndex:0,
+    data:[],silent:true,showSymbol:false,
+    markLine:{symbol:'none',silent:true,animation:false,label:{show:true},data:mk}}]});}catch(e){}
+}
+function kdrawBindClick(){
+  if(!chartInst)return;
+  try{
+    chartInst.getZr().off('click.kdraw');
+    chartInst.getZr().on('click.kdraw',ev=>{
+      if(!KDRAW.mode||KDRAW.mode==='c')return;
+      if(kView.itv!=='1d'){KDRAW.mode=null;kdrawBtnSync();return;}
+      if(!chartInst.containPixel({gridIndex:0},[ev.offsetX,ev.offsetY]))return;   // 只認主圖區點擊
+      const pt=chartInst.convertFromPixel({gridIndex:0},[ev.offsetX,ev.offsetY]);
+      if(!pt)return;
+      const xi=Math.max(0,Math.min((curDates||[]).length-1,Math.round(pt[0])));
+      const date=curDates[xi], price=+(+pt[1]).toFixed(2);
+      const o=kdrawLoad();
+      if(KDRAW.mode==='h'){
+        o.h.push(price);kdrawSave(o);KDRAW.mode=null;kdrawBtnSync();kdrawApply();
+      }else if(KDRAW.mode==='t'){
+        if(!KDRAW.tmp){KDRAW.tmp=[date,price];}
+        else{o.t.push([KDRAW.tmp[0],KDRAW.tmp[1],date,price]);KDRAW.tmp=null;kdrawSave(o);
+             KDRAW.mode=null;kdrawBtnSync();kdrawApply();}
+      }
+    });
+  }catch(e){}
 }
 function drawKChart(){
   const box=document.getElementById('kbox');
@@ -5682,6 +5746,7 @@ function drawKChart(){
   try{
     const kr=window.__kRestore;
     if(kr&&kr.legend)chartInst.setOption({legend:{selected:kr.legend}});
+  try{kdrawApply();kdrawBindClick();}catch(e){}
     window.__kRestore=null;
   }catch(e){}
           // 徽章式標籤:桌面帶名稱;手機改「小價位牌靠右軸停靠」不遮K棒
@@ -6065,6 +6130,7 @@ async function showDetail(id){
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="drawSeg"><button data-d="h" title="點圖一下,在該價位畫水平線">➖ 水平線</button><button data-d="t" title="點圖兩下,兩點連成趨勢線">📐 趨勢線</button><button data-d="c" title="清除本檔全部手繪線">🧹</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
@@ -10600,13 +10666,27 @@ async function showMacroDetail(key){
   KHASH='#macro/'+key;
   const _tv=(key!=='twii'&&key!=='otc'&&typeof TV_SYM!=='undefined')?TV_SYM[key]:null;
   const pseudo={id:def.sym,market:'US',syms:[def.sym,...(def.alt||[])]};
-  if(_tv){                     // 📺 即時K線:TradingView 官方(日K起手,可切週期/指標)
+  const _mountTvK=()=>{        // 📺 TV 備援:無站內日K資料的標的(日經/VIX/DXY/匯率)
     const kb=document.getElementById('kbox')||document.querySelector('#kwrap .chart-box');
     const kw=document.getElementById('kbox')?document.getElementById('kbox').closest('.chart-box'):null;
     const host=(kw||kb);
     if(host){host.innerHTML='<div class="ind-head"><h3>K線圖 · TradingView 即時(可切日K/週K/指標)</h3></div><div id="tvKbox" style="height:500px"></div>';
       tvWidget('tvKbox',_tv,{interval:'D',style:'1'});}
-  }else{
+  };
+  const KPROXY={sox:'SOXX',gspc:'SPY',ixic:'QQQ',dji:'DIA'};   // 美股指數→ETF替身(分片有完整日K)
+  const _proxy=KPROXY[key];
+  if(_proxy){                  // 🕯️ 美股四指數:站內完整K線(MA/指標/手繪全功能,以對應ETF繪製)
+    (async()=>{
+      const ps={id:_proxy,market:'US'};
+      const k=await loadK(ps);
+      if(k&&!k.demo&&location.hash==='#macro/'+key){
+        bindKControls(ps);applyKView(ps);
+        setTimeout(()=>{const km=document.getElementById('kMeta');
+          if(km&&!/替身/.test(km.textContent))km.textContent+=` · 以 ${_proxy} ETF 對應繪製`;},900);
+      }else if(_tv){_mountTvK();}
+    })();
+  }else if(_tv){_mountTvK();}
+  else{
     bindKControls(pseudo);
     applyKView(pseudo);
   }
