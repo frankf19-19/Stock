@@ -675,7 +675,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       </div>
       <div class="statline">
         <span class="badge" id="updBadge">更新:—</span>
-        <span class="badge demo" id="srcBadge">⚠ 範例資料</span>
+        <span class="badge demo" id="srcBadge" onclick="rtSetup()" style="cursor:pointer" title="點擊檢查/設定即時報價連線">⚠ 範例資料</span>
       </div>
     </div>
   </div>
@@ -1208,6 +1208,64 @@ setInterval(()=>{
   if(!window.__snapDirty)return;window.__snapDirty=0;
   try{localStorage.setItem(SNAP_KEY,JSON.stringify({ts:Date.now(),q:window.__RTQ}));}catch(e){}
 },20000);
+/* ══ 即時連線設定面板:srcBadge 點擊開啟;貼 Worker 網址、儲存、一鍵測試 ══ */
+async function rtSetup(){
+  let ov=document.getElementById('rtSetupOv');
+  if(ov){ov.remove();return;}
+  ov=document.createElement('div');
+  ov.id='rtSetupOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px';
+  const cur=myProxy();
+  ov.innerHTML=`<div style="background:var(--card,#fff);border-radius:14px;max-width:520px;width:100%;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25)" onclick="event.stopPropagation()">
+    <div style="font-weight:800;font-size:17px;margin-bottom:6px">📡 即時報價連線</div>
+    <div style="font-size:13px;opacity:.75;line-height:1.7;margin-bottom:10px">
+      台股即時報價需經代理繞過瀏覽器限制。建議使用自己的 Cloudflare Worker(免費、穩定);
+      未設定時走公共代理(時好時壞)。網址只存在這台裝置。
+    </div>
+    <input id="rtPxIn" value="${cur}" placeholder="https://xxx.你的帳號.workers.dev"
+      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--line,#ccc);border-radius:9px;font-size:14px">
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button onclick="rtSetupSave()" style="flex:1;min-width:100px;padding:9px 0;border:0;border-radius:9px;background:var(--accent,#b3382c);color:#fff;font-weight:700;cursor:pointer">儲存</button>
+      <button onclick="rtSetupTest(this)" style="flex:1;min-width:100px;padding:9px 0;border:1px solid var(--line,#ccc);border-radius:9px;background:transparent;cursor:pointer">🔌 測試連線</button>
+      <button onclick="document.getElementById('rtSetupOv').remove()" style="padding:9px 14px;border:1px solid var(--line,#ccc);border-radius:9px;background:transparent;cursor:pointer">關閉</button>
+    </div>
+    <div id="rtSetupMsg" style="font-size:13px;margin-top:10px;line-height:1.7"></div>
+  </div>`;
+  ov.onclick=()=>ov.remove();
+  document.body.appendChild(ov);
+}
+function rtSetupSave(){
+  try{
+    const v=(document.getElementById('rtPxIn').value||'').trim().replace(/\/+$/,'');
+    localStorage.setItem('my_proxy',v);
+    const m=document.getElementById('rtSetupMsg');
+    if(m)m.innerHTML='<span style="color:green">✅ 已儲存'+(v?'':'(已清空,改走公共代理)')+' — 建議按「測試連線」確認</span>';
+    RT.failN=0;
+  }catch(e){}
+}
+async function rtSetupTest(btn){
+  const m=document.getElementById('rtSetupMsg');
+  btn.disabled=true;btn.textContent='測試中…';
+  const t0=Date.now();
+  try{
+    // 先存目前輸入值再測,測的就是你貼的網址
+    rtSetupSave();
+    const r=await fetchMISOne(['tse_2330.tw','tse_t00.tw']);
+    const ms=Date.now()-t0;
+    if(r&&r.length){
+      const z=r.find(x=>x.c==='2330');
+      m.innerHTML=`<span style="color:green">✅ 連線成功(${ms}ms)!台積電現價 ${z&&z.z||'—'} — 即時報價已恢復</span>`;
+      const sb=document.getElementById('srcBadge');
+      if(sb&&DATA&&DATA.source==='live'){sb.textContent='● 報價即時';sb.className='badge live';}
+      try{rtTick();}catch(e){}
+    }else{
+      m.innerHTML=`<span style="color:#c00">❌ 所有路由都不通(${ms}ms)。請確認:①Worker 網址貼對(https 開頭)②Worker 已 Deploy ③現在是台股盤中(盤後 MIS 可能無資料)</span>`;
+    }
+  }catch(e){
+    m.innerHTML='<span style="color:#c00">❌ 測試失敗:'+(e.message||e)+'</span>';
+  }
+  btn.disabled=false;btn.textContent='🔌 測試連線';
+}
 function applyRTQ(){
   try{
     const q=window.__RTQ||{};let n=0;
@@ -2087,7 +2145,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r305b</span>');
+  diag.push('<span style="color:var(--dim)">build r306</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4006,9 +4064,15 @@ async function rtTick(){
     RT.failN=(RT.failN||0)+1;
     if(RT.failN>=3){
       const sb=document.getElementById('srcBadge');
-      if(sb){sb.textContent='● 報價來源暫斷,自動重試中';sb.className='badge warn';}
+      if(sb){sb.textContent='⚠ 即時斷線 · 點我修復';sb.className='badge warn';sb.style.cursor='pointer';}
     }
-  }else RT.failN=0;
+  }else{
+    if(RT.failN>=3){   // 從斷線中恢復:badge 變回綠燈
+      const sb=document.getElementById('srcBadge');
+      if(sb){sb.textContent='● 報價即時';sb.className='badge live';}
+    }
+    RT.failN=0;
+  }
   if(!arr||!arr.length)return; // 通道暫時不通:維持5分鐘機制,不吵使用者
   let n=0;
   arr.forEach(m=>{
