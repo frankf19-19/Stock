@@ -79,6 +79,7 @@ def main():
         time.sleep(0.4)
 
     # ── 2. 加權/櫃買指數 ──
+    idxq = {}
     try:
         arr = mis_get(["tse_t00.tw", "otc_o00.tw"])
         idx = data.setdefault("macro", {}).setdefault("idx", [])
@@ -92,6 +93,7 @@ def main():
                 it = {"name": name}
                 idx.insert(0, it)
             it["val"], it["chg"] = round(last, 2), round((last - prev) / prev * 100, 2)
+            idxq["t00" if "t00" in str(m.get("ch", "")) else "o00"] = round(last, 2)
     except Exception as e:
         print(f"  [warn] 指數: {e}")
 
@@ -117,6 +119,12 @@ def main():
         for sid, arr in sp["s"].items():      # 本輪沒報到的補 null 對齊
             if len(arr) < L + 1:
                 arr.append(None)
+        spi = sp.setdefault("i", {})          # 指數序列(加權 t00/櫃買 o00)供走勢回補
+        for k in ("t00", "o00"):
+            arr = spi.setdefault(k, [None] * L)
+            if len(arr) < L:
+                arr += [None] * (L - len(arr))
+            arr.append(idxq.get(k))
         with open("spark.json", "w", encoding="utf-8") as f:
             json.dump(sp, f, ensure_ascii=False, separators=(",", ":"))
         print(f"  spark.json:第 {L+1} 點({len(sp['s'])} 檔)")

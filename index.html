@@ -2145,7 +2145,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r310</span>');
+  diag.push('<span style="color:var(--dim)">build r312</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2166,15 +2166,14 @@ function tvToggle(){
   if(window.__tvMode){                          // 切回站內圖
     window.__tvMode=false;
     if(btn)btn.textContent='📺 TV 全能圖';
-    try{localStorage.setItem('tvPref','0');}catch(e){}
+    
     loadIntraDetail(s);
-  window.__tvMode=false;   // 每次進個股先重置
-  try{if(localStorage.getItem('tvPref')==='1'){setTimeout(()=>{const b=document.getElementById('tvTgl');if(b&&location.hash==='#stock/'+encodeURIComponent(s.id))tvToggle();},250);}}catch(e){} //tvauto
+  window.__tvMode=false;   // 每次進個股一律預設站內圖(TV 需手動點,不自動記憶,避免混淆)
     return;
   }
   window.__tvMode=true;
   if(btn)btn.textContent='↩ 站內走勢';
-  try{localStorage.setItem('tvPref','1');}catch(e){}
+  
   const sym=(s.ex==='otc'?'TPEX:':'TWSE:')+s.id;
   const ok=tvWidget('intraChart',sym,{interval:'5',style:'1',withToolbar:true});
   if(!ok&&btn)btn.textContent='📺 TV 全能圖';
@@ -2288,6 +2287,39 @@ function flowHTML(d,unit){
 }
 /* ══ 📈 Lightweight Charts:TradingView 官方開源圖表引擎(個股即時走勢專業版)══
    同款外觀與十字線互動;資料自家 MIS 餵=秒級真即時;CDN 載不到自動退回 ECharts 版 */
+/* 🌅 當日分時回補:spark.json(後端盤中每5分鐘存全市場快照)——中途開頁也有 09:00 起完整走勢 */
+let __sparkP=null;
+function loadSpark(){
+  const now=Date.now();
+  if(window.__SPARK&&now-(window.__SPARK.__ts||0)<60000)return Promise.resolve(window.__SPARK);
+  if(__sparkP)return __sparkP;
+  __sparkP=fetch('spark.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
+    __sparkP=null;
+    if(!j||!j.t||!j.t.length)return null;
+    const today=tpDay(Date.now()/1000);
+    if(j.d!==today)return null;                 // 只用今天的
+    j.__ts=Date.now(); window.__SPARK=j; return j;
+  }).catch(()=>{__sparkP=null;return null;});
+  return __sparkP;
+}
+function sparkBase(key,d){   // key:'2330' 個股|'t00'/'o00' 指數;回傳打底後的 d(同步,靠已載快取)
+  try{
+    const sp=window.__SPARK;
+    if(!sp||!d||!d.t||!d.t.length)return d;
+    const seq=(key==='t00'||key==='o00')?(sp.i&&sp.i[key]):(sp.s&&sp.s[key]);
+    if(!seq||!seq.length)return d;
+    const first=d.t[0];
+    const t=[],c=[],v=[];
+    sp.t.forEach((ts,i)=>{
+      if(ts>=first-30)return;                   // 只補現有資料之前的段落
+      const val=seq[i];
+      if(val==null)return;
+      t.push(ts);c.push(+val);v.push(0);
+    });
+    if(!t.length)return d;
+    return Object.assign({},d,{t:t.concat(d.t),c:c.concat(d.c),v:v.concat(d.v||d.c.map(()=>0))});
+  }catch(e){return d;}
+}
 /* ⏰ 台股分時軸校正:資料從開頁才累積時,頭部補空點至 09:00,時間軸永遠從開盤起 */
 function padDay0900(d){
   try{
@@ -2333,7 +2365,7 @@ function drawIntraLWC(domId,d){
   const dark=document.documentElement.dataset.theme==='dark';
   const ch=LightweightCharts.createChart(box,{
     autoSize:true,
-    layout:{background:{type:'solid',color:'transparent'},textColor:dark?'#aaa':'#666',fontSize:11},
+    layout:{background:{type:'solid',color:'transparent'},textColor:dark?'#aaa':'#666',fontSize:11,attributionLogo:false},
     grid:{vertLines:{color:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)'},
           horzLines:{color:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)'}},
     rightPriceScale:{borderVisible:false,scaleMargins:{top:0.08,bottom:0.22}},
@@ -2771,6 +2803,7 @@ async function renderIdxAnalysis(d){
   }
   // 量能與預估量
   let volTxt='';
+  if(s.market==='TW'){try{await loadSpark();d=sparkBase(s.id,d);}catch(e){}}   // 🌅 spark 回補 09:00 起底圖
   const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
   const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
   const mins=(now.getHours()*60+now.getMinutes())-540;
@@ -2965,6 +2998,7 @@ function drawIdxSel(){
   }
   if((IDX.sel==='sp'||IDX.sel==='nq')&&!IDX.d[IDX.sel]){loadUSIdx(IDX.sel);}
   let d=idxPick(IDX.sel);
+  if(d&&(IDX.sel==='tw'||IDX.sel==='otc'))d=sparkBase(IDX.sel==='tw'?'t00':'o00',d);   // 🌅 spark 回補
   // 圖上是否為「今日盤中資料」→ 決定即時報價能不能戳最後一點
   window.__idxToday=!!(d&&Array.isArray(d.t)&&d.t.length&&tpDay(d.t[d.t.length-1])===tpDay(Date.now()/1000));
   const title=document.getElementById('idxTitle');
@@ -4297,7 +4331,9 @@ function livePatchCards(){
   });
 }
 setInterval(rtTick,6000);
-setTimeout(()=>{try{ensureLWC();}catch(e){}},2500);   // 📈 預載圖表引擎(45KB),指數/個股走勢直接用
+setTimeout(()=>{try{ensureLWC();}catch(e){}},2500);
+setTimeout(()=>{try{loadSpark();}catch(e){}},1800);   // 🌅 預載當日分時快照
+setInterval(()=>{try{if(openish())loadSpark();}catch(e){}},120000);   // 📈 預載圖表引擎(45KB),指數/個股走勢直接用
 setTimeout(rtTick,3000);
 
 /* ── 開盤時段自動更新:台北週一至五 08:55–13:40,每 60 秒重抓 data.json ── */
