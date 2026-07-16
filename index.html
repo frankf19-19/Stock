@@ -2145,7 +2145,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r318</span>');
+  diag.push('<span style="color:var(--dim)">build r319</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2162,7 +2162,7 @@ function tvToggle(){
   const id=decodeURIComponent((location.hash||'').replace('#stock/',''));
   const s=(DATA&&DATA.stocks||[]).find(x=>x.id===id);
   const btn=document.getElementById('tvTgl');
-  if(!s||s.market!=='TW'){if(btn){btn.textContent='僅台股支援';setTimeout(()=>btn.textContent='📺 TV 全能圖',1500);}return;}
+  if(!s){return;}
   if(window.__tvMode){                          // 切回站內圖
     window.__tvMode=false;
     if(btn)btn.textContent='📺 TV 全能圖';
@@ -2174,7 +2174,7 @@ function tvToggle(){
   window.__tvMode=true;
   if(btn)btn.textContent='↩ 站內走勢';
   
-  const sym=(s.ex==='otc'?'TPEX:':'TWSE:')+s.id;
+  const sym=s.market==='TW'?((s.ex==='otc'?'TPEX:':'TWSE:')+s.id):s.id;   // 美股裸代號由 TV 自動解析
   const ok=tvWidget('intraChart',sym,{interval:'5',style:'1',withToolbar:true});
   if(!ok&&btn)btn.textContent='📺 TV 全能圖';
 }
@@ -3468,6 +3468,16 @@ async function loadIntraDetail(s,accOnly){
   try{await ensureLWC();}catch(e){}   // 📈 優先載 TradingView 開源引擎,載不到自動退 ECharts             // 📺 TV 模式中:站內走勢暫停重畫,避免互蓋
   const box=document.getElementById('intraChart');
   if(!box)return;
+  if(s.market==='US'){                   // 🇺🇸 美股分時:TradingView 官方即時(零Yahoo後唯一穩定分時源)
+    if(accOnly)return;
+    if(box.dataset.ustv===s.id)return;   // 已掛同檔
+    box.dataset.ustv=s.id;
+    tvWidget('intraChart',s.id,{interval:'1',style:'3'});
+    const st0=document.getElementById('intraStat');
+    if(st0)st0.innerHTML=intraStatTxt(s,'TradingView 即時走勢');
+    return;
+  }
+  if(box.dataset.ustv)delete box.dataset.ustv;   // 從美股切回台股:清標記讓台股圖正常重掛
   const sym=s.market==='TW'?`${s.id}.${s.ex==='otc'?'TWO':'TW'}`:s.id;
   const isTW0=s.market==='TW';
   const stat0=document.getElementById('intraStat');
