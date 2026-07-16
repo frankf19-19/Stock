@@ -2145,7 +2145,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r309</span>');
+  diag.push('<span style="color:var(--dim)">build r310</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2972,7 +2972,7 @@ function drawIdxSel(){
   const stat=document.getElementById('idxStat');
   if(!d){
     if(IDX.sel==='otc'&&OTCACC.c.length>=2){   // 用累積點畫線
-      RT.idx=drawIntra('idxChart',OTCACC);
+      RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',OTCACC))||drawIntra('idxChart',OTCACC);
       const last=OTCACC.c[OTCACC.c.length-1],pv=OTCACC.prev;
       if(stat&&pv){const chg=(last-pv)/pv*100;
         stat.innerHTML=`${(+last).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`;}
@@ -2988,7 +2988,7 @@ function drawIdxSel(){
   const last=IDX.last[IDX.sel]??[...d.c].reverse().find(x=>x!=null);
   const chg=(last-d.prev)/d.prev*100;
   if(stat)stat.innerHTML=`${(+last).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>${d.approx?' <span class="c-code" title="Yahoo 無櫃買分線,以上櫃ETF走勢按指數比例換算">ETF換算</span>':''}`;
-  RT.idx=drawIntra('idxChart',d);
+  RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',d))||drawIntra('idxChart',d);
   const fl=document.getElementById('idxFlow');
   if(fl)fl.innerHTML=IDX.sel==='tw'?flowHTML(d,'股'):'';
   if(IDX.sel==='tw')renderIdxAnalysis(d);
@@ -4297,6 +4297,7 @@ function livePatchCards(){
   });
 }
 setInterval(rtTick,6000);
+setTimeout(()=>{try{ensureLWC();}catch(e){}},2500);   // 📈 預載圖表引擎(45KB),指數/個股走勢直接用
 setTimeout(rtTick,3000);
 
 /* ── 開盤時段自動更新:台北週一至五 08:55–13:40,每 60 秒重抓 data.json ── */
@@ -8789,7 +8790,7 @@ function drawMkLive(misKey){
   if(!box)return;
   if(d){
     window.__mkToday=!!(Array.isArray(d.t)&&d.t.length&&tpDay(d.t[d.t.length-1])===tpDay(Date.now()/1000));
-    RT.mk=drawIntra('mkIntra',d);
+    RT.mk=(window.LightweightCharts&&drawIntraLWC('mkIntra',d))||drawIntra('mkIntra',d);
   }else{
     window.__mkToday=false;
     if(stat)stat.textContent=marketOpen()?'今日走勢即時累積中,約 30 秒後出現':'走勢暫時載入不到';
@@ -10625,7 +10626,7 @@ async function showMacroDetail(key){
   if(!misKey&&!_tv&&fhKey()&&FH_ETF[key])fhDetailLive(key,def);   // ⚡ 僅手動設金鑰時作為備援
   if(misKey)drawMkLive(misKey);
   else if(_tv&&tvWidget('mkIntra',_tv)){/* TradingView 即時圖已掛載 */}
-  else if(intra&&!intra.daily&&intra.c.some(x=>x!=null))drawIntra('mkIntra',intra);
+  else if(intra&&!intra.daily&&intra.c.some(x=>x!=null)){(window.LightweightCharts&&drawIntraLWC('mkIntra',intra))||drawIntra('mkIntra',intra);}
   else if(daily){/* FRED 日更來源:無分線,誠實畫日線(下方 if(daily) 一併處理判讀) */}
   else document.getElementById('mkIntra').innerHTML='<div class="dim-note" style="padding:20px">目前非交易時段或無分時資料,請看下方K線。</div>';
   const box=document.getElementById('mkIntra');
