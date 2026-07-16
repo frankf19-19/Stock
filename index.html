@@ -2145,7 +2145,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r315</span>');
+  diag.push('<span style="color:var(--dim)">build r316</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2354,6 +2354,7 @@ function ensureLWC(){
 }
 const _TZ8=8*3600;   // LWC 以 UTC 顯示 → 餵 +8h 讓軸標=台北時間
 function drawIntraLWC(domId,d){
+ try{                                          // 🛡️ 任何失敗回 null → 呼叫端 || 自動退 ECharts,永不空白
   d=padDay0900(d);
   const box=document.getElementById(domId);
   if(!box||!window.LightweightCharts)return null;
@@ -2379,15 +2380,25 @@ function drawIntraLWC(domId,d){
   const area=ch.addAreaSeries({lineColor:col,lineWidth:2,
     topColor:up?'rgba(229,72,77,.18)':'rgba(33,164,102,.18)',
     bottomColor:'rgba(0,0,0,0)',priceLineVisible:false,lastValueVisible:true});
+  // 🧹 LWC 要求時間嚴格遞增:先按時間排序並去重(同秒取後值)
+  const rows=[];
+  d.t.forEach((ts,i)=>{const t=Math.floor(+ts);if(t>0)rows.push([t,d.c[i],(d.v&&d.v[i])||0]);});
+  rows.sort((a,b)=>a[0]-b[0]);
+  const dd={t:[],c:[],v:[]};
+  rows.forEach(r=>{
+    if(dd.t.length&&dd.t[dd.t.length-1]===r[0]){dd.c[dd.c.length-1]=r[1];dd.v[dd.v.length-1]=r[2];}
+    else{dd.t.push(r[0]);dd.c.push(r[1]);dd.v.push(r[2]);}
+  });
   const pts=[],avgPts=[];let cv=0,cpv=0,lastT=0;
-  d.t.forEach((ts,i)=>{
-    const c=d.c[i];
+  dd.t.forEach((ts,i)=>{
+    const c=dd.c[i];
     const t=ts+_TZ8;lastT=t;
     if(c==null){pts.push({time:t});avgPts.push({time:t});return;}   // whitespace:撐開 09:00 起的軸
     pts.push({time:t,value:+(+c).toFixed(2)});
-    const v=d.v&&d.v[i]||0;if(v){cv+=v;cpv+=c*v;}
+    const v=dd.v[i]||0;if(v){cv+=v;cpv+=c*v;}
     avgPts.push({time:t,value:cv?+(cpv/cv).toFixed(2):+(+c).toFixed(2)});
   });
+  if(!pts.some(p=>p.value!=null))return null;   // 全 whitespace 沒實點 → 退 ECharts
   area.setData(pts);
   // 均價黃線
   const avgS=ch.addLineSeries({color:'#E8B44A',lineWidth:1,priceLineVisible:false,lastValueVisible:false,
@@ -2397,14 +2408,18 @@ function drawIntraLWC(domId,d){
   if(d.prev>0)area.createPriceLine({price:+(+d.prev).toFixed(2),color:dark?'#888':'#999',
     lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dashed,axisLabelVisible:true,title:'昨收'});
   // 量能副圖(底部 histogram)
-  if((d.v||[]).some(v=>v>0)){
+  if((dd.v||[]).some(v=>v>0)){
     const vol=ch.addHistogramSeries({priceScaleId:'vol',priceFormat:{type:'volume'},
       color:up?'rgba(229,72,77,.45)':'rgba(33,164,102,.45)'});
     ch.priceScale('vol').applyOptions({scaleMargins:{top:0.82,bottom:0},borderVisible:false});
-    vol.setData(d.t.map((ts,i)=>({time:ts+_TZ8,value:d.v[i]||0})).filter(x=>x.value>0));
+    vol.setData(dd.t.map((ts,i)=>({time:ts+_TZ8,value:dd.v[i]||0})).filter(x=>x.value>0));
   }
   ch.timeScale().fitContent();
   return {lwc:1,ch,area,avgS,prev:d.prev,cv,cpv,lastT,id:d.__id};
+ }catch(e){
+  try{const box=document.getElementById(domId);if(box&&box.__lwc){box.__lwc.remove();box.__lwc=null;}}catch(_){}
+  return null;                                  // → 呼叫端自動退 ECharts
+ }
 }
 function drawIntra(domId,d){
   d=padDay0900(d);
