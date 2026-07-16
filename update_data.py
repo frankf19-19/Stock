@@ -1898,7 +1898,7 @@ def build_fut_table():
     # 期交所值常帶「12,345(10.5%)」格式 → 去括號後再轉數字
     import re as _re6
     _ln = lambda v: numf(_re6.sub(r"\(.*?\)", "", str(v)))
-    # 備援觸發改為「最新交易日缺 t5 就跑」——FinMind 有舊資料不代表有今天的
+    # 備援觸發:最新交易日缺 t5 就跑(FinMind 有舊資料不代表有今天的)
     if _lw not in T or T[_lw].get("t5") is None:
         try:                               # 備援 1:期交所 openapi(僅當日,靠繼承機制累積)
             arr = get_json("https://openapi.taifex.com.tw/v1/OpenInterestOfLargeTradersFutures", timeout=40) or []
@@ -1924,7 +1924,9 @@ def build_fut_table():
                 print(f"  [diag] 大額交易人欄位樣本: {list(arr[0].keys())[:12]}")
         except Exception as e:
             print(f"  [warn] futtab 大額交易人(期交所openapi): {e}")
-    if _lw not in T or T[_lw].get("t5") is None:
+    # CSV 備援(近20日可回補歷史):只要近14天有任一天缺 t5 或 t10 就觸發,補回歷史空洞
+    _need_backfill = any((v.get("t5") is None or v.get("t10") is None) for v in T.values())
+    if _need_backfill:
         try:                               # 備援 2:期交所傳統 CSV(largeTraderFutDown,近20日)
             import csv as _csv2, io as _io2
             rr0 = requests.post("https://www.taifex.com.tw/cht/3/largeTraderFutDown",
@@ -2321,6 +2323,14 @@ def fetch_macro():
               "EURTWD": round(r["TWD"]/r["EUR"], 3), "USDJPY": round(r["JPY"], 2)}
     except Exception as e:
         print(f"  [warn] 匯率: {e}")
+    # 美元指數(Fed 廣義)← FRED DTWEXBGS 官方日線(前端卡片 fx.DXY 用)
+    try:
+        r2 = fred_last2("DTWEXBGS")
+        if r2:
+            fx["DXY"] = r2[0]
+            print(f"  美元指數(Fed廣義) ← FRED DTWEXBGS({r2[0]})")
+    except Exception as e:
+        print(f"  [warn] 美元指數 DTWEXBGS: {e}")
     return {"idx": idx, "fx": fx}
 
 def fetch_news(n=10):
