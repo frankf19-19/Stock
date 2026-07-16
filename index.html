@@ -2145,7 +2145,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r306</span>');
+  diag.push('<span style="color:var(--dim)">build r308</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2157,6 +2157,28 @@ document.getElementById('updBtn').onclick=async()=>{
   try{drawIdxSel();renderFut();}catch(e){}
 };
 
+/* 📺 個股 TradingView 全能圖切換:走勢/K線/指標一次滿足(台股延遲約15-20分,圖表體驗最佳) */
+function tvToggle(){
+  const id=decodeURIComponent((location.hash||'').replace('#stock/',''));
+  const s=(DATA&&DATA.stocks||[]).find(x=>x.id===id);
+  const btn=document.getElementById('tvTgl');
+  if(!s||s.market!=='TW'){if(btn){btn.textContent='僅台股支援';setTimeout(()=>btn.textContent='📺 TV 全能圖',1500);}return;}
+  if(window.__tvMode){                          // 切回站內圖
+    window.__tvMode=false;
+    if(btn)btn.textContent='📺 TV 全能圖';
+    try{localStorage.setItem('tvPref','0');}catch(e){}
+    loadIntraDetail(s);
+  window.__tvMode=false;   // 每次進個股先重置
+  try{if(localStorage.getItem('tvPref')==='1'){setTimeout(()=>{const b=document.getElementById('tvTgl');if(b&&location.hash==='#stock/'+encodeURIComponent(s.id))tvToggle();},250);}}catch(e){} //tvauto
+    return;
+  }
+  window.__tvMode=true;
+  if(btn)btn.textContent='↩ 站內走勢';
+  try{localStorage.setItem('tvPref','1');}catch(e){}
+  const sym=(s.ex==='otc'?'TPEX:':'TWSE:')+s.id;
+  const ok=tvWidget('intraChart',sym,{interval:'5',style:'1',withToolbar:true});
+  if(!ok&&btn)btn.textContent='📺 TV 全能圖';
+}
 /* ── 即時走勢圖:Yahoo 1分線(經轉接通道),含量能與均價線 ── */
 async function diagRoutes(btn){
   btn.disabled=true;btn.textContent='測試中…(約8秒)';
@@ -2264,6 +2286,76 @@ function flowHTML(d,unit){
       <div style="width:${bp}%;height:100%;background:#E5484D"></div></div>
     <span style="color:var(--dim);font-size:13px">依逐分鐘量價推估主動買賣盤。精確的大戶/散戶分點買賣超屬券商付費資料;本站的大戶視角以「盤後法人買賣超+每週集保大戶持股」補足。</span></div>`;
 }
+/* ══ 📈 Lightweight Charts:TradingView 官方開源圖表引擎(個股即時走勢專業版)══
+   同款外觀與十字線互動;資料自家 MIS 餵=秒級真即時;CDN 載不到自動退回 ECharts 版 */
+let __lwcP=null;
+function ensureLWC(){
+  if(window.LightweightCharts)return Promise.resolve(true);
+  if(__lwcP)return __lwcP;
+  __lwcP=new Promise(res=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
+    s.onload=()=>res(true);
+    s.onerror=()=>{const s2=document.createElement('script');
+      s2.src='https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
+      s2.onload=()=>res(true); s2.onerror=()=>res(false);
+      document.head.appendChild(s2);};
+    document.head.appendChild(s);
+  });
+  return __lwcP;
+}
+const _TZ8=8*3600;   // LWC 以 UTC 顯示 → 餵 +8h 讓軸標=台北時間
+function drawIntraLWC(domId,d){
+  const box=document.getElementById(domId);
+  if(!box||!window.LightweightCharts)return null;
+  try{if(box.__lwc){box.__lwc.remove();box.__lwc=null;}}catch(e){}
+  try{const inst=window.echarts&&echarts.getInstanceByDom(box);if(inst)inst.dispose();}catch(e){}
+  box.innerHTML='';
+  const last=[...d.c].reverse().find(x=>x!=null);
+  const up=last>=d.prev, col=up?UPC:DNC;
+  const dark=document.documentElement.dataset.theme==='dark';
+  const ch=LightweightCharts.createChart(box,{
+    autoSize:true,
+    layout:{background:{type:'solid',color:'transparent'},textColor:dark?'#aaa':'#666',fontSize:11},
+    grid:{vertLines:{color:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)'},
+          horzLines:{color:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)'}},
+    rightPriceScale:{borderVisible:false,scaleMargins:{top:0.08,bottom:0.22}},
+    timeScale:{borderVisible:false,timeVisible:true,secondsVisible:false,rightOffset:2},
+    crosshair:{mode:LightweightCharts.CrosshairMode.Magnet},
+    handleScroll:{mouseWheel:false},handleScale:{mouseWheel:false,pinch:true},
+    localization:{locale:'zh-TW'}
+  });
+  box.__lwc=ch;
+  // 主線:面積(漲紅跌綠,對齊站內配色)
+  const area=ch.addAreaSeries({lineColor:col,lineWidth:2,
+    topColor:up?'rgba(229,72,77,.18)':'rgba(33,164,102,.18)',
+    bottomColor:'rgba(0,0,0,0)',priceLineVisible:false,lastValueVisible:true});
+  const pts=[],avgPts=[];let cv=0,cpv=0,lastT=0;
+  d.t.forEach((ts,i)=>{
+    const c=d.c[i];if(c==null)return;
+    const t=ts+_TZ8;lastT=t;
+    pts.push({time:t,value:+(+c).toFixed(2)});
+    const v=d.v&&d.v[i]||0;if(v){cv+=v;cpv+=c*v;}
+    avgPts.push({time:t,value:cv?+(cpv/cv).toFixed(2):+(+c).toFixed(2)});
+  });
+  area.setData(pts);
+  // 均價黃線
+  const avgS=ch.addLineSeries({color:'#E8B44A',lineWidth:1,priceLineVisible:false,lastValueVisible:false,
+    crosshairMarkerVisible:false});
+  avgS.setData(avgPts);
+  // 昨收虛線
+  if(d.prev>0)area.createPriceLine({price:+(+d.prev).toFixed(2),color:dark?'#888':'#999',
+    lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dashed,axisLabelVisible:true,title:'昨收'});
+  // 量能副圖(底部 histogram)
+  if((d.v||[]).some(v=>v>0)){
+    const vol=ch.addHistogramSeries({priceScaleId:'vol',priceFormat:{type:'volume'},
+      color:up?'rgba(229,72,77,.45)':'rgba(33,164,102,.45)'});
+    ch.priceScale('vol').applyOptions({scaleMargins:{top:0.82,bottom:0},borderVisible:false});
+    vol.setData(d.t.map((ts,i)=>({time:ts+_TZ8,value:d.v[i]||0})).filter(x=>x.value>0));
+  }
+  ch.timeScale().fitContent();
+  return {lwc:1,ch,area,avgS,prev:d.prev,cv,cpv,lastT,id:d.__id};
+}
 function drawIntra(domId,d){
   const box=document.getElementById(domId);
   if(!box)return;
@@ -2357,6 +2449,19 @@ function liveDot(ctx,i,val){
 }
 /* 即時縫合:MIS 每10秒的最新價直接推動走勢圖線尾 */
 function pokeChart(ctx,price,statEl,unitFix){
+  if(ctx&&ctx.lwc&&ctx.area&&price){   // 📈 LWC 即時戳點:秒級 update 最後一點
+    try{
+      const pv=+(+price).toFixed(unitFix??2);
+      const now=Math.max(ctx.lastT||0,Math.floor(Date.now()/1000)+_TZ8);
+      ctx.lastT=now;
+      ctx.area.update({time:now,value:pv});
+      if(ctx.avgS&&ctx.cv>0)ctx.avgS.update({time:now,value:+(ctx.cpv/ctx.cv).toFixed(2)});
+      if(statEl){const el=document.getElementById(statEl);
+        if(el&&ctx.prev){const chg=(price-ctx.prev)/ctx.prev*100;
+          el.innerHTML=`${(+price).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`;}}
+    }catch(e){}
+    return;
+  }
   if(!ctx||!ctx.ch||!ctx.disp||!price)return;
   let i=ctx.disp.length-1;
   while(i>=0&&(ctx.disp[i]==null))i--;
@@ -3285,6 +3390,8 @@ async function seedStk(s){
   }catch(e){}
 }
 async function loadIntraDetail(s,accOnly){
+  if(window.__tvMode)return;
+  try{await ensureLWC();}catch(e){}   // 📈 優先載 TradingView 開源引擎,載不到自動退 ECharts             // 📺 TV 模式中:站內走勢暫停重畫,避免互蓋
   const box=document.getElementById('intraChart');
   if(!box)return;
   const sym=s.market==='TW'?`${s.id}.${s.ex==='otc'?'TWO':'TW'}`:s.id;
@@ -3364,7 +3471,7 @@ async function loadIntraDetail(s,accOnly){
   const vTxt=totV<=0?'量能待來源回補':(isTW?`總量 ${(totV/1000).toLocaleString(undefined,{maximumFractionDigits:0})} 張${yv?` · 為昨量 ${Math.round(totV/1000/yv*100)}%`:''}`
                  :`Vol ${(totV/1e6).toFixed(1)}M`);
   if(stat)stat.innerHTML=intraStatTxt(s,vTxt);
-  RT.intra=drawIntra('intraChart',d);
+  d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
   if(fl)fl.innerHTML=flowHTML(d,isTW?'張':'股');
 }
@@ -3386,7 +3493,7 @@ function refreshIntraLight(s){
     d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev};
   }
   window.__stkToday=true;
-  RT.intra=drawIntra('intraChart',d);
+  d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
 }
 setInterval(()=>{
@@ -5883,7 +5990,7 @@ async function showDetail(id){
   const zoneName=lv.bull?'參考買進區|月線~季線均線帶':'支撐帶|空頭排列,先觀望';
   kwrap.innerHTML=`<div class="chart-box">
       <div class="ind-head">
-        <h3>即時走勢(1分線) · 黃線為當日均價 · 虛線為昨收</h3>
+        <h3>即時走勢(1分線) · 黃線為當日均價 · 虛線為昨收 <button id="tvTgl" onclick="tvToggle()" style="margin-left:8px;padding:2px 10px;font-size:12px;border:1px solid var(--line,#ccc);border-radius:7px;background:transparent;cursor:pointer;vertical-align:1px">📺 TV 全能圖</button></h3>
         <span class="c-code" id="intraStat">載入中…</span>
       </div>
       <div id="intraChart" style="height:230px"></div>
