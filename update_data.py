@@ -1972,6 +1972,60 @@ def build_fut_table():
     print(f"  期貨籌碼表:{len(rows)} 個交易日(最新 {rows[-1]['d'] if rows else '—'})")
     return rows
 
+def fetch_conf(stocks):
+    """法人說明會:TWSE/TPEX openapi 一覽表 → s["conf"](近14天已開或未來60天將開,取最近一筆,未來優先)。
+    含公司自行申報之「擇要訊息」= 法說重點。欄位名採模糊匹配以耐官方改版;首筆欄位印 log 供查驗。"""
+    import re as _re2
+    by_id = {s["id"]: s for s in stocks}
+    today = dt.date.today()
+    def _nd(v):
+        s2 = _re2.sub(r"\D", "", str(v))
+        try:
+            if len(s2) == 7:  return dt.date(int(s2[:3]) + 1911, int(s2[3:5]), int(s2[5:7]))
+            if len(s2) == 8:  return dt.date(int(s2[:4]), int(s2[4:6]), int(s2[6:8]))
+        except Exception:
+            return None
+        return None
+    def _pk(row, *keys):
+        for k, v in row.items():
+            if any(n in str(k) for n in keys):
+                v = str(v).strip()
+                if v and v not in ("-", "–", "無"):
+                    return v
+        return ""
+    n = 0
+    for url in ("https://openapi.twse.com.tw/v1/opendata/t187ap38_L",
+                "https://www.tpex.org.tw/openapi/v1/t187ap38_O"):
+        try:
+            arr = get_json(url) or []
+            if arr:
+                print(f"  [diag] 法說欄位({url.split('/')[2]}):{list(arr[0].keys())[:8]}")
+            for r in arr:
+                sid = _pk(r, "公司代號", "SecuritiesCompanyCode", "CompanyCode", "Code")
+                s = by_id.get(sid)
+                if not s:
+                    continue
+                d = _nd(_pk(r, "日期", "Date"))
+                if not d or not (today - dt.timedelta(days=14) <= d <= today + dt.timedelta(days=60)):
+                    continue
+                rank = lambda dd: (0 if dd >= today else 1, abs((dd - today).days))
+                cur = s.get("conf")
+                if cur:
+                    try:
+                        if rank(d) >= rank(dt.date.fromisoformat(cur["d"])):
+                            continue
+                    except Exception:
+                        pass
+                s["conf"] = {"d": d.isoformat(),
+                             "t": _pk(r, "時間", "Time"),
+                             "loc": _pk(r, "地點", "Place", "Location")[:80],
+                             "msg": _pk(r, "擇要", "摘要", "Message", "Summary")[:300],
+                             "url": _pk(r, "網址", "連結", "Hyperlink", "href", "檔案")}
+                n += 1
+        except Exception as e:
+            print(f"  [warn] 法說 {url.split('/')[2]}: {e}")
+    print(f"  法說會:標記 {n} 檔")
+
 def fetch_disposal(stocks):
     """處置有價證券公告:標記處置中個股與撮合間隔分鐘。來源:證交所/櫃買公告 OpenAPI。"""
     import re
@@ -2524,6 +2578,10 @@ def main():
         fetch_disposal(stocks)
     except Exception as e:
         print(f"  [warn] 處置公告跳過: {e}")
+    try:
+        fetch_conf(stocks)
+    except Exception as e:
+        print(f"  [warn] 法說會跳過: {e}")
     try:
         mark_leaders(stocks)
     except Exception as e:
