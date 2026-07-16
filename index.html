@@ -2145,7 +2145,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r314</span>');
+  diag.push('<span style="color:var(--dim)">build r315</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5600,27 +5600,32 @@ function kdrawBtnSync(){
   if(!seg)return;
   seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.d===KDRAW.mode));
 }
-function kdrawApply(){
-  if(!chartInst)return;
+function kdrawMk(){                          // 組裝手繪 markLine(僅日K,座標以日期定位)
   const mk=[];
-  if(kView.itv==='1d'){                      // 手繪線僅日K顯示(座標以日K日期定位)
-    const o=kdrawLoad();
-    o.h.forEach(p=>mk.push({yAxis:p,lineStyle:{color:'#7c5cff',width:1.4,type:'solid'},
-      label:{formatter:String(p),position:'insideEndTop',color:'#7c5cff',fontSize:11}}));
-    o.t.forEach(seg=>{
-      if(curDates&&curDates.includes(seg[0])&&curDates.includes(seg[2]))
-        mk.push([{coord:[seg[0],seg[1]],lineStyle:{color:'#7c5cff',width:1.6}},{coord:[seg[2],seg[3]]}]);
-    });
-  }
-  try{chartInst.setOption({series:[{id:'kdraw',name:'手繪',type:'line',xAxisIndex:0,yAxisIndex:0,
-    data:[],silent:true,showSymbol:false,
-    markLine:{symbol:'none',silent:true,animation:false,label:{show:true},data:mk}}]});}catch(e){}
+  if(kView.itv!=='1d')return mk;
+  const o=kdrawLoad();
+  o.h.forEach(p=>mk.push({yAxis:p,lineStyle:{color:'#7c5cff',width:1.4,type:'solid'},
+    label:{formatter:String(p),position:'insideEndTop',color:'#7c5cff',fontSize:11}}));
+  o.t.forEach(seg=>{
+    if(curDates&&curDates.includes(seg[0])&&curDates.includes(seg[2]))
+      mk.push([{coord:[seg[0],seg[1]],lineStyle:{color:'#7c5cff',width:1.6}},{coord:[seg[2],seg[3]]}]);
+  });
+  return mk;
+}
+function kdrawSeries0(){                      // 併入主 setOption 的 series 陣列(一次成型,零 merge 風險)
+  return {id:'kdraw',name:'手繪',type:'line',xAxisIndex:0,yAxisIndex:0,data:[],silent:true,showSymbol:false,
+    markLine:{symbol:'none',silent:true,animation:false,label:{show:true},data:kdrawMk()}};
+}
+function kdrawApply(){                        // 畫完線後的增量更新:by-id merge(主 series 已含 id:'kdraw',安全)
+  if(!chartInst)return;
+  try{chartInst.setOption({series:[{id:'kdraw',
+    markLine:{symbol:'none',silent:true,animation:false,label:{show:true},data:kdrawMk()}}]});}catch(e){}
 }
 function kdrawBindClick(){
   if(!chartInst)return;
   try{
-    chartInst.getZr().off('click.kdraw');
-    chartInst.getZr().on('click.kdraw',ev=>{
+    try{if(chartInst.__kdrawH)chartInst.getZr().off('click',chartInst.__kdrawH);}catch(e){}
+    const _h=ev=>{
       if(!KDRAW.mode||KDRAW.mode==='c')return;
       if(kView.itv!=='1d'){KDRAW.mode=null;kdrawBtnSync();return;}
       if(!chartInst.containPixel({gridIndex:0},[ev.offsetX,ev.offsetY]))return;   // 只認主圖區點擊
@@ -5636,7 +5641,9 @@ function kdrawBindClick(){
         else{o.t.push([KDRAW.tmp[0],KDRAW.tmp[1],date,price]);KDRAW.tmp=null;kdrawSave(o);
              KDRAW.mode=null;kdrawBtnSync();kdrawApply();}
       }
-    });
+    };
+    chartInst.__kdrawH=_h;
+    chartInst.getZr().on('click',_h);
   }catch(e){}
 }
 function drawKChart(){
@@ -5746,7 +5753,6 @@ function drawKChart(){
   try{
     const kr=window.__kRestore;
     if(kr&&kr.legend)chartInst.setOption({legend:{selected:kr.legend}});
-  try{kdrawApply();kdrawBindClick();}catch(e){}
     window.__kRestore=null;
   }catch(e){}
           // 徽章式標籤:桌面帶名稱;手機改「小價位牌靠右軸停靠」不遮K棒
@@ -5820,8 +5826,9 @@ function drawKChart(){
                     yAxis:+curLevels.zone[0].toFixed(2)},
                    {yAxis:+curLevels.zone[1].toFixed(2)}]]:[])]}
           };})():{})},
-      ...maSeries,volSeries,...indSeries,...divMarkSeries(),...gapVolSeries(o,curDates)]
+      ...maSeries,volSeries,...indSeries,...divMarkSeries(),...gapVolSeries(o,curDates),kdrawSeries0()]
   });
+  try{kdrawBindClick();}catch(e){}   // ✏️ 手繪點擊(主圖建好後綁定)
 }
 window.addEventListener('resize',()=>{if(chartInst)chartInst.resize();});
 
