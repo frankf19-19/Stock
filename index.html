@@ -2145,7 +2145,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r308</span>');
+  diag.push('<span style="color:var(--dim)">build r309</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2288,6 +2288,22 @@ function flowHTML(d,unit){
 }
 /* ══ 📈 Lightweight Charts:TradingView 官方開源圖表引擎(個股即時走勢專業版)══
    同款外觀與十字線互動;資料自家 MIS 餵=秒級真即時;CDN 載不到自動退回 ECharts 版 */
+/* ⏰ 台股分時軸校正:資料從開頁才累積時,頭部補空點至 09:00,時間軸永遠從開盤起 */
+function padDay0900(d){
+  try{
+    if(!d||!d.t||!d.t.length)return d;
+    const t0=d.t[0];
+    const tpe=new Date(new Date(t0*1000).toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const hm=tpe.getHours()*60+tpe.getMinutes();
+    if(hm<9*60||hm>13*60+30)return d;          // 首點不在台股盤中 → 非台股日內,不動
+    if((d.t[d.t.length-1]-t0)>6*3600)return d; // 跨度過長非日內
+    const need=hm-9*60;                        // 距 09:00 的分鐘數
+    if(need<=0||need>270)return d;
+    const t=[],c=[],v=[];
+    for(let i=need;i>=1;i--){t.push(t0-i*60);c.push(null);v.push(0);}
+    return Object.assign({},d,{t:t.concat(d.t),c:c.concat(d.c),v:v.concat(d.v||d.c.map(()=>0))});
+  }catch(e){return d;}
+}
 let __lwcP=null;
 function ensureLWC(){
   if(window.LightweightCharts)return Promise.resolve(true);
@@ -2306,6 +2322,7 @@ function ensureLWC(){
 }
 const _TZ8=8*3600;   // LWC 以 UTC 顯示 → 餵 +8h 讓軸標=台北時間
 function drawIntraLWC(domId,d){
+  d=padDay0900(d);
   const box=document.getElementById(domId);
   if(!box||!window.LightweightCharts)return null;
   try{if(box.__lwc){box.__lwc.remove();box.__lwc=null;}}catch(e){}
@@ -2332,8 +2349,9 @@ function drawIntraLWC(domId,d){
     bottomColor:'rgba(0,0,0,0)',priceLineVisible:false,lastValueVisible:true});
   const pts=[],avgPts=[];let cv=0,cpv=0,lastT=0;
   d.t.forEach((ts,i)=>{
-    const c=d.c[i];if(c==null)return;
+    const c=d.c[i];
     const t=ts+_TZ8;lastT=t;
+    if(c==null){pts.push({time:t});avgPts.push({time:t});return;}   // whitespace:撐開 09:00 起的軸
     pts.push({time:t,value:+(+c).toFixed(2)});
     const v=d.v&&d.v[i]||0;if(v){cv+=v;cpv+=c*v;}
     avgPts.push({time:t,value:cv?+(cpv/cv).toFixed(2):+(+c).toFixed(2)});
@@ -2357,6 +2375,7 @@ function drawIntraLWC(domId,d){
   return {lwc:1,ch,area,avgS,prev:d.prev,cv,cpv,lastT,id:d.__id};
 }
 function drawIntra(domId,d){
+  d=padDay0900(d);
   const box=document.getElementById(domId);
   if(!box)return;
   if(!window.echarts){box.innerHTML='<div class="dim-note">圖表元件載入失敗</div>';return;}
