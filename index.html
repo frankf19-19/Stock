@@ -4777,6 +4777,7 @@ function confHTML(s){
                  :`<span class="ds" style="color:var(--dim)">近期已召開</span>`;
   return `<div class="dim-block" style="border-left:4px solid ${fut?'var(--amber)':'var(--line)'}">
     <h3>📣 法說會 ${badge} <span class="ds">${c.d}${c.t?' · '+c.t:''}</span></h3>
+    ${c.subj?`<div class="dim-note">${c.subj}</div>`:''}
     ${c.loc?`<div class="dim-note">地點:${c.loc}</div>`:''}
     ${c.msg?`<div class="dim-note"><b>法說重點(公司擇要):</b>${c.msg}</div>`:''}
     ${c.url&&/^https?:/i.test(c.url)?`<div class="dim-note"><a href="${c.url}" target="_blank" rel="noopener">📎 簡報/公告連結 ›</a></div>`:''}

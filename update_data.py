@@ -1973,39 +1973,56 @@ def build_fut_table():
     return rows
 
 def fetch_conf(stocks):
-    """法人說明會:TWSE/TPEX openapi 一覽表 → s["conf"](近14天已開或未來60天將開,取最近一筆,未來優先)。
-    含公司自行申報之「擇要訊息」= 法說重點。欄位名採模糊匹配以耐官方改版;首筆欄位印 log 供查驗。"""
-    import re as _re2
+    """法說會:MOPS 重大訊息 opendata CSV(t187ap04_L 上市/_O 上櫃)中「召開法人說明會」公告。
+    真實格式已驗證:說明欄含「1.召開法人說明會之日期:115/01/07 2....時間 3....地點 4.擇要訊息...」。
+    累積模式:重訊 CSV 為近期滾動快照,新公告寫入 s["conf"],沿用舊值直到過期(開完14天後清除)。"""
+    import csv as _c, io as _io, re as _r
     by_id = {s["id"]: s for s in stocks}
     today = dt.date.today()
-    def _nd(v):
-        s2 = _re2.sub(r"\D", "", str(v))
+    # 清除過期(開完超過14天)
+    for s in stocks:
+        c = s.get("conf")
+        if c:
+            try:
+                if dt.date.fromisoformat(c["d"]) < today - dt.timedelta(days=14):
+                    del s["conf"]
+            except Exception:
+                del s["conf"]
+    def roc(txt):
+        m2 = _r.search(r"(\d{2,3})/(\d{1,2})/(\d{1,2})", str(txt))
+        if not m2:
+            return None
         try:
-            if len(s2) == 7:  return dt.date(int(s2[:3]) + 1911, int(s2[3:5]), int(s2[5:7]))
-            if len(s2) == 8:  return dt.date(int(s2[:4]), int(s2[4:6]), int(s2[6:8]))
+            return dt.date(int(m2.group(1)) + 1911, int(m2.group(2)), int(m2.group(3)))
         except Exception:
             return None
-        return None
-    def _pk(row, *keys):
-        for k, v in row.items():
-            if any(n in str(k) for n in keys):
-                v = str(v).strip()
-                if v and v not in ("-", "–", "無"):
-                    return v
-        return ""
     n = 0
-    for url in ("https://openapi.twse.com.tw/v1/opendata/t187ap38_L",
-                "https://www.tpex.org.tw/openapi/v1/t187ap38_O"):
+    for url in ("https://mopsfin.twse.com.tw/opendata/t187ap04_L.csv",
+                "https://mopsfin.twse.com.tw/opendata/t187ap04_O.csv"):
         try:
-            arr = get_json(url) or []
-            if arr:
-                print(f"  [diag] 法說欄位({url.split('/')[2]}):{list(arr[0].keys())[:8]}")
-            for r in arr:
-                sid = _pk(r, "公司代號", "SecuritiesCompanyCode", "CompanyCode", "Code")
-                s = by_id.get(sid)
+            r = requests.get(url, headers=UA, timeout=45)
+            r.encoding = "utf-8-sig"
+            rows = list(_c.reader(_io.StringIO(r.text)))
+            if len(rows) < 2:
+                print(f"  [warn] 法說重訊CSV 空:{url.rsplit('/',1)[-1]}")
+                continue
+            hdr = rows[0]
+            gi = lambda name: next((i for i, h in enumerate(hdr) if name in h), None)
+            i_id, i_subj, i_desc = gi("公司代號"), gi("主旨"), gi("說明")
+            if None in (i_id, i_subj, i_desc):
+                print(f"  [diag] 重訊欄位:{hdr[:9]}")
+                continue
+            for row in rows[1:]:
+                if len(row) <= max(i_id, i_subj, i_desc):
+                    continue
+                desc, subj = row[i_desc], row[i_subj]
+                if "法人說明會" not in desc and "法人說明會" not in subj:
+                    continue
+                s = by_id.get(row[i_id].strip())
                 if not s:
                     continue
-                d = _nd(_pk(r, "日期", "Date"))
+                md = _r.search(r"召開法人說明會之日期[：:]\s*([\d/]+)", desc)
+                d = roc(md.group(1)) if md else None
                 if not d or not (today - dt.timedelta(days=14) <= d <= today + dt.timedelta(days=60)):
                     continue
                 rank = lambda dd: (0 if dd >= today else 1, abs((dd - today).days))
@@ -2013,17 +2030,21 @@ def fetch_conf(stocks):
                 if cur:
                     try:
                         if rank(d) >= rank(dt.date.fromisoformat(cur["d"])):
-                            continue
+                            continue                       # 既有一筆更近/未來 → 保留
                     except Exception:
                         pass
+                mt = _r.search(r"時間[：:]\s*(\d{1,2})\s*時\s*(\d{1,2})\s*分", desc)
+                ml = _r.search(r"地點[：:]\s*(.+?)(?:\s*\d\s*[\.、]|\n|$)", desc)
+                mm = _r.search(r"擇要訊息[：:]\s*(.+?)(?:\n?\s*\d\s*[\.、]|完整財務|$)", desc, _r.S)
                 s["conf"] = {"d": d.isoformat(),
-                             "t": _pk(r, "時間", "Time"),
-                             "loc": _pk(r, "地點", "Place", "Location")[:80],
-                             "msg": _pk(r, "擇要", "摘要", "Message", "Summary")[:300],
-                             "url": _pk(r, "網址", "連結", "Hyperlink", "href", "檔案")}
+                             "t": f"{int(mt.group(1)):02d}:{int(mt.group(2)):02d}" if mt else "",
+                             "loc": (ml.group(1).strip() if ml else "")[:80],
+                             "msg": (mm.group(1).strip().replace("\n", " ") if mm else "")[:300],
+                             "subj": subj[:90],
+                             "url": "https://mops.twse.com.tw/mops/#/web/t100sb02_1"}
                 n += 1
         except Exception as e:
-            print(f"  [warn] 法說 {url.split('/')[2]}: {e}")
+            print(f"  [warn] 法說(重訊CSV) {url.rsplit('/',1)[-1]}: {e}")
     print(f"  法說會:標記 {n} 檔")
 
 def fetch_disposal(stocks):
