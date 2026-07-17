@@ -2145,7 +2145,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r320</span>');
+  diag.push('<span style="color:var(--dim)">build r321</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2860,7 +2860,7 @@ async function renderIdxAnalysis(d){
 }
 
 /* ══ 大盤+櫃買 即時監測:走勢/防守線/破線警示 ══ */
-const IDX={sel:'tw',d:{},lv:{},last:{},otcSyms:['^TWOII','^TWO']};
+const IDX={sel:'tw',d:{},lv:{},last:{},misD:{},otcSyms:['^TWOII','^TWO']};   // misD:MIS 全日分線快取(t00/o00)
 const TWACC={t:[],c:[],v:[],prev:null};    // 加權分線:即時報價逐點累積(當日持久化)
 const OTCACC={t:[],c:[],v:[],prev:null};   // 櫃買分線:即時報價逐點累積(當日持久化)
 function tpDay(ts){return new Date(new Date(ts*1000).toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);}
@@ -2975,6 +2975,15 @@ function idxPick(key){
   if(key==='sp'||key==='nq')return yd;                 // 美股:直接用 Yahoo
   const acc=accOf(key);
   const today=tpDay(Date.now()/1000);
+  const md=(IDX.misD||{})[key];
+  if(md&&md.day===today&&Array.isArray(md.c)&&md.c.length>=5){
+    // 🌄 MIS 全日分線為底(09:00 起完整),把累積中比它更新的點接上(60秒重抓間隔內仍即時)
+    const t=[...md.t],c=[...md.c],v=[...md.v];
+    const lastT=t[t.length-1];
+    for(let i=0;i<acc.t.length;i++)
+      if(acc.t[i]>lastT+30){t.push(acc.t[i]);c.push(acc.c[i]);v.push(0);}
+    return {t,c,v,prev:acc.prev||md.prev};
+  }
   const ydFresh=yd&&!yd.approx&&Array.isArray(yd.t)&&yd.t.length
     &&tpDay(yd.t[yd.t.length-1])===today;
   if(ydFresh){
@@ -3040,8 +3049,16 @@ function drawIdxSel(){
     paintDefense();
     return;
   }
-  const last=IDX.last[IDX.sel]??[...d.c].reverse().find(x=>x!=null);
-  const chg=(last-d.prev)/d.prev*100;
+  let last=IDX.last[IDX.sel]??[...d.c].reverse().find(x=>x!=null);
+  let pv=d.prev;
+  if(IDX.sel==='tw'||IDX.sel==='otc'){
+    pv=accOf(IDX.sel).prev||pv;                                    // 昨收以 MIS 官方 y 為準
+    if(window.__idxToday){                                          // 圖是今日資料:標頭跟圖走,永不對不上
+      const cl=[...d.c].reverse().find(x=>x!=null);
+      if(cl!=null)last=cl;
+    }
+  }
+  const chg=pv>0?(last-pv)/pv*100:0;
   if(stat)stat.innerHTML=`${(+last).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>${d.approx?' <span class="c-code" title="Yahoo 無櫃買分線,以上櫃ETF走勢按指數比例換算">ETF換算</span>':''}`;
   RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',d))||drawIntra('idxChart',d);
   const fl=document.getElementById('idxFlow');
@@ -3152,6 +3169,37 @@ function idxBoot(){
   return IDX_BOOTED;
 }
 setTimeout(idxBoot,1200);
+/* 🌄 指數全日分線回補:MIS getChartOhlcStatis(tse_t00/otc_o00)
+   中途開頁也能瞬間補全 09:00 起完整走勢——不再只有開頁後累積的一小段 */
+async function refreshIdxMis(){
+  try{await idxBoot();}catch(e){}                      // 先等櫃買頻道探測(OTC_CH)
+  IDX.misD=IDX.misD||{};
+  for(const key of ['tw','otc']){
+    try{
+      const ch=key==='tw'?'tse_t00.tw':OTC_CH;
+      const acc=accOf(key);
+      // 昨收基準:MIS 累積的 y → idxBoot 存的 → 即時報價現問 → yext 備援
+      let prev=acc.prev||(key==='otc'&&IDX.mis&&IDX.mis.prev)||null;
+      if(!prev){
+        try{const arr=await fetchMIS([ch]);const m=(arr||[])[0],y=m&&parseFloat(m.y);
+            if(y>0){prev=y;if(!acc.prev)acc.prev=y;}}catch(e){}
+      }
+      if(!prev&&IDX.d[key]&&IDX.d[key].prev)prev=IDX.d[key].prev;
+      if(!prev)continue;
+      const d=await misOhlcCore(ch,prev);
+      if(d&&d.c&&d.c.length>=5){
+        const old=IDX.misD[key];
+        IDX.misD[key]=Object.assign(d,{day:tpDay(Date.now()/1000)});
+        if(!old||old.c.length!==d.c.length){           // 有新點才重畫,避免無謂閃動
+          if(IDX.sel===key)drawIdxSel();
+          if(window.__mkMis===key&&location.hash.startsWith('#macro/'))drawMkLive(key);
+        }
+      }
+    }catch(e){}
+  }
+}
+setTimeout(refreshIdxMis,2600);
+setInterval(()=>{if(openish())refreshIdxMis();},60000);
 /* 櫃買分線第三備援:上櫃 ETF(006201)分線 × 指數比例換算(ETF 追蹤指數,形狀一致) */
 async function otcFromETF(){
   await idxBoot();
@@ -3397,10 +3445,11 @@ function stkLiveStart(s){
   STK_TIMER=setInterval(tick,6000);
 }
 function stkLiveStop(){if(STK_TIMER){clearInterval(STK_TIMER);STK_TIMER=null;}}
-async function misIntraday(s){
+async function misOhlcCore(ch,prev){
   // 證交所 MIS 站內分線端點(非正式):成功=瞬間補全 09:00 起走勢;失敗=無感回退
+  // ch:MIS 頻道(tse_2330.tw / tse_t00.tw / otc_o00.tw)、prev:昨收(彈性掃描值域基準)
   try{
-    const ch=`${s.ex==='otc'?'otc':'tse'}_${s.id}.tw`;
+    if(!(prev>0))return null;
     const u=`https://mis.twse.com.tw/stock/api/getChartOhlcStatis.jsp?ex_ch=${ch}&_=${Date.now()}`;
     const routes=[
       ...(myWrap(u)?[[myWrap(u),0]]:[]),
@@ -3418,9 +3467,7 @@ async function misIntraday(s){
     };
     let j;
     try{j=await routeRace('misohlc',routes,one);}catch(e){return null;}
-    const y=s.mg&&0||null;
     // 彈性掃描:在回應樹中找「長度>=5 的數字陣列,值域貼近昨收±15%」= 分線收盤序列
-    const prev=(RTC[s.id]&&RTC[s.id].y)||s.price/(1+(s.chg||0)/100);
     let best=null;
     const scan=(o,depth)=>{
       if(depth>4||!o)return;
@@ -3440,7 +3487,15 @@ async function misIntraday(s){
     base.setHours(9,0,0,0);
     const t0=Math.floor(base.getTime()/1000);
     return {t:best.map((_,i)=>t0+i*60),c:best.map(v=>+v.toFixed(2)),
-            v:best.map(()=>0),prev:+prev.toFixed(2)};
+            v:best.map(()=>0),prev:+(+prev).toFixed(2)};
+  }catch(e){return null;}
+}
+async function misIntraday(s){
+  // 個股版:算出頻道與昨收後交給共用核心
+  try{
+    const ch=`${s.ex==='otc'?'otc':'tse'}_${s.id}.tw`;
+    const prev=(RTC[s.id]&&RTC[s.id].y)||s.price/(1+(s.chg||0)/100);
+    return await misOhlcCore(ch,prev);
   }catch(e){return null;}
 }
 async function seedStk(s){
