@@ -2,12 +2,12 @@ name: 每日資料更新(三力儀表板)
 
 on:
   schedule:
-    # GitHub 免費排程常大塞車(延遲數小時)——對策:班次開密,總有幾班準點。
-    # 公開 repo 的 Actions 分鐘數免費無上限;workflow 已有「沒變更就略過提交」防呆,多跑無害。
-    - cron: '30 3 * * 1-5'          # 台北 11:30|月營收上午公告即時入站
-    - cron: '0,20,40 7-13 * * 1-5'  # 台北 15:00~21:40 每 20 分鐘一班|收盤K/期貨/法人/融資券/借券,公布即入站
-    - cron: '15 14 * * 1-5'         # 台北 22:15|最終收尾班
-    - cron: '30 10 * * 6,0'         # 週末 18:30|月營收假日公告補抓
+    # GitHub 免費排程常大塞車(高峰延遲30-60分)——對策:班次開密,總有幾班跑到。
+    # 公開 repo 的 Actions 分鐘數免費無上限;workflow 有「沒變更就略過提交」防呆,多跑無害。
+    - cron: '0,10,20,30,40,50 1-5 * * 1-5'   # 台北 09:00~13:50 每10分|盤中報價/K棒/spark分時快照
+    - cron: '30 3 * * 1-5'                   # 台北 11:30|月營收上午公告即時入站
+    - cron: '0,10,20,30,40,50 7-14 * * 1-5'  # 台北 15:00~22:50 每10分|收盤K/期貨/法人/融資券/借券/ETF持股
+    - cron: '30 10 * * 6,0'                  # 週末 18:30|月營收假日公告補抓
   workflow_dispatch:           # 也可以到 Actions 頁面手動觸發
 
 permissions:
@@ -33,12 +33,20 @@ jobs:
       - name: 安裝套件
         run: pip install requests pandas lxml
 
-      - name: 執行每日更新(價格/法人/大戶/營收/評分)
+      - name: 抓 ETF 持股(主動式,先跑好給主程式讀)
+        run: python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"
+
+      - name: 執行每日更新(價格/法人/大戶/營收/評分/法說)
         env:
           PYTHONUNBUFFERED: "1"                          # log 即時輸出,不再看起來像卡住
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}      # 美股指數官方源(fetch_macro)
           FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}    # 可選;未設定則走免token額度
         run: python update_data.py
+
+      - name: 盤中報價與分時快照(spark)
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python update_quotes.py || echo "報價快照失敗,不影響主資料"
 
       - name: 提交結果
         run: |
@@ -46,13 +54,14 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add data.json k c
           if [ -f tdcc.json ]; then git add tdcc.json; fi
+          if [ -f etf_hold.json ]; then git add etf_hold.json; fi
+          if [ -f spark.json ]; then git add spark.json; fi
           if git diff --cached --quiet; then
             echo "沒有變更,略過提交"
             exit 0
           fi
-          git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d')"
-          # 與其他排程(盤中報價機器人)可能撞車:
-          # -X theirs = 資料檔以「本次剛產生的新版」為準;失敗自動重試 3 次
+          git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')"
+          # 與其他排程可能撞車:-X theirs = 以本次新產資料為準;失敗自動重試 3 次
           for i in 1 2 3; do
             git pull --rebase --autostash -X theirs origin main && git push && exit 0
             echo "推送撞車,10 秒後重試($i/3)…"
