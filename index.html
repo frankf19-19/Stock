@@ -2145,7 +2145,9 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span style="color:var(--dim)">build r321</span>');
+  try{const g=window.__idxDiag||{};
+      diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
+  diag.push('<span style="color:var(--dim)">build r322</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2982,7 +2984,7 @@ function idxPick(key){
     const lastT=t[t.length-1];
     for(let i=0;i<acc.t.length;i++)
       if(acc.t[i]>lastT+30){t.push(acc.t[i]);c.push(acc.c[i]);v.push(0);}
-    return {t,c,v,prev:acc.prev||md.prev};
+    return {t,c,v,prev:acc.prev||md.prev,src:md.via||'MIS全日'};
   }
   const ydFresh=yd&&!yd.approx&&Array.isArray(yd.t)&&yd.t.length
     &&tpDay(yd.t[yd.t.length-1])===today;
@@ -2993,16 +2995,16 @@ function idxPick(key){
       const t=[...yd.t],c=[...yd.c],v=Array.isArray(yd.v)?[...yd.v]:null;
       for(let i=0;i<acc.t.length;i++)
         if(acc.t[i]>lastT+30){t.push(acc.t[i]);c.push(acc.c[i]);if(v)v.push(0);}
-      return {t,c,v:v||yd.v,prev:yd.prev};
+      return {t,c,v:v||yd.v,prev:yd.prev,src:'後端分線'};
     }
-    return yd;
+    return Object.assign({},yd,{src:'後端分線'});
   }
   if(marketOpen()){
-    if(acc.c.length>=2)return acc;                      // 盤中且 Yahoo 還是昨天 → 用即時累積(今天的真資料)
+    if(acc.c.length>=2)return Object.assign({},acc,{src:'即時累積'});   // 盤中且 Yahoo 還是昨天 → 用即時累積(今天的真資料)
     return null;                                        // 累積未滿:寧可先空白,也不畫昨日線誤導
   }
-  if(yd)return yd;                                      // 收盤時段:顯示最近完整一日
-  if(acc.c.length>=2)return acc;
+  if(yd)return Object.assign({},yd,{src:'後端分線'});                   // 收盤時段:顯示最近完整一日
+  if(acc.c.length>=2)return Object.assign({},acc,{src:'即時累積'});
   return null;
 }
 function drawIdxSel(){
@@ -3058,8 +3060,11 @@ function drawIdxSel(){
       if(cl!=null)last=cl;
     }
   }
-  const chg=pv>0?(last-pv)/pv*100:0;
-  if(stat)stat.innerHTML=`${(+last).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>${d.approx?' <span class="c-code" title="Yahoo 無櫃買分線,以上櫃ETF走勢按指數比例換算">ETF換算</span>':''}`;
+  let chg=pv>0?(last-pv)/pv*100:null;
+  // 🛡 昨收防呆:台股指數單日漲跌不可能 >11%,超過=昨收基準是壞資料 → 不顯示假跌幅
+  if((IDX.sel==='tw'||IDX.sel==='otc')&&chg!=null&&Math.abs(chg)>11)chg=null;
+  const srcTag=(IDX.sel==='tw'||IDX.sel==='otc')&&d.src?` <span class="c-code" title="走勢圖資料來源">${d.src}</span>`:'';
+  if(stat)stat.innerHTML=`${(+last).toFixed(2)} ${chg!=null?`<span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`:'<span class="c-code">昨收校正中</span>'}${srcTag}${d.approx?' <span class="c-code" title="Yahoo 無櫃買分線,以上櫃ETF走勢按指數比例換算">ETF換算</span>':''}`;
   RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',d))||drawIntra('idxChart',d);
   const fl=document.getElementById('idxFlow');
   if(fl)fl.innerHTML=IDX.sel==='tw'?flowHTML(d,'股'):'';
@@ -3185,15 +3190,21 @@ async function refreshIdxMis(){
             if(y>0){prev=y;if(!acc.prev)acc.prev=y;}}catch(e){}
       }
       if(!prev&&IDX.d[key]&&IDX.d[key].prev)prev=IDX.d[key].prev;
-      if(!prev)continue;
-      const d=await misOhlcCore(ch,prev);
+      window.__idxDiag=window.__idxDiag||{};
+      if(!prev){window.__idxDiag[key]='無昨收基準';continue;}
+      let d=await misOhlcCore(ch,prev);
+      let via='MIS全日';
+      if((!d||d.c.length<5)&&key==='tw'){d=await twse5sIdx(prev);via='官方5秒';}   // 加權第二備援:證交所官方端點
       if(d&&d.c&&d.c.length>=5){
+        window.__idxDiag[key]=via+' '+d.c.length+'點';
         const old=IDX.misD[key];
-        IDX.misD[key]=Object.assign(d,{day:tpDay(Date.now()/1000)});
+        IDX.misD[key]=Object.assign(d,{day:tpDay(Date.now()/1000),via});
         if(!old||old.c.length!==d.c.length){           // 有新點才重畫,避免無謂閃動
           if(IDX.sel===key)drawIdxSel();
           if(window.__mkMis===key&&location.hash.startsWith('#macro/'))drawMkLive(key);
         }
+      }else{
+        window.__idxDiag[key]=(window.__idxDiag[key]&&window.__idxDiag[key].includes('點'))?window.__idxDiag[key]:'回補失敗(端點/代理均不通)';
       }
     }catch(e){}
   }
@@ -3496,6 +3507,57 @@ async function misIntraday(s){
     const ch=`${s.ex==='otc'?'otc':'tse'}_${s.id}.tw`;
     const prev=(RTC[s.id]&&RTC[s.id].y)||s.price/(1+(s.chg||0)/100);
     return await misOhlcCore(ch,prev);
+  }catch(e){return null;}
+}
+/* 加權第二備援:證交所官方「每5秒指數統計」(MI_5MINS_INDEX)→ 降採樣為1分全日走勢 */
+async function twse5sIdx(prev){
+  try{
+    prev=+prev;
+    if(!(prev>0))return null;
+    const u='https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_INDEX?response=json&_='+Date.now();
+    const routes=[
+      ...(myWrap(u)?[[myWrap(u),0]]:[]),
+      [u,0],
+      ['https://corsproxy.io/?url='+encodeURIComponent(u),0],
+      ['https://api.allorigins.win/raw?url='+encodeURIComponent(u),0],
+      ['https://api.allorigins.win/get?url='+encodeURIComponent(u),1]];
+    const one=async([url,wrap])=>{
+      const r0=await fT(url,8000);
+      if(!r0.ok)throw 0;
+      let j0=await r0.json();
+      if(wrap&&j0&&j0.contents){j0=JSON.parse(j0.contents);}
+      if(!j0||!Array.isArray(j0.data)||!j0.data.length)throw 0;
+      return j0;
+    };
+    let j;
+    try{j=await routeRace('twse5s',routes,one);}catch(e){return null;}
+    const rows=j.data;
+    // 彈性找欄:時間欄=HH:MM:SS;指數欄=值域貼近昨收±15%(欄序改版也不怕)
+    let tCol=-1,vCol=-1;
+    const cols=(rows[0]||[]).length;
+    for(let ci=0;ci<cols;ci++){
+      if(/^\d{1,2}:\d{2}:\d{2}$/.test(String(rows[0][ci]||'').trim())){tCol=ci;break;}
+    }
+    for(let ci=0;ci<cols;ci++){
+      if(ci===tCol)continue;
+      const vals=rows.slice(0,60).map(r=>parseFloat(String(r[ci]||'').replace(/,/g,''))).filter(v=>isFinite(v));
+      if(vals.length>=5&&vals.filter(v=>v>prev*0.85&&v<prev*1.15).length>=vals.length*0.9){vCol=ci;break;}
+    }
+    if(tCol<0||vCol<0)return null;
+    const base=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const t=[],c=[];let lastMin=null;
+    rows.forEach(r=>{
+      const tm=String(r[tCol]||'').trim(),v=parseFloat(String(r[vCol]||'').replace(/,/g,''));
+      if(!isFinite(v))return;
+      const mch=tm.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+      if(!mch)return;
+      const mk=mch[1]+':'+mch[2];
+      if(mk===lastMin){c[c.length-1]=v;return;}     // 同一分鐘:留最後一筆=分收
+      const d2=new Date(base);d2.setHours(+mch[1],+mch[2],0,0);
+      lastMin=mk;t.push(Math.floor(d2.getTime()/1000));c.push(v);
+    });
+    if(c.length<5)return null;
+    return {t,c:c.map(v=>+v.toFixed(2)),v:c.map(()=>0),prev:+prev.toFixed(2)};
   }catch(e){return null;}
 }
 async function seedStk(s){
@@ -9014,10 +9076,10 @@ function drawMkLive(misKey){
   const box=document.getElementById('mkIntra');
   const px=document.getElementById('mkPx'),cg=document.getElementById('mkChg');
   const last=IDX.last[misKey];
-  const prev=(d&&d.prev)||accOf(misKey).prev;
+  const prev=accOf(misKey).prev||(d&&d.prev);          // 昨收以 MIS 官方 y 優先
   if(px&&last)px.textContent=Number((+last).toFixed(2)).toLocaleString();
   if(cg&&last&&prev){const c=(last-prev)/prev*100;
-    cg.innerHTML=` <span class="${c>=0?'pos':'neg'}" style="font-size:17px">${c>=0?'▲':'▼'} ${Math.abs(c).toFixed(2)}%</span>`;}
+    cg.innerHTML=Math.abs(c)>11?'':` <span class="${c>=0?'pos':'neg'}" style="font-size:17px">${c>=0?'▲':'▼'} ${Math.abs(c).toFixed(2)}%</span>`;}   // 🛡 |漲跌|>11%=壞昨收,不顯示假值
   if(!box)return;
   if(d){
     window.__mkToday=!!(Array.isArray(d.t)&&d.t.length&&tpDay(d.t[d.t.length-1])===tpDay(Date.now()/1000));
