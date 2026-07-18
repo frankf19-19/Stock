@@ -2153,7 +2153,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r325</span>');
+  diag.push('<span style="color:var(--dim)">build r326</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2872,6 +2872,15 @@ const IDX={sel:'tw',d:{},lv:{},last:{},misD:{},otcSyms:['^TWOII','^TWO']};   // 
 const TWACC={t:[],c:[],v:[],prev:null};    // 加權分線:即時報價逐點累積(當日持久化)
 const OTCACC={t:[],c:[],v:[],prev:null};   // 櫃買分線:即時報價逐點累積(當日持久化)
 function tpDay(ts){return new Date(new Date(ts*1000).toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);}
+function sessDate(){  // 🕗 最近交易時段的日期(台北):00:00~08:29 算前一天;週末回退到週五
+  const d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  if(d.getHours()*60+d.getMinutes()<8*60+30)d.setDate(d.getDate()-1);
+  while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()-1);
+  d.setHours(0,0,0,0);
+  return d;
+}
+function sessDay(){const d=sessDate(),p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
 function accOf(key){return key==='tw'?TWACC:OTCACC;}
 function accPush(key,last,y){
   if(!marketOpen())return;
@@ -2984,8 +2993,8 @@ function idxPick(key){
   const acc=accOf(key);
   const today=tpDay(Date.now()/1000);
   const md=(IDX.misD||{})[key];
-  if(md&&md.day===today&&Array.isArray(md.c)&&md.c.length>=5){
-    // 🌄 MIS 全日分線為底(09:00 起完整),把累積中比它更新的點接上(60秒重抓間隔內仍即時)
+  if(md&&md.day===sessDay()&&Array.isArray(md.c)&&md.c.length>=5){
+    // 🌄 MIS/官方全日分線為底(最近時段 09:00 起完整);盤中把累積中更新的點接上,收盤/深夜則直接呈現最近完整一日
     const t=[...md.t],c=[...md.c],v=[...md.v];
     const lastT=t[t.length-1];
     for(let i=0;i<acc.t.length;i++)
@@ -3051,7 +3060,7 @@ function drawIdxSel(){
       paintDefense();
       return;
     }
-    if(stat)stat.textContent=marketOpen()&&(IDX.sel==='tw'||IDX.sel==='otc')?'今日走勢即時累積中,約 1 分鐘後出現':(IDX.sel==='sp'||IDX.sel==='nq')?'美股走勢載入中…':'走勢暫時載入不到';
+    if(stat)stat.textContent=marketOpen()&&(IDX.sel==='tw'||IDX.sel==='otc')?'今日走勢即時累積中,約 1 分鐘後出現':(IDX.sel==='sp'||IDX.sel==='nq')?'美股走勢載入中…':'最近時段走勢回補中…(夜間部分官方端點休眠屬正常,開盤後自動恢復)';
     const ch=document.getElementById('idxChart');
     if(ch&&RT.idx){killCtx(RT.idx,'idxChart');RT.idx=null;ch.innerHTML='';}
     paintDefense();
@@ -3221,7 +3230,7 @@ async function refreshIdxMis(){
       if(d&&d.c&&d.c.length>=5){
         window.__idxDiag[key]=via+' '+d.c.length+'點';
         const old=IDX.misD[key];
-        IDX.misD[key]=Object.assign(d,{day:tpDay(Date.now()/1000),via});
+        IDX.misD[key]=Object.assign(d,{day:sessDay(),via});
         if(!old||old.c.length!==d.c.length){           // 有新點才重畫,避免無謂閃動
           if(IDX.sel===key)drawIdxSel();
           if(window.__mkMis===key&&location.hash.startsWith('#macro/'))drawMkLive(key);
@@ -3516,8 +3525,8 @@ async function misOhlcCore(ch,prev){
     };
     scan(j,0);
     if(!best||best.length<5)return null;
-    // 以 09:00 起、每點一分鐘組時間軸
-    const base=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    // 以「最近交易時段日」09:00 起、每點一分鐘組時間軸(凌晨/週末開頁不會標成未來時間)
+    const base=sessDate();
     base.setHours(9,0,0,0);
     const t0=Math.floor(base.getTime()/1000);
     return {t:best.map((_,i)=>t0+i*60),c:best.map(v=>+v.toFixed(2)),
@@ -3567,7 +3576,7 @@ async function twse5sIdx(prev){
       if(vals.length>=5&&vals.filter(v=>v>prev*0.85&&v<prev*1.15).length>=vals.length*0.9){vCol=ci;break;}
     }
     if(tCol<0||vCol<0)return null;
-    const base=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const base=sessDate();                               // 錨定最近交易時段日(凌晨拿到的是前一日盤)
     const t=[],c=[];let lastMin=null;
     rows.forEach(r=>{
       const tm=String(r[tCol]||'').trim(),v=parseFloat(String(r[vCol]||'').replace(/,/g,''));
