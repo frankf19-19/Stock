@@ -1,17 +1,43 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-國際行情抓取器 v3 —— 零 Yahoo、零 stooq(它擋機器人)。
+國際行情抓取器 v4 —— 零 Yahoo、零 stooq(它擋機器人)。
 美股指數/美債殖利率/VIX/日經/美元指數:FRED(聯準會官方 API,免費金鑰)
-加權/櫃買盤中分線:證交所 MIS(僅台北盤中時段有資料)
+加權全日分線:證交所官方「每5秒指數統計」MI_5MINS_INDEX(帶日期參數,收盤後/深夜也拿得到最近時段全日)
+櫃買全日分線:MIS 006201 富櫃50 ETF 分線 × 指數比例換算(MIS 分線端點不支援指數頻道,但支援 ETF)
 匯率:open.er-api.com(免金鑰)
+機房被擋時自動借道 repo 根目錄 proxy.json 指定的自家 Cloudflare Worker。
 需要環境變數 FRED_API_KEY(GitHub Secrets 設定)。
 """
 import json, time, datetime, sys, os
 import urllib.request
+import urllib.parse
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 FRED_KEY = os.environ.get("FRED_API_KEY", "").strip()
+
+def _proxy_url():
+    """repo 根目錄 proxy.json 的自家 Worker 網址(無檔案=不用代理)"""
+    try:
+        u = json.load(open("proxy.json", encoding="utf-8")).get("url", "").strip()
+        return u.rstrip("/") if u.startswith("https://") else ""
+    except Exception:
+        return ""
+
+def _sess_date():
+    """最近交易時段日(台北):00:00~08:29 算前一天;週末回退到週五"""
+    tp = datetime.timezone(datetime.timedelta(hours=8))
+    d = datetime.datetime.now(tp)
+    if d.hour * 60 + d.minute < 8 * 60 + 30:
+        d -= datetime.timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= datetime.timedelta(days=1)
+    return d.replace(hour=0, minute=0, second=0, microsecond=0)
+
+def _tp_day(ts):
+    tp = datetime.timezone(datetime.timedelta(hours=8))
+    return datetime.datetime.fromtimestamp(ts, tp).date()
+
 
 # 前端符號 → FRED series id(全部日頻,官方 T+0~T+1 更新)
 FRED = {
@@ -25,13 +51,46 @@ FRED = {
     "^TYX":  "DGS30",
     "DX-Y.NYB": "DTWEXBGS",  # 廣義美元指數(聯準會版;量級與 DXY 不同,趨勢一致)
 }
-MIS_INTRA = {"^TWII": "tse_t00.tw", "^TWOII": "otc_o00.tw"}
+# (v4)加權改官方每5秒統計、櫃買改 ETF 換算——不再使用 MIS 指數頻道
 ERAPI_FX = True   # TWD=X / JPYTWD=X / EURTWD=X / JPY=X
 
 def http_get(url, timeout=25):
     req = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read().decode("utf-8", "replace")
+
+def http_get_px(url, timeout=25):
+    """直連 → 失敗自動借道自家 Worker(proxy.json)"""
+    try:
+        return http_get(url, timeout=timeout)
+    except Exception:
+        pu = _proxy_url()
+        if not pu:
+            raise
+        return http_get(pu + "/?url=" + urllib.parse.quote(url, safe=""), timeout=timeout + 15)
+
+def mis_quote(codes):
+    """MIS getStockInfo 批次報價:回 {代號:{'z':現價,'y':昨收}};深夜也會回最近時段值。
+    codes 例:['tse_t00.tw','otc_o00.tw','otc_006201.tw']"""
+    q = ("https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch="
+         + "|".join(codes) + f"&json=1&delay=0&_={int(time.time()*1000)}")
+    try:
+        j = json.loads(http_get_px(q, timeout=15))
+    except Exception:
+        return {}
+    out = {}
+    for m in (j.get("msgArray") or []):
+        cid = str(m.get("c") or "").strip()
+        def num(k):
+            try:
+                v = float(str(m.get(k, "")).replace(",", ""))
+                return v if v == v and v > 0 else None
+            except Exception:
+                return None
+        if cid:
+            out[cid] = {"z": num("z"), "y": num("y")}
+    return out
+
 
 def fred_daily(series, days=200):
     d2 = datetime.date.today()
@@ -121,11 +180,13 @@ def nasdaq_intraday(cands):
         time.sleep(0.6)
     return None
 
-def mis_intraday(ch, prev=None):
+def mis_intraday(ch, prev=None, sess=None):
+    """MIS 分線端點(僅支援個股/ETF 頻道,不支援指數頻道)。
+    時間軸錨定「最近交易時段日」09:00 起逐分鐘——深夜執行不會標成未來時間。"""
     url = (f"https://mis.twse.com.tw/stock/api/getChartOhlcStatis.jsp"
            f"?ex_ch={ch}&_={int(time.time()*1000)}")
     try:
-        j = json.loads(http_get(url, timeout=15))
+        j = json.loads(http_get_px(url, timeout=15))
     except Exception:
         return None
     best = []
@@ -155,12 +216,64 @@ def mis_intraday(ch, prev=None):
     scan(j)
     if len(best) < 5:
         return None
-    tp = datetime.timezone(datetime.timedelta(hours=8))
-    base = datetime.datetime.now(tp).replace(hour=9, minute=0, second=0, microsecond=0)
-    n = len(best)
-    ts = [int((base + datetime.timedelta(minutes=270*i/max(1, n-1))).timestamp())
-          for i in range(n)]
+    base = (sess or _sess_date()).replace(hour=9, minute=0)
+    t0 = int(base.timestamp())
+    ts = [t0 + i * 60 for i in range(len(best))]
     return {"t": ts, "c": [round(v, 2) for v in best]}
+
+def twse_5s_index(sess, prev=None):
+    """加權全日分線:證交所官方「每5秒指數統計」,帶日期參數 → 深夜/週末也拿得到最近時段。
+    欄位先認欄名、認不到再用值域(貼近昨收±15%)偵測,官方改版欄序也不會壞。"""
+    ds = sess.strftime("%Y%m%d")
+    url = (f"https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_INDEX"
+           f"?response=json&date={ds}&_={int(time.time()*1000)}")
+    try:
+        j = json.loads(http_get_px(url, timeout=30))
+    except Exception as e:
+        print(f"  MI_5MINS_INDEX 失敗: {e}", file=sys.stderr)
+        return None
+    rows = j.get("data") or []
+    if not rows:
+        return None
+    fields = [str(x) for x in (j.get("fields") or [])]
+    vcol = next((i for i, f in enumerate(fields) if "發行量加權股價指數" in f), None)
+    tcol = next((i for i, r0 in enumerate(rows[0])
+                 if isinstance(r0, str) and r0.count(":") == 2), 0)
+    if vcol is None and prev:
+        for ci in range(len(rows[0])):
+            if ci == tcol:
+                continue
+            vals = []
+            for r in rows[:60]:
+                try:
+                    vals.append(float(str(r[ci]).replace(",", "")))
+                except Exception:
+                    pass
+            if len(vals) >= 5 and sum(1 for v in vals if prev*0.85 < v < prev*1.15) >= len(vals)*0.9:
+                vcol = ci
+                break
+    if vcol is None:
+        return None
+    t, c = [], []
+    last_min = None
+    for r in rows:
+        tm = str(r[tcol]).strip()
+        try:
+            v = float(str(r[vcol]).replace(",", ""))
+        except Exception:
+            continue
+        hms = tm.split(":")
+        if len(hms) != 3:
+            continue
+        key = hms[0] + ":" + hms[1]
+        if key == last_min:
+            c[-1] = round(v, 2)                      # 同一分鐘取最後一筆=分收
+            continue
+        last_min = key
+        ts = int(sess.replace(hour=int(hms[0]), minute=int(hms[1])).timestamp())
+        t.append(ts)
+        c.append(round(v, 2))
+    return {"t": t, "c": c} if len(c) >= 5 else None
 
 def main():
     series = {}
@@ -206,24 +319,71 @@ def main():
         series.setdefault(fsym, {})["m"] = m
         print(f"  {fsym} ← Nasdaq 盤中({len(m['t'])} 點,昨收 {m.get('prev','—')})")
         time.sleep(0.5)
-    # 台股指數盤中(收盤後 MIS 清空屬正常;此時沿用上一份檔案裡的當日走勢,不讓卡片開天窗)
+    # ── 台股指數全日分線(v4):加權=證交所官方每5秒統計、櫃買=006201 ETF 分線×比例換算 ──
     old_series = {}
     try:
         with open("yext.json", encoding="utf-8") as f:
             old_series = (json.load(f).get("series")) or {}
     except Exception:
         pass
-    for sym, ch in MIS_INTRA.items():
-        m = mis_intraday(ch)
-        if m:
-            series.setdefault(sym, {})["m"] = m
-            print(f"  {sym} ← MIS 盤中({len(m['t'])} 點)")
+
+    def keep_better(sym, new_m):
+        """同時段舊資料比新資料長 → 保留舊的(防止端點回半截把好資料蓋掉)"""
+        om = (old_series.get(sym) or {}).get("m")
+        if new_m and om and om.get("t") and new_m.get("t"):
+            try:
+                if (_tp_day(om["t"][-1]) == _tp_day(new_m["t"][-1])
+                        and len(om["c"]) > len(new_m["c"])):
+                    if om.get("prev") is None and new_m.get("prev") is not None:
+                        om["prev"] = new_m["prev"]
+                    print(f"  {sym} 新資料較短({len(new_m['c'])}<{len(om['c'])}點),保留舊檔")
+                    return om
+            except Exception:
+                pass
+        return new_m
+
+    sess = _sess_date()
+    q = mis_quote(["tse_t00.tw", "otc_o00.tw", "otc_006201.tw"])
+    ty = (q.get("t00") or {}).get("y")
+    oy = (q.get("o00") or {}).get("y")
+    ey = (q.get("006201") or {}).get("y")
+    # 加權:官方每5秒統計(主)→ MIS ETF 0050 換算(備,理論上用不到)
+    m_tw = twse_5s_index(sess, ty)
+    if m_tw:
+        if ty:
+            m_tw["prev"] = round(ty, 2)
+        m_tw = keep_better("^TWII", m_tw)
+        series.setdefault("^TWII", {})["m"] = m_tw
+        print(f"  ^TWII ← 官方每5秒統計({len(m_tw['t'])} 點,{sess.date()},昨收 {m_tw.get('prev','—')})")
+    else:
+        om = (old_series.get("^TWII") or {}).get("m")
+        if om:
+            series.setdefault("^TWII", {})["m"] = om
+            print("  ^TWII ← 沿用前檔走勢(官方端點暫不可用)")
         else:
-            om = (old_series.get(sym) or {}).get("m")
-            if om:
-                series.setdefault(sym, {})["m"] = om
-                print(f"  {sym} ← 沿用前檔走勢(MIS 已收盤清空)")
-        time.sleep(0.5)
+            print("  ^TWII 未取得(官方端點與前檔皆無)", file=sys.stderr)
+    # 櫃買:MIS 分線端點不支援指數頻道 → 006201 富櫃50 ETF 分線 × (指數昨收/ETF昨收)
+    m_otc = None
+    if oy and ey:
+        m_e = mis_intraday("otc_006201.tw", prev=ey, sess=sess)
+        if m_e:
+            r = oy / ey
+            m_otc = {"t": m_e["t"], "c": [round(v * r, 2) for v in m_e["c"]],
+                     "prev": round(oy, 2), "approx": 1}
+    if m_otc:
+        m_otc = keep_better("^TWOII", m_otc)
+        series.setdefault("^TWOII", {})["m"] = m_otc
+        print(f"  ^TWOII ← 006201 ETF 換算({len(m_otc['t'])} 點,{sess.date()},昨收 {m_otc.get('prev','—')})")
+    else:
+        om = (old_series.get("^TWOII") or {}).get("m")
+        if om:
+            if oy and om.get("prev") is None:
+                om["prev"] = round(oy, 2)
+            series.setdefault("^TWOII", {})["m"] = om
+            print("  ^TWOII ← 沿用前檔走勢(ETF 分線深夜清空屬正常;15:10 收盤快照會存好全日)")
+        else:
+            print("  ^TWOII 未取得(ETF 端點與前檔皆無;下個台股盤中班次會補上)", file=sys.stderr)
+    time.sleep(0.5)
     # 匯率
     if ERAPI_FX:
         try:
