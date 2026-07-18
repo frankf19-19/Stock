@@ -2846,6 +2846,25 @@ def main():
     except Exception as e:
         print(f"  [warn] 處置公告跳過: {e}")
     try:
+        # 🛡 法說續存:data.json 每輪從零重建,來源端點偶發失敗會把全站法說歸零(2026-07-18 實際發生)
+        # → 先自上一份 data.json 沿用既有 conf,再跑抓取;新資料照樣覆蓋、過期由 fetch_conf 清理
+        _oldc = {}
+        try:
+            with open("data.json", encoding="utf-8") as _f:
+                for _s in (json.load(_f).get("stocks") or []):
+                    if _s.get("conf"):
+                        _oldc[_s["id"]] = _s["conf"]
+        except Exception:
+            pass
+        _nres = 0
+        for _s in stocks:
+            if not _s.get("conf") and _s["id"] in _oldc:
+                _s["conf"] = _oldc[_s["id"]]
+                _nres += 1
+        print(f"  法說續存:自前檔沿用 {_nres} 檔(前檔共 {len(_oldc)} 檔)")
+    except Exception as e:
+        print(f"  [warn] 法說續存跳過: {e}")
+    try:
         fetch_conf_calendar(stocks)
     except Exception as e:
         print(f"  [warn] 法說行事曆跳過: {e}")
