@@ -2155,11 +2155,12 @@ def fetch_conf_calendar(stocks):
     def absorb(dfs, restrict_sid=None, diag_tag=""):
         got = 0
         for df in dfs:
-            cols = [str(c) for c in df.columns]
-            pick = lambda *ns: next((c for c in cols if any(n2 in c for n2 in ns)), None)
+            cmap = {str(c): c for c in df.columns}     # 🔑 MOPS 表頭是雙層(MultiIndex tuple):
+            cols = list(cmap)                          #    比對用字串、取值用原始欄鍵(2026-07-18 [diag] 破案)
+            pick = lambda *ns: next((cmap[c] for c in cols if any(n2 in c for n2 in ns)), None)
             k_id  = pick("公司代號", "代號")
             k_d   = pick("召開法人說明會日期", "法人說明會日期", "召開日期")
-            if not k_d or (not k_id and not restrict_sid):
+            if k_d is None or (k_id is None and not restrict_sid):
                 continue
             k_t   = pick("召開法人說明會時間", "時間")
             k_loc = pick("召開法人說明會地點", "地點", "場所")
@@ -2184,7 +2185,7 @@ def fetch_conf_calendar(stocks):
                         pass
                 c = {"d": d.isoformat()}
                 for key2, col in (("t", k_t), ("loc", k_loc), ("msg", k_msg)):
-                    v = str(r0.get(col, "")).strip() if col else ""
+                    v = str(r0.get(col, "")).strip() if col is not None else ""
                     if v and v.lower() != "nan":
                         c[key2] = v[:300 if key2 == "msg" else 60]
                 c["url"] = "https://mops.twse.com.tw/mops/#/web/t100sb02_1"
@@ -2216,8 +2217,15 @@ def fetch_conf_calendar(stocks):
                 print(f"  [diag] {typek} 頁面含「查無」字樣")
         time.sleep(1)
 
-    if not marked:                                       # 🛟 備援:一覽表為空 → 產業龍頭逐檔 co_id 探查
+    if not marked:                                       # 🛟 備援:一覽表為空 → 龍頭/大市值逐檔 co_id 探查
         leads = [s for s in stocks if s.get("lead")][:20]
+        if not leads:                                    # 龍頭標記在本函式之後才執行 → 改用市值前15(台積電必在)
+            def _cap(s):
+                try:
+                    return float((s.get("co") or {}).get("cap") or 0)
+                except Exception:
+                    return 0.0
+            leads = sorted(stocks, key=_cap, reverse=True)[:15]
         print(f"  一覽表為空 → 改以產業龍頭逐檔探查({len(leads)} 檔)…")
         for s in leads:
             typek = "otc" if s.get("ex") == "otc" else "sii"
@@ -2236,8 +2244,13 @@ def fetch_conf_calendar(stocks):
             time.sleep(1.2)
 
     if len(marked) > 600:
-        print(f"  [warn] 法說一覽表標記 {len(marked)} 檔異常偏多,疑似解析錯誤——本輪放棄,沿用既有資料")
-        return
+        from collections import Counter as _Ct
+        top = _Ct(c["d"] for _, c in marked.values()).most_common(1)
+        share = top[0][1] / len(marked) if top else 0
+        if share > 0.7:                                 # 全市場同一天「開法說」= 假資料特徵(2026-07-18 事故)
+            print(f"  [warn] 法說一覽表 {len(marked)} 檔且 {share:.0%} 集中同一日期——判定解析異常,本輪放棄")
+            return
+        print(f"  法說旺季:{len(marked)} 檔(日期分散,判定為真實清單)")
     for sid, (s, c) in marked.items():
         s["conf"] = c
     print(f"  法說一覽表:標記 {len(marked)} 檔")
