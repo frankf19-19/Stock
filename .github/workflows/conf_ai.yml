@@ -1,0 +1,39 @@
+name: 法說會AI聽讀分析
+on:
+  workflow_dispatch:
+  schedule:
+    # 平日台北 18:40(公司通常盤後上傳簡報/影片;同場次不重跑,零成本)
+    - cron: "40 10 * * 1-5"
+    # 平日台北 21:40 補一班(晚上才上傳影片的場次)
+    - cron: "40 13 * * 1-5"
+permissions:
+  contents: write
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+      - name: 設定 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 安裝套件
+        run: pip install requests
+      - name: 聽讀分析
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          PYTHONUNBUFFERED: "1"
+        run: python listen_conf.py
+      - name: 提交結果
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add conf_ai.json 2>/dev/null || true
+          git commit -m "法說AI分析更新 [CI Skip]" || echo "無變更"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            git rebase --abort 2>/dev/null || true; sleep 6
+          done
+          echo "推送撞車,下一班自動再試"
