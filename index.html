@@ -1599,7 +1599,8 @@ function t3RenderRows(sid,rows,slot,src){
     const asc=[...rows].reverse().filter(r=>r.v);
     const el=document.getElementById(cid);
     if(el&&asc.length<2){el.style.height='auto';el.innerHTML='<div class="dim-note">趨勢圖需至少兩季資料,目前僅取得一季——上表照常顯示,下一季公布後圖會自動出現。</div>';}
-    else if(el&&typeof echarts!=='undefined'){
+    else if(el){
+      if(!window.echarts)el.innerHTML='<div class="dim-note">📊 圖表引擎載入中…</div>';
       let tries=0;
       const draw=()=>{
       try{
@@ -1634,9 +1635,35 @@ function t3RenderRows(sid,rows,slot,src){
         el.innerHTML='<div class="dim-note">季報圖表繪製失敗:'+(err&&err.message||err)+'——請截圖回報,一截就能修</div>';
       }
       };
-      draw();
+      ensureECharts().then(ok=>{
+        if(!el.isConnected)return;
+        if(!ok){el.style.height='auto';el.innerHTML='<div class="dim-note">圖表引擎載入失敗(三個 CDN 均不通,可能是網路暫時問題)——上表資料不受影響,重新整理通常就好。</div>';return;}
+        el.innerHTML='';
+        draw();
+      });
     }
   }catch(e){}
+}
+function ensureECharts(){   // 📊 圖表引擎保險絲:head 的 cdnjs 沒載到時,自動換備援 CDN 補載
+  if(window.echarts)return Promise.resolve(true);
+  if(window.__ecP)return window.__ecP;
+  window.__ecP=new Promise(res=>{
+    const urls=['https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js',
+                'https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js',
+                'https://unpkg.com/echarts@5.4.3/dist/echarts.min.js'];
+    let i=0;
+    const nx=()=>{
+      if(window.echarts)return res(true);
+      if(i>=urls.length)return res(false);
+      const sc=document.createElement('script');
+      sc.src=urls[i++];
+      sc.onload=()=>{window.echarts?res(true):nx();};
+      sc.onerror=nx;
+      document.head.appendChild(sc);
+    };
+    nx();
+  });
+  return window.__ecP;
 }
 function t3QNow(){                                       // 依申報時程推測最新可得季
   const d=new Date(), y=d.getFullYear(), m=d.getMonth()+1, day=d.getDate();
@@ -2153,7 +2180,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r327</span>');
+  diag.push('<span style="color:var(--dim)">build r329</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2171,6 +2198,11 @@ function tvToggle(){
   const s=(DATA&&DATA.stocks||[]).find(x=>x.id===id);
   const btn=document.getElementById('tvTgl');
   if(!s){return;}
+  if(s.market==='TW'){                          // 🛡 TradingView 免費 widget 已不授權台股個股(彈「僅在TradingView上可用」)
+    window.__tvMode=false;
+    loadIntraDetail(s);
+    return;
+  }
   if(window.__tvMode){                          // 切回站內圖
     window.__tvMode=false;
     if(btn)btn.textContent='📺 TV 全能圖';
@@ -6348,7 +6380,7 @@ async function showDetail(id){
   const zoneName=lv.bull?'參考買進區|月線~季線均線帶':'支撐帶|空頭排列,先觀望';
   kwrap.innerHTML=`<div class="chart-box">
       <div class="ind-head">
-        <h3>即時走勢(1分線) · 黃線為當日均價 · 虛線為昨收 <button id="tvTgl" onclick="tvToggle()" style="margin-left:8px;padding:2px 10px;font-size:12px;border:1px solid var(--line,#ccc);border-radius:7px;background:transparent;cursor:pointer;vertical-align:1px">📺 TV 全能圖</button></h3>
+        <h3>即時走勢(1分線) · 黃線為當日均價 · 虛線為昨收 ${s.market==='TW'?'':'<button id="tvTgl" onclick="tvToggle()" style="margin-left:8px;padding:2px 10px;font-size:12px;border:1px solid var(--line,#ccc);border-radius:7px;background:transparent;cursor:pointer;vertical-align:1px">📺 TV 全能圖</button>'}</h3>
         <span class="c-code" id="intraStat">載入中…</span>
       </div>
       <div id="intraChart" style="height:230px"></div>
