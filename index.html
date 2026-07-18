@@ -591,6 +591,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 .mob-jump{display:flex;gap:7px;overflow-x:auto;position:sticky;top:0;z-index:6;
   background:var(--bg);padding:9px 2px;margin:0 0 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .mob-jump::-webkit-scrollbar{display:none}
+@media(min-width:641px){.mob-jump{flex-wrap:wrap;overflow:visible}.mob-jump button{flex-shrink:1}}
 .mob-jump button{flex-shrink:0;background:var(--panel);border:1.5px solid var(--line);border-radius:999px;
   padding:7px 15px;font-size:13.5px;font-weight:800;color:var(--txt2);cursor:pointer;white-space:nowrap;
   transition:border-color .12s,color .12s,transform .12s}
@@ -2183,7 +2184,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r333</span>');
+  diag.push('<span style="color:var(--dim)">build r334</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4985,6 +4986,28 @@ const CONF_RULES=[   // 法說文本方向性訊號(規則化;掃描擇要訊息
  [/毛利率[^。]{0,8}(提升|改善|優於)/,'毛利率改善','bull'],
  [/毛利率[^。]{0,8}(下滑|承壓|低於)/,'毛利率承壓','bear'],
  [/(AI|人工智慧)[^。]{0,10}(需求|動能|訂單|成長)/,'AI 需求題材','bull']];
+const CONF_NUM_RULES=[   // 報導/擇要中的關鍵財務數字(法說重點:營收・獲利・三率・資本支出・EPS)
+ [/毛利率[約為達至]?\s*([\d.]+)\s*%/,m=>`毛利率 ${m[1]}%`],
+ [/營益率[約為達至]?\s*([\d.]+)\s*%/,m=>`營益率 ${m[1]}%`],
+ [/(?:合併)?營收[^。,,]{0,8}?([\d,]+(?:\.\d+)?)\s*(兆|億)/,m=>`營收 ${m[1]}${m[2]}`],
+ [/(獲利|淨利|EPS|每股純益|每股盈餘)[^。,,]{0,8}?(跳增|大增|成長|年增|增)\s*([\d.]+)\s*%/,m=>`${m[1]}${m[2]} ${m[3]}%`],
+ [/(獲利|淨利)[^。,,]{0,8}?(衰退|年減|下滑|減)\s*([\d.]+)\s*%/,m=>`${m[1]}${m[2]} ${m[3]}%`],
+ [/EPS[^。,,]{0,6}?([\d.]+)\s*元/,m=>`EPS ${m[1]} 元`],
+ [/資本支出[^。,,]{0,10}?([\d,.]+)\s*(億美元|億元|億|兆)/,m=>`資本支出 ${m[1]}${m[2]}`],
+ [/年增[^%]{0,5}?([+\-]?[\d.]+)\s*%/,m=>`年增 ${m[1]}%`]];
+function confNumbers(s){   // 從擇要+主旨+相關報導標題擷取關鍵數字(去重,最多6個)
+  try{
+    const texts=confTexts(s);
+    const out=[],seen={};
+    texts.forEach(tx=>{
+      CONF_NUM_RULES.forEach(([re,fmt])=>{
+        const m=tx.match(re);
+        if(m){const v=fmt(m);if(!seen[v]){seen[v]=1;out.push(v);}}
+      });
+    });
+    return out.slice(0,6);
+  }catch(e){return [];}
+}
 function confNewsHits(s,relax){
   try{
     const pat=/(法說|法人說明會|法人座談)/;
@@ -5000,10 +5023,21 @@ function confNewsHits(s,relax){
     }).slice(0,3);
   }catch(e){return [];}
 }
+function confTexts(s){   // 分析文本收集:擇要+主旨+相關報導標題(法說窗口±3天放寬為公司名比對)
+  const c=s&&s.conf;
+  let hits=confNewsHits(s);
+  if(!hits.length&&c&&c.d){
+    try{
+      const dd=Math.abs((new Date(c.d)-new Date(tpDay(Date.now()/1000)))/864e5);
+      if(dd<=3)hits=confNewsHits(s,true);
+    }catch(e){}
+  }
+  return [(c&&c.msg)||'',(c&&c.subj)||'',...hits.map(n=>n.title)];
+}
 function confAnalyzeCore(s){   // 回 {sigs:[{t,dir}],tone,top} 或 null(無可分析文本)
   try{
     const c=s&&s.conf;
-    const txt=[(c&&c.msg)||'',(c&&c.subj)||'',...confNewsHits(s).map(n=>n.title)].join('。');
+    const txt=confTexts(s).join('。');
     if(txt.replace(/。/g,'').length<6)return (c&&c.d)?{sigs:[],tone:'none',top:[]}:null;
     const sigs=[],seen={};
     CONF_RULES.forEach(([re,label,dir])=>{if(re.test(txt)&&!seen[label]){seen[label]=1;sigs.push({t:label,dir});}});
@@ -5021,7 +5055,9 @@ function confAnalyzeHTML(s){
     :a.tone==='bull'?'訊號整體偏多:公司釋出正向展望,可搭配下方「AI 綜合研判」看基本面與籌碼是否同步。'
     :a.tone==='bear'?'訊號整體偏保守:展望轉弱時追價風險高,先看簡報確認是「短期調整」還是「趨勢轉向」。'
     :'多空訊號並陳:通常代表「部分業務強、部分承壓」,重點看哪塊佔營收比重大。';
-  return `<div class="dim-note"><b>🤖 站內解讀(規則化):</b>${a.sigs.length?a.sigs.map(chip).join(' '):''}<br>${line}<span style="color:var(--dim)">(規則化文字掃描,非人工判讀;以公司簡報原文為準)</span></div>`;
+  const nums=confNumbers(s);
+  const numLine=nums.length?`<br><b>📌 報導關鍵數字:</b>${nums.map(x=>`<span class="c-code">${x}</span>`).join(' ')}`:'';
+  return `<div class="dim-note"><b>🤖 站內解讀(規則化):</b>${a.sigs.length?a.sigs.map(chip).join(' '):''}${numLine}<br>${line}<span style="color:var(--dim)">(規則化文字掃描,非人工判讀;以公司簡報原文為準)</span></div>`;
 }
 function confNewsHTML(s){
   let hits=confNewsHits(s),lab='法說相關報導';
@@ -5061,7 +5097,15 @@ function confHTML(s){
     ${c.loc?`<div class="dim-note">地點:${c.loc}</div>`:''}
     ${c.msg?`<div class="dim-note"><b>法說重點(公司擇要):</b>${c.msg}</div>`
            :'<div class="dim-note" style="color:var(--dim)">公司未申報擇要訊息——重點請直接開下方簡報/公告連結。</div>'}
-    ${c.url&&/^https?:/i.test(c.url)?`<div class="dim-note"><a href="${c.url}" target="_blank" rel="noopener">📎 簡報/公告連結 ›</a></div>`:''}
+    ${(()=>{
+      const generic=!c.url||!/^https?:/i.test(c.url)||/mops\.twse\.com\.tw\/mops\/#/.test(c.url);
+      const L=[];
+      if(!generic)L.push(`<a href="${c.url}" target="_blank" rel="noopener">📎 簡報/公告連結 ›</a>`);
+      L.push(`<a href="https://www.google.com/search?q=${encodeURIComponent(s.name+' 法說會 簡報 重點')}" target="_blank" rel="noopener">🔎 找法說簡報與報導重點 ›</a>`);
+      if(s.co&&s.co.web&&/^https?:/i.test(s.co.web))L.push(`<a href="${s.co.web}" target="_blank" rel="noopener">🏢 公司官網(投資人專區)›</a>`);
+      if(generic)L.push(`<a href="https://mops.twse.com.tw/mops/#/web/t100sb02_1" target="_blank" rel="noopener">📋 MOPS 法說查詢(進入後輸入 ${s.id})›</a>`);
+      return `<div class="dim-note">${L.join(' · ')}</div>`;
+    })()}
     ${confAnalyzeHTML(s)}
     ${news}
     <div class="dim-note" style="color:var(--dim)">資料:公開資訊觀測站(公司自行申報之擇要訊息)+ 站內新聞源。</div>
