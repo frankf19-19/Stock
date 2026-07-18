@@ -707,6 +707,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 </div>
 <div class="tabPane" id="tp-macro"><div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:13px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
   <div class="alert-strip" id="macroAlerts" style="display:none"></div>
+  <div id="confHomeBox" style="display:none"></div>
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
       <div class="ind-head">
@@ -2197,7 +2198,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r339</span>');
+  diag.push('<span style="color:var(--dim)">build r340</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5071,6 +5072,60 @@ async function confAI(){   // 法說 AI 聽讀結果(conf_ai.json,由 listen_con
   }catch(e){}
   return window.__CONFAI||null;
 }
+function confOneLiner(g,c){   // 取「一句話結論」:AI 分析 → 擇要前段 → 空
+  try{
+    if(g&&g.ai){
+      const m=g.ai.match(/一句話結論[^\n]*\n+\s*([^\n]{5,120})/)||g.ai.match(/\*\*一句話結論\*\*[:::]?\s*([^\n]{5,120})/);
+      if(m)return m[1].replace(/\*\*/g,'').trim();
+    }
+    if(c&&c.msg)return c.msg.replace(/https?:\/\/\S+/g,'').slice(0,60);
+  }catch(e){}
+  return '';
+}
+async function renderConfHome(){   // 📣 首頁重要法說快報:近5天已開+未來7天將開的重要場次(龍頭/大市值/有AI分析)
+  try{
+    const box=document.getElementById('confHomeBox');
+    if(!box||!DATA||!Array.isArray(DATA.stocks))return;
+    const j=await confAI();
+    const items=(j&&j.items)||{};
+    const today=new Date(tpDay(Date.now()/1000));
+    const rows=[];
+    DATA.stocks.forEach(s=>{
+      const c=s.conf;
+      if(!c||!c.d)return;
+      const dd=(new Date(c.d)-today)/864e5;
+      if(dd<-5||dd>7)return;
+      const g=items[s.id];
+      const gOk=g&&g.ai&&Math.abs((new Date(g.d)-new Date(c.d))/864e5)<=2;
+      let cap=0;try{cap=+((s.co||{}).cap)||0;}catch(e){}
+      const imp=(s.lead?2:0)+(gOk?2:0)+(cap>1e11?1:0)+(dd>=0&&cap>5e10?1:0);   // 重要度:龍頭/有AI分析/千億市值;即將召開者500億即列
+      if(imp<1)return;
+      rows.push({s,c,g:gOk?g:null,dd,imp,cap});
+    });
+    if(!rows.length){box.style.display='none';return;}
+    rows.sort((a,b)=>(b.imp-a.imp)||(Math.abs(a.dd)-Math.abs(b.dd))||(b.cap-a.cap));
+    const top=rows.slice(0,5);
+    box.innerHTML=`<div class="dim-block" style="border-left:4px solid var(--amber);margin:10px 0;padding:11px 14px">
+      <h3 style="margin:0 0 6px">📣 重要法說快報 <span class="ds" style="color:var(--dim);font-weight:400">點列可跳該股法說專區</span></h3>
+      ${top.map(r=>{
+        const fut=r.dd>=0;
+        const line=confOneLiner(r.g,r.c);
+        return `<div data-cid="${r.s.id}" style="cursor:pointer;padding:5px 0;border-bottom:1px dashed var(--line)">
+          <b>${r.s.name}</b> <span class="c-code">${r.s.id}</span>
+          <span class="ds" style="color:${fut?'var(--amber)':'var(--dim)'};font-weight:700"> ${fut?'將於':'已於'} ${r.c.d.slice(5)}</span>
+          ${r.g?` <span class="c-code" style="color:var(--amber)">🎧 AI已${{yt:'聽完影片',pdf:'讀完簡報',text:'分析'}[r.g.src]||'分析'}</span>`:''}
+          ${line?`<br><span style="color:var(--fg2,inherit)">${line}</span>`:''}
+        </div>`;}).join('')}
+    </div>`;
+    box.style.display='';
+    box.querySelectorAll('[data-cid]').forEach(el=>el.onclick=()=>{
+      location.hash='#stock/'+el.dataset.cid;
+      setTimeout(()=>{try{document.getElementById('sb-stk_conf').scrollIntoView({behavior:'smooth'});}catch(e){}},900);
+    });
+  }catch(e){}
+}
+setTimeout(renderConfHome,2200);
+setInterval(renderConfHome,600000);
 function mdLite(t){   // Gemini 輸出的輕量渲染:跳脫 → **粗體** → ##標題 → 換行
   const esc=String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   return esc.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
