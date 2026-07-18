@@ -2205,7 +2205,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r344</span>');
+  diag.push('<span style="color:var(--dim)">build r345</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2445,11 +2445,12 @@ function drawIntraLWC(domId,d){
   const last=[...d.c].reverse().find(x=>x!=null);
   const up=last>=d.prev, col=up?UPC:DNC;
   const dark=document.documentElement.dataset.theme==='dark';
+  box.style.background='#0a0c10';box.style.borderRadius='10px';   // 🖥 券商終端風(XQ 式黑底)
   const ch=LightweightCharts.createChart(box,{
     autoSize:true,
-    layout:{background:{type:'solid',color:'transparent'},textColor:dark?'#aaa':'#666',fontSize:11,attributionLogo:false},
-    grid:{vertLines:{color:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)'},
-          horzLines:{color:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)'}},
+    layout:{background:{type:'solid',color:'#0a0c10'},textColor:'#9aa4b0',fontSize:11,attributionLogo:false},
+    grid:{vertLines:{color:'rgba(255,255,255,.07)'},
+          horzLines:{color:'rgba(255,255,255,.07)'}},
     rightPriceScale:{borderVisible:false,scaleMargins:{top:0.08,bottom:0.10}},
     timeScale:{borderVisible:false,timeVisible:true,secondsVisible:false,rightOffset:2},
     crosshair:{mode:LightweightCharts.CrosshairMode.Magnet},
@@ -2458,8 +2459,8 @@ function drawIntraLWC(domId,d){
   });
   box.__lwc=ch;
   // 主線:面積(漲紅跌綠,對齊站內配色)
-  const area=ch.addAreaSeries({lineColor:col,lineWidth:2,
-    topColor:up?'rgba(229,72,77,.18)':'rgba(33,164,102,.18)',
+  const area=ch.addAreaSeries({lineColor:'#FFD84D',lineWidth:1.6,   // XQ 式黃色走勢線
+    topColor:'rgba(255,216,77,.10)',
     bottomColor:'rgba(0,0,0,0)',priceLineVisible:false,lastValueVisible:true});
   // 🧹 LWC 要求時間嚴格遞增:先按時間排序並去重(同秒取後值)
   const rows=[];
@@ -2482,11 +2483,11 @@ function drawIntraLWC(domId,d){
   if(!pts.some(p=>p.value!=null))return null;   // 全 whitespace 沒實點 → 退 ECharts
   area.setData(pts);
   // 均價黃線
-  const avgS=ch.addLineSeries({color:'#E8B44A',lineWidth:1,priceLineVisible:false,lastValueVisible:false,
+  const avgS=ch.addLineSeries({color:'#52d273',lineWidth:1,priceLineVisible:false,lastValueVisible:false,   // XQ 式綠色均價線
     crosshairMarkerVisible:false});
   avgS.setData(avgPts);
   // 昨收虛線
-  if(d.prev>0)area.createPriceLine({price:+(+d.prev).toFixed(2),color:dark?'#888':'#999',
+  if(d.prev>0)area.createPriceLine({price:+(+d.prev).toFixed(2),color:'#7a8494',
     lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dashed,axisLabelVisible:true,title:'昨收'});
   if(d.lim10&&d.prev>0){   // 📐 XQ 式:價格軸固定跨「跌停~漲停」全幅度,走勢看的是相對位置
     const lu=+(d.prev*1.1).toFixed(2),ld=+(d.prev*0.9).toFixed(2);
@@ -2498,11 +2499,11 @@ function drawIntraLWC(domId,d){
   }
   try{   // 開盤價箭頭(XQ 式標記)
     const fi=dd.c.findIndex(x=>x!=null);
-    if(fi>=0)area.setMarkers([{time:dd.t[fi]+_TZ8,position:'aboveBar',color:'#E8B44A',shape:'arrowDown',text:'開 '+dd.c[fi]}]);
+    if(fi>=0)area.setMarkers([{time:dd.t[fi]+_TZ8,position:'aboveBar',color:'#ff5b5b',shape:'arrowDown',text:'開 '+dd.c[fi]}]);
   }catch(e){}
   if((dd.v||[]).some(v=>v>0)){   // 分時量柱(XQ 式紫紅)
     const vol=ch.addHistogramSeries({priceScaleId:'vol',priceFormat:{type:'volume'},
-      color:'rgba(186,85,150,.55)',lastValueVisible:false,priceLineVisible:false});
+      color:'rgba(217,70,180,.65)',lastValueVisible:false,priceLineVisible:false});
     ch.priceScale('vol').applyOptions({scaleMargins:{top:0.66,bottom:0.18},borderVisible:false});
     vol.setData(dd.t.map((ts,i)=>({time:ts+_TZ8,value:dd.v[i]||0})).filter(x=>x.value>0));
     ch.applyOptions({rightPriceScale:{scaleMargins:{top:0.04,bottom:0.36}}});
