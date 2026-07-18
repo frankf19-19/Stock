@@ -1654,16 +1654,20 @@ async function t3qBlock(s){
   const slot=document.getElementById('t3qSlot');
   if(!slot)return;
   // 主源:後端 c/ 分片(每日排程以官方 OpenAPI 抓好 8 季三率,零代理、秒開、不看免費代理臉色)
+  let rows1=null;                                        // 後端僅1季時留作最後保底
   try{
     const e=await loadChips(s);
     if(e&&Array.isArray(e.fq)&&e.fq.length){
       const rows=e.fq.map((q,i)=>({q,v:{gm:(e.gm||[])[i],om:(e.om||[])[i],nm:(e.nm||[])[i],rev:(e.qr||[])[i]??null}}))
         .filter(r=>[r.v.gm,r.v.om,r.v.nm].every(x=>x!=null&&isFinite(x)))
         .sort((a,b)=>b.q.localeCompare(a.q));           // 新→舊,對齊備援路徑的排序
-      if(rows.length){t3RenderRows(s.id,rows,slot,'本站後端每日排程・證交所/櫃買官方 OpenAPI');return;}
+      // ⚠ 門檻=至少2季:後端歷史回補失敗時只有最新1季,若直接採用會短路掉
+      //   下方「瀏覽器端八季回補」路徑,整站季報只剩一季(2026-07 實際踩過的坑)
+      if(rows.length>=2){t3RenderRows(s.id,rows,slot,'本站後端每日排程・證交所/櫃買官方 OpenAPI');return;}
+      if(rows.length)rows1=rows;
     }
   }catch(err){}
-  // 備援:瀏覽器端經免費代理抓 MOPS(品質看代理臉色;後端資料齊了就不會走到這)
+  // 備援:瀏覽器端經免費代理抓 MOPS 八季(後端歷史補齊(≥2季)後就不會走到這)
   let q=t3QNow();
   const probe=await t3HistQ(q);
   if(!probe||!probe[s.id]){
@@ -1671,6 +1675,8 @@ async function t3qBlock(s){
     q=qs[1];
   }
   await t3HistShow(s.id,q,slot);
+  if(!slot.querySelector('table')&&rows1)               // 八季回補也失敗:至少把後端那1季擺回來
+    t3RenderRows(s.id,rows1,slot,'本站後端每日排程・證交所/櫃買官方 OpenAPI(八季歷史回補中)');
 }
 function t3Render(items,note){
   const box=document.getElementById('t3Box');
@@ -2147,7 +2153,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r323</span>');
+  diag.push('<span style="color:var(--dim)">build r325</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4291,7 +4297,8 @@ function rtTargets(){
   document.querySelectorAll('[data-candle]').forEach(el=>add((DATA.stocks||[]).find(x=>x.id===el.dataset.candle)));
   return [...ids].slice(0,180);
 }
-function myProxy(){try{return (localStorage.getItem('my_proxy')||'').trim();}catch(e){return '';}}   /* Worker 網址存本機 localStorage,由「測試連線」面板手動設定;不自動讀 proxy.json,避免全站誤套用 */
+const MY_PROXY_DEFAULT='https://muddy-cake-cb69.frankccc199.workers.dev';   // 站方自家 Worker:全站自動套用,免設定
+function myProxy(){try{const v=(localStorage.getItem('my_proxy')||'').trim();return v||MY_PROXY_DEFAULT;}catch(e){return MY_PROXY_DEFAULT;}}   /* 設定欄位仍可覆蓋(填入其他網址時優先) */
 const ROUTE_MEM={};
 function routeMemGet(k){if(ROUTE_MEM[k]!=null)return ROUTE_MEM[k];try{return ROUTE_MEM[k]=+(localStorage.getItem('rt_route_'+k)||0);}catch(e){return 0;}}
 function routeMemSet(k,i){ROUTE_MEM[k]=i;try{localStorage.setItem('rt_route_'+k,String(i));}catch(e){}}
