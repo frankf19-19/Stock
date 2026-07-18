@@ -1972,6 +1972,145 @@ def build_fut_table():
     print(f"  期貨籌碼表:{len(rows)} 個交易日(最新 {rows[-1]['d'] if rows else '—'})")
     return rows
 
+CONF_NUM_RULES_PY = [   # 簡報/公告文本的關鍵財務數字(與前端規則同步)
+    (r"毛利率[約為達至]?\s*([\d.]+)\s*%", lambda m: f"毛利率 {m.group(1)}%"),
+    (r"營業利益率[約為達至]?\s*([\d.]+)\s*%", lambda m: f"營益率 {m.group(1)}%"),
+    (r"(?:合併)?營收[^。,,;;\n]{0,10}?([\d,]+(?:\.\d+)?)\s*(兆|億)", lambda m: f"營收 {m.group(1)}{m.group(2)}"),
+    (r"(獲利|淨利|稅後(?:純益|淨利))[^。,,\n]{0,10}?(年增|成長|增)\s*([\d.]+)\s*%", lambda m: f"{m.group(1)}{m.group(2)} {m.group(3)}%"),
+    (r"(獲利|淨利)[^。,,\n]{0,10}?(年減|衰退|下滑)\s*([\d.]+)\s*%", lambda m: f"{m.group(1)}{m.group(2)} {m.group(3)}%"),
+    (r"(?:EPS|每股(?:純益|盈餘))[^。,,\n]{0,8}?([\d.]+)\s*元", lambda m: f"EPS {m.group(1)} 元"),
+    (r"資本支出[^。,,\n]{0,12}?([\d,.]+)\s*(億美元|億元|億|兆)", lambda m: f"資本支出 {m.group(1)}{m.group(2)}"),
+]
+CONF_OUTLOOK_PAT = r"[^。;;\n]{0,40}(展望|預期|預估|目標|指引|看好|審慎|樂觀|成長動能)[^。;;\n]{0,50}"
+
+def conf_enrich(stocks):
+    """法說簡報擷取(零成本第一手):近3天開過法說的個股 → 到 MOPS 抓公司上傳的簡報 PDF
+    → 抽文字 → 擷取關鍵數字與展望句 → 自動撰寫摘要寫入 s['conf']:
+    ai(摘要文字)/nums(數字清單)/pdf(簡報直達連結)。
+    MOPS 擋海外 IP → 沿用 proxy.json 自家 Worker 借道;pypdf 未安裝或全部失敗則靜默跳過。"""
+    import re as _r, io as _io
+    import urllib.parse as _up
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        print("  [warn] 法說簡報:pypdf 未安裝,跳過(workflow 需 pip install pypdf)")
+        return
+    today = dt.date.today()
+    targets = []
+    for s in stocks:
+        c = s.get("conf")
+        if not c or c.get("ai"):
+            continue
+        try:
+            d = dt.date.fromisoformat(c["d"])
+        except Exception:
+            continue
+        if today - dt.timedelta(days=3) <= d <= today:
+            targets.append((s, d))
+    if not targets:
+        print("  法說簡報:近3天無新場次,略過")
+        return
+    _pu = ""
+    try:
+        import os as _os
+        if _os.path.exists("proxy.json"):
+            _pu = json.load(open("proxy.json", encoding="utf-8")).get("url", "").strip().rstrip("/")
+    except Exception:
+        pass
+    def _post(url, data):
+        routes = [url] + ([_pu + "/?url=" + _up.quote(url, safe="")] if _pu else [])
+        for u in routes:
+            try:
+                r = requests.post(u, data=data, headers=UA, timeout=50)
+                if r.ok and len(r.text) > 300:
+                    return r.text
+            except Exception:
+                continue
+        return None
+    def _get_bytes(url):
+        routes = [url] + ([_pu + "/?url=" + _up.quote(url, safe="")] if _pu else [])
+        for u in routes:
+            try:
+                r = requests.get(u, headers=UA, timeout=60)
+                if r.ok and r.content[:4] == b"%PDF":
+                    return r.content
+            except Exception:
+                continue
+        return None
+    n_ok = 0
+    for s, d in targets[:8]:                      # 一輪最多處理8檔,控時
+        try:
+            roc_y = d.year - 1911
+            typek = "otc" if s.get("ex") == "otc" else "sii"
+            html_txt = _post("https://mopsov.twse.com.tw/mops/web/ajax_t100sb02_1",
+                             {"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
+                              "TYPEK": typek, "year": str(roc_y), "co_id": s["id"]})
+            if not html_txt:
+                print(f"    {s['id']} 法說查詢頁不通(直連與代理均失敗)")
+                continue
+            # 找該公司列裡的 PDF 連結(中文簡報優先)
+            links = _r.findall(r"href=[\'\"]([^\'\"]+?\.pdf)[\'\"]", html_txt, _r.I)
+            if not links:
+                links = _r.findall(r"([\w/\.\-]+?/nas/STR/[\w\.\-]+?\.pdf)", html_txt, _r.I)
+            if not links:
+                print(f"    {s['id']} 查無簡報 PDF 連結(公司可能尚未上傳)")
+                continue
+            zh = [x for x in links if _r.search(r"[Cc]\.pdf$|_c", x)] or links
+            pdf_url = zh[0]
+            if pdf_url.startswith("/"):
+                pdf_url = "https://mopsov.twse.com.tw" + pdf_url
+            elif not pdf_url.startswith("http"):
+                pdf_url = "https://mopsov.twse.com.tw/" + pdf_url.lstrip("./")
+            blob = _get_bytes(pdf_url)
+            if not blob:
+                print(f"    {s['id']} 簡報下載失敗:{pdf_url[:80]}")
+                continue
+            txt = ""
+            try:
+                rd = PdfReader(_io.BytesIO(blob))
+                for pg in rd.pages[:25]:
+                    txt += (pg.extract_text() or "") + "\n"
+            except Exception as e:
+                print(f"    {s['id']} PDF 解析失敗:{str(e)[:60]}")
+                continue
+            txt = _r.sub(r"\s+", " ", txt)
+            if len(txt) < 80:
+                print(f"    {s['id']} 簡報為圖片型 PDF(無文字層),無法擷取")
+                s["conf"]["pdf"] = pdf_url
+                continue
+            nums, seen = [], set()
+            for pat, fmt in CONF_NUM_RULES_PY:
+                for m in _r.finditer(pat, txt):
+                    v = fmt(m)
+                    if v not in seen:
+                        seen.add(v); nums.append(v)
+                    if len(nums) >= 8:
+                        break
+            outlook = []
+            for m in _r.finditer(CONF_OUTLOOK_PAT, txt):
+                seg = m.group(0).strip()
+                if 8 <= len(seg) <= 90 and seg not in outlook:
+                    outlook.append(seg)
+                if len(outlook) >= 2:
+                    break
+            sent = [f"依公司上傳之法說簡報:"]
+            if nums:
+                sent.append("關鍵數字—" + "、".join(nums[:8]) + "。")
+            if outlook:
+                sent.append("展望相關敘述—「" + "」「".join(outlook) + "」。")
+            if not nums and not outlook:
+                sent = ["已取得公司法說簡報,惟內文以圖表為主、可擷取文字有限;數字重點請開簡報原文。"]
+            s["conf"]["ai"] = " ".join(sent)[:600]
+            if nums:
+                s["conf"]["nums"] = nums[:8]
+            s["conf"]["pdf"] = pdf_url
+            n_ok += 1
+            print(f"    {s['id']} {s['name']}:簡報擷取成功(數字 {len(nums)}、展望句 {len(outlook)})")
+            time.sleep(1.5)
+        except Exception as e:
+            print(f"    {s['id']} 簡報管線例外:{str(e)[:70]}")
+    print(f"  法說簡報:成功撰寫 {n_ok}/{len(targets)} 檔")
+
 def fetch_conf_calendar(stocks):
     """法說會行事曆(主源):公開資訊觀測站「法人說明會」opendata——列出已排定與近期已開場次,
     不是滾動快照,像台積電這種提早數週公告的大型法說不會漏。
@@ -2714,6 +2853,10 @@ def main():
         fetch_conf(stocks)
     except Exception as e:
         print(f"  [warn] 法說會跳過: {e}")
+    try:
+        conf_enrich(stocks)
+    except Exception as e:
+        print(f"  [warn] 法說簡報跳過: {e}")
     try:
         mark_leaders(stocks)
     except Exception as e:
