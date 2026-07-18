@@ -62,19 +62,39 @@ def http_post(url, data, timeout=60):
     return None
 
 
+_G = {"n": 0}
 def gemini(parts, max_tokens=4096, tools=None, timeout=600):
+    """免費層節流:呼叫間隔 6 秒、單輪上限 15 次;429/5xx 退避重試 3 次,
+    仍失敗即拋 RuntimeError('RATE')——由主流程提前收工、不記失敗(佇列留給下一班)。"""
+    import time as _t
+    if _G["n"] >= 15:
+        raise RuntimeError("BUDGET")
+    if _G["n"] > 0:
+        _t.sleep(6)
+    _G["n"] += 1
     body = {"contents": [{"role": "user", "parts": parts}],
             "generationConfig": {"maxOutputTokens": max_tokens}}
     if tools:
         body["tools"] = tools
-    r = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}",
-        json=body, timeout=timeout)
-    if not r.ok:
-        log(f"  ✗ Gemini {r.status_code}: {r.text[:200]}")
-        return ""
-    ps = ((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
-    return "".join(p.get("text", "") for p in ps).strip()
+    for attempt in range(3):
+        try:
+            r = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}",
+                json=body, timeout=timeout)
+        except Exception as e:
+            log(f"  Gemini 連線例外(第{attempt+1}次):{str(e)[:80]}")
+            _t.sleep(20 * (attempt + 1))
+            continue
+        if r.status_code in (429, 500, 503):
+            log(f"  Gemini {r.status_code}(第{attempt+1}次),退避重試…")
+            _t.sleep(25 * (attempt + 1) + 5)
+            continue
+        if not r.ok:
+            log(f"  ✗ Gemini {r.status_code}: {r.text[:200]}")
+            return ""
+        ps = ((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+        return "".join(p.get("text", "") for p in ps).strip()
+    raise RuntimeError("RATE")
 
 
 def yt_title(url):
@@ -241,6 +261,12 @@ def main():
         assert isinstance(store.get("items"), dict)
     except Exception:
         store = {"v": 1, "items": {}}
+    if store.get("fv") != 2:                             # 一次性遷移:清掉 2026-07-18 額度事故造成的冤枉失敗記錄
+        n0 = len(store["items"])
+        store["items"] = {k: v for k, v in store["items"].items() if v.get("ai")}
+        store["fv"] = 2
+        if n0 != len(store["items"]):
+            log(f"  清除額度事故空記錄:{n0 - len(store['items'])} 筆(重新給予完整重試機會)")
     today = dt.date.today()
     news = [n.get("title", "") for n in (data.get("news") or [])]
     targets = []
@@ -277,6 +303,9 @@ def main():
         titles = [t for t in news if s["name"] in t or s["id"] in t]
         try:
             txt, src, ref = analyze(s, c, titles)
+        except RuntimeError as e:
+            log(f"  ⏸ Gemini 額度/頻率受限({e})——本輪提前收工,不記失敗,佇列留給下一班(18:40/21:40 自動續跑)")
+            break
         except Exception as e:
             log(f"    例外:{e}")
             continue
