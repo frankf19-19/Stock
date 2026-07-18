@@ -1972,6 +1972,113 @@ def build_fut_table():
     print(f"  期貨籌碼表:{len(rows)} 個交易日(最新 {rows[-1]['d'] if rows else '—'})")
     return rows
 
+def fetch_conf_calendar(stocks):
+    """法說會行事曆(主源):公開資訊觀測站「法人說明會」opendata——列出已排定與近期已開場次,
+    不是滾動快照,像台積電這種提早數週公告的大型法說不會漏。
+    端點名稱可能隨官方調整,故多候選逐一嘗試 + 欄位名彈性偵測;全失敗只印 warn 不中斷,
+    重大訊息來源(fetch_conf)仍會照跑當補充。"""
+    import re as _r
+    by_id = {s["id"]: s for s in stocks}
+    today = dt.date.today()
+
+    def roc_date(txt):
+        t = str(txt).strip()
+        m = _r.search(r"(\d{2,4})[/\-.](\d{1,2})[/\-.](\d{1,2})", t)
+        if not m:
+            m = _r.match(r"^(\d{3})(\d{2})(\d{2})$", t) or _r.match(r"^(\d{4})(\d{2})(\d{2})$", t)
+        if not m:
+            return None
+        try:
+            y = int(m.group(1))
+            y = y + 1911 if y < 1900 else y
+            return dt.date(y, int(m.group(2)), int(m.group(3)))
+        except Exception:
+            return None
+
+    candidates = [
+        ("上市JSON", "https://openapi.twse.com.tw/v1/opendata/t187ap38_L"),
+        ("上櫃JSON", "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap38_O"),
+        ("上市CSV",  "https://mopsfin.twse.com.tw/opendata/t187ap38_L.csv"),
+        ("上櫃CSV",  "https://mopsfin.twse.com.tw/opendata/t187ap38_O.csv"),
+    ]
+    n, hit = 0, []
+    for tag, url in candidates:
+        rows = []
+        try:
+            if url.endswith(".csv"):
+                import csv as _c, io as _io
+                r = requests.get(url, headers=UA, timeout=45)
+                if not r.ok:
+                    continue
+                r.encoding = "utf-8-sig"
+                raw = list(_c.reader(_io.StringIO(r.text)))
+                if len(raw) < 2:
+                    continue
+                hdr = raw[0]
+                rows = [dict(zip(hdr, x)) for x in raw[1:]]
+            else:
+                arr = get_json(url, timeout=45)
+                if isinstance(arr, list) and arr and isinstance(arr[0], dict):
+                    rows = arr
+        except Exception as e:
+            print(f"  [warn] 法說行事曆({tag}): {str(e)[:60]}")
+            continue
+        if not rows:
+            continue
+        keys = list(rows[0].keys())
+        pick = lambda *ns: next((x for x in keys
+                                 if any(n2.lower() in str(x).lower() for n2 in ns)), None)
+        k_id  = pick("公司代號", "Code", "SecuritiesCompanyCode")
+        k_d   = pick("召開法人說明會日期", "法人說明會日期", "召開日期", "日期", "Date")
+        k_t   = pick("召開法人說明會時間", "時間", "Time")
+        k_loc = pick("召開法人說明會地點", "地點", "場所", "Location", "Place")
+        k_msg = pick("擇要訊息", "擇要", "訊息內容", "Summary")
+        k_url = pick("簡報", "連結", "網址", "檔案", "Link", "URL", "Website")
+        if not (k_id and k_d):
+            print(f"  [diag] 法說行事曆({tag})欄位不符:{keys[:8]}")
+            continue
+        got_tag = 0
+        for r0 in rows:
+            sid = str(r0.get(k_id, "")).strip().upper()
+            s = by_id.get(sid)
+            if not s:
+                continue
+            d = roc_date(r0.get(k_d))
+            if not d:
+                continue
+            # 只收「未來 90 天內排定」與「開完 14 天內」的場次
+            if d > today + dt.timedelta(days=90) or d < today - dt.timedelta(days=14):
+                continue
+            cur = s.get("conf")
+            if cur:
+                try:
+                    cd = dt.date.fromisoformat(cur["d"])
+                    # 已有較合適的就不覆蓋:兩者都未來取較近;新資料是過去而舊的是未來則不覆蓋
+                    if cd >= today and (d < today or d >= cd):
+                        continue
+                    if cd < today and d < today and d <= cd:
+                        continue
+                except Exception:
+                    pass
+            c = {"d": d.isoformat()}
+            tv = str(r0.get(k_t, "")).strip() if k_t else ""
+            if tv:
+                c["t"] = tv[:20]
+            lv = str(r0.get(k_loc, "")).strip() if k_loc else ""
+            if lv:
+                c["loc"] = lv[:60]
+            mv = str(r0.get(k_msg, "")).strip() if k_msg else ""
+            if mv:
+                c["msg"] = mv[:300]
+            uv = str(r0.get(k_url, "")).strip() if k_url else ""
+            c["url"] = uv if uv.startswith("http") else "https://mops.twse.com.tw/mops/#/web/t100sb02_1"
+            s["conf"] = c
+            got_tag += 1
+        if got_tag:
+            hit.append(f"{tag} {got_tag}")
+        n += got_tag
+    print(f"  法說行事曆:標記 {n} 檔" + (f"({'、'.join(hit)})" if hit else "(所有候選端點均不符,僅靠重訊來源)"))
+
 def fetch_conf(stocks):
     """法說會:MOPS 重大訊息 opendata CSV(t187ap04_L 上市/_O 上櫃)中「召開法人說明會」公告。
     真實格式已驗證:說明欄含「1.召開法人說明會之日期:115/01/07 2....時間 3....地點 4.擇要訊息...」。
@@ -2599,6 +2706,10 @@ def main():
         fetch_disposal(stocks)
     except Exception as e:
         print(f"  [warn] 處置公告跳過: {e}")
+    try:
+        fetch_conf_calendar(stocks)
+    except Exception as e:
+        print(f"  [warn] 法說行事曆跳過: {e}")
     try:
         fetch_conf(stocks)
     except Exception as e:
