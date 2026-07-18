@@ -1684,6 +1684,7 @@ async function t3qBlock(s){
   box.innerHTML=`<h3>📊 季報三率與營收 <span class="ds">近兩年</span></h3><div id="t3qSlot"></div>`;
   const slot=document.getElementById('t3qSlot');
   if(!slot)return;
+  slot.innerHTML='<div class="dim-note" style="color:var(--dim)">📊 季報資料載入中…</div>';   // 保底:任何情況都不留純空白
   // 主源:後端 c/ 分片(每日排程以官方 OpenAPI 抓好 8 季三率,零代理、秒開、不看免費代理臉色)
   let rows1=null;                                        // 後端僅1季時留作最後保底
   try{
@@ -2184,7 +2185,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r336</span>');
+  diag.push('<span style="color:var(--dim)">build r337</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6346,6 +6347,17 @@ async function showDetail(id){
       ${s.etf?`<div class="score-ring" style="--sc:${Math.min(100,Math.max(0,50+((s.perf||{}).q||0)*2))}"><div class="score-in"><b style="font-size:13.5px;white-space:nowrap;letter-spacing:0">${(s.perf&&s.perf.q!=null)?((s.perf.q>=0?"+":"")+(Math.abs(s.perf.q)>=10?s.perf.q.toFixed(0):s.perf.q.toFixed(1))+"%"):"—"}</b><span>近3月</span></div></div>`:`<div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>`}
     </div>
     <div class="alert-strip" id="stkAlerts" style="display:none"></div>
+<div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
+      <span class="ticker-label">📰 ${s.name} 新聞</span>
+      <div class="ticker-track" id="sTickTrack"></div>
+    </div>
+    <div class="sec-title" data-sec="stk_k">${s.etf?`📈 走勢`:`📈 走勢・價位・進場策略`} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.etf?`K線・配息時間`:`K線・關鍵價位・除權息時間`}</span></div><div class="sec-body" id="sb-stk_k">
+    <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
+    <div id="divTL"></div>
+    </div>
+    ${s.etf?etfSec(s):''}
+    ${(()=>{const ch=confHTML(s);return ch?`<div class="sec-title" data-sec="stk_conf">📣 法說會專區 <span style="font-weight:400;font-size:13px;letter-spacing:0">排程・公司擇要重點・站內解讀・相關報導</span></div><div class="sec-body" id="sb-stk_conf">${ch}</div>`:''})()}
+    <div class="sec-title" data-sec="stk_ai">🤖 AI 綜合研判・投資策略 <span style="font-weight:400;font-size:13px;letter-spacing:0">規則化研判・投資論點・進出場規劃</span></div><div class="sec-body" id="sb-stk_ai">
     ${s.etf?'':(()=>{const v=aiVerdict(s);return `
     <div class="dim-block" style="border-left:4px solid var(--amber)">
       <h3>AI 綜合研判 <span class="ds ${v.tone==='pos'?'pos':v.tone==='neg'?'neg':''}">${v.tier} · 綜合 ${v.T} 分</span></h3>
@@ -6361,16 +6373,7 @@ async function showDetail(id){
     ${s.etf?'':'<div id="turtleBox"></div>'}
     ${(s.etf||s.market!=='TW')?'':'<div id="zt8Box"></div>'}
     ${s.etf?'':'<div id="gemBox"></div>'}
-<div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
-      <span class="ticker-label">📰 ${s.name} 新聞</span>
-      <div class="ticker-track" id="sTickTrack"></div>
     </div>
-    ${(()=>{const ch=confHTML(s);return ch?`<div class="sec-title" data-sec="stk_conf">📣 法說會專區 <span style="font-weight:400;font-size:13px;letter-spacing:0">排程・公司擇要重點・站內解讀・相關報導</span></div><div class="sec-body" id="sb-stk_conf">${ch}</div>`:''})()}
-    <div class="sec-title" data-sec="stk_k">${s.etf?`📈 走勢`:`📈 走勢・價位・進場策略`} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.etf?`K線・配息時間`:`K線・關鍵價位・除權息時間`}</span></div><div class="sec-body" id="sb-stk_k">
-    <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
-    <div id="divTL"></div>
-    </div>
-    ${s.etf?etfSec(s):''}
     <div class="sec-title" data-sec="stk_s">📅 歷史月份行情 <span style="font-weight:400;font-size:13px;letter-spacing:0">季節性統計・各年度月份漲跌</span></div><div class="sec-body" id="sb-stk_s">
     <div id="seasonBox" class="dim-block"><div class="dim-note">📡 歷史月K自動載入中…</div></div>
     </div>
@@ -6910,7 +6913,7 @@ function setupSections(){
     if(!t.querySelector('.sec-hint')){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
-    const DESK_CLOSE={stk_s:1,stk_c:1};              // 桌機預設收合:歷史月份行情、籌碼圖表(點開會記住)
+    const DESK_CLOSE={stk_s:1,stk_c:1,stk_h:1,stk_3:1,stk_v:1,stk_m:1,stk_p:1,stk_e:1};   // 桌機預設收合次要區段 → 乾淨目錄;點開看細項且會記住(展開:走勢/法說/AI策略/營收獲利)
     const closed=(key in saved)?!!saved[key]:(mob||!!DESK_CLOSE[key]);
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
