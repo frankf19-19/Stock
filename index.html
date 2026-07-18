@@ -2205,7 +2205,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r343</span>');
+  diag.push('<span style="color:var(--dim)">build r344</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2488,6 +2488,34 @@ function drawIntraLWC(domId,d){
   // 昨收虛線
   if(d.prev>0)area.createPriceLine({price:+(+d.prev).toFixed(2),color:dark?'#888':'#999',
     lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dashed,axisLabelVisible:true,title:'昨收'});
+  if(d.lim10&&d.prev>0){   // 📐 XQ 式:價格軸固定跨「跌停~漲停」全幅度,走勢看的是相對位置
+    const lu=+(d.prev*1.1).toFixed(2),ld=+(d.prev*0.9).toFixed(2);
+    area.applyOptions({autoscaleInfoProvider:()=>({priceRange:{minValue:ld,maxValue:lu}})});
+    area.createPriceLine({price:lu,color:'rgba(229,72,77,.6)',
+      lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dotted,axisLabelVisible:true,title:'漲停'});
+    area.createPriceLine({price:ld,color:'rgba(33,164,102,.6)',
+      lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dotted,axisLabelVisible:true,title:'跌停'});
+  }
+  try{   // 開盤價箭頭(XQ 式標記)
+    const fi=dd.c.findIndex(x=>x!=null);
+    if(fi>=0)area.setMarkers([{time:dd.t[fi]+_TZ8,position:'aboveBar',color:'#E8B44A',shape:'arrowDown',text:'開 '+dd.c[fi]}]);
+  }catch(e){}
+  if((dd.v||[]).some(v=>v>0)){   // 分時量柱(XQ 式紫紅)
+    const vol=ch.addHistogramSeries({priceScaleId:'vol',priceFormat:{type:'volume'},
+      color:'rgba(186,85,150,.55)',lastValueVisible:false,priceLineVisible:false});
+    ch.priceScale('vol').applyOptions({scaleMargins:{top:0.66,bottom:0.18},borderVisible:false});
+    vol.setData(dd.t.map((ts,i)=>({time:ts+_TZ8,value:dd.v[i]||0})).filter(x=>x.value>0));
+    ch.applyOptions({rightPriceScale:{scaleMargins:{top:0.04,bottom:0.36}}});
+  }
+  try{   // 分時內外盤買賣力(盤中即時累積:紅=外盤買力、綠=內盤賣壓)
+    const ab=(d.__id&&typeof stkAcc==='function')?stkAcc(d.__id):null;
+    if(ab&&Array.isArray(ab.bs)&&ab.bs.some(x=>x)){
+      const bsS=ch.addHistogramSeries({priceScaleId:'bsf',priceFormat:{type:'volume'},lastValueVisible:false,priceLineVisible:false});
+      ch.priceScale('bsf').applyOptions({scaleMargins:{top:0.84,bottom:0},borderVisible:false});
+      bsS.setData(ab.t.map((ts,i)=>({time:Math.floor(+ts)+_TZ8,value:ab.bs[i]||0,
+        color:(ab.bs[i]||0)>=0?'rgba(229,72,77,.7)':'rgba(33,164,102,.7)'})).filter(x=>x.value!==0));
+    }
+  }catch(e){}
   ch.timeScale().fitContent();
   return {lwc:1,ch,area,avgS,prev:d.prev,cv,cpv,lastT,id:d.__id};
  }catch(e){
