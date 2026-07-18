@@ -2153,7 +2153,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r326</span>');
+  diag.push('<span style="color:var(--dim)">build r327</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2309,6 +2309,18 @@ function loadSpark(){
     j.__ts=Date.now(); window.__SPARK=j; return j;
   }).catch(()=>{__sparkP=null;return null;});
   return __sparkP;
+}
+function sparkAlone(key){   // 🌙 收盤後救援:用盤中快照(spark)獨立成圖——所有回補源都失敗時的最後防線
+  try{
+    const sp=window.__SPARK;
+    const k=key==='tw'?'t00':'o00';
+    if(!sp||!Array.isArray(sp.t)||!sp.i||!Array.isArray(sp.i[k]))return null;
+    if(sp.d&&sp.d!==sessDay())return null;     // 只用最近交易時段的快照,不畫舊日資料
+    const t=[],c=[];
+    sp.t.forEach((ts,i)=>{const v=sp.i[k][i];if(v!=null&&isFinite(+v)){t.push(ts);c.push(+v);}});
+    if(c.length<2)return null;
+    return {t,c,v:c.map(()=>0),prev:accOf(key).prev||null,src:'盤中快照'};
+  }catch(e){return null;}
 }
 function sparkBase(key,d){   // key:'2330' 個股|'t00'/'o00' 指數;回傳打底後的 d(同步,靠已載快取)
   try{
@@ -3019,6 +3031,7 @@ function idxPick(key){
     return null;                                        // 累積未滿:寧可先空白,也不畫昨日線誤導
   }
   if(yd)return Object.assign({},yd,{src:'後端分線'});                   // 收盤時段:顯示最近完整一日
+  {const sa=sparkAlone(key);if(sa)return sa;}                            // 快照救援:後端分線也沒有時
   if(acc.c.length>=2)return Object.assign({},acc,{src:'即時累積'});
   return null;
 }
