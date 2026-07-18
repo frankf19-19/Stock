@@ -1,4 +1,4 @@
 {
-  "_說明": "選填:手動指定某檔法說的 YouTube 完整影片,AI 會聽整場(格式:代號→網址)",
-  "2330": "https://www.youtube.com/watch?v=範例請自行替換"
+  "_說明": "選填:手動指定某檔法說的 YouTube 完整影片,AI 會聽整場。把底下示意行改成真實代號與網址即可",
+  "_範例_2330": "https://www.youtube.com/watch?v=xxxxxxxxxxx"
 }
