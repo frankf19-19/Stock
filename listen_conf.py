@@ -17,6 +17,7 @@ import urllib.parse
 import requests
 
 KEY = os.environ.get("GEMINI_KEY", "").strip()
+PV = 2   # 提示詞版本:升版後既有場次會自動以新規格重寫一次
 MODEL = "gemini-2.5-flash"
 OUT = "conf_ai.json"
 UA = {"User-Agent": "Mozilla/5.0 (conf-digest; personal dashboard)"}
@@ -161,25 +162,46 @@ def gather_pdfs(s, c):
     return pdfs
 
 
-PROMPT = """你是台股研究員。請根據{src_desc},用繁體中文寫「{name}({sid}){d} 法人說明會重點分析」,400~700 字,直接開始不要開場白,條列格式:
+PROMPT_DEEP = """你是台股研究員。請根據{src_desc},用繁體中文寫「{name}({sid}){d} 法人說明會完整整理」,總長 700~1400 字,目標是「看完可以不用再看原始素材」的詳細度,直接開始不要開場白。
 
-**關鍵財務數字**:本季營收/毛利率/營益率/EPS 等實際數字(有講才寫,附年增或季增方向)。
-**本季亮點與驅動**:哪些業務/產品線帶動,管理層歸因為何。
-**展望與指引**:下季與全年的具體指引數字(營收區間/毛利率區間/資本支出),管理層口吻偏樂觀或保守。
-**風險與保守訊號**:管理層提到的逆風、下修、或迴避回答的部分。
-{qa_line}**一句話結論**:這場法說整體偏多/偏空/中性,一句話說為什麼。
+格式:
+## 本季成績單
+實際數字逐項寫出:營收(含年增/季增)、毛利率、營益率、EPS、重要產品線佔比——務必照素材原文的數字,並用一兩句說明管理層怎麼歸因。
 
-規則:只寫素材裡真的有的內容,沒有的段落整段省略、不要腦補;數字務必照原文。最後一行固定:AI 自動分析,非投資建議,請以公司原始資料為準。"""
+## 依議程逐段重點
+每個主題一段:**小標** + 管理層實際說了什麼(3~6 句,務必包含具體數字、產品線/客戶群名稱、管理層用的措辭或比喻)+ 這段透露了什麼。不要只寫一句話標題,要寫出內容本身。
 
+## 展望與指引
+下季與全年的具體指引:營收區間、毛利率區間、資本支出金額與變動方向;管理層口吻偏樂觀或保守,從哪些用字看出來。
+
+## 產業與需求判讀
+各終端市場(AI/HPC、手機、車用、消費性等,素材有提到的才寫)管理層的看法與依據。
+
+## 風險與保守訊號
+提到的逆風、下修、供應鏈或地緣風險,以及刻意輕描淡寫或迴避的部分。
+
+{qa_line}## 一句話結論
+這場法說整體偏多/偏空/中性,一句話說出最關鍵的理由。
+
+規則:只寫素材裡真的有的內容,沒有的段落整段省略、絕不腦補;數字務必照原文;聽不清楚或原文模糊的地方註明。最後一行固定:AI 自動分析,非投資建議,請以公司原始資料為準。"""
+
+PROMPT_LITE = """你是台股研究員。請根據{src_desc},用繁體中文寫「{name}({sid}){d} 法人說明會重點分析」,200~500 字,直接開始不要開場白,條列格式:
+
+**關鍵財務數字**:素材中實際出現的數字(有才寫)。
+**展望與指引**:具體指引與管理層口吻(有才寫)。
+**風險與保守訊號**:有才寫。
+{qa_line}**一句話結論**:偏多/偏空/中性+理由;素材不足以判斷就誠實寫中性並說明原因。
+
+規則:只寫素材裡真的有的內容,絕不腦補。最後一行固定:AI 自動分析,非投資建議,請以公司原始資料為準。"""
 
 def analyze(s, c, news_titles):
     d = c["d"]
     yt = find_youtube(s, c)
     if yt:
         parts = [{"file_data": {"file_uri": yt}},
-                 {"text": PROMPT.format(src_desc="這段法說會完整影片(請聽完全場,包含 QA)",
-                                        name=s["name"], sid=s["id"], d=d,
-                                        qa_line="**QA 重點**:法人提問與管理層回答中最有資訊量的 2~3 組。\n")}]
+                 {"text": PROMPT_DEEP.format(src_desc="這段法說會完整影片(請聽完全場,包含 QA)",
+                                             name=s["name"], sid=s["id"], d=d,
+                                             qa_line="## QA 重點\n逐組整理:法人問了什麼、管理層怎麼答、哪些問題被迴避或答得保守——這通常是整場最有資訊量的部分,請完整寫。\n\n")}]
         txt = gemini(parts, max_tokens=8192)
         if txt:
             return txt, "yt", yt
@@ -188,17 +210,17 @@ def analyze(s, c, news_titles):
         parts = [{"inline_data": {"mime_type": "application/pdf",
                                   "data": base64.b64encode(b).decode()}} for _, b in pdfs]
         has_ts = any(re.search(r"transcript|逐字", u, re.I) for u, _ in pdfs)
-        parts.append({"text": PROMPT.format(
+        parts.append({"text": PROMPT_DEEP.format(
             src_desc="附上的公司法說簡報" + ("與逐字稿" if has_ts else "") + " PDF(請讀完全文)",
             name=s["name"], sid=s["id"], d=d,
-            qa_line=("**QA 重點**:逐字稿中法人提問與回答最有資訊量的 2~3 組。\n" if has_ts else ""))})
+            qa_line=("## QA 重點\n逐組整理逐字稿中的法人提問與管理層回答,哪些答得保守或迴避。\n\n" if has_ts else ""))})
         txt = gemini(parts, max_tokens=8192)
         if txt:
             return txt, "pdf", pdfs[0][0]
     material = "擇要:" + c.get("msg", "") + "\n報導標題:\n" + "\n".join(news_titles[:6])
     if len(material) > 40:
-        txt = gemini([{"text": PROMPT.format(src_desc="以下擇要訊息與新聞標題(素材有限,請保守撰寫)",
-                                             name=s["name"], sid=s["id"], d=d, qa_line="")
+        txt = gemini([{"text": PROMPT_LITE.format(src_desc="以下擇要訊息與新聞標題(素材有限,請保守撰寫)",
+                                                  name=s["name"], sid=s["id"], d=d, qa_line="")
                        + "\n\n=== 素材 ===\n" + material[:6000]}], max_tokens=4096)
         if txt:
             return txt, "text", ""
@@ -233,7 +255,7 @@ def main():
         if not (today - dt.timedelta(days=4) <= d <= today):
             continue
         prev = store["items"].get(s["id"])
-        if prev and prev.get("d") == c["d"] and prev.get("ai"):
+        if prev and prev.get("d") == c["d"] and prev.get("ai") and prev.get("pv") == PV:
             continue
         targets.append((s, c))
     if not targets:
@@ -252,7 +274,7 @@ def main():
         if not txt:
             log("    三層素材皆不可得,略過")
             continue
-        store["items"][s["id"]] = {"d": c["d"], "src": src, "ref": ref,
+        store["items"][s["id"]] = {"d": c["d"], "src": src, "ref": ref, "pv": PV,
                                    "ai": txt[:6000],
                                    "ts": dt.datetime.now().strftime("%Y-%m-%d %H:%M")}
         done += 1
