@@ -1615,6 +1615,7 @@ function t3RenderRows(sid,rows,slot,src){
         return;
       }
       const ch=echarts.init(el);
+      el.dataset.drawn='1';
       setTimeout(()=>{try{ch.resize();}catch(e){}},350);
       if(typeof chipCharts!=='undefined')chipCharts.push(ch);
       const idxMap=asc.map(r=>rows.indexOf(r));
@@ -1645,6 +1646,17 @@ function t3RenderRows(sid,rows,slot,src){
         el.innerHTML='';
         draw();
       });
+      setTimeout(()=>{   // 🐶 看門狗:6秒沒畫出來就把原因寫在空白處(不再讓人對著空白猜)
+        try{
+          const el2=document.getElementById(cid);
+          if(!el2||el2.dataset.drawn==='1'||el2.textContent.trim())return;
+          el2.style.height='auto';
+          el2.innerHTML='<div class="dim-note">⚠ 圖表 6 秒內未完成繪製——診斷:引擎 '
+            +(window.echarts?'已載入':'未載入')+' · 容器 '+el2.clientWidth+'×'+el2.clientHeight
+            +' · 連線 '+(el2.isConnected?'正常':'已脫離')
+            +'。上表資料不受影響;請把本訊息截圖回報,一次就能修。</div>';
+        }catch(e){}
+      },6000);
     }
   }catch(e){}
 }
@@ -2185,7 +2197,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r337</span>');
+  diag.push('<span style="color:var(--dim)">build r338</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');

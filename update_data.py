@@ -2112,10 +2112,11 @@ def conf_enrich(stocks):
     print(f"  法說簡報:成功撰寫 {n_ok}/{len(targets)} 檔")
 
 def fetch_conf_calendar(stocks):
-    """法說會一覽表(主源,v2):MOPS 官方 ajax_t100sb02_1——整年完整清單,含日期/時間/地點/擇要。
-    v1 用 openapi 資料集名稱猜測,曾把非法說資料集誤認、對 1,922 檔蓋上假資料(2026-07-18 實際事故)
-    → v2 改查與簡報管線同一支官方端點,並加防呆:單輪標記 >600 檔視為解析異常直接放棄。"""
-    import re as _r, io as _io
+    """法說會一覽表(主源,v3):MOPS ajax_t100sb02_1 整年清單。
+    v3 新增:①候選 0 時把實際表格欄位印進 log(自我診斷,下一輪照真實格式修)
+            ②一覽表為空時,改以「產業龍頭逐檔 co_id 探查」補抓(台積電等重點股不再漏)
+            ③保留 >600 檔防呆(2026-07-18 假資料事故的教訓)。"""
+    import re as _r
     import urllib.parse as _up
     by_id = {s["id"]: s for s in stocks}
     today = dt.date.today()
@@ -2150,45 +2151,28 @@ def fetch_conf_calendar(stocks):
                 continue
         return None
 
-    roc_y = today.year - 1911
     marked = {}
-    for typek in ("sii", "otc"):
-        html_txt = _post("https://mopsov.twse.com.tw/mops/web/ajax_t100sb02_1",
-                         {"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
-                          "isQuery": "Y", "TYPEK": typek, "year": str(roc_y)})
-        if not html_txt:
-            print(f"  [warn] 法說一覽表({typek})不通(直連與代理均失敗)")
-            continue
-        if "法人說明會" not in html_txt:
-            print(f"  [warn] 法說一覽表({typek})回應非預期頁面,跳過")
-            continue
-        try:
-            dfs = pd.read_html(StringIO(html_txt))
-        except Exception as e:
-            print(f"  [warn] 法說一覽表({typek})解析失敗: {str(e)[:60]}")
-            continue
-        got_t = 0
+    def absorb(dfs, restrict_sid=None, diag_tag=""):
+        got = 0
         for df in dfs:
             cols = [str(c) for c in df.columns]
             pick = lambda *ns: next((c for c in cols if any(n2 in c for n2 in ns)), None)
-            k_id  = pick("公司代號")
-            k_d   = pick("召開法人說明會日期", "法人說明會日期")
-            if not (k_id and k_d):
+            k_id  = pick("公司代號", "代號")
+            k_d   = pick("召開法人說明會日期", "法人說明會日期", "召開日期")
+            if not k_d or (not k_id and not restrict_sid):
                 continue
             k_t   = pick("召開法人說明會時間", "時間")
             k_loc = pick("召開法人說明會地點", "地點", "場所")
             k_msg = pick("擇要訊息", "擇要")
             for _, r0 in df.iterrows():
-                sid = str(r0.get(k_id, "")).strip().split(".")[0].upper()
+                sid = restrict_sid or str(r0.get(k_id, "")).strip().split(".")[0].upper()
                 s = by_id.get(sid)
                 if not s:
                     continue
                 d = roc_date(r0.get(k_d))
-                if not d:
+                if not d or d > today + dt.timedelta(days=90) or d < today - dt.timedelta(days=14):
                     continue
-                if d > today + dt.timedelta(days=90) or d < today - dt.timedelta(days=14):
-                    continue
-                cur = s.get("conf")
+                cur = marked.get(sid, (None, s.get("conf")))[1]
                 if cur:
                     try:
                         cd = dt.date.fromisoformat(cur["d"])
@@ -2199,21 +2183,59 @@ def fetch_conf_calendar(stocks):
                     except Exception:
                         pass
                 c = {"d": d.isoformat()}
-                tv = str(r0.get(k_t, "")).strip() if k_t else ""
-                if tv and tv.lower() != "nan":
-                    c["t"] = tv[:20]
-                lv = str(r0.get(k_loc, "")).strip() if k_loc else ""
-                if lv and lv.lower() != "nan":
-                    c["loc"] = lv[:60]
-                mv = str(r0.get(k_msg, "")).strip() if k_msg else ""
-                if mv and mv.lower() != "nan":
-                    c["msg"] = mv[:300]
+                for key2, col in (("t", k_t), ("loc", k_loc), ("msg", k_msg)):
+                    v = str(r0.get(col, "")).strip() if col else ""
+                    if v and v.lower() != "nan":
+                        c[key2] = v[:300 if key2 == "msg" else 60]
                 c["url"] = "https://mops.twse.com.tw/mops/#/web/t100sb02_1"
                 marked[sid] = (s, c)
-                got_t += 1
+                got += 1
+        return got
+
+    roc_y = today.year - 1911
+    for typek in ("sii", "otc"):
+        html_txt = _post("https://mopsov.twse.com.tw/mops/web/ajax_t100sb02_1",
+                         {"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
+                          "isQuery": "Y", "TYPEK": typek, "year": str(roc_y)})
+        if not html_txt:
+            print(f"  [warn] 法說一覽表({typek})不通(直連與代理均失敗)")
+            continue
+        try:
+            dfs = pd.read_html(StringIO(html_txt))
+        except Exception as e:
+            print(f"  [warn] 法說一覽表({typek})解析失敗: {str(e)[:60]}")
+            snippet = _r.sub(r"\s+", " ", html_txt)[:180]
+            print(f"  [diag] {typek} 回應片段:{snippet}")
+            continue
+        got_t = absorb(dfs)
         print(f"  法說一覽表({typek}):候選 {got_t} 筆")
+        if got_t == 0:                                   # 🔍 自我診斷:印出真實表格欄位供修正
+            for i, df in enumerate(dfs[:3]):
+                print(f"  [diag] {typek} 表{i} 欄位:{[str(c)[:22] for c in df.columns][:9]}(rows={len(df)})")
+            if "查無" in html_txt:
+                print(f"  [diag] {typek} 頁面含「查無」字樣")
         time.sleep(1)
-    if len(marked) > 600:            # 🛡 防呆:整年清單經 ±時間窗過濾後不可能有這麼多 → 解析異常,寧可不寫
+
+    if not marked:                                       # 🛟 備援:一覽表為空 → 產業龍頭逐檔 co_id 探查
+        leads = [s for s in stocks if s.get("lead")][:20]
+        print(f"  一覽表為空 → 改以產業龍頭逐檔探查({len(leads)} 檔)…")
+        for s in leads:
+            typek = "otc" if s.get("ex") == "otc" else "sii"
+            html_txt = _post("https://mopsov.twse.com.tw/mops/web/ajax_t100sb02_1",
+                             {"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
+                              "isQuery": "Y", "TYPEK": typek, "year": str(roc_y), "co_id": s["id"]})
+            if not html_txt:
+                continue
+            try:
+                dfs = pd.read_html(StringIO(html_txt))
+            except Exception:
+                continue
+            g = absorb(dfs, restrict_sid=s["id"])
+            if g:
+                print(f"    {s['id']} {s['name']}:探查到 {g} 場")
+            time.sleep(1.2)
+
+    if len(marked) > 600:
         print(f"  [warn] 法說一覽表標記 {len(marked)} 檔異常偏多,疑似解析錯誤——本輪放棄,沿用既有資料")
         return
     for sid, (s, c) in marked.items():
