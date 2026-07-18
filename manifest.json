@@ -1,0 +1,17 @@
+{
+  "name": "麻吉股研所",
+  "short_name": "麻吉股研",
+  "description": "好友限定|產業前景 × 基本面 × 籌碼面 × 技術線型・台股為主、美股為輔",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf7f2",
+  "theme_color": "#b3402a",
+  "lang": "zh-TW",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

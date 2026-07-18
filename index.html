@@ -16,7 +16,13 @@
 <meta name="twitter:card" content="summary">
 <meta name="apple-mobile-web-app-title" content="麻吉股研所">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230C111D'/><rect x='10' y='34' width='10' height='19' rx='2.5' fill='%238a6a1f'/><rect x='27' y='23' width='10' height='30' rx='2.5' fill='%23E8B44A'/><rect x='44' y='11' width='10' height='42' rx='2.5' fill='%23E5484D'/></svg>">
-<link rel="apple-touch-icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#b3402a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="麻吉股研">
 <meta name="theme-color" content="#0C111D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -675,6 +681,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
         <button class="btn-ghost" id="alertBtn" title="盤中警示:好股下殺至買進區/帶量突破時通知">🔔</button>
         <button class="btn-ghost" id="favBtn" title="我收藏的個股">⭐ 最愛</button>
         <button class="btn-ghost" id="learnBtn" title="半導體/科技供應鏈白話教學">📚 小學堂</button>
+        <button id="pwaBtn" onclick="pwaInstall()" style="display:none;padding:8px 13px;border:1px solid var(--line);border-radius:9px;background:transparent;cursor:pointer;font-weight:700">📱 安裝 App</button>
         <button class="btn-upd" id="updBtn">↻ 更新</button>
       </div>
       <div class="statline">
@@ -2198,7 +2205,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r340</span>');
+  diag.push('<span style="color:var(--dim)">build r341</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3303,6 +3310,25 @@ async function refreshIdxMis(){
       }
     }catch(e){}
   }
+}
+/* 📱 PWA:註冊 Service Worker + 「安裝 App」入口 */
+try{if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');}catch(e){}
+window.__pwaPrompt=null;
+try{
+  if(!window.matchMedia('(display-mode: standalone)').matches&&/iPhone|iPad|iPod/.test(navigator.userAgent)){
+    setTimeout(()=>{const b=document.getElementById('pwaBtn');if(b)b.style.display='';},1500);   // iOS 無安裝事件:直接亮按鈕給教學
+  }
+}catch(e){}
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();window.__pwaPrompt=e;
+  try{const b=document.getElementById('pwaBtn');if(b)b.style.display='';}catch(err){}
+});
+function pwaInstall(){
+  const p=window.__pwaPrompt;
+  if(p){p.prompt();p.userChoice.then(()=>{window.__pwaPrompt=null;const b=document.getElementById('pwaBtn');if(b)b.style.display='none';});return;}
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  alert(ios?'iPhone/iPad 安裝方式:\n1. 用 Safari 開啟本站\n2. 點下方「分享」按鈕(方框+箭頭)\n3. 選「加入主畫面」\n完成後主畫面就有 App 圖示,全螢幕開啟。'
+           :'請用 Chrome/Edge 開啟本站,網址列右側會出現「安裝」圖示;或瀏覽器選單 → 安裝應用程式。');
 }
 setTimeout(refreshIdxMis,2600);
 setInterval(()=>{if(openish())refreshIdxMis();},60000);
