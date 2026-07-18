@@ -2180,7 +2180,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r329</span>');
+  diag.push('<span style="color:var(--dim)">build r331</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4963,9 +4963,82 @@ function keyLevels(o){
     stop:+(zone[0]*0.97).toFixed(2)};
 }
 
-/* 📣 法說會卡:近期已開/即將召開 + 公司擇要重點 + 簡報連結(資料:公開資訊觀測站 openapi) */
+/* 📣 法說會卡:近期已開/即將召開 + 公司擇要重點 + 簡報連結 + 站內新聞相關報導 + 規則化解讀(資料:公開資訊觀測站 openapi + 站內新聞源) */
+const CONF_RULES=[   // 法說文本方向性訊號(規則化;掃描擇要訊息+主旨+相關新聞標題)
+ [/資本支出[^。,,]{0,8}(上修|上調|增加|擴大|提高)|上修[^。]{0,6}資本支出/,'資本支出上修','bull'],
+ [/資本支出[^。,,]{0,8}(下修|下調|縮減|保守)|下修[^。]{0,6}資本支出/,'資本支出下修','bear'],
+ [/(上修|上調)[^。]{0,8}(財測|展望|目標|指引)/,'上修財測/指引','bull'],
+ [/(下修|下調)[^。]{0,8}(財測|展望|目標|指引)/,'下修財測/指引','bear'],
+ [/(展望|前景)[^。]{0,6}(樂觀|正向|強勁)|樂觀看待/,'展望樂觀','bull'],
+ [/(展望|前景|態度|看法)[^。]{0,6}(保守|審慎|謹慎)/,'展望保守/審慎','bear'],
+ [/供不應求|產能滿載|訂單能見度(高|佳|長)/,'需求強勁/產能滿載','bull'],
+ [/(需求|動能)[^。]{0,6}(疲弱|疲軟|放緩|轉弱)/,'需求疲弱/放緩','bear'],
+ [/庫存(去化順利|回到健康|健康)/,'庫存去化順利','bull'],
+ [/庫存(調整|偏高|去化壓力)/,'庫存調整壓力','bear'],
+ [/調漲|漲價|報價上揚/,'產品漲價','bull'],
+ [/降價|跌價|價格壓力|殺價/,'價格承壓','bear'],
+ [/擴產|擴廠|新產能開出/,'擴產進行中','bull'],
+ [/砍單|抽單|遞延|延後(拉貨|出貨)/,'訂單遞延/砍單','bear'],
+ [/毛利率[^。]{0,8}(提升|改善|優於)/,'毛利率改善','bull'],
+ [/毛利率[^。]{0,8}(下滑|承壓|低於)/,'毛利率承壓','bear'],
+ [/(AI|人工智慧)[^。]{0,10}(需求|動能|訂單|成長)/,'AI 需求題材','bull']];
+function confNewsHits(s){
+  try{
+    const pat=/(法說|法人說明會|法人座談)/;
+    const pool=[...((DATA&&DATA.news)||[]),
+                ...(((window.__glbAlerts)||[]).map(x=>({title:x.t,link:x.l,source:'外電',time:x.ago})))];
+    const seen={};
+    return pool.filter(n=>{
+      if(!n||!n.title)return false;
+      if(!(n.title.includes(s.name)||n.title.includes(s.id)))return false;
+      if(!pat.test(n.title))return false;
+      if(seen[n.title])return false;
+      seen[n.title]=1;return true;
+    }).slice(0,3);
+  }catch(e){return [];}
+}
+function confAnalyzeCore(s){   // 回 {sigs:[{t,dir}],tone,top} 或 null(無可分析文本)
+  try{
+    const c=s&&s.conf;
+    const txt=[(c&&c.msg)||'',(c&&c.subj)||'',...confNewsHits(s).map(n=>n.title)].join('。');
+    if(txt.replace(/。/g,'').length<6)return null;
+    const sigs=[],seen={};
+    CONF_RULES.forEach(([re,label,dir])=>{if(re.test(txt)&&!seen[label]){seen[label]=1;sigs.push({t:label,dir});}});
+    if(!sigs.length)return {sigs,tone:'none',top:[]};
+    const b=sigs.filter(x=>x.dir==='bull').length,r=sigs.filter(x=>x.dir==='bear').length;
+    const tone=b&&r?'mix':b?'bull':'bear';
+    return {sigs,tone,top:sigs.slice(0,3).map(x=>x.t)};
+  }catch(e){return null;}
+}
+function confAnalyzeHTML(s){
+  const a=confAnalyzeCore(s);
+  if(!a)return '';
+  const chip=x=>`<span class="c-code" style="color:${x.dir==='bull'?'var(--down)':'var(--up)'}">${x.t}(${x.dir==='bull'?'偏多':'偏空'})</span>`;
+  const line=a.tone==='none'?'擇要與報導中未偵測到明確方向性用語——建議點開簡報原文看指引數字(毛利率/資本支出/產能)。'
+    :a.tone==='bull'?'訊號整體偏多:公司釋出正向展望,可搭配下方「AI 綜合研判」看基本面與籌碼是否同步。'
+    :a.tone==='bear'?'訊號整體偏保守:展望轉弱時追價風險高,先看簡報確認是「短期調整」還是「趨勢轉向」。'
+    :'多空訊號並陳:通常代表「部分業務強、部分承壓」,重點看哪塊佔營收比重大。';
+  return `<div class="dim-note"><b>🤖 站內解讀(規則化):</b>${a.sigs.length?a.sigs.map(chip).join(' '):''}<br>${line}<span style="color:var(--dim)">(規則化文字掃描,非人工判讀;以公司簡報原文為準)</span></div>`;
+}
+function confNewsHTML(s){
+  const hits=confNewsHits(s);
+  if(!hits.length)return '';
+  return `<div class="dim-note"><b>法說相關報導:</b><br>${hits.map(n=>
+    `<a href="${n.link&&n.link!=='#'?n.link:'#'}" ${n.link&&n.link!=='#'?'target="_blank" rel="noopener"':''}>${n.title}</a><span class="c-code"> ${n.source||''}${n.time?' · '+n.time:''}</span>`
+  ).join('<br>')}</div>`;
+}
 function confHTML(s){
-  const c=s&&s.conf; if(!c||!c.d)return '';
+  const c=s&&s.conf;
+  const news=confNewsHTML(s);
+  if((!c||!c.d)&&!news)return '';
+  if(!c||!c.d){  // 無官方排程資料,但新聞有該公司法說報導 → 仍出卡
+    return `<div class="dim-block" style="border-left:4px solid var(--line)">
+      <h3>📣 法說會 <span class="ds" style="color:var(--dim)">相關報導</span></h3>
+      ${confAnalyzeHTML(s)}
+      ${news}
+      <div class="dim-note" style="color:var(--dim)">尚無公開資訊觀測站的排程/擇要資料;公司公告後會自動補上。</div>
+    </div>`;
+  }
   const today=tpDay(Date.now()/1000);
   const fut=c.d>=today;
   const badge=fut?`<span class="ds" style="color:var(--amber);font-weight:700">即將召開</span>`
@@ -4976,7 +5049,9 @@ function confHTML(s){
     ${c.loc?`<div class="dim-note">地點:${c.loc}</div>`:''}
     ${c.msg?`<div class="dim-note"><b>法說重點(公司擇要):</b>${c.msg}</div>`:''}
     ${c.url&&/^https?:/i.test(c.url)?`<div class="dim-note"><a href="${c.url}" target="_blank" rel="noopener">📎 簡報/公告連結 ›</a></div>`:''}
-    <div class="dim-note" style="color:var(--dim)">資料:公開資訊觀測站(公司自行申報之擇要訊息)。</div>
+    ${confAnalyzeHTML(s)}
+    ${news}
+    <div class="dim-note" style="color:var(--dim)">資料:公開資訊觀測站(公司自行申報之擇要訊息)+ 站內新聞源。</div>
   </div>`;
 }
 /* ── AI 綜合研判:未來性判定(規則化,看壞會說明原因)── */
@@ -5006,6 +5081,13 @@ function aiVerdict(s){
   // 產業面
   const info=SECTOR_INFO[s.sector];
   if(info) pros.push(`產業面:${s.sector}——${info.tag}`);
+  // 法說面:規則化訊號饋入未來性評估
+  try{
+    const ca=confAnalyzeCore(s);
+    if(ca&&ca.tone==='bull')pros.push(`法說訊號:${ca.top.join('、')}——公司對前景釋出正向展望`);
+    else if(ca&&ca.tone==='bear')cons.push(`法說訊號:${ca.top.join('、')}——展望轉趨保守,追價前先讀簡報確認`);
+    else if(ca&&ca.tone==='mix')cons.push(`法說訊號多空並陳(${ca.top.join('、')})——需分辨強弱業務的營收佔比`);
+  }catch(e){}
   // 結論
   let tier,tone;
   if(T>=72&&cons.length<=1){tier='看好|具未來性';tone='pos';}
