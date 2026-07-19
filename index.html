@@ -2205,7 +2205,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r348</span>');
+  diag.push('<span style="color:var(--dim)">build r349</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5360,6 +5360,24 @@ function scenarioBands(o,price){
 
 /* ── ECharts 專業 K 線圖(MA 可開關、MACD/KD/RSI 副圖切換、縮放)── */
 let curOhlc=null,curDates=null,chartInst=null,indMode='MACD';
+function kSanitize(dates,ohlc){   // 🧹 沒開盤的日子不准上K線:剔除週六日棒;尾端「零量且四價相同」的幽靈棒(Yahoo 非交易日假棒)一併剔除
+  try{
+    if(!Array.isArray(dates)||!Array.isArray(ohlc)||dates.length!==ohlc.length)return {dates,ohlc};
+    const D=[],O=[];
+    for(let i=0;i<dates.length;i++){
+      const wd=new Date(String(dates[i]).slice(0,10)+'T00:00:00Z').getUTCDay();   // 以日期字串本身的曆日判斷,與使用者時區無關
+      if(wd===0||wd===6)continue;
+      D.push(dates[i]);O.push(ohlc[i]);
+    }
+    while(O.length){
+      const b=O[O.length-1];
+      const flat=b&&b[0]===b[1]&&b[1]===b[2]&&b[2]===b[3];
+      const nov=!b||!(+b[4]>0);
+      if(flat&&nov){D.pop();O.pop();}else break;
+    }
+    return {dates:D,ohlc:O};
+  }catch(e){return {dates,ohlc};}
+}
 let kView={rng:'6m',itv:'1d'},baseK=null,KHASH='';
 const KVC={};  // 長天期K線快取(依 代號|範圍|週期)
 async function yextOHLC(s,range,interval){
@@ -5481,7 +5499,7 @@ async function applyKView(s){
     setTimeout(()=>{if(location.hash===_kh&&!KVC[_kk]){try{applyKView(s);}catch(e){}}},6000);
     return;
   }
-  curOhlc=data.ohlc;curDates=data.dates;
+  {const _s=kSanitize(data.dates,data.ohlc);curOhlc=_s.ohlc;curDates=_s.dates;}
   if(kView.itv==='1d'&&data.ohlc.length>=60)curLevels=keyLevels(data.ohlc.slice(-130));
   window.__kBox=kView.itv==='1d'?boxDetect(data.ohlc,KHASH.startsWith('#macro/')?0.06:0.10):null;
   setTimeout(()=>{try{
@@ -6674,7 +6692,7 @@ async function showDetail(id){
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
   kView={rng:'6m',itv:'1d'}; baseK=k;
-  curOhlc=k.ohlc; curDates=k.dates; curLevels=keyLevels(k.ohlc);
+  {const _s=kSanitize(k.dates,k.ohlc);curOhlc=_s.ohlc;curDates=_s.dates;} curLevels=keyLevels(curOhlc);
   window.__kBox=boxDetect(k.ohlc,0.10);
   /* 🐢 海龜法則:計算 + 詳情區塊 + K 線出場線 */
   window.__kTurtle=null;
