@@ -2212,7 +2212,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r358</span>');
+  diag.push('<span style="color:var(--dim)">build r359</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6360,16 +6360,24 @@ function drawKChart(){
   const box=document.getElementById('kbox');
   if(!box||!curOhlc) return;
   if(!window.echarts){ box.innerHTML=kChart(curOhlc); return; } // 離線後備:簡易 SVG
-  // ⚖️ 法人副圖(外資/投信買賣超+期間累積線):日K・台股個股・籌碼已載・開關開啟時啟用
+  // ⚖️ 法人副圖(外資/投信買賣超+期間累積線):日/週/月K・台股個股・籌碼已載・開關開啟時啟用
+  //    週/月以「與K聚合同款的期間鍵」分桶加總(週=該週週一、月=YYYY-MM),棒標哪天都對得上
   let __inst=null;
   try{
-    if(kView.itv==='1d'&&localStorage.getItem('kINST')!=='0'
+    if(localStorage.getItem('kINST')!=='0'
        &&KHASH.startsWith('#stock/')&&typeof curChips!=='undefined'&&curChips&&curChips.e&&curChips.s
        &&('#stock/'+curChips.s.id)===KHASH&&Array.isArray(curChips.e.d)&&curChips.e.d.length&&curDates){
-      const e2=curChips.e,mp={};
-      e2.d.forEach((ds,i)=>{mp[ds]={f:(e2.f||[])[i],t:(e2.t||[])[i]};});
-      const F=curDates.map(ds=>{const r=mp[ds];return r&&r.f!=null?r.f:null;});
-      const T2=curDates.map(ds=>{const r=mp[ds];return r&&r.t!=null?r.t:null;});
+      const e2=curChips.e;
+      const keyOf=kView.itv==='1wk'?(ds=>{const d3=new Date(ds+'T00:00:00');const mon=new Date(d3);mon.setDate(d3.getDate()-((d3.getDay()+6)%7));return mon.toISOString().slice(0,10);})
+                :kView.itv==='1mo'?(ds=>String(ds).slice(0,7))
+                :(ds=>ds);
+      const sf={},st2={};
+      e2.d.forEach((ds,i)=>{const k2=keyOf(ds);
+        const fv=(e2.f||[])[i],tv=(e2.t||[])[i];
+        if(fv!=null)sf[k2]=(sf[k2]||0)+fv;
+        if(tv!=null)st2[k2]=(st2[k2]||0)+tv;});
+      const F=curDates.map(ds=>{const k2=keyOf(ds);return (k2 in sf)?sf[k2]:null;});
+      const T2=curDates.map(ds=>{const k2=keyOf(ds);return (k2 in st2)?st2[k2]:null;});
       if(F.some(x=>x!=null)){
         const cum=a=>{let s2=0;return a.map(v=>v==null?null:(s2+=v,+s2.toFixed(0)));};
         __inst={F,T2,FC:cum(F),TC:cum(T2)};
@@ -7372,7 +7380,7 @@ async function loadChipDetail(s){
     box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">此檔法人歷史累積中(每日自動更新後逐步補齊至 130 個交易日),先參考上方籌碼面摘要。</div><div class="chart-box" style="margin-top:10px"><div class="ind-head"><h3 style="font-size:15px">信用交易|融資・融券・借券賣出+股價(6個月)</h3><span class="c-code" id="credStat">載入中…</span></div><div id="credBox" style="height:250px"></div></div></div>';
     loadCreditTrend(s,e);return;}
   curChips={s,e};
-  if(KHASH==='#stock/'+s.id&&kView.itv==='1d')try{drawKChart();}catch(e2){}   // ⚖️ 法人副圖:資料到位就地重繪
+  if(KHASH==='#stock/'+s.id)try{drawKChart();}catch(e2){}   // ⚖️ 法人副圖:資料到位就地重繪(日/週/月)
   renderChipCharts(s,e);
   loadCreditTrend(s,e);
 }
