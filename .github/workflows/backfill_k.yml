@@ -1,0 +1,31 @@
+name: 日K歷史回補(一次性)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+      - name: 設定 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 安裝套件
+        run: pip install requests
+      - name: 執行回補(進度即時顯示,每100檔自動存檔)
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python backfill_k.py
+      - name: 提交結果(保險網:中斷也提交已完成部分)
+        if: always()
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add k/
+          git diff --cached --quiet || git commit -m "backfill: 日K歷史回補至一年"
+          git pull --rebase origin main || true
+          git push
