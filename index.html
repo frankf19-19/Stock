@@ -2210,7 +2210,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r352</span>');
+  diag.push('<span style="color:var(--dim)">build r353</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5430,6 +5430,22 @@ async function yextOHLC(s,range,interval){
   /* 站內K線庫沒有的符號(國際指數/美債殖利率/匯率)→ 後端 yext.json(FRED 官方日收盤)。
      合成K線:開=前一日收盤、高低=開收極值,無上下影線與量,僅供趨勢判讀。 */
   const alias={'^TWO':'^TWOII'};
+  if((s.syms||[s.id]).includes('DX-Y.NYB')){   // 💵 美元指數:改用市場即時源(ICE DXY,Yahoo),FRED 廣義版落後一週僅當備援
+    try{
+      const yr=range==='all'?'10y':range==='1y'?'1y':'6mo';
+      const dy=await yChart('DX-Y.NYB',yr,'1d');
+      if(dy&&dy.t&&dy.t.length>10){
+        const dates=[],ohlc=[];
+        for(let i=0;i<dy.t.length;i++){
+          if(dy.c[i]==null)continue;
+          dates.push(new Date(dy.t[i]*1000).toISOString().slice(0,10));
+          ohlc.push([+(dy.o&&dy.o[i]!=null?dy.o[i]:dy.c[i]),+(dy.h&&dy.h[i]!=null?dy.h[i]:dy.c[i]),
+                     +(dy.l&&dy.l[i]!=null?dy.l[i]:dy.c[i]),+dy.c[i],+(dy.v&&dy.v[i]||0)]);
+        }
+        if(ohlc.length>10)return {dates,ohlc,live:1};
+      }
+    }catch(e){}
+  }
   const j=await yextData();
   if(!j||!j.series)return null;
   let e=null;
@@ -7142,8 +7158,8 @@ function setupSections(){
     if(!t.querySelector('.sec-hint')){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
-    const DESK_CLOSE={stk_s:1,stk_c:1,stk_h:1,stk_3:1,stk_v:1,stk_m:1,stk_p:1,stk_e:1,mk_fut:1};   // 桌機預設收合次要區段 → 乾淨目錄;點開看細項且會記住(展開:走勢/法說/AI策略/營收獲利)
-    const closed=(key in saved)?!!saved[key]:(mob||!!DESK_CLOSE[key]);
+    // 全站預設收合(2026-07-19 定案):除「總經環境」外一律先收合成乾淨目錄;點開看細項且偏好會記住
+    const closed=(key in saved)?!!saved[key]:(mob||key!=='macro');
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
     t.onclick=()=>{
@@ -9418,8 +9434,8 @@ const MK={
   jpytwd:{name:'日圓/台幣',sym:'JPYTWD=X',kind:'fx',dg:4,
     about:'1 日圓兌換多少台幣。哈日族與赴日旅遊的換匯參考;也反映日圓的國際強弱。',
     how:'日圓大幅升值時常代表全球避險情緒升溫(日圓是避險貨幣)或日本央行政策轉向,亞股波動會放大;對想去日本玩的人,數字越低換日幣越划算。'},
-  dxy:{name:'美元指數(Fed廣義)',sym:'DX-Y.NYB',kind:'fx',dg:2,
-    about:'聯準會「廣義美元指數」:美元對主要貿易夥伴貨幣的加權匯率(官方FRED日更)。與市場慣稱的 DXY(ICE,約100上下)量級不同、趨勢高度一致——本站採官方源,數值約在110~130區間。',
+  dxy:{name:'美元指數 DXY(即時)',sym:'DX-Y.NYB',kind:'fx',dg:2,
+    about:'市場慣稱的 DXY(ICE 美元指數,約100上下):美元對六大貨幣的加權匯率,盤中即時更新。若即時源暫不可得,自動退用聯準會廣義美元指數(FRED 官方、約落後一週,量級110~130、趨勢一致)。',
     how:'看「方向與速度」而非絕對數字:指數走強=全球資金回流美元資產,新興市場(含台股)常見外資賣壓、台幣易貶;走弱=資金外溢風險資產,利多台股與原物料。與美債殖利率通常同向,一起看更準。'},
   eurtwd:{name:'歐元/台幣',sym:'EURTWD=X',kind:'fx',dg:3,
     about:'1 歐元兌換多少台幣,反映歐元區經濟與利率預期相對台灣的強弱。',
