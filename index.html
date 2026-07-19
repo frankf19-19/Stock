@@ -2205,7 +2205,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r347</span>');
+  diag.push('<span style="color:var(--dim)">build r348</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6148,7 +6148,6 @@ function kChartBoxHTML(){
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
-          <div class="ind-seg" id="drawSeg"><button data-d="h" title="點圖一下,在該價位畫水平線">➖ 水平線</button><button data-d="t" title="點圖兩下,兩點連成趨勢線">📐 趨勢線</button><button data-d="c" title="清除本檔全部手繪線">🧹</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
@@ -6735,7 +6734,6 @@ async function showDetail(id){
           <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
-          <div class="ind-seg" id="drawSeg"><button data-d="h" title="點圖一下,在該價位畫水平線">➖ 水平線</button><button data-d="t" title="點圖兩下,兩點連成趨勢線">📐 趨勢線</button><button data-d="c" title="清除本檔全部手繪線">🧹</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
