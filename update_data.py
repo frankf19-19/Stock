@@ -24,11 +24,11 @@ import pandas as pd
 TODAY = dt.date.today()
 UA = {"User-Agent": "Mozilla/5.0"}
 K_DIR = "k"
-KEEP_BARS = 130
+KEEP_BARS = 260        # 日K保留 260 個交易日(約一年);上市不足者自動用官方月檔分批回補,上櫃逐日累積加深
 
 # ── 籌碼歷史(v5 新增):法人逐日 / 大戶逐週 / 營收逐月,分片存 c/*.json ──
 C_DIR = "c"            # 籌碼歷史分片資料夾
-CHIP_DAYS = 130        # 法人買賣超保留 130 個交易日(約 6 個月)
+CHIP_DAYS = 260        # 法人買賣超保留 260 個交易日(約一年,逐日累積加深)
 BIG_WEEKS = 52         # 400張大戶保留 52 週(約一年)
 REV_MONTHS = 40        # 月營收保留 40 個月(三年以上年增趨勢)
 CRED_DAYS = 130        # 融資/融券/借券賣出餘額 逐日保留 130 個交易日
@@ -335,7 +335,7 @@ def update_chip_hist(chips, meta):
     """回補/續抓法人逐日資料,累積至 CHIP_DAYS 個交易日。同步累積大盤法人買賣金額(meta['mkt'])。"""
     have = set(meta.get("dates", []))
     want, d, walked = [], TODAY, 0
-    while walked < 230 and len(want) < CHIP_BACKFILL and (len(have) + len(want)) < CHIP_DAYS + 4:
+    while walked < 560 and len(want) < CHIP_BACKFILL and (len(have) + len(want)) < CHIP_DAYS + 4:
         if d.weekday() < 5 and d.isoformat() not in have:
             want.append(d)
         d -= dt.timedelta(days=1); walked += 1
@@ -446,7 +446,7 @@ def update_tw_prices(hist, tw_comps):
         print(f"  [warn] 官方日行情: {e}")
     stale = [c for c in tw_comps
              if c.get("ex") == "tse"
-             and len((hist.get(c["id"]) or {}).get("d") or []) < 15][:60]
+             and len((hist.get(c["id"]) or {}).get("d") or []) < 240][:60]
     if stale:
         fixed = 0
         for c in stale:
@@ -459,7 +459,7 @@ def update_tw_prices(hist, tw_comps):
         print(f"  歷史回補(證交所 STOCK_DAY):{fixed}/{len(stale)} 檔")
     print(f"  台股價格:官方源續寫完成(零 Yahoo)")
 
-def backfill_twse_history(hist, sid, months=7):
+def backfill_twse_history(hist, sid, months=13):
     """證交所 STOCK_DAY(個股月檔):回補近 N 個月日K,重建完整序列。"""
     e = {"d": [], "o": []}
     d0 = TODAY.replace(day=1)

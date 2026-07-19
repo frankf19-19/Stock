@@ -2212,7 +2212,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r359</span>');
+  diag.push('<span style="color:var(--dim)">build r360</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5545,7 +5545,12 @@ async function yOHLC(s,range,interval){
   }
   const base=await loadK(s);
   if(!base||base.demo||!base.ohlc||!base.ohlc.length)return await yextOHLC(s,range,interval);
-  if(interval==='1d')return {dates:base.dates.slice(),ohlc:base.ohlc.map(r=>r.slice())};
+  if(interval==='1d'){
+    let d=base.dates.slice(),o=base.ohlc.map(r=>r.slice());
+    const takeD={'6mo':130,'1y':252}[range];
+    if(takeD&&d.length>takeD){d=d.slice(-takeD);o=o.slice(-takeD);}
+    return {dates:d,ohlc:o};
+  }
   if(interval==='1wk'){
     const dates=[],ohlc=[];
     let key=null,cur=null;
@@ -5560,6 +5565,8 @@ async function yOHLC(s,range,interval){
       }else{cur.h=Math.max(cur.h,h);cur.l=Math.min(cur.l,l);cur.c=c;cur.v+=v;}
     });
     if(cur){dates.push(cur.ds);ohlc.push([cur.o,cur.h,cur.l,cur.c,cur.v]);}
+    const takeW={'6mo':26,'1y':52}[range];
+    if(takeW&&dates.length>takeW){return {dates:dates.slice(-takeW),ohlc:ohlc.slice(-takeW)};}
     return ohlc.length>=2?{dates,ohlc}:null;
   }
   return null;
@@ -5624,7 +5631,14 @@ async function applyKView(s){
     :(kView.itv==='1d'?`<br>📦 箱型掃描:<b>目前未偵測到箱型整理</b>——近期高低震幅超過門檻(個股10%/指數6%),屬趨勢行情;等股價開始橫盤收斂,陰影框會自動出現。`
       :'');
   const meta=document.getElementById('kMeta');
-  if(meta)meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}${data.synth?' · FRED官方收盤合成(開=前收,無影線)':''}`;
+  if(meta){
+    let depth='';
+    if(kView.itv!=='1mo'&&(kView.rng==='1y'||kView.rng==='all')){
+      const need=kView.itv==='1d'?252:52;
+      if(data.ohlc.length<need)depth=' · 已顯示資料庫全部深度(每日累積加深;更長歷史請切月K)';
+    }
+    meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}${data.synth?' · FRED官方收盤合成(開=前收,無影線)':''}${depth}`;
+  }
   drawKChart();
 }
 const UPC='#E5484D', DNC='#21A466';
@@ -6296,7 +6310,7 @@ function kChartBoxHTML(){
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="dim-note" style="margin:2px 0 8px">「全部」=有資料以來完整歷史 · MA5~MA240 全數預設顯示(點圖例可開關) · 滾輪/滑桿縮放 · 手機:上方工具列可左右滑動<span id="kBoxNote"></span></div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K=上市全歷史;日K/週K=每日累積加深至約一年) · MA5~MA240 全數預設顯示(點圖例可開關) · 滾輪/滑桿縮放 · 手機:上方工具列可左右滑動<span id="kBoxNote"></span></div>
       <div id="kbox" style="height:560px"></div>
     </div>`;
 }
@@ -6931,7 +6945,7 @@ async function showDetail(id){
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="dim-note" style="margin:2px 0 8px">「全部」=上市以來完整歷史 · MA5~MA240 全數預設顯示(點圖例可開關;年線需背景載入約2秒) · 滾輪/滑桿縮放</div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K=上市全歷史;日K/週K=每日累積加深至約一年) · MA5~MA240 全數預設顯示(點圖例可開關;年線需背景載入約2秒) · 滾輪/滑桿縮放</div>
       <div id="kbox" style="height:560px"></div>
     </div>
     <div class="dim-block">
