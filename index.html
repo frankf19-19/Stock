@@ -754,6 +754,8 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
     <div><div class="mini-cap">三大法人(盤後)</div><div class="idx-row band" id="instRow"></div></div>
     <div><div class="mini-cap">風險溫度計</div><div class="idx-row band" id="riskRow"></div></div>
   </div>
+  <div class="mini-cap" style="margin-top:12px">三大法人現貨買賣超 · 近 14 個交易日(億元)</div>
+  <div id="instTblBox" style="overflow-x:auto"><div class="dim-note">載入中…</div></div>
   <div class="fx-note" id="macroNote">總經判讀載入中…</div>
   </div>
   <div class="sec-title tap" data-sec="mk_cmd" style="margin-top:14px">⛏️ 原物料行情 <span style="font-weight:400;font-size:13px;letter-spacing:0">金屬・能源 即時報價,點卡片看K線與白話解讀</span></div><div class="sec-body" id="sb-mk_cmd">
@@ -2253,7 +2255,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r363</span>');
+  diag.push('<span style="color:var(--dim)">build r365</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3591,6 +3593,8 @@ async function fngCard(){
   }catch(e){}
 }
 setTimeout(fngCard,900);
+setTimeout(instTable,1000);
+setInterval(instTable,600000);
 setInterval(fngCard,300000);
 setTimeout(ecalCard,1200);
 setInterval(ecalCard,600000);
@@ -7436,6 +7440,11 @@ function buildJumpBar(root){
   bar.querySelectorAll('[data-jm]').forEach(b=>b.onclick=()=>{
     const t=root.querySelector(`.sec-title[data-sec="${b.dataset.jm}"]`);
     if(!t)return;
+    if(t.offsetParent===null||getComputedStyle(t).display==='none'){  // 區段隱藏(尚無資料)→ 明確回饋,不靜默捲空
+      const nm=(t.childNodes[0]?.textContent||'此區塊').trim();
+      alert(nm+'目前尚無資料,資料到位後會自動出現(約數分鐘~下次排程更新)。');
+      return;
+    }
     const body=document.getElementById('sb-'+b.dataset.jm);
     if(body&&body.classList.contains('closed'))t.click();     // 收合中→展開(沿用原機制含記憶與圖表重算)
     setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),60);
@@ -9796,6 +9805,34 @@ async function loadMMeta(){
     MMETA=r.ok?await r.json():{};
   }catch(e){MMETA={};}
   return MMETA;
+}
+async function instTable(){
+  try{
+    const box=document.getElementById('instTblBox');if(!box)return;
+    const m=await loadMMeta();
+    const mk=m&&m.mkt;
+    if(!mk||!mk.d||!mk.d.length){box.innerHTML='<div class="dim-note">尚無資料</div>';return;}
+    const n=mk.d.length,st=Math.max(0,n-14);
+    const cell=v=>{if(v==null)return '<td style="text-align:right;color:var(--dim)">—</td>';
+      const c=v>=0?'var(--down)':'var(--up)';return `<td style="text-align:right;color:${c};font-variant-numeric:tabular-nums;padding:5px 10px;white-space:nowrap">${v>=0?'+':''}${v.toFixed(1)}</td>`;};
+    let rows='';
+    for(let i=st;i<n;i++){
+      const last=i===n-1;
+      const sum=(mk.f[i]||0)+(mk.t[i]||0)+(mk.g[i]||0);
+      rows+=`<tr style="${last?'background:var(--hl,#faf6f0)':''}">
+        <td style="padding:5px 10px;white-space:nowrap;font-weight:${last?'800':'600'}">${mk.d[i].slice(5).replace('-','/')}${last?' ★':''}</td>
+        ${cell(mk.f[i])}${cell(mk.t[i])}${cell(mk.g[i])}${cell(+sum.toFixed(1))}</tr>`;
+    }
+    box.innerHTML=`<table style="border-collapse:collapse;width:100%;font-size:13.5px;min-width:420px">
+      <thead><tr style="border-bottom:1px solid var(--line,#e5e0d8);color:var(--dim);font-size:12.5px">
+        <th style="text-align:left;padding:5px 10px">日期</th>
+        <th style="text-align:right;padding:5px 10px">外資</th>
+        <th style="text-align:right;padding:5px 10px">投信</th>
+        <th style="text-align:right;padding:5px 10px">自營</th>
+        <th style="text-align:right;padding:5px 10px">合計</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <div class="dim-note" style="margin-top:6px">單位:億元;正=淨買超(紅)、負=淨賣超(綠);★=最新交易日。來源:證交所 BFI82U 集中市場盤後,每日排程自動更新。</div>`;
+  }catch(e){}
 }
 function drawMacroLine(domId,d,dg){
   const pts=[],dts=[];
