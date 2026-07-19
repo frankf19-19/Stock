@@ -2212,7 +2212,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r356</span>');
+  diag.push('<span style="color:var(--dim)">build r357</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6226,6 +6226,18 @@ function bindKControls(sLike){
       };
     });
   }
+  const isg=document.getElementById('instSeg');
+  if(isg){
+    const cur2=localStorage.getItem('kINST')!=='0';
+    isg.querySelectorAll('button').forEach(b=>{
+      b.classList.toggle('on',(b.dataset.t==='1')===cur2);
+      b.onclick=()=>{
+        localStorage.setItem('kINST',b.dataset.t);
+        isg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+        try{drawKChart();}catch(e){}
+      };
+    });
+  }
   const gps=document.getElementById('gpSeg');
   if(gps){
     const cur=localStorage.getItem('kGP')!=='0';
@@ -6279,6 +6291,7 @@ function kChartBoxHTML(){
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="instSeg"><button data-t="1">法人副圖</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
@@ -6347,6 +6360,22 @@ function drawKChart(){
   const box=document.getElementById('kbox');
   if(!box||!curOhlc) return;
   if(!window.echarts){ box.innerHTML=kChart(curOhlc); return; } // 離線後備:簡易 SVG
+  // ⚖️ 法人副圖(外資/投信買賣超+期間累積線):日K・台股個股・籌碼已載・開關開啟時啟用
+  let __inst=null;
+  try{
+    if(kView.itv==='1d'&&localStorage.getItem('kINST')!=='0'
+       &&KHASH.startsWith('#stock/')&&window.curChips&&curChips.e&&curChips.s
+       &&('#stock/'+curChips.s.id)===KHASH&&Array.isArray(curChips.e.d)&&curChips.e.d.length&&curDates){
+      const e2=curChips.e,mp={};
+      e2.d.forEach((ds,i)=>{mp[ds]={f:(e2.f||[])[i],t:(e2.t||[])[i]};});
+      const F=curDates.map(ds=>{const r=mp[ds];return r&&r.f!=null?r.f:null;});
+      const T2=curDates.map(ds=>{const r=mp[ds];return r&&r.t!=null?r.t:null;});
+      if(F.some(x=>x!=null)){
+        const cum=a=>{let s2=0;return a.map(v=>v==null?null:(s2+=v,+s2.toFixed(0)));};
+        __inst={F,T2,FC:cum(F),TC:cum(T2)};
+      }
+    }
+  }catch(e){}
   // 保存使用者的縮放範圍與均線圖例開關(同一檔同一視圖的重繪才還原)
   const kSig=KHASH+'|'+kView.rng+'|'+kView.itv;
   let keepZoom=null,keepLegend=null;
@@ -6426,19 +6455,32 @@ function drawKChart(){
     tooltip:{trigger:'axis',axisPointer:{type:'cross'},
       backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:13}},
     axisPointer:{link:[{xAxisIndex:'all'}]},
-    grid:[{left:56,right:16,top:28,height:'44%'},
+    /* __inst 於函式頂端計算 */
+    grid:__inst?[{left:56,right:16,top:28,height:'32%'},
+          {left:56,right:16,top:'43%',height:'9%'},
+          {left:56,right:16,top:'54%',height:'12%'},
+          {left:56,right:16,top:'68.5%',height:'10%'},
+          {left:56,right:16,top:'81%',height:'10%'}]
+        :[{left:56,right:16,top:28,height:'44%'},
           {left:56,right:16,top:'57%',height:'12%'},
           {left:56,right:16,top:'72%',height:'16%'}],
-    xAxis:[0,1,2].map(i=>({type:'category',gridIndex:i,data:curDates,boundaryGap:true,
-      axisLine:{lineStyle:{color:CT.border}},axisLabel:{show:i===2,color:CT.axis,fontSize:11},
+    xAxis:(__inst?[0,1,2,3,4]:[0,1,2]).map((i,_,arr)=>({type:'category',gridIndex:i,data:curDates,boundaryGap:true,
+      axisLine:{lineStyle:{color:CT.border}},axisLabel:{show:i===arr.length-1,color:CT.axis,fontSize:11},
       axisTick:{show:false},splitLine:{show:false}})),
     yAxis:[{gridIndex:0,scale:true,axisLabel:{color:CT.axis,fontSize:11},
         splitLine:{lineStyle:{color:CT.split}}},
       {gridIndex:1,scale:true,axisLabel:{show:false},splitLine:{show:false}},
       {gridIndex:2,scale:true,axisLabel:{color:CT.axis,fontSize:11},
-        splitLine:{lineStyle:{color:CT.split}}}],
-    dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:zs,end:ze},
-      {type:'slider',xAxisIndex:[0,1,2],bottom:6,height:18,start:zs,end:ze,showDetail:false,
+        splitLine:{lineStyle:{color:CT.split}}},
+      ...(__inst?[
+        {gridIndex:3,scale:true,name:'外資(張)',nameTextStyle:{color:CT.axis,fontSize:10},nameGap:4,
+         axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}},
+        {gridIndex:4,scale:true,name:'投信(張)',nameTextStyle:{color:CT.axis,fontSize:10},nameGap:4,
+         axisLabel:{color:CT.axis,fontSize:10},splitLine:{show:false}},
+        {gridIndex:3,scale:true,position:'right',axisLabel:{show:false},splitLine:{show:false}},
+        {gridIndex:4,scale:true,position:'right',axisLabel:{show:false},splitLine:{show:false}}]:[])],
+    dataZoom:[{type:'inside',xAxisIndex:__inst?[0,1,2,3,4]:[0,1,2],start:zs,end:ze},
+      {type:'slider',xAxisIndex:__inst?[0,1,2,3,4]:[0,1,2],bottom:6,height:18,start:zs,end:ze,showDetail:false,
        borderColor:CT.border,fillerColor:hexA(cssVar('--amber'),.15),
        handleStyle:{color:cssVar('--amber')},textStyle:{color:CT.axis,fontSize:11}}],
     series:[{name:'K線',type:'candlestick',xAxisIndex:0,yAxisIndex:0,
@@ -6523,7 +6565,16 @@ function drawKChart(){
                     yAxis:+curLevels.zone[0].toFixed(2)},
                    {yAxis:+curLevels.zone[1].toFixed(2)}]]:[])]}
           };})():{})},
-      ...maSeries,volSeries,...indSeries,...divMarkSeries(),...gapVolSeries(o,curDates),kdrawSeries0()]
+      ...maSeries,volSeries,...indSeries,...divMarkSeries(),...gapVolSeries(o,curDates),kdrawSeries0(),
+      ...(__inst?[
+        {name:'外資買賣超',type:'bar',xAxisIndex:3,yAxisIndex:3,data:__inst.F,barMaxWidth:9,
+         itemStyle:{color:p2=>((p2.value||0)>=0?UPC:DNC)}},
+        {name:'外資累積',type:'line',xAxisIndex:3,yAxisIndex:5,data:__inst.FC,showSymbol:false,connectNulls:true,
+         lineStyle:{width:1.4,color:cssVar('--amber')},itemStyle:{color:cssVar('--amber')},z:5},
+        {name:'投信買賣超',type:'bar',xAxisIndex:4,yAxisIndex:4,data:__inst.T2,barMaxWidth:9,
+         itemStyle:{color:p2=>((p2.value||0)>=0?UPC:DNC)}},
+        {name:'投信累積',type:'line',xAxisIndex:4,yAxisIndex:6,data:__inst.TC,showSymbol:false,connectNulls:true,
+         lineStyle:{width:1.4,color:cssVar('--amber')},itemStyle:{color:cssVar('--amber')},z:5}]:[])]
   });
   try{kdrawBindClick();}catch(e){}   // ✏️ 手繪點擊(主圖建好後綁定)
 }
@@ -6867,6 +6918,7 @@ async function showDetail(id){
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="instSeg"><button data-t="1">法人副圖</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI'].map(m=>
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
@@ -7320,6 +7372,7 @@ async function loadChipDetail(s){
     box.innerHTML='<div class="dim-block"><h3>籌碼深度追蹤</h3><div class="dim-note">此檔法人歷史累積中(每日自動更新後逐步補齊至 130 個交易日),先參考上方籌碼面摘要。</div><div class="chart-box" style="margin-top:10px"><div class="ind-head"><h3 style="font-size:15px">信用交易|融資・融券・借券賣出+股價(6個月)</h3><span class="c-code" id="credStat">載入中…</span></div><div id="credBox" style="height:250px"></div></div></div>';
     loadCreditTrend(s,e);return;}
   curChips={s,e};
+  if(KHASH==='#stock/'+s.id&&kView.itv==='1d')try{drawKChart();}catch(e2){}   // ⚖️ 法人副圖:資料到位就地重繪
   renderChipCharts(s,e);
   loadCreditTrend(s,e);
 }
