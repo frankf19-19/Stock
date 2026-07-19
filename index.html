@@ -2205,7 +2205,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r349</span>');
+  diag.push('<span style="color:var(--dim)">build r350</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3405,6 +3405,54 @@ function renderStkAlerts(s,k,tt){
     ?A.map(a=>`<span class="alert-pill alert-${a.lv}"><span class="ico">${a.ico}</span><span>${a.txt}</span></span>`).join('')
     :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>目前無特別風險警示</span></span>';
 }
+/* ── 恐懼貪婪指數(CNN 同款半圓儀表;資料:後端 yext.json ← CNN 公開端點)── */
+function fngZh(s){return s<25?'極度恐懼':s<45?'恐懼':s<=55?'中性':s<=75?'貪婪':'極度貪婪';}
+function fngGauge(s){
+  const zones=[[0,25,'#d64545'],[25,45,'#e8944a'],[45,55,'#b9b3a8'],[55,75,'#8fbf6f'],[75,100,'#3d9c5f']];
+  const R=34,CX=45,CY=42,W=9;
+  const arc=(a0,a1,color)=>{
+    const r0=Math.PI*(1-a0/100),r1=Math.PI*(1-a1/100);
+    const x0=CX+R*Math.cos(r0),y0=CY-R*Math.sin(r0);
+    const x1=CX+R*Math.cos(r1),y1=CY-R*Math.sin(r1);
+    return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" stroke="${color}" stroke-width="${W}" fill="none" stroke-linecap="butt"/>`;
+  };
+  const na=Math.PI*(1-s/100);
+  const nx=CX+(R-13)*Math.cos(na),ny=CY-(R-13)*Math.sin(na);
+  return `<svg viewBox="0 0 90 48" style="width:86px;height:46px;display:block">
+    ${zones.map(z=>arc(z[0]+0.6,z[1]-0.6,z[2])).join('')}
+    <line x1="${CX}" y1="${CY}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--tx,#333)" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="${CX}" cy="${CY}" r="3" fill="var(--tx,#333)"/>
+  </svg>`;
+}
+async function fngCard(){
+  try{
+    const box=document.getElementById('riskRow');
+    if(!box)return;
+    const y=await yextData();
+    const f=y&&y.fng;
+    if(!f||!(f.s>=0))return;
+    let d=document.getElementById('fngCard');
+    if(!d){
+      d=document.createElement('div');
+      d.className='idx-card';d.id='fngCard';
+      d.style.cursor='pointer';
+      d.title='CNN Fear & Greed Index(美股情緒;0=極度恐懼、100=極度貪婪)';
+      d.onclick=()=>{window.open('https://edition.cnn.com/markets/fear-and-greed','_blank','noopener');};
+      box.insertBefore(d,box.firstChild);
+    }
+    const zh=fngZh(f.s);
+    const col=f.s<45?'var(--up)':f.s>55?'var(--down)':'var(--dim)';
+    d.innerHTML=`<div class="nm">恐懼貪婪指數(美股) ›</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${fngGauge(f.s)}
+        <div><div class="vl" style="line-height:1.1">${Math.round(f.s)}</div>
+        <div class="ch" style="color:${col};font-weight:700">${zh}</div></div>
+      </div>
+      <div class="ch" style="color:var(--dim)">昨 ${Math.round(f.p)} · 週 ${Math.round(f.w)} · 月 ${Math.round(f.m)}</div>`;
+  }catch(e){}
+}
+setTimeout(fngCard,900);
+setInterval(fngCard,300000);
 /* ── 風險指標:VIX 恐慌指數 + 美債殖利率(每60秒即時更新)── */
 async function refreshRisk(){
   const box=document.getElementById('riskRow');

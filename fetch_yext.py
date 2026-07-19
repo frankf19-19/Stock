@@ -405,9 +405,42 @@ def main():
     if len(series) < 4:
         print(f"::error::只取得 {len(series)} 檔(<4),放棄寫檔")
         sys.exit(1)
+    # ── CNN 恐懼貪婪指數(公開 JSON;零成本)──
+    fng = None
+    _fng_url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
+    for u in (_fng_url,
+              "https://api.allorigins.win/raw?url=" + urllib.parse.quote(_fng_url, safe="")):
+        try:
+            req = urllib.request.Request(u, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+                "Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                j = json.load(r)
+            fg = j.get("fear_and_greed") or {}
+            sc = float(fg.get("score"))
+            fng = {"s": round(sc, 1),
+                   "r": str(fg.get("rating", "")),
+                   "p": round(float(fg.get("previous_close", sc)), 1),
+                   "w": round(float(fg.get("previous_1_week", sc)), 1),
+                   "m": round(float(fg.get("previous_1_month", sc)), 1),
+                   "ts": str(fg.get("timestamp", ""))[:19]}
+            print(f"  恐懼貪婪指數 ← CNN({fng['s']:.0f} {fng['r']})")
+            break
+        except Exception as e:
+            print(f"  [warn] 恐懼貪婪指數({'直連' if u == _fng_url else '代理'}): {str(e)[:60]}")
+    if fng is None:                                     # 來源閃失 → 沿用前檔,不歸零
+        try:
+            with open("yext.json", encoding="utf-8") as f:
+                fng = json.load(f).get("fng")
+            if fng:
+                print("  恐懼貪婪指數:沿用前檔")
+        except Exception:
+            pass
     doc = {"updated": datetime.datetime.now(datetime.timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%SZ"),
            "series": series}
+    if fng:
+        doc["fng"] = fng
     with open("yext.json", "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, separators=(",", ":"))
     print(f"完成:{len(series)} 檔 → yext.json(FRED+MIS+er-api,零 Yahoo)")
