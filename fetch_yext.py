@@ -9,7 +9,7 @@
 機房被擋時自動借道 repo 根目錄 proxy.json 指定的自家 Cloudflare Worker。
 需要環境變數 FRED_API_KEY(GitHub Secrets 設定)。
 """
-import json, time, datetime, sys, os
+import json, time, time, datetime, sys, os
 import urllib.request
 import urllib.parse
 
@@ -275,6 +275,66 @@ def twse_5s_index(sess, prev=None):
         c.append(round(v, 2))
     return {"t": t, "c": c} if len(c) >= 5 else None
 
+# ── 重量級財報雷達(Nasdaq 公開端點;台股 AI 供應鏈關聯巨頭;6小時一更,失敗沿用前值)──
+ECAL_WATCH = ["NVDA","MSFT","AAPL","GOOGL","AMZN","META","TSLA","AVGO","AMD","TSM",
+              "ASML","QCOM","MU","INTC","ORCL","NFLX","CRM","MRVL","ARM","SMCI","VRT","COST"]
+
+def _nq_json(url):
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+        "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.load(r)
+
+def _numf(x):
+    try:
+        s = str(x).replace("$", "").replace(",", "").replace("(", "-").replace(")", "").strip()
+        return float(s) if s and s.lower() not in ("n/a", "--", "") else None
+    except Exception:
+        return None
+
+def fetch_ecal(prev):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if prev and prev.get("ts") and (now.timestamp() - prev["ts"]) < 6*3600:
+        return prev
+    up, done = [], []
+    for k in range(0, 15):
+        d = (now + datetime.timedelta(days=k)).strftime("%Y-%m-%d")
+        try:
+            j = _nq_json(f"https://api.nasdaq.com/api/calendar/earnings?date={d}")
+            for row in ((j.get("data") or {}).get("rows") or []):
+                sym = (row.get("symbol") or "").upper()
+                if sym in ECAL_WATCH:
+                    up.append({"s": sym, "n": row.get("name") or sym, "d": d,
+                               "t": "pre" if "pre" in str(row.get("time") or "") else "post",
+                               "est": _numf(row.get("epsForecast"))})
+        except Exception as e:
+            print(f"  [warn] 財報日曆 {d}: {str(e)[:50]}")
+        time.sleep(0.4)
+    cutoff = (now - datetime.timedelta(days=5)).strftime("%Y-%m-%d")
+    for sym in ECAL_WATCH:
+        try:
+            j = _nq_json(f"https://api.nasdaq.com/api/company/{sym}/earnings-surprise")
+            rows = (((j.get("data") or {}).get("earningsSurpriseTable") or {}).get("rows") or [])
+            for r0 in rows[:2]:
+                try:
+                    iso = datetime.datetime.strptime(r0.get("dateReported") or "", "%m/%d/%Y").strftime("%Y-%m-%d")
+                except Exception:
+                    continue
+                if iso >= cutoff:
+                    done.append({"s": sym, "d": iso, "eps": _numf(r0.get("eps")),
+                                 "est": _numf(r0.get("consensusForecast")),
+                                 "sur": _numf(r0.get("percentageSurprise"))})
+        except Exception:
+            pass
+        time.sleep(0.3)
+    up.sort(key=lambda x: x["d"]); done.sort(key=lambda x: x["d"], reverse=True)
+    if not up and not done and prev:
+        print("  財報雷達:抓取全空,沿用前檔")
+        return prev
+    print(f"  財報雷達:未來 {len(up)} 場、近日已公布 {len(done)} 筆")
+    return {"up": up[:14], "done": done[:10], "ts": int(now.timestamp())}
+
 def main():
     series = {}
     if not FRED_KEY:
@@ -436,11 +496,24 @@ def main():
                 print("  恐懼貪婪指數:沿用前檔")
         except Exception:
             pass
+    ecal_prev = None
+    try:
+        with open("yext.json", encoding="utf-8") as f:
+            ecal_prev = json.load(f).get("ecal")
+    except Exception:
+        pass
+    try:
+        ecal = fetch_ecal(ecal_prev)
+    except Exception as e:
+        print(f"  [warn] 財報雷達:{str(e)[:60]},沿用前檔")
+        ecal = ecal_prev
     doc = {"updated": datetime.datetime.now(datetime.timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%SZ"),
            "series": series}
     if fng:
         doc["fng"] = fng
+    if ecal:
+        doc["ecal"] = ecal
     with open("yext.json", "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, separators=(",", ":"))
     print(f"完成:{len(series)} 檔 → yext.json(FRED+MIS+er-api,零 Yahoo)")
