@@ -715,7 +715,6 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 <div class="tabPane" id="tp-macro"><div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:13px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
   <div class="alert-strip" id="macroAlerts" style="display:none"></div>
   <div id="fngTop" style="display:none"></div>
-  <div id="confHomeBox" style="display:none"></div>
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
       <div class="ind-head">
@@ -741,12 +740,17 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       <div class="idx-row compact" id="fxRow"></div>
     </div>
   </div>
-  <div id="futTab" style="margin-top:12px"></div>
+  <div id="confHomeBox" style="display:none"></div>
+  <div class="sec-title tap" data-sec="mk_fut" style="margin-top:14px">📊 期貨籌碼先行指標 <span style="font-weight:400;font-size:13px;letter-spacing:0">近 14 個交易日完整表格</span></div><div class="sec-body" id="sb-mk_fut">
+  <div id="futTab"></div>
+  </div>
+  <div class="sec-title tap" data-sec="mk_risk" style="margin-top:14px">⚖️ 法人動向與風險指標 <span style="font-weight:400;font-size:13px;letter-spacing:0">三大法人・VIX/殖利率・總經判讀</span></div><div class="sec-body" id="sb-mk_risk">
   <div class="macro-band">
     <div><div class="mini-cap">三大法人(盤後)</div><div class="idx-row band" id="instRow"></div></div>
     <div><div class="mini-cap">風險溫度計</div><div class="idx-row band" id="riskRow"></div></div>
   </div>
   <div class="fx-note" id="macroNote">總經判讀載入中…</div>
+  </div>
   <div class="sec-title tap" data-sec="glb" style="margin-top:18px">🌍 國際供應鏈雷達 <span style="font-weight:400;font-size:13px;letter-spacing:0">缺貨・漲價・擴產第一手外電,自動標註對應台股族群</span></div><div class="sec-body" id="sb-glb">
   <div id="glbTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 8px"></div>
   <div id="glbList"><div class="dim-note">外電載入中…</div></div>
@@ -2206,7 +2210,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r351</span>');
+  diag.push('<span style="color:var(--dim)">build r352</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7138,7 +7142,7 @@ function setupSections(){
     if(!t.querySelector('.sec-hint')){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
-    const DESK_CLOSE={stk_s:1,stk_c:1,stk_h:1,stk_3:1,stk_v:1,stk_m:1,stk_p:1,stk_e:1};   // 桌機預設收合次要區段 → 乾淨目錄;點開看細項且會記住(展開:走勢/法說/AI策略/營收獲利)
+    const DESK_CLOSE={stk_s:1,stk_c:1,stk_h:1,stk_3:1,stk_v:1,stk_m:1,stk_p:1,stk_e:1,mk_fut:1};   // 桌機預設收合次要區段 → 乾淨目錄;點開看細項且會記住(展開:走勢/法說/AI策略/營收獲利)
     const closed=(key in saved)?!!saved[key]:(mob||!!DESK_CLOSE[key]);
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
