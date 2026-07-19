@@ -714,6 +714,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 </div>
 <div class="tabPane" id="tp-macro"><div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:13px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
   <div class="alert-strip" id="macroAlerts" style="display:none"></div>
+  <div id="fngTop" style="display:none"></div>
   <div id="confHomeBox" style="display:none"></div>
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
@@ -2205,7 +2206,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r350</span>');
+  diag.push('<span style="color:var(--dim)">build r351</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3426,29 +3427,22 @@ function fngGauge(s){
 }
 async function fngCard(){
   try{
-    const box=document.getElementById('riskRow');
+    const box=document.getElementById('fngTop');
     if(!box)return;
     const y=await yextData();
     const f=y&&y.fng;
-    if(!f||!(f.s>=0))return;
-    let d=document.getElementById('fngCard');
-    if(!d){
-      d=document.createElement('div');
-      d.className='idx-card';d.id='fngCard';
-      d.style.cursor='pointer';
-      d.title='CNN Fear & Greed Index(美股情緒;0=極度恐懼、100=極度貪婪)';
-      d.onclick=()=>{window.open('https://edition.cnn.com/markets/fear-and-greed','_blank','noopener');};
-      box.insertBefore(d,box.firstChild);
-    }
+    if(!f||!(f.s>=0)){box.style.display='none';return;}
     const zh=fngZh(f.s);
     const col=f.s<45?'var(--up)':f.s>55?'var(--down)':'var(--dim)';
-    d.innerHTML=`<div class="nm">恐懼貪婪指數(美股) ›</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        ${fngGauge(f.s)}
-        <div><div class="vl" style="line-height:1.1">${Math.round(f.s)}</div>
-        <div class="ch" style="color:${col};font-weight:700">${zh}</div></div>
-      </div>
-      <div class="ch" style="color:var(--dim)">昨 ${Math.round(f.p)} · 週 ${Math.round(f.w)} · 月 ${Math.round(f.m)}</div>`;
+    const trend=f.s>f.p+1?'較昨日升溫':f.s<f.p-1?'較昨日降溫':'與昨日持平';
+    box.innerHTML=`<div class="dim-block" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-left:4px solid ${f.s<45?'var(--up)':f.s>55?'var(--down)':'var(--line)'};margin:10px 0;padding:10px 14px;cursor:pointer" title="CNN Fear &amp; Greed Index(美股情緒;0=極度恐懼、100=極度貪婪)" onclick="window.open('https://edition.cnn.com/markets/fear-and-greed','_blank','noopener')">
+      ${fngGauge(f.s)}
+      <div style="min-width:110px"><b style="font-size:20px;line-height:1">${Math.round(f.s)}</b>
+        <b style="color:${col};margin-left:6px">${zh}</b>
+        <div class="ds" style="color:var(--dim)">恐懼貪婪指數(美股)›</div></div>
+      <div class="ds" style="color:var(--dim)">昨 ${Math.round(f.p)} · 週 ${Math.round(f.w)} · 月 ${Math.round(f.m)} · ${trend}</div>
+    </div>`;
+    box.style.display='';
   }catch(e){}
 }
 setTimeout(fngCard,900);
