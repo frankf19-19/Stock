@@ -2212,7 +2212,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r355</span>');
+  diag.push('<span style="color:var(--dim)">build r356</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4447,11 +4447,53 @@ function stkForceFromMIS(id,m,last){   // 🥊 內外盤力道(近似):成交貼
     r.__pc=last;
     const a=stkAcc(id);
     if(!a.t.length)return;
-    a.bs=a.bs||[];
+    a.bs=a.bs||[];a.bb=a.bb||[];a.sb=a.sb||[];
     while(a.bs.length<a.t.length)a.bs.push(0);
+    while(a.bb.length<a.t.length)a.bb.push(0);
+    while(a.sb.length<a.t.length)a.sb.push(0);
     a.v[a.t.length-1]=(a.v[a.t.length-1]||0)+dv;        // 分時量:即時逐段累積
-    if(side)a.bs[a.t.length-1]+=side*dv;
+    if(side){
+      a.bs[a.t.length-1]+=side*dv;
+      const amt=dv*last*1000;                            // 單筆(6秒增量)金額;≥500萬視為大單(近似)
+      (amt>=5e6?a.bb:a.sb)[a.t.length-1]+=side*dv;
+    }
   }catch(e){}
+}
+function forceCum(arr){const out=[];let s2=0;(arr||[]).forEach(v=>{s2+=(v||0);out.push(+s2.toFixed(0));});return out;}
+function stkForceUI(s){
+  try{clearInterval(window.__fTm);}catch(e){}
+  const draw=async()=>{
+    if(!location.hash.includes(s.id)){try{clearInterval(window.__fTm);}catch(e){}return;}
+    const el=document.getElementById('forceBox');
+    if(!el)return;
+    const a=(typeof stkAcc==='function')?stkAcc(s.id):null;
+    const has=a&&a.t&&a.t.length>1&&((a.bb||[]).some(x=>x)||(a.sb||[]).some(x=>x));
+    const note=document.getElementById('forceNote');
+    if(!has){
+      el.innerHTML='<div class="dim-note" style="padding-top:76px;text-align:center;color:var(--dim)">盤中開啟本頁後開始即時累積。<br>免費來源無逐筆資料——以 6 秒輪詢金額分類近似;盤後無法回補歷史。</div>';
+      if(note)note.textContent='';
+      return;
+    }
+    if(!(await ensureECharts()))return;
+    const times=a.t.map(ts=>{const d=new Date(ts*1000);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');});
+    const big=forceCum(a.bb),sm=forceCum(a.sb);
+    let ch=el.__ec;
+    if(!ch){el.innerHTML='';ch=echarts.init(el);el.__ec=ch;}
+    ch.setOption({animation:false,grid:{left:52,right:14,top:26,bottom:24},
+      legend:{data:['大戶(累積)','散戶(累積)'],top:0,textStyle:{fontSize:11}},
+      tooltip:{trigger:'axis'},
+      xAxis:{type:'category',data:times,axisLabel:{fontSize:10}},
+      yAxis:{type:'value',name:'淨買賣(張)',nameTextStyle:{fontSize:10},splitLine:{lineStyle:{opacity:.25}}},
+      series:[{name:'大戶(累積)',type:'line',data:big,showSymbol:false,lineStyle:{width:2,color:'#c0392b'},itemStyle:{color:'#c0392b'}},
+              {name:'散戶(累積)',type:'line',data:sm,showSymbol:false,lineStyle:{width:2,color:'#2e8b57'},itemStyle:{color:'#2e8b57'}}]},true);
+    if(note){
+      const bl=big[big.length-1]||0,sl=sm[sm.length-1]||0;
+      const lab=v=>(v>0?'淨買 +':v<0?'淨賣 ':'持平 ')+Math.abs(v)+' 張';
+      note.innerHTML=`<b>大戶:</b><span style="color:${bl>=0?'var(--down)':'var(--up)'}">${lab(bl)}</span> · <b>散戶:</b><span style="color:${sl>=0?'var(--down)':'var(--up)'}">${lab(sl)}</span><span style="color:var(--dim)"> · 成交價貼賣=買力+、貼買=賣壓-;單筆(6秒)金額≥500萬歸大戶。近似值,供方向判讀。</span>`;
+    }
+  };
+  draw();
+  window.__fTm=setInterval(draw,15000);
 }
 function candleFromMIS(id,m,last){
   const o=parseFloat(m.o),h=parseFloat(m.h),l=parseFloat(m.l),y=parseFloat(m.y);
@@ -6602,6 +6644,7 @@ async function showDetail(id){
     <div id="divTL"></div>
     </div>
     ${s.etf?etfSec(s):''}
+    ${s.market==='TW'?`<div class="sec-title" data-sec="stk_f">⚖️ 大戶/散戶買賣力 <span style="font-weight:400;font-size:13px;letter-spacing:0">盤中即時累積・6秒近似・單筆≥500萬=大單</span></div><div class="sec-body" id="sb-stk_f"><div id="forceBox" style="height:230px"></div><div class="dim-note" id="forceNote"></div></div>`:''}
     ${(()=>{const ch=confHTML(s);return ch?`<div class="sec-title" data-sec="stk_conf">📣 法說會專區 <span style="font-weight:400;font-size:13px;letter-spacing:0">排程・公司擇要重點・站內解讀・相關報導</span></div><div class="sec-body" id="sb-stk_conf">${ch}</div>`:''})()}
     <div class="sec-title" data-sec="stk_ai">🤖 AI 綜合研判・投資策略 <span style="font-weight:400;font-size:13px;letter-spacing:0">規則化研判・投資論點・進出場規劃</span></div><div class="sec-body" id="sb-stk_ai">
     ${s.etf?'':(()=>{const v=aiVerdict(s);return `
@@ -6745,6 +6788,7 @@ async function showDetail(id){
   loadChipDetail(s);
   KHASH='#stock/'+s.id;
   try{stkLiveStart(s);}catch(e){}      // 報價迴圈 0 秒啟動
+  try{stkForceUI(s);}catch(e){}        // ⚖️ 大戶/散戶買賣力(盤中即時)
   try{confAI().then(j=>{               // 🎧 法說 AI 聽讀結果到位後就地刷新專區
     if(j&&j.items&&j.items[s.id]){
       const b=document.getElementById('sb-stk_conf');
