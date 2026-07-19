@@ -17,10 +17,16 @@ K_DIR     = "k"
 UA = {"User-Agent": "Mozilla/5.0 (backfill; personal dashboard)"}
 TODAY = dt.date.today()
 
-def get_json(url, timeout=25):
-    r = requests.get(url, headers=UA, timeout=timeout)
-    r.raise_for_status()
-    return r.json()
+def get_json(url, timeout=12):
+    for att in (1, 2):
+        try:
+            r = requests.get(url, headers=UA, timeout=timeout)
+            r.raise_for_status()
+            return r.json()
+        except Exception:
+            if att == 2:
+                raise
+            time.sleep(1.5)                                    # 短退避一次,仍失敗就交給上層跳過
 
 def month_heads(n):
     d0 = TODAY.replace(day=1); out=[]
@@ -135,18 +141,32 @@ def main():
                  if s.get("market") == "TW" and s["id"][0].isdigit()]
     hist = load_all()
     todo = [c for c in comps if len((hist.get(c["id"]) or {}).get("d") or []) < TARGET]
-    print(f"全市場 {len(comps)} 檔;需回補 {len(todo)} 檔(已達 {TARGET} 根者跳過)", flush=True)
+    filled0 = len(comps) - len(todo)
+    print(f"全市場 {len(comps)} 檔;已入庫 {filled0} 檔(跳過)、本輪待補 {len(todo)} 檔 · 只抓缺少的月份+限流快速跳過+330分鐘優雅收工", flush=True)
     heads = month_heads(MONTHS)
     done = fail = 0
     t0 = time.time()
+    deadline = t0 + 330*60          # ⏱️ 330 分鐘優雅收工:先於 GitHub 350 分鐘強殺,確保存檔+提交乾淨
     for i, c in enumerate(todo, 1):
+        if time.time() > deadline:
+            print(f"  ⏱️ 已達 330 分鐘安全上限,優雅收工(進度已存,重按 Re-run 續跑)", flush=True)
+            break
         sid, is_otc = c["id"], c.get("ex") == "otc"
+        e0 = hist.get(sid) or {}
+        first_have = (e0.get("d") or ["9999-99"])[0][:7]      # 既有最早年月;只補這之前的月份(含當月重疊)
+        need = [(y, m) for (y, m) in heads if f"{y:04d}-{m:02d}" <= first_have] or heads
         days = {}
         okm = 0
-        for (y, m) in heads:
+        miss = 0
+        for (y, m) in need:
             got = (fetch_otc_month if is_otc else fetch_tse_month)(sid, y, m)
-            if got: okm += 1
-            days.update(got)
+            if got:
+                okm += 1; miss = 0
+            else:
+                miss += 1
+                if miss >= 3:                                  # 連 3 個月抓不到=被限流或無資料,快速跳過別耗時間
+                    time.sleep(3)
+                    break
             time.sleep(0.35 + random.random()*0.15)
         e = hist.get(sid) or {"d": [], "o": []}
         for d_, o_ in zip(e.get("d") or [], e.get("o") or []):
