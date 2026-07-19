@@ -2212,7 +2212,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r357</span>');
+  diag.push('<span style="color:var(--dim)">build r358</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6364,7 +6364,7 @@ function drawKChart(){
   let __inst=null;
   try{
     if(kView.itv==='1d'&&localStorage.getItem('kINST')!=='0'
-       &&KHASH.startsWith('#stock/')&&window.curChips&&curChips.e&&curChips.s
+       &&KHASH.startsWith('#stock/')&&typeof curChips!=='undefined'&&curChips&&curChips.e&&curChips.s
        &&('#stock/'+curChips.s.id)===KHASH&&Array.isArray(curChips.e.d)&&curChips.e.d.length&&curDates){
       const e2=curChips.e,mp={};
       e2.d.forEach((ds,i)=>{mp[ds]={f:(e2.f||[])[i],t:(e2.t||[])[i]};});
