@@ -1975,6 +1975,7 @@ function fhRotate(){}
 const TV_SYM={gspc:'FOREXCOM:SPXUSD',ixic:'FOREXCOM:NSXUSD',dji:'FOREXCOM:DJI',sox:'NASDAQ:SOXX',
   vix:'CAPITALCOM:VIX',n225:'CAPITALCOM:J225',dxy:'CAPITALCOM:DXY',
   gold:'FOREXCOM:XAUUSD',silver:'FOREXCOM:XAGUSD',wti:'TVC:USOIL',brent:'TVC:UKOIL',
+  y10:'TVC:US10Y',y30:'TVC:US30Y',y5:'TVC:US05Y',
   natgas:'CAPITALCOM:NATURALGAS',copper:'CAPITALCOM:COPPER',nickel:'CAPITALCOM:NICKEL',alum:'COMEX:ALI1!',
   esf:'FOREXCOM:SPXUSD',nqf:'FOREXCOM:NSXUSD',ewt:'AMEX:EWT',
   usdtwd:'FX_IDC:USDTWD',jpytwd:'FX_IDC:JPYTWD',eurtwd:'FX_IDC:EURTWD',usdjpy:'FX:USDJPY'};
@@ -2255,7 +2256,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r373</span>');
+  diag.push('<span style="color:var(--dim)">build r374</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3694,7 +3695,7 @@ async function refreshRisk(){
     const v=out[key]; if(!v)continue;
     const yLast=yld(v.last), yPrev=yld(v.prev);
     const bp=(yLast!=null&&yPrev!=null)?(yLast-yPrev)*100:null;   // 殖利率差 ×100 = 基點(bp)
-    cards.push(`<div class="idx-card" data-mk="${key}"><div class="nm">${v.name}</div>
+    cards.push(`<div class="idx-card" data-mk="${key}"><div class="nm">${v.name} <span class="c-code" title="小卡為日收盤;點卡看 TradingView 即時走勢">›</span></div>
       <div class="vl">${yLast!=null?yLast.toFixed(2):'—'}%</div>
       <div class="ch">${bp!=null?`<span class="${bp>0?'pos':bp<0?'neg':'flat'}">${bp>0?'▲':bp<0?'▼':'–'} ${Math.abs(bp).toFixed(1)} bp</span>`:''}</div></div>`);
   }
