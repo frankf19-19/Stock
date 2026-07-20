@@ -2255,7 +2255,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r366</span>');
+  diag.push('<span style="color:var(--dim)">build r367</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3123,7 +3123,8 @@ function idxPick(key){
   const acc=accOf(key);
   const today=tpDay(Date.now()/1000);
   const md=(IDX.misD||{})[key];
-  if(md&&md.day===sessDay()&&Array.isArray(md.c)&&md.c.length>=5){
+  if(md&&md.day===sessDay()&&Array.isArray(md.c)&&md.c.length>=5
+     &&(!marketOpen()||(Array.isArray(md.t)&&md.t.length&&tpDay(md.t[md.t.length-1])===sessDay()))){
     // 🌄 MIS/官方全日分線為底(最近時段 09:00 起完整);盤中把累積中更新的點接上,收盤/深夜則直接呈現最近完整一日
     const t=[...md.t],c=[...md.c],v=[...md.v];
     const lastT=t[t.length-1];
@@ -3373,12 +3374,21 @@ async function refreshIdxMis(){
         }catch(e){}
       }
       if(d&&d.c&&d.c.length>=5){
-        window.__idxDiag[key]=via+' '+d.c.length+'點';
-        const old=IDX.misD[key];
-        IDX.misD[key]=Object.assign(d,{day:sessDay(),via});
-        if(!old||old.c.length!==d.c.length){           // 有新點才重畫,避免無謂閃動
-          if(IDX.sel===key)drawIdxSel();
-          if(window.__mkMis===key&&location.hash.startsWith('#macro/'))drawMkLive(key);
+        // 🛡️ 驗證這份全日分線最後一點真的是今天(交易日初期官方端點常回「最近交易日=上週五」的完整檔)
+        const lastTs=Array.isArray(d.t)&&d.t.length?d.t[d.t.length-1]:0;
+        const isToday=lastTs&&tpDay(lastTs)===sessDay();
+        if(!isToday&&marketOpen()){
+          // 盤中卻拿到非今日分線 → 不採用(交給 idxPick 走即時累積),避免昨日線覆蓋今日
+          window.__idxDiag[key]=via+'(非今日·略過 '+(lastTs?tpDay(lastTs):'?')+')';
+          if(IDX.sel===key)drawIdxSel();               // 觸發改用即時累積重畫
+        }else{
+          window.__idxDiag[key]=via+' '+d.c.length+'點';
+          const old=IDX.misD[key];
+          IDX.misD[key]=Object.assign(d,{day:isToday?sessDay():tpDay(lastTs),via});
+          if(!old||old.c.length!==d.c.length){         // 有新點才重畫,避免無謂閃動
+            if(IDX.sel===key)drawIdxSel();
+            if(window.__mkMis===key&&location.hash.startsWith('#macro/'))drawMkLive(key);
+          }
         }
       }else{
         window.__idxDiag[key]=(window.__idxDiag[key]&&window.__idxDiag[key].includes('點'))?window.__idxDiag[key]:'回補失敗(端點/代理均不通)';
