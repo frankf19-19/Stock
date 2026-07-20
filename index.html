@@ -2255,7 +2255,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r368</span>');
+  diag.push('<span style="color:var(--dim)">build r369</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2347,6 +2347,17 @@ async function yChart(sym,range,interval){
   const useM=(range||'1d')==='1d'||(range==='5d');
   const src2=useM?(e.m||e.d):(e.d||e.m);
   if(!src2||!src2.t||!src2.t.length)return null;
+  // 🛡️ 盤中(台股)拒用過期分線:後端標了資料日 d,若非今日且盤中 → 回 null,主圖改走即時累積
+  if(useM&&(s==='^TWII'||s==='^TWOII')&&typeof marketOpen==='function'&&marketOpen()){
+    const dd=src2.d;
+    const todayTp=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Taipei'});
+    if(dd&&dd!==todayTp)return null;
+    // 無 d 標記的舊檔:用最後時間戳判斷
+    if(!dd&&Array.isArray(src2.t)&&src2.t.length){
+      const lastD=new Date(src2.t[src2.t.length-1]*1000).toLocaleDateString('en-CA',{timeZone:'Asia/Taipei'});
+      if(lastD!==todayTp)return null;
+    }
+  }
   let t=src2.t,c=src2.c;
   if(!useM&&range){
     const days={'1mo':22,'3mo':66,'6mo':130,'1y':252}[range];

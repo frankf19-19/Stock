@@ -413,13 +413,21 @@ def main():
         if ty:
             m_tw["prev"] = round(ty, 2)
         m_tw = keep_better("^TWII", m_tw)
+        # 🗓️ 標記資料實際日期(前端據此在盤中拒用過期分線):以最後時間戳所屬台北日期為準
+        try:
+            import datetime as _dt
+            _lt = m_tw["t"][-1]
+            m_tw["d"] = _dt.datetime.fromtimestamp(_lt, _dt.timezone(_dt.timedelta(hours=8))).strftime("%Y-%m-%d")
+        except Exception:
+            m_tw["d"] = sess.strftime("%Y-%m-%d")
         series.setdefault("^TWII", {})["m"] = m_tw
-        print(f"  ^TWII ← 官方每5秒統計({len(m_tw['t'])} 點,{sess.date()},昨收 {m_tw.get('prev','—')})")
+        print(f"  ^TWII ← 官方每5秒統計({len(m_tw['t'])} 點,資料日 {m_tw.get('d')},昨收 {m_tw.get('prev','—')})")
     else:
         om = (old_series.get("^TWII") or {}).get("m")
         if om:
+            # 沿用前檔:保留其原始資料日期(不冒充今天),前端盤中會據此拒用
             series.setdefault("^TWII", {})["m"] = om
-            print("  ^TWII ← 沿用前檔走勢(官方端點暫不可用)")
+            print(f"  ^TWII ← 沿用前檔走勢(官方端點暫不可用,資料日 {om.get('d','未標記')})")
         else:
             print("  ^TWII 未取得(官方端點與前檔皆無)", file=sys.stderr)
     # 櫃買:MIS 分線端點不支援指數頻道 → 006201 富櫃50 ETF 分線 × (指數昨收/ETF昨收)
