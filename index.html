@@ -2255,7 +2255,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r365</span>');
+  diag.push('<span style="color:var(--dim)">build r366</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3213,7 +3213,17 @@ function drawIdxSel(){
   let chg=pv>0?(last-pv)/pv*100:null;
   // 🛡 昨收防呆:台股指數單日漲跌不可能 >11%,超過=昨收基準是壞資料 → 不顯示假跌幅
   if((IDX.sel==='tw'||IDX.sel==='otc')&&chg!=null&&Math.abs(chg)>11)chg=null;
-  const srcTag=(IDX.sel==='tw'||IDX.sel==='otc')&&d.src?` <span class="c-code" title="走勢圖資料來源">${d.src}</span>`:'';
+  let srcTag=(IDX.sel==='tw'||IDX.sel==='otc')&&d.src?` <span class="c-code" title="走勢圖資料來源">${d.src}</span>`:'';
+  // 🔎 診斷:附最後資料點時間與距今秒數(盤中若凍結,這裡會停住不動,便於定位)
+  try{
+    if((IDX.sel==='tw'||IDX.sel==='otc')&&Array.isArray(d.t)&&d.t.length){
+      const lt=d.t[d.t.length-1];
+      const hhmm=new Date(lt*1000).toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hour12:false});
+      const ago=Math.max(0,Math.floor(Date.now()/1000-lt));
+      const warn=(marketOpen()&&ago>90);
+      srcTag+=` <span class="c-code" title="最後資料點時間;盤中若持續變大代表沒有新資料進來" ${warn?'style="color:var(--amber)"':''}>末點 ${hhmm}${warn?`·${ago}s前⚠`:''}</span>`;
+    }
+  }catch(e){}
   if(stat)stat.innerHTML=`${(+last).toFixed(2)} ${chg!=null?`<span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`:'<span class="c-code">昨收校正中</span>'}${srcTag}${d.approx&&d.src!=='ETF換算'?' <span class="c-code" title="無櫃買分線,以上櫃ETF走勢按指數比例換算">ETF換算</span>':''}`;
   RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',d))||drawIntra('idxChart',d);
   const fl=document.getElementById('idxFlow');
