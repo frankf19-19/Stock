@@ -1975,7 +1975,6 @@ function fhRotate(){}
 const TV_SYM={gspc:'FOREXCOM:SPXUSD',ixic:'FOREXCOM:NSXUSD',dji:'FOREXCOM:DJI',sox:'NASDAQ:SOXX',
   vix:'CAPITALCOM:VIX',n225:'CAPITALCOM:J225',dxy:'CAPITALCOM:DXY',
   gold:'FOREXCOM:XAUUSD',silver:'FOREXCOM:XAGUSD',wti:'TVC:USOIL',brent:'TVC:UKOIL',
-  y10:'TVC:US10Y',y30:'TVC:US30Y',y5:'TVC:US05Y',
   natgas:'CAPITALCOM:NATURALGAS',copper:'CAPITALCOM:COPPER',nickel:'CAPITALCOM:NICKEL',alum:'COMEX:ALI1!',
   esf:'FOREXCOM:SPXUSD',nqf:'FOREXCOM:NSXUSD',ewt:'AMEX:EWT',
   usdtwd:'FX_IDC:USDTWD',jpytwd:'FX_IDC:JPYTWD',eurtwd:'FX_IDC:EURTWD',usdjpy:'FX:USDJPY'};
@@ -2256,7 +2255,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r374</span>');
+  diag.push('<span style="color:var(--dim)">build r376</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2569,6 +2568,35 @@ function drawIntraLWC(domId,d){
   if(d.prev>0)area.createPriceLine({price:+(+d.prev).toFixed(2),color:dark?'#888':'#999',
     lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dashed,axisLabelVisible:true,title:'昨收'});
   ch.timeScale().fitContent();
+  // ✨ TradingView 式右緣呼吸圓點:疊一個絕對定位的脈動點,隨最新價座標即時貼位
+  try{
+    if(!document.getElementById('__pulseCss')){
+      const st=document.createElement('style');st.id='__pulseCss';
+      st.textContent='@keyframes lwcPulse{0%{transform:translate(-50%,-50%) scale(1);opacity:1}70%{transform:translate(-50%,-50%) scale(2.6);opacity:0}100%{opacity:0}}';
+      document.head.appendChild(st);
+    }
+    box.style.position=box.style.position||'relative';
+    const dot=document.createElement('div');
+    dot.style.cssText=`position:absolute;width:9px;height:9px;border-radius:50%;background:${col};z-index:3;pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 0 0 0 ${col}`;
+    const ring=document.createElement('div');
+    ring.style.cssText=`position:absolute;width:9px;height:9px;border-radius:50%;background:${col};z-index:2;pointer-events:none;opacity:.6;animation:lwcPulse 1.6s ease-out infinite`;
+    box.appendChild(ring);box.appendChild(dot);
+    const lastPt=pts[pts.length-1];
+    const place=()=>{
+      try{
+        if(!lastPt||lastPt.value==null){dot.style.display=ring.style.display='none';return;}
+        const x=ch.timeScale().timeToCoordinate(lastPt.time);
+        const y=area.priceToCoordinate(lastPt.value);
+        if(x==null||y==null){dot.style.display=ring.style.display='none';return;}
+        dot.style.display=ring.style.display='block';
+        dot.style.left=ring.style.left=x+'px';
+        dot.style.top=ring.style.top=y+'px';
+      }catch(e){}
+    };
+    place();
+    ch.timeScale().subscribeVisibleTimeRangeChange(place);
+    box.__pulsePlace=place;   // 供外部重繪後重新貼位
+  }catch(e){}
   return {lwc:1,ch,area,avgS,prev:d.prev,cv,cpv,lastT,id:d.__id};
  }catch(e){
   try{const box=document.getElementById(domId);if(box){if(box.__lwc){box.__lwc.remove();box.__lwc=null;}box.style.background='';}}catch(_){}
