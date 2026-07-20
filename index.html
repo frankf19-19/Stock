@@ -2255,7 +2255,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r369</span>');
+  diag.push('<span style="color:var(--dim)">build r370</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3134,8 +3134,18 @@ function idxPick(key){
   const acc=accOf(key);
   const today=tpDay(Date.now()/1000);
   const md=(IDX.misD||{})[key];
-  if(md&&md.day===sessDay()&&Array.isArray(md.c)&&md.c.length>=5
-     &&(!marketOpen()||(Array.isArray(md.t)&&md.t.length&&tpDay(md.t[md.t.length-1])===sessDay()))){
+  const _mdFresh=(()=>{
+    if(!md||!Array.isArray(md.t)||!md.t.length)return false;
+    if(md.day!==sessDay())return false;
+    if(!marketOpen())return true;                       // 收盤/盤後:顯示最近完整一日,不設限
+    // 盤中:末點日期須今日,且末點時間不得超過現在+5分(過期回退檔末點常是13:30,會遠超現在)
+    const lt=md.t[md.t.length-1];
+    if(tpDay(lt)!==sessDay())return false;
+    const nowS=Date.now()/1000;
+    if(lt>nowS+300)return false;                         // 末點在未來>5分 → 過期回退資料,拒用
+    return true;
+  })();
+  if(_mdFresh&&Array.isArray(md.c)&&md.c.length>=5){
     // 🌄 MIS/官方全日分線為底(最近時段 09:00 起完整);盤中把累積中更新的點接上,收盤/深夜則直接呈現最近完整一日
     const t=[...md.t],c=[...md.c],v=[...md.v];
     const lastT=t[t.length-1];

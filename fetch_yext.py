@@ -235,6 +235,20 @@ def twse_5s_index(sess, prev=None):
     rows = j.get("data") or []
     if not rows:
         return None
+    # 🗓️ 驗證回應資料日期真的是我們要的那天(官方端點對「當日未生成」會回退到最近交易日,
+    #    若不驗證會把上週五資料貼上今天日期戳,使前端所有日期守衛失效)
+    _want_roc = f"{sess.year-1911}/{sess.month:02d}/{sess.day:02d}"     # 民國 115/07/20
+    _want_ad  = sess.strftime("%Y%m%d")                                 # 西元 20260720
+    _title = str(j.get("title") or "") + " " + str(j.get("date") or "")
+    _dr = str(j.get("date") or "")
+    if _dr and _dr != _want_ad:
+        print(f"  MI_5MINS_INDEX 資料日={_dr} ≠ 目標={_want_ad},判為過期回退 → 不採用", file=sys.stderr)
+        return None
+    if not _dr and _want_roc not in _title and _want_ad not in _title:
+        # date 欄位缺失時改驗標題;標題也對不上就保守拒用(避免拿到回退資料)
+        if _title.strip():
+            print(f"  MI_5MINS_INDEX 標題未含目標日 {_want_roc},保守拒用(標題:{_title[:40]})", file=sys.stderr)
+            return None
     fields = [str(x) for x in (j.get("fields") or [])]
     vcol = next((i for i, f in enumerate(fields) if "發行量加權股價指數" in f), None)
     tcol = next((i for i, r0 in enumerate(rows[0])
