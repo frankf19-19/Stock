@@ -2255,7 +2255,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r372</span>');
+  diag.push('<span style="color:var(--dim)">build r373</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3687,12 +3687,16 @@ async function refreshRisk(){
       <div class="vl">${v.last.toFixed(2)}</div>
       <div class="ch">${chgHtml(+chg.toFixed(2))}</div></div>`);
   }
+  // 🔧 殖利率格式自動偵測:Yahoo ^TNX 系列有時回「殖利率×10」(如 45.7)、有時回原值(如 4.57)
+  //    以 >20 判定為 ×10 格式需除10,否則為原值——兩種來源都正確顯示(修正先前一律÷10 導致顯示 0.46% 的錯誤)
+  const yld=x=>x==null?null:(x>20?x/10:x);
   for(const key of ['y10','y30','y5']){
     const v=out[key]; if(!v)continue;
-    const bp=(v.last-v.prev)*10; // ^TNX 系列報價為殖利率×10,差值×10即為 bp
+    const yLast=yld(v.last), yPrev=yld(v.prev);
+    const bp=(yLast!=null&&yPrev!=null)?(yLast-yPrev)*100:null;   // 殖利率差 ×100 = 基點(bp)
     cards.push(`<div class="idx-card" data-mk="${key}"><div class="nm">${v.name}</div>
-      <div class="vl">${(v.last/10).toFixed(2)}%</div>
-      <div class="ch"><span class="${bp>0?'pos':bp<0?'neg':'flat'}">${bp>0?'▲':bp<0?'▼':'–'} ${Math.abs(bp).toFixed(1)} bp</span></div></div>`);
+      <div class="vl">${yLast!=null?yLast.toFixed(2):'—'}%</div>
+      <div class="ch">${bp!=null?`<span class="${bp>0?'pos':bp<0?'neg':'flat'}">${bp>0?'▲':bp<0?'▼':'–'} ${Math.abs(bp).toFixed(1)} bp</span>`:''}</div></div>`);
   }
   box.innerHTML=cards.join('');
   // 依當下數值自動判讀(精簡版,併入總經判讀)
@@ -3713,9 +3717,9 @@ async function refreshRisk(){
   composeMacroNote();
   window.__riskVals={
     vix:out.vix?out.vix.last:null,
-    y10:out.y10?out.y10.last/10:null,
-    bp10:out.y10?(out.y10.last-out.y10.prev)*10:null,
-    y5:out.y5?out.y5.last/10:null};
+    y10:out.y10?yld(out.y10.last):null,
+    bp10:(out.y10&&yld(out.y10.last)!=null&&yld(out.y10.prev)!=null)?(yld(out.y10.last)-yld(out.y10.prev))*100:null,
+    y5:out.y5?yld(out.y5.last):null};
   try{renderMacroAlerts();}catch(e){}
 }
 setTimeout(refreshRisk,5000);
