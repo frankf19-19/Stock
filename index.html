@@ -2255,7 +2255,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r367</span>');
+  diag.push('<span style="color:var(--dim)">build r368</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3234,17 +3234,22 @@ function drawIdxSel(){
   paintDefense();
 }
 async function refreshIdx(){
+  const _today=sessDay();
+  const _isToday=x=>x&&Array.isArray(x.t)&&x.t.length&&tpDay(x.t[x.t.length-1])===_today;
   let dtw=await yChart('^TWII');
-  if(dtw&&dtw.t&&dtw.t.length&&tpDay(dtw.t[dtw.t.length-1])!==tpDay(Date.now()/1000)&&openish()){
+  if(dtw&&!_isToday(dtw)&&openish()){
     const t2=await yToday('^TWII');
     if(t2)dtw=t2;
   }
-  if(dtw)IDX.d.tw=dtw;
+  // 🛡️ 盤中只採用「今日」分線;非今日(端點回上週五完整檔)一律不存,交給即時累積,杜絕昨日線覆蓋
+  if(dtw&&(!marketOpen()||_isToday(dtw)))IDX.d.tw=dtw;
+  else if(marketOpen()&&IDX.sel==='tw')drawIdxSel();      // 觸發改用即時累積重畫
   let dot=await yChart(IDX.otcSyms[0]);
   if(!dot)dot=await yChart(IDX.otcSyms[0],'1d','5m');
   if(!dot){dot=await yChart(IDX.otcSyms[1]);if(dot)IDX.otcSyms.reverse();}
   if(!dot)dot=await otcFromETF();
-  if(dot)IDX.d.otc=dot;
+  if(dot&&(!marketOpen()||_isToday(dot)))IDX.d.otc=dot;
+  else if(dot&&marketOpen()&&IDX.sel==='otc')drawIdxSel();
   ['tw','otc'].forEach(k=>{
     const d=IDX.d[k];
     if(d){const last=[...d.c].reverse().find(x=>x!=null);
