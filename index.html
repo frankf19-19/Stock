@@ -2255,7 +2255,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r377</span>');
+  diag.push('<span style="color:var(--dim)">build r378</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4766,9 +4766,21 @@ const ROUTE_MEM={};
 function routeMemGet(k){if(ROUTE_MEM[k]!=null)return ROUTE_MEM[k];try{return ROUTE_MEM[k]=+(localStorage.getItem('rt_route_'+k)||0);}catch(e){return 0;}}
 function routeMemSet(k,i){ROUTE_MEM[k]=i;try{localStorage.setItem('rt_route_'+k,String(i));}catch(e){}}
 async function routeRace(kind,routes,runner){
-  // 平常只打「上次成功那條」(省流量防 429);失敗才並行剩餘路線並記住新贏家
+  // 平常只打「上次成功那條」(省流量防 429);失敗才並行剩餘路線並記住新贏家。
+  // 🏁 升級:贏家不是路0(自家Worker)時,每次都讓路0一起參賽先到先贏——
+  //    自家代理只要恢復就自動奪回王座,杜絕「偶發失敗後長期卡在慢速公共代理」的慢性不即時。
   const fav=Math.min(routeMemGet(kind),routes.length-1);
-  try{return await runner(routes[fav]);}catch(e){}
+  if(fav===0){
+    try{return await runner(routes[0]);}catch(e){}
+  }else{
+    try{
+      const w=await Promise.any([
+        runner(routes[fav]).then(v=>[v,fav]),
+        runner(routes[0]).then(v=>[v,0])]);
+      if(w[1]!==fav)routeMemSet(kind,w[1]);
+      return w[0];
+    }catch(e){}
+  }
   const rest=routes.map((r,i)=>[r,i]).filter(([,i])=>i!==fav);
   const winner=await Promise.any(rest.map(async([r,i])=>{const v=await runner(r);return [v,i];}));
   routeMemSet(kind,winner[1]);

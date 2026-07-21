@@ -580,29 +580,65 @@ def fill_tw_daily_official(hist, comps):
     print(f"  官方日行情續寫:{fixed} 檔(交易日 {day}{f'、新開檔 {born}' if born else ''})")
 
 # ═══════════════ 美股價格(批次)═══════════════
+def _us_from_stooq(sym):
+    """Stooq CSV 日K → e{d,o};失敗回 None(Stooq 有時擋機房)。"""
+    try:
+        d1 = (TODAY - dt.timedelta(days=230)).strftime("%Y%m%d")
+        df = pd.read_csv(StringIO(requests.get(
+            f"https://stooq.com/q/d/l/?s={sym.lower()}.us&d1={d1}&d2={TODAY:%Y%m%d}&i=d",
+            headers=UA, timeout=20).text))
+        if "Close" not in df.columns or len(df) < 20:
+            return None
+        e = {"d": [], "o": []}
+        for _, r in df.tail(KEEP_BARS).iterrows():
+            e["d"].append(str(r["Date"])[:10])
+            e["o"].append([round(float(r["Open"]),2), round(float(r["High"]),2),
+                           round(float(r["Low"]),2), round(float(r["Close"]),2),
+                           int(r.get("Volume") or 0)])
+        return e if e["d"] else None
+    except Exception:
+        return None
+
+def _us_from_yahoo(sym):
+    """Yahoo chart API 日K(1年)→ e{d,o};Stooq 被擋時的備援。"""
+    try:
+        u = (f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}"
+             f"?range=1y&interval=1d")
+        j = requests.get(u, headers=UA, timeout=20).json()
+        res = (((j or {}).get("chart") or {}).get("result") or [None])[0]
+        if not res:
+            return None
+        ts = res.get("timestamp") or []
+        q = (((res.get("indicators") or {}).get("quote") or [{}])[0])
+        o_,h_,l_,c_,v_ = q.get("open"),q.get("high"),q.get("low"),q.get("close"),q.get("volume")
+        if not ts or not c_:
+            return None
+        e = {"d": [], "o": []}
+        for i,t in enumerate(ts):
+            if c_[i] is None or o_[i] is None:
+                continue
+            ds = dt.datetime.utcfromtimestamp(t).strftime("%Y-%m-%d")
+            e["d"].append(ds)
+            e["o"].append([round(float(o_[i]),2), round(float(h_[i]),2),
+                           round(float(l_[i]),2), round(float(c_[i]),2),
+                           int(v_[i] or 0)])
+        return e if len(e["d"]) >= 20 else None
+    except Exception:
+        return None
+
 def update_us_prices(hist, us_comps):
-    """美股日K:Stooq(免金鑰 CSV),全面取代 Yahoo。"""
-    ok = 0
+    """美股日K:Stooq(主)→ Yahoo chart(備)雙源,單源被擋不會整批停更。"""
+    ok = 0; via_y = 0
     for c in us_comps:
         sym = c["id"]
-        try:
-            d1 = (TODAY - dt.timedelta(days=230)).strftime("%Y%m%d")
-            df = pd.read_csv(StringIO(requests.get(
-                f"https://stooq.com/q/d/l/?s={sym.lower()}.us&d1={d1}&d2={TODAY:%Y%m%d}&i=d",
-                headers=UA, timeout=20).text))
-            if "Close" not in df.columns or len(df) < 20:
-                continue
-            e = {"d": [], "o": []}
-            for _, r in df.tail(KEEP_BARS).iterrows():
-                e["d"].append(str(r["Date"])[:10])
-                e["o"].append([round(float(r["Open"]),2), round(float(r["High"]),2),
-                               round(float(r["Low"]),2), round(float(r["Close"]),2),
-                               int(r.get("Volume") or 0)])
+        e = _us_from_stooq(sym)
+        if not e:
+            e = _us_from_yahoo(sym)         # Stooq 擋機房 → Yahoo 備援
+            if e: via_y += 1
+        if e:
             hist[sym] = e; ok += 1
-        except Exception:
-            pass
-        time.sleep(0.6)
-    print(f"  美股價格(Stooq):{ok}/{len(us_comps)} 檔")
+        time.sleep(0.5)
+    print(f"  美股價格:{ok}/{len(us_comps)} 檔(其中 Yahoo 備援 {via_y} 檔)")
 
 def fetch_rev_mops_live():
     """MOPS 當月即時彙總:公司 1~10 日陸續申報,申報當天此頁就有(上市+上櫃)。"""
