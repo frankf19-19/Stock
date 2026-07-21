@@ -2255,7 +2255,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r376</span>');
+  diag.push('<span style="color:var(--dim)">build r377</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4044,20 +4044,24 @@ async function loadIntraDetail(s,accOnly){
       }
       window.__stkToday=true;
     }else if(marketOpen()){
+      // 🎯 個股分時「完美即時」:優先用本機即時累積(不依賴易掛的 MIS 底圖端點/公共代理)
+      //    先試 misIntraday 補全 09:00 起完整底圖(成功更好),抓不到也用純累積線起步、絕不顯示「連不上」空圖
       if(acc.c.length>=2){d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev||((d&&d.prev)||null)};window.__stkToday=true;}
       else{
-        const md=await misIntraday(s);
+        let md=null;
+        try{md=await misIntraday(s);}catch(e){}
         if(md&&location.hash===KHASH){
           d=md;window.__stkToday=true;
           (RT.lastYD=RT.lastYD||{})[s.id]=md;   // 當底圖,累積點續接
+        }else if(acc.c.length>=1){
+          // 底圖抓不到 → 用純即時累積線起步(哪怕只有 1~2 點,隨每次報價 tick 長大)
+          d={t:acc.t.slice(),c:acc.c.slice(),v:acc.v.slice(),prev:acc.prev||(RTC[s.id]&&RTC[s.id].y)||null};
+          window.__stkToday=true;
         }else{
+          // 連 1 點累積都還沒有(剛進頁/剛開盤)→ 溫和提示「累積中」,不再說「連不上」,下次 tick 或重試就會有
           window.__stkToday=false;
-          const early=(()=>{const h=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));return h.getHours()*60+h.getMinutes()<9*60+25;})();
-          if(stat)stat.innerHTML=intraStatTxt(s,early
-            ?'走勢累積中·09:00起完整走勢約09:25後自動補齊'
-            :'即時走勢源暫時連不上——報價仍即時、K線不受影響;45秒自動重試')
-            +(early?'':' <button class="btn-ghost" style="height:26px;padding:0 10px;font-size:12px" onclick="diagRoutes(this)">🔌 測試連線</button>');
-          if(!window.__intraRetry){window.__intraRetry=setTimeout(()=>{window.__intraRetry=null;try{if(location.hash===KHASH)drawIntraday(s);}catch(e){}},45000);}
+          if(stat)stat.innerHTML=intraStatTxt(s,'即時走勢累積中,數秒後自動出現(不影響報價與K線)');
+          if(!window.__intraRetry){window.__intraRetry=setTimeout(()=>{window.__intraRetry=null;try{if(location.hash===KHASH)drawIntraday(s);}catch(e){}},8000);}
           return;
         }
       }
