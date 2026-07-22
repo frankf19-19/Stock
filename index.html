@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://openapi.twse.com.tw" crossorigin>
 <link rel="dns-prefetch" href="https://www.tpex.org.tw">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>麻吉股研所|台美股選股儀表板</title>
 <meta name="description" content="麻吉股研所:台股全市場+美股 S&P500 的免費選股儀表板。即時走勢、法人籌碼、月營收、估值評價、白話解釋,好友限定分享。">
 <meta property="og:type" content="website">
@@ -14,19 +14,21 @@
 <meta property="og:description" content="即時走勢・法人籌碼・月營收・估值評價,全部白話看得懂。">
 <meta property="og:image" content="https://frankf19-19.github.io/Stock/icon.png">
 <meta name="twitter:card" content="summary">
-<meta name="apple-mobile-web-app-title" content="麻吉股研所">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230C111D'/><rect x='10' y='34' width='10' height='19' rx='2.5' fill='%238a6a1f'/><rect x='27' y='23' width='10' height='30' rx='2.5' fill='%23E8B44A'/><rect x='44' y='11' width='10' height='42' rx='2.5' fill='%23E5484D'/></svg>">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#b3402a">
+<meta name="theme-color" content="#b3402a" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="麻吉股研">
-<meta name="theme-color" content="#0C111D">
+<meta name="theme-color" content="#0C111D" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="dns-prefetch" href="https://s3.tradingview.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
 <style>
 :root{
   --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
@@ -93,7 +95,8 @@ html[data-theme="sepia"]{
   --amber:#0E7C86; --hdr:#E6EFF5;
   --up:#C4333B; --down:#0F8A57;
 }
-*{margin:0;padding:0;box-sizing:border-box}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+button,a,.tap,.chip,.idx-card,.earn-row{touch-action:manipulation}
 body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:16px;line-height:1.6}
 a{color:var(--amber)}
 .wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
@@ -111,6 +114,7 @@ h1 .tri{color:var(--amber)}
 .toolbar select{padding:0 10px;font-size:14.5px;border-radius:8px;height:38px}
 .statline{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:760px){
+  input[type=search],select,#qSearch,.tabPane input,.sec-body input,.kseg-row input{font-size:16px!important}
   .meta{align-items:stretch}
   .toolbar{justify-content:flex-start}
   .statline{justify-content:flex-start}
@@ -904,6 +908,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
 <script>
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
@@ -2122,7 +2127,7 @@ function ensureCmdCards(){              // ⛏️ 原物料卡:TradingView 即�
     if(go)go.onclick=()=>{location.hash='#macro/'+mk;};
   });
 }
-setInterval(()=>{try{ensureCmdCards();}catch(e){}},1500);
+const __cmdPoll=setInterval(()=>{try{ensureCmdCards();if(window.__cmdTv)clearInterval(__cmdPoll);}catch(e){}},1500);
 function ensureUsTvCards(){             // 📺 美股四卡:自家即時資料(yext ^GSPC/^IXIC/^DJI/^SOX),不再依賴 TV 嵌入
   if(window.__usTv)return;
   const row=document.getElementById('idxRow');

@@ -16,8 +16,10 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     fetch(req).then(r => {
       try {
-        const cp = r.clone();
-        caches.open(CACHE).then(c => c.put(req, cp));
+        if (r && r.ok) {                             // 只快取成功回應,404/500 不汙染快取
+          const cp = r.clone();
+          caches.open(CACHE).then(c => c.put(req, cp));
+        }
       } catch (err) {}
       return r;
     }).catch(() => caches.match(req, { ignoreSearch: url.pathname.endsWith('.json') })
