@@ -403,8 +403,10 @@ a.alert-pill:hover{transform:translateY(-1px)}
 .ticker-track .src{color:var(--dim);font-size:12px}
 @keyframes tickmove{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @media(max-width:640px){.ticker-label{padding:8px 10px;font-size:12px}.ticker-track a{font-size:13.5px}}
-.earn-row{border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:11px;padding:10px 14px;margin:8px 0;background:var(--panel)}
-.earn-row:hover{border-color:var(--amber)}
+.earn-row{border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:12px;padding:11px 15px;margin:9px 0;background:var(--panel);transition:transform .12s,box-shadow .12s,border-color .12s}
+.earn-row:hover{border-color:var(--amber);transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.06)}
+.earn-more{display:block;text-align:center;padding:7px;border:1px dashed var(--line);border-radius:10px;color:var(--mut);font-size:13px;cursor:pointer;margin-top:8px}
+.earn-more:hover{color:var(--amber);border-color:var(--amber)}
 .cal-mini{margin:10px 0 12px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;overflow:hidden}
 .cal-mini-head{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--hdr)}
 .cal-mini-head b{font-size:14.5px;letter-spacing:.03em}
@@ -721,13 +723,6 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 </div>
 <div class="tabPane" id="tp-macro"><div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:13px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
   <div class="alert-strip" id="macroAlerts" style="display:none"></div>
-  <div class="cal-mini" id="calBar" data-jumpname="📅 近期大事" hidden>
-    <div class="cal-mini-head"><b class="cm-tg" id="cmTg">📅 近期大事|重大財報・數據・法說</b><a href="#events">完整行事曆 →</a></div>
-    <div id="calTrack"></div>
-  </div>
-  <div class="sec-title tap" data-sec="mk_earn" style="margin-top:14px">📡 財報雷達 <span style="font-weight:400;font-size:13px;letter-spacing:0">美股重磅・即將登場(未來14天)・台北時間與台鏈連動</span></div><div class="sec-body" id="sb-mk_earn">
-  <div id="earnRadar"><div class="dim-note">財報行事曆載入中…(後端每 20 分鐘更新)</div></div>
-  </div>
   <div id="fngTop" style="display:none"></div>
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
@@ -753,6 +748,13 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
       <div class="mini-cap">匯率</div>
       <div class="idx-row compact" id="fxRow"></div>
     </div>
+  </div>
+  <div class="cal-mini" id="calBar" data-jumpname="📅 近期大事" hidden>
+    <div class="cal-mini-head"><b class="cm-tg" id="cmTg">📅 近期大事|數據・法說・結算</b><a href="#events">完整行事曆 →</a></div>
+    <div id="calTrack"></div>
+  </div>
+  <div class="sec-title tap" data-sec="mk_earn" style="margin-top:14px">📡 財報雷達 <span style="font-weight:400;font-size:13px;letter-spacing:0">美股重磅・即將登場(未來14天)・台北時間與台鏈連動</span></div><div class="sec-body" id="sb-mk_earn">
+  <div id="earnRadar"><div class="dim-note">財報行事曆載入中…</div></div>
   </div>
   <div class="sec-title tap" data-sec="mk_conf" id="confSecTitle" style="margin-top:14px;display:none">📣 重要法說快報 <span style="font-weight:400;font-size:13px;letter-spacing:0">近5天已開+未來7天將開・點列跳該股法說專區</span></div><div class="sec-body" id="sb-mk_conf">
   <div id="confHomeBox"></div>
@@ -2772,23 +2774,59 @@ const EARN_NOTE={
  SMCI:'AI 伺服器出貨與毛利——與台系組裝廠(廣達、緯穎)同市場溫度計',
  DELL:'AI 伺服器訂單與積壓——台系 ODM 代工訂單的下游驗證',
  ANET:'AI 資料中心交換器——智邦與網通族群連動'};
+async function fetchEarnClient(){   // ⛑ 後端 earn 尚未就緒時的前端備援:走公共 CORS 代理直抓 Nasdaq 行事曆
+  if(window.__earnCli)return window.__earnCli;
+  window.__earnCli=[];                                   // 先佔位,避免重複發動
+  const routes=[u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
+    u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+    u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)];
+  const out=[];
+  const base=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  for(let i=0;i<15;i++){
+    const d=new Date(base);d.setDate(d.getDate()+i);
+    if(d.getDay()===0||d.getDay()===6)continue;
+    const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const u=`https://api.nasdaq.com/api/calendar/earnings?date=${iso}`;
+    for(const r of routes){
+      try{
+        const res=await fT(r(u),4500);
+        if(!res.ok)continue;
+        const j=await res.json();
+        const rows=((j.data||{}).rows)||[];
+        rows.forEach(x=>{
+          const sym=String(x.symbol||'').toUpperCase().trim();
+          if(!EARN_NOTE[sym])return;
+          const tc=String(x.time||'');
+          out.push({d:iso,sym,n:String(x.companyName||x.name||'').slice(0,40),
+            t:/after/.test(tc)?'amc':/pre/.test(tc)?'bmo':'tbd',
+            eps:String(x.epsForecast||'').replace('$','').trim()});
+        });
+        break;
+      }catch(e){}
+    }
+  }
+  window.__earnCli=out;
+  return out;
+}
 async function renderEarnRadar(){
   const box=document.getElementById('earnRadar');
   if(!box)return;
   const j=await yextData();
-  const arr=(j&&j.earn)||[];
+  let arr=(j&&j.earn)||[];
+  let cli=false;
+  if(!arr.length){arr=await fetchEarnClient();cli=true;}   // 後端還沒跑 → 前端自己抓
   const today=tpDay(Date.now()/1000);
   const seen=new Set();
   const list=arr.filter(e=>e.d>=today&&e.sym&&!seen.has(e.sym+e.d)&&seen.add(e.sym+e.d))
                 .sort((a,b)=>a.d<b.d?-1:1).slice(0,14);
   window.__earnList=list;
   if(!list.length){
-    box.innerHTML='<div class="dim-note">未來 14 天沒有重磅美股財報排程,或行事曆首次回補中(後端每 20 分鐘更新,跑完第一班就會出現)。</div>';
+    box.innerHTML='<div class="dim-note">未來 14 天暫無重磅美股財報排程,或行事曆來源暫時無法連線——後端每 20 分鐘會自動同步,稍後重整即可。</div>';
     return;
   }
   const wd=['日','一','二','三','四','五','六'];
   const fmt=d=>`${d.getMonth()+1}/${String(d.getDate()).padStart(2,'0')}(${wd[d.getDay()]})`;
-  box.innerHTML=list.map(e=>{
+  const rowHtml=e=>{
     const d=new Date(e.d+'T00:00:00');
     let tpe;
     if(e.t==='amc'){const d2=new Date(d);d2.setDate(d2.getDate()+1);
@@ -2803,7 +2841,19 @@ async function renderEarnRadar(){
         <span style="font-weight:600;color:var(--txt2)">${e.n||''}</span>
         <span style="font-weight:400;color:var(--mut);font-size:13px">· ${tpe}${e.eps?` · EPS預期 <b style="color:var(--txt)">${e.eps}</b>`:''}</span></div>
       ${EARN_NOTE[e.sym]?`<div class="dim-note" style="margin-top:3px">👀 ${EARN_NOTE[e.sym]}</div>`:''}</div>`;
-  }).join('')+`<div class="dim-note" style="margin-top:8px">來源:Nasdaq 官方財報行事曆(每 20 分鐘同步);EPS 預期為市場共識,實際公布時間以公司為準。美股盤後公布=台北隔日清晨才有結果,<b>隔天台股開盤前記得回來看</b>。</div>`;
+  };
+  const head=list.slice(0,8),rest=list.slice(8);
+  box.innerHTML=head.map(rowHtml).join('')
+    +(rest.length?`<div id="earnRest" style="display:none">${rest.map(rowHtml).join('')}</div>
+      <a class="earn-more" id="earnMore">顯示其餘 ${rest.length} 場 ▾</a>`:'')
+    +`<div class="dim-note" style="margin-top:8px">來源:Nasdaq 官方財報行事曆(每 20 分鐘同步);EPS 預期為市場共識,實際公布時間以公司為準。美股盤後公布=台北隔日清晨才有結果,<b>隔天台股開盤前記得回來看</b>。</div>`;
+  const more=document.getElementById('earnMore');
+  if(more)more.onclick=()=>{
+    const r=document.getElementById('earnRest');
+    const open=r.style.display==='none';
+    r.style.display=open?'':'none';
+    more.textContent=open?'收合 ▴':`顯示其餘 ${rest.length} 場 ▾`;
+  };
   box.querySelectorAll('[data-esym]').forEach(el=>{el.onclick=()=>{location.hash='#stock/'+el.dataset.esym;};});
   try{renderCalendar();}catch(e){}   // 讓「近期大事」同步併入真實財報日
 }
