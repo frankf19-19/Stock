@@ -407,6 +407,8 @@ a.alert-pill:hover{transform:translateY(-1px)}
 .earn-row:hover{border-color:var(--amber);transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.06)}
 .earn-more{display:block;text-align:center;padding:7px;border:1px dashed var(--line);border-radius:10px;color:var(--mut);font-size:13px;cursor:pointer;margin-top:8px}
 .earn-more:hover{color:var(--amber);border-color:var(--amber)}
+.earn-sub{font-size:14px;font-weight:900;letter-spacing:.03em;color:var(--txt2);margin:6px 0 2px}
+.earn-row.done{border-left-color:#9a9484;background:var(--panel2)}
 .cal-mini{margin:10px 0 12px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;overflow:hidden}
 .cal-mini-head{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--hdr)}
 .cal-mini-head b{font-size:14.5px;letter-spacing:.03em}
@@ -2810,7 +2812,7 @@ async function fetchEarnClient(){   // ⛑ 後端 earn 尚未就緒時的前端�
     u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)];
   const out=[];
   const base=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
-  for(let i=0;i<15;i++){
+  for(let i=-7;i<15;i++){
     const d=new Date(base);d.setDate(d.getDate()+i);
     if(d.getDay()===0||d.getDay()===6)continue;
     const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -2825,9 +2827,12 @@ async function fetchEarnClient(){   // ⛑ 後端 earn 尚未就緒時的前端�
           const sym=String(x.symbol||'').toUpperCase().trim();
           if(!EARN_NOTE[sym])return;
           const tc=String(x.time||'');
-          out.push({d:iso,sym,n:String(x.companyName||x.name||'').slice(0,40),
+          const rec={d:iso,sym,n:String(x.companyName||x.name||'').slice(0,40),
             t:/after/.test(tc)?'amc':/pre/.test(tc)?'bmo':'tbd',
-            eps:String(x.epsForecast||'').replace('$','').trim()});
+            eps:String(x.epsForecast||'').replace('$','').trim()};
+          const act=String(x.eps||'').replace('$','').trim();
+          if(act&&!/^(N\/A|--|NA)$/i.test(act))rec.act=act;
+          out.push(rec);
         });
         break;
       }catch(e){}
@@ -2841,20 +2846,46 @@ async function renderEarnRadar(){
   if(!box)return;
   const j=await yextData();
   let arr=(j&&j.earn)||[];
-  let cli=false;
-  if(!arr.length){arr=await fetchEarnClient();cli=true;}   // 後端還沒跑 → 前端自己抓
+  if(!arr.length)arr=await fetchEarnClient();            // 後端還沒跑 → 前端自己抓
   const today=tpDay(Date.now()/1000);
+  const cutD=new Date();cutD.setDate(cutD.getDate()-10);
+  const cut=tpDay(cutD.getTime()/1000);
   const seen=new Set();
-  const list=arr.filter(e=>e.d>=today&&e.sym&&!seen.has(e.sym+e.d)&&seen.add(e.sym+e.d))
-                .sort((a,b)=>a.d<b.d?-1:1).slice(0,14);
-  window.__earnList=list;
-  if(!list.length){
-    box.innerHTML='<div class="dim-note">未來 14 天暫無重磅美股財報排程,或行事曆來源暫時無法連線——後端每 20 分鐘會自動同步,稍後重整即可。</div>';
+  const all=arr.filter(e=>e.d>=cut&&e.sym&&!seen.has(e.sym+e.d)&&seen.add(e.sym+e.d));
+  const past=all.filter(e=>e.act||(e.d<today)).sort((a,b)=>a.d<b.d?1:-1);   // 已公布(或日期已過待回補),新→舊
+  const up  =all.filter(e=>!e.act&&e.d>=today).sort((a,b)=>a.d<b.d?-1:1);   // 即將登場,近→遠
+  window.__earnList=up;
+  if(!past.length&&!up.length){
+    box.innerHTML='<div class="dim-note">近 10 天與未來 14 天暫無重磅美股財報,或行事曆來源暫時無法連線——後端每 20 分鐘會自動同步,稍後重整即可。</div>';
     return;
   }
   const wd=['日','一','二','三','四','五','六'];
   const fmt=d=>`${d.getMonth()+1}/${String(d.getDate()).padStart(2,'0')}(${wd[d.getDay()]})`;
-  const rowHtml=e=>{
+  const twHint=sym=>((EARN_NOTE[sym]||'').split('——')[1]||'').trim();
+  const verdict=e=>{                                     // 🧠 結果×股價反應 → 白話解說
+    const fc=parseFloat(e.eps),act=parseFloat(e.act);
+    const rx=(e.rx!=null&&isFinite(+e.rx))?+e.rx:null;
+    let cmpTxt='',beat=null;
+    if(isFinite(act)&&isFinite(fc)&&fc!==0){
+      const dfp=(act-fc)/Math.abs(fc)*100;
+      if(Math.abs(dfp)<=1){cmpTxt='大致符合預期';beat=0;}
+      else if(dfp>0){cmpTxt=`優於預期 +${dfp.toFixed(1)}%`;beat=1;}
+      else{cmpTxt=`不如預期 ${dfp.toFixed(1)}%`;beat=-1;}
+    }else if(isFinite(act)){cmpTxt='已公布';}
+    let vt='';
+    if(rx==null)vt='台北清晨剛揭曉,美股尚未走完財報後首個交易日——市場反應今晚出爐,先看數字消化。';
+    else if(beat===1&&rx>=2)vt='數字打敗預期、市場也用力買單——順風局,檢視台鏈連動股是否跟進表態。';
+    else if(beat===1&&rx<=-2)vt='數字贏了、股價卻跌——典型「利多出盡」或指引不夠亮,注意獲利了結賣壓外溢到供應鏈。';
+    else if(beat===1)vt='優於預期但股價反應平淡——市場早有預期,行情看的是後續指引與訂單能見度。';
+    else if(beat===-1&&rx<=-2)vt='不如預期且遭市場拋售——短線台鏈相關股容易被連坐,留意防守。';
+    else if(beat===-1&&rx>=2)vt='數字輸了、股價反漲——「利空出盡」,或財測/資本支出指引比本季數字更討喜。';
+    else if(beat===-1)vt='不如預期,股價反應克制——市場在等更多細節,別急著下結論。';
+    else if(beat===0)vt=rx>=2?'符合預期、股價上攻——動能靠的是指引與題材,不是本季數字。':rx<=-2?'符合預期但股價下修——估值消化或指引保守,觀察是否錯殺台鏈。':'符合預期、反應平淡——常態消化,續看下一個催化劑。';
+    else vt='實際數字回補中(來源更新約需 1~2 小時)。';
+    const tw=twHint(e.sym);
+    return vt+(tw?`(台鏈連動:${tw})`:'');
+  };
+  const rowUp=e=>{
     const d=new Date(e.d+'T00:00:00');
     let tpe;
     if(e.t==='amc'){const d2=new Date(d);d2.setDate(d2.getDate()+1);
@@ -2870,17 +2901,44 @@ async function renderEarnRadar(){
         <span style="font-weight:400;color:var(--mut);font-size:13px">· ${tpe}${e.eps?` · EPS預期 <b style="color:var(--txt)">${e.eps}</b>`:''}</span></div>
       ${EARN_NOTE[e.sym]?`<div class="dim-note" style="margin-top:3px">👀 ${EARN_NOTE[e.sym]}</div>`:''}</div>`;
   };
-  const head=list.slice(0,8),rest=list.slice(8);
-  box.innerHTML=head.map(rowHtml).join('')
-    +(rest.length?`<div id="earnRest" style="display:none">${rest.map(rowHtml).join('')}</div>
-      <a class="earn-more" id="earnMore">顯示其餘 ${rest.length} 場 ▾</a>`:'')
-    +`<div class="dim-note" style="margin-top:8px">來源:Nasdaq 官方財報行事曆(每 20 分鐘同步);EPS 預期為市場共識,實際公布時間以公司為準。美股盤後公布=台北隔日清晨才有結果,<b>隔天台股開盤前記得回來看</b>。</div>`;
+  const rowPast=e=>{
+    const d=new Date(e.d+'T00:00:00');
+    const fc=parseFloat(e.eps),act=parseFloat(e.act);
+    let cmp='';
+    if(isFinite(act)&&isFinite(fc)){
+      const dfp=fc!==0?(act-fc)/Math.abs(fc)*100:null;
+      const cls=act>fc?'pos':act<fc?'neg':'flat';
+      cmp=` → <span class="${cls}" style="font-weight:800">${act>fc?'優於預期':act<fc?'不如預期':'符合預期'}${dfp!=null&&Math.abs(dfp)>1?` ${dfp>0?'+':''}${dfp.toFixed(1)}%`:''}</span>`;
+    }
+    const rx=(e.rx!=null&&isFinite(+e.rx))?+e.rx:null;
+    const rxTxt=rx!=null?` · 股價反應 ${chgHtml(rx)}<span style="color:var(--dim);font-size:12px">(${e.t==='bmo'?'當日':'隔日'}收盤)</span>`:'';
+    const nav=(DATA.stocks||[]).some(x=>x.id===e.sym)?` data-esym="${e.sym}" style="cursor:pointer" title="點我看 ${e.sym} 個股頁"`:'';
+    return `<div class="earn-row done"${nav}>
+      <div style="font-weight:800;font-size:14.5px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline">
+        <span style="font-family:var(--mono)">${fmt(d)}</span>
+        <b style="color:var(--amber)">${e.sym}</b>
+        <span style="font-weight:600;color:var(--txt2)">${e.n||''}</span>
+        <span style="font-weight:400;color:var(--mut);font-size:13px">· 實際 EPS <b style="color:var(--txt)">${e.act||'回補中'}</b>${e.eps?` vs 預期 ${e.eps}`:''}${cmp}${rxTxt}</span></div>
+      <div class="dim-note" style="margin-top:3px">🧠 ${verdict(e)}</div></div>`;
+  };
+  let html='';
+  if(past.length)html+=`<div class="earn-sub">✅ 已公布|實際 vs 預期・市場反應(近 10 天)</div>`+past.map(rowPast).join('');
+  if(up.length){
+    const head=up.slice(0,8),rest=up.slice(8);
+    html+=`<div class="earn-sub"${past.length?' style="margin-top:16px"':''}>📅 即將登場(未來 14 天)</div>`
+      +head.map(rowUp).join('')
+      +(rest.length?`<div id="earnRest" style="display:none">${rest.map(rowUp).join('')}</div>
+        <a class="earn-more" id="earnMore">顯示其餘 ${rest.length} 場 ▾</a>`:'');
+  }
+  html+=`<div class="dim-note" style="margin-top:8px">來源:Nasdaq 官方財報行事曆+日線收盤(每 20 分鐘同步);EPS 為市場共識與公司公布值,股價反應=財報後首個交易日收盤漲跌。美股盤後公布=台北隔日清晨才有結果,<b>隔天台股開盤前記得回來看戰報</b>。</div>`;
+  box.innerHTML=html;
   const more=document.getElementById('earnMore');
   if(more)more.onclick=()=>{
     const r=document.getElementById('earnRest');
     const open=r.style.display==='none';
     r.style.display=open?'':'none';
-    more.textContent=open?'收合 ▴':`顯示其餘 ${rest.length} 場 ▾`;
+    more.textContent=open?'收合 ▴':more.textContent;
+    if(!open)more.textContent=`顯示其餘 ${r.children.length} 場 ▾`;
   };
   box.querySelectorAll('[data-esym]').forEach(el=>{el.onclick=()=>{location.hash='#stock/'+el.dataset.esym;};});
 }

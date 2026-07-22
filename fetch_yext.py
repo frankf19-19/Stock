@@ -433,7 +433,8 @@ def main():
     earn = []
     _tp8 = datetime.timezone(datetime.timedelta(hours=8))
     _base = datetime.datetime.now(_tp8).date()
-    for i in range(0, 15):
+    _past = {}                                          # sym → rec(已公布,待補股價反應)
+    for i in range(-10, 15):                            # 往回看10天(賽後戰報) + 往前看14天(賽前預告)
         d = _base + datetime.timedelta(days=i)
         if d.weekday() >= 5:
             continue
@@ -452,12 +453,46 @@ def main():
                 t = "amc" if "after" in tcode else ("bmo" if "pre" in tcode else "tbd")
                 eps = str(r.get("epsForecast", "") or "").replace("$", "").strip()
                 nm = str(r.get("companyName", "") or r.get("name", "") or "")[:40]
-                earn.append({"d": d.isoformat(), "sym": sym, "n": nm, "t": t, "eps": eps})
+                rec = {"d": d.isoformat(), "sym": sym, "n": nm, "t": t, "eps": eps}
+                act = str(r.get("eps", "") or "").replace("$", "").strip()   # 已公布才有實際值
+                sur = str(r.get("surprise", "") or "").strip()
+                if act and act.upper() not in ("N/A", "--", "NA"):
+                    rec["act"] = act
+                    if sur and sur.upper() not in ("N/A", "--", "NA"):
+                        rec["sur"] = sur
+                    _past[sym + rec["d"]] = rec
+                earn.append(rec)
         except Exception as e:
             print(f"  [warn] 財報行事曆 {d}: {str(e)[:40]}")
         time.sleep(0.35)
+    # 已公布者 → 用 Stooq 日線算「財報後首個交易日」的股價反應
+    for _k, rec in _past.items():
+        try:
+            _st = rec["sym"].lower() + ".us"
+            try:
+                csvt = http_get(f"https://stooq.com/q/d/l/?s={_st}&i=d", timeout=20)
+            except Exception:
+                csvt = http_get_px(f"https://stooq.com/q/d/l/?s={_st}&i=d", timeout=20)
+            _rows = [r.split(",") for r in csvt.strip().splitlines()[1:] if r.count(",") >= 4]
+            _rows = [r for r in _rows if r[4] not in ("", "N/D")][-30:]
+            _dates = [r[0] for r in _rows]
+            _closes = [float(r[4]) for r in _rows]
+            if rec["d"] not in _dates:
+                continue
+            _i = _dates.index(rec["d"])
+            if rec["t"] == "bmo":                        # 盤前公布:反應=當日 vs 前日
+                if _i >= 1:
+                    rec["rx"] = round((_closes[_i] / _closes[_i - 1] - 1) * 100, 2)
+                    rec["rxd"] = _dates[_i]
+            else:                                        # 盤後公布:反應=隔一交易日 vs 當日
+                if _i + 1 < len(_closes):
+                    rec["rx"] = round((_closes[_i + 1] / _closes[_i] - 1) * 100, 2)
+                    rec["rxd"] = _dates[_i + 1]
+        except Exception as e:
+            print(f"  [warn] 反應 {rec['sym']}: {str(e)[:40]}")
+        time.sleep(0.3)
     if earn:
-        print(f"  財報雷達 ← Nasdaq({len(earn)} 場)")
+        print(f"  財報雷達 ← Nasdaq({len(earn)} 場,含已公布 {len(_past)} 場)")
     else:                                               # 來源閃失 → 沿用前檔,不歸零
         try:
             with open("yext.json", encoding="utf-8") as f:
