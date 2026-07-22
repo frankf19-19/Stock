@@ -427,6 +427,45 @@ def main():
         except Exception as e:
             print(f"  [warn] {sym} Stooq {st}: {str(e)[:50]}")
         time.sleep(0.4)
+    # ── 📡 美股重磅財報雷達(Nasdaq 官方行事曆;未來14天,聚焦台鏈連動大型股)──
+    EARN_WATCH = {"NVDA", "MSFT", "GOOGL", "AAPL", "AMZN", "META", "TSLA", "AMD", "AVGO",
+                  "QCOM", "MU", "INTC", "ORCL", "MRVL", "ARM", "TSM", "SMCI", "DELL", "ANET"}
+    earn = []
+    _tp8 = datetime.timezone(datetime.timedelta(hours=8))
+    _base = datetime.datetime.now(_tp8).date()
+    for i in range(0, 15):
+        d = _base + datetime.timedelta(days=i)
+        if d.weekday() >= 5:
+            continue
+        u = f"https://api.nasdaq.com/api/calendar/earnings?date={d.isoformat()}"
+        try:
+            try:
+                j = json.loads(http_get(u, timeout=20))
+            except Exception:
+                j = json.loads(http_get_px(u, timeout=20))
+            rows = ((j.get("data") or {}).get("rows")) or []
+            for r in rows:
+                sym = str(r.get("symbol", "")).upper().strip()
+                if sym not in EARN_WATCH:
+                    continue
+                tcode = str(r.get("time", ""))
+                t = "amc" if "after" in tcode else ("bmo" if "pre" in tcode else "tbd")
+                eps = str(r.get("epsForecast", "") or "").replace("$", "").strip()
+                nm = str(r.get("companyName", "") or r.get("name", "") or "")[:40]
+                earn.append({"d": d.isoformat(), "sym": sym, "n": nm, "t": t, "eps": eps})
+        except Exception as e:
+            print(f"  [warn] 財報行事曆 {d}: {str(e)[:40]}")
+        time.sleep(0.35)
+    if earn:
+        print(f"  財報雷達 ← Nasdaq({len(earn)} 場)")
+    else:                                               # 來源閃失 → 沿用前檔,不歸零
+        try:
+            with open("yext.json", encoding="utf-8") as f:
+                earn = json.load(f).get("earn") or []
+            if earn:
+                print("  財報雷達:沿用前檔")
+        except Exception:
+            pass
     if len(series) < 4:
         print(f"::error::只取得 {len(series)} 檔(<4),放棄寫檔")
         sys.exit(1)
@@ -466,6 +505,8 @@ def main():
            "series": series}
     if fng:
         doc["fng"] = fng
+    if earn:
+        doc["earn"] = earn
     with open("yext.json", "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, separators=(",", ":"))
     print(f"完成:{len(series)} 檔 → yext.json(FRED+MIS+er-api,零 Yahoo)")

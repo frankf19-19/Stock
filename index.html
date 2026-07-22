@@ -403,7 +403,9 @@ a.alert-pill:hover{transform:translateY(-1px)}
 .ticker-track .src{color:var(--dim);font-size:12px}
 @keyframes tickmove{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @media(max-width:640px){.ticker-label{padding:8px 10px;font-size:12px}.ticker-track a{font-size:13.5px}}
-.cal-mini{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.earn-row{border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:11px;padding:10px 14px;margin:8px 0;background:var(--panel)}
+.earn-row:hover{border-color:var(--amber)}
+.cal-mini{margin:10px 0 12px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;overflow:hidden}
 .cal-mini-head{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--hdr)}
 .cal-mini-head b{font-size:14.5px;letter-spacing:.03em}
 .cal-mini-head a{font-size:13px;color:var(--amber);text-decoration:none}
@@ -719,6 +721,13 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 </div>
 <div class="tabPane" id="tp-macro"><div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:13px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
   <div class="alert-strip" id="macroAlerts" style="display:none"></div>
+  <div class="cal-mini" id="calBar" data-jumpname="📅 近期大事" hidden>
+    <div class="cal-mini-head"><b class="cm-tg" id="cmTg">📅 近期大事|重大財報・數據・法說</b><a href="#events">完整行事曆 →</a></div>
+    <div id="calTrack"></div>
+  </div>
+  <div class="sec-title tap" data-sec="mk_earn" style="margin-top:14px">📡 財報雷達 <span style="font-weight:400;font-size:13px;letter-spacing:0">美股重磅・即將登場(未來14天)・台北時間與台鏈連動</span></div><div class="sec-body" id="sb-mk_earn">
+  <div id="earnRadar"><div class="dim-note">財報行事曆載入中…(後端每 20 分鐘更新)</div></div>
+  </div>
   <div id="fngTop" style="display:none"></div>
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
@@ -766,11 +775,6 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   <div id="glbTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 8px"></div>
   <div id="glbList"><div class="dim-note">外電載入中…</div></div>
   <div class="dim-note" style="margin-top:8px">來源:Google News 英文外電聚合(Reuters、Tom's Hardware、DigiTimes、TrendForce 等第一手來源);點標題開原文。<b>族群標籤為關鍵字自動對應,供快速掃描非投資建議</b>;外電通常領先台股反應數日到數週,搭配「盤面脈動」確認資金是否開始輪動。</div>
-  </div>
-
-  <div class="cal-mini" id="calBar" data-jumpname="📅 近期大事" hidden>
-    <div class="cal-mini-head"><b class="cm-tg" id="cmTg">📅 近期大事</b><a href="#events">完整行事曆 →</a></div>
-    <div id="calTrack"></div>
   </div>
 
   </div>
@@ -2747,6 +2751,64 @@ function pokeChart(ctx,price,statEl,unitFix){
     }
   }
 }
+/* ── 📡 財報雷達:美股重磅財報(資料:後端 yext.json ← Nasdaq 官方行事曆)── */
+const EARN_NOTE={
+ NVDA:'資料中心營收與下季財測——AI 行情總開關,財報後台鏈 AI 股常見跳空表態',
+ MSFT:'Azure 增速與 AI 資本支出指引——雲端 capex 是台系 AI 伺服器鏈的訂單源頭',
+ GOOGL:'Cloud 增速、AI 資本支出與 TPU 進展——TPU 放量利多台積電與 ASIC 設計服務(世芯、創意)',
+ AAPL:'iPhone 出貨與 AI 功能進展——鴻海/和碩組裝、大立光鏡頭、台積電 A 系列全連動',
+ AMZN:'AWS 增速與資本支出——白牌伺服器(緯穎)與 AI 零組件鏈的訂單源頭',
+ META:'AI 資本支出指引與廣告變現——自研 MTIA 放量利多台積電與 ASIC 設計服務',
+ TSLA:'車輛毛利與 FSD/機器人進展——台系車用電子與減速器概念連動',
+ AMD:'MI 系列 AI 晶片出貨與市佔——台積電先進製程投片與 ABF 載板連動',
+ AVGO:'AI ASIC 與網通訂單能見度——與世芯、創意的客製化晶片市場同溫層',
+ QCOM:'手機晶片景氣與車用/PC 擴張——聯發科比價效應、台積電投片動能',
+ MU:'HBM 供需與資本支出——記憶體循環風向球,南亞科/華邦電/群聯連動',
+ INTC:'代工轉型與虧損收斂——若外包增加利多台積電',
+ ORCL:'雲端與 AI 訂單積壓(RPO)——資料中心建置需求的另一扇窗',
+ MRVL:'客製化 AI 晶片與光通訊——CPO/矽光子族群風向',
+ ARM:'授權與權利金展望——手機/資料中心 CPU 生態,台積電投片連動',
+ TSM:'台積電 ADR——重點看毛利率指引與資本支出,與台北法說同步',
+ SMCI:'AI 伺服器出貨與毛利——與台系組裝廠(廣達、緯穎)同市場溫度計',
+ DELL:'AI 伺服器訂單與積壓——台系 ODM 代工訂單的下游驗證',
+ ANET:'AI 資料中心交換器——智邦與網通族群連動'};
+async function renderEarnRadar(){
+  const box=document.getElementById('earnRadar');
+  if(!box)return;
+  const j=await yextData();
+  const arr=(j&&j.earn)||[];
+  const today=tpDay(Date.now()/1000);
+  const seen=new Set();
+  const list=arr.filter(e=>e.d>=today&&e.sym&&!seen.has(e.sym+e.d)&&seen.add(e.sym+e.d))
+                .sort((a,b)=>a.d<b.d?-1:1).slice(0,14);
+  window.__earnList=list;
+  if(!list.length){
+    box.innerHTML='<div class="dim-note">未來 14 天沒有重磅美股財報排程,或行事曆首次回補中(後端每 20 分鐘更新,跑完第一班就會出現)。</div>';
+    return;
+  }
+  const wd=['日','一','二','三','四','五','六'];
+  const fmt=d=>`${d.getMonth()+1}/${String(d.getDate()).padStart(2,'0')}(${wd[d.getDay()]})`;
+  box.innerHTML=list.map(e=>{
+    const d=new Date(e.d+'T00:00:00');
+    let tpe;
+    if(e.t==='amc'){const d2=new Date(d);d2.setDate(d2.getDate()+1);
+      tpe=`盤後 → 台北 <b>${fmt(d2)} 清晨約 05:00</b> 看結果`;}
+    else if(e.t==='bmo')tpe=`盤前 → 台北 <b>${fmt(d)} 晚間約 20:00</b> 看結果`;
+    else tpe='公布時段未定(多為盤後,台北隔日清晨)';
+    const nav=(DATA.stocks||[]).some(x=>x.id===e.sym)?` data-esym="${e.sym}" style="cursor:pointer" title="點我看 ${e.sym} 個股頁"`:'';
+    return `<div class="earn-row"${nav}>
+      <div style="font-weight:800;font-size:14.5px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline">
+        <span style="font-family:var(--mono)">${fmt(d)}</span>
+        <b style="color:var(--amber)">${e.sym}</b>
+        <span style="font-weight:600;color:var(--txt2)">${e.n||''}</span>
+        <span style="font-weight:400;color:var(--mut);font-size:13px">· ${tpe}${e.eps?` · EPS預期 <b style="color:var(--txt)">${e.eps}</b>`:''}</span></div>
+      ${EARN_NOTE[e.sym]?`<div class="dim-note" style="margin-top:3px">👀 ${EARN_NOTE[e.sym]}</div>`:''}</div>`;
+  }).join('')+`<div class="dim-note" style="margin-top:8px">來源:Nasdaq 官方財報行事曆(每 20 分鐘同步);EPS 預期為市場共識,實際公布時間以公司為準。美股盤後公布=台北隔日清晨才有結果,<b>隔天台股開盤前記得回來看</b>。</div>`;
+  box.querySelectorAll('[data-esym]').forEach(el=>{el.onclick=()=>{location.hash='#stock/'+el.dataset.esym;};});
+  try{renderCalendar();}catch(e){}   // 讓「近期大事」同步併入真實財報日
+}
+setTimeout(renderEarnRadar,3200);
+setInterval(renderEarnRadar,600000);
 /* ── 總經行事曆:重大數據與事件的規則推算引擎 ── */
 function nthWeekday(y,m,wd,n){ // m:1-12, wd:0日~6六, 第n個
   const d=new Date(y,m-1,1);
@@ -2877,6 +2939,18 @@ function buildCalendar(){
     ev.push({d:r.d,tag:cn,name:r.title,stars:3,real:true,time:r.time,
       why:(r.fc?`市場預估 ${r.fc}`:'')+(r.fc&&r.pv?' / ':'')+(r.pv?`前值 ${r.pv}`:'')||'高影響力事件',
       approx:false});
+  });
+  // 併入美股重磅財報(後端 Nasdaq 行事曆;真實日期取代 NVIDIA 規則猜測)
+  (window.__earnList||[]).forEach(e=>{
+    const d=new Date(e.d+'T00:00:00');
+    if(d<today||d>horizon)return;
+    if(e.sym==='NVDA'){
+      for(let i=ev.length-1;i>=0;i--)
+        if(ev[i].approx&&/NVIDIA/.test(ev[i].name)&&Math.abs(ev[i].d-d)<6*86400000)ev.splice(i,1);
+    }
+    ev.push({d,tag:'財報',name:`${e.sym} 財報(美股${e.t==='bmo'?'盤前':'盤後'})`,
+      stars:['NVDA','MSFT','GOOGL','AAPL','AMZN','META','TSLA'].includes(e.sym)?3:2,
+      real:true,why:e.eps?`EPS 市場預估 ${e.eps};台北${e.t==='bmo'?'當晚':'隔日清晨'}看結果`:'重磅財報',approx:false});
   });
   ev.sort((a,b)=>a.d-b.d);
   // 去重(同日同名)
@@ -7408,7 +7482,7 @@ function setupSections(){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
     // 全站預設收合(2026-07-19 定案):除「總經環境」外一律先收合成乾淨目錄;點開看細項且偏好會記住
-    const closed=(key in saved)?!!saved[key]:(mob||key!=='macro');
+    const closed=(key in saved)?!!saved[key]:(mob||(key!=='macro'&&key!=='mk_earn'));
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
     t.onclick=()=>{
