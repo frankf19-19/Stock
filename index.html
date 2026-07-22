@@ -2855,7 +2855,6 @@ async function renderEarnRadar(){
     more.textContent=open?'收合 ▴':`顯示其餘 ${rest.length} 場 ▾`;
   };
   box.querySelectorAll('[data-esym]').forEach(el=>{el.onclick=()=>{location.hash='#stock/'+el.dataset.esym;};});
-  try{renderCalendar();}catch(e){}   // 讓「近期大事」同步併入真實財報日
 }
 setTimeout(renderEarnRadar,3200);
 setInterval(renderEarnRadar,600000);
@@ -2990,18 +2989,7 @@ function buildCalendar(){
       why:(r.fc?`市場預估 ${r.fc}`:'')+(r.fc&&r.pv?' / ':'')+(r.pv?`前值 ${r.pv}`:'')||'高影響力事件',
       approx:false});
   });
-  // 併入美股重磅財報(後端 Nasdaq 行事曆;真實日期取代 NVIDIA 規則猜測)
-  (window.__earnList||[]).forEach(e=>{
-    const d=new Date(e.d+'T00:00:00');
-    if(d<today||d>horizon)return;
-    if(e.sym==='NVDA'){
-      for(let i=ev.length-1;i>=0;i--)
-        if(ev[i].approx&&/NVIDIA/.test(ev[i].name)&&Math.abs(ev[i].d-d)<6*86400000)ev.splice(i,1);
-    }
-    ev.push({d,tag:'財報',name:`${e.sym} 財報(美股${e.t==='bmo'?'盤前':'盤後'})`,
-      stars:['NVDA','MSFT','GOOGL','AAPL','AMZN','META','TSLA'].includes(e.sym)?3:2,
-      real:true,why:e.eps?`EPS 市場預估 ${e.eps};台北${e.t==='bmo'?'當晚':'隔日清晨'}看結果`:'重磅財報',approx:false});
-  });
+  // 美股個別財報不併入此列——由下方「📡 財報雷達」專責呈現,避免重複
   ev.sort((a,b)=>a.d-b.d);
   // 去重(同日同名)
   const seen=new Set();
