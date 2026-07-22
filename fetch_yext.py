@@ -9,7 +9,7 @@
 機房被擋時自動借道 repo 根目錄 proxy.json 指定的自家 Cloudflare Worker。
 需要環境變數 FRED_API_KEY(GitHub Secrets 設定)。
 """
-import json, time, time, datetime, sys, os
+import json, time, datetime, sys, os
 import urllib.request
 import urllib.parse
 
@@ -235,20 +235,6 @@ def twse_5s_index(sess, prev=None):
     rows = j.get("data") or []
     if not rows:
         return None
-    # 🗓️ 驗證回應資料日期真的是我們要的那天(官方端點對「當日未生成」會回退到最近交易日,
-    #    若不驗證會把上週五資料貼上今天日期戳,使前端所有日期守衛失效)
-    _want_roc = f"{sess.year-1911}/{sess.month:02d}/{sess.day:02d}"     # 民國 115/07/20
-    _want_ad  = sess.strftime("%Y%m%d")                                 # 西元 20260720
-    _title = str(j.get("title") or "") + " " + str(j.get("date") or "")
-    _dr = str(j.get("date") or "")
-    if _dr and _dr != _want_ad:
-        print(f"  MI_5MINS_INDEX 資料日={_dr} ≠ 目標={_want_ad},判為過期回退 → 不採用", file=sys.stderr)
-        return None
-    if not _dr and _want_roc not in _title and _want_ad not in _title:
-        # date 欄位缺失時改驗標題;標題也對不上就保守拒用(避免拿到回退資料)
-        if _title.strip():
-            print(f"  MI_5MINS_INDEX 標題未含目標日 {_want_roc},保守拒用(標題:{_title[:40]})", file=sys.stderr)
-            return None
     fields = [str(x) for x in (j.get("fields") or [])]
     vcol = next((i for i, f in enumerate(fields) if "發行量加權股價指數" in f), None)
     tcol = next((i for i, r0 in enumerate(rows[0])
@@ -288,66 +274,6 @@ def twse_5s_index(sess, prev=None):
         t.append(ts)
         c.append(round(v, 2))
     return {"t": t, "c": c} if len(c) >= 5 else None
-
-# ── 重量級財報雷達(Nasdaq 公開端點;台股 AI 供應鏈關聯巨頭;6小時一更,失敗沿用前值)──
-ECAL_WATCH = ["NVDA","MSFT","AAPL","GOOGL","AMZN","META","TSLA","AVGO","AMD","TSM",
-              "ASML","QCOM","MU","INTC","ORCL","NFLX","CRM","MRVL","ARM","SMCI","VRT","COST"]
-
-def _nq_json(url):
-    req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
-        "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.load(r)
-
-def _numf(x):
-    try:
-        s = str(x).replace("$", "").replace(",", "").replace("(", "-").replace(")", "").strip()
-        return float(s) if s and s.lower() not in ("n/a", "--", "") else None
-    except Exception:
-        return None
-
-def fetch_ecal(prev):
-    now = datetime.datetime.now(datetime.timezone.utc)
-    if prev and prev.get("ts") and (now.timestamp() - prev["ts"]) < 6*3600:
-        return prev
-    up, done = [], []
-    for k in range(0, 15):
-        d = (now + datetime.timedelta(days=k)).strftime("%Y-%m-%d")
-        try:
-            j = _nq_json(f"https://api.nasdaq.com/api/calendar/earnings?date={d}")
-            for row in ((j.get("data") or {}).get("rows") or []):
-                sym = (row.get("symbol") or "").upper()
-                if sym in ECAL_WATCH:
-                    up.append({"s": sym, "n": row.get("name") or sym, "d": d,
-                               "t": "pre" if "pre" in str(row.get("time") or "") else "post",
-                               "est": _numf(row.get("epsForecast"))})
-        except Exception as e:
-            print(f"  [warn] 財報日曆 {d}: {str(e)[:50]}")
-        time.sleep(0.4)
-    cutoff = (now - datetime.timedelta(days=5)).strftime("%Y-%m-%d")
-    for sym in ECAL_WATCH:
-        try:
-            j = _nq_json(f"https://api.nasdaq.com/api/company/{sym}/earnings-surprise")
-            rows = (((j.get("data") or {}).get("earningsSurpriseTable") or {}).get("rows") or [])
-            for r0 in rows[:2]:
-                try:
-                    iso = datetime.datetime.strptime(r0.get("dateReported") or "", "%m/%d/%Y").strftime("%Y-%m-%d")
-                except Exception:
-                    continue
-                if iso >= cutoff:
-                    done.append({"s": sym, "d": iso, "eps": _numf(r0.get("eps")),
-                                 "est": _numf(r0.get("consensusForecast")),
-                                 "sur": _numf(r0.get("percentageSurprise"))})
-        except Exception:
-            pass
-        time.sleep(0.3)
-    up.sort(key=lambda x: x["d"]); done.sort(key=lambda x: x["d"], reverse=True)
-    if not up and not done and prev:
-        print("  財報雷達:抓取全空,沿用前檔")
-        return prev
-    print(f"  財報雷達:未來 {len(up)} 場、近日已公布 {len(done)} 筆")
-    return {"up": up[:14], "done": done[:10], "ts": int(now.timestamp())}
 
 def main():
     series = {}
@@ -427,21 +353,13 @@ def main():
         if ty:
             m_tw["prev"] = round(ty, 2)
         m_tw = keep_better("^TWII", m_tw)
-        # 🗓️ 標記資料實際日期(前端據此在盤中拒用過期分線):以最後時間戳所屬台北日期為準
-        try:
-            import datetime as _dt
-            _lt = m_tw["t"][-1]
-            m_tw["d"] = _dt.datetime.fromtimestamp(_lt, _dt.timezone(_dt.timedelta(hours=8))).strftime("%Y-%m-%d")
-        except Exception:
-            m_tw["d"] = sess.strftime("%Y-%m-%d")
         series.setdefault("^TWII", {})["m"] = m_tw
-        print(f"  ^TWII ← 官方每5秒統計({len(m_tw['t'])} 點,資料日 {m_tw.get('d')},昨收 {m_tw.get('prev','—')})")
+        print(f"  ^TWII ← 官方每5秒統計({len(m_tw['t'])} 點,{sess.date()},昨收 {m_tw.get('prev','—')})")
     else:
         om = (old_series.get("^TWII") or {}).get("m")
         if om:
-            # 沿用前檔:保留其原始資料日期(不冒充今天),前端盤中會據此拒用
             series.setdefault("^TWII", {})["m"] = om
-            print(f"  ^TWII ← 沿用前檔走勢(官方端點暫不可用,資料日 {om.get('d','未標記')})")
+            print("  ^TWII ← 沿用前檔走勢(官方端點暫不可用)")
         else:
             print("  ^TWII 未取得(官方端點與前檔皆無)", file=sys.stderr)
     # 櫃買:MIS 分線端點不支援指數頻道 → 006201 富櫃50 ETF 分線 × (指數昨收/ETF昨收)
@@ -484,6 +402,31 @@ def main():
             print(f"  匯率 ← er-api(USD/TWD={twd})")
         except Exception as e:
             print(f"  匯率 er-api 失敗: {e}", file=sys.stderr)
+    # ── 原物料(Stooq 免費 CSV;日線含今日進行中價格,約15分鐘延遲;供前端卡片漲跌%徽章)──
+    CMD_STOOQ = {"GC=F": "gc.f", "SI=F": "si.f", "HG=F": "hg.f", "CL=F": "cl.f",
+                 "BZ=F": "cb.f", "NG=F": "ng.f", "NI=F": "ni.f", "ALI=F": "ali.f"}
+    for sym, st in CMD_STOOQ.items():
+        try:
+            try:
+                csvt = http_get(f"https://stooq.com/q/d/l/?s={st}&i=d", timeout=25)
+            except Exception:
+                csvt = http_get_px(f"https://stooq.com/q/d/l/?s={st}&i=d", timeout=25)
+            rows = [r.split(",") for r in csvt.strip().splitlines()[1:] if r.count(",") >= 4]
+            rows = [r for r in rows if r[4] not in ("", "N/D")]
+            if len(rows) < 2:
+                raise ValueError("no data")
+            rows = rows[-90:]
+            t, c = [], []
+            for r in rows:
+                y, m, dd = map(int, r[0].split("-"))
+                t.append(int(datetime.datetime(y, m, dd,
+                             tzinfo=datetime.timezone.utc).timestamp()))
+                c.append(round(float(r[4]), 4))
+            series[sym] = {"d": {"t": t, "c": c, "prev": c[-2]}}
+            print(f"  {sym} ← Stooq:{st}({len(t)} 根,最新 {c[-1]})")
+        except Exception as e:
+            print(f"  [warn] {sym} Stooq {st}: {str(e)[:50]}")
+        time.sleep(0.4)
     if len(series) < 4:
         print(f"::error::只取得 {len(series)} 檔(<4),放棄寫檔")
         sys.exit(1)
@@ -518,24 +461,11 @@ def main():
                 print("  恐懼貪婪指數:沿用前檔")
         except Exception:
             pass
-    ecal_prev = None
-    try:
-        with open("yext.json", encoding="utf-8") as f:
-            ecal_prev = json.load(f).get("ecal")
-    except Exception:
-        pass
-    try:
-        ecal = fetch_ecal(ecal_prev)
-    except Exception as e:
-        print(f"  [warn] 財報雷達:{str(e)[:60]},沿用前檔")
-        ecal = ecal_prev
     doc = {"updated": datetime.datetime.now(datetime.timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%SZ"),
            "series": series}
     if fng:
         doc["fng"] = fng
-    if ecal:
-        doc["ecal"] = ecal
     with open("yext.json", "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, separators=(",", ":"))
     print(f"完成:{len(series)} 檔 → yext.json(FRED+MIS+er-api,零 Yahoo)")
