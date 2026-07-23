@@ -6831,14 +6831,16 @@ function drawKChart(){
       backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:13}},
     axisPointer:{link:[{xAxisIndex:'all'}]},
     /* __inst 於函式頂端計算 */
-    grid:__inst?[{left:56,right:16,top:28,height:'32%'},
-          {left:56,right:16,top:'43%',height:'9%'},
-          {left:56,right:16,top:'54%',height:'12%'},
-          {left:56,right:16,top:'68.5%',height:'10%'},
-          {left:56,right:16,top:'81%',height:'10%'}]
-        :[{left:56,right:16,top:28,height:'44%'},
-          {left:56,right:16,top:'57%',height:'12%'},
-          {left:56,right:16,top:'72%',height:'16%'}],
+    /* 手機:右側留 44px 給價位小牌(壓力/支撐徽章),不再被切;左側收 46px 補回繪圖寬度 */
+    grid:(()=>{const L=innerWidth<640?46:56,R=innerWidth<640?44:16;
+      return __inst?[{left:L,right:R,top:28,height:'32%'},
+          {left:L,right:R,top:'43%',height:'9%'},
+          {left:L,right:R,top:'54%',height:'12%'},
+          {left:L,right:R,top:'68.5%',height:'10%'},
+          {left:L,right:R,top:'81%',height:'10%'}]
+        :[{left:L,right:R,top:28,height:'44%'},
+          {left:L,right:R,top:'57%',height:'12%'},
+          {left:L,right:R,top:'72%',height:'16%'}];})(),
     xAxis:(__inst?[0,1,2,3,4]:[0,1,2]).map((i,_,arr)=>({type:'category',gridIndex:i,data:curDates,boundaryGap:true,
       axisLine:{lineStyle:{color:CT.border}},axisLabel:{show:i===arr.length-1,color:CT.axis,fontSize:11},
       axisTick:{show:false},splitLine:{show:false}})),
