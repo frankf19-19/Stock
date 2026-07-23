@@ -30,10 +30,19 @@ def proxy_url():
 PROXY = proxy_url()
 
 def mis_get(ex_chs):
-    """MIS getStockInfo 批次:直連 → 自家 Worker。回 msgArray 或 []。"""
+    """MIS getStockInfo 批次:直連 → 自家 Worker → 公共代理×3。回 msgArray 或 []。
+    (2026-07-20 起 spark 斷更 3 天的教訓:GitHub 機房 IP 被 MIS 擋且 Worker 失效時,
+     原本會整段靜默失敗;現在多三條公共代理退路,並保證任何一條通就有資料。)"""
     q = ("https://mis.twse.com.tw/stock/api/getStockInfo.jsp"
          f"?ex_ch={'|'.join(ex_chs)}&json=1&delay=0&_={int(time.time()*1000)}")
-    for url in ([q] + ([f"{PROXY}/?url=" + urllib.parse.quote(q, safe="")] if PROXY else [])):
+    enc = urllib.parse.quote(q, safe="")
+    routes = [q]
+    if PROXY:
+        routes.append(f"{PROXY}/?url={enc}")
+    routes += [f"https://corsproxy.io/?url={enc}",
+               f"https://api.allorigins.win/raw?url={enc}",
+               f"https://api.codetabs.com/v1/proxy?quest={enc}"]
+    for url in routes:
         try:
             j = requests.get(url, headers=UA, timeout=20).json()
             arr = j.get("msgArray") or []

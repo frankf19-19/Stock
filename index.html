@@ -1665,7 +1665,9 @@ function t3RenderRows(sid,rows,slot,src){
       const ch=echarts.init(el);
       el.dataset.drawn='1';
       setTimeout(()=>{try{ch.resize();}catch(e){}},350);
-      if(typeof chipCharts!=='undefined')chipCharts.push(ch);
+      // 🛡 r383:季報圖「不」登記進 chipCharts——籌碼區重繪時會 disposeChipCharts() 把本圖一起銷毀(圖白表在的元兇)
+      try{if(window.__t3Chart&&window.__t3Chart!==ch)window.__t3Chart.dispose();}catch(e){}
+      window.__t3Chart=ch;
       const idxMap=asc.map(r=>rows.indexOf(r));
       ch.setOption({
         grid:{left:46,right:44,top:30,bottom:24},
@@ -2384,7 +2386,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r382</span>');
+  diag.push('<span style="color:var(--dim)">build r383</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2551,8 +2553,7 @@ function loadSpark(){
   __sparkP=fetch('spark.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
     __sparkP=null;
     if(!j||!j.t||!j.t.length)return null;
-    const today=tpDay(Date.now()/1000);
-    if(j.d!==today&&j.d!==sessDay())return null; // 今天的,或最近交易時段的(開盤前=前一交易日,供收盤救援畫圖)
+    // r383:不再因日期整包拒收(後端斷更時至少能畫最近有快照的一天;各消費端自帶同日防呆與日期標註)
     j.__ts=Date.now(); window.__SPARK=j; return j;
   }).catch(()=>{__sparkP=null;return null;});
   return __sparkP;
@@ -2573,7 +2574,7 @@ function sparkStockAlone(id,prev){   // 🌙 個股收盤/開盤前救援:用最
   try{
     const sp=window.__SPARK;
     if(!sp||!Array.isArray(sp.t)||!sp.s||!Array.isArray(sp.s[id]))return null;
-    if(sp.d&&sp.d!==sessDay())return null;     // 只用最近交易時段的快照,不畫更舊資料
+    // r383:接受較舊快照(後端斷更備援);圖上會自動標「圖為前一交易日 MM-DD」
     const t=[],c=[];
     sp.t.forEach((ts,i)=>{const v=sp.s[id][i];if(v!=null&&isFinite(+v)){t.push(ts);c.push(+v);}});
     if(c.length<2)return null;
@@ -7977,7 +7978,7 @@ function setupMobileNav(){
     sync();
   }
 }
-window.addEventListener('resize',()=>chipCharts.forEach(c=>{try{c.resize()}catch(e){}}));
+window.addEventListener('resize',()=>{chipCharts.forEach(c=>{try{c.resize()}catch(e){}});try{window.__t3Chart&&window.__t3Chart.resize();}catch(e){}});
 window.addEventListener('resize',setupSections);
 setupMobileNav();
 setTimeout(setupSections,400);
