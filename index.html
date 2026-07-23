@@ -2379,7 +2379,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r361</span>');
+  diag.push('<span style="color:var(--dim)">build r381</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4304,11 +4304,12 @@ function stkAcc(id){
   }
   return a;
 }
-let __saccSave=0;
 function stkAccSave(id){
   const now=Date.now();
-  if(now-__saccSave<20000)return;                          // 20秒節流
-  __saccSave=now;
+  const a0=STK_ACC[id];
+  if(!a0)return;
+  if(a0.__sv&&now-a0.__sv<30000)return;                    // 每檔獨立30秒節流(原全域節流會讓多數股票存不到)
+  a0.__sv=now;
   try{const a=STK_ACC[id];
     if(a&&a.t.length){
       const K=Math.max(0,a.t.length-320),cut=x=>Array.isArray(x)?x.slice(K):undefined;
@@ -4774,6 +4775,16 @@ function gemBlock(s,g){
   }catch(e){}
 })();
 /* ══ 即時單日K棒:每檔股票名旁的當日蠟燭(開高低收),MIS 報價即時重畫 ══ */
+(function saccGC(){                                   // 🧹 清掉非今日的分線/力道存檔,保住儲存額度
+  try{const today=tpDay(Date.now()/1000);
+    for(let i=localStorage.length-1;i>=0;i--){
+      const k=localStorage.key(i);
+      if(k&&k.startsWith('sacc_')){
+        try{const v=JSON.parse(localStorage.getItem(k)||'null');
+          if(!v||v.day!==today)localStorage.removeItem(k);}catch(e){localStorage.removeItem(k);}
+      }
+    }}catch(e){}
+})();
 const RTC={};   // {id:{o,h,l,c,y}}
 function candleSVG(d){
   if(!d||!(d.o>0&&d.h>0&&d.l>0&&d.c>0))return'';
