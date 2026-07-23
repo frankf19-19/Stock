@@ -1,5 +1,5 @@
 # 放到 repo 的 .github/workflows/update_quotes.yml
-# rev: 2026-07-07 排程重新註冊(workflow 檔曾被刪除重建,cron 需藉由此次修改重新掛載)
+# rev: 2026-07-23 排程重新掛載+MIS公共代理備援(7/20起spark斷更;修改本檔可讓 GitHub 重新註冊 cron)
 # 開盤時段(台北 09:00–13:55,週一至五)每 5 分鐘更新盤中報價備援
 name: intraday-quotes
 on:
@@ -13,12 +13,13 @@ concurrency:
   cancel-in-progress: true
 jobs:
   quotes:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
-      - run: pip install requests pandas yfinance
+      - run: pip install requests   # 只裝實際用到的,移除 yfinance/pandas 安裝失敗導致整個 job 掛掉的風險
       - run: python update_quotes.py
       - name: commit
         run: |
