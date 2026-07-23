@@ -2386,7 +2386,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r383</span>');
+  diag.push('<span style="color:var(--dim)">build r384</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3273,6 +3273,22 @@ async function loadInst(){
     <div class="ch">5日累計 <span class="${acc>0?'pos':acc<0?'neg':'flat'}">${acc>0?'+':''}${acc.toLocaleString()} 億</span></div></div>`;
   box.innerHTML=cell('外資',cur.f,sum('f'),'foreign')+cell('投信',cur.t,sum('t'),'trust')+cell('自營商',cur.d,sum('d'),'dealer')
     +cell('三大法人',cur.f+cur.t+cur.d,sum('f')+sum('t')+sum('d'),'all');
+  {// 📋 近5日明細表(免點擊,直接在首頁看逐日數字)
+    const cellv=v=>`<span class="${v>0?'pos':v<0?'neg':'flat'}" style="font-weight:700">${v>0?'+':''}${v.toLocaleString()}</span>`;
+    const fs=innerWidth<640?12:13.5;
+    box.innerHTML+=`<div class="idx-card" style="grid-column:1/-1;cursor:default">
+      <div class="nm" style="margin-bottom:7px">近 5 日明細(億)· 盤後公布 · 新→舊</div>
+      <div style="display:grid;grid-template-columns:56px repeat(4,1fr);gap:3px 8px;font-family:var(--mono);font-size:${fs}px;text-align:right">
+        <div style="text-align:left;color:var(--mut)">日期</div><div style="color:var(--mut)">外資</div><div style="color:var(--mut)">投信</div><div style="color:var(--mut)">自營商</div><div style="color:var(--mut)">合計</div>
+        ${days.map(x=>`<div style="text-align:left;color:var(--txt2)">${x.date}</div><div>${cellv(x.f)}</div><div>${cellv(x.t)}</div><div>${cellv(x.d)}</div><div>${cellv(x.f+x.t+x.d)}</div>`).join('')}
+        <div style="text-align:left;color:var(--txt2);border-top:1px solid var(--line);padding-top:5px;font-weight:800">5日累計</div>
+        <div style="border-top:1px solid var(--line);padding-top:5px">${cellv(sum('f'))}</div>
+        <div style="border-top:1px solid var(--line);padding-top:5px">${cellv(sum('t'))}</div>
+        <div style="border-top:1px solid var(--line);padding-top:5px">${cellv(sum('d'))}</div>
+        <div style="border-top:1px solid var(--line);padding-top:5px">${cellv(sum('f')+sum('t')+sum('d'))}</div>
+      </div>
+      <div class="dim-note" style="margin-top:6px">正=買超、負=賣超(集中市場,億元)。點上方任一卡看趨勢圖與白話判讀。</div></div>`;
+  }
   const dir=v=>v>0?`買超 ${v}`:v<0?`賣超 ${Math.abs(v)}`:'持平';
   window.__noteInst=`法人(${cur.date} 盤後):外資${dir(cur.f)}億、投信${dir(cur.t)}億、自營${dir(cur.d)}億;外資近5日累計 ${sum('f')>0?'+':''}${sum('f')} 億${sum('f')>300?',買盤積極':sum('f')<-300?',調節明顯':''}。`;
   composeMacroNote();

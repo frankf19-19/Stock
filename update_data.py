@@ -1437,6 +1437,34 @@ def fetch_credit_macro(prev, stocks=None):
                 if _hit:
                     print(f"  信用統計官方補刀:{_d.strftime('%Y-%m-%d')} 融券 {hist_sv.get(_d.strftime('%Y-%m-%d'))} 萬張")
                     break
+            # 融券 60 日歷史回補(一次性):序列覆蓋不足 10 日時,逐日抓官方統計,融券線立刻整條成形
+            if sum(1 for v in hist_sv.values() if v is not None) < 10:
+                _bk, _d2, _n = 0, _tp, 0
+                while _n < 70 and _bk < 60:
+                    _n += 1
+                    _d2 -= dt.timedelta(days=1)
+                    if _d2.weekday() >= 5:
+                        continue
+                    _k = _d2.strftime("%Y-%m-%d")
+                    if _k in hist_sv:
+                        _bk += 1
+                        continue
+                    try:
+                        jm2 = get_json("https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN"
+                                       f"?date={_d2.strftime('%Y%m%d')}&selectType=MS&response=json",
+                                       timeout=25)
+                        for tb2 in (jm2 or {}).get("tables") or []:
+                            for row2 in (tb2.get("data") or []):
+                                row2 = [str(x).replace(",", "") for x in row2]
+                                if row2 and row2[0].startswith("融券"):
+                                    v2 = numf(row2[-1])
+                                    if v2:
+                                        hist_sv[_k] = round(v2 / 1e4, 1); _bk += 1
+                    except Exception:
+                        pass
+                    time.sleep(2.5)                     # 證交所限流嚴,慢慢來(一次性,之後靠逐日續存)
+                if _bk:
+                    print(f"  融券歷史回補:{_bk} 日(官方 MI_MARGN,融券線即刻成形)")
         except Exception as e:
             print(f"  [warn] MI_MARGN 信用統計: {e}")
         if hist:
@@ -1480,6 +1508,62 @@ def fetch_credit_macro(prev, stocks=None):
             out["otc"] = prev["otc"]; out["otcF"], out["otcS"] = prev.get("otcF"), prev.get("otcS")
     except Exception as e:
         print(f"  [warn] 上櫃信用合計: {e}")
+    # ── 櫃買信用歷史回補(一次性):歷史不足 10 日時,用官方逐日總和補近 60 個交易日,圖表立刻成線 ──
+    try:
+        if out is not None and len(((out.get("otc") or {}).get("d")) or []) < 10:
+            _tp = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+            _days, _d = [], _tp
+            while len(_days) < 60:
+                if _d.weekday() < 5:
+                    _days.append(_d)
+                _d -= dt.timedelta(days=1)
+            od, of, os_ = [], [], []
+            for _d in reversed(_days):
+                _roc = f"{_d.year-1911}/{_d.month:02d}/{_d.day:02d}"
+                try:
+                    jt = get_json(f"https://www.tpex.org.tw/www/zh-tw/margin/balance?date={_roc}&response=json",
+                                  timeout=25)
+                    tbs = (jt or {}).get("tables") or []
+                    data0 = (tbs[0].get("data") if tbs else None) or []
+                    if not data0:
+                        continue
+                    _fields = [str(x) for x in (tbs[0].get("fields") or [])]
+                    _idx = lambda *kw: [i for i, f2 in enumerate(_fields) if all(k in f2 for k in kw)]
+                    _cf = (_idx("資", "餘額") or [None])[-1]
+                    _cs = (_idx("券", "餘額") or [None])[-1]
+                    if _cf is None:
+                        print(f"  [warn] 櫃買回補欄位不符:{_fields[:8]}")
+                        break
+                    fs = ss = n0 = 0
+                    for row in data0:
+                        row = [str(x).replace(",", "") for x in row]
+                        v = numf(row[_cf]) if _cf < len(row) else None
+                        if v is None:
+                            continue
+                        fs += int(v); n0 += 1
+                        if _cs is not None and _cs < len(row):
+                            v2 = numf(row[_cs])
+                            if v2 is not None:
+                                ss += int(v2)
+                    if n0 > 200:
+                        od.append(_d.strftime("%Y-%m-%d")); of.append(fs); os_.append(ss)
+                except Exception:
+                    pass
+                time.sleep(0.4)
+            if len(od) >= 10:
+                cur = (out.get("otc") or {})
+                m_f, m_s = dict(zip(od, of)), dict(zip(od, os_))
+                for i, d0 in enumerate(cur.get("d") or []):     # 既有累積優先,回補值墊底
+                    m_f[d0] = cur["f"][i]
+                    if i < len(cur.get("s") or []):
+                        m_s[d0] = cur["s"][i]
+                ds2 = sorted(m_f)[-130:]
+                out["otc"] = {"d": ds2, "f": [m_f[x] for x in ds2], "s": [m_s.get(x) for x in ds2]}
+                if out.get("otcF") is None:
+                    out["otcF"], out["otcS"] = of[-1], os_[-1]
+                print(f"  櫃買信用歷史回補:{len(od)} 日(官方逐日加總,圖表即刻成線)")
+    except Exception as e:
+        print(f"  [warn] 櫃買歷史回補: {e}")
     return out
 
 def fetch_pe_bulk():
