@@ -1259,6 +1259,52 @@ def fetch_credit_stocks(stocks):
         print(f"  [warn] 借券賣出(TWT93U): {e}")
     # ── FinMind 備援:上櫃融資融券(MI_MARGN 僅涵蓋上市)+ 借券賣出(TWT93U 常封鎖海外IP)──
     miss_mg = [sid for sid, s in by_id.items() if (s.get("mg") or {}).get("f") is None]
+    if miss_mg:
+        # 官方源優先:櫃買中心 融資融券餘額(欄位以名稱模糊比對,版式不符自動跳過走 FinMind)
+        try:
+            _tp = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+            _got = 0
+            for _back in range(0, 5):
+                _d = _tp - dt.timedelta(days=_back)
+                if _d.weekday() >= 5:
+                    continue
+                _roc = f"{_d.year-1911}/{_d.month:02d}/{_d.day:02d}"
+                jt = get_json(f"https://www.tpex.org.tw/www/zh-tw/margin/balance?date={_roc}&response=json",
+                              timeout=30)
+                tbs = (jt or {}).get("tables") or []
+                if not tbs or not (tbs[0].get("data") or []):
+                    continue
+                _fields = [str(x) for x in (tbs[0].get("fields") or [])]
+                def _col(*kw):   # 取「最後一個」符合的欄(前日餘額在前、今日餘額在後)
+                    idxs = [i for i, f in enumerate(_fields) if all(k in f for k in kw)]
+                    return idxs[-1] if idxs else None
+                _ci = _col("代號")
+                _cf = _col("資", "餘額")
+                _cs = _col("券", "餘額")
+                if _ci is None or _cf is None:
+                    print(f"  [warn] 櫃買融資API欄位不符:{_fields[:8]}")
+                    break
+                for row in tbs[0]["data"]:
+                    row = [str(x).replace(",", "") for x in row]
+                    sid = row[_ci].strip() if _ci < len(row) else ""
+                    st = by_id.get(sid)
+                    if not st or (st.get("mg") or {}).get("f") is not None:
+                        continue
+                    fv = numf(row[_cf]) if _cf < len(row) else None
+                    if fv is None:
+                        continue
+                    mg = st.setdefault("mg", {})
+                    mg["f"] = int(fv); _got += 1
+                    if _cs is not None and _cs < len(row):
+                        sv = numf(row[_cs])
+                        if sv is not None:
+                            mg["s"] = int(sv)
+                if _got:
+                    print(f"  櫃買融資融券(官方):補 {_got} 檔({_d.strftime('%Y-%m-%d')})")
+                break
+        except Exception as e:
+            print(f"  [warn] 櫃買融資官方源: {e}")
+    miss_mg = [sid for sid, s in by_id.items() if (s.get("mg") or {}).get("f") is None]
     if miss_mg or n2 == 0:
         def _fm(dataset, day):
             params = {"dataset": dataset, "start_date": day, "end_date": day}
@@ -1353,6 +1399,46 @@ def fetch_credit_macro(prev, stocks=None):
             except Exception: continue
             if "MarginPurchaseMoney" in nm: hist[d0] = round(bal / 1e8, 1)      # 融資金額 元→億
             elif "ShortSaleVolume" in nm:   hist_sv[d0] = round(bal / 1e4, 1)   # 融券張數 張→萬張
+        # 歷史續存:舊檔已有的值當底,新抓的覆蓋——FinMind 偶發限流時融資/融券序列不歸零
+        pv = (prev or {}).get("h") or {}
+        pd_, pf_, ps_ = list(pv.get("d") or []), list(pv.get("fin") or []), list(pv.get("sv") or [])
+        for i, d0 in enumerate(pd_):
+            if d0 not in hist and i < len(pf_) and pf_[i] is not None:
+                hist[d0] = pf_[i]
+            if d0 not in hist_sv and i < len(ps_) and ps_[i] is not None:
+                hist_sv[d0] = ps_[i]
+        # 官方補刀:證交所 MI_MARGN 信用交易統計(selectType=MS,輕量總表)——
+        # 融券總張數 FinMind 常缺漏(2026-07 實際發生),以官方值為正源覆蓋最新交易日
+        try:
+            _tp = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+            for _back in range(0, 5):
+                _d = _tp - dt.timedelta(days=_back)
+                if _d.weekday() >= 5:
+                    continue
+                jm = get_json("https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN"
+                              f"?date={_d.strftime('%Y%m%d')}&selectType=MS&response=json",
+                              timeout=30)
+                tbs = (jm or {}).get("tables") or []
+                _hit = False
+                for tb in tbs:
+                    for row in (tb.get("data") or []):
+                        row = [str(x).replace(",", "") for x in row]
+                        if not row:
+                            continue
+                        _dkey = _d.strftime("%Y-%m-%d")
+                        if row[0].startswith("融券"):
+                            v = numf(row[-1])
+                            if v:
+                                hist_sv[_dkey] = round(v / 1e4, 1); _hit = True   # 張 → 萬張
+                        elif row[0].startswith("融資金額"):
+                            v = numf(row[-1])
+                            if v:
+                                hist[_dkey] = round(v / 1e5, 1); _hit = True      # 仟元 → 億
+                if _hit:
+                    print(f"  信用統計官方補刀:{_d.strftime('%Y-%m-%d')} 融券 {hist_sv.get(_d.strftime('%Y-%m-%d'))} 萬張")
+                    break
+        except Exception as e:
+            print(f"  [warn] MI_MARGN 信用統計: {e}")
         if hist:
             ds = sorted(hist)[-60:]
             h = {"d": ds, "fin": [hist[d] for d in ds],
@@ -1387,6 +1473,9 @@ def fetch_credit_macro(prev, stocks=None):
             elif (prev or {}).get("otc"):
                 out["otc"] = prev["otc"]
                 out["otcF"], out["otcS"] = prev.get("otcF"), prev.get("otcS")
+                print(f"  [warn] 上櫃信用合計:個股覆蓋僅 {n} 檔(<200)→沿用前值;FinMind 可能被限流,建議在 repo secrets 設 FINMIND_TOKEN")
+            else:
+                print(f"  [warn] 上櫃信用合計:個股覆蓋僅 {n} 檔(<200)且無前值——請設 FINMIND_TOKEN(免費註冊)讓備援穩定")
         elif (prev or {}).get("otc") and out is not None:
             out["otc"] = prev["otc"]; out["otcF"], out["otcS"] = prev.get("otcF"), prev.get("otcS")
     except Exception as e:
