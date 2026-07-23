@@ -454,6 +454,9 @@ def main():
                 eps = str(r.get("epsForecast", "") or "").replace("$", "").strip()
                 nm = str(r.get("companyName", "") or r.get("name", "") or "")[:40]
                 rec = {"d": d.isoformat(), "sym": sym, "n": nm, "t": t, "eps": eps}
+                ly = str(r.get("lastYearEPS", "") or "").replace("$", "").strip()
+                if ly and ly.upper() not in ("N/A", "--", "NA"):
+                    rec["ly"] = ly                       # 去年同期 EPS → 前端算年增率
                 act = str(r.get("eps", "") or "").replace("$", "").strip()   # 已公布才有實際值
                 sur = str(r.get("surprise", "") or "").strip()
                 if act and act.upper() not in ("N/A", "--", "NA"):
