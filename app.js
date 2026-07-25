@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r389 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r390 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1464,7 +1464,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r389</span>');
+  diag.push('<span style="color:var(--dim)">build r390</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2470,6 +2470,15 @@ function headprints(K){
      on=true;why='峰峰低、底底低,且價在下彎的月線之下 — 空頭確立';}
    S.push({t:'走空頭浪',d:'底底低、峰峰低,空頭確立',on,why});}
   const front=S.slice(0,3).filter(x=>x.on).length,back=S.slice(3).filter(x=>x.on).length;
+  const ma20v=c.slice(-20).reduce((a,b)=>a+b,0)/20;
+  const ma60v=n>=60?c.slice(-60).reduce((a,b)=>a+b,0)/60:ma20v;
+  let trend;
+  if(back>=3)trend='空頭浪(峰峰低、底底低)';
+  else if(S[3].on)trend='頭部確認中(已破末升低)';
+  else if(front>=2)trend='高檔警戒(前段警訊≥2)';
+  else if(c[n-1]>ma20v&&ma20v>ma60v)trend='多頭趨勢(價站月線、月線在季線上)';
+  else if(c[n-1]>ma60v)trend='多頭整理(季線之上震盪)';
+  else trend='區間偏弱(價在季線之下)';
   const WT=[6,7,9,20,12,16,20];                // 權重:前段(1~3)警告早但不可靠→輕;後段(4~7)證據強→重
   let prob=4;const parts=[['基礎值',4]];
   S.forEach((x,i)=>{if(x.on){prob+=WT[i];parts.push([`第${i+1}步|${x.t}`,WT[i]]);}});
@@ -2481,7 +2490,7 @@ function headprints(K){
   else if(front>=2){stage='前段警告區——警告早但不可靠,可能做頭也可能假跌破;不追高、緊盯末升低';tone='warn';}
   else if(front>=1){stage='零星警訊——單一訊號不足為憑,維持原策略、留意後續腳印';tone='mild';}
   else{stage='無做頭證據——七個腳印皆未亮,趨勢結構健康';tone='ok';}
-  return {S,front,back,stage,tone,peakV:pk,lastHL,prob,parts};
+  return {S,front,back,stage,tone,peakV:pk,lastHL,prob,parts,trend};
 }
 function headHtml(r,label,extra){
   if(!r)return '<div class="dim-note">日K資料不足(需50根以上),暫無法判讀。</div>';
@@ -2491,6 +2500,8 @@ function headHtml(r,label,extra){
     .map(([t,v])=>`${t} +${v}%`).join(' · ');
   const probBar=`
     <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px;flex-wrap:wrap">
+      <span style="font-weight:800">目前趨勢:<span style="color:${pcol}">${r.trend}</span></span>
+      <span style="color:var(--line)">|</span>
       <span style="font-weight:800">頭部機率</span>
       <b style="font-size:27px;font-family:var(--mono);color:${pcol}">${pc}%</b>
       <span style="font-size:12px;color:var(--dim)">${pc>=70?'高風險:證據齊備,紀律執行減碼':pc>=45?'偏高:頭部進行式,反彈保守以對':pc>=20?'升溫:警訊出現但未質變':'低:結構健康'}(規則化估計,非統計保證)</span></div>
@@ -2539,14 +2550,18 @@ async function renderHeadMacro(){
         const add=s4p>=60?10:s4p>=45?8:s4p>=30?5:s4p>=15?2:0;
         if(add)extra={add,why:`市場廣度(${s4p}%個股已破末升低)`};
       }
+      const hp=headprints(K);
+      window.__headIdx=window.__headIdx||{};
+      window.__headIdx[sym]={prob:Math.min(95,hp.prob+((extra&&extra.add)||0)),trend:hp.trend,nm};
       seg.push(`<div style="font-weight:900;font-size:15px;margin:4px 0 6px">${nm}<span style="font-weight:400;font-size:12px;color:var(--dim)"> · ${K.h?'官方日K(含高低)':'官方日收盤(高低以收盤近似)'}</span></div>`
-        +headHtml(headprints(K),nm,extra));
+        +headHtml(hp,nm,extra));
     });
     seg.push(`<div style="margin-top:12px"><a class="earn-more" id="headScanBtn">🔍 掃描全市場個股頭部(載入約 2MB 日K,數秒完成)</a><div id="headScanOut"></div></div>`);
     box.innerHTML=seg.join('<div style="height:14px"></div>');
     const btn=document.getElementById('headScanBtn');
     if(btn)btn.onclick=scanHeadAll;
     if(window.__headScan)paintHeadScan(window.__headScan);   // 之前掃過就直接重畫
+    try{renderMacroAlerts();}catch(e){}                      // 讓警示條吃到趨勢/頭部機率
   }catch(e){box.innerHTML='<div class="dim-note">判讀引擎異常:'+String(e).slice(0,60)+'</div>';}
 }
 setTimeout(renderHeadMacro,4200);
@@ -2623,7 +2638,22 @@ async function renderHeadStock(s){
     const e=(KCACHE[sh]||{})[s.id];
     if(!e||!e.o||e.o.length<50){box.innerHTML='<div class="dim-note">日K資料不足(需50根以上),此檔暫無法判讀。</div>';return;}
     const K={o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3])};
-    box.innerHTML=headHtml(headprints(K),s.name||s.id);
+    const hp=headprints(K);
+    box.innerHTML=headHtml(hp,s.name||s.id);
+    try{                                                    // 頁首警示條:目前趨勢常駐;頭部機率≥50%升級警告
+      const al=document.getElementById('stkAlerts');
+      if(al&&hp&&location.hash==='#stock/'+s.id&&!al.querySelector('[data-hd]')){
+        const lv=hp.prob>=70?'red':hp.prob>=50?'amb':'ok';
+        const pill=document.createElement('span');
+        pill.className='alert-pill alert-'+lv;pill.dataset.hd='1';
+        pill.style.cursor='pointer';pill.title='點我看七腳印完整判讀';
+        pill.innerHTML=`<span class="ico">${hp.prob>=50?'🔺':'📈'}</span><span>趨勢:${hp.trend} · 頭部機率 ${hp.prob}%${hp.prob>=70?'——證據齊備,紀律減碼/停損':hp.prob>=50?'——做頭風險偏高,反彈視為減碼機會':''}</span>`;
+        pill.onclick=()=>{try{document.getElementById('headStk').scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}};
+        const ok=al.querySelector('.alert-ok');
+        if(ok&&lv!=='ok')ok.remove();                       // 有警告時把「無警示」拿掉
+        al.style.display='';al.prepend(pill);
+      }
+    }catch(e){}
   }catch(err){box.innerHTML='<div class="dim-note">判讀引擎異常:'+String(err).slice(0,60)+'</div>';}
 }
 
@@ -3161,6 +3191,11 @@ function renderMacroAlerts(){
   const el=document.getElementById('macroAlerts');
   if(!el)return;
   const A=[];const add=(lv,ico,txt)=>A.push({lv,ico,txt});
+  Object.values(window.__headIdx||{}).forEach(x=>{           // 🔺 大盤/櫃買趨勢與頭部機率(常駐;≥50%升級為警告)
+    const lv=x.prob>=70?'red':x.prob>=50?'amb':'ok';
+    const ico=x.prob>=50?'🔺':'📈';
+    add(lv,ico,`${x.nm}趨勢:${x.trend} · 頭部機率 ${x.prob}%${x.prob>=70?'——證據齊備,紀律減碼':x.prob>=50?'——頭部風險偏高,反彈保守以對':''}`);
+  });
   const rv=window.__riskVals||{};
   if(rv.vix!=null){
     if(rv.vix>=28)add('red','🚨',`VIX ${rv.vix.toFixed(1)} 恐慌區——市場劇烈避險,倉位與槓桿務必控管`);
