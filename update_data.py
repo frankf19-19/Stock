@@ -1016,8 +1016,10 @@ def _finmind_fut(day):
     start = (dt.datetime.now() - dt.timedelta(days=95)).strftime("%Y-%m-%d")
     for pid in ("TX", "MTX"):
         try:
+            _tok = os.environ.get("FINMIND_TOKEN", "")
             j = get_json("https://api.finmindtrade.com/api/v4/data"
-                         f"?dataset=TaiwanFuturesInstitutionalInvestors&data_id={pid}&start_date={start}",
+                         f"?dataset=TaiwanFuturesInstitutionalInvestors&data_id={pid}&start_date={start}"
+                         + (f"&token={_tok}" if _tok else ""),
                          timeout=40)
             rows = j.get("data") if isinstance(j, dict) else (j if isinstance(j, list) else None)
             if not rows:
