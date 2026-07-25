@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r386 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r388 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1464,7 +1464,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r386</span>');
+  diag.push('<span style="color:var(--dim)">build r388</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2373,6 +2373,236 @@ async function loadInst(){
 }
 setTimeout(loadInst,7000);
 setInterval(loadInst,15*60*1000); // 每15分鐘檢查(15:00後會自動換上今日)
+
+
+/* ══ 🔺 頭部七腳印|「打頭打七吋」規則化引擎(大盤+個股共用) ══
+   七個腳印:①指標背離 ②高檔跳空缺口不補 ③破支撐趨勢線 ④破末升低 ⑤反彈不創高 ⑥再破前低 ⑦走空頭浪
+   前段(1~3)=警告早但不可靠(可能假跌破);後段(4~7)=證據強但價格更便宜──紀律執行 */
+function hpRSI(c,p){
+  const out=new Array(c.length).fill(null);
+  let g=0,l=0;
+  for(let i=1;i<c.length;i++){
+    const d=c[i]-c[i-1],up=d>0?d:0,dn=d<0?-d:0;
+    if(i<=p){g+=up;l+=dn;if(i===p){const rs=l===0?100:g/l;out[i]=100-100/(1+rs);}}
+    else{g=(g*(p-1)+up)/p;l=(l*(p-1)+dn)/p;const rs=l===0?100:g/l;out[i]=100-100/(1+rs);}
+  }
+  return out;
+}
+function headprints(K){
+  const c=K.c||[];const n=c.length;
+  if(n<50)return null;
+  const h=K.h&&K.h.length===n?K.h:c, l=K.l&&K.l.length===n?K.l:c;
+  const approx=!(K.h&&K.l);
+  const W=3,pivH=[],pivL=[];
+  for(let i=W;i<n-W;i++){
+    let iH=true,iL=true;
+    for(let j=i-W;j<=i+W;j++){if(h[j]>h[i])iH=false;if(l[j]<l[i])iL=false;}
+    if(iH)pivH.push(i);
+    if(iL)pivL.push(i);
+  }
+  const look=Math.min(n,90);
+  let peak=n-look;
+  for(let i=n-look;i<n;i++)if(h[i]>=h[peak])peak=i;
+  const pk=h[peak];
+  const rsi=hpRSI(c,14);
+  const F2=x=>(+x).toLocaleString(undefined,{maximumFractionDigits:2});
+  const S=[];
+  // ① 指標背離
+  {let on=false,why='價格與動能同步,無背離';
+   const prevH=pivH.filter(i=>i<peak-2).pop();
+   if(prevH!=null&&pk>h[prevH]&&rsi[peak]!=null&&rsi[prevH]!=null&&rsi[peak]<rsi[prevH]-1){
+     on=true;why=`價創高(${F2(pk)})但 RSI 由 ${rsi[prevH].toFixed(0)} 降至 ${rsi[peak].toFixed(0)} — 動能沒跟上`;}
+   S.push({t:'指標背離',d:'價格創高,動能沒跟上',on,why});}
+  // ② 高檔跳空缺口不補
+  {let on=false,why='高檔無未回補的向下缺口';
+   for(let i=Math.max(peak,1);i<n;i++){
+     const gap=approx?(c[i]/c[i-1]-1<=-0.02):(h[i]<l[i-1]);
+     const nearTop=(approx?c[i-1]:h[i-1])>=pk*0.9;
+     if(gap&&nearTop){
+       const top=approx?c[i-1]:l[i-1];
+       let filled=false;
+       for(let j=i;j<n;j++)if((approx?c[j]:h[j])>=top){filled=true;break;}
+       if(!filled){on=true;why=`高檔${approx?'重挫(收盤近似缺口)':'跳空'}後反彈補不回 ${F2(top)} — 有人急著走`;break;}
+     }}
+   S.push({t:'高檔跳空缺口不補',d:'有人急著走,反彈補不回',on,why});}
+  // ③ 破支撐趨勢線
+  {let on=false,why='上升趨勢線未破',lvl=null;
+   const lows=pivL.filter(i=>i<=peak);
+   if(lows.length>=2){
+     const a=lows[lows.length-2],b=lows[lows.length-1];
+     if(l[b]>l[a]){
+       const k2=(l[b]-l[a])/(b-a),val=l[b]+k2*(n-1-b);
+       lvl=val;
+       if(k2>0&&c[n-1]<val){on=true;why=`收盤 ${F2(c[n-1])} 跌破上升趨勢線(今值約 ${F2(val)}) — 上漲斜率維持不住`;}
+       else why=`上升趨勢線今值約 ${F2(val)},尚未跌破`;
+     }}
+   S.push({t:'破支撐趨勢線',d:'原本上漲的斜率維持不住',on,why,lvl});}
+  // ④ 破末升低(質變分水嶺)
+  let lastHL=null;
+  {let on=false,why='末升低未破,多頭骨架仍在',lvl=null;
+   const bl=pivL.filter(i=>i<peak).pop();
+   if(bl!=null){lastHL=l[bl];lvl=lastHL;
+     if(c[n-1]<lastHL){on=true;why=`收盤跌破末升低 ${F2(lastHL)} — 多頭骨架鬆動,質變分水嶺`;}
+     else why=`末升低在 ${F2(lastHL)} — 跌破即質變,務必緊盯`;}
+   S.push({t:'破末升低',d:'轉空頭浪的質變分水嶺',on,why,lvl});}
+  // ⑤ 反彈不創高
+  let lh=null;
+  {let on=false,why='尚無反彈高點可判(或反彈仍有機會創高)';
+   const rebH=pivH.filter(i=>i>peak);
+   if(rebH.length){const p2=rebH[rebH.length-1];
+     if(h[p2]<pk*0.995){lh=p2;on=true;why=`反彈高點 ${F2(h[p2])} 未過前高 ${F2(pk)} — 上方套牢壓力形成天花板`;}}
+   S.push({t:'反彈不創高',d:'上方套牢壓力形成天花板',on,why});}
+  // ⑥ 再破前低
+  {let on=false,why='前低未破',lvl=null;
+   if(lh!=null){
+     let lo=Infinity;
+     for(let i=peak;i<=lh;i++)if(l[i]<lo)lo=l[i];
+     lvl=lo;
+     if(c[n-1]<lo*0.999){on=true;why=`收盤再破前低 ${F2(lo)} — 高低點同步下移`;}
+     else why=`前低防線 ${F2(lo)} — 再破即確認下移`;}
+   S.push({t:'再破前低',d:'高低點同步下移',on,why,lvl});}
+  // ⑦ 走空頭浪
+  {let on=false,why='尚未形成峰峰低、底底低的空頭浪';
+   const H2=pivH.slice(-2),L2=pivL.slice(-2);
+   const ma20=c.length>=20?c.slice(-20).reduce((a,b)=>a+b,0)/20:null;
+   const ma20p=c.length>=21?c.slice(-21,-1).reduce((a,b)=>a+b,0)/20:null;
+   if(H2.length===2&&L2.length===2&&h[H2[1]]<h[H2[0]]&&l[L2[1]]<l[L2[0]]&&ma20!=null&&c[n-1]<ma20&&ma20p!=null&&ma20<ma20p){
+     on=true;why='峰峰低、底底低,且價在下彎的月線之下 — 空頭確立';}
+   S.push({t:'走空頭浪',d:'底底低、峰峰低,空頭確立',on,why});}
+  const front=S.slice(0,3).filter(x=>x.on).length,back=S.slice(3).filter(x=>x.on).length;
+  let stage,tone;
+  if(back>=3){stage='空頭浪確立——後段證據齊備,反彈以減碼/逃命波看待,紀律執行';tone='neg';}
+  else if(S[3].on&&back>=2){stage='頭部確認進行中——已破末升低且結構下移,風險報酬最佳的紀律賣點區';tone='neg';}
+  else if(S[3].on){stage='質變分水嶺已觸發(破末升低)——多頭骨架鬆動,由「警告」升級為「證據」';tone='neg';}
+  else if(front>=2){stage='前段警告區——警告早但不可靠,可能做頭也可能假跌破;不追高、緊盯末升低';tone='warn';}
+  else if(front>=1){stage='零星警訊——單一訊號不足為憑,維持原策略、留意後續腳印';tone='mild';}
+  else{stage='無做頭證據——七個腳印皆未亮,趨勢結構健康';tone='ok';}
+  return {S,front,back,stage,tone,peakV:pk,lastHL};
+}
+function headHtml(r,label){
+  if(!r)return '<div class="dim-note">日K資料不足(需50根以上),暫無法判讀。</div>';
+  const col=i=>r.S[i].on?(i<3?'#E8A33D':'#C62828'):'var(--line)';
+  const cells=r.S.map((x,i)=>`
+    <div style="text-align:center;position:relative">
+      <div style="height:4px;background:${col(i)};border-radius:2px;margin-bottom:7px"></div>
+      <div style="width:26px;height:26px;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;
+        font-weight:900;font-size:13px;border:2px solid ${col(i)};color:${x.on?'#fff':'var(--mut)'};
+        background:${x.on?col(i):'transparent'}">${i+1}</div>
+      <div style="font-weight:800;font-size:12.5px;margin-top:5px;line-height:1.3;color:${x.on?'var(--txt)':'var(--mut)'}">${x.t}</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:2px;line-height:1.35">${x.d}</div>
+    </div>`).join('');
+  const toneC=r.tone==='neg'?'#C62828':r.tone==='warn'?'#B8860B':r.tone==='mild'?'var(--txt2)':'#0B7A4B';
+  const lit=r.S.map((x,i)=>x.on?`<div style="margin:3px 0">🔸 <b>第${i+1}步|${x.t}</b>:${x.why}</div>`:'').join('');
+  return `
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">${cells}</div>
+    <div style="margin-top:11px;padding:10px 13px;border-left:4px solid ${toneC};background:var(--panel2);border-radius:0 10px 10px 0">
+      <b style="color:${toneC}">目前判定(${label}):亮 ${r.front+r.back}/7 燈(前段 ${r.front}、後段 ${r.back})</b>
+      <div style="margin-top:3px;line-height:1.55">${r.stage}</div>
+      ${lit?`<div style="margin-top:7px;font-size:13px;line-height:1.6">${lit}</div>`:''}
+    </div>
+    <div class="dim-note" style="margin-top:7px">口訣:前段(1~3)警告早、但不可靠——頭部可能形成,也可能假跌破;後段(4~7)證據強、但價格更便宜——風險報酬最佳,<b>紀律執行才是關鍵</b>。方法論:「打頭打七吋」七腳印(辣個分析師);本區為規則化自動判讀,非投資建議。</div>`;
+}
+async function renderHeadMacro(){
+  const box=document.getElementById('headMacro');
+  if(!box)return;
+  try{
+    const y=await yextData();
+    const seg=[];
+    [['^TWII','加權指數'],['^TWOII','櫃買指數']].forEach(([sym,nm])=>{
+      const e=y&&y.series&&y.series[sym],dd=e&&e.d;
+      if(!dd||!Array.isArray(dd.c)||dd.c.length<50){
+        seg.push(`<div style="font-weight:900;font-size:15px;margin:4px 0 6px">${nm}</div><div class="dim-note">日線歷史回補中(後端下一班會補齊 6 個月官方日線)。</div>`);
+        return;
+      }
+      const K={c:dd.c};
+      if(Array.isArray(dd.h)&&dd.h.length===dd.c.length){K.h=dd.h;K.l=dd.l;K.o=dd.o;}
+      seg.push(`<div style="font-weight:900;font-size:15px;margin:4px 0 6px">${nm}<span style="font-weight:400;font-size:12px;color:var(--dim)"> · ${K.h?'官方日K(含高低)':'官方日收盤(高低以收盤近似)'}</span></div>`
+        +headHtml(headprints(K),nm));
+    });
+    seg.push(`<div style="margin-top:12px"><a class="earn-more" id="headScanBtn">🔍 掃描全市場個股頭部(載入約 2MB 日K,數秒完成)</a><div id="headScanOut"></div></div>`);
+    box.innerHTML=seg.join('<div style="height:14px"></div>');
+    const btn=document.getElementById('headScanBtn');
+    if(btn)btn.onclick=scanHeadAll;
+    if(window.__headScan)paintHeadScan(window.__headScan);   // 之前掃過就直接重畫
+  }catch(e){box.innerHTML='<div class="dim-note">判讀引擎異常:'+String(e).slice(0,60)+'</div>';}
+}
+setTimeout(renderHeadMacro,4200);
+setInterval(renderHeadMacro,600000);
+/* ── 🔍 全市場頭部掃描:每一檔台股跑七腳印,列出做頭名單與跡象 ── */
+async function scanHeadAll(){
+  const out=document.getElementById('headScanOut');
+  const btn=document.getElementById('headScanBtn');
+  if(!out)return;
+  if(window.__headScan&&Date.now()-window.__headScan.ts<30*60*1000){paintHeadScan(window.__headScan);return;}
+  if(btn)btn.textContent='掃描中…載入日K 0/10';
+  const res=[];
+  const stocks=(DATA.stocks||[]).filter(x=>x.market==='TW'&&!x.etf);
+  for(let d=0;d<10;d++){
+    const sh=`k/tw${d}.json`;
+    if(!(sh in KCACHE)){
+      try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),20000);
+          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
+    }
+    if(btn)btn.textContent=`掃描中…載入日K ${d+1}/10`;
+    stocks.filter(x=>x.id[0]===String(d)).forEach(x=>{
+      const e=(KCACHE[sh]||{})[x.id];
+      if(!e||!e.o||e.o.length<50)return;
+      try{
+        const K={o:e.o.map(b=>b[0]),h:e.o.map(b=>b[1]),l:e.o.map(b=>b[2]),c:e.o.map(b=>b[3])};
+        const r2=headprints(K);
+        if(r2)res.push({id:x.id,name:x.name||x.id,chg:x.chg,front:r2.front,back:r2.back,
+          lit:r2.S.map(v=>v.on?1:0),s4:r2.S[3].on?1:0,tone:r2.tone});
+      }catch(err){}
+    });
+    await new Promise(r=>setTimeout(r,60));
+  }
+  const scan={ts:Date.now(),n:res.length,res};
+  window.__headScan=scan;
+  if(btn)btn.textContent='🔍 重新掃描全市場個股頭部';
+  paintHeadScan(scan);
+}
+function paintHeadScan(scan){
+  const out=document.getElementById('headScanOut');
+  if(!out||!scan)return;
+  const res=scan.res;
+  if(!res.length){out.innerHTML='<div class="dim-note">日K資料尚未就緒,稍後再掃。</div>';return;}
+  const pct=k=>Math.round(res.filter(x=>x[k]).length/res.length*100);
+  const s4p=pct('s4'),bear=res.filter(x=>x.back>=3),conf=res.filter(x=>x.s4&&x.back>=1&&x.back<3),
+        warn=res.filter(x=>!x.s4&&x.front>=2);
+  const chip=x=>x.lit.map((v,i)=>`<span style="display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;border-radius:4px;font-size:11px;font-weight:800;margin-right:2px;${v?`background:${i<3?'#E8A33D':'#C62828'};color:#fff`:'background:var(--panel2);color:var(--dim)'}">${i+1}</span>`).join('');
+  const row=x=>`<div class="earn-row" data-hs="${x.id}" style="cursor:pointer;padding:8px 12px;margin:6px 0;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center">
+    <b style="min-width:96px">${x.name} <span style="color:var(--dim);font-weight:400">${x.id}</span></b>
+    <span>${chip(x)}</span>
+    <span style="font-family:var(--mono);font-size:12.5px;color:var(--mut)">後段 ${x.back} 燈</span></div>`;
+  const grp=(t,arr,cap)=>arr.length?`<div class="earn-sub" style="margin-top:12px">${t}(${arr.length} 檔)</div>`
+    +arr.sort((a,b)=>(b.back-a.back)||(b.front-a.front)).slice(0,cap).map(row).join('')
+    +(arr.length>cap?`<div class="dim-note">…僅列前 ${cap} 檔(依亮燈數排序)</div>`:''):'';
+  out.innerHTML=`
+    <div style="margin-top:10px;padding:10px 13px;background:var(--panel2);border-radius:10px">
+      <b>市場廣度</b>:全市場 ${scan.n} 檔中,<b style="color:#C62828">${s4p}%</b> 已跌破末升低(第4步質變)
+      ——${s4p>=50?'半數以上個股多頭骨架已鬆動,大盤頭部風險偏高':s4p>=30?'質變比例升溫,結構轉弱中':'多數個股結構仍健康'}。掃描時間:${new Date(scan.ts).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}
+    </div>
+    ${grp('🟥 空頭浪確立(後段≥3燈)',bear,30)}
+    ${grp('🟠 頭部確認進行中(已破末升低)',conf,30)}
+    ${grp('🟡 前段警告區(警告早但不可靠)',warn,20)}
+    <div class="dim-note" style="margin-top:8px">燈號=七腳印:①背離 ②缺口不補 ③破趨勢線 ④破末升低 ⑤反彈不創高 ⑥再破前低 ⑦空頭浪。點任一列進該股個股頁看完整判讀。</div>`;
+  out.querySelectorAll('[data-hs]').forEach(el=>{el.onclick=()=>{location.hash='#stock/'+el.dataset.hs;};});
+}
+async function renderHeadStock(s){
+  const box=document.getElementById('headStk');
+  if(!box||!s||s.market!=='TW')return;
+  try{
+    const sh=`k/tw${s.id[0]}.json`;
+    if(!(sh in KCACHE)){
+      try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),15000);
+          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
+    }
+    const e=(KCACHE[sh]||{})[s.id];
+    if(!e||!e.o||e.o.length<50){box.innerHTML='<div class="dim-note">日K資料不足(需50根以上),此檔暫無法判讀。</div>';return;}
+    const K={o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3])};
+    box.innerHTML=headHtml(headprints(K),s.name||s.id);
+  }catch(err){box.innerHTML='<div class="dim-note">判讀引擎異常:'+String(err).slice(0,60)+'</div>';}
+}
 
 /* ── 大盤即時解讀:走勢型態、日線趨勢、量能評估與預估量 ── */
 let IDXD=null,IDXD_T=0;
@@ -6395,6 +6625,7 @@ async function showDetail(id){
     ${s.etf?'':'<div id="turtleBox"></div>'}
     ${(s.etf||s.market!=='TW')?'':'<div id="zt8Box"></div>'}
     ${s.etf?'':'<div id="gemBox"></div>'}
+    ${s.market==='TW'?`<div class="chart-box"><h3>🔺 頭部七腳印<span class="ds">打頭打七吋 · 賣在起跌點的七步辨識</span></h3><div id="headStk"><div class="dim-note">判讀中…</div></div></div>`:''}
     </div>
     <div class="sec-title" data-sec="stk_s">📅 歷史月份行情 <span style="font-weight:400;font-size:13px;letter-spacing:0">季節性統計・各年度月份漲跌</span></div><div class="sec-body" id="sb-stk_s">
     <div id="seasonBox" class="dim-block"><div class="dim-note">📡 歷史月K自動載入中…</div></div>
@@ -6516,6 +6747,7 @@ async function showDetail(id){
   if(aBtn)aBtn.onclick=()=>aiInline(aBtn,`請上網查詢並整理 ${s.name}(${s.id}) 近三個月外資與投顧研究報告的觀點(直接條列不要開場白):哪些券商出過報告或升降評、評等為何(買進/中立/賣出)、目標價各是多少、調整理由是什麼。最後一句總結市場共識與分歧點。若查不到個別報告,就整理新聞中提到的最新目標價。結尾一行:非投資建議。`,true,1600);
   loadProfileDetail(s);
   try{const tb=document.getElementById('t3qBox');if(tb){tb.style.display='';tb.innerHTML='<div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div>';}t3qBlock(s);}catch(e){}
+  try{renderHeadStock(s);}catch(e){}
   try{buildJumpBar(document.getElementById('detailView'));}catch(e){}
   loadAnalystDetail(s);
   loadChipDetail(s);

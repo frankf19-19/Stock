@@ -384,6 +384,83 @@ def main():
         else:
             print("  ^TWOII 未取得(ETF 端點與前檔皆無;下個台股盤中班次會補上)", file=sys.stderr)
     time.sleep(0.5)
+    # ── 台股指數「日線」歷史(供頭部七腳印判讀):加權=官方日開高低收、櫃買=官方日收盤 ──
+    try:
+        _tp = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+        dt_, do_, dh_, dl_, dc_ = [], [], [], [], []
+        for _mb in range(5, -1, -1):                       # 近6個月,每月一請求
+            _y = _tp.year; _m = _tp.month - _mb
+            while _m <= 0: _m += 12; _y -= 1
+            try:
+                jm = json.loads(http_get("https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST"
+                                         f"?date={_y}{_m:02d}01&response=json", timeout=25))
+                for row in (jm.get("data") or []):
+                    try:
+                        r2, o2, h2, l2, c2 = [str(x).replace(",", "") for x in row[:5]]
+                        yy, mm, dd = r2.split("/")
+                        iso = f"{int(yy)+1911}-{int(mm):02d}-{int(dd):02d}"
+                        _ts = int(datetime.datetime(int(yy)+1911, int(mm), int(dd),
+                                  tzinfo=datetime.timezone.utc).timestamp())
+                        dt_.append(_ts); do_.append(float(o2)); dh_.append(float(h2))
+                        dl_.append(float(l2)); dc_.append(float(c2))
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            time.sleep(1.2)
+        if len(dc_) >= 50:
+            series.setdefault("^TWII", {})["d"] = {"t": dt_[-130:], "c": dc_[-130:],
+                "o": do_[-130:], "h": dh_[-130:], "l": dl_[-130:], "prev": dc_[-2]}
+            print(f"  ^TWII 日線 ← 官方 MI_5MINS_HIST({len(dc_[-130:])} 根,含OHLC)")
+        elif (old_series.get("^TWII") or {}).get("d"):
+            series.setdefault("^TWII", {})["d"] = old_series["^TWII"]["d"]
+            print("  ^TWII 日線:沿用前檔")
+    except Exception as e:
+        print(f"  [warn] ^TWII 日線: {e}")
+    try:
+        ot_, oc_ = [], []
+        _tp = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+        for _mb in range(5, -1, -1):
+            _y = _tp.year; _m = _tp.month - _mb
+            while _m <= 0: _m += 12; _y -= 1
+            _roc = f"{_y-1911}/{_m:02d}"
+            got = None
+            for _u in (f"https://www.tpex.org.tw/www/zh-tw/afterTrading/marketStats?date={_roc}&response=json",
+                       f"https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_index/st41_result.php?l=zh-tw&d={_roc}&o=json"):
+                try:
+                    jj = json.loads(http_get(_u, timeout=25))
+                    rows = ((jj.get("tables") or [{}])[0].get("data")
+                            if "tables" in jj else jj.get("aaData")) or []
+                    if rows:
+                        got = rows; break
+                except Exception:
+                    continue
+            for row in (got or []):
+                try:
+                    row = [str(x).replace(",", "") for x in row]
+                    yy, mm, dd = row[0].split("/")
+                    _ts = int(datetime.datetime(int(yy)+1911, int(mm), int(dd),
+                              tzinfo=datetime.timezone.utc).timestamp())
+                    idxv = None                             # 指數欄位置歷來在 3~5 欄間浮動→取合理範圍值
+                    for _cand in row[1:6]:
+                        try:
+                            v2 = float(_cand)
+                            if 80 <= v2 <= 5000: idxv = v2
+                        except Exception:
+                            continue
+                    if idxv:
+                        ot_.append(_ts); oc_.append(idxv)
+                except Exception:
+                    continue
+            time.sleep(1.2)
+        if len(oc_) >= 50:
+            series.setdefault("^TWOII", {})["d"] = {"t": ot_[-130:], "c": oc_[-130:], "prev": oc_[-2]}
+            print(f"  ^TWOII 日線 ← 櫃買官方({len(oc_[-130:])} 根,收盤)")
+        elif (old_series.get("^TWOII") or {}).get("d"):
+            series.setdefault("^TWOII", {})["d"] = old_series["^TWOII"]["d"]
+            print("  ^TWOII 日線:沿用前檔")
+    except Exception as e:
+        print(f"  [warn] ^TWOII 日線: {e}")
     # 匯率
     if ERAPI_FX:
         try:
