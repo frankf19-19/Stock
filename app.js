@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r392 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r394 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1464,7 +1464,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r392</span>');
+  diag.push('<span style="color:var(--dim)">build r394</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2351,22 +2351,6 @@ async function loadInst(){
     <div class="ch">5日累計 <span class="${acc>0?'pos':acc<0?'neg':'flat'}">${acc>0?'+':''}${acc.toLocaleString()} 億</span></div></div>`;
   box.innerHTML=cell('外資',cur.f,sum('f'),'foreign')+cell('投信',cur.t,sum('t'),'trust')+cell('自營商',cur.d,sum('d'),'dealer')
     +cell('三大法人',cur.f+cur.t+cur.d,sum('f')+sum('t')+sum('d'),'all');
-  {// 📋 近5日明細表(免點擊,直接在首頁看逐日數字)
-    const cellv=v=>`<span class="${v>0?'pos':v<0?'neg':'flat'}" style="font-weight:700">${v>0?'+':''}${v.toLocaleString()}</span>`;
-    const fs=innerWidth<640?12:13.5;
-    box.innerHTML+=`<div class="idx-card" style="flex:1 1 100%;min-width:100%;cursor:default">
-      <div class="nm" style="margin-bottom:7px">近 5 日明細(億)· 盤後公布 · 新→舊</div>
-      <div style="display:grid;grid-template-columns:56px repeat(4,1fr);gap:3px 8px;font-family:var(--mono);font-size:${fs}px;text-align:right">
-        <div style="text-align:left;color:var(--mut)">日期</div><div style="color:var(--mut)">外資</div><div style="color:var(--mut)">投信</div><div style="color:var(--mut)">自營商</div><div style="color:var(--mut)">合計</div>
-        ${days.map(x=>`<div style="text-align:left;color:var(--txt2)">${x.date}</div><div>${cellv(x.f)}</div><div>${cellv(x.t)}</div><div>${cellv(x.d)}</div><div>${cellv(x.f+x.t+x.d)}</div>`).join('')}
-        <div style="text-align:left;color:var(--txt2);border-top:1px solid var(--line);padding-top:5px;font-weight:800">5日累計</div>
-        <div style="border-top:1px solid var(--line);padding-top:5px">${cellv(sum('f'))}</div>
-        <div style="border-top:1px solid var(--line);padding-top:5px">${cellv(sum('t'))}</div>
-        <div style="border-top:1px solid var(--line);padding-top:5px">${cellv(sum('d'))}</div>
-        <div style="border-top:1px solid var(--line);padding-top:5px">${cellv(sum('f')+sum('t')+sum('d'))}</div>
-      </div>
-      <div class="dim-note" style="margin-top:6px">正=買超、負=賣超(集中市場,億元)。點上方任一卡看趨勢圖與白話判讀。</div></div>`;
-  }
   const dir=v=>v>0?`買超 ${v}`:v<0?`賣超 ${Math.abs(v)}`:'持平';
   window.__noteInst=`法人(${cur.date} 盤後):外資${dir(cur.f)}億、投信${dir(cur.t)}億、自營${dir(cur.d)}億;外資近5日累計 ${sum('f')>0?'+':''}${sum('f')} 億${sum('f')>300?',買盤積極':sum('f')<-300?',調節明顯':''}。`;
   composeMacroNote();
@@ -2736,6 +2720,132 @@ async function renderHeadStock(s){
     }catch(e){}
   }catch(err){box.innerHTML='<div class="dim-note">判讀引擎異常:'+String(err).slice(0,60)+'</div>';}
 }
+
+
+/* ══ 🌡️ 市場溫度區:台股恐貪(站內合成)+量能溫度計+台積電RS+類股輪動 ══ */
+async function twFngCard(){
+  const box=document.getElementById('twFng');
+  if(!box)return;
+  try{
+    const comp=[];
+    const bd=(DATA.macro||{}).breadth;
+    if(bd&&bd.a60&&bd.a60.length)comp.push(['市場廣度',Math.round(Math.max(0,Math.min(100,bd.a60[bd.a60.length-1])))]);
+    const pc=(DATA.macro||{}).pcr;
+    if(pc&&pc.oi&&pc.oi.length>=20){const cur=pc.oi[pc.oi.length-1];
+      const rank=pc.oi.filter(v=>v<=cur).length/pc.oi.length*100;
+      comp.push(['選擇權情緒',Math.round(100-rank)]);}
+    const cr=(DATA.macro||{}).credit;
+    if(cr&&cr.h&&cr.h.fin&&cr.h.fin.filter(x=>x!=null).length>=6){
+      const f=cr.h.fin.filter(x=>x!=null);
+      const chg5=(f[f.length-1]/f[f.length-6]-1)*100;
+      comp.push(['融資動能',Math.round(Math.max(0,Math.min(100,50+chg5*25)))]);}
+    const fp=((DATA.macro||{}).fut||{}).fxPct;
+    if(fp&&fp.pct!=null)comp.push(['外資期貨',fp.pct]);
+    try{const y=await yextData();const vx=y&&y.series&&y.series['^VIX'];const src=vx&&(vx.m||vx.d);
+      if(src&&src.c&&src.c.length){const v=[...src.c].reverse().find(x=>x>0);
+        if(v)comp.push(['VIX外溢',Math.round(Math.max(0,Math.min(100,100-(v-10)*5)))]);}}catch(e){}
+    if(comp.length<3){box.style.display='none';return;}
+    const sc=Math.round(comp.reduce((a,x)=>a+x[1],0)/comp.length);
+    const lab=sc<25?'極度恐懼':sc<45?'恐懼':sc<=55?'中性':sc<=75?'貪婪':'極度貪婪';
+    const col=sc<25?'#0B7A4B':sc<45?'#2E8B57':sc<=55?'#B8860B':sc<=75?'#D9822B':'#C62828';
+    box.style.display='';
+    box.innerHTML=`<div class="nm">台股恐懼貪婪(站內合成)</div>
+      <div style="display:flex;align-items:baseline;gap:9px"><b style="font-size:30px;font-family:var(--mono);color:${col}">${sc}</b><b style="color:${col};font-size:15px">${lab}</b></div>
+      <div style="height:7px;background:linear-gradient(90deg,#0B7A4B,#B8860B,#C62828);border-radius:4px;position:relative;margin:6px 2px 8px">
+        <div style="position:absolute;left:calc(${sc}% - 2px);top:-3px;width:4px;height:13px;background:var(--txt);border-radius:2px;box-shadow:0 0 0 1.5px var(--panel)"></div></div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.55">${comp.map(x=>`${x[0]} ${x[1]}`).join(' · ')}(0=極恐,100=極貪)</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:3px">情緒是溫度計不是進出訊號;極端值請配合頭部七腳印與防守線使用。</div>`;
+  }catch(e){box.style.display='none';}
+}
+setTimeout(twFngCard,5500);setInterval(twFngCard,600000);
+async function volTempCard(){
+  const box=document.getElementById('volTemp');
+  if(!box)return;
+  try{
+    const y=await yextData();
+    const tv=y&&y.series&&y.series.TWVOL;
+    if(!tv||!tv.amt||tv.amt.length<10){box.style.display='none';return;}
+    const hist=tv.amt;
+    const avg20=hist.slice(-20).reduce((a,b)=>a+b,0)/Math.min(20,hist.length);
+    let cur=hist[hist.length-1],tag='最新交易日';
+    const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const mins=now.getHours()*60+now.getMinutes()-540;
+    if(typeof RT!=='undefined'&&RT.t00v>0&&now.getDay()>=1&&now.getDay()<=5&&mins>0&&mins<270){
+      const pct=cumPct(mins);
+      cur=RT.t00v/(pct/100);
+      tag=`盤中預估(時間進度 ${pct.toFixed(0)}%)`;
+    }
+    const r=cur/avg20*100;
+    const st=r>=130?['爆量','#C62828','資金洶湧——漲=攻擊有燃料;跌=出貨疑慮,盯緊防線']:
+             r>=105?['量增','#D9822B','人氣回溫,方向表態日']:
+             r>=80?['正常','var(--txt2)','量能中性,順著趨勢看']:
+             ['量縮','#0B7A4B','觀望氣氛——跌時=殺盤力道漸竭;漲時=續航力存疑'];
+    box.style.display='';
+    box.innerHTML=`<div class="nm">大盤量能溫度計</div>
+      <div style="display:flex;align-items:baseline;gap:9px"><b style="font-size:27px;font-family:var(--mono);color:${st[1]}">${r.toFixed(0)}%</b><b style="color:${st[1]};font-size:15px">${st[0]}</b></div>
+      <div style="font-size:12px;color:var(--mut);margin-top:3px">${tag} <b>${cur.toFixed(0)} 億</b> vs 20日均 ${avg20.toFixed(0)} 億</div>
+      <div style="font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.5">${st[2]}</div>`;
+  }catch(e){box.style.display='none';}
+}
+setTimeout(volTempCard,6000);setInterval(volTempCard,120000);
+async function rsCard(){
+  const box=document.getElementById('rsCard');
+  if(!box)return;
+  try{
+    const y=await yextData();
+    const dd=y&&y.series&&y.series['^TWII']&&y.series['^TWII'].d;
+    if(!dd||!dd.c||dd.c.length<40){box.style.display='none';return;}
+    const sh='k/tw2.json';
+    if(!(sh in KCACHE)){
+      try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),15000);
+          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
+    }
+    const e=(KCACHE[sh]||{})['2330'];
+    if(!e||!e.o||e.o.length<40){box.style.display='none';return;}
+    const n=Math.min(60,e.o.length,dd.c.length);
+    const tsm=e.o.slice(-n).map(b=>b[3]),idx=dd.c.slice(-n);
+    const norm=tsm.map((v,i)=>v/idx[i]/(tsm[0]/idx[0])*100);
+    const mn=Math.min(...norm),mx=Math.max(...norm),rg=(mx-mn)||1;
+    const W=210,H=38;
+    const pts=norm.map((v,i)=>`${(i/(n-1)*W).toFixed(1)},${(H-3-(v-mn)/rg*(H-6)).toFixed(1)}`).join(' ');
+    const sl=norm[n-1]-norm[Math.max(0,n-11)];
+    const up=sl>0.8,dn=sl<-0.8,col=up?CT.up2:dn?CT.dn2:'#97938A';
+    box.style.display='';box.style.cursor='pointer';
+    box.title='點我看台積電個股頁';
+    box.innerHTML=`<div class="nm">台積電 vs 大盤(相對強弱 RS) ›</div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;margin:5px 0 3px" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div style="font-size:12.5px;line-height:1.55"><b style="color:${col}">${up?'龍頭走強於大盤':dn?'龍頭弱於大盤':'與大盤同步'}</b><span style="color:var(--dim)"> — ${dn?'權值龍頭轉弱常領先大盤做頭1~2週,提高警戒':up?'龍頭領軍,指數結構相對安全':'近10日無明顯偏離'}</span></div>`;
+    box.onclick=()=>{location.hash='#stock/2330';};
+  }catch(e){box.style.display='none';}
+}
+setTimeout(rsCard,6500);setInterval(rsCard,1800000);
+function rotBoard(){
+  const box=document.getElementById('rotBoard');
+  if(!box)return;
+  try{
+    const g={};
+    (DATA.stocks||[]).forEach(x=>{
+      if(x.market!=='TW'||x.etf||!x.sector||x.chg==null)return;
+      (g[x.sector]=g[x.sector]||[]).push(+x.chg);
+    });
+    const rows=Object.entries(g).filter(([k,v])=>v.length>=5)
+      .map(([k,v])=>({k,n:v.length,avg:v.reduce((a,b)=>a+b,0)/v.length,up:v.filter(z=>z>0).length}))
+      .sort((a,b)=>b.avg-a.avg);
+    if(rows.length<6){box.style.display='none';return;}
+    const cell=r2=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px">
+      <span>${r2.k}<span style="color:var(--dim);font-size:11px">(${r2.up}/${r2.n}紅)</span></span>
+      <b class="${r2.avg>0?'pos':r2.avg<0?'neg':'flat'}" style="font-family:var(--mono)">${r2.avg>0?'+':''}${r2.avg.toFixed(2)}%</b></div>`;
+    const hot=rows.slice(0,5),cold=rows.slice(-5).reverse();
+    const dnr=rows.filter(r2=>r2.avg<0).length/rows.length;
+    box.style.display='';
+    box.innerHTML=`<div class="nm" style="margin-bottom:6px">🔁 類股資金輪動(今日,產業平均漲跌)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px">
+        <div><div style="font-size:11.5px;color:var(--dim);margin-bottom:2px">🔥 資金流入</div>${hot.map(cell).join('')}</div>
+        <div><div style="font-size:11.5px;color:var(--dim);margin-bottom:2px">🧊 資金流出</div>${cold.map(cell).join('')}</div></div>
+      ${dnr>=0.8?'<div style="font-size:12px;color:#C62828;font-weight:800;margin-top:6px">⚠ 逾八成產業同步下跌——「輪動變輪跌」,典型頭部特徵之一</div>':dnr<=0.2?'<div style="font-size:12px;color:#0B7A4B;font-weight:800;margin-top:6px">普漲格局,資金全面性進場</div>':''}`;
+  }catch(e){box.style.display='none';}
+}
+setTimeout(rotBoard,5000);setInterval(rotBoard,60000);
 
 /* ── 大盤即時解讀:走勢型態、日線趨勢、量能評估與預估量 ── */
 let IDXD=null,IDXD_T=0;
@@ -3341,6 +3451,7 @@ function renderStkAlerts(s,k,tt){
       else if(px<m20)add('amb','🔻',`跌破月線 ${m20.toFixed(1)}——短線轉弱,下一道防線季線 ${m60.toFixed(1)}`);
       const bias=(px/m20-1)*100;
       if(bias>=15)add('amb','🔥',`股價高於月線 ${bias.toFixed(0)}%——短線乖離過大,慎防急回檔`);
+      else if(bias<=-12)add('ok','🧊',`股價低於月線 ${Math.abs(bias).toFixed(0)}%——負乖離深,技術性反彈機率升高;左側接刀請分批`);
     }
   }catch(e){}
   if(tt&&s.price&&tt.l10&&s.price<tt.l10)add('red','🐢',`跌破 10 日低點 ${tt.l10}——海龜法則出場訊號`);

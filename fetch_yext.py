@@ -493,6 +493,35 @@ def main():
             print(f"  匯率 ← er-api(USD/TWD={twd})")
         except Exception as e:
             print(f"  匯率 er-api 失敗: {e}", file=sys.stderr)
+    # ── 💧 大盤成交金額日史(FMTQIK 官方;量能溫度計 20 日均基準)──
+    try:
+        _tp2 = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+        va_t, va_a = [], []
+        for _mb2 in (1, 0):
+            _y2 = _tp2.year; _m2 = _tp2.month - _mb2
+            while _m2 <= 0: _m2 += 12; _y2 -= 1
+            try:
+                jv = json.loads(http_get("https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK"
+                                         f"?date={_y2}{_m2:02d}01&response=json", timeout=25))
+                for row in (jv.get("data") or []):
+                    try:
+                        r3 = [str(x).replace(",", "") for x in row]
+                        yy, mm, dd = r3[0].split("/")
+                        va_t.append(f"{int(yy)+1911}-{int(mm):02d}-{int(dd):02d}")
+                        va_a.append(round(float(r3[2]) / 1e8, 1))    # 元 → 億
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            time.sleep(1.0)
+        if len(va_a) >= 10:
+            series["TWVOL"] = {"d": va_t[-45:], "amt": va_a[-45:]}
+            print(f"  大盤成交金額 ← FMTQIK({len(va_a[-45:])} 日,最新 {va_a[-1]} 億)")
+        elif (old_series.get("TWVOL") or {}).get("amt"):
+            series["TWVOL"] = old_series["TWVOL"]
+            print("  大盤成交金額:沿用前檔")
+    except Exception as e:
+        print(f"  [warn] FMTQIK: {e}")
     # ── 🌙 台指期夜盤(期交所 MIS 即時):與加權收盤的價差=隔日開盤領先參考 ──
     try:
         import urllib.request as _ur
