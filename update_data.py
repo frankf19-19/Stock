@@ -956,12 +956,52 @@ def wayback_margins(want_qs):
             time.sleep(1)
     return {q: d for q, d in res.items() if d}
 
+def _cur_q_avail():
+    """依申報期限推算「現在應該拿得到」的最新季:Q1→5/16、Q2→8/15、Q3→11/15、年報(Q4)→4/1。"""
+    t = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+    y, m, d0 = t.year, t.month, t.day
+    if (m, d0) >= (11, 15): return f"{y}Q3"
+    if (m, d0) >= (8, 15):  return f"{y}Q2"
+    if (m, d0) >= (5, 16):  return f"{y}Q1"
+    if (m, d0) >= (4, 1):   return f"{y-1}Q4"
+    return f"{y-1}Q3"
+
 def append_margins(chips, cur):
     """把季度三率寫入籌碼歷史(fq/gm/om/nm/qr,保留8季)。
-    歷史深度不足(如剛上線只有最新一季)→ 向 MOPS 逐季回補八季(伺服器端直連,無CORS問題);
-    深度足夠 → 例行檢查上一季即可。回補為一次性成本(約2~4分鐘),補齊後不再觸發。"""
-    if not cur: return
+    歷史深度不足 → 向 MOPS 逐季回補;深度足夠 → 例行檢查。
+    2026-07 修:OpenAPI 被海外 IP 封鎖時原本整條靜默停擺(卡在 2025Q3 的元兇)——
+    現在 OpenAPI 失效改走 MOPS 直抓,並依申報期限自動「前緣補季」(年報+新Q1 一次補齊)。"""
+    q_exp = _cur_q_avail()
+    if not cur:
+        print(f"  [warn] 營益分析 OpenAPI 無資料(海外IP常被擋)→ 改抓 MOPS {q_exp}")
+        y0, s0 = int(q_exp[:4]), int(q_exp[-1])
+        mp = fetch_margin_mops(y0, s0)
+        cur = {sid: (q_exp, gm, om, nm, rv) for sid, (gm, om, nm, rv) in mp.items()}
+        if not cur:
+            print("  [warn] MOPS 也無資料,季報三率本輪略過")
+            return
+        print(f"  營益分析 ← MOPS 備援 {q_exp}:{len(cur)} 家")
     q_now = max(v[0] for v in cur.values())
+    # 🔧 前緣補季:官方最新季落後申報進度時,把中間缺的季(如 2025Q4 年報、2026Q1)逐季用 MOPS 補上
+    _fills, _q = [], q_exp
+    while _q > q_now and len(_fills) < 4:
+        _fills.append(_q)
+        _q = prev_q(_q)
+    for q_fill in reversed(_fills):
+        have = sum(1 for sid in cur if q_fill in (chips.get(sid, {}).get("fq") or []))
+        if have >= 200:
+            print(f"  前緣補季 {q_fill}:已有 {have} 家,跳過")
+            continue
+        y0, s0 = int(q_fill[:4]), int(q_fill[-1])
+        mp = fetch_margin_mops(y0, s0)
+        print(f"  前緣補季 {q_fill}:MOPS {len(mp)} 家")
+        for sid, (gm, om, nm, rv) in mp.items():
+            _put_margin(chips.setdefault(sid, {}), q_fill, gm, om, nm, rv)
+        if mp:
+            for sid, (gm, om, nm, rv) in mp.items():   # 讓 q_now 前進,後續深度回補基準正確
+                cur[sid] = (q_fill, gm, om, nm, rv)
+            q_now = q_fill
+        time.sleep(2)
     depths = [len(chips.get(sid, {}).get("fq") or []) for sid in cur]
     med = sorted(depths)[len(depths) // 2] if depths else 0
     if med < 7:
