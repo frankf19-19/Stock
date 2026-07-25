@@ -388,7 +388,9 @@ def main():
     try:
         _tp = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
         dt_, do_, dh_, dl_, dc_ = [], [], [], [], []
-        for _mb in range(5, -1, -1):                       # 近6個月,每月一請求
+        _oldl = (old_series.get("^TWII") or {}).get("dl") or {}
+        _mspan = 1 if len(_oldl.get("c") or []) >= 700 else 40   # 長檔已在→只補當月;否則一次建 3 年餘
+        for _mb in range(_mspan - 1, -1, -1):              # 每月一請求
             _y = _tp.year; _m = _tp.month - _mb
             while _m <= 0: _m += 12; _y -= 1
             try:
@@ -408,12 +410,24 @@ def main():
             except Exception:
                 pass
             time.sleep(1.2)
-        if len(dc_) >= 50:
-            series.setdefault("^TWII", {})["d"] = {"t": dt_[-130:], "c": dc_[-130:],
-                "o": do_[-130:], "h": dh_[-130:], "l": dl_[-130:], "prev": dc_[-2]}
-            print(f"  ^TWII 日線 ← 官方 MI_5MINS_HIST({len(dc_[-130:])} 根,含OHLC)")
+        # 與既有長檔合併(新值覆蓋同日),維持約 820 根供回測
+        _m = {}
+        for i2, ts in enumerate(_oldl.get("t") or []):
+            _m[ts] = (_oldl["o"][i2], _oldl["h"][i2], _oldl["l"][i2], _oldl["c"][i2])
+        for i2, ts in enumerate(dt_):
+            _m[ts] = (do_[i2], dh_[i2], dl_[i2], dc_[i2])
+        _ks = sorted(_m)[-820:]
+        if len(_ks) >= 50:
+            dl_all = {"t": _ks, "o": [_m[x][0] for x in _ks], "h": [_m[x][1] for x in _ks],
+                      "l": [_m[x][2] for x in _ks], "c": [_m[x][3] for x in _ks]}
+            series.setdefault("^TWII", {})["dl"] = dl_all
+            series["^TWII"]["d"] = {"t": _ks[-130:], "c": dl_all["c"][-130:],
+                "o": dl_all["o"][-130:], "h": dl_all["h"][-130:], "l": dl_all["l"][-130:],
+                "prev": dl_all["c"][-2]}
+            print(f"  ^TWII 日線 ← 官方 MI_5MINS_HIST(長檔 {len(_ks)} 根/近檔 130 根,含OHLC)")
         elif (old_series.get("^TWII") or {}).get("d"):
             series.setdefault("^TWII", {})["d"] = old_series["^TWII"]["d"]
+            if _oldl: series["^TWII"]["dl"] = _oldl
             print("  ^TWII 日線:沿用前檔")
     except Exception as e:
         print(f"  [warn] ^TWII 日線: {e}")
@@ -479,6 +493,37 @@ def main():
             print(f"  匯率 ← er-api(USD/TWD={twd})")
         except Exception as e:
             print(f"  匯率 er-api 失敗: {e}", file=sys.stderr)
+    # ── 🌙 台指期夜盤(期交所 MIS 即時):與加權收盤的價差=隔日開盤領先參考 ──
+    try:
+        import urllib.request as _ur
+        _pay = json.dumps({"MarketType": "1", "SymbolType": "F", "KindID": "1", "CID": "TXF",
+                           "ExpireMonth": "", "RowSize": "全部", "PageNo": "", "SortColumn": "",
+                           "AscDesc": "A"}).encode()
+        _rq = _ur.Request("https://mis.taifex.com.tw/futures/api/getQuoteList", data=_pay,
+                          headers={"Content-Type": "application/json",
+                                   "User-Agent": "Mozilla/5.0"})
+        _j = json.loads(_ur.urlopen(_rq, timeout=20).read().decode("utf-8", "ignore"))
+        _ql = ((_j.get("RtData") or {}).get("QuoteList")) or []
+        _best = None
+        for _q in _ql:
+            try:
+                _px = float(str(_q.get("CLastPrice") or "").replace(",", ""))
+                if _px > 1000:
+                    _best = {"px": _px, "sym": str(_q.get("SymbolID") or "")}
+                    break
+            except Exception:
+                continue
+        _spot = None
+        _twm = (series.get("^TWII") or {}).get("m") or {}
+        if _twm.get("c"):
+            _spot = [x for x in _twm["c"] if x][-1]
+        if _best and _spot:
+            _sp = round((_best["px"] / _spot - 1) * 100, 2)
+            series["TXF_N"] = {"px": _best["px"], "spot": _spot, "sprd": _sp,
+                               "t": int(time.time())}
+            print(f"  台指夜盤 {_best['px']:,}(價差 {_sp:+}% vs 加權 {_spot:,})")
+    except Exception as e:
+        print(f"  [warn] 台指夜盤: {str(e)[:60]}")
     # ── 原物料(Stooq 免費 CSV;日線含今日進行中價格,約15分鐘延遲;供前端卡片漲跌%徽章)──
     CMD_STOOQ = {"GC=F": "gc.f", "SI=F": "si.f", "HG=F": "hg.f", "CL=F": "cl.f",
                  "BZ=F": "cb.f", "NG=F": "ng.f", "NI=F": "ni.f", "ALI=F": "ali.f"}

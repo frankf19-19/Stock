@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r391 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r392 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1464,7 +1464,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r391</span>');
+  diag.push('<span style="color:var(--dim)">build r392</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2569,19 +2569,82 @@ async function renderHeadMacro(){
        const i=bd.a20.length-1,dv=(a,k)=>a.length>5?(a[i]-a[i-6]).toFixed(0):null;
        const t20=dv(bd.a20),t60=dv(bd.a60);
        seg.push(`<div style="padding:9px 13px;background:var(--panel2);border-radius:10px;font-size:13.5px;line-height:1.6">
+         ${(()=>{const pc=(DATA.macro||{}).pcr;if(!pc||!pc.oi||!pc.oi.length)return '';
+           const cur=pc.oi[pc.oi.length-1],avg=(pc.oi.slice(-20).reduce((a,b)=>a+b,0)/Math.min(20,pc.oi.length)).toFixed(0);
+           return `<b>台指選擇權 P/C(未平倉)</b>:<b>${cur}%</b>(20日均 ${avg}%)——${cur<avg-8?'偏低:市場樂觀,留意反向':cur>avg*1+8?'偏高:避險需求濃':'中性'}<br>`;})()}
          <b>市場結構(全市場 ${bd.n||'—'} 檔,日更)</b>:站上月線 <b>${bd.a20[i]}%</b>${t20!=null?`(週變化 ${t20>0?'+':''}${t20}pp)`:''} · 站上季線 <b>${bd.a60[i]}%</b>${t60!=null?`(週變化 ${t60>0?'+':''}${t60}pp)`:''} · 20日新高 ${bd.nh[i]} 檔 vs 新低 ${bd.nl[i]} 檔
          ${bd.nl[i]>bd.nh[i]*2?'<span style="color:#C62828;font-weight:800">——新低遠多於新高,內部結構弱於指數表面</span>':bd.nh[i]>bd.nl[i]*2?'<span style="color:#0B7A4B;font-weight:800">——新高佔優,結構健康</span>':''}</div>`);
      }}
-    seg.push(`<div style="margin-top:12px"><a class="earn-more" id="headScanBtn">🔍 掃描全市場個股頭部(載入約 2MB 日K,數秒完成)</a><div id="headScanOut"></div></div>`);
+    seg.push(`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <a class="earn-more" id="headScanBtn" style="flex:1;min-width:240px">🔍 掃描全市場個股頭部(載入約 2MB 日K,數秒完成)</a>
+      <a class="earn-more" id="headBtBtn" style="flex:1;min-width:240px">📜 回測驗證:機率 vs 之後20日實際表現(3年)</a></div>
+      <div id="headScanOut"></div><div id="headBtOut"></div>`);
     box.innerHTML=seg.join('<div style="height:14px"></div>');
     const btn=document.getElementById('headScanBtn');
     if(btn)btn.onclick=scanHeadAll;
+    const bt=document.getElementById('headBtBtn');
+    if(bt)bt.onclick=headBacktest;
+    if(window.__headBt)paintHeadBt(window.__headBt);
     if(window.__headScan)paintHeadScan(window.__headScan);   // 之前掃過就直接重畫
     try{renderMacroAlerts();}catch(e){}                      // 讓警示條吃到趨勢/頭部機率
   }catch(e){box.innerHTML='<div class="dim-note">判讀引擎異常:'+String(e).slice(0,60)+'</div>';}
 }
 setTimeout(renderHeadMacro,4200);
 setInterval(renderHeadMacro,600000);
+async function loadNightFut(){                               // 🌙 夜盤價差(yext,20分鐘更新)
+  try{const y=await yextData();
+    const nf=y&&y.series&&y.series.TXF_N;
+    if(nf&&nf.px){window.__nightFut=nf;renderMacroAlerts();}}catch(e){}
+}
+setTimeout(loadNightFut,5200);
+setInterval(loadNightFut,600000);
+/* ── 📜 頭部機率回測:滾動視窗跑七腳印,對照之後20日實際報酬 ── */
+async function headBacktest(){
+  const out=document.getElementById('headBtOut');
+  const btn=document.getElementById('headBtBtn');
+  if(!out)return;
+  if(window.__headBt){paintHeadBt(window.__headBt);return;}
+  if(btn)btn.textContent='回測中…';
+  try{
+    const y=await yextData();
+    const dl=y&&y.series&&y.series['^TWII']&&y.series['^TWII'].dl;
+    if(!dl||!dl.c||dl.c.length<400){
+      out.innerHTML='<div class="dim-note">長期日K尚未就緒(後端下一班會建 3 年歷史檔),稍後再試。</div>';
+      if(btn)btn.textContent='📜 回測驗證:機率 vs 之後20日實際表現(3年)';
+      return;
+    }
+    const N=dl.c.length,WIN=130,FWD=20;
+    const bks=[{t:'0~19%',lo:0,hi:20,r:[]},{t:'20~44%',lo:20,hi:45,r:[]},
+               {t:'45~69%',lo:45,hi:70,r:[]},{t:'70%以上',lo:70,hi:101,r:[]}];
+    for(let i=WIN;i<N-FWD;i++){
+      const sl=k=>dl[k].slice(i-WIN,i);
+      const hp=headprints({c:sl('c'),o:sl('o'),h:sl('h'),l:sl('l')});
+      if(!hp)continue;
+      const fwd=(dl.c[i+FWD]/dl.c[i-1]-1)*100;
+      const b=bks.find(x=>hp.prob>=x.lo&&hp.prob<x.hi);
+      if(b)b.r.push(fwd);
+      if(i%120===0)await new Promise(r=>setTimeout(r,0));   // 讓出主執行緒,不卡UI
+    }
+    window.__headBt={ts:Date.now(),n:N,bks:bks.map(b=>({t:b.t,n:b.r.length,
+      avg:b.r.length?+(b.r.reduce((a,x)=>a+x,0)/b.r.length).toFixed(2):null,
+      dn:b.r.length?Math.round(b.r.filter(x=>x<0).length/b.r.length*100):null,
+      worst:b.r.length?+Math.min(...b.r).toFixed(1):null}))};
+    paintHeadBt(window.__headBt);
+  }catch(e){out.innerHTML='<div class="dim-note">回測異常:'+String(e).slice(0,60)+'</div>';}
+  if(btn)btn.textContent='📜 回測驗證:機率 vs 之後20日實際表現(3年)';
+}
+function paintHeadBt(bt){
+  const out=document.getElementById('headBtOut');
+  if(!out||!bt)return;
+  const cell=v=>v==null?'—':`<span class="${v>0?'pos':v<0?'neg':'flat'}" style="font-weight:800">${v>0?'+':''}${v}%</span>`;
+  out.innerHTML=`<div style="margin-top:10px;padding:11px 14px;background:var(--panel2);border-radius:10px">
+    <b>📜 回測:頭部機率 → 加權指數之後 20 日表現</b><span style="color:var(--dim);font-size:12px">(樣本 ${bt.n} 個交易日,滾動 130 日視窗)</span>
+    <div style="display:grid;grid-template-columns:76px repeat(4,1fr);gap:4px 10px;font-family:var(--mono);font-size:13px;text-align:right;margin-top:8px">
+      <div style="text-align:left;color:var(--mut)">機率區間</div><div style="color:var(--mut)">樣本日</div><div style="color:var(--mut)">平均報酬</div><div style="color:var(--mut)">下跌機率</div><div style="color:var(--mut)">最差一次</div>
+      ${bt.bks.map(b=>`<div style="text-align:left;font-weight:800">${b.t}</div><div>${b.n}</div><div>${cell(b.avg)}</div><div>${b.dn==null?'—':b.dn+'%'}</div><div>${cell(b.worst)}</div>`).join('')}
+    </div>
+    <div class="dim-note" style="margin-top:7px">判讀:若高機率區間的「平均報酬更差、下跌機率更高」,代表模型有鑑別力;樣本重疊(逐日滾動)會高估顯著性,僅供權重校準參考,非交易保證。</div></div>`;
+}
 /* ── 🔍 全市場頭部掃描:每一檔台股跑七腳印,列出做頭名單與跡象 ── */
 async function scanHeadAll(){
   const out=document.getElementById('headScanOut');
@@ -3208,6 +3271,17 @@ function renderMacroAlerts(){
   const el=document.getElementById('macroAlerts');
   if(!el)return;
   const A=[];const add=(lv,ico,txt)=>A.push({lv,ico,txt});
+  try{const pc=((DATA.macro||{}).pcr||{});                   // ⚖️ 台指選擇權 P/C(未平倉)極端時提示
+    if(pc.oi&&pc.oi.length>=20){
+      const cur=pc.oi[pc.oi.length-1];
+      const rank=pc.oi.filter(v=>v<=cur).length/pc.oi.length*100;
+      if(rank<=10)add('amb','⚖️',`台指選擇權 P/C 未平倉比 ${cur}%(近60日低檔)——市場樂觀偏頭,反向警訊`);
+      else if(rank>=90)add('amb','⚖️',`台指選擇權 P/C 未平倉比 ${cur}%(近60日高檔)——避險情緒濃,恐慌溫度升高`);
+    }}catch(e){}
+  try{const nf=window.__nightFut;                            // 🌙 台指夜盤價差(隔日開盤領先參考)
+    if(nf&&Date.now()/1000-nf.t<16*3600&&Math.abs(nf.sprd)>=0.15){
+      add(Math.abs(nf.sprd)>=0.8?'amb':'ok','🌙',`台指夜盤 ${(+nf.px).toLocaleString()}(${nf.sprd>0?'+':''}${nf.sprd}% vs 加權收盤)——隔日開盤${nf.sprd>0.15?'偏多':'偏空'}參考`);
+    }}catch(e){}
   Object.values(window.__headIdx||{}).forEach(x=>{           // 🔺 大盤/櫃買趨勢與頭部機率(常駐;≥50%升級為警告)
     const lv=x.prob>=70?'red':x.prob>=50?'amb':'ok';
     const ico=x.prob>=50?'🔺':'📈';
@@ -3228,7 +3302,11 @@ function renderMacroAlerts(){
     const ft=((DATA.macro||{}).futtab)||[];
     if(ft.length){
       const L=ft[ft.length-1];
-      if(L.txf!=null&&L.txf<=-60000)add('amb','⚠️',`外資期貨淨空單 ${Math.abs(L.txf).toLocaleString()} 口——期貨籌碼明顯偏空`);
+      if(L.txf!=null&&L.txf<=-60000){
+        const fp=((DATA.macro||{}).fut||{}).fxPct;
+        const px=fp&&fp.pct!=null?`(近一年第 ${fp.pct} 百分位${fp.pct<=5?',歷史極端':''})`:'';
+        add(fp&&fp.pct<=5?'red':'amb',fp&&fp.pct<=5?'🚨':'⚠️',`外資期貨淨空單 ${Math.abs(L.txf).toLocaleString()} 口${px}——期貨籌碼明顯偏空`);
+      }
       if(L.leek!=null&&L.leek>=25)add('amb','🌱',`散戶小台多單比 ${L.leek.toFixed(1)}%——散戶過度樂觀,反向警訊`);
       if(L.pcr!=null&&L.pcr>=130)add('amb','🌡️',`選擇權 PCR ${L.pcr.toFixed(0)}——樂觀情緒過熱`);
       else if(L.pcr!=null&&L.pcr<=80)add('amb','🌡️',`選擇權 PCR ${L.pcr.toFixed(0)}——避險情緒濃厚`);

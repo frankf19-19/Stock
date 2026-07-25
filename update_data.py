@@ -93,6 +93,13 @@ def numf(s):
 def get_json(url, params=None, timeout=30):
     return requests.get(url, params=params, headers=UA, timeout=timeout).json()
 
+def get_text(url, timeout=30):
+    r = requests.get(url, headers=UA, timeout=timeout)
+    try:
+        return r.content.decode("utf-8-sig")
+    except Exception:
+        return r.content.decode("big5", "ignore")
+
 def _pick(fields, *needles):
     for i, f in enumerate(fields):
         if all(n in str(f) for n in needles): return i
@@ -1013,8 +1020,8 @@ def _put_margin(e, q, gm, om, nm, rv):
 
 def _finmind_fut(day):
     """FinMind 期貨法人未平倉(TX 大台 + MTX 小台),一次取 90 天歷史。"""
-    start = (dt.datetime.now() - dt.timedelta(days=95)).strftime("%Y-%m-%d")
     for pid in ("TX", "MTX"):
+        start = (dt.datetime.now() - dt.timedelta(days=400 if pid == "TX" else 95)).strftime("%Y-%m-%d")  # TX 拉一年供分位數
         try:
             _tok = os.environ.get("FINMIND_TOKEN", "")
             j = get_json("https://api.finmindtrade.com/api/v4/data"
@@ -1719,6 +1726,20 @@ def fetch_taifex(prev_fut=None):
                    if hist[last].get("b10") is not None else None),
            "ret": pair("rt")}
     print(f"  台指期籌碼:{last}(歷史 {len(ds)} 日/法人 {len(fut['inst'])} 項/十大 {'有' if fut['big'] else '無'})")
+    try:                                             # 外資 TX 淨OI 近一年分位數(fx 歷史來自 FinMind 400 日)
+        _fx = [e2.get("fx") for e2 in day.values() if isinstance(e2, dict) and e2.get("fx") is not None]
+        if len(_fx) >= 120 and fut.get("d"):
+            _cur = None
+            for _k in sorted(day)[::-1]:
+                if isinstance(day[_k], dict) and day[_k].get("fx") is not None:
+                    _cur = day[_k]["fx"]; break
+            if _cur is not None:
+                _pct = round(sum(1 for v in _fx if v <= _cur) / len(_fx) * 100)
+                fut["fxPct"] = {"v": _cur, "pct": _pct, "n": len(_fx),
+                                "hi": max(_fx), "lo": min(_fx)}
+                print(f"  外資TX淨OI {_cur:,} 口 → 近一年第 {_pct} 百分位(樣本 {len(_fx)} 日)")
+    except Exception as _e:
+        print(f"  [warn] 期貨分位數: {_e}")
     return fut
 
 def _act_delta(prev_hold, hold, etf_chg, chg_map, today_iso, px_map=None):
@@ -3048,6 +3069,34 @@ def main():
         _macro["credit"] = fetch_credit_macro((prev_all.get("macro") or {}).get("credit"), stocks)
     except Exception as e:
         print(f"  [warn] 大盤融資跳過: {e}")
+    # ── ⚖️ 台指選擇權 Put/Call 比(期交所官方;散戶情緒/避險溫度計)──
+    try:
+        _tpd = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+        _s0 = (_tpd - dt.timedelta(days=95)).strftime("%Y/%m/%d")
+        _s1 = _tpd.strftime("%Y/%m/%d")
+        import urllib.parse as _up
+        _raw = get_text("https://www.taifex.com.tw/cht/3/pcRatioDown"
+                        f"?queryStartDate={_up.quote(_s0,safe='')}&queryEndDate={_up.quote(_s1,safe='')}")
+        pd_, pv_, po_ = [], [], []
+        for ln in (_raw or "").splitlines()[1:]:
+            c2 = [x.strip().replace(",", "") for x in ln.split(",")]
+            if len(c2) < 7 or "/" not in c2[0]:
+                continue
+            try:
+                pd_.append(c2[0].replace("/", "-"))
+                pv_.append(float(c2[3]))          # 成交量比率%
+                po_.append(float(c2[6]))          # 未平倉比率%
+            except Exception:
+                continue
+        if len(po_) >= 20:
+            pd_, pv_, po_ = pd_[::-1][-60:], pv_[::-1][-60:], po_[::-1][-60:]   # 期交所新→舊,轉舊→新
+            _macro["pcr"] = {"d": pd_, "v": pv_, "oi": po_}
+            print(f"  台指選擇權 P/C:未平倉比 {po_[-1]}%({len(po_)} 日)")
+        elif (prev_all.get("macro") or {}).get("pcr"):
+            _macro["pcr"] = prev_all["macro"]["pcr"]
+            print("  台指選擇權 P/C:沿用前檔")
+    except Exception as e:
+        print(f"  [warn] 台指選擇權 P/C: {e}")
     # ── 📐 市場廣度(日更):全市場站上月線/季線比例、20日新高新低家數——頭部判讀的內部結構證據 ──
     try:
         import glob as _g
