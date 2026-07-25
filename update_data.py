@@ -895,21 +895,40 @@ def fetch_margin_mops(year, season):
             except Exception:
                 pass
             _pxs += [lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe=""),
+                     lambda u: "https://api.allorigins.win/raw?url=" + _up.quote(u, safe=""),
                      lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")]
+            _form = {"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
+                     "isQuery": "Y", "TYPEK": typek, "year": y_roc, "season": ss}
+            _hdr = {**UA, "Referer": "https://mopsov.twse.com.tw/mops/web/t163sb06",
+                    "Content-Type": "application/x-www-form-urlencoded"}
+            # (a) GET 帶查詢字串優先——MOPS ajax 端點接受 GET,而 GET 走公共代理成功率遠高於 POST
+            for _tgt in ("https://mopsov.twse.com.tw/mops/web/ajax_t163sb06",
+                         "https://mops.twse.com.tw/mops/web/ajax_t163sb06"):
+                if got: break
+                _qs = _tgt + "?" + _up.urlencode(_form)
+                for mk_proxy in _pxs:
+                    if got: break
+                    try:
+                        r = requests.get(mk_proxy(_qs), headers=_hdr, timeout=60)
+                        if r.ok and "毛利率" in r.text:
+                            for df in pd.read_html(StringIO(r.text)):
+                                got += _absorb_df(df)
+                            if got: print(f"    {typek} {year}Q{season} ← 代理GET +{got}")
+                    except Exception:
+                        pass
+                    time.sleep(1.2)
+            # (b) POST 代理備援
             for mk_proxy in _pxs:
                 if got: break
                 try:
-                    r = requests.post(mk_proxy(target),
-                        data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
-                              "isQuery": "Y", "TYPEK": typek, "year": y_roc, "season": ss},
-                        headers=UA, timeout=60)
+                    r = requests.post(mk_proxy(target), data=_form, headers=_hdr, timeout=60)
                     if r.ok and "毛利率" in r.text:
                         for df in pd.read_html(StringIO(r.text)):
                             got += _absorb_df(df)
-                        if got: print(f"    {typek} {year}Q{season} ← 代理路徑 +{got}")
+                        if got: print(f"    {typek} {year}Q{season} ← 代理POST +{got}")
                 except Exception as e:
                     print(f"    [warn] 代理 {typek} {year}Q{season}: {str(e)[:70]}")
-                time.sleep(1.5)
+                time.sleep(1.2)
         time.sleep(1.5)
     return out
 
