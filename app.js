@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r388 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r389 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1464,7 +1464,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r388</span>');
+  diag.push('<span style="color:var(--dim)">build r389</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2470,6 +2470,10 @@ function headprints(K){
      on=true;why='峰峰低、底底低,且價在下彎的月線之下 — 空頭確立';}
    S.push({t:'走空頭浪',d:'底底低、峰峰低,空頭確立',on,why});}
   const front=S.slice(0,3).filter(x=>x.on).length,back=S.slice(3).filter(x=>x.on).length;
+  const WT=[6,7,9,20,12,16,20];                // 權重:前段(1~3)警告早但不可靠→輕;後段(4~7)證據強→重
+  let prob=4;const parts=[['基礎值',4]];
+  S.forEach((x,i)=>{if(x.on){prob+=WT[i];parts.push([`第${i+1}步|${x.t}`,WT[i]]);}});
+  prob=Math.min(95,prob);
   let stage,tone;
   if(back>=3){stage='空頭浪確立——後段證據齊備,反彈以減碼/逃命波看待,紀律執行';tone='neg';}
   else if(S[3].on&&back>=2){stage='頭部確認進行中——已破末升低且結構下移,風險報酬最佳的紀律賣點區';tone='neg';}
@@ -2477,10 +2481,22 @@ function headprints(K){
   else if(front>=2){stage='前段警告區——警告早但不可靠,可能做頭也可能假跌破;不追高、緊盯末升低';tone='warn';}
   else if(front>=1){stage='零星警訊——單一訊號不足為憑,維持原策略、留意後續腳印';tone='mild';}
   else{stage='無做頭證據——七個腳印皆未亮,趨勢結構健康';tone='ok';}
-  return {S,front,back,stage,tone,peakV:pk,lastHL};
+  return {S,front,back,stage,tone,peakV:pk,lastHL,prob,parts};
 }
-function headHtml(r,label){
+function headHtml(r,label,extra){
   if(!r)return '<div class="dim-note">日K資料不足(需50根以上),暫無法判讀。</div>';
+  const pc=Math.min(95,r.prob+((extra&&extra.add)||0));
+  const pcol=pc>=70?'#C62828':pc>=45?'#D9822B':pc>=20?'#B8860B':'#0B7A4B';
+  const plist=[...r.parts,...(extra&&extra.add?[[extra.why,extra.add]]:[])]
+    .map(([t,v])=>`${t} +${v}%`).join(' · ');
+  const probBar=`
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px;flex-wrap:wrap">
+      <span style="font-weight:800">頭部機率</span>
+      <b style="font-size:27px;font-family:var(--mono);color:${pcol}">${pc}%</b>
+      <span style="font-size:12px;color:var(--dim)">${pc>=70?'高風險:證據齊備,紀律執行減碼':pc>=45?'偏高:頭部進行式,反彈保守以對':pc>=20?'升溫:警訊出現但未質變':'低:結構健康'}(規則化估計,非統計保證)</span></div>
+    <div style="height:9px;background:var(--panel2);border-radius:5px;overflow:hidden;margin-bottom:6px">
+      <div style="width:${pc}%;height:100%;background:linear-gradient(90deg,${pcol}99,${pcol});border-radius:5px"></div></div>
+    <div style="font-size:11.5px;color:var(--dim);margin-bottom:10px">計算:${plist}</div>`;
   const col=i=>r.S[i].on?(i<3?'#E8A33D':'#C62828'):'var(--line)';
   const cells=r.S.map((x,i)=>`
     <div style="text-align:center;position:relative">
@@ -2493,7 +2509,7 @@ function headHtml(r,label){
     </div>`).join('');
   const toneC=r.tone==='neg'?'#C62828':r.tone==='warn'?'#B8860B':r.tone==='mild'?'var(--txt2)':'#0B7A4B';
   const lit=r.S.map((x,i)=>x.on?`<div style="margin:3px 0">🔸 <b>第${i+1}步|${x.t}</b>:${x.why}</div>`:'').join('');
-  return `
+  return probBar+`
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">${cells}</div>
     <div style="margin-top:11px;padding:10px 13px;border-left:4px solid ${toneC};background:var(--panel2);border-radius:0 10px 10px 0">
       <b style="color:${toneC}">目前判定(${label}):亮 ${r.front+r.back}/7 燈(前段 ${r.front}、後段 ${r.back})</b>
@@ -2516,8 +2532,15 @@ async function renderHeadMacro(){
       }
       const K={c:dd.c};
       if(Array.isArray(dd.h)&&dd.h.length===dd.c.length){K.h=dd.h;K.l=dd.l;K.o=dd.o;}
+      let extra=null;
+      const sc=window.__headScan;
+      if(sc&&sc.res&&sc.res.length){
+        const s4p=Math.round(sc.res.filter(x=>x.s4).length/sc.res.length*100);
+        const add=s4p>=60?10:s4p>=45?8:s4p>=30?5:s4p>=15?2:0;
+        if(add)extra={add,why:`市場廣度(${s4p}%個股已破末升低)`};
+      }
       seg.push(`<div style="font-weight:900;font-size:15px;margin:4px 0 6px">${nm}<span style="font-weight:400;font-size:12px;color:var(--dim)"> · ${K.h?'官方日K(含高低)':'官方日收盤(高低以收盤近似)'}</span></div>`
-        +headHtml(headprints(K),nm));
+        +headHtml(headprints(K),nm,extra));
     });
     seg.push(`<div style="margin-top:12px"><a class="earn-more" id="headScanBtn">🔍 掃描全市場個股頭部(載入約 2MB 日K,數秒完成)</a><div id="headScanOut"></div></div>`);
     box.innerHTML=seg.join('<div style="height:14px"></div>');
@@ -2550,7 +2573,7 @@ async function scanHeadAll(){
       try{
         const K={o:e.o.map(b=>b[0]),h:e.o.map(b=>b[1]),l:e.o.map(b=>b[2]),c:e.o.map(b=>b[3])};
         const r2=headprints(K);
-        if(r2)res.push({id:x.id,name:x.name||x.id,chg:x.chg,front:r2.front,back:r2.back,
+        if(r2)res.push({id:x.id,name:x.name||x.id,chg:x.chg,front:r2.front,back:r2.back,prob:r2.prob,
           lit:r2.S.map(v=>v.on?1:0),s4:r2.S[3].on?1:0,tone:r2.tone});
       }catch(err){}
     });
@@ -2559,7 +2582,7 @@ async function scanHeadAll(){
   const scan={ts:Date.now(),n:res.length,res};
   window.__headScan=scan;
   if(btn)btn.textContent='🔍 重新掃描全市場個股頭部';
-  paintHeadScan(scan);
+  renderHeadMacro();          // 重畫整區:指數機率會吃到市場廣度加成,名單由快取直接重繪
 }
 function paintHeadScan(scan){
   const out=document.getElementById('headScanOut');
@@ -2573,9 +2596,9 @@ function paintHeadScan(scan){
   const row=x=>`<div class="earn-row" data-hs="${x.id}" style="cursor:pointer;padding:8px 12px;margin:6px 0;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center">
     <b style="min-width:96px">${x.name} <span style="color:var(--dim);font-weight:400">${x.id}</span></b>
     <span>${chip(x)}</span>
-    <span style="font-family:var(--mono);font-size:12.5px;color:var(--mut)">後段 ${x.back} 燈</span></div>`;
+    <span style="font-family:var(--mono);font-size:13px;font-weight:800;color:${x.prob>=70?'#C62828':x.prob>=45?'#D9822B':'var(--mut)'}">${x.prob}%</span></div>`;
   const grp=(t,arr,cap)=>arr.length?`<div class="earn-sub" style="margin-top:12px">${t}(${arr.length} 檔)</div>`
-    +arr.sort((a,b)=>(b.back-a.back)||(b.front-a.front)).slice(0,cap).map(row).join('')
+    +arr.sort((a,b)=>(b.prob-a.prob)||(b.back-a.back)).slice(0,cap).map(row).join('')
     +(arr.length>cap?`<div class="dim-note">…僅列前 ${cap} 檔(依亮燈數排序)</div>`:''):'';
   out.innerHTML=`
     <div style="margin-top:10px;padding:10px 13px;background:var(--panel2);border-radius:10px">
