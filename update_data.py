@@ -3048,6 +3048,52 @@ def main():
         _macro["credit"] = fetch_credit_macro((prev_all.get("macro") or {}).get("credit"), stocks)
     except Exception as e:
         print(f"  [warn] 大盤融資跳過: {e}")
+    # ── 📐 市場廣度(日更):全市場站上月線/季線比例、20日新高新低家數——頭部判讀的內部結構證據 ──
+    try:
+        import glob as _g
+        a20 = a60 = nh = nl = tot = 0
+        for _fp in _g.glob("k/tw*.json"):
+            try:
+                with open(_fp, encoding="utf-8") as f:
+                    shard = json.load(f)
+            except Exception:
+                continue
+            for _sid, _e in shard.items():
+                try:
+                    bars = (_e or {}).get("o") or []
+                    if len(bars) < 60:
+                        continue
+                    cl = [b[3] for b in bars[-60:]]
+                    hi = [b[1] for b in bars[-21:-1]]
+                    lo = [b[2] for b in bars[-21:-1]]
+                    px = cl[-1]
+                    tot += 1
+                    if px > sum(cl[-20:]) / 20: a20 += 1
+                    if px > sum(cl) / 60: a60 += 1
+                    if hi and px > max(hi): nh += 1
+                    if lo and px < min(lo): nl += 1
+                except Exception:
+                    continue
+        if tot > 300:
+            _pb = (prev_all.get("macro") or {}).get("breadth") or {}
+            _bd = {k: list(_pb.get(k) or []) for k in ("d", "a20", "a60", "nh", "nl")}
+            _tpd = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+            _key = _tpd.strftime("%Y-%m-%d")
+            if _tpd.weekday() < 5:
+                if _bd["d"] and _bd["d"][-1] == _key:
+                    for k in ("d", "a20", "a60", "nh", "nl"):
+                        _bd[k] = _bd[k][:-1]
+                _bd["d"].append(_key)
+                _bd["a20"].append(round(a20 / tot * 100, 1))
+                _bd["a60"].append(round(a60 / tot * 100, 1))
+                _bd["nh"].append(nh)
+                _bd["nl"].append(nl)
+                for k in _bd: _bd[k] = _bd[k][-90:]
+            _bd["n"] = tot
+            _macro["breadth"] = _bd
+            print(f"  市場廣度:{tot} 檔|站上月線 {round(a20/tot*100,1)}%、季線 {round(a60/tot*100,1)}%|20日新高 {nh}/新低 {nl}")
+    except Exception as e:
+        print(f"  [warn] 市場廣度: {e}")
     # ── 估值:本益比/股價淨值比/EPS/預估本益比/同產業中位數 ──
     _indpe = {}
     try:

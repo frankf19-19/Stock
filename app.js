@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r390 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r391 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1464,7 +1464,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r390</span>');
+  diag.push('<span style="color:var(--dim)">build r391</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2544,18 +2544,34 @@ async function renderHeadMacro(){
       const K={c:dd.c};
       if(Array.isArray(dd.h)&&dd.h.length===dd.c.length){K.h=dd.h;K.l=dd.l;K.o=dd.o;}
       let extra=null;
-      const sc=window.__headScan;
-      if(sc&&sc.res&&sc.res.length){
-        const s4p=Math.round(sc.res.filter(x=>x.s4).length/sc.res.length*100);
-        const add=s4p>=60?10:s4p>=45?8:s4p>=30?5:s4p>=15?2:0;
-        if(add)extra={add,why:`市場廣度(${s4p}%個股已破末升低)`};
-      }
+      {const cand=[];
+       const bd=(DATA.macro||{}).breadth;
+       if(bd&&bd.a60&&bd.a60.length){                       // 後端日更:站上季線比例低=結構腐蝕(免手動掃描)
+         const below60=100-bd.a60[bd.a60.length-1];
+         const add=below60>=60?8:below60>=45?5:below60>=30?2:0;
+         if(add)cand.push({add,why:`市場廣度(${below60.toFixed(0)}%個股跌破季線)`});
+       }
+       const sc=window.__headScan;
+       if(sc&&sc.res&&sc.res.length){
+         const s4p=Math.round(sc.res.filter(x=>x.s4).length/sc.res.length*100);
+         const add=s4p>=60?10:s4p>=45?8:s4p>=30?5:s4p>=15?2:0;
+         if(add)cand.push({add,why:`市場廣度(${s4p}%個股已破末升低)`});
+       }
+       if(cand.length)extra=cand.sort((a,b)=>b.add-a.add)[0];}
       const hp=headprints(K);
       window.__headIdx=window.__headIdx||{};
       window.__headIdx[sym]={prob:Math.min(95,hp.prob+((extra&&extra.add)||0)),trend:hp.trend,nm};
       seg.push(`<div style="font-weight:900;font-size:15px;margin:4px 0 6px">${nm}<span style="font-weight:400;font-size:12px;color:var(--dim)"> · ${K.h?'官方日K(含高低)':'官方日收盤(高低以收盤近似)'}</span></div>`
         +headHtml(hp,nm,extra));
     });
+    {const bd=(DATA.macro||{}).breadth;
+     if(bd&&bd.a20&&bd.a20.length){
+       const i=bd.a20.length-1,dv=(a,k)=>a.length>5?(a[i]-a[i-6]).toFixed(0):null;
+       const t20=dv(bd.a20),t60=dv(bd.a60);
+       seg.push(`<div style="padding:9px 13px;background:var(--panel2);border-radius:10px;font-size:13.5px;line-height:1.6">
+         <b>市場結構(全市場 ${bd.n||'—'} 檔,日更)</b>:站上月線 <b>${bd.a20[i]}%</b>${t20!=null?`(週變化 ${t20>0?'+':''}${t20}pp)`:''} · 站上季線 <b>${bd.a60[i]}%</b>${t60!=null?`(週變化 ${t60>0?'+':''}${t60}pp)`:''} · 20日新高 ${bd.nh[i]} 檔 vs 新低 ${bd.nl[i]} 檔
+         ${bd.nl[i]>bd.nh[i]*2?'<span style="color:#C62828;font-weight:800">——新低遠多於新高,內部結構弱於指數表面</span>':bd.nh[i]>bd.nl[i]*2?'<span style="color:#0B7A4B;font-weight:800">——新高佔優,結構健康</span>':''}</div>`);
+     }}
     seg.push(`<div style="margin-top:12px"><a class="earn-more" id="headScanBtn">🔍 掃描全市場個股頭部(載入約 2MB 日K,數秒完成)</a><div id="headScanOut"></div></div>`);
     box.innerHTML=seg.join('<div style="height:14px"></div>');
     const btn=document.getElementById('headScanBtn');
@@ -2639,6 +2655,7 @@ async function renderHeadStock(s){
     if(!e||!e.o||e.o.length<50){box.innerHTML='<div class="dim-note">日K資料不足(需50根以上),此檔暫無法判讀。</div>';return;}
     const K={o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3])};
     const hp=headprints(K);
+    window.__headStkC={id:s.id,prob:hp.prob,trend:hp.trend};   // 快取:警示條重繪時由 renderStkAlerts 自帶
     box.innerHTML=headHtml(hp,s.name||s.id);
     try{                                                    // 頁首警示條:目前趨勢常駐;頭部機率≥50%升級警告
       const al=document.getElementById('stkAlerts');
@@ -3231,6 +3248,11 @@ function renderStkAlerts(s,k,tt){
   const el=document.getElementById('stkAlerts');
   if(!el||location.hash!=='#stock/'+s.id)return;
   const A=[];const add=(lv,ico,txt)=>A.push({lv,ico,txt});
+  try{const hc=window.__headStkC;                            // 🔺 七腳印趨勢/機率:重繪也常駐
+    if(hc&&hc.id===s.id){
+      const lv=hc.prob>=70?'red':hc.prob>=50?'amb':'ok';
+      add(lv,hc.prob>=50?'🔺':'📈',`趨勢:${hc.trend} · 頭部機率 ${hc.prob}%${hc.prob>=70?'——證據齊備,紀律減碼/停損':hc.prob>=50?'——做頭風險偏高,反彈視為減碼機會':''}`);
+    }}catch(e){}
   if(s.disp)add('red','🚨','處置股——交易管制中,流動性差、波動放大,短線進出風險高');
   try{
     if(k&&!k.demo&&Array.isArray(k.ohlc)&&k.ohlc.length>=60&&s.price){
