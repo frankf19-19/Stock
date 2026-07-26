@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r394 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r395 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
@@ -639,4 +639,16 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   /* 除權息醒目條與註解字級 */
   .thesis{font-size:13.5px}
   .dim-note{font-size:13px}
+}
+
+/* r395:ETF 子分頁與領息試算——放大、更顯眼 */
+#etfSub{gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px}
+#etfSub button{font-family:var(--sans)!important;font-size:15.5px!important;font-weight:800!important;
+  padding:10px 18px!important;border-radius:9px!important;color:var(--mut);letter-spacing:.02em}
+#etfSub button.on{background:var(--amber)!important;color:#fff!important;font-weight:900!important;
+  box-shadow:0 2px 8px rgba(0,0,0,.15)}
+#etfQ{font-size:15px!important;padding:11px 14px!important}
+@media(max-width:640px){
+  #etfSub{width:100%;flex-wrap:wrap}
+  #etfSub button{flex:1 1 30%;font-size:15px!important;padding:11px 8px!important;text-align:center}
 }

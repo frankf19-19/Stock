@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r394 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r395 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1464,7 +1464,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r394</span>');
+  diag.push('<span style="color:var(--dim)">build r395</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10924,15 +10924,15 @@ function renderEtf(){
   window.__cfPref=window.__cfPref||{mkt:'tw',styles:new Set(['div']),freq:'any'};
   const cfSec=(sub==='cf')?`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 14px">
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-      <span style="font-size:16px;font-weight:900;letter-spacing:.04em">💰 存股領息試算</span>
-      <span style="font-size:12.5px;color:var(--dim)">殖利率=近一年配息÷現價,來自 Yahoo。<b style="color:var(--amber)">⚠ 台股 ETF 常見失真(可能含配本金)——點卡片上的 % 可修正,關鍵決策以發行商官網為準</b>;美股已按 30% 股息預扣稅折算並以即時匯率換台幣</span>
+      <span style="font-size:20px;font-weight:900;letter-spacing:.04em">💰 存股領息試算</span>
+      <span style="font-size:13px;color:var(--dim)">殖利率=近一年配息÷現價,來自 Yahoo。<b style="color:var(--amber)">⚠ 台股 ETF 常見失真(可能含配本金)——點卡片上的 % 可修正,關鍵決策以發行商官網為準</b>;美股已按 30% 股息預扣稅折算並以即時匯率換台幣</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin:12px 0;background:var(--panel);border:1.5px solid var(--amber);border-radius:12px;padding:12px 16px;flex-wrap:wrap">
-      <span style="font-size:15px;font-weight:800">🎯 我每月想領</span>
+      <span style="font-size:18px;font-weight:900">🎯 我每月想領</span>
       <input id="cfGoal" type="number" min="0.1" step="0.5" value="${window.__cfGoal||20}"
-        style="width:96px;text-align:center;font-weight:900;font-size:20px;font-family:var(--mono);border:none;border-bottom:2.5px solid var(--amber);background:transparent;color:var(--amber)">
-      <span style="font-size:15px;font-weight:800">萬元現金</span>
-      <span style="font-size:12.5px;color:var(--dim)">= 年領 <b id="cfYr" style="font-family:var(--mono)">${((window.__cfGoal||20)*12).toLocaleString()}</b> 萬</span>
+        style="width:120px;text-align:center;font-weight:900;font-size:28px;font-family:var(--mono);border:none;border-bottom:3px solid var(--amber);background:transparent;color:var(--amber)">
+      <span style="font-size:18px;font-weight:900">萬元現金</span>
+      <span style="font-size:14.5px;color:var(--txt2)">= 年領 <b id="cfYr" style="font-family:var(--mono);font-size:17px;color:var(--amber)">${((window.__cfGoal||20)*12).toLocaleString()}</b> 萬</span>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <button data-cfmode="self" style="flex:1;max-width:240px;padding:9px;border-radius:11px;border:1.5px solid ${window.__cfMode!=='ai'?'var(--amber)':'var(--line)'};background:${window.__cfMode!=='ai'?'var(--amber)':'var(--panel)'};color:${window.__cfMode!=='ai'?'var(--panel)':'var(--txt2)'};font-weight:900;font-size:14px;cursor:pointer">🎯 自己選(配息為主)</button>
