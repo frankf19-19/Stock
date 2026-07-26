@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r395 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r397 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1464,7 +1464,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r395</span>');
+  diag.push('<span style="color:var(--dim)">build r397</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2480,6 +2480,23 @@ function headHtml(r,label,extra){
   if(!r)return '<div class="dim-note">日K資料不足(需50根以上),暫無法判讀。</div>';
   const pc=Math.min(95,r.prob+((extra&&extra.add)||0));
   const pcol=pc>=70?'#C62828':pc>=45?'#D9822B':pc>=20?'#B8860B':'#0B7A4B';
+  let pdlt='',pspark='';
+  try{const k2='hph_'+String(label||'').slice(0,12);
+    const today=tpDay(Date.now()/1000);
+    let hh=JSON.parse(localStorage.getItem(k2)||'[]');
+    if(!Array.isArray(hh))hh=[];
+    if(!hh.length||hh[hh.length-1].d!==today)hh.push({d:today,v:pc});
+    else hh[hh.length-1].v=pc;
+    hh=hh.slice(-30);
+    localStorage.setItem(k2,JSON.stringify(hh));
+    const yv=hh.length>=2?hh[hh.length-2].v:null;
+    if(yv!=null){const dd2=pc-yv;
+      pdlt=dd2>0?`<span class="pos" style="font-size:13px;font-weight:800">▲+${dd2}(昨 ${yv}%)</span>`:dd2<0?`<span class="neg" style="font-size:13px;font-weight:800">▼${dd2}(昨 ${yv}%)</span>`:`<span style="font-size:12px;color:var(--dim)">與昨持平</span>`;}
+    if(hh.length>=5){                                    // 累積5天起畫30日趨勢小線
+      const vs=hh.map(x=>x.v),mn=Math.min(...vs),mx=Math.max(...vs),rg=(mx-mn)||1,W=92,H=22;
+      const pts=vs.map((v,i)=>`${(i/(vs.length-1)*W).toFixed(1)},${(H-2-(v-mn)/rg*(H-4)).toFixed(1)}`).join(' ');
+      pspark=`<svg viewBox="0 0 ${W} ${H}" style="width:${W}px;height:${H}px;vertical-align:-5px;margin-left:4px" title="近${vs.length}日機率趨勢"><polyline points="${pts}" fill="none" stroke="${pcol}" stroke-width="1.6" stroke-linecap="round"/></svg>`;}
+  }catch(e){}
   const plist=[...r.parts,...(extra&&extra.add?[[extra.why,extra.add]]:[])]
     .map(([t,v])=>`${t} +${v}%`).join(' · ');
   const probBar=`
@@ -2487,7 +2504,7 @@ function headHtml(r,label,extra){
       <span style="font-weight:800">目前趨勢:<span style="color:${pcol}">${r.trend}</span></span>
       <span style="color:var(--line)">|</span>
       <span style="font-weight:800">頭部機率</span>
-      <b style="font-size:27px;font-family:var(--mono);color:${pcol}">${pc}%</b>
+      <b style="font-size:27px;font-family:var(--mono);color:${pcol}">${pc}%</b> ${pdlt}${pspark}
       <span style="font-size:12px;color:var(--dim)">${pc>=70?'高風險:證據齊備,紀律執行減碼':pc>=45?'偏高:頭部進行式,反彈保守以對':pc>=20?'升溫:警訊出現但未質變':'低:結構健康'}(規則化估計,非統計保證)</span></div>
     <div style="height:9px;background:var(--panel2);border-radius:5px;overflow:hidden;margin-bottom:6px">
       <div style="width:${pc}%;height:100%;background:linear-gradient(90deg,${pcol}99,${pcol});border-radius:5px"></div></div>
@@ -2505,7 +2522,7 @@ function headHtml(r,label,extra){
   const toneC=r.tone==='neg'?'#C62828':r.tone==='warn'?'#B8860B':r.tone==='mild'?'var(--txt2)':'#0B7A4B';
   const lit=r.S.map((x,i)=>x.on?`<div style="margin:3px 0">🔸 <b>第${i+1}步|${x.t}</b>:${x.why}</div>`:'').join('');
   return probBar+`
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">${cells}</div>
+    <div class="hp7">${cells}</div>
     <div style="margin-top:11px;padding:10px 13px;border-left:4px solid ${toneC};background:var(--panel2);border-radius:0 10px 10px 0">
       <b style="color:${toneC}">目前判定(${label}):亮 ${r.front+r.back}/7 燈(前段 ${r.front}、後段 ${r.back})</b>
       <div style="margin-top:3px;line-height:1.55">${r.stage}</div>
@@ -2623,7 +2640,7 @@ function paintHeadBt(bt){
   const cell=v=>v==null?'—':`<span class="${v>0?'pos':v<0?'neg':'flat'}" style="font-weight:800">${v>0?'+':''}${v}%</span>`;
   out.innerHTML=`<div style="margin-top:10px;padding:11px 14px;background:var(--panel2);border-radius:10px">
     <b>📜 回測:頭部機率 → 加權指數之後 20 日表現</b><span style="color:var(--dim);font-size:12px">(樣本 ${bt.n} 個交易日,滾動 130 日視窗)</span>
-    <div style="display:grid;grid-template-columns:76px repeat(4,1fr);gap:4px 10px;font-family:var(--mono);font-size:13px;text-align:right;margin-top:8px">
+    <div class="bt5" style="margin-top:8px">
       <div style="text-align:left;color:var(--mut)">機率區間</div><div style="color:var(--mut)">樣本日</div><div style="color:var(--mut)">平均報酬</div><div style="color:var(--mut)">下跌機率</div><div style="color:var(--mut)">最差一次</div>
       ${bt.bks.map(b=>`<div style="text-align:left;font-weight:800">${b.t}</div><div>${b.n}</div><div>${cell(b.avg)}</div><div>${b.dn==null?'—':b.dn+'%'}</div><div>${cell(b.worst)}</div>`).join('')}
     </div>
@@ -2665,6 +2682,7 @@ async function scanHeadAll(){
 function paintHeadScan(scan){
   const out=document.getElementById('headScanOut');
   if(!out||!scan)return;
+  try{window.__ptIds=new Set(portGet().map(p=>p.id));}catch(e){window.__ptIds=new Set();}
   const res=scan.res;
   if(!res.length){out.innerHTML='<div class="dim-note">日K資料尚未就緒,稍後再掃。</div>';return;}
   const pct=k=>Math.round(res.filter(x=>x[k]).length/res.length*100);
@@ -2672,7 +2690,7 @@ function paintHeadScan(scan){
         warn=res.filter(x=>!x.s4&&x.front>=2);
   const chip=x=>x.lit.map((v,i)=>`<span style="display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;border-radius:4px;font-size:11px;font-weight:800;margin-right:2px;${v?`background:${i<3?'#E8A33D':'#C62828'};color:#fff`:'background:var(--panel2);color:var(--dim)'}">${i+1}</span>`).join('');
   const row=x=>`<div class="earn-row" data-hs="${x.id}" style="cursor:pointer;padding:8px 12px;margin:6px 0;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center">
-    <b style="min-width:96px">${x.name} <span style="color:var(--dim);font-weight:400">${x.id}</span></b>
+    <b style="min-width:96px">${(window.__ptIds&&window.__ptIds.has(x.id))?'💼 ':''}${x.name} <span style="color:var(--dim);font-weight:400">${x.id}</span></b>
     <span>${chip(x)}</span>
     <span style="font-family:var(--mono);font-size:13px;font-weight:800;color:${x.prob>=70?'#C62828':x.prob>=45?'#D9822B':'var(--mut)'}">${x.prob}%</span></div>`;
   const grp=(t,arr,cap)=>arr.length?`<div class="earn-sub" style="margin-top:12px">${t}(${arr.length} 檔)</div>`
@@ -2746,11 +2764,24 @@ async function twFngCard(){
         if(v)comp.push(['VIX外溢',Math.round(Math.max(0,Math.min(100,100-(v-10)*5)))]);}}catch(e){}
     if(comp.length<3){box.style.display='none';return;}
     const sc=Math.round(comp.reduce((a,x)=>a+x[1],0)/comp.length);
+    let histTxt='';
+    try{                                                  // 每日快照 → 昨/週對照
+      const today=tpDay(Date.now()/1000);
+      let h=JSON.parse(localStorage.getItem('twfng_h')||'[]');
+      if(!h.length||h[h.length-1].d!==today)h.push({d:today,s:sc});
+      else h[h.length-1].s=sc;
+      h=h.slice(-15);
+      localStorage.setItem('twfng_h',JSON.stringify(h));
+      const yv=h.length>=2?h[h.length-2].s:null;
+      const wv=h.length>=6?h[h.length-6].s:null;
+      const dlt=yv!=null?sc-yv:null;
+      histTxt=`${yv!=null?`昨 ${yv}`:''}${wv!=null?` · 週 ${wv}`:''}${dlt!=null?` · ${dlt>0?'升溫 +'+dlt:dlt<0?'降溫 '+dlt:'持平'}`:''}`;
+    }catch(e){}
     const lab=sc<25?'極度恐懼':sc<45?'恐懼':sc<=55?'中性':sc<=75?'貪婪':'極度貪婪';
     const col=sc<25?'#0B7A4B':sc<45?'#2E8B57':sc<=55?'#B8860B':sc<=75?'#D9822B':'#C62828';
     box.style.display='';
     box.innerHTML=`<div class="nm">台股恐懼貪婪(站內合成)</div>
-      <div style="display:flex;align-items:baseline;gap:9px"><b style="font-size:30px;font-family:var(--mono);color:${col}">${sc}</b><b style="color:${col};font-size:15px">${lab}</b></div>
+      <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap"><b style="font-size:30px;font-family:var(--mono);color:${col}">${sc}</b><b style="color:${col};font-size:15px">${lab}</b><span style="font-size:12px;color:var(--dim)">${histTxt}</span></div>
       <div style="height:7px;background:linear-gradient(90deg,#0B7A4B,#B8860B,#C62828);border-radius:4px;position:relative;margin:6px 2px 8px">
         <div style="position:absolute;left:calc(${sc}% - 2px);top:-3px;width:4px;height:13px;background:var(--txt);border-radius:2px;box-shadow:0 0 0 1.5px var(--panel)"></div></div>
       <div style="font-size:11px;color:var(--dim);line-height:1.55">${comp.map(x=>`${x[0]} ${x[1]}`).join(' · ')}(0=極恐,100=極貪)</div>
@@ -2839,7 +2870,7 @@ function rotBoard(){
     const dnr=rows.filter(r2=>r2.avg<0).length/rows.length;
     box.style.display='';
     box.innerHTML=`<div class="nm" style="margin-bottom:6px">🔁 類股資金輪動(今日,產業平均漲跌)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px">
+      <div class="rot2">
         <div><div style="font-size:11.5px;color:var(--dim);margin-bottom:2px">🔥 資金流入</div>${hot.map(cell).join('')}</div>
         <div><div style="font-size:11.5px;color:var(--dim);margin-bottom:2px">🧊 資金流出</div>${cold.map(cell).join('')}</div></div>
       ${dnr>=0.8?'<div style="font-size:12px;color:#C62828;font-weight:800;margin-top:6px">⚠ 逾八成產業同步下跌——「輪動變輪跌」,典型頭部特徵之一</div>':dnr<=0.2?'<div style="font-size:12px;color:#0B7A4B;font-weight:800;margin-top:6px">普漲格局,資金全面性進場</div>':''}`;
@@ -10288,7 +10319,7 @@ function setHomeTab(t){
   });
   try{localStorage.setItem('homeTab',t);}catch(e){}
   if(t==='etf'){try{renderEtf();}catch(e){}}
-  if(t==='port'){try{renderPort();}catch(e){}}
+  if(t==='port'){try{renderPort();}catch(e){}try{setTimeout(portHeadRisk,500);}catch(e){}}
   if(t==='gooaye'){try{
     gaDot(false);
     const stale=!window.__gaRenderT||Date.now()-window.__gaRenderT>10*60e3;
@@ -10546,9 +10577,53 @@ function cfAdvice(es,yGoalW,totW){
   </div>`;
 }
 /* 💼 持股分析 */
+
+/* 💼×🔺 持股頭部風險體檢:對持股逐檔跑七腳印,機率≥50%點名警示 */
+async function portHeadRisk(){
+  const anchor=document.getElementById('ptDiag')||document.getElementById('ptList');
+  if(!anchor||!anchor.parentNode)return;
+  let box=document.getElementById('ptHead');
+  if(!box){
+    box=document.createElement('div');
+    box.id='ptHead';
+    box.style.cssText='background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:12px;padding:13px 16px;margin:0 0 12px';
+    anchor.parentNode.insertBefore(box,anchor);
+  }
+  const hold=portGet().map(p=>p.id).filter(id=>/^\d/.test(String(id)));
+  if(!hold.length){box.style.display='none';return;}
+  box.style.display='';
+  box.innerHTML='<b>🔺 持股頭部風險體檢</b><div class="dim-note">七腳印引擎逐檔判讀中…</div>';
+  const rows=[];
+  for(const id of hold){
+    try{
+      const sh=`k/tw${String(id)[0]}.json`;
+      if(!(sh in KCACHE)){
+        try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),15000);
+            KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
+      }
+      const e=(KCACHE[sh]||{})[id];
+      if(!e||!e.o||e.o.length<50)continue;
+      const hp=headprints({o:e.o.map(b=>b[0]),h:e.o.map(b=>b[1]),l:e.o.map(b=>b[2]),c:e.o.map(b=>b[3])});
+      if(!hp)continue;
+      const st=(DATA.stocks||[]).find(x=>x.id===id);
+      rows.push({id,name:(st&&st.name)||id,prob:hp.prob,trend:hp.trend});
+    }catch(err){}
+  }
+  if(!rows.length){box.innerHTML='<b>🔺 持股頭部風險體檢</b><div class="dim-note">持股日K資料尚未就緒,稍後自動重試。</div>';return;}
+  rows.sort((a,b)=>b.prob-a.prob);
+  const risk=rows.filter(r2=>r2.prob>=50);
+  box.innerHTML=`<div style="font-weight:900;margin-bottom:7px">🔺 持股頭部風險體檢 <span style="font-weight:400;font-size:12px;color:var(--dim)">七腳印引擎逐檔判讀・點列看完整證據</span></div>
+    ${risk.length?`<div style="color:#C62828;font-weight:800;font-size:13.5px;margin-bottom:7px">⚠ ${risk.length} 檔頭部機率 ≥50%——反彈宜視為減碼機會,防守線見個股頁</div>`
+                 :`<div style="color:#0B7A4B;font-weight:800;font-size:13.5px;margin-bottom:7px">✓ 持股皆未達頭部警戒線(50%),結構尚可</div>`}
+    ${rows.map(r2=>`<div data-ph="${r2.id}" style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;cursor:pointer;font-size:13.5px;border-bottom:1px dashed var(--line)">
+      <span><b>${r2.name}</b> <span style="color:var(--dim)">${r2.id}</span> · <span style="color:var(--mut)">${r2.trend}</span></span>
+      <b style="font-family:var(--mono);color:${r2.prob>=70?'#C62828':r2.prob>=50?'#D9822B':'var(--mut)'}">${r2.prob}%</b></div>`).join('')}`;
+  box.querySelectorAll('[data-ph]').forEach(el=>{el.onclick=()=>{location.hash='#stock/'+el.dataset.ph;};});
+}
+
 function portGet(){try{return JSON.parse(localStorage.getItem('port1')||'[]');}catch(e){return [];}}
 function portSet(v){try{localStorage.setItem('port1',JSON.stringify(v));}catch(e){}}
-function portDel(id){portSet(portGet().filter(x=>x.id!==id));renderPort();}
+function portDel(id){portSet(portGet().filter(x=>x.id!==id));renderPort();setTimeout(portHeadRisk,400);}
 function portAdd(){
   const id=(document.getElementById('ptId').value||'').trim().toUpperCase();
   const sh=+document.getElementById('ptSh').value, cost=+document.getElementById('ptCost').value;

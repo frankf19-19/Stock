@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r395 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r397 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
@@ -652,3 +652,21 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   #etfSub{width:100%;flex-wrap:wrap}
   #etfSub button{flex:1 1 30%;font-size:15px!important;padding:11px 8px!important;text-align:center}
 }
+
+/* r396:手機排版強化 */
+.hp7{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.rot2{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}
+.bt5{display:grid;grid-template-columns:76px repeat(4,1fr);gap:4px 10px;font-family:var(--mono);font-size:13px;text-align:right}
+@media(max-width:640px){
+  .hp7{grid-template-columns:repeat(4,1fr);gap:8px 6px}          /* 七腳印:手機 4+3 兩排,字不再擠爆 */
+  .rot2{grid-template-columns:1fr;gap:10px}                      /* 類股輪動:單欄堆疊 */
+  .bt5{grid-template-columns:64px repeat(4,1fr);font-size:11.5px;gap:4px 6px}
+  .earn-row{padding:10px 12px}
+  .em-v{font-size:19px}
+  .sec-title{font-size:16.5px;padding:8px 11px 8px 10px}
+  .cal-mini-head{font-size:14px}
+}
+
+/* r397:寬螢幕溫度區四卡一排 */
+@media(min-width:1240px){#tempGrid{grid-template-columns:repeat(4,1fr)}}
+#fngTop>div{height:100%}
