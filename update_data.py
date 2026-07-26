@@ -819,8 +819,12 @@ def fetch_margin_bulk():
 
 def fetch_margin_mops(year, season):
     """歷史季別營益彙總。GitHub 機房常被 MOPS 擋——依序輪試:
-    mopsov 舊ajax → mops 舊ajax → mops 新版 JSON API,任一成功即回。"""
+    mopsov 舊ajax → mops 舊ajax → mops 新版 JSON API → 公共代理,任一成功即回。
+    2026-07 修:加單季 100 秒時間預算——先前失敗路線各掛 60 秒逾時,
+    8季×多路線可燒數小時,把 1 小時的 job 上限撐爆(每日更新一直被砍的元兇)。"""
     out = {}
+    _mt0 = time.time()
+    _over = lambda: time.time() - _mt0 > 100
     y_roc, ss = str(year - 1911), f"{season:02d}"
     def _absorb_df(df):
         n0 = len(out)
@@ -839,14 +843,17 @@ def fetch_margin_mops(year, season):
             out[sid] = (gm, om, nm, numf(row[c_rv]) if c_rv is not None else None)
         return len(out) - n0
     for typek in ("sii", "otc"):
+        if _over():
+            print(f"    ⏱ {year}Q{season} 單季預算用盡,先收現有 {len(out)} 家")
+            break
         got = 0
         for host in ("mopsov.twse.com.tw", "mops.twse.com.tw"):   # 舊 ajax(HTML 表格)
-            if got: break
+            if got or _over(): break
             try:
                 r = requests.post(f"https://{host}/mops/web/ajax_t163sb06",
                     data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
                           "isQuery": "Y", "TYPEK": typek, "year": y_roc, "season": ss},
-                    headers={**UA, "Referer": f"https://{host}/mops/web/t163sb06"}, timeout=60)
+                    headers={**UA, "Referer": f"https://{host}/mops/web/t163sb06"}, timeout=35)
                 for df in pd.read_html(StringIO(r.text)):
                     got += _absorb_df(df)
             except Exception as e:
@@ -856,7 +863,7 @@ def fetch_margin_mops(year, season):
             try:
                 r = requests.post("https://mops.twse.com.tw/mops/api/t163sb06",
                     json={"year": y_roc, "season": ss, "TYPEK": typek},
-                    headers={**UA, "Accept": "application/json"}, timeout=60)
+                    headers={**UA, "Accept": "application/json"}, timeout=30)
                 j = r.json()
                 def _walk(o, depth=0):
                     nonlocal got
@@ -904,24 +911,24 @@ def fetch_margin_mops(year, season):
             # (a) GET 帶查詢字串優先——MOPS ajax 端點接受 GET,而 GET 走公共代理成功率遠高於 POST
             for _tgt in ("https://mopsov.twse.com.tw/mops/web/ajax_t163sb06",
                          "https://mops.twse.com.tw/mops/web/ajax_t163sb06"):
-                if got: break
+                if got or _over(): break
                 _qs = _tgt + "?" + _up.urlencode(_form)
                 for mk_proxy in _pxs:
-                    if got: break
+                    if got or _over(): break
                     try:
-                        r = requests.get(mk_proxy(_qs), headers=_hdr, timeout=60)
+                        r = requests.get(mk_proxy(_qs), headers=_hdr, timeout=20)
                         if r.ok and "毛利率" in r.text:
                             for df in pd.read_html(StringIO(r.text)):
                                 got += _absorb_df(df)
                             if got: print(f"    {typek} {year}Q{season} ← 代理GET +{got}")
                     except Exception:
                         pass
-                    time.sleep(1.2)
+                    time.sleep(0.5)
             # (b) POST 代理備援
             for mk_proxy in _pxs:
-                if got: break
+                if got or _over(): break
                 try:
-                    r = requests.post(mk_proxy(target), data=_form, headers=_hdr, timeout=60)
+                    r = requests.post(mk_proxy(target), data=_form, headers=_hdr, timeout=20)
                     if r.ok and "毛利率" in r.text:
                         for df in pd.read_html(StringIO(r.text)):
                             got += _absorb_df(df)
@@ -1001,12 +1008,17 @@ def append_margins(chips, cur):
             return
         print(f"  營益分析 ← MOPS 備援 {q_exp}:{len(cur)} 家")
     q_now = max(v[0] for v in cur.values())
+    _bt0 = time.time()
+    _bover = lambda: time.time() - _bt0 > 720            # ⏱ 整體 12 分鐘預算:跑不完的下一班續補,絕不撐爆 job 上限
     # 🔧 前緣補季:官方最新季落後申報進度時,把中間缺的季(如 2025Q4 年報、2026Q1)逐季用 MOPS 補上
     _fills, _q = [], q_exp
     while _q > q_now and len(_fills) < 4:
         _fills.append(_q)
         _q = prev_q(_q)
     for q_fill in reversed(_fills):
+        if _bover():
+            print("  ⏱ 季報回補時間預算用盡,其餘季度下一班自動續補")
+            break
         have = sum(1 for sid in cur if q_fill in (chips.get(sid, {}).get("fq") or []))
         if have >= 200:
             print(f"  前緣補季 {q_fill}:已有 {have} 家,跳過")
@@ -1029,6 +1041,9 @@ def append_margins(chips, cur):
             q = prev_q(q); qs.append(q)
         print(f"  季報三率深度不足(中位數 {med} 季),向 MOPS 回補 {qs[-1]} ~ {qs[0]} …")
         for pq in qs:
+            if _bover():
+                print("  ⏱ 季報回補時間預算用盡,其餘季度下一班自動續補(已補的會保留)")
+                break
             have = sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or []))
             if have >= 200:
                 print(f"    {pq}:已有 {have} 家,跳過"); continue
@@ -1041,7 +1056,7 @@ def append_margins(chips, cur):
         # 仍缺的季 → Wayback 快照終極備援(一次掃描補全部缺季)
         missing = [pq for pq in qs
                    if sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or [])) < 200]
-        if missing:
+        if missing and not _bover():
             print(f"  MOPS 未補齊 {len(missing)} 季({','.join(missing)}),改走 Wayback 快照…")
             wb = wayback_margins(missing)
             for pq, data in wb.items():
