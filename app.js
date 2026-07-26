@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r400 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r401 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -866,28 +866,44 @@ async function t3qBlockCore(s){
   if(!slot)return;
   slot.innerHTML='<div class="dim-note" style="color:var(--dim)">📊 季報資料載入中…</div>';   // 保底:任何情況都不留純空白
   // 主源:後端 c/ 分片(每日排程以官方 OpenAPI 抓好 8 季三率,零代理、秒開、不看免費代理臉色)
-  let rows1=null;                                        // 後端僅1季時留作最後保底
+  let backRows=[];                                       // r401:三源聯集——後端+瀏覽器快取+線上抓取,一季都不浪費
   try{
     const e=await loadChips(s);
     try{finQBlock(s,e);}catch(err){}
     if(e&&Array.isArray(e.fq)&&e.fq.length){
-      const rows=e.fq.map((q,i)=>({q,v:{gm:(e.gm||[])[i],om:(e.om||[])[i],nm:(e.nm||[])[i],rev:(e.qr||[])[i]??null}}))
-        .filter(r=>[r.v.gm,r.v.om,r.v.nm].every(x=>x!=null&&isFinite(x)))
-        .sort((a,b)=>b.q.localeCompare(a.q));           // 新→舊,對齊備援路徑的排序
-      // ⚠ 門檻=至少2季:後端歷史回補失敗時只有最新1季,若直接採用會短路掉
-      //   下方「瀏覽器端八季回補」路徑,整站季報只剩一季(2026-07 實際踩過的坑)
-      if(rows.length>=2){t3RenderRows(s.id,rows,slot,'本站後端每日排程・證交所/櫃買官方 OpenAPI');return;}
-      if(rows.length)rows1=rows;
+      backRows=e.fq.map((q,i)=>({q,v:{gm:(e.gm||[])[i],om:(e.om||[])[i],nm:(e.nm||[])[i],rev:(e.qr||[])[i]??null}}))
+        .filter(r=>[r.v.gm,r.v.om,r.v.nm].every(x=>x!=null&&isFinite(x)));
     }
   }catch(err){}
-  // 備援:瀏覽器端經免費代理抓 MOPS 八季(後端歷史補齊(≥2季)後就不會走到這)
-  let q=t3QNow();
-  const probe=await t3HistQ(q);
-  if(!probe||!probe[s.id]){
-    const qs=t3Qlist(q,2);
-    q=qs[1];
+  {
+    const map={};
+    backRows.forEach(r=>{map[r.q]=r.v;});               // 後端優先(官方 OpenAPI)
+    const qs=t3Qlist(t3QNow(),8);                       // 依申報時程列到最新可得季(如 2026Q1)
+    const missing=[];
+    qs.forEach(q=>{
+      if(map[q])return;
+      try{const c2=JSON.parse(localStorage.getItem('t3h_'+q)||'null');   // 瀏覽器7天快取,同步可得
+        if(c2&&c2.exp>Date.now()&&c2.d&&c2.d[s.id]){map[q]=c2.d[s.id];return;}}catch(e2){}
+      missing.push(q);
+    });
+    const paint=src=>{
+      const rows=qs.map(q=>({q,v:map[q]||null}));
+      if(rows.some(r=>r.v))t3RenderRows(s.id,rows,slot,src);
+      return rows.some(r=>r.v);
+    };
+    const painted=paint(missing.length?'後端排程+本機快取(缺的季度背景補抓中…)':'本站後端每日排程・官方彙總');
+    for(let i=0;i<missing.length;i++){                  // 背景逐季補抓缺的(不阻塞畫面)
+      if(location.hash!==KHASH&&location.hash!=='#stock/'+s.id)break;
+      const d2=await t3HistQ(missing[i]);
+      if(d2&&d2[s.id])map[missing[i]]=d2[s.id];
+    }
+    const done=paint('後端排程+官方彙總(缺漏季已補抓)');
+    if(!done&&!painted){
+      slot.innerHTML='<div class="dim-note">季報資料源暫時連不上(官方與代理路徑皆未回應)——稍後重開此頁通常就好;後端每日排程補齊後將秒開。</div>';
+    }
+    return;
   }
-  await t3HistShow(s.id,q,slot);
+  
   if(!slot.querySelector('table')&&rows1)               // 八季回補也失敗:至少把後端那1季擺回來
     t3RenderRows(s.id,rows1,slot,'本站後端每日排程・證交所/櫃買官方 OpenAPI(八季歷史回補中)');
 }
@@ -1492,7 +1508,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r400</span>');
+  diag.push('<span style="color:var(--dim)">build r401</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
