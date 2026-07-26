@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r405 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r406 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1508,7 +1508,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r405</span>');
+  diag.push('<span style="color:var(--dim)">build r406</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6817,6 +6817,18 @@ function bindKControls(sLike){
       };
     });
   }
+  const fw=document.getElementById('fwSeg');
+  if(fw){
+    const cur=localStorage.getItem('kFW')==='1';
+    fw.querySelectorAll('button').forEach(b=>{
+      b.classList.toggle('on',(b.dataset.t==='1')===cur);
+      b.onclick=()=>{
+        localStorage.setItem('kFW',b.dataset.t);
+        fw.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+        try{drawKChart();}catch(e){}
+      };
+    });
+  }
   const tl=document.getElementById('tlSeg');
   if(tl){
     const cur=localStorage.getItem('kTL')!=='0';
@@ -6892,6 +6904,7 @@ function kChartBoxHTML(){
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="fwSeg"><button data-t="1">🌊波浪Fib</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="instSeg"><button data-t="1">法人副圖</button><button data-t="0">隱藏</button></div>
@@ -6959,6 +6972,35 @@ function kdrawBindClick(){
     chartInst.getZr().on('click',_h);
   }catch(e){}
 }
+
+function __fwOverlay(o){                   // 🌊 K線圖疊加層:Fib回檔/擴延線+浪型①~⑤+諧波PRZ(開關 kFW,預設關)
+  try{
+    if(localStorage.getItem('kFW')!=='1')return [];
+    if(!Array.isArray(o)||o.length<60)return [];
+    const K={o:o.map(x=>x[0]),h:o.map(x=>x[1]),l:o.map(x=>x[2]),c:o.map(x=>x[3])};
+    const r=fibWave(K);
+    if(!r)return [];
+    const F2=r.F2,mk=[];
+    r.levels.forEach(v=>{mk.push({yAxis:v.px,
+      lineStyle:v.r===0.618?{color:'#E8A33D',width:2,type:'solid'}:{color:'#9A938A',width:1,type:'dashed',opacity:.7},
+      label:{formatter:`${v.r} ${F2(v.px)}`,position:'insideEndTop',fontSize:10,
+        color:v.r===0.618?'#E8A33D':'#9A938A',fontWeight:v.r===0.618?900:400}});});
+    r.ext.forEach(v=>{mk.push({yAxis:v.px,lineStyle:{color:'#7FB4FF',width:1,type:'dotted'},
+      label:{formatter:`${v.r} ${F2(v.px)}`,position:'insideEndTop',fontSize:10,color:'#7FB4FF'}});});
+    const pts=[];
+    (r.zzW||[]).slice(0,5).forEach((p,i)=>{pts.push({coord:[p.i,p.px],
+      value:['①','②','③','④','⑤'][i],
+      label:{fontSize:13,fontWeight:900,color:'#B85C38',position:p.t===1?'top':'bottom'},
+      symbol:'circle',symbolSize:5,itemStyle:{color:'#B85C38'}});});
+    const areas=(r.harm&&r.harm.fresh)?[[{yAxis:r.harm.prz[0],itemStyle:{color:'rgba(160,120,220,.13)'},
+      label:{show:true,formatter:'諧波PRZ',fontSize:10,color:'#8f6fc0',position:'insideRight'}},{yAxis:r.harm.prz[1]}]]:[];
+    return [{name:'🌊波浪Fib',type:'line',data:[],xAxisIndex:0,yAxisIndex:0,silent:true,tooltip:{show:false},
+      markLine:{symbol:'none',silent:true,data:mk},
+      markPoint:{silent:true,data:pts},
+      markArea:{silent:true,data:areas}}];
+  }catch(e){return [];}
+}
+
 function drawKChart(){
   const box=document.getElementById('kbox');
   if(!box||!curOhlc) return;
@@ -7096,7 +7138,7 @@ function drawKChart(){
       {type:'slider',xAxisIndex:__inst?[0,1,2,3,4]:[0,1,2],bottom:6,height:18,start:zs,end:ze,showDetail:false,
        borderColor:CT.border,fillerColor:hexA(cssVar('--amber'),.15),
        handleStyle:{color:cssVar('--amber')},textStyle:{color:CT.axis,fontSize:11}}],
-    series:[{name:'K線',type:'candlestick',xAxisIndex:0,yAxisIndex:0,
+    series:[...__fwOverlay(o),{name:'K線',type:'candlestick',xAxisIndex:0,yAxisIndex:0,
         data:o.map(x=>[x[0],x[3],x[2],x[1]]),  // echarts 順序 [開,收,低,高]
         itemStyle:{color:UPC,color0:DNC,borderColor:UPC,borderColor0:DNC},
         ...((curLevels)?(()=>{   // 價位/趨勢線:日K/週K/月K 都顯示(水平價與趨勢線不受週期影響;箱型仍限日K)
