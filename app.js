@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r407 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r408 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1508,7 +1508,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r407</span>');
+  diag.push('<span style="color:var(--dim)">build r408</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2612,6 +2612,28 @@ function tpFutureDate(bars){
     return`${d.getMonth()+1}/${d.getDate()}`;
   }catch(e){return'+'+bars+'日';}
 }
+
+const atag=t=>`<span class="atag">${t}</span>`;          // 警示膠囊的主題分類標籤
+function turnPills(r,add,scope){                          // 🔔 轉折提醒:波段高低點/時間窗/近端價位觸碰
+  try{
+    if(!r)return;
+    const F2=r.F2;
+    if(r.upLeg){
+      const gap=(r.legExt-r.px)/r.legExt*100;
+      if(r.px>=r.legExt*0.999)add('amb','🔔',atag('轉折')+`${scope}已觸及本波段高點 ${F2(r.legExt)}——高點區與轉折節奏共振時,提高警覺`);
+      else if(gap<=1.2)add('ok','🔔',atag('轉折')+`${scope}接近本波段高點 ${F2(r.legExt)}(差 ${gap.toFixed(1)}%)`);
+    }else{
+      const gap=(r.px-r.legExt)/r.legExt*100;
+      if(r.px<=r.legExt*1.001)add('amb','🔔',atag('轉折')+`${scope}已觸及本波段低點 ${F2(r.legExt)}——留意止跌訊號或破底轉弱`);
+      else if(gap<=1.2)add('ok','🔔',atag('轉折')+`${scope}接近本波段低點 ${F2(r.legExt)}(差 ${gap.toFixed(1)}%)`);
+    }
+    if(r.due)add('amb','⏱',atag('轉折')+`${scope}距上次轉折 ${r.since} 個交易日,已達平均週期 ${r.avg.toFixed(0)} 天——隨時留意反轉`);
+    else if(r.winLo<=2)add('ok','⏱',atag('轉折')+`${scope}預估轉折窗口 ${Math.max(1,r.winLo)}~${r.winHi} 個交易日內開啟(約 ${tpFutureDate(Math.max(1,r.winLo))}~${tpFutureDate(r.winHi)})`);
+    const hit=(r.near||[]).find(o=>Math.abs(r.px-o.px)/r.px<=0.008);
+    if(hit)add(hit.r===0.618?'amb':'ok','🛡',atag('轉折')+`${scope}正回測 ${hit.r} ${r.upLeg?'回檔支撐':'反彈壓力'} ${F2(hit.px)}${hit.r===0.618?'——黃金口袋,守住/跌破定波段生死':''}`);
+  }catch(e){}
+}
+
 function turnEngine(K){
   try{
     const c=K.c,n=c.length;
@@ -2695,7 +2717,10 @@ async function renderFwStock(s){
     }
     const e=(KCACHE[sh]||{})[s.id];
     if(!e||!e.o||e.o.length<60){box.innerHTML='<div class="dim-note">日K資料不足(需60根以上),此檔暫無法判讀。</div>';return;}
-    box.innerHTML=turnHtml(turnEngine({o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3])}));
+    const tr=turnEngine({o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3])});
+    window.__turnStkC={id:s.id,r:tr};
+    box.innerHTML=turnHtml(tr);
+    try{renderStkAlerts&&window.__lastStkAlertArgs&&renderStkAlerts(...window.__lastStkAlertArgs);}catch(e){}
   }catch(err){box.innerHTML='<div class="dim-note">引擎異常:'+String(err).slice(0,60)+'</div>';}
 }
 async function renderFwMacro(){
@@ -2705,7 +2730,10 @@ async function renderFwMacro(){
     const y=await yextData();
     const dd=y&&y.series&&y.series['^TWII']&&(y.series['^TWII'].dl||y.series['^TWII'].d);
     if(!dd||!dd.c||dd.c.length<60){box.innerHTML='<div class="dim-note">大盤日線回補中。</div>';return;}
-    box.innerHTML=turnHtml(turnEngine({c:dd.c,h:dd.h||dd.c,l:dd.l||dd.c,o:dd.o||dd.c,t:dd.t}));
+    const tr=turnEngine({c:dd.c,h:dd.h||dd.c,l:dd.l||dd.c,o:dd.o||dd.c,t:dd.t});
+    window.__turnIdx=tr;
+    box.innerHTML=turnHtml(tr);
+    try{renderMacroAlerts();}catch(e){}
   }catch(e){box.innerHTML='<div class="dim-note">引擎異常:'+String(e).slice(0,60)+'</div>';}
 }
 setTimeout(renderFwMacro,5000);
@@ -3746,21 +3774,22 @@ function renderMacroAlerts(){
     if(pc.oi&&pc.oi.length>=20){
       const cur=pc.oi[pc.oi.length-1];
       const rank=pc.oi.filter(v=>v<=cur).length/pc.oi.length*100;
-      if(rank<=10)add('amb','⚖️',`台指選擇權 P/C 未平倉比 ${cur}%(近60日低檔)——市場樂觀偏頭,反向警訊`);
-      else if(rank>=90)add('amb','⚖️',`台指選擇權 P/C 未平倉比 ${cur}%(近60日高檔)——避險情緒濃,恐慌溫度升高`);
+      if(rank<=10)add('amb','⚖️',atag('選擇權')+`台指選擇權 P/C 未平倉比 ${cur}%(近60日低檔)——市場樂觀偏頭,反向警訊`);
+      else if(rank>=90)add('amb','⚖️',atag('選擇權')+`台指選擇權 P/C 未平倉比 ${cur}%(近60日高檔)——避險情緒濃,恐慌溫度升高`);
     }}catch(e){}
   try{const mt=window.__mtRate;                              // 🧮 融資維持率警戒
-    if(mt!=null&&mt<140)add(mt<130?'red':'amb','🧮',`大盤融資維持率估算 ${mt}%${mt<130?'——跌破追繳線,斷頭多殺多風險高':'——逼近追繳線,大跌日慎防斷頭賣壓'}`);
+    if(mt!=null&&mt<140)add(mt<130?'red':'amb','🧮',atag('融資')+`大盤融資維持率估算 ${mt}%${mt<130?'——跌破追繳線,斷頭多殺多風險高':'——逼近追繳線,大跌日慎防斷頭賣壓'}`);
   }catch(e){}
   try{const nf=window.__nightFut;                            // 🌙 台指夜盤價差(隔日開盤領先參考)
     if(nf&&Date.now()/1000-nf.t<16*3600&&Math.abs(nf.sprd)>=0.15){
-      add(Math.abs(nf.sprd)>=0.8?'amb':'ok','🌙',`台指夜盤 ${(+nf.px).toLocaleString()}(${nf.sprd>0?'+':''}${nf.sprd}% vs 加權收盤)——隔日開盤${nf.sprd>0.15?'偏多':'偏空'}參考`);
+      add(Math.abs(nf.sprd)>=0.8?'amb':'ok','🌙',atag('夜盤')+`台指夜盤 ${(+nf.px).toLocaleString()}(${nf.sprd>0?'+':''}${nf.sprd}% vs 加權收盤)——隔日開盤${nf.sprd>0.15?'偏多':'偏空'}參考`);
     }}catch(e){}
   Object.values(window.__headIdx||{}).forEach(x=>{           // 🔺 大盤/櫃買趨勢與頭部機率(常駐;≥50%升級為警告)
     const lv=x.prob>=70?'red':x.prob>=50?'amb':'ok';
     const ico=x.prob>=50?'🔺':'📈';
-    add(lv,ico,`${x.nm}趨勢:${x.trend} · 頭部機率 ${x.prob}%${x.prob>=70?'——證據齊備,紀律減碼':x.prob>=50?'——頭部風險偏高,反彈保守以對':''}`);
+    add(lv,ico,atag('頭部')+`${x.nm}趨勢:${x.trend} · 頭部機率 ${x.prob}%${x.prob>=70?'——證據齊備,紀律減碼':x.prob>=50?'——頭部風險偏高,反彈保守以對':''}`);
   });
+  try{if(window.__turnIdx)turnPills(window.__turnIdx,add,'加權');}catch(e){}
   const rv=window.__riskVals||{};
   if(rv.vix!=null){
     if(rv.vix>=28)add('red','🚨',`VIX ${rv.vix.toFixed(1)} 恐慌區——市場劇烈避險,倉位與槓桿務必控管`);
@@ -3800,13 +3829,16 @@ function renderStkAlerts(s,k,tt){
   const el=document.getElementById('stkAlerts');
   if(!el||location.hash!=='#stock/'+s.id)return;
   const A=[];const add=(lv,ico,txt)=>A.push({lv,ico,txt});
+  try{window.__lastStkAlertArgs=[...arguments];}catch(e){}
   try{const hc=window.__headStkC;                            // 🔺 七腳印趨勢/機率:重繪也常駐
     if(hc&&hc.id===s.id){
       const lv=hc.prob>=70?'red':hc.prob>=50?'amb':'ok';
-      add(lv,hc.prob>=50?'🔺':'📈',`趨勢:${hc.trend} · 頭部機率 ${hc.prob}%${hc.prob>=70?'——證據齊備,紀律減碼/停損':hc.prob>=50?'——做頭風險偏高,反彈視為減碼機會':''}`);
+      add(lv,hc.prob>=50?'🔺':'📈',atag('頭部')+`趨勢:${hc.trend} · 頭部機率 ${hc.prob}%${hc.prob>=70?'——證據齊備,紀律減碼/停損':hc.prob>=50?'——做頭風險偏高,反彈視為減碼機會':''}`);
     }}catch(e){}
+  try{const tc=window.__turnStkC;                            // 🔔 轉折提醒(波段高低點/時間窗/價位觸碰)
+    if(tc&&tc.id===s.id)turnPills(tc.r,add,'');}catch(e){}
   if(s.disp)add('red','🚨','處置股——交易管制中,流動性差、波動放大,短線進出風險高');
-  if(s.dtp!=null&&s.dtp>=40)add(s.dtp>=60?'red':'amb','🎰',`當沖佔比 ${s.dtp}%——投機盤主導,波動劇烈${s.dtp>=60?',留意處置風險與尾盤變臉':',隔日沖出貨常在尾盤'}`);
+  if(s.dtp!=null&&s.dtp>=40)add(s.dtp>=60?'red':'amb','🎰',atag('當沖')+`當沖佔比 ${s.dtp}%——投機盤主導,波動劇烈${s.dtp>=60?',留意處置風險與尾盤變臉':',隔日沖出貨常在尾盤'}`);
   try{
     if(k&&!k.demo&&Array.isArray(k.ohlc)&&k.ohlc.length>=60&&s.price){
       const cl=k.ohlc.map(x=>x[3]);
@@ -3815,8 +3847,8 @@ function renderStkAlerts(s,k,tt){
       if(px<m60)add('red','🔻',`跌破季線 ${m60.toFixed(1)}——中期趨勢轉弱`);
       else if(px<m20)add('amb','🔻',`跌破月線 ${m20.toFixed(1)}——短線轉弱,下一道防線季線 ${m60.toFixed(1)}`);
       const bias=(px/m20-1)*100;
-      if(bias>=15)add('amb','🔥',`股價高於月線 ${bias.toFixed(0)}%——短線乖離過大,慎防急回檔`);
-      else if(bias<=-12)add('ok','🧊',`股價低於月線 ${Math.abs(bias).toFixed(0)}%——負乖離深,技術性反彈機率升高;左側接刀請分批`);
+      if(bias>=15)add('amb','🔥',atag('乖離')+`股價高於月線 ${bias.toFixed(0)}%——短線乖離過大,慎防急回檔`);
+      else if(bias<=-12)add('ok','🧊',atag('乖離')+`股價低於月線 ${Math.abs(bias).toFixed(0)}%——負乖離深,技術性反彈機率升高;左側接刀請分批`);
     }
   }catch(e){}
   if(tt&&s.price&&tt.l10&&s.price<tt.l10)add('red','🐢',`跌破 10 日低點 ${tt.l10}——海龜法則出場訊號`);
