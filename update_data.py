@@ -838,13 +838,19 @@ def fetch_margin_mops(year, season):
     y_roc, ss = str(year - 1911), f"{season:02d}"
     def _absorb_df(df):
         n0 = len(out)
-        cols = [str(c) for c in df.columns]
-        if not any("毛利率" in c for c in cols): return 0
-        c_id = next(c for c in df.columns if "代號" in str(c))
-        c_gm = next(c for c in df.columns if "毛利率" in str(c))
-        c_om = next(c for c in df.columns if "營業利益率" in str(c))
-        c_nm = next(c for c in df.columns if "稅後純益率" in str(c))
-        c_rv = next((c for c in df.columns if "營業收入" in str(c)), None)
+        def _cn(c):                                       # MultiIndex 攤平成字串
+            return " ".join(str(x) for x in c) if isinstance(c, tuple) else str(c)
+        cols = [(c, _cn(c).replace(" ", "").replace("\u3000", "")) for c in df.columns]
+        if not any("毛利率" in n for _, n in cols): return 0
+        pick = lambda *kws: next((c for c, n in cols if any(k in n for k in kws)), None)
+        c_id = pick("代號")
+        c_gm = pick("毛利率")
+        c_om = pick("營業利益率", "營益率")
+        c_nm = pick("稅後純益率", "稅後淨利率", "純益率", "淨利率")
+        c_rv = pick("營業收入", "營收")
+        if None in (c_id, c_gm, c_om, c_nm):
+            print(f"    [diag] 三率欄名不符,實際欄位: {[n for _, n in cols][:8]}")
+            return 0
         for _, row in df.iterrows():
             sid = str(row[c_id]).strip()
             if not (sid.isdigit() and len(sid) == 4): continue
@@ -934,18 +940,24 @@ def fetch_margin_mops(year, season):
                     except Exception:
                         pass
                     time.sleep(0.5)
-            # (b) POST 代理備援
-            for mk_proxy in _pxs:
-                if got or _over(): break
+            # (b) POST 代理備援——與前端瀏覽器完全同款(corsproxy 是唯一支援 POST 轉發的公共代理)
+            if not got and not _over():
                 try:
-                    r = requests.post(mk_proxy(target), data=_form, headers=_hdr, timeout=20)
+                    _body = _up.urlencode(_form)
+                    r = requests.post("https://corsproxy.io/?url=" + _up.quote(target, safe=""),
+                                      data=_body,
+                                      headers={**UA, "Content-Type": "application/x-www-form-urlencoded",
+                                               "Accept": "text/html,*/*"},
+                                      timeout=45)
                     if r.ok and "毛利率" in r.text:
                         for df in pd.read_html(StringIO(r.text)):
                             got += _absorb_df(df)
                         if got: print(f"    {typek} {year}Q{season} ← 代理POST +{got}")
+                    elif r.ok:
+                        print(f"    [diag] 代理POST 回應無三率表({typek} {year}Q{season},長度 {len(r.text)})")
                 except Exception as e:
-                    print(f"    [warn] 代理 {typek} {year}Q{season}: {str(e)[:70]}")
-                time.sleep(1.2)
+                    print(f"    [warn] 代理POST {typek} {year}Q{season}: {str(e)[:70]}")
+                time.sleep(1.0)
         time.sleep(1.5)
     return out
 
