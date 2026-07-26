@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r403 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r404 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1508,7 +1508,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r403</span>');
+  diag.push('<span style="color:var(--dim)">build r404</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2574,6 +2574,159 @@ function headHtml(r,label,extra){
     </div>
     <div class="dim-note" style="margin-top:7px">口訣:前段(1~3)警告早、但不可靠——頭部可能形成,也可能假跌破;後段(4~7)證據強、但價格更便宜——風險報酬最佳,<b>紀律執行才是關鍵</b>。方法論:「打頭打七吋」七腳印(辣個分析師);本區為規則化自動判讀,非投資建議。</div>`;
 }
+
+/* ══ 🌊 波浪・黃金切割・諧波引擎(規則化近似) ══
+   艾略特:鋸齒轉折點擬合 1-2-3-4-5 推進浪,三大鐵律檢核(2不破1起點/3非最短/4不重疊1頂)
+   黃金切割:主波段回檔位 0.236/0.382/0.5/0.618/0.786 + 擴延目標 1.272/1.618
+   諧波:XABCD 比例比對 Gartley/Bat/Butterfly/Crab(±6%容差)→ PRZ 潛在反轉區
+   合流判定:多訊號指向同一價區 = 高勝率關注區 */
+function fwZigzag(K,W){
+  const h=K.h,l=K.l,n=h.length,piv=[];
+  W=W||4;
+  for(let i=W;i<n-W;i++){
+    let iH=true,iL=true;
+    for(let j=i-W;j<=i+W;j++){if(h[j]>h[i])iH=false;if(l[j]<l[i])iL=false;}
+    if(iH)piv.push({i,px:h[i],t:1});
+    else if(iL)piv.push({i,px:l[i],t:-1});
+  }
+  const zz=[];                                            // 交錯化:同向連續取更極端者
+  piv.forEach(p=>{
+    const last=zz[zz.length-1];
+    if(!last||last.t!==p.t)zz.push({...p});
+    else if((p.t===1&&p.px>last.px)||(p.t===-1&&p.px<last.px))zz[zz.length-1]={...p};
+  });
+  return zz;
+}
+function fibWave(K){
+  try{
+    const c=K.c,n=c.length;
+    if(n<60)return null;
+    const px=c[n-1];
+    const F2=x=>(+x).toLocaleString(undefined,{maximumFractionDigits:2});
+    const look=Math.min(n,150);
+    let loI=n-look,hiI=n-look;
+    for(let i=n-look;i<n;i++){if(K.l[i]<K.l[loI])loI=i;if(K.h[i]>K.h[hiI])hiI=i;}
+    const up=hiI>loI;                                     // 低點在前=上升主波段
+    const A=up?K.l[loI]:K.h[hiI], B=up?K.h[hiI]:K.l[loI], rng=Math.abs(B-A);
+    if(!(rng>0))return null;
+    const ratios=[0.236,0.382,0.5,0.618,0.786];
+    const levels=ratios.map(r=>({r,px:up?B-rng*r:B+rng*r}));
+    const ext=[1.272,1.618].map(r=>({r,px:up?A+rng*r:A-rng*r}));
+    const posR=up?(B-px)/rng:(px-B)/rng;                  // 現價回檔比例
+    let posTxt;
+    if(posR<0)posTxt=up?'已突破波段高點,進入擴延目標區':'已跌破波段低點,往下一擴延支撐找買點';
+    else if(posR<0.236)posTxt='淺回檔(<0.236),趨勢極強';
+    else if(posR<0.5)posTxt='回檔至 0.236~0.5,屬強勢整理';
+    else if(posR<=0.66)posTxt='進入 0.5~0.618 黃金口袋——'+(up?'多方最後的高勝率防守/布局區':'空方反壓關鍵區');
+    else if(posR<=0.786)posTxt='回檔已深(0.618~0.786),趨勢動搖,破 0.786 視為波段反轉';
+    else posTxt='回檔逾 0.786,原趨勢大概率已終結';
+    // ── 艾略特:自主波段起點擬合推進浪 ──
+    const zz=fwZigzag(K,4).filter(p=>p.i>=(up?loI:hiI));
+    let wave=null;
+    if(zz.length>=2){
+      const legs=zz.length;                               // 起點後的轉折數
+      const w1=zz[0],w2=zz[1],w3=zz[2],w4=zz[3],w5=zz[4];
+      let rules=[],okN=0;
+      if(w2){const r2=Math.abs(w2.px-w1.px)/Math.max(1e-9,Math.abs(w1.px-(up?A:A)));
+        const ok=up?w2.px>A:w2.px<A;rules.push(['2浪不破1浪起點',ok]);okN+=ok?1:0;}
+      if(w3){const l1=Math.abs(w1.px-A),l3=Math.abs(w3.px-w2.px);
+        const ok=l3>=l1*0.9;rules.push(['3浪非最短(常見延伸)',ok]);okN+=ok?1:0;}
+      if(w4){const ok=up?w4.px>w1.px*0.995:w4.px<w1.px*1.005;rules.push(['4浪不重疊1浪頂',ok]);okN+=ok?1:0;}
+      const stage=legs>=5?5:legs+0;
+      let label,txt;
+      if(stage<=1){label='疑似第1-2浪';txt='新趨勢起步,回檔(第2浪)常深達 0.5~0.618,是低風險上車區';}
+      else if(stage===2){label='疑似第3浪初期';txt='主升(跌)段——通常最長最陡,順勢持有,回檔看 0.382 淺守';}
+      else if(stage===3){label='疑似第3浪成熟/第4浪整理';txt='第4浪多為橫向消化,守住不與第1浪重疊即健康';}
+      else if(stage===4){label='疑似第5浪推進';txt='末升段——留意量價與 RSI 背離(對照上方七腳印第①步),背離+5浪=高勝率減碼區';}
+      else{label='五浪疑似走完/ABC修正中';txt='推進結構完成後進入 ABC 三波修正,C浪常至前4浪低點或 0.618 回檔,修正末端再找買點';}
+      wave={label,txt,rules,okN,total:rules.length};
+    }
+    // ── 諧波:最後5個轉折擬合 XABCD ──
+    let harm=null;
+    const z2=fwZigzag(K,3);
+    if(z2.length>=5){
+      const[X,Ap,Bp,Cp,Dp]=z2.slice(-5);
+      const XA=Math.abs(Ap.px-X.px),AB=Math.abs(Bp.px-Ap.px),BC=Math.abs(Cp.px-Bp.px),AD=Math.abs(Dp.px-X.px);
+      if(XA>0&&AB>0){
+        const rAB=AB/XA, rAD=Math.abs(Dp.px-X.px)/XA;
+        const near=(v,t,tol)=>Math.abs(v-t)<=tol;
+        const pats=[
+          ['Gartley',near(rAB,0.618,0.07)&&near(rAD,0.786,0.06)],
+          ['Bat',rAB>=0.33&&rAB<=0.53&&near(rAD,0.886,0.06)],
+          ['Butterfly',near(rAB,0.786,0.07)&&near(rAD,1.27,0.09)],
+          ['Crab',rAB>=0.33&&rAB<=0.65&&near(rAD,1.618,0.12)],
+        ].filter(p=>p[1]);
+        if(pats.length){
+          const bull=Dp.t===-1;                           // D 為低點=看漲諧波
+          const prz=[Dp.px*0.99,Dp.px*1.01];
+          harm={name:pats[0][0],bull,prz,d:Dp.px,
+            fresh:Dp.i>=n-8,
+            txt:`${pats[0][0]} ${bull?'看漲':'看跌'}型態,PRZ 潛在反轉區約 ${F2(prz[0])}~${F2(prz[1])}${Dp.i>=n-8?'(近期完成,關注反應)':'(型態較舊,參考性下降)'}`};
+        }
+      }
+    }
+    // ── 合流判定 ──
+    const conf=[];
+    if(posR>=0.5&&posR<=0.66)conf.push('黃金口袋');
+    if(wave&&/第2浪|修正/.test(wave.label)&&posR>=0.382)conf.push('修正浪+深回檔');
+    if(harm&&harm.fresh&&Math.abs(px-harm.d)/px<0.03)conf.push('諧波PRZ鄰近');
+    if(wave&&/第5浪/.test(wave.label))conf.push('五浪末端警戒');
+    return {up,A,B,levels,ext,posR,posTxt,wave,harm,conf,px,F2};
+  }catch(e){return null;}
+}
+function fwHtml(r,label){
+  if(!r)return '<div class="dim-note">日K資料不足(需60根以上),暫無法判讀。</div>';
+  const F2=r.F2;
+  const lv=[...r.levels].map(o=>`<div style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px">
+      <span style="width:44px;color:${o.r===0.618?'var(--amber)':'var(--mut)'};font-weight:${o.r===0.618?900:400}">${o.r}</span>
+      <div style="flex:1;height:5px;background:var(--panel2);border-radius:3px;position:relative">
+        ${(r.posR>=0&&Math.abs(r.posR-o.r)<0.045)?`<div style="position:absolute;left:50%;top:-4px;width:3px;height:13px;background:var(--txt);border-radius:2px"></div>`:''}
+      </div>
+      <b style="width:86px;text-align:right;${o.r===0.618?'color:var(--amber)':''}">${F2(o.px)}</b></div>`).join('');
+  return `
+    <div style="font-size:13.5px;line-height:1.6;margin-bottom:8px"><b>主波段</b>:${r.up?'上升':'下降'} ${F2(r.A)} → ${F2(r.B)} · 現價 <b style="font-family:var(--mono)">${F2(r.px)}</b> · ${r.posTxt}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 26px" class="rot2">
+      <div><div style="font-size:12px;color:var(--dim);margin-bottom:3px">黃金切割回檔位(▮=現價所在)</div>${lv}</div>
+      <div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:3px">擴延目標</div>
+        ${r.ext.map(o=>`<div style="font-family:var(--mono);font-size:12.5px;display:flex;justify-content:space-between"><span style="color:var(--mut)">${o.r}</span><b>${F2(o.px)}</b></div>`).join('')}
+        ${r.wave?`<div style="margin-top:9px;font-size:12px;color:var(--dim)">艾略特波浪(規則化擬合)</div>
+        <div style="font-size:13.5px"><b style="color:var(--amber)">${r.wave.label}</b> <span style="color:var(--dim);font-size:11.5px">鐵律符合 ${r.wave.okN}/${r.wave.total}</span></div>
+        <div style="font-size:12.5px;color:var(--mut);line-height:1.55">${r.wave.txt}</div>`:''}
+      </div>
+    </div>
+    ${r.harm?`<div style="margin-top:9px;padding:8px 12px;background:var(--panel2);border-radius:9px;font-size:13px">🦋 <b>諧波偵測</b>:${r.harm.txt}</div>`:''}
+    ${r.conf.length?`<div style="margin-top:9px;padding:9px 13px;border-left:4px solid var(--amber);background:color-mix(in srgb,var(--amber) 8%,var(--panel2));border-radius:0 9px 9px 0;font-weight:800">🎯 合流判定:${r.conf.join(' + ')} —— ${r.conf.length>=2?'多重技術訊號指向同一價區,高勝率關注區,搭配停損紀律執行':'單一訊號,列入觀察'}</div>`:''}
+    <div class="dim-note" style="margin-top:7px">波浪計數具主觀性,本區為規則化近似(轉折點擬合+三大鐵律檢核);黃金切割與諧波供價位參考,勝率來自「訊號合流+嚴設停損」而非任何單一型態。非投資建議。</div>`;
+}
+async function renderFwStock(s){
+  const box=document.getElementById('fwStk');
+  if(!box||!s||s.market!=='TW')return;
+  try{
+    const sh=`k/tw${s.id[0]}.json`;
+    if(!(sh in KCACHE)){
+      try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),15000);
+          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
+    }
+    const e=(KCACHE[sh]||{})[s.id];
+    if(!e||!e.o||e.o.length<60){box.innerHTML='<div class="dim-note">日K資料不足(需60根以上),此檔暫無法判讀。</div>';return;}
+    box.innerHTML=fwHtml(fibWave({o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3])}),s.name);
+  }catch(err){box.innerHTML='<div class="dim-note">引擎異常:'+String(err).slice(0,60)+'</div>';}
+}
+async function renderFwMacro(){
+  const box=document.getElementById('fwMacro');
+  if(!box)return;
+  try{
+    const y=await yextData();
+    const dd=y&&y.series&&y.series['^TWII']&&(y.series['^TWII'].dl||y.series['^TWII'].d);
+    if(!dd||!dd.c||dd.c.length<60){box.innerHTML='<div class="dim-note">大盤日線回補中。</div>';return;}
+    const K={c:dd.c,h:dd.h||dd.c,l:dd.l||dd.c,o:dd.o||dd.c};
+    box.innerHTML=fwHtml(fibWave(K),'加權指數');
+  }catch(e){box.innerHTML='<div class="dim-note">引擎異常:'+String(e).slice(0,60)+'</div>';}
+}
+setTimeout(renderFwMacro,5000);
+setInterval(renderFwMacro,900000);
+
 async function renderHeadMacro(){
   const box=document.getElementById('headMacro');
   if(!box)return;
@@ -7122,6 +7275,7 @@ async function showDetail(id){
     ${(s.etf||s.market!=='TW')?'':'<div id="zt8Box"></div>'}
     ${s.etf?'':'<div id="gemBox"></div>'}
     ${s.market==='TW'?`<div class="chart-box"><h3>🔺 頭部七腳印<span class="ds">打頭打七吋 · 賣在起跌點的七步辨識</span></h3><div id="headStk"><div class="dim-note">判讀中…</div></div></div>`:''}
+    ${s.market==='TW'?`<div class="chart-box"><h3>🌊 波浪・黃金切割・諧波<span class="ds">艾略特擬合 · Fib 回檔/擴延 · XABCD · 合流判定</span></h3><div id="fwStk"><div class="dim-note">判讀中…</div></div></div>`:''}
     </div>
     <div class="sec-title" data-sec="stk_s">📅 歷史月份行情 <span style="font-weight:400;font-size:13px;letter-spacing:0">季節性統計・各年度月份漲跌</span></div><div class="sec-body" id="sb-stk_s">
     <div id="seasonBox" class="dim-block"><div class="dim-note">📡 歷史月K自動載入中…</div></div>
@@ -7245,6 +7399,7 @@ async function showDetail(id){
   loadProfileDetail(s);
   try{const tb=document.getElementById('t3qBox');if(tb){tb.style.display='';tb.innerHTML='<div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div>';}t3qBlock(s);}catch(e){}
   try{renderHeadStock(s);}catch(e){}
+  try{renderFwStock(s);}catch(e){}
   try{buildJumpBar(document.getElementById('detailView'));}catch(e){}
   loadAnalystDetail(s);
   loadChipDetail(s);
