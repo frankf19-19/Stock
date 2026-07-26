@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r406 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r407 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1508,7 +1508,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r406</span>');
+  diag.push('<span style="color:var(--dim)">build r407</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2597,159 +2597,92 @@ function fwZigzag(K,W){
   });
   return zz;
 }
-function fibWave(K){
-  let r_zzW=null;
+function tpApproxDate(barsAgo,ts){        // 交易日→約略日期(有真實時戳用真實;無則跳過週末回推)
+  try{
+    if(ts)return new Date(ts*1000).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'});
+    let d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})),n=barsAgo;
+    while(n>0){d.setDate(d.getDate()-1);if(d.getDay()>=1&&d.getDay()<=5)n--;}
+    return`約${d.getMonth()+1}/${d.getDate()}`;
+  }catch(e){return barsAgo+'個交易日前';}
+}
+function tpFutureDate(bars){
+  try{
+    let d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})),n=bars;
+    while(n>0){d.setDate(d.getDate()+1);if(d.getDay()>=1&&d.getDay()<=5)n--;}
+    return`${d.getMonth()+1}/${d.getDate()}`;
+  }catch(e){return'+'+bars+'日';}
+}
+function turnEngine(K){
   try{
     const c=K.c,n=c.length;
     if(n<60)return null;
-    const px=c[n-1];
-    const F2=x=>(+x).toLocaleString(undefined,{maximumFractionDigits:2});
-    const look=Math.min(n,150);
-    let loI=n-look,hiI=n-look;
-    for(let i=n-look;i<n;i++){if(K.l[i]<K.l[loI])loI=i;if(K.h[i]>K.h[hiI])hiI=i;}
-    const up=hiI>loI;                                     // 低點在前=上升主波段
-    const A=up?K.l[loI]:K.h[hiI], B=up?K.h[hiI]:K.l[loI], rng=Math.abs(B-A);
-    if(!(rng>0))return null;
-    const ratios=[0.236,0.382,0.5,0.618,0.786];
-    const levels=ratios.map(r=>({r,px:up?B-rng*r:B+rng*r}));
-    const ext=[1.272,1.618].map(r=>({r,px:up?A+rng*r:A-rng*r}));
-    const posR=up?(B-px)/rng:(px-B)/rng;                  // 現價回檔比例
-    let posTxt;
-    if(posR<0)posTxt=up?'已突破波段高點,進入擴延目標區':'已跌破波段低點,往下一擴延支撐找買點';
-    else if(posR<0.236)posTxt='淺回檔(<0.236),趨勢極強';
-    else if(posR<0.5)posTxt='回檔至 0.236~0.5,屬強勢整理';
-    else if(posR<=0.66)posTxt='進入 0.5~0.618 黃金口袋——'+(up?'多方最後的高勝率防守/布局區':'空方反壓關鍵區');
-    else if(posR<=0.786)posTxt='回檔已深(0.618~0.786),趨勢動搖,破 0.786 視為波段反轉';
-    else posTxt='回檔逾 0.786,原趨勢大概率已終結';
-    // ── 艾略特:自主波段起點擬合推進浪 ──
-    const zz=fwZigzag(K,4).filter(p=>p.i>=(up?loI:hiI));
-    let wave=null;
-    if(zz.length>=2){
-      const legs=zz.length;                               // 起點後的轉折數
-      const w1=zz[0],w2=zz[1],w3=zz[2],w4=zz[3],w5=zz[4];
-      let rules=[],okN=0;
-      if(w2){const r2=Math.abs(w2.px-w1.px)/Math.max(1e-9,Math.abs(w1.px-(up?A:A)));
-        const ok=up?w2.px>A:w2.px<A;rules.push(['2浪不破1浪起點',ok]);okN+=ok?1:0;}
-      if(w3){const l1=Math.abs(w1.px-A),l3=Math.abs(w3.px-w2.px);
-        const ok=l3>=l1*0.9;rules.push(['3浪非最短(常見延伸)',ok]);okN+=ok?1:0;}
-      if(w4){const ok=up?w4.px>w1.px*0.995:w4.px<w1.px*1.005;rules.push(['4浪不重疊1浪頂',ok]);okN+=ok?1:0;}
-      const stage=legs>=5?5:legs+0;
-      let label,txt;
-      if(stage<=1){label='疑似第1-2浪';txt='新趨勢起步,回檔(第2浪)常深達 0.5~0.618,是低風險上車區';}
-      else if(stage===2){label='疑似第3浪初期';txt='主升(跌)段——通常最長最陡,順勢持有,回檔看 0.382 淺守';}
-      else if(stage===3){label='疑似第3浪成熟/第4浪整理';txt='第4浪多為橫向消化,守住不與第1浪重疊即健康';}
-      else if(stage===4){label='疑似第5浪推進';txt='末升段——留意量價與 RSI 背離(對照上方七腳印第①步),背離+5浪=高勝率減碼區';}
-      else{label='五浪疑似走完/ABC修正中';txt='推進結構完成後進入 ABC 三波修正,C浪常至前4浪低點或 0.618 回檔,修正末端再找買點';}
-      wave={label,txt,rules,okN,total:rules.length};
-      r_zzW=zz;
+    const px=c[n-1],F2=x=>(+x).toLocaleString(undefined,{maximumFractionDigits:2});
+    const zz=fwZigzag(K,4);
+    if(zz.length<4)return null;
+    const rec=zz.slice(-8);
+    // 轉折列表(新→舊)
+    const rows=[];
+    for(let i=rec.length-1;i>=0;i--){
+      const p=rec[i],prev=rec[i-1];
+      rows.push({
+        d:tpApproxDate(n-1-p.i,K.t?K.t[p.i]:null),
+        t:p.t,px:p.px,
+        chg:prev?((p.px/prev.px-1)*100):null,
+        dur:prev?(p.i-prev.i):null,
+        ago:n-1-p.i});
     }
-    // ── 諧波:最後5個轉折擬合 XABCD ──
-    let harm=null;
-    const z2=fwZigzag(K,3);
-    if(z2.length>=5){
-      const[X,Ap,Bp,Cp,Dp]=z2.slice(-5);
-      const XA=Math.abs(Ap.px-X.px),AB=Math.abs(Bp.px-Ap.px),BC=Math.abs(Cp.px-Bp.px),AD=Math.abs(Dp.px-X.px);
-      if(XA>0&&AB>0){
-        const rAB=AB/XA, rAD=Math.abs(Dp.px-X.px)/XA;
-        const near=(v,t,tol)=>Math.abs(v-t)<=tol;
-        const pats=[
-          ['Gartley',near(rAB,0.618,0.07)&&near(rAD,0.786,0.06)],
-          ['Bat',rAB>=0.33&&rAB<=0.53&&near(rAD,0.886,0.06)],
-          ['Butterfly',near(rAB,0.786,0.07)&&near(rAD,1.27,0.09)],
-          ['Crab',rAB>=0.33&&rAB<=0.65&&near(rAD,1.618,0.12)],
-        ].filter(p=>p[1]);
-        if(pats.length){
-          const bull=Dp.t===-1;                           // D 為低點=看漲諧波
-          const prz=[Dp.px*0.99,Dp.px*1.01];
-          harm={name:pats[0][0],bull,prz,d:Dp.px,
-            fresh:Dp.i>=n-8,
-            txt:`${pats[0][0]} ${bull?'看漲':'看跌'}型態,PRZ 潛在反轉區約 ${F2(prz[0])}~${F2(prz[1])}${Dp.i>=n-8?'(近期完成,關注反應)':'(型態較舊,參考性下降)'}`};
-        }
-      }
+    // 節奏統計 → 下一轉折窗口
+    const durs=rows.map(r=>r.dur).filter(x=>x!=null);
+    const avg=durs.reduce((a,b)=>a+b,0)/durs.length;
+    const sd=Math.sqrt(durs.reduce((a,b)=>a+(b-avg)**2,0)/durs.length);
+    const last=zz[zz.length-1],since=n-1-last.i;
+    const winLo=Math.max(0,Math.round(avg-sd)-since),winHi=Math.max(1,Math.round(avg+sd)-since);
+    const due=since>=avg;
+    // 目前這一段 + 近端費波價位
+    const upLeg=last.t===-1;
+    const legBase=last.px;
+    const legExt=upLeg?Math.max(...K.h.slice(last.i)):Math.min(...K.l.slice(last.i));
+    const legRng=Math.abs(legExt-legBase);
+    const prev2=zz[zz.length-2];
+    const prevLegLen=prev2?Math.abs(last.px-prev2.px):legRng;
+    let near=[],targets=[];
+    if(legRng>0){
+      near=[0.382,0.5,0.618].map(r=>({r,px:upLeg?legExt-legRng*r:legExt+legRng*r}));
+      targets=[1,1.272,1.618].map(m=>({m,px:upLeg?legBase+prevLegLen*m:legBase-prevLegLen*m}));
     }
-    // ── 合流判定 ──
-    const conf=[];
-    if(posR>=0.5&&posR<=0.66)conf.push('黃金口袋');
-    if(wave&&/第2浪|修正/.test(wave.label)&&posR>=0.382)conf.push('修正浪+深回檔');
-    if(harm&&harm.fresh&&Math.abs(px-harm.d)/px<0.03)conf.push('諧波PRZ鄰近');
-    if(wave&&/第5浪/.test(wave.label))conf.push('五浪末端警戒');
-    return {up,A,B,levels,ext,posR,posTxt,wave,harm,conf,px,F2,zzW:r_zzW};
+    return {px,F2,rows,avg,sd,since,winLo,winHi,due,upLeg,legBase,legExt,near,targets,
+            lastIdx:last.i,zz:rec,n};
   }catch(e){return null;}
 }
-function fwVerdict(r){
+function turnHtml(r){
+  if(!r)return '<div class="dim-note">日K資料不足(需60根以上),暫無法判讀。</div>';
   const F2=r.F2;
-  const out=[];
-  // 📍 現在狀態(一句話)
-  out.push(['📍','現在',r.posTxt]);
-  if(r.up){
-    const below=r.levels.filter(o=>o.px<r.px);
-    if(below.length)out.push(['🛡','第一道支撐',`${F2(below[0].px)}(回檔 ${below[0].r})——跌到這裡是第一次考驗`]);
-    const g=r.levels.find(o=>o.r===0.618);
-    if(g&&g.px<r.px)out.push(['🔑','關鍵防守',`${F2(g.px)}(0.618 黃金口袋)——多頭的最後防線,跌破波段趨勢反轉`]);
-    if(r.posR<0)out.push(['🚀','上方目標',`${F2(r.ext[0].px)}(1.272 擴延)→ ${F2(r.ext[1].px)}(1.618)`]);
-  }else{
-    const above=r.levels.filter(o=>o.px>r.px);
-    if(above.length)out.push(['⛰','第一道壓力',`${F2(above[0].px)}(反彈 ${above[0].r})——彈到這裡先觀察賣壓`]);
-    const g=r.levels.find(o=>o.r===0.618);
-    if(g)out.push(['🔑','關鍵反壓',`${F2(g.px)}(0.618)——站回去空方結構才算破壞`]);
+  const head=[];
+  head.push(`<div style="display:flex;gap:9px;margin:5px 0;line-height:1.55"><span style="font-size:16px">⏱</span>
+    <div style="font-size:14px"><b>轉折節奏</b>:近 ${r.rows.length} 次轉折平均 <b>${r.avg.toFixed(0)}±${r.sd.toFixed(0)} 個交易日</b>一轉;距上次轉折已 ${r.since} 天 →
+    ${r.due?`<b style="color:#C62828">已達平均週期,隨時留意反轉</b>`
+           :`預估下一轉折窗口 <b style="color:var(--amber)">${r.winLo}~${r.winHi} 個交易日內(約 ${tpFutureDate(r.winLo)}~${tpFutureDate(r.winHi)})</b>`}</div></div>`);
+  if(r.near.length){
+    head.push(`<div style="display:flex;gap:9px;margin:5px 0;line-height:1.55"><span style="font-size:16px">${r.upLeg?'🛡':'⛰'}</span>
+      <div style="font-size:14px"><b>本段${r.upLeg?'回檔支撐':'反彈壓力'}(就在附近)</b>:
+      ${r.near.map(o=>`<b style="font-family:var(--mono);${o.r===0.618?'color:var(--amber)':''}">${F2(o.px)}</b><span style="color:var(--dim);font-size:12px">(${o.r})</span>`).join(' · ')}</div></div>`);
+    head.push(`<div style="display:flex;gap:9px;margin:5px 0;line-height:1.55"><span style="font-size:16px">🎯</span>
+      <div style="font-size:14px"><b>本段${r.upLeg?'上方測量目標':'下方測量目標'}</b>:
+      ${r.targets.map(o=>`<b style="font-family:var(--mono)">${F2(o.px)}</b><span style="color:var(--dim);font-size:12px">(${o.m}倍)</span>`).join(' · ')}
+      <span style="color:var(--dim);font-size:12px">——以上一段波幅等距推算</span></div></div>`);
   }
-  if(r.wave)out.push(['🌀','波型位置',`${r.wave.label}——${r.wave.txt}`]);
-  if(r.harm&&r.harm.fresh)out.push(['🦋','諧波訊號',r.harm.txt]);
-  if(r.conf.length>=2)out.push(['🎯','合流','多個訊號指向同一價區:'+r.conf.join('+')+'——高勝率關注區,設好停損再進場']);
-  return out.map(([ic,t,d])=>`<div style="display:flex;gap:9px;margin:5px 0;line-height:1.5">
-    <span style="font-size:16px">${ic}</span>
-    <div style="font-size:14px"><b>${t}</b>:<span>${d}</span></div></div>`).join('');
-}
-let __fwSeq=0;
-function fwMount(box,K,label){
-  const r=fibWave(K);
-  if(!r){box.innerHTML='<div class="dim-note">日K資料不足(需60根以上),暫無法判讀。</div>';return;}
-  const cid='fwC_'+(++__fwSeq);
-  box.innerHTML=`
-    ${fwVerdict(r)}
-    <div id="${cid}" style="height:${innerWidth<640?250:310}px;margin-top:6px"></div>
-    <div class="dim-note" style="margin-top:5px">圖上:金色實線=0.618 黃金口袋(關鍵位)、灰虛線=其他回檔位、點虛線=擴延目標、①~⑤=規則化浪型轉折${r.harm&&r.harm.fresh?'、紫色區=諧波 PRZ 反轉區':''}。波浪具主觀性,勝率來自訊號合流+停損紀律,非投資建議。</div>`;
-  ensureECharts().then(ok=>{
-    const el=document.getElementById(cid);
-    if(!ok||!el||!el.isConnected)return;
-    try{
-      const n=K.c.length,CH=Math.min(n,150),off=n-CH;
-      const xs=[...Array(CH).keys()];
-      const cs=K.c.slice(off);
-      const F2=r.F2;
-      const mk=[];
-      r.levels.forEach(o=>{mk.push({yAxis:o.px,
-        lineStyle:o.r===0.618?{color:'#E8A33D',width:2,type:'solid'}:{color:'#9A938A',width:1,type:'dashed'},
-        label:{formatter:`${o.r}  ${F2(o.px)}`,position:'insideEndTop',fontSize:10.5,
-          color:o.r===0.618?'#E8A33D':'#9A938A',fontWeight:o.r===0.618?900:400}});});
-      r.ext.forEach(o=>{mk.push({yAxis:o.px,lineStyle:{color:'#7FB4FF',width:1,type:'dotted'},
-        label:{formatter:`目標 ${o.r}  ${F2(o.px)}`,position:'insideEndTop',fontSize:10.5,color:'#7FB4FF'}});});
-      const pts=[];
-      if(r.wave&&r.zzW){
-        r.zzW.slice(0,5).forEach((p,i)=>{if(p.i>=off)pts.push({coord:[p.i-off,p.px],
-          value:['①','②','③','④','⑤'][i],
-          label:{fontSize:13,fontWeight:900,color:'#B85C38',offset:[0,p.t===1?-4:4],
-                 position:p.t===1?'top':'bottom'},
-          symbol:'circle',symbolSize:5,itemStyle:{color:'#B85C38'}});});
-      }
-      const areas=(r.harm&&r.harm.fresh)?[[{yAxis:r.harm.prz[0],itemStyle:{color:'rgba(160,120,220,.15)'}},{yAxis:r.harm.prz[1]}]]:[];
-      const ch=echarts.init(el);
-      try{if(window.__fwCharts)window.__fwCharts.forEach(c2=>{try{if(!c2.getDom().isConnected)c2.dispose();}catch(e){}});}catch(e){}
-      (window.__fwCharts=window.__fwCharts||[]).push(ch);
-      const ys=[...cs,...r.levels.map(o=>o.px)];
-      ch.setOption({animation:false,
-        grid:{left:8,right:100,top:12,bottom:22,containLabel:true},
-        xAxis:{type:'category',data:xs,axisLabel:{show:false},axisTick:{show:false},axisLine:{lineStyle:{color:'#CFC8BD'}}},
-        yAxis:{type:'value',min:Math.min(...ys)*0.995,max:Math.max(...ys,...(r.posR<0?[r.ext[0].px]:[]))*1.005,
-          axisLabel:{fontSize:10.5,color:'#9A938A'},splitLine:{show:false}},
-        series:[{type:'line',data:cs,showSymbol:false,lineStyle:{width:2,color:'#8A6D3B'},
-          areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(138,109,59,.18)'},{offset:1,color:'rgba(138,109,59,0)'}]}},
-          markLine:{symbol:'none',silent:true,data:mk},
-          markPoint:{data:pts,silent:true},
-          markArea:{silent:true,data:areas}}]});
-      el.dataset.drawn='1';
-    }catch(err){el.innerHTML='<div class="dim-note">圖表繪製失敗:'+(err&&err.message||err)+'</div>';}
-  });
+  const tbl=`<div style="margin-top:10px">
+    <div style="font-size:12px;color:var(--dim);margin-bottom:4px">歷史轉折點(新→舊)</div>
+    <div class="bt5" style="grid-template-columns:70px 52px 1fr 76px 64px">
+      <div style="text-align:left;color:var(--mut)">日期</div><div style="color:var(--mut)">型態</div><div style="color:var(--mut)">價位</div><div style="color:var(--mut)">波段幅度</div><div style="color:var(--mut)">費時</div>
+      ${r.rows.map(x=>`
+        <div style="text-align:left;color:var(--txt2)">${x.d}</div>
+        <div style="color:${x.t===1?'var(--up)':'var(--down)'};font-weight:800">${x.t===1?'▲高點':'▼低點'}</div>
+        <div><b>${F2(x.px)}</b></div>
+        <div class="${x.chg>0?'pos':x.chg<0?'neg':'flat'}" style="font-weight:700">${x.chg!=null?(x.chg>0?'+':'')+x.chg.toFixed(1)+'%':'—'}</div>
+        <div style="color:var(--mut)">${x.dur!=null?x.dur+'日':'—'}</div>`).join('')}
+    </div></div>`;
+  return head.join('')+tbl+`<div class="dim-note" style="margin-top:8px">轉折點=鋸齒法自動辨識(前後4根K的極值);「預估窗口」是節奏統計非保證,價位到了、時間到了、量能背離三者共振時勝率最高。個股日期為交易日回推之約略值。非投資建議。</div>`;
 }
 async function renderFwStock(s){
   const box=document.getElementById('fwStk');
@@ -2762,7 +2695,7 @@ async function renderFwStock(s){
     }
     const e=(KCACHE[sh]||{})[s.id];
     if(!e||!e.o||e.o.length<60){box.innerHTML='<div class="dim-note">日K資料不足(需60根以上),此檔暫無法判讀。</div>';return;}
-    fwMount(box,{o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3])},s.name);
+    box.innerHTML=turnHtml(turnEngine({o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3])}));
   }catch(err){box.innerHTML='<div class="dim-note">引擎異常:'+String(err).slice(0,60)+'</div>';}
 }
 async function renderFwMacro(){
@@ -2772,7 +2705,7 @@ async function renderFwMacro(){
     const y=await yextData();
     const dd=y&&y.series&&y.series['^TWII']&&(y.series['^TWII'].dl||y.series['^TWII'].d);
     if(!dd||!dd.c||dd.c.length<60){box.innerHTML='<div class="dim-note">大盤日線回補中。</div>';return;}
-    fwMount(box,{c:dd.c,h:dd.h||dd.c,l:dd.l||dd.c,o:dd.o||dd.c},'加權指數');
+    box.innerHTML=turnHtml(turnEngine({c:dd.c,h:dd.h||dd.c,l:dd.l||dd.c,o:dd.o||dd.c,t:dd.t}));
   }catch(e){box.innerHTML='<div class="dim-note">引擎異常:'+String(e).slice(0,60)+'</div>';}
 }
 setTimeout(renderFwMacro,5000);
@@ -6904,7 +6837,7 @@ function kChartBoxHTML(){
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
-          <div class="ind-seg" id="fwSeg"><button data-t="1">🌊波浪Fib</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="fwSeg"><button data-t="1">🔄轉折Fib</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="instSeg"><button data-t="1">法人副圖</button><button data-t="0">隱藏</button></div>
@@ -6973,31 +6906,29 @@ function kdrawBindClick(){
   }catch(e){}
 }
 
-function __fwOverlay(o){                   // 🌊 K線圖疊加層:Fib回檔/擴延線+浪型①~⑤+諧波PRZ(開關 kFW,預設關)
+function __fwOverlay(o){                   // 🔄 K線圖疊加:轉折點▲▼+本段近端Fib支撐/目標(開關 kFW)
   try{
     if(localStorage.getItem('kFW')!=='1')return [];
     if(!Array.isArray(o)||o.length<60)return [];
     const K={o:o.map(x=>x[0]),h:o.map(x=>x[1]),l:o.map(x=>x[2]),c:o.map(x=>x[3])};
-    const r=fibWave(K);
+    const r=turnEngine(K);
     if(!r)return [];
     const F2=r.F2,mk=[];
-    r.levels.forEach(v=>{mk.push({yAxis:v.px,
-      lineStyle:v.r===0.618?{color:'#E8A33D',width:2,type:'solid'}:{color:'#9A938A',width:1,type:'dashed',opacity:.7},
-      label:{formatter:`${v.r} ${F2(v.px)}`,position:'insideEndTop',fontSize:10,
+    r.near.forEach(v=>{mk.push({yAxis:v.px,
+      lineStyle:v.r===0.618?{color:'#E8A33D',width:2,type:'solid'}:{color:'#9A938A',width:1,type:'dashed',opacity:.75},
+      label:{formatter:`${r.upLeg?'支撐':'壓力'}${v.r} ${F2(v.px)}`,position:'insideEndTop',fontSize:10,
         color:v.r===0.618?'#E8A33D':'#9A938A',fontWeight:v.r===0.618?900:400}});});
-    r.ext.forEach(v=>{mk.push({yAxis:v.px,lineStyle:{color:'#7FB4FF',width:1,type:'dotted'},
-      label:{formatter:`${v.r} ${F2(v.px)}`,position:'insideEndTop',fontSize:10,color:'#7FB4FF'}});});
-    const pts=[];
-    (r.zzW||[]).slice(0,5).forEach((p,i)=>{pts.push({coord:[p.i,p.px],
-      value:['①','②','③','④','⑤'][i],
-      label:{fontSize:13,fontWeight:900,color:'#B85C38',position:p.t===1?'top':'bottom'},
-      symbol:'circle',symbolSize:5,itemStyle:{color:'#B85C38'}});});
-    const areas=(r.harm&&r.harm.fresh)?[[{yAxis:r.harm.prz[0],itemStyle:{color:'rgba(160,120,220,.13)'},
-      label:{show:true,formatter:'諧波PRZ',fontSize:10,color:'#8f6fc0',position:'insideRight'}},{yAxis:r.harm.prz[1]}]]:[];
-    return [{name:'🌊波浪Fib',type:'line',data:[],xAxisIndex:0,yAxisIndex:0,silent:true,tooltip:{show:false},
+    r.targets.slice(0,2).forEach(v=>{mk.push({yAxis:v.px,lineStyle:{color:'#7FB4FF',width:1,type:'dotted'},
+      label:{formatter:`目標${v.m}倍 ${F2(v.px)}`,position:'insideEndTop',fontSize:10,color:'#7FB4FF'}});});
+    const pts=(r.zz||[]).map(p=>({coord:[p.i,p.px],
+      value:p.t===1?'▲':'▼',
+      label:{fontSize:12,fontWeight:900,color:p.t===1?'#C62828':'#0B7A4B',
+             position:p.t===1?'top':'bottom',formatter:`{a|${p.t===1?'▲':'▼'}${F2(p.px)}}`,
+             rich:{a:{fontSize:10.5,fontWeight:800,color:p.t===1?'#C62828':'#0B7A4B'}}},
+      symbol:'circle',symbolSize:4,itemStyle:{color:p.t===1?'#C62828':'#0B7A4B'}}));
+    return [{name:'🔄轉折Fib',type:'line',data:[],xAxisIndex:0,yAxisIndex:0,silent:true,tooltip:{show:false},
       markLine:{symbol:'none',silent:true,data:mk},
-      markPoint:{silent:true,data:pts},
-      markArea:{silent:true,data:areas}}];
+      markPoint:{silent:true,data:pts}}];
   }catch(e){return [];}
 }
 
@@ -7368,7 +7299,7 @@ async function showDetail(id){
     ${(s.etf||s.market!=='TW')?'':'<div id="zt8Box"></div>'}
     ${s.etf?'':'<div id="gemBox"></div>'}
     ${s.market==='TW'?`<div class="chart-box"><h3>🔺 頭部七腳印<span class="ds">打頭打七吋 · 賣在起跌點的七步辨識</span></h3><div id="headStk"><div class="dim-note">判讀中…</div></div></div>`:''}
-    ${s.market==='TW'?`<div class="chart-box"><h3>🌊 波浪・黃金切割・諧波<span class="ds">艾略特擬合 · Fib 回檔/擴延 · XABCD · 合流判定</span></h3><div id="fwStk"><div class="dim-note">判讀中…</div></div></div>`:''}
+    ${s.market==='TW'?`<div class="chart-box"><h3>🔄 轉折點分析<span class="ds">歷史轉折 · 節奏預估下次轉折日 · 近端支撐/目標價</span></h3><div id="fwStk"><div class="dim-note">判讀中…</div></div></div>`:''}
     </div>
     <div class="sec-title" data-sec="stk_s">📅 歷史月份行情 <span style="font-weight:400;font-size:13px;letter-spacing:0">季節性統計・各年度月份漲跌</span></div><div class="sec-body" id="sb-stk_s">
     <div id="seasonBox" class="dim-block"><div class="dim-note">📡 歷史月K自動載入中…</div></div>
