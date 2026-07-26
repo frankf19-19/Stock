@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r401 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r403 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1508,7 +1508,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r401</span>');
+  diag.push('<span style="color:var(--dim)">build r403</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2819,6 +2819,120 @@ async function mtRateCard(){                 // 🧮 融資維持率估算:融�
   }catch(e){box.style.display='none';}
 }
 setTimeout(mtRateCard,6800);setInterval(mtRateCard,1800000);
+
+
+/* ══ 📌 下週關注五檔:兩階段規則化選股(綜合評分+籌碼 → K線技術+頭部排雷) ══ */
+async function weeklyPicks(){
+  const box=document.getElementById('pickBox');
+  if(!box)return;
+  try{
+    const ttl=(typeof marketOpen==='function'&&marketOpen())?5*60*1000:30*60*1000;   // 盤中5分鐘重算
+    if(window.__picks&&Date.now()-window.__picks.ts<ttl){paintPicks(window.__picks);return;}
+    // 第一階段:清單資料粗篩(評分+籌碼),取前40名候選
+    const cand=[];
+    (DATA.stocks||[]).forEach(x=>{
+      if(x.market!=='TW'||x.etf||x.disp||!x.price||x.price<10||x.chg==null||x.chg>=9)return;
+      const sc=(x.c&&x.c.score)||0;
+      if(sc<50)return;
+      const r=chipRaw(x);
+      let pts=sc,why=[`綜合評分 ${sc}`];
+      if(r.bigw!=null&&r.bigw>=0.7){pts+=12;why.push(`大戶週增 +${r.bigw}pp`);}
+      else if(r.bigw!=null&&r.bigw>=0.3){pts+=8;why.push(`大戶週增 +${r.bigw}pp`);}
+      if(r.t5!=null&&r.t5>0){pts+=6;why.push('投信5日買超');}
+      if(r.f5!=null&&r.f5>0){pts+=5;why.push('外資5日買超');}
+      cand.push({s:x,pts,why});
+    });
+    cand.sort((a,b)=>b.pts-a.pts);
+    const top=cand.slice(0,40);
+    if(top.length<5){box.style.display='none';return;}
+    // 第二階段:載入候選的日K,做技術確認與頭部排雷
+    const shards=[...new Set(top.map(c=>`k/tw${c.s.id[0]}.json`))];
+    for(const sh of shards){
+      if(!(sh in KCACHE)){
+        try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),20000);
+            KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
+      }
+    }
+    const final=[];
+    for(const c of top){
+      const e=(KCACHE[`k/tw${c.s.id[0]}.json`]||{})[c.s.id];
+      if(!e||!e.o||e.o.length<50)continue;
+      const cl=e.o.map(b=>b[3]),hi=e.o.map(b=>b[1]);
+      const px=c.s.price,ma20=cl.slice(-20).reduce((a,b)=>a+b,0)/20;
+      const bias=(px/ma20-1)*100;
+      if(bias>12)continue;                                // 過熱不追
+      let pts=c.pts,why=[...c.why];
+      const hp=headprints({o:e.o.map(b=>b[0]),h:hi,l:e.o.map(b=>b[2]),c:cl});
+      if(hp){
+        if(hp.prob>=50)continue;                          // 頭部排雷
+        if(hp.prob>=35)pts-=8;
+        else why.push(`頭部機率僅 ${hp.prob}%`);
+      }
+      if(bias>=0&&bias<=8){pts+=6;why.push(`站上月線(乖離 +${bias.toFixed(1)}%)`);}
+      else if(bias<0){pts-=6;}
+      const h20=Math.max(...hi.slice(-21,-1));
+      if(Math.max(...hi.slice(-3))>=h20){pts+=6;why.push('近日創20日新高');}
+      if(c.s.dtp!=null&&c.s.dtp>=40)pts-=8;
+      final.push({id:c.s.id,name:c.s.name||c.s.id,sector:c.s.sector||'',price:px,chg:c.s.chg,
+        pts,why:why.slice(0,4),prob:hp?hp.prob:null});
+    }
+    final.sort((a,b)=>b.pts-a.pts);
+    const picks=[],secN={};
+    for(const f of final){                                // 產業多樣性:每產業最多2檔
+      if((secN[f.sector]||0)>=2)continue;
+      secN[f.sector]=(secN[f.sector]||0)+1;
+      picks.push(f);
+      if(picks.length>=5)break;
+    }
+    if(picks.length<3){box.style.display='none';return;}
+    window.__picks={ts:Date.now(),picks};
+    paintPicks(window.__picks);
+  }catch(e){box.style.display='none';}
+}
+function paintPicks(p){
+  const box=document.getElementById('pickBox');
+  if(!box||!p)return;
+  const wd=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).getDay();
+  const title=(wd===5||wd===6||wd===0)?'下週關注五檔':'近期關注五檔';
+  const medal=['🥇','🥈','🥉','4','5'];
+  box.style.display='';
+  const stamp=new Date(p.ts).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+  box.innerHTML=`<div class="sec-title tap" data-sec="mk_pick">📌 ${title} <span style="font-weight:400;font-size:13px;letter-spacing:0">規則化雙階段篩選・報價即時・榜單盤中每5分鐘重算(${stamp})</span></div>
+  <div class="sec-body" id="sb-mk_pick">
+    <div class="pick-grid">
+      ${p.picks.map((x,i)=>`<div class="pick-card" data-pk="${x.id}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+          <span class="pick-medal">${medal[i]}</span>
+          <b style="font-size:16px">${x.name}</b>
+          <span style="color:var(--dim);font-family:var(--mono)">${x.id}</span>
+          <span class="pick-sec">${x.sector}</span>
+          <span style="margin-left:auto;font-family:var(--mono);font-weight:800" data-ppx="${x.id}">${(+x.price).toLocaleString()}</span>
+          <span data-pch="${x.id}">${chgHtml(+x.chg)}</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">${x.why.map(w=>`<span class="pick-chip">${w}</span>`).join('')}</div>
+      </div>`).join('')}
+    </div>
+    <div class="dim-note" style="margin-top:8px">篩選規則:綜合評分≥50 → 大戶/投信/外資籌碼加分 → 日K確認(站穩月線、乖離≤12%、非投機過熱)→ 七腳印頭部機率≥50% 一律排除 → 每產業至多2檔。每30分鐘重算,盤後以當日收盤資料為準。<b>規則化篩選結果,非投資建議</b>;點卡片進個股頁看完整判讀與防守價位。</div>
+  </div>`;
+  box.querySelectorAll('[data-pk]').forEach(el=>{el.onclick=()=>{location.hash='#stock/'+el.dataset.pk;};});
+  try{wireTapSecs&&wireTapSecs(box);}catch(e){}
+}
+setTimeout(weeklyPicks,7000);
+setInterval(weeklyPicks,5*60*1000);                       // 盤中每5分鐘檢查是否重算(快取壽命內直接沿用)
+setInterval(()=>{                                          // 📶 報價即時:6秒把最新價/漲跌同步到卡片(不重算榜單)
+  try{
+    const box=document.getElementById('pickBox');
+    if(!box||box.style.display==='none')return;
+    box.querySelectorAll('[data-ppx]').forEach(el=>{
+      const st=(DATA.stocks||[]).find(x=>x.id===el.dataset.ppx);
+      if(!st||!st.price)return;
+      const t=(+st.price).toLocaleString();
+      if(el.textContent!==t)el.textContent=t;
+      const ch=box.querySelector(`[data-pch="${st.id}"]`);
+      if(ch)ch.innerHTML=chgHtml(+st.chg);
+    });
+  }catch(e){}
+},6000);
 
 async function twFngCard(){
   const box=document.getElementById('twFng');

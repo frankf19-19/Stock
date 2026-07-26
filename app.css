@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r401 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r403 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
@@ -689,3 +689,26 @@ button{transition:background .12s,color .12s,border-color .12s}
 .ds{font-size:13px}
 .em-l{font-size:12px;color:var(--mut)}
 .nm{font-size:13.5px;font-weight:800;letter-spacing:.02em}
+
+/* r402:下週關注五檔 + 全站精緻化 */
+.pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
+.pick-card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:12px 14px;cursor:pointer;
+  transition:transform .15s,box-shadow .15s,border-color .15s;position:relative;overflow:hidden}
+.pick-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:linear-gradient(180deg,var(--amber),color-mix(in srgb,var(--amber) 40%,transparent))}
+.pick-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.10);border-color:var(--amber)}
+.pick-medal{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;
+  border-radius:50%;background:var(--panel2);font-weight:900;font-size:14px}
+.pick-sec{font-size:11px;color:var(--mut);background:var(--panel2);border-radius:20px;padding:2px 9px}
+.pick-chip{font-size:12px;background:color-mix(in srgb,var(--amber) 10%,var(--panel2));
+  border:1px solid color-mix(in srgb,var(--amber) 30%,var(--line));border-radius:7px;padding:3px 8px;font-weight:700}
+@media(max-width:640px){.pick-grid{grid-template-columns:1fr}}
+/* 全站質感 */
+::selection{background:color-mix(in srgb,var(--amber) 30%,transparent)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--mut) 40%,transparent);border-radius:6px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--mut) 65%,transparent);background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+html{scroll-behavior:smooth}
+a.earn-more{border-radius:22px;font-weight:700}
