@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r399 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r400 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1492,7 +1492,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r399</span>');
+  diag.push('<span style="color:var(--dim)">build r400</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');

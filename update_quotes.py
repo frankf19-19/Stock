@@ -134,8 +134,19 @@ def main():
             if len(arr) < L:
                 arr += [None] * (L - len(arr))
             arr.append(idxq.get(k))
-        with open("spark.json", "w", encoding="utf-8") as f:
-            json.dump(sp, f, ensure_ascii=False, separators=(",", ":"))
+        # 🛡 保護既有快照:非交易日/收盤後手動補跑時,若既有檔點數更多且日期不同,不得覆蓋
+        try:
+            with open("spark.json", encoding="utf-8") as f0:
+                old_sp = json.load(f0)
+            if (old_sp.get("d") != sp.get("d")
+                    and len(old_sp.get("t") or []) > len(sp.get("t") or []) + 2):
+                print(f"  spark 保護:既有 {old_sp.get('d')}({len(old_sp.get('t') or [])}點) 較完整,略過覆蓋")
+                sp = None
+        except Exception:
+            pass
+        if sp is not None:
+            with open("spark.json", "w", encoding="utf-8") as f:
+                json.dump(sp, f, ensure_ascii=False, separators=(",", ":"))
         print(f"  spark.json:第 {L+1} 點({len(sp['s'])} 檔)")
 
     data["intraday"] = now.strftime("%H:%M")

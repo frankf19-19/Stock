@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r399 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r400 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
@@ -681,3 +681,11 @@ a.earn-more{transition:all .15s}
 button{transition:background .12s,color .12s,border-color .12s}
 @media(min-width:1240px){#tempGrid{grid-template-columns:repeat(5,1fr)}}
 @media(min-width:900px) and (max-width:1239px){#tempGrid{grid-template-columns:repeat(3,1fr)}}
+
+/* r400:全站可讀性——說明文字加大、空狀態統一、數據標籤對比強化 */
+.dim-note{font-size:13.5px;line-height:1.65}
+.kv dt{font-size:12.5px;color:var(--mut)}
+.kv dd{font-weight:700}
+.ds{font-size:13px}
+.em-l{font-size:12px;color:var(--mut)}
+.nm{font-size:13.5px;font-weight:800;letter-spacing:.02em}

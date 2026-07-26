@@ -3150,13 +3150,18 @@ def main():
         for _b5 in range(0, 5):
             _d5 = _tp5 - dt.timedelta(days=_b5)
             if _d5.weekday() >= 5: continue
-            j5 = get_json("https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U",
-                          {"date": _d5.strftime("%Y%m%d"), "selectType": "All", "response": "json"},
-                          timeout=40)
-            rows5 = []
-            for tb5 in (j5.get("tables") or ([j5] if j5.get("data") else [])):
-                if tb5.get("data") and any("代號" in str(f5) for f5 in (tb5.get("fields") or [])):
-                    rows5 = tb5["data"]; f5s = [str(x) for x in tb5["fields"]]; break
+            rows5, f5s = [], []
+            for _sel in ("All", "ALL", "ALLBUT0999"):
+                j5 = get_json("https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U",
+                              {"date": _d5.strftime("%Y%m%d"), "selectType": _sel, "response": "json"},
+                              timeout=40)
+                for tb5 in (j5.get("tables") or ([j5] if j5.get("data") else [])):
+                    if tb5.get("data") and any("代號" in str(f5) for f5 in (tb5.get("fields") or [])):
+                        rows5 = tb5["data"]; f5s = [str(x) for x in tb5["fields"]]; break
+                if rows5: break
+                if _sel == "All":
+                    print(f"  [diag] 當沖 {_d5.strftime('%m-%d')} stat={j5.get('stat')} keys={list(j5)[:5]} "
+                          f"tables={[len((t.get('data') or [])) for t in (j5.get('tables') or [])]}")
             if not rows5: continue
             _ci5 = next((i for i, f5 in enumerate(f5s) if "代號" in f5), 0)
             _cv5 = next((i for i, f5 in enumerate(f5s) if "股數" in f5 and "沖" in f5), None)
@@ -3285,8 +3290,24 @@ def main():
         _s0 = (_tpd - dt.timedelta(days=95)).strftime("%Y/%m/%d")
         _s1 = _tpd.strftime("%Y/%m/%d")
         import urllib.parse as _up
-        _raw = get_text("https://www.taifex.com.tw/cht/3/pcRatioDown"
-                        f"?queryStartDate={_up.quote(_s0,safe='')}&queryEndDate={_up.quote(_s1,safe='')}")
+        _pcr_url = ("https://www.taifex.com.tw/cht/3/pcRatioDown"
+                    f"?queryStartDate={_up.quote(_s0,safe='')}&queryEndDate={_up.quote(_s1,safe='')}")
+        _raw = ""
+        try:
+            _raw = get_text(_pcr_url)
+        except Exception as _pe:
+            print(f"  [diag] P/C 直連失敗: {str(_pe)[:60]}")
+        if "," not in (_raw or "")[:200]:                 # 直連被擋 → 公共代理
+            for _mk in (lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe=""),
+                        lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")):
+                try:
+                    _raw = get_text(_mk(_pcr_url))
+                    if "," in (_raw or "")[:200]:
+                        print("  P/C ← 代理路"); break
+                except Exception:
+                    continue
+        if "," not in (_raw or "")[:200]:
+            print(f"  [diag] P/C 回應無CSV(長度 {len(_raw or '')}): {(_raw or '')[:80]!r}")
         pd_, pv_, po_ = [], [], []
         for ln in (_raw or "").splitlines()[1:]:
             c2 = [x.strip().replace(",", "") for x in ln.split(",")]
@@ -3337,8 +3358,10 @@ def main():
             _pb = (prev_all.get("macro") or {}).get("breadth") or {}
             _bd = {k: list(_pb.get(k) or []) for k in ("d", "a20", "a60", "nh", "nl")}
             _tpd = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+            while _tpd.weekday() >= 5:                    # 週末手動跑 → 記到最近的週五
+                _tpd -= dt.timedelta(days=1)
             _key = _tpd.strftime("%Y-%m-%d")
-            if _tpd.weekday() < 5:
+            if True:
                 if _bd["d"] and _bd["d"][-1] == _key:
                     for k in ("d", "a20", "a60", "nh", "nl"):
                         _bd[k] = _bd[k][:-1]
