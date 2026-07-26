@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r397 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r399 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
@@ -670,3 +670,14 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 /* r397:寬螢幕溫度區四卡一排 */
 @media(min-width:1240px){#tempGrid{grid-template-columns:repeat(4,1fr)}}
 #fngTop>div{height:100%}
+
+/* r399:介面精緻化——數字對齊、卡片微互動、視覺節奏 */
+*{font-variant-numeric:tabular-nums}
+.idx-card,.chart-box,.dim-block,.earn-row,.em-card{transition:border-color .15s,box-shadow .15s}
+.idx-card:hover,.chart-box:hover{border-color:color-mix(in srgb,var(--amber) 45%,var(--line))}
+.dim-block{box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.em-card:hover{border-color:var(--amber)}
+a.earn-more{transition:all .15s}
+button{transition:background .12s,color .12s,border-color .12s}
+@media(min-width:1240px){#tempGrid{grid-template-columns:repeat(5,1fr)}}
+@media(min-width:900px) and (max-width:1239px){#tempGrid{grid-template-columns:repeat(3,1fr)}}

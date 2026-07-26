@@ -777,11 +777,21 @@ def fetch_tdcc_bulk():
         big = df[df[col_lv].astype(str).str.strip().isin(["12","13","14","15"])].copy()
         big[col_pc] = pd.to_numeric(big[col_pc], errors="coerce")
         out = big.groupby(big[col_id].str.strip())[col_pc].sum().round(2).to_dict()
-        print(f"  TDCC 大戶:{len(out)} 檔,資料日期 {date}")
-        return out, date
+        holders = {}
+        try:                                             # 集保總戶數:各分級人數加總(散戶結構的另一半)
+            col_n = next((c2 for c2 in df.columns if "人數" in c2), None)
+            if col_n is not None:
+                dd = df.copy()
+                dd[col_n] = pd.to_numeric(dd[col_n], errors="coerce")
+                dd = dd[dd[col_lv].astype(str).str.strip() != "16"]      # 16=差異調整,不計
+                holders = dd.groupby(dd[col_id].str.strip())[col_n].sum().astype(int).to_dict()
+        except Exception as _e2:
+            print(f"  [warn] 集保戶數: {_e2}")
+        print(f"  TDCC 大戶:{len(out)} 檔(戶數 {len(holders)} 檔),資料日期 {date}")
+        return out, date, holders
     except Exception as e:
         print(f"  [warn] TDCC: {e}")
-        return {}, ""
+        return {}, "", {}
 
 def prev_q(q):
     y, s = int(q[:4]), int(q[-1])
@@ -981,6 +991,77 @@ def wayback_margins(want_qs):
             if n1 > n0: print(f"      快照 {ts[:8]}:+{n1-n0} 筆")
             time.sleep(1)
     return {q: d for q, d in res.items() if d}
+
+def fetch_balance_mops(year, season):
+    """資產負債彙總(t163sb05):負債比與股東權益。走與三率相同的多路線(含公共代理GET),80秒預算。"""
+    out = {}
+    import urllib.parse as _up
+    _t0 = time.time()
+    y_roc, ss = str(year - 1911), f"{season:02d}"
+    for typek in ("sii", "otc"):
+        if time.time() - _t0 > 80: break
+        _form = {"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
+                 "isQuery": "Y", "TYPEK": typek, "year": y_roc, "season": ss}
+        got = 0
+        def _eat(html):
+            n0 = len(out)
+            try:
+                for df in pd.read_html(StringIO(html)):
+                    cols = [str(c) for c in df.columns]
+                    if not any("資產" in c for c in cols): continue
+                    c_id = next((c for c in df.columns if "代號" in str(c)), None)
+                    c_a  = next((c for c in df.columns if "資產" in str(c) and ("總" in str(c))), None)
+                    c_l  = next((c for c in df.columns if "負債" in str(c) and ("總" in str(c))), None)
+                    c_e  = next((c for c in df.columns if "權益" in str(c) and ("總" in str(c))), None)
+                    if None in (c_id, c_a, c_l): continue
+                    for _, row in df.iterrows():
+                        sid = str(row[c_id]).strip()
+                        if not (sid.isdigit() and len(sid) == 4): continue
+                        av, lv = numf(row[c_a]), numf(row[c_l])
+                        ev = numf(row[c_e]) if c_e is not None else (av - lv if None not in (av, lv) else None)
+                        if not av or lv is None: continue
+                        out[sid] = (round(lv / av * 100, 1), round((ev or 0) / 1e5, 1))   # 負債比%, 權益(億)
+            except Exception:
+                pass
+            return len(out) - n0
+        for host in ("mopsov.twse.com.tw", "mops.twse.com.tw"):
+            if got or time.time() - _t0 > 80: break
+            try:
+                r = requests.post(f"https://{host}/mops/web/ajax_t163sb05", data=_form,
+                    headers={**UA, "Referer": f"https://{host}/mops/web/t163sb05"}, timeout=30)
+                got += _eat(r.text)
+            except Exception:
+                pass
+            time.sleep(1)
+        if not got:
+            _qs = "https://mopsov.twse.com.tw/mops/web/ajax_t163sb05?" + _up.urlencode(_form)
+            for _px in (lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe=""),
+                        lambda u: "https://api.allorigins.win/raw?url=" + _up.quote(u, safe=""),
+                        lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")):
+                if got or time.time() - _t0 > 80: break
+                try:
+                    r = requests.get(_px(_qs), headers=UA, timeout=20)
+                    got += _eat(r.text)
+                except Exception:
+                    pass
+                time.sleep(0.5)
+        if got: print(f"    資產負債 {typek} {year}Q{season} +{got}")
+    return out
+
+def append_balance(chips, q_exp):
+    """把最新可得季的負債比/權益寫入 chips(e.bsq/debt/eqv);已覆蓋≥200檔則跳過。"""
+    try:
+        have = sum(1 for e2 in chips.values() if e2.get("bsq") == q_exp)
+        if have >= 200:
+            print(f"  資產負債 {q_exp}:已有 {have} 檔,跳過"); return
+        y0, s0 = int(q_exp[:4]), int(q_exp[-1])
+        bs = fetch_balance_mops(y0, s0)
+        for sid, (debt, eqv) in bs.items():
+            e2 = chips.setdefault(sid, {})
+            e2["bsq"], e2["debt"], e2["eqv"] = q_exp, debt, eqv
+        print(f"  資產負債 {q_exp}:寫入 {len(bs)} 檔(ROE/負債比資料源)")
+    except Exception as e:
+        print(f"  [warn] 資產負債: {e}")
 
 def _cur_q_avail():
     """依申報期限推算「現在應該拿得到」的最新季:Q1→5/16、Q2→8/15、Q3→11/15、年報(Q4)→4/1。"""
@@ -3033,13 +3114,50 @@ def main():
     rev_bulk = fetch_rev_bulk()
     chips, cmeta = load_chips()
     update_chip_hist(chips, cmeta)          # 法人逐日,累積至 65 個交易日
-    tdcc, tdcc_date = fetch_tdcc_bulk()
+    tdcc, tdcc_date, holders = fetch_tdcc_bulk()
+    try:                                                 # 集保總戶數逐週,保留 9 週
+        if holders and tdcc_date:
+            for _sid, _n in holders.items():
+                _e2 = chips.setdefault(_sid, {})
+                _h = [x for x in (_e2.get("hdn") or []) if x.get("d") != tdcc_date]
+                _h.append({"d": tdcc_date, "n": int(_n)})
+                _e2["hdn"] = _h[-9:]
+    except Exception as _e3:
+        print(f"  [warn] 戶數累積: {_e3}")
     append_tdcc(chips, tdcc, tdcc_date)     # 大戶逐週,保留 26 週
     append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
+    try: append_balance(chips, _cur_q_avail())   # 負債比/權益(財務體質:ROE 分母)
+    except Exception as _e4: print(f"  [warn] append_balance: {_e4}")
     inst = build_inst(chips)
     save_chips(chips, cmeta, comps)
 
+    dt_map = {}
+    try:                                                 # 當日沖銷統計(投機溫度):近4日內最新交易日
+        _tp5 = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+        for _b5 in range(0, 5):
+            _d5 = _tp5 - dt.timedelta(days=_b5)
+            if _d5.weekday() >= 5: continue
+            j5 = get_json("https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U",
+                          {"date": _d5.strftime("%Y%m%d"), "selectType": "All", "response": "json"},
+                          timeout=40)
+            rows5 = []
+            for tb5 in (j5.get("tables") or ([j5] if j5.get("data") else [])):
+                if tb5.get("data") and any("代號" in str(f5) for f5 in (tb5.get("fields") or [])):
+                    rows5 = tb5["data"]; f5s = [str(x) for x in tb5["fields"]]; break
+            if not rows5: continue
+            _ci5 = next((i for i, f5 in enumerate(f5s) if "代號" in f5), 0)
+            _cv5 = next((i for i, f5 in enumerate(f5s) if "股數" in f5 and "沖" in f5), None)
+            if _cv5 is None: continue
+            for r5 in rows5:
+                try:
+                    sid5 = str(r5[_ci5]).strip()
+                    dt_map[sid5] = int(str(r5[_cv5]).replace(",", "")) // 1000   # 股→張
+                except Exception: continue
+            if dt_map:
+                print(f"  當沖統計:{len(dt_map)} 檔({_d5.strftime('%Y-%m-%d')})"); break
+    except Exception as _e5:
+        print(f"  [warn] 當沖統計: {_e5}")
     print("④ 計算評分與訊號 ...")
     stocks, ok = [], 0
     for c in comps:
@@ -3049,6 +3167,12 @@ def main():
                 d = score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips)
                 if c["id"] in OFF_CHG:              # 官方當日漲跌%優先(K棒缺口時仍正確)
                     d["chg"] = OFF_CHG[c["id"]]
+                try:                                     # 當沖佔比% = 當沖張數 / 當日成交張數
+                    _v5 = bars["o"][-1][4] if bars["o"][-1] and len(bars["o"][-1]) > 4 else 0
+                    if c["id"] in dt_map and _v5:
+                        _p5 = round(dt_map[c["id"]] / _v5 * 100, 1)
+                        if 0 < _p5 <= 100: d["dtp"] = _p5
+                except Exception: pass
                 if c.get("etf"):                      # ETF 期間績效(價格報酬,%)
                     _cl=[x[3] for x in bars["o"]]; _ds=bars.get("d") or []
                     _last=_cl[-1]
