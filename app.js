@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r409 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r410 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1508,7 +1508,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r409</span>');
+  diag.push('<span style="color:var(--dim)">build r410</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5662,18 +5662,28 @@ function trendLines(o){
     if(lo<=o[i-1][2]&&lo<=o[i-2][2]&&lo<=o[i+1][2]&&lo<=o[i+2][2])L.push([i,lo]);
   }
   const pick=(P,isLow)=>{
+    let best=null;
     for(let b=P.length-1;b>=1;b--)for(let a=b-1;a>=0;a--){
       const [x1,y1]=P[a],[x2,y2]=P[b];
       if(x2-x1<8)continue;
       const k=(y2-y1)/(x2-x1);
+      if(isLow&&k<=0)continue;                     // 上升趨勢線必須向上(修:原版會把下降的連線標成上升線)
+      if(!isLow&&k>=0)continue;                    // 下降壓力線必須向下
       let ok=true;
       for(let i=x1;i<n;i++){
         const yl=y1+k*(i-x1);
         if(isLow?(o[i][2]<yl*0.99):(o[i][1]>yl*1.01)){ok=false;break;}
       }
-      if(ok)return {x1,y1,k,ye:+(y1+k*(n-1-x1)).toFixed(2)};
+      if(!ok)continue;
+      let touch=0;const tpts=[];
+      P.forEach(([xi,yi])=>{                       // 觸點:轉折點貼線 1% 內
+        const yl=y1+k*(xi-x1);
+        if(xi>=x1&&Math.abs(yi-yl)/yl<=0.01){touch++;tpts.push([xi,yi]);}
+      });
+      const score=(x2-x1)+touch*12;                // 教科書準則:跨度長+觸點多=更有效的線
+      if(!best||score>best.score)best={x1,y1,k,ye:+(y1+k*(n-1-x1)).toFixed(2),touch,tpts,score};
     }
-    return null;
+    return best;
   };
   return {up:pick(L,true),dn:pick(H,false)};
 }
@@ -7110,6 +7120,8 @@ function drawKChart(){
   try{
     const kr=window.__kRestore;
     if(kr&&kr.legend)chartInst.setOption({legend:{selected:kr.legend}});
+  try{chartInst.setOption({series:[{name:'K線',markPoint:{silent:true,
+    data:(localStorage.getItem('kTL')!=='0'&&window.__tlTouchMk)||[]}}]});}catch(e){}  // 趨勢線觸點圓圈(本輪新值後寫)
     window.__kRestore=null;
   }catch(e){}
           // 徽章式標籤:桌面帶名稱;手機改「小價位牌靠右軸停靠」不遮K棒
@@ -7153,18 +7165,47 @@ function drawKChart(){
                  lineStyle:{color:DNC,type:'solid',width:1.3},
                  label:chip(DNC,'insideStartBottom')}]:[]),
               ...(function(){
-                if(localStorage.getItem('kTL')==='0')return [];
+                if(localStorage.getItem('kTL')==='0'){window.__tlTouchMk=[];
+                  const kn=document.getElementById('kNoteTl');if(kn)kn.remove();return [];}
                 const tl=trendLines(o);
-                if(!tl)return [];
+                if(!tl){window.__tlTouchMk=[];return [];}
                 const mk=[];
+                const lastPx=o[o.length-1][3];
+                const fmtTl=(t,up2)=>{
+                  const slp=(t.k/((t.y1+t.ye)/2)*100).toFixed(2);
+                  const dist=((lastPx/t.ye-1)*100).toFixed(1);
+                  return `${up2?'↗支撐':'↘壓力'} ${(+t.ye).toLocaleString(undefined,{maximumFractionDigits:2})}`
+                    +`(${slp>0?'+':''}${slp}%/日 · ${t.touch}觸點 · 距價${dist>0?'+':''}${dist}%)`;
+                };
                 if(tl.up)mk.push([{name:'↗ 上升趨勢線',coord:[curDates[tl.up.x1],tl.up.y1],
-                  lineStyle:{color:'#4BD695',width:1.6,type:'solid'},
-                  label:{show:true,position:'end',formatter:'↗ 趨勢支撐',color:'#4BD695',fontSize:11.5}},
+                  lineStyle:{color:'#4BD695',width:1.7,type:'solid'},
+                  label:{show:true,position:'end',formatter:fmtTl(tl.up,true),color:'#4BD695',fontSize:10.5,fontWeight:700}},
                   {coord:[curDates[o.length-1],tl.up.ye]}]);
                 if(tl.dn)mk.push([{name:'↘ 下降壓力線',coord:[curDates[tl.dn.x1],tl.dn.y1],
-                  lineStyle:{color:'#FF8A8E',width:1.6,type:'solid'},
-                  label:{show:true,position:'end',formatter:'↘ 趨勢壓力',color:'#FF8A8E',fontSize:11.5}},
+                  lineStyle:{color:'#FF8A8E',width:1.7,type:'solid'},
+                  label:{show:true,position:'end',formatter:fmtTl(tl.dn,false),color:'#FF8A8E',fontSize:10.5,fontWeight:700}},
                   {coord:[curDates[o.length-1],tl.dn.ye]}]);
+                try{                                   // 圖下說明(一次注入)
+                  const kc=document.getElementById('kNoteTl')||(()=>{
+                    const host=document.getElementById('kC');
+                    if(!host||!host.parentNode)return null;
+                    const d2=document.createElement('div');
+                    d2.id='kNoteTl';d2.className='dim-note';d2.style.marginTop='4px';
+                    host.parentNode.insertBefore(d2,host.nextSibling);
+                    return d2;})();
+                  if(kc){
+                    const seg=[];
+                    if(tl.up)seg.push(`<b style="color:#4BD695">↗上升趨勢線</b>=連接波段低點、全程未跌破的支撐(今值 ${(+tl.up.ye).toLocaleString()},${tl.up.touch} 個觸點)——收盤跌破且隔日站不回=趨勢轉弱訊號`);
+                    if(tl.dn)seg.push(`<b style="color:#FF8A8E">↘下降壓力線</b>=連接波段高點、全程未突破的壓力(今值 ${(+tl.dn.ye).toLocaleString()})——帶量突破=轉強訊號`);
+                    if(!tl.up&&!tl.dn)seg.push('目前找不到有效趨勢線(需兩個以上同向轉折點且全程未被貫穿)——盤整期屬正常,箱型上下緣更具參考性');
+                    kc.innerHTML='📏 '+seg.join(';')+'。觸點越多、跨度越長的線越有效;單一貫穿不算破,以「收盤價+隔日確認」為準。';
+                  }
+                }catch(e2){}
+                const tpMk=[...(tl.up?tl.up.tpts:[]).map(p=>({coord:[curDates[p[0]],p[1]],symbol:'circle',symbolSize:7,
+                    itemStyle:{color:'transparent',borderColor:'#4BD695',borderWidth:1.6},label:{show:false}})),
+                  ...(tl.dn?tl.dn.tpts:[]).map(p=>({coord:[curDates[p[0]],p[1]],symbol:'circle',symbolSize:7,
+                    itemStyle:{color:'transparent',borderColor:'#FF8A8E',borderWidth:1.6},label:{show:false}}))];
+                window.__tlTouchMk=tpMk;
                 return mk;
               })()
             ]},
