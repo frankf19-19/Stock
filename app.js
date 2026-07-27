@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r408 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r409 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1508,7 +1508,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r408</span>');
+  diag.push('<span style="color:var(--dim)">build r409</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7310,11 +7310,11 @@ async function showDetail(id){
     </div>
     <div class="sec-title" data-sec="stk_k">${s.etf?`📈 走勢`:`📈 走勢・價位・進場策略`} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.etf?`K線・配息時間`:`K線・關鍵價位・除權息時間`}</span></div><div class="sec-body" id="sb-stk_k">
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
-    <div id="divTL"></div>
+    <div id="divTL" data-jumpname="📅 除權息與配息"></div>
     </div>
     ${s.etf?etfSec(s):''}
     ${s.market==='TW'?`<div class="sec-title" data-sec="stk_f">⚖️ 大戶/散戶買賣力 <span style="font-weight:400;font-size:13px;letter-spacing:0">盤中即時累積・6秒近似・單筆≥500萬=大單</span></div><div class="sec-body" id="sb-stk_f"><div id="forceBox" style="height:230px"></div><div class="dim-note" id="forceNote"></div></div>`:''}
-    ${(()=>{const ch=confHTML(s);return ch?`<div class="sec-title" data-sec="stk_conf">📣 法說會專區 <span style="font-weight:400;font-size:13px;letter-spacing:0">排程・公司擇要重點・站內解讀・相關報導</span></div><div class="sec-body" id="sb-stk_conf">${ch}</div>`:''})()}
+    ${(()=>{const ch=confHTML(s);return `<div class="sec-title" data-sec="stk_conf">📣 法說會專區 <span style="font-weight:400;font-size:13px;letter-spacing:0">排程・公司擇要重點・站內解讀・相關報導</span></div><div class="sec-body" id="sb-stk_conf">${ch||'<div class="dim-note" style="padding:14px 4px">此檔目前無已排程或近期召開的法說會資料——公司公告法說後,每日更新會自動帶入排程與站內解讀。</div>'}</div>`})()}
     <div class="sec-title" data-sec="stk_ai">🤖 AI 綜合研判・投資策略 <span style="font-weight:400;font-size:13px;letter-spacing:0">規則化研判・投資論點・進出場規劃</span></div><div class="sec-body" id="sb-stk_ai">
     ${s.etf?'':(()=>{const v=aiVerdict(s);return `
     <div class="dim-block" style="border-left:4px solid var(--amber)">
@@ -7330,8 +7330,8 @@ async function showDetail(id){
     ${s.etf?'':'<div id="turtleBox"></div>'}
     ${(s.etf||s.market!=='TW')?'':'<div id="zt8Box"></div>'}
     ${s.etf?'':'<div id="gemBox"></div>'}
-    ${s.market==='TW'?`<div class="chart-box"><h3>🔺 頭部七腳印<span class="ds">打頭打七吋 · 賣在起跌點的七步辨識</span></h3><div id="headStk"><div class="dim-note">判讀中…</div></div></div>`:''}
-    ${s.market==='TW'?`<div class="chart-box"><h3>🔄 轉折點分析<span class="ds">歷史轉折 · 節奏預估下次轉折日 · 近端支撐/目標價</span></h3><div id="fwStk"><div class="dim-note">判讀中…</div></div></div>`:''}
+    ${s.market==='TW'?`<div class="chart-box" id="boxHead7" data-jumpname="🔺 頭部七腳印"><h3>🔺 頭部七腳印<span class="ds">打頭打七吋 · 賣在起跌點的七步辨識</span></h3><div id="headStk"><div class="dim-note">判讀中…</div></div></div>`:''}
+    ${s.market==='TW'?`<div class="chart-box" id="boxTurn" data-jumpname="🔄 轉折點分析"><h3>🔄 轉折點分析<span class="ds">歷史轉折 · 節奏預估下次轉折日 · 近端支撐/目標價</span></h3><div id="fwStk"><div class="dim-note">判讀中…</div></div></div>`:''}
     </div>
     <div class="sec-title" data-sec="stk_s">📅 歷史月份行情 <span style="font-weight:400;font-size:13px;letter-spacing:0">季節性統計・各年度月份漲跌</span></div><div class="sec-body" id="sb-stk_s">
     <div id="seasonBox" class="dim-block"><div class="dim-note">📡 歷史月K自動載入中…</div></div>
@@ -7928,9 +7928,14 @@ function buildJumpBar(root){
   bar.querySelectorAll('[data-jmn]').forEach(b=>b.onclick=()=>{
     const el=document.getElementById(b.dataset.jmn);
     if(!el)return;
-    if(el.hidden||el.offsetParent===null){alert('這個區塊目前沒有內容(近 35 天無排程事件時會自動隱藏)');return;}
+    const sec=el.closest('.sec-body');
+    if(sec&&sec.classList.contains('closed')){                 // 目標在收合區內 → 先展開所屬區段
+      const t=root.querySelector('.sec-title[data-sec="'+sec.id.replace('sb-','')+'"]');
+      if(t)t.click();
+    }
+    if(el.hidden||(el.offsetParent===null&&!sec)){try{toastLite('這個區塊目前沒有內容,資料到位後會自動出現');}catch(e){}return;}
     el.classList.remove('closed');
-    el.scrollIntoView({behavior:'smooth',block:'start'});
+    setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),80);
   });
 }
 function setupMobileNav(){
