@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r411 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r412 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1508,7 +1508,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r411</span>');
+  diag.push('<span style="color:var(--dim)">build r412</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2706,11 +2706,38 @@ function turnHtml(r){
     </div></div>`;
   return head.join('')+tbl+`<div class="dim-note" style="margin-top:8px">轉折點=鋸齒法自動辨識(前後4根K的極值);「預估窗口」是節奏統計非保證,價位到了、時間到了、量能背離三者共振時勝率最高。個股日期為交易日回推之約略值。非投資建議。</div>`;
 }
+
+async function usEarnBlock(s){                        // 📡 美股個股財報卡:賽前預期/賽後結果(來源 yext.earn)
+  const box=document.getElementById('usEarnBox');
+  if(!box||!s||s.market!=='US')return;
+  try{
+    const y=await yextData();
+    const list=(y&&y.earn||[]).filter(e=>String(e.sym).toUpperCase()===String(s.id).toUpperCase());
+    if(!list.length){box.innerHTML='<div class="dim-block"><h3>📡 財報</h3><div class="dim-note">近期無財報排程或結果資料(涵蓋過去10天~未來14天的美股行事曆)。</div></div>';return;}
+    const e=list.sort((a,b)=>String(b.d).localeCompare(String(a.d)))[0];
+    const done=e.act!=null;
+    const sur=e.sur!=null?+e.sur:(e.act!=null&&e.eps?((e.act/Math.abs(e.eps)-1)*100):null);
+    const tp=(()=>{try{const d=new Date(e.d+'T'+(e.t&&/after/i.test(e.t)?'21:00':'13:00')+':00Z');
+      return d.toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}catch(x){return e.d;}})();
+    box.innerHTML=`<div class="dim-block" style="border-left:4px solid #6FA8DC">
+      <h3>📡 財報 <span class="ds">${done?'已公布':'即將登場'}</span></h3>
+      <div class="earn-metrics" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+        <div class="em-card"><div class="em-v flat" style="font-size:16px;padding-top:6px">${e.d}</div><div class="em-l">財報日${e.t?' · '+e.t:''}(台北 ${tp})</div></div>
+        <div class="em-card"><div class="em-v flat">${e.eps!=null?e.eps:'—'}</div><div class="em-l">市場預期 EPS</div></div>
+        ${done?`<div class="em-card"><div class="em-v ${e.act>=e.eps?'pos':'neg'}">${e.act}</div><div class="em-l">實際 EPS</div></div>
+        <div class="em-card"><div class="em-v ${sur>=0?'pos':'neg'}">${sur!=null?(sur>0?'+':'')+sur.toFixed(1)+'%':'—'}</div><div class="em-l">vs 預期(驚喜幅度)</div></div>`:''}
+      </div>
+      <div class="dim-note" style="margin-top:6px">${done
+        ?(sur>=5?'大幅優於預期——留意是否已在財報前反映(利多出盡風險)。':sur>=0?'小幅優於預期,焦點通常在財測指引而非本期數字。':'低於預期——觀察股價是否已提前反映利空。')
+        :'財報前部位宜控制,美股盤後公布=台北時間隔日清晨;台鏈供應商常同步波動。'}資料來源:Nasdaq 財報行事曆。</div></div>`;
+  }catch(err){box.innerHTML='';}
+}
+
 async function renderFwStock(s){
   const box=document.getElementById('fwStk');
-  if(!box||!s||s.market!=='TW')return;
+  if(!box||!s)return;
   try{
-    const sh=`k/tw${s.id[0]}.json`;
+    const sh=shardOf(s);
     if(!(sh in KCACHE)){
       try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),15000);
           KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
@@ -2918,9 +2945,9 @@ function paintHeadScan(scan){
 }
 async function renderHeadStock(s){
   const box=document.getElementById('headStk');
-  if(!box||!s||s.market!=='TW')return;
+  if(!box||!s)return;
   try{
-    const sh=`k/tw${s.id[0]}.json`;
+    const sh=shardOf(s);
     if(!(sh in KCACHE)){
       try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),15000);
           KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
@@ -3840,6 +3867,12 @@ function renderStkAlerts(s,k,tt){
   if(s.disp)add('red','🚨','處置股——交易管制中,流動性差、波動放大,短線進出風險高');
   if(s.dtp!=null&&s.dtp>=40)add(s.dtp>=60?'red':'amb','🎰',atag('當沖')+`當沖佔比 ${s.dtp}%——投機盤主導,波動劇烈${s.dtp>=60?',留意處置風險與尾盤變臉':',隔日沖出貨常在尾盤'}`);
   try{
+    if(!k&&s.market==='US'){                                  // 美股:警示條也吃日K(與台股同規格)
+      try{const sh=shardOf(s);
+        const e2=(KCACHE[sh]||{})[s.id];
+        if(e2&&e2.o&&e2.o.length>=60)k={ohlc:e2.o};
+      }catch(e){}
+    }
     if(k&&!k.demo&&Array.isArray(k.ohlc)&&k.ohlc.length>=60&&s.price){
       const cl=k.ohlc.map(x=>x[3]);
       const ma=p=>cl.slice(-p).reduce((x,y)=>x+y,0)/p;
@@ -7369,16 +7402,17 @@ async function showDetail(id){
     ${s.etf?'':'<div id="turtleBox"></div>'}
     ${(s.etf||s.market!=='TW')?'':'<div id="zt8Box"></div>'}
     ${s.etf?'':'<div id="gemBox"></div>'}
-    ${s.market==='TW'?`<div class="chart-box" id="boxHead7" data-jumpname="🔺 頭部七腳印"><h3>🔺 頭部七腳印<span class="ds">打頭打七吋 · 賣在起跌點的七步辨識</span></h3><div id="headStk"><div class="dim-note">判讀中…</div></div></div>`:''}
-    ${s.market==='TW'?`<div class="chart-box" id="boxTurn" data-jumpname="🔄 轉折點分析"><h3>🔄 轉折點分析<span class="ds">歷史轉折 · 節奏預估下次轉折日 · 近端支撐/目標價</span></h3><div id="fwStk"><div class="dim-note">判讀中…</div></div></div>`:''}
+    <div class="chart-box" id="boxHead7" data-jumpname="🔺 頭部七腳印"><h3>🔺 頭部七腳印<span class="ds">打頭打七吋 · 賣在起跌點的七步辨識</span></h3><div id="headStk"><div class="dim-note">判讀中…</div></div></div>
+    <div class="chart-box" id="boxTurn" data-jumpname="🔄 轉折點分析"><h3>🔄 轉折點分析<span class="ds">歷史轉折 · 節奏預估下次轉折日 · 近端支撐/目標價</span></h3><div id="fwStk"><div class="dim-note">判讀中…</div></div></div>
     </div>
     <div class="sec-title" data-sec="stk_s">📅 歷史月份行情 <span style="font-weight:400;font-size:13px;letter-spacing:0">季節性統計・各年度月份漲跌</span></div><div class="sec-body" id="sb-stk_s">
     <div id="seasonBox" class="dim-block"><div class="dim-note">📡 歷史月K自動載入中…</div></div>
     </div>
-    ${s.market==='TW'&&!s.etf?`<div class="sec-title" data-sec="stk_r">💰 營收與獲利 <span style="font-weight:400;font-size:13px;letter-spacing:0">月營收趨勢・季報三率・近兩年</span></div><div class="sec-body" id="sb-stk_r">
-    <div class="chart-box"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>
+    ${!s.etf?`<div class="sec-title" data-sec="stk_r">💰 ${s.market==='US'?'財報與獲利':'營收與獲利'} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.market==='US'?'財報結果・EPS 驚喜・獲利指標':'月營收趨勢・季報三率・近兩年'}</span></div><div class="sec-body" id="sb-stk_r">
+    <div class="chart-box" style="${s.market==='US'?'display:none':''}"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>
     <div id="t3qBox" class="dim-block"><div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div></div>
     <div id="finQBox"></div>
+    <div id="usEarnBox"></div>
     </div>`:''}
     <div class="sec-title" data-sec="stk_h">👑 大戶持股趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">集保週資料・千張大戶 vs 散戶</span></div><div class="sec-body" id="sb-stk_h">
     <div id="tdccBox" class="dim-block"><div class="dim-note">📡 集保股權資料載入中…</div></div>
@@ -7495,6 +7529,7 @@ async function showDetail(id){
   try{const tb=document.getElementById('t3qBox');if(tb){tb.style.display='';tb.innerHTML='<div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div>';}t3qBlock(s);}catch(e){}
   try{renderHeadStock(s);}catch(e){}
   try{renderFwStock(s);}catch(e){}
+  try{usEarnBlock(s);}catch(e){}
   try{buildJumpBar(document.getElementById('detailView'));}catch(e){}
   loadAnalystDetail(s);
   loadChipDetail(s);
@@ -11074,14 +11109,15 @@ async function portHeadRisk(){
     box.style.cssText='background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:12px;padding:13px 16px;margin:0 0 12px';
     anchor.parentNode.insertBefore(box,anchor);
   }
-  const hold=portGet().map(p=>p.id).filter(id=>/^\d/.test(String(id)));
+  const hold=portGet().map(p=>p.id);
   if(!hold.length){box.style.display='none';return;}
   box.style.display='';
   box.innerHTML='<b>🔺 持股頭部風險體檢</b><div class="dim-note">七腳印引擎逐檔判讀中…</div>';
   const rows=[];
   for(const id of hold){
     try{
-      const sh=`k/tw${String(id)[0]}.json`;
+      const st0=(DATA.stocks||[]).find(x=>x.id===id);
+      const sh=st0?shardOf(st0):`k/tw${String(id)[0]}.json`;
       if(!(sh in KCACHE)){
         try{const r=await fT(sh+'?v='+encodeURIComponent(DATA.updated||''),15000);
             KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
