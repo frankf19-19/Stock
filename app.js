@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r421 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r422 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r421</span>');
+  diag.push('<span style="color:var(--dim)">build r422</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1658,7 +1658,8 @@ function flowCalc(d){ // 內外盤估:分鐘收高=主動買量、收低=主動�
 }
 function flowHTML(d,unit){
   const f=flowCalc(d), tot=f.up+f.dn;
-  if(!tot)return '';
+  const k0=(unit==='張')?1000:1;
+  if(!tot||tot<k0*2)return '<div class="dim-note" style="margin-top:8px"><b>盤中多空力道:</b><span style="color:var(--dim)">成交量累積中(不足 2 '+unit+')——開盤初期或此檔冷門時需要幾筆成交才有意義,稍後自動顯示。</span></div>';
   const bp=Math.round(f.up/tot*100);
   const k=unit==='張'?1000:1;
   return `<div class="dim-note" style="margin-top:8px">
@@ -4109,8 +4110,23 @@ function intraStatTxt(s,extra){
   const px=s.price!=null?s.price:'—';
   const cg=s.chg!=null?` <span class="${s.chg>=0?'pos':'neg'}">${s.chg>=0?'▲':'▼'} ${Math.abs(s.chg).toFixed(2)}%</span>`:'';
   const mt=(window.__mkT||{})[s.id];
-  const tt=mt?` <span style="font-size:11px;color:var(--dim)" title="交易所成交時刻——跟你的時鐘差幾秒=實際延遲">成交 ${mt.slice(0,8)}</span>`:'';
-  return `<b style="font-family:var(--mono)">${px}</b>${cg}${tt}${extra?' · '+extra:''}`;
+  let tt='';
+  if(mt){                                                  // r422:成交時刻新鮮度檢查——過期就標「延遲/前一場」,不再假裝即時
+    let stale=false,mins=null;
+    try{
+      const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+      const hm=String(mt).slice(0,5).split(':');
+      if(hm.length===2){
+        const qm=+hm[0]*60+ +hm[1], nm=now.getHours()*60+now.getMinutes();
+        mins=nm-qm;
+        stale=(typeof marketOpen==='function'&&marketOpen())&&(mins>15||mins<-3);
+      }
+    }catch(e){}
+    tt=` <span style="font-size:11px;color:${stale?'var(--amber)':'var(--dim)'}" title="交易所成交時刻">成交 ${String(mt).slice(0,8)}${stale?`(${mins>0?'延遲約'+mins+'分':'非本場'},非最新)`:''}</span>`;
+  }
+  const vv=(RTC[s.id]&&RTC[s.id].v)||0;
+  const vt=vv>0?` <span style="font-size:11px;color:var(--dim)">總量 ${Math.round(vv).toLocaleString()} 張</span>`:'';
+  return `<b style="font-family:var(--mono)">${px}</b>${cg}${tt}${vt}${extra?' · '+extra:''}`;
 }
 /* 個股即時解讀:開盤型態/日內位置/均價關係/短線動能/量能/關卡距離 */
 function stkRead(s){
