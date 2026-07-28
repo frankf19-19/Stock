@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r427 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r428 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r427</span>');
+  diag.push('<span style="color:var(--dim)">build r428</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3245,6 +3245,35 @@ setInterval(asiaCard,900000);
 
 
 /* ══ 🧭 今日市場懶人包:把站內所有引擎的結論翻成白話,小白看這段就夠 ══ */
+
+function buildMacroJump(){                   // 🧭 大盤頁快速導覽:點膠囊直達區塊(收合中會自動展開)
+  try{
+    const bar=document.getElementById('macroJump');
+    const pane=document.getElementById('tp-macro');
+    if(!bar||!pane)return;
+    const secs=[...pane.querySelectorAll('.sec-title[data-sec]')]
+      .filter(t=>t.dataset.sec!=='macro');
+    if(!secs.length)return;
+    bar.innerHTML=secs.map(t=>{
+      const txt=(t.childNodes[0]&&t.childNodes[0].textContent||t.textContent).trim();
+      return `<button data-mj="${t.dataset.sec}">${txt}</button>`;
+    }).join('')+`<button data-mj="__pick">📌 關注五檔</button>`;
+    bar.querySelectorAll('[data-mj]').forEach(b=>b.onclick=()=>{
+      const k=b.dataset.mj;
+      let el=null;
+      if(k==='__pick')el=document.getElementById('pickBox');
+      else{
+        const t=pane.querySelector(`.sec-title[data-sec="${k}"]`);
+        const body=document.getElementById('sb-'+k);
+        if(body&&body.classList.contains('closed')&&t)t.click();
+        el=t;
+      }
+      if(el)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),70);
+    });
+  }catch(e){}
+}
+setTimeout(buildMacroJump,900);
+
 function tldrCard(){
   const box=document.getElementById('tldrBox');
   if(!box)return;
