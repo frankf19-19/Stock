@@ -29,7 +29,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r426">
+<link rel="stylesheet" href="app.css?v=r427">
 </head>
 <body>
 
@@ -95,6 +95,7 @@
 <div class="tabPane" id="tp-macro"><div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:13px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
   <div class="alert-strip" id="macroAlerts" style="display:none"></div>
   <div class="idx-card" id="tldrBox" style="display:none;margin:10px 0 2px;cursor:default;border-left:4px solid var(--amber)"></div>
+  <div class="sec-title tap" data-sec="mk_temp" style="margin-top:12px">🌡️ 市場溫度 <span style="font-weight:400;font-size:13px;letter-spacing:0">情緒・量能・龍頭強弱・融資風險</span></div><div class="sec-body" id="sb-mk_temp">
   <div id="tempGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:10px;margin:10px 0 2px">
     <div class="idx-card" id="twFng" style="display:none"></div>
     <div class="idx-card" id="volTemp" style="display:none"></div>
@@ -102,8 +103,13 @@
     <div class="idx-card" id="mtCard" style="display:none"></div>
     <div id="fngTop" style="display:none"></div>
   </div>
-  <div class="idx-card" id="asiaBox" style="display:none;margin-top:10px;cursor:default"></div>
-  <div class="idx-card" id="rotBoard" style="display:none;margin-top:10px;cursor:default"></div>
+  </div>
+  <div class="sec-title tap" data-sec="mk_asia" style="margin-top:12px">🌏 亞洲股市 <span style="font-weight:400;font-size:13px;letter-spacing:0">日・韓・港收盤・點卡看K線</span></div><div class="sec-body" id="sb-mk_asia">
+  <div class="idx-card" id="asiaBox" style="display:none;cursor:default"></div>
+  </div>
+  <div class="sec-title tap" data-sec="mk_rot" style="margin-top:12px">🔁 類股資金輪動 <span style="font-weight:400;font-size:13px;letter-spacing:0">今日產業強弱・資金往哪跑</span></div><div class="sec-body" id="sb-mk_rot">
+  <div class="idx-card" id="rotBoard" style="display:none;cursor:default"></div>
+  </div>
   <div id="pickBox" style="display:none"></div>
   <div class="macro-grid">
     <div class="chart-box" style="margin:0">
@@ -291,6 +297,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r426"></script>
+<script src="app.js?v=r427"></script>
 </body>
 </html>

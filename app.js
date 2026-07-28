@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r426 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r427 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r426</span>');
+  diag.push('<span style="color:var(--dim)">build r427</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3150,6 +3150,40 @@ function frBadge(kind){                     // 資料時點徽章:讓每張卡�
 
 
 /* ══ 🌏 亞洲股市:日經225・韓國KOSPI・香港恆生(收盤日線;台股開盤前的亞股風向) ══ */
+
+async function asiaChart(sym,host){          // 🌏 亞股 60 日日K(點卡展開;有OHLC畫K棒,否則畫線)
+  try{
+    const y=await yextData();
+    const d=((y&&y.series||{})[sym]||{}).d;
+    if(!d||!d.c)return;
+    let el=host.querySelector('.asia-k');
+    if(!el){el=document.createElement('div');el.className='asia-k';
+      el.style.cssText='height:200px;margin-top:8px';host.insertBefore(el,host.firstChild);}
+    const ok=await ensureECharts();
+    if(!ok){el.innerHTML='<div class="dim-note">圖表引擎載入失敗</div>';return;}
+    const n=d.c.length,S=Math.max(0,n-60);
+    const xs=(d.t||[]).slice(S).map(t=>new Date(t*1000).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'}));
+    const hasK=Array.isArray(d.o)&&Array.isArray(d.h)&&Array.isArray(d.l)&&d.o.length===n;
+    const ch=echarts.init(el);
+    (window.__asiaCh=window.__asiaCh||[]).push(ch);
+    const ser=hasK
+      ?{type:'candlestick',data:d.c.slice(S).map((c2,i)=>[d.o[S+i],c2,d.l[S+i],d.h[S+i]]),
+        itemStyle:{color:CT.up2,color0:CT.dn2,borderColor:CT.up2,borderColor0:CT.dn2}}
+      :{type:'line',data:d.c.slice(S),showSymbol:false,lineStyle:{width:2,color:'#8A6D3B'},
+        areaStyle:{color:'rgba(138,109,59,.14)'}};
+    const ma=(p)=>d.c.slice(S).map((_,i)=>{const j=S+i;if(j<p-1)return null;
+      let t=0;for(let k2=0;k2<p;k2++)t+=d.c[j-k2];return +(t/p).toFixed(1);});
+    ch.setOption({animation:false,grid:{left:8,right:8,top:14,bottom:22,containLabel:true},
+      tooltip:{trigger:'axis'},
+      xAxis:{type:'category',data:xs,axisLabel:{fontSize:10,color:'#9A938A'}},
+      yAxis:{scale:true,axisLabel:{fontSize:10,color:'#9A938A'},splitLine:{lineStyle:{opacity:.35}}},
+      series:[ser,
+        {type:'line',name:'MA5',data:ma(5),showSymbol:false,lineStyle:{width:1,color:'#E8A33D'}},
+        {type:'line',name:'MA20',data:ma(20),showSymbol:false,lineStyle:{width:1,color:'#7FB4FF'}}]});
+    setTimeout(()=>{try{ch.resize();}catch(e){}},120);
+  }catch(e){}
+}
+
 async function asiaCard(){
   const box=document.getElementById('asiaBox');
   if(!box)return;
@@ -3200,7 +3234,9 @@ async function asiaCard(){
         日韓港收盤時間與台股相近,常同步反映外資對亞股的態度;來源:FRED/Stooq 官方收盤價,盤中不跳動。</div>`;
     box.querySelectorAll('[data-asia]').forEach(el=>{el.onclick=()=>{
       const m=el.querySelector('.asia-more');
-      if(m)m.hidden=!m.hidden;
+      if(!m)return;
+      m.hidden=!m.hidden;
+      if(!m.hidden)asiaChart(el.dataset.asia,m);
     };});
   }catch(e){box.style.display='none';}
 }
