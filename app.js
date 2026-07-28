@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r423 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r424 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r423</span>');
+  diag.push('<span style="color:var(--dim)">build r424</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3159,9 +3159,13 @@ async function asiaCard(){
     const cards=[];
     defs.forEach(([sym,nm,flag])=>{
       const d=(ser[sym]||{}).d;
-      if(!d||!d.c||d.c.length<2)return;
-      const c=d.c.filter(x=>x!=null&&isFinite(x));
-      if(c.length<2)return;
+      const c0=(d&&d.c)?d.c.filter(x=>x!=null&&isFinite(x)):[];
+      if(c0.length<2){                                     // 尚未回補 → 占位卡,不讓版面塌掉
+        cards.push(`<div class="asia-c" style="opacity:.55"><div style="font-size:12.5px;font-weight:800;color:var(--txt2)">${flag} ${nm}</div>
+          <div class="dim-note" style="margin-top:6px;font-size:11.5px">資料回補中——下一班資料更新後自動出現</div></div>`);
+        return;
+      }
+      const c=c0;
       const last=c[c.length-1],prev=c[c.length-2];
       const chg=(last/prev-1)*100;
       const w5=c.length>=6?((last/c[c.length-6]-1)*100):null;
@@ -3170,7 +3174,7 @@ async function asiaCard(){
       const W=88,H=22;
       const pts=v.map((p,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(H-2-(p-mn)/rg*(H-4)).toFixed(1)}`).join(' ');
       const dt=(d.t&&d.t.length)?new Date(d.t[d.t.length-1]*1000).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'}):'';
-      cards.push(`<div style="flex:1;min-width:150px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--panel)">
+      cards.push(`<div class="asia-c">
         <div style="font-size:12.5px;font-weight:800;color:var(--txt2)">${flag} ${nm}<span style="font-weight:400;color:var(--dim);font-size:11px"> ${dt}</span></div>
         <div style="display:flex;align-items:baseline;gap:7px;margin:2px 0 1px">
           <b style="font-family:var(--mono);font-size:17px">${last.toLocaleString(undefined,{maximumFractionDigits:0})}</b>
@@ -3179,14 +3183,16 @@ async function asiaCard(){
         <div style="font-size:11px;color:var(--dim)">近5日 ${w5!=null?(w5>0?'+':'')+w5.toFixed(1)+'%':'—'} · 近30日走勢</div></div>`);
     });
     if(!cards.length){box.style.display='none';return;}
-    const upN=defs.filter(([sym])=>{const d=(ser[sym]||{}).d;if(!d||!d.c)return false;
-      const c=d.c.filter(x=>x!=null);return c.length>=2&&c[c.length-1]>c[c.length-2];}).length;
+    const okD=defs.filter(([sym])=>{const d=(ser[sym]||{}).d;const c=(d&&d.c)?d.c.filter(x=>x!=null):[];return c.length>=2;});
+    const upN=okD.filter(([sym])=>{const c=ser[sym].d.c.filter(x=>x!=null);return c[c.length-1]>c[c.length-2];}).length;
+    const nD=okD.length;
     box.style.display='';
     box.innerHTML=`<div class="nm" style="margin-bottom:7px">🌏 亞洲股市${frBadge('day')}</div>
-      <div style="display:flex;gap:9px;flex-wrap:wrap">${cards.join('')}</div>
-      <div class="dim-note" style="margin-top:7px">${upN===cards.length?'亞股全面收紅——區域資金氣氛偏多,台股開盤易有撐。'
+      <div class="asia-grid">${cards.join('')}</div>
+      <div class="dim-note" style="margin-top:7px">${nD<2?`目前僅 ${nD} 個市場有資料,待其餘回補後提供區域判讀。`
+        :upN===nD?'亞股全面收紅——區域資金氣氛偏多,台股開盤易有撐。'
         :upN===0?'亞股全面收黑——區域同步走弱,台股開盤宜保守。'
-        :`亞股漲跌互見(${upN}/${cards.length} 上漲)——無一致方向,台股回歸自身籌碼與權值股表現。`}
+        :`亞股漲跌互見(${upN}/${nD} 上漲)——無一致方向,台股回歸自身籌碼與權值股表現。`}
         日韓港收盤時間與台股相近,常同步反映外資對亞股的態度;來源:FRED/Stooq 官方收盤價,盤中不跳動。</div>`;
   }catch(e){box.style.display='none';}
 }
