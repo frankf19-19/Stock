@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r415 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r416 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r415</span>');
+  diag.push('<span style="color:var(--dim)">build r416</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4364,6 +4364,22 @@ async function loadIntraDetail(s,accOnly){
   const isTW0=s.market==='TW';
   const stat0=document.getElementById('intraStat');
   if(stat0&&!accOnly)stat0.innerHTML=intraStatTxt(s);   // 漲跌幅立即顯示,不等圖
+  if(!accOnly){                                          // 🐶 看門狗:12秒未成圖 → 說明原因並提供重試,不再無限「載入中」
+    clearTimeout(window.__intraWd);
+    window.__intraWd=setTimeout(()=>{
+      try{
+        const bx=document.getElementById('intraChart'),st9=document.getElementById('intraStat');
+        if(!bx||bx.dataset.drawn==='1'||(bx.textContent||'').trim().length>6)return;
+        const opened=(typeof marketOpen==='function')&&marketOpen();
+        bx.innerHTML='<div class="dim-note" style="padding:26px 8px;text-align:center;line-height:1.7">'
+          +(opened?'分線累積中——開盤初期或此檔冷門時需要幾輪報價才成線,會自動出現。'
+                  :'目前非交易時段,且尚無最近交易日的分時快照可顯示。<br>盤中開啟本頁即會即時累積並自動保存;下方 K 線圖與所有分析不受影響。')
+          +'<br><a href="javascript:void 0" onclick="try{loadIntraDetail(window.__curStk||{})}catch(e){location.reload()}" style="color:var(--amber);font-weight:800">點我重試</a></div>';
+        if(st9&&/載入中/.test(st9.textContent||''))st9.innerHTML=intraStatTxt(s,opened?'累積中':'非交易時段');
+      }catch(e){}
+    },12000);
+  }
+  try{window.__curStk=s;}catch(e){}
   if(isTW0&&openish()&&stkAcc(s.id).c.length<2&&!accOnly){
     seedStk(s);
     setTimeout(()=>{if(location.hash===KHASH&&stkAcc(s.id).c.length<2)seedStk(s).then(()=>{
@@ -4427,7 +4443,7 @@ async function loadIntraDetail(s,accOnly){
         const acc=stkAcc(s.id);
         if(acc.c.length>=2)d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev};
         else if(!accOnly){
-          const md=await misIntraday(s);
+          const md=openish()?await misIntraday(s):null;   // 非交易時段不打當日端點(必然無資料,只會空等)
           if(md&&location.hash===KHASH)d=md;
           if(!d){                // 🌙 開盤前/收盤後最後防線:spark.json 前一交易日 5 分快照
             try{await loadSpark();}catch(e){}
@@ -4437,6 +4453,7 @@ async function loadIntraDetail(s,accOnly){
           }
         }
       }
+      try{clearTimeout(window.__intraWd);}catch(e){}
       if(d&&d.t&&d.t.length){
         const dd=tpDay(d.t[d.t.length-1]);
         if(dd!==today&&stat)setTimeout(()=>{const st2=document.getElementById('intraStat');

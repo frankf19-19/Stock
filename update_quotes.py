@@ -134,8 +134,20 @@ def main():
             if len(arr) < L:
                 arr += [None] * (L - len(arr))
             arr.append(idxq.get(k))
+        # 🛡 非交易日直接不寫(週末手動跑會用 2~3 點蓋掉週五完整快照——2026-07-26 實際踩到)
+        _tpw = dt.datetime.now(dt.timezone(dt.timedelta(hours=8))) if 'dt' in dir() else None
+        try:
+            import datetime as _d2
+            _now8 = _d2.datetime.now(_d2.timezone(_d2.timedelta(hours=8)))
+            _mins = _now8.hour * 60 + _now8.minute
+            if _now8.weekday() >= 5 or not (540 <= _mins <= 840):
+                print(f"  spark:非交易時段({_now8:%m-%d %H:%M}),保留既有快照不覆寫")
+                sp = None
+        except Exception:
+            pass
         # 🛡 保護既有快照:非交易日/收盤後手動補跑時,若既有檔點數更多且日期不同,不得覆蓋
         try:
+            if sp is None: raise Exception('skip')
             with open("spark.json", encoding="utf-8") as f0:
                 old_sp = json.load(f0)
             if (old_sp.get("d") != sp.get("d")
