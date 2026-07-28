@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r420 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r421 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r420</span>');
+  diag.push('<span style="color:var(--dim)">build r421</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7492,6 +7492,7 @@ function drawKChart(){
                  lineStyle:{color:DNC,type:'solid',width:1.3},
                  label:chip(DNC,'insideStartBottom')}]:[]),
               ...(function(){
+                try{
                 if(localStorage.getItem('kTL')==='0'){window.__tlTouchMk=[];
                   const kn=document.getElementById('kNoteTl');if(kn)kn.remove();return [];}
                 const zw=window.__kZoom;                       // 依目前縮放的可視範圍重算(拉近也精準)
@@ -7501,7 +7502,7 @@ function drawKChart(){
                 if(!tl){window.__tlTouchMk=[];return [];}
                 const mk=[];
                 const lastPx=o[o.length-1][3];
-                const fmtTl=(t,up2)=>`${up2?'↗支撐':'↘壓力'} ${(+t.ye).toLocaleString(undefined,{maximumFractionDigits:2})}(${t.touch}觸)`;
+                const fmtTl=(t,up2)=>t?`${up2?'↗支撐':'↘壓力'} ${(+t.ye).toLocaleString(undefined,{maximumFractionDigits:2})}(${t.touch}觸)`:'';   // r421:空值防護(無線時不得取屬性→整張圖曾因此空白)
                 const EIx=(tl.E||o.length)-1;
                 const seg=(t,col,txt,w,dash,pos)=>{if(!t)return;
                   mk.push([{coord:[curDates[t.x1],t.y1],
@@ -7542,6 +7543,7 @@ function drawKChart(){
                     itemStyle:{color:'transparent',borderColor:'#FF8A8E',borderWidth:1.6},label:{show:false}}))];
                 window.__tlTouchMk=tpMk;
                 return mk;
+                }catch(_e){window.__tlTouchMk=[];console.warn('trendline',_e);return [];}
               })()
             ]},
           markArea:{silent:true,itemStyle:{color:hexA(ACC,.12)},
