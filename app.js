@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r425 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r426 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r425</span>');
+  diag.push('<span style="color:var(--dim)">build r426</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3162,8 +3162,9 @@ async function asiaCard(){
       const d=(ser[sym]||{}).d;
       const c0=(d&&d.c)?d.c.filter(x=>x!=null&&isFinite(x)):[];
       if(c0.length<2){                                     // 尚未回補 → 占位卡,不讓版面塌掉
-        cards.push(`<div class="asia-c" style="opacity:.55"><div style="font-size:12.5px;font-weight:800;color:var(--txt2)">${flag} ${nm}</div>
-          <div class="dim-note" style="margin-top:6px;font-size:11.5px">資料回補中——下一班資料更新後自動出現</div></div>`);
+        cards.push(`<div class="asia-c" style="opacity:.5"><div style="display:flex;align-items:baseline;gap:6px">
+          <span style="font-size:12.5px;font-weight:800;color:var(--txt2)">${flag} ${nm}</span>
+          <span style="margin-left:auto;font-size:11.5px;color:var(--dim)">回補中</span></div></div>`);
         return;
       }
       const c=c0;
@@ -3175,13 +3176,15 @@ async function asiaCard(){
       const W=88,H=22;
       const pts=v.map((p,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(H-2-(p-mn)/rg*(H-4)).toFixed(1)}`).join(' ');
       const dt=(d.t&&d.t.length)?new Date(d.t[d.t.length-1]*1000).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'}):'';
-      cards.push(`<div class="asia-c">
-        <div style="font-size:12.5px;font-weight:800;color:var(--txt2)">${flag} ${nm}<span style="font-weight:400;color:var(--dim);font-size:11px"> ${dt}</span></div>
-        <div style="display:flex;align-items:baseline;gap:7px;margin:2px 0 1px">
-          <b style="font-family:var(--mono);font-size:17px">${last.toLocaleString(undefined,{maximumFractionDigits:0})}</b>
-          <b style="color:${col};font-size:13px;font-family:var(--mono)">${chg>0?'+':''}${chg.toFixed(2)}%</b></div>
-        <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/></svg>
-        <div style="font-size:11px;color:var(--dim)">近5日 ${w5!=null?(w5>0?'+':'')+w5.toFixed(1)+'%':'—'} · 近30日走勢</div></div>`);
+      cards.push(`<div class="asia-c" data-asia="${sym}" title="點我看走勢與細節">
+        <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
+          <span style="font-size:12.5px;font-weight:800;color:var(--txt2)">${flag} ${nm}</span>
+          <b style="font-family:var(--mono);font-size:17px;margin-left:auto">${last.toLocaleString(undefined,{maximumFractionDigits:0})}</b>
+          <b style="color:${col};font-size:13.5px;font-family:var(--mono)">${chg>0?'+':''}${chg.toFixed(2)}%</b>
+          <span style="color:var(--dim);font-size:11px">›</span></div>
+        <div class="asia-more" hidden>
+          <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;margin-top:6px" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          <div style="font-size:11px;color:var(--dim);margin-top:3px">${dt} 收盤 · 近5日 ${w5!=null?(w5>0?'+':'')+w5.toFixed(1)+'%':'—'} · 近30日走勢</div></div></div>`);
     });
     if(!cards.length){box.style.display='none';return;}
     const okD=defs.filter(([sym])=>{const d=(ser[sym]||{}).d;const c=(d&&d.c)?d.c.filter(x=>x!=null):[];return c.length>=2;});
@@ -3195,6 +3198,10 @@ async function asiaCard(){
         :upN===0?'亞股全面收黑——區域同步走弱,台股開盤宜保守。'
         :`亞股漲跌互見(${upN}/${nD} 上漲)——無一致方向,台股回歸自身籌碼與權值股表現。`}
         日韓港收盤時間與台股相近,常同步反映外資對亞股的態度;來源:FRED/Stooq 官方收盤價,盤中不跳動。</div>`;
+    box.querySelectorAll('[data-asia]').forEach(el=>{el.onclick=()=>{
+      const m=el.querySelector('.asia-more');
+      if(m)m.hidden=!m.hidden;
+    };});
   }catch(e){box.style.display='none';}
 }
 setTimeout(asiaCard,5800);

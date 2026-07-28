@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r425 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r426 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
@@ -719,6 +719,7 @@ a.earn-more{border-radius:22px;font-weight:700}
 .alert-red .atag{background:rgba(255,255,255,.25)}
 
 /* r424:亞洲股市卡片版面 */
-.asia-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,240px));gap:9px}
-.asia-c{padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--panel)}
+.asia-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,215px));gap:8px}
+.asia-c{padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;transition:border-color .15s}
+.asia-c:hover{border-color:var(--amber)}
 @media(max-width:640px){.asia-grid{grid-template-columns:1fr 1fr}}
