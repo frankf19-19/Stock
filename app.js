@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r424 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r425 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r424</span>');
+  diag.push('<span style="color:var(--dim)">build r425</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2403,6 +2403,7 @@ async function loadInst(){
   box.innerHTML=cell('外資',cur.f,sum('f'),'foreign')+cell('投信',cur.t,sum('t'),'trust')+cell('自營商',cur.d,sum('d'),'dealer')
     +cell('三大法人',cur.f+cur.t+cur.d,sum('f')+sum('t')+sum('d'),'all');
   const dir=v=>v>0?`買超 ${v}`:v<0?`賣超 ${Math.abs(v)}`:'持平';
+  window.__instCur=cur;
   window.__noteInst=`法人(${cur.date} 盤後):外資${dir(cur.f)}億、投信${dir(cur.t)}億、自營${dir(cur.d)}億;外資近5日累計 ${sum('f')>0?'+':''}${sum('f')} 億${sum('f')>300?',買盤積極':sum('f')<-300?',調節明顯':''}。`;
   composeMacroNote();
 }
@@ -3198,6 +3199,83 @@ async function asiaCard(){
 }
 setTimeout(asiaCard,5800);
 setInterval(asiaCard,900000);
+
+
+/* ══ 🧭 今日市場懶人包:把站內所有引擎的結論翻成白話,小白看這段就夠 ══ */
+function tldrCard(){
+  const box=document.getElementById('tldrBox');
+  if(!box)return;
+  try{
+    const L=[];const M=(DATA.macro||{});
+    // 1 大盤現況
+    try{
+      const iw=(IDX.misD&&IDX.misD.tw)||null;
+      const st=window.__idxStat&&window.__idxStat.tw;
+      const pc=(iw&&iw.c&&iw.c.length&&iw.prev)?((iw.c[iw.c.length-1]/iw.prev-1)*100):null;
+      if(pc!=null)L.push(['📊','大盤',`加權指數${pc>0?'上漲':pc<0?'下跌':'持平'} <b class="${pc>0?'pos':pc<0?'neg':'flat'}">${pc>0?'+':''}${pc.toFixed(2)}%</b>`
+        +(Math.abs(pc)>=1.5?`,波動偏大,今天不是適合追價的日子。`:Math.abs(pc)<0.3?`,幾乎平盤,方向不明時多看少做。`:`。`)]);
+    }catch(e){}
+    // 2 內部結構(廣度)
+    try{
+      const tw=(DATA.stocks||[]).filter(x=>x.market==='TW'&&!x.etf&&typeof x.chg==='number');
+      if(tw.length>500){
+        const up=tw.filter(x=>x.chg>0).length,r=Math.round(up/tw.length*100);
+        L.push(['🔎','市場內部',`全市場 <b>${r}%</b> 的股票上漲(${up}/${tw.length} 檔)——`
+          +(r>=65?'普漲格局,個股容易賺錢。':r>=45?'漲跌互見,選股比選市場重要。':r>=30?'多數股票在跌,想買要更挑剔。':'幾乎全面下跌,現金為王、勿接刀。')]);
+      }
+    }catch(e){}
+    // 3 頭部風險
+    try{
+      const hs=Object.values(window.__headIdx||{});
+      if(hs.length){
+        const t=hs[0];
+        L.push(['🔺','做頭風險',`${t.nm}目前<b>${t.trend}</b>,頭部機率 <b>${t.prob}%</b>——`
+          +(t.prob>=70?'證據齊備,手上有股票該考慮減碼,別跟趨勢作對。':t.prob>=50?'風險偏高,反彈當作減碼機會,不要越跌越買。':t.prob>=25?'有零星警訊,續抱可以但要設好停損。':'結構健康,回檔通常是機會不是危機。')]);
+      }
+    }catch(e){}
+    // 4 法人動向
+    try{
+      const iv=window.__instCur;
+      if(iv&&iv.f!=null){
+        const tot=iv.f+iv.t+iv.d;
+        L.push(['🏦','法人',`外資${iv.f>0?'買超':'賣超'} <b class="${iv.f>0?'pos':'neg'}">${Math.abs(iv.f)}億</b>、投信${iv.t>0?'買超':'賣超'} ${Math.abs(iv.t)}億——`
+          +(tot>200?'法人整體站在買方,盤面有支撐。':tot<-200?'法人整體站在賣方,反彈易被壓回。':'法人買賣接近平衡,盤面缺乏主力方向。')]);
+      }
+    }catch(e){}
+    // 5 情緒溫度
+    try{
+      const h=JSON.parse(localStorage.getItem('twfng_h')||'[]');
+      if(h.length){const v=h[h.length-1].s;
+        L.push(['🌡','市場情緒',`台股恐懼貪婪指數 <b>${v}</b>(${v<25?'極度恐懼':v<45?'恐懼':v<=55?'中性':v<=75?'貪婪':'極度貪婪'})——`
+          +(v<25?'人人恐慌時通常是長線買點,但別一次全押。':v<45?'氣氛偏冷,分批布局的時機。':v<=55?'情緒中性,順著趨勢操作即可。':v<=75?'市場偏樂觀,追高要小心。':'過熱區,別在這時候重倉進場。')]);}
+    }catch(e){}
+    // 6 亞股/夜盤(明日線索)
+    try{
+      const nf=window.__nightFut;
+      if(nf&&nf.sprd!=null)L.push(['🌙','明日線索',`台指夜盤 ${(+nf.px).toLocaleString()},與現貨價差 <b class="${nf.sprd>0?'pos':'neg'}">${nf.sprd>0?'+':''}${nf.sprd}%</b>——`
+        +(nf.sprd>0.3?'夜盤偏強,明天開盤有機會開高。':nf.sprd<-0.3?'夜盤偏弱,明天開盤要提防開低。':'夜盤持平,明天大致延續今天氣氛。')]);
+    }catch(e){}
+    // 7 今日焦點族群
+    try{
+      const g={};
+      (DATA.stocks||[]).forEach(x=>{if(x.market!=='TW'||x.etf||!x.sector||x.chg==null)return;(g[x.sector]=g[x.sector]||[]).push(+x.chg);});
+      const rows=Object.entries(g).filter(([k,v])=>v.length>=5)
+        .map(([k,v])=>({k,avg:v.reduce((a,b)=>a+b,0)/v.length})).sort((a,b)=>b.avg-a.avg);
+      if(rows.length>=3)L.push(['🔥','資金往哪去',`今天最強是 <b>${rows[0].k}</b>(${rows[0].avg>0?'+':''}${rows[0].avg.toFixed(2)}%),最弱是 <b>${rows[rows.length-1].k}</b>(${rows[rows.length-1].avg.toFixed(2)}%)——資金流向強勢族群時,弱勢股常繼續弱,別急著抄底。`]);
+    }catch(e){}
+    if(L.length<2){box.style.display='none';return;}
+    box.style.display='';
+    box.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <b style="font-size:17px">🧭 今日市場懶人包</b>
+        <span style="font-size:12px;color:var(--dim)">白話翻譯・${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})} 自動更新</span></div>
+      ${L.map(([ic,t,d])=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);line-height:1.6">
+        <span style="font-size:17px;flex-shrink:0">${ic}</span>
+        <div style="font-size:14.5px"><b style="color:var(--txt2)">${t}</b>:${d}</div></div>`).join('')}
+      <div class="dim-note" style="margin-top:8px">以上由站內各引擎自動翻成白話,方便快速掌握全局;每個結論在下方都有對應的圖表與數據可以深入查看。非投資建議。</div>`;
+  }catch(e){box.style.display='none';}
+}
+setTimeout(tldrCard,7200);
+setInterval(tldrCard,120000);
 
 async function twFngCard(){
   const box=document.getElementById('twFng');

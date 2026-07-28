@@ -29,7 +29,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r424">
+<link rel="stylesheet" href="app.css?v=r425">
 </head>
 <body>
 
@@ -94,6 +94,7 @@
 </div>
 <div class="tabPane" id="tp-macro"><div class="sec-title" data-sec="macro">總經環境 <span style="font-weight:400;font-size:13px;letter-spacing:0">大盤走勢與指標即時更新</span></div><div class="sec-body" id="sb-macro">
   <div class="alert-strip" id="macroAlerts" style="display:none"></div>
+  <div class="idx-card" id="tldrBox" style="display:none;margin:10px 0 2px;cursor:default;border-left:4px solid var(--amber)"></div>
   <div id="tempGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:10px;margin:10px 0 2px">
     <div class="idx-card" id="twFng" style="display:none"></div>
     <div class="idx-card" id="volTemp" style="display:none"></div>
@@ -290,6 +291,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r424"></script>
+<script src="app.js?v=r425"></script>
 </body>
 </html>
