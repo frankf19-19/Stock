@@ -522,6 +522,36 @@ def main():
             print("  大盤成交金額:沿用前檔")
     except Exception as e:
         print(f"  [warn] FMTQIK: {e}")
+    # ── 🌏 亞股指數(韓國 KOSPI / 香港恆生;Stooq 免費日線 CSV,無需金鑰)──
+    try:
+        for _sym, _stq, _nm in (("^KS11", "^kospi", "韓國KOSPI"), ("^HSI", "^hsi", "香港恆生")):
+            try:
+                _csv = http_get(f"https://stooq.com/q/d/l/?s={_stq}&i=d", timeout=25)
+                if isinstance(_csv, bytes):
+                    _csv = _csv.decode("utf-8", "ignore")
+                _rows = [r.split(",") for r in (_csv or "").strip().splitlines()[1:]]
+                _t, _c, _o, _h, _l = [], [], [], [], []
+                for r in _rows[-140:]:
+                    try:
+                        _d0 = datetime.datetime.strptime(r[0], "%Y-%m-%d").replace(
+                            tzinfo=datetime.timezone.utc)
+                        _t.append(int(_d0.timestamp()))
+                        _o.append(float(r[1])); _h.append(float(r[2]))
+                        _l.append(float(r[3])); _c.append(float(r[4]))
+                    except Exception:
+                        continue
+                if len(_c) >= 20:
+                    series.setdefault(_sym, {})["d"] = {"t": _t, "c": _c, "o": _o, "h": _h, "l": _l,
+                                                        "prev": _c[-2]}
+                    print(f"  {_nm} ← Stooq({len(_c)} 根,最新 {_c[-1]:,.0f})")
+                elif (old_series.get(_sym) or {}).get("d"):
+                    series.setdefault(_sym, {})["d"] = old_series[_sym]["d"]
+                    print(f"  {_nm}:沿用前檔")
+            except Exception as _e:
+                print(f"  [warn] {_nm}: {str(_e)[:50]}")
+            time.sleep(0.8)
+    except Exception as e:
+        print(f"  [warn] 亞股指數: {e}")
     # ── 🌙 台指期夜盤(期交所 MIS 即時):與加權收盤的價差=隔日開盤領先參考 ──
     try:
         import urllib.request as _ur

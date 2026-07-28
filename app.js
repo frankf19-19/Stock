@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r422 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r423 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r422</span>');
+  diag.push('<span style="color:var(--dim)">build r423</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3146,6 +3146,52 @@ function frBadge(kind){                     // 資料時點徽章:讓每張卡�
   const v=m[kind]||m.day;
   return `<span style="font-size:10px;font-weight:800;color:${v[1]};border:1px solid ${v[1]}55;border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:1.5px">${v[0]}</span>`;
 }
+
+
+/* ══ 🌏 亞洲股市:日經225・韓國KOSPI・香港恆生(收盤日線;台股開盤前的亞股風向) ══ */
+async function asiaCard(){
+  const box=document.getElementById('asiaBox');
+  if(!box)return;
+  try{
+    const y=await yextData();
+    const ser=(y&&y.series)||{};
+    const defs=[['^N225','日經 225','🇯🇵'],['^KS11','韓國 KOSPI','🇰🇷'],['^HSI','香港恆生','🇭🇰']];
+    const cards=[];
+    defs.forEach(([sym,nm,flag])=>{
+      const d=(ser[sym]||{}).d;
+      if(!d||!d.c||d.c.length<2)return;
+      const c=d.c.filter(x=>x!=null&&isFinite(x));
+      if(c.length<2)return;
+      const last=c[c.length-1],prev=c[c.length-2];
+      const chg=(last/prev-1)*100;
+      const w5=c.length>=6?((last/c[c.length-6]-1)*100):null;
+      const col=chg>0?'var(--up)':chg<0?'var(--down)':'var(--mut)';
+      const v=c.slice(-30),mn=Math.min(...v),mx=Math.max(...v),rg=(mx-mn)||1;
+      const W=88,H=22;
+      const pts=v.map((p,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(H-2-(p-mn)/rg*(H-4)).toFixed(1)}`).join(' ');
+      const dt=(d.t&&d.t.length)?new Date(d.t[d.t.length-1]*1000).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'}):'';
+      cards.push(`<div style="flex:1;min-width:150px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--panel)">
+        <div style="font-size:12.5px;font-weight:800;color:var(--txt2)">${flag} ${nm}<span style="font-weight:400;color:var(--dim);font-size:11px"> ${dt}</span></div>
+        <div style="display:flex;align-items:baseline;gap:7px;margin:2px 0 1px">
+          <b style="font-family:var(--mono);font-size:17px">${last.toLocaleString(undefined,{maximumFractionDigits:0})}</b>
+          <b style="color:${col};font-size:13px;font-family:var(--mono)">${chg>0?'+':''}${chg.toFixed(2)}%</b></div>
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <div style="font-size:11px;color:var(--dim)">近5日 ${w5!=null?(w5>0?'+':'')+w5.toFixed(1)+'%':'—'} · 近30日走勢</div></div>`);
+    });
+    if(!cards.length){box.style.display='none';return;}
+    const upN=defs.filter(([sym])=>{const d=(ser[sym]||{}).d;if(!d||!d.c)return false;
+      const c=d.c.filter(x=>x!=null);return c.length>=2&&c[c.length-1]>c[c.length-2];}).length;
+    box.style.display='';
+    box.innerHTML=`<div class="nm" style="margin-bottom:7px">🌏 亞洲股市${frBadge('day')}</div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap">${cards.join('')}</div>
+      <div class="dim-note" style="margin-top:7px">${upN===cards.length?'亞股全面收紅——區域資金氣氛偏多,台股開盤易有撐。'
+        :upN===0?'亞股全面收黑——區域同步走弱,台股開盤宜保守。'
+        :`亞股漲跌互見(${upN}/${cards.length} 上漲)——無一致方向,台股回歸自身籌碼與權值股表現。`}
+        日韓港收盤時間與台股相近,常同步反映外資對亞股的態度;來源:FRED/Stooq 官方收盤價,盤中不跳動。</div>`;
+  }catch(e){box.style.display='none';}
+}
+setTimeout(asiaCard,5800);
+setInterval(asiaCard,900000);
 
 async function twFngCard(){
   const box=document.getElementById('twFng');
