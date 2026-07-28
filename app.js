@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r414 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r415 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r414</span>');
+  diag.push('<span style="color:var(--dim)">build r415</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1680,7 +1680,9 @@ function loadSpark(){
     __sparkP=null;
     if(!j||!j.t||!j.t.length)return null;
     // r383:不再因日期整包拒收(後端斷更時至少能畫最近有快照的一天;各消費端自帶同日防呆與日期標註)
-    j.__ts=Date.now(); window.__SPARK=j; return j;
+    j.__ts=Date.now(); window.__SPARK=j;
+    try{setTimeout(paintAllMini,60);}catch(e){}
+    return j;
   }).catch(()=>{__sparkP=null;return null;});
   return __sparkP;
 }
@@ -4406,11 +4408,17 @@ async function loadIntraDetail(s,accOnly){
           d={t:acc.t.slice(),c:acc.c.slice(),v:acc.v.slice(),prev:acc.prev||(RTC[s.id]&&RTC[s.id].y)||null};
           window.__stkToday=true;
         }else{
+          const sk=sparkStockAlone(s.id,(RTC[s.id]&&RTC[s.id].y)||null);   // 🌐 全市場快照救援:本機還沒累積時也有走勢
+          if(sk&&sk.c.length>=2){
+            d=sk;window.__stkToday=true;
+            if(stat)stat.innerHTML=intraStatTxt(s,'站內全市場分時快照(每10分鐘更新)');
+          }else{
           // 連 1 點累積都還沒有(剛進頁/剛開盤)→ 溫和提示「累積中」,不再說「連不上」,下次 tick 或重試就會有
           window.__stkToday=false;
           if(stat)stat.innerHTML=intraStatTxt(s,'即時走勢累積中,數秒後自動出現(不影響報價與K線)');
           if(!window.__intraRetry){window.__intraRetry=setTimeout(()=>{window.__intraRetry=null;try{if(location.hash===KHASH)loadIntraDetail(s);}catch(e){}},8000);}  // r385:原呼叫不存在的 drawIntraday,重試機制形同虛設
           return;
+          }
         }
       }
     }else{
@@ -5003,6 +5011,28 @@ function candleSVG(d){
     <rect x="5" y="${bt.toFixed(1)}" width="10" height="${bh.toFixed(1)}" fill="${up?col:'var(--bg)'}" stroke="${col}" stroke-width="1.3" rx="1"/>
   </svg>`;
 }
+
+function sparkMiniSVG(id){                  // 📈 迷你當日分時線(來源:後端全市場快照 spark.json,涵蓋全市場)
+  try{
+    const sp=window.__SPARK;
+    const seq=sp&&sp.s&&sp.s[id];
+    if(!Array.isArray(seq))return null;
+    const v=[];
+    for(let i=0;i<seq.length;i++)if(seq[i]!=null&&isFinite(+seq[i]))v.push(+seq[i]);
+    if(v.length<3)return null;
+    const st=(DATA.stocks||[]).find(x=>x.id===id);
+    const prev=(st&&st.price!=null&&typeof st.chg==='number'&&st.chg!==-100)?st.price/(1+st.chg/100):v[0];
+    const mn=Math.min(...v,prev),mx=Math.max(...v,prev),rg=(mx-mn)||1;
+    const W=34,H=16,Y=p=>H-1-((p-mn)/rg)*(H-2);
+    const last=v[v.length-1];
+    const col=last>prev?'var(--up)':last<prev?'var(--down)':'var(--mut)';
+    const pts=v.map((p,i)=>`${(i/(v.length-1)*W).toFixed(1)},${Y(p).toFixed(1)}`).join(' ');
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:${W}px;height:${H}px">
+      <line x1="0" y1="${Y(prev).toFixed(1)}" x2="${W}" y2="${Y(prev).toFixed(1)}" stroke="var(--dim)" stroke-width="0.7" stroke-dasharray="2 2"/>
+      <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+  }catch(e){return null;}
+}
+
 function candlePaint(id){
   // 同步刷新卡片上的現價/漲跌(雷達、脈動、最愛卡片即時跳動)
   const d0=RTC[id];
@@ -5012,9 +5042,18 @@ function candlePaint(id){
   return candlePaint2(id);
 }
 function candlePaint2(id){
-  const svg=candleSVG(RTC[id]);
+  const svg=candleSVG(RTC[id])||sparkMiniSVG(id);   // 優先即時K棒;無則用全市場分時快照(每檔都有走勢)
   if(!svg)return;
   document.querySelectorAll(`[data-candle="${id}"]`).forEach(el=>{el.innerHTML=svg;});
+}
+function paintAllMini(){                            // 快照載入/更新後,補畫畫面上所有沒圖的列
+  try{
+    document.querySelectorAll('[data-candle]').forEach(el=>{
+      if(el.innerHTML.trim())return;
+      const g=sparkMiniSVG(el.dataset.candle);
+      if(g)el.innerHTML=g;
+    });
+  }catch(e){}
 }
 function stkForceFromMIS(id,m,last){   // 🥊 內外盤力道(近似):成交貼賣=外盤買力+、貼買=內盤賣壓-;分類不到用升降序
   try{
@@ -5366,6 +5405,7 @@ function livePatchCards(){
   });
 }
 setInterval(rtTick,6000);
+setInterval(paintAllMini,15000);   // 📈 列表迷你走勢:每15秒補畫(含新渲染的列)
 setTimeout(()=>{try{ensureLWC();}catch(e){}},2500);
 setTimeout(()=>{try{loadSpark();}catch(e){}},1800);   // 🌅 預載當日分時快照
 setInterval(()=>{try{if(openish())loadSpark();}catch(e){}},120000);   // 📈 預載圖表引擎(45KB),指數/個股走勢直接用
