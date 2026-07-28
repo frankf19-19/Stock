@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r417 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r419 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r417</span>');
+  diag.push('<span style="color:var(--dim)">build r419</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5709,6 +5709,116 @@ function outlookBlock(s){
   </div>`;
 }
 /* 估值評價:本益比/EPS/預估本益比/同產業中位數 */
+
+/* ══ 🧮 巴菲特內在價值試算(十年折現+永續終值);參數可調,附折現率敏感度 ══ */
+
+function tnxNow(){                          // 🇺🇸 美10年期公債殖利率(無風險利率錨;估值引力的來源)
+  try{
+    const y=(typeof __yextCache!=='undefined'&&__yextCache)||null;
+    const e=y&&y.series&&y.series['^TNX'];
+    const d=e&&(e.d||e.m);
+    if(!d||!d.c)return null;
+    const v=[...d.c].reverse().find(x=>x!=null&&isFinite(x)&&x>0);
+    return v?+(+v).toFixed(2):null;
+  }catch(e){return null;}
+}
+
+function dcfCalc(eps0,g1,g2,r,tg){
+  const rows=[];let e=eps0,pv=0;
+  for(let n=1;n<=10;n++){
+    e=e*(1+(n<=5?g1:g2)/100);
+    const d=e/Math.pow(1+r/100,n);
+    pv+=d;rows.push({n,e:+e.toFixed(2),pv:+d.toFixed(1)});
+  }
+  const e11=e*(1+tg/100);
+  const tv=(r>tg)?(e11/((r-tg)/100))/Math.pow(1+r/100,10):null;
+  const val=tv!=null?pv+tv:null;
+  return {rows,pv:+pv.toFixed(1),e11:+e11.toFixed(2),tv:tv!=null?+tv.toFixed(1):null,val:val!=null?+val.toFixed(1):null};
+}
+function dcfBlock(s){
+  const eps=+(s.eps||0);
+  if(!(eps>0))return '<div class="dim-block" style="border-left:4px solid #E8A33D"><h3>🧮 巴菲特內在價值試算</h3><div class="dim-note">此檔近四季 EPS 非正值,現金流折現模型不適用(虧損公司請改看營收動能與淨值)。</div></div>';
+  const P={eps,g1:+(localStorage.getItem('dcf_g1')||15),g2:+(localStorage.getItem('dcf_g2')||6),
+           r:+(localStorage.getItem('dcf_r')||10),tg:+(localStorage.getItem('dcf_tg')||2)};
+  window.__dcfS=s;
+  return `<div class="dim-block" style="border-left:4px solid #E8A33D"><h3>🧮 巴菲特內在價值試算 <span class="ds">十年折現 + 永續終值</span></h3>
+    <div id="dcfBody">${dcfBody(s,P)}</div></div>`;
+}
+function dcfBody(s,P){
+  const px=+(s.price||0);
+  const R=dcfCalc(P.eps,P.g1,P.g2,P.r,P.tg);
+  const up=(R.val&&px)?((R.val/px-1)*100):null;
+  const col=up==null?'var(--mut)':up>=50?'#0B7A4B':up>=30?'#2E8B57':up>=0?'#B8860B':'#C62828';
+  const lab=up==null?'—':up>=50?'安全邊際充足':up>=30?'具吸引力':up>=0?'略低估,邊際不足':'高於估算價值';
+  const sens=[P.r-1,P.r,P.r+1].map(rr=>{
+    const c=dcfCalc(P.eps,P.g1,P.g2,rr,P.tg);
+    return {r:rr,val:c.val,up:(c.val&&px)?((c.val/px-1)*100):null};
+  });
+  const num=(k,v,st,mn,mx)=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px">
+    <span style="color:var(--mut);white-space:nowrap">${k}</span>
+    <input type="number" data-dcf="${st}" value="${v}" step="${st==='tg'?0.5:1}" min="${mn}" max="${mx}"
+      style="width:64px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--panel);
+      color:var(--txt);font-family:var(--mono);font-weight:800;text-align:center">%</label>`;
+  return `
+    <div style="display:flex;flex-wrap:wrap;gap:10px 14px;margin-bottom:10px;align-items:center">
+      ${num('前5年成長',P.g1,'g1',-20,60)}${num('6~10年成長',P.g2,'g2',-20,40)}
+      ${num('折現率',P.r,'r',3,25)}${num('永續成長',P.tg,'tg',0,5)}
+      <span style="font-size:12px;color:var(--dim)">起始 EPS ${P.eps}(近四季) · 現價 ${px.toLocaleString()}</span>
+      <a href="javascript:void 0" id="dcfRst" style="font-size:12px;color:var(--amber);font-weight:800">重設</a>
+    </div>
+    ${(()=>{const t=tnxNow();if(t==null)return '';
+      const sug=Math.round((t+5)*10)/10;                 // 建議折現率=無風險利率+約5%股權風險溢酬
+      const gapV=dcfCalc(P.eps,P.g1,P.g2,sug,P.tg).val;
+      const cur=dcfCalc(P.eps,P.g1,P.g2,P.r,P.tg).val;
+      const diff=(cur&&gapV)?((gapV/cur-1)*100):null;
+      return `<div style="padding:9px 13px;background:var(--panel2);border-radius:10px;margin-bottom:10px;font-size:13px;line-height:1.6">
+        ⚖️ <b>估值引力</b>:美10年期公債殖利率 <b style="font-family:var(--mono)">${t}%</b>(無風險利率錨) → 建議折現率約 <b style="color:var(--amber)">${sug}%</b>(＋約5%股權風險溢酬)
+        <a href="javascript:void 0" data-dcfset="${sug}" style="color:var(--amber);font-weight:800;margin-left:6px">一鍵套用</a>
+        ${diff!=null&&Math.abs(diff)>=3?`<br><span style="color:var(--mut)">若改用建議折現率,內在價值 ${diff>0?'上調':'下修'} ${Math.abs(diff).toFixed(0)}% → ${gapV.toLocaleString()}</span>`:''}
+        <br><span style="color:var(--mut)">利率上升 → 折現率(WACC)上升 → 未來獲利折回現值變少,高成長/高估值股受壓最重;利率下降則反向推升估值。</span></div>`;})()}
+    <div class="earn-metrics" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+      <div class="em-card"><div class="em-v flat">${R.pv.toLocaleString()}</div><div class="em-l">十年獲利現值</div></div>
+      <div class="em-card"><div class="em-v flat">${R.tv!=null?R.tv.toLocaleString():'—'}</div><div class="em-l">永續終值(第11年起)</div></div>
+      <div class="em-card"><div class="em-v" style="color:${col}">${R.val!=null?R.val.toLocaleString():'—'}</div><div class="em-l">每股內在價值</div></div>
+      <div class="em-card"><div class="em-v" style="color:${col}">${up!=null?(up>0?'+':'')+up.toFixed(1)+'%':'—'}</div><div class="em-l">潛在獲利率 · ${lab}</div></div>
+    </div>
+    <div class="bt5" style="grid-template-columns:88px 1fr 1fr 1fr;margin-top:10px">
+      <div style="text-align:left;color:var(--mut)">折現率</div>
+      ${sens.map(x=>`<div style="color:${x.r===P.r?'var(--amber)':'var(--mut)'};font-weight:${x.r===P.r?900:400}">${x.r}%</div>`).join('')}
+      <div style="text-align:left;color:var(--mut)">內在價值</div>
+      ${sens.map(x=>`<div><b>${x.val!=null?x.val.toLocaleString():'—'}</b></div>`).join('')}
+      <div style="text-align:left;color:var(--mut)">潛在獲利率</div>
+      ${sens.map(x=>`<div class="${x.up>0?'pos':x.up<0?'neg':'flat'}" style="font-weight:800">${x.up!=null?(x.up>0?'+':'')+x.up.toFixed(0)+'%':'—'}</div>`).join('')}
+    </div>
+    <div class="dim-note" style="margin-top:8px">
+      算法:EPS 逐年成長→各年折現加總,第11年起以永續成長率算終值再折現;折現率可視為「你要求的年化報酬」(常見組成:無風險利率+風險補償+通膨)。
+      <b>終值佔比 ${R.val?Math.round(R.tv/R.val*100):'—'}%</b>——佔比越高代表估值越依賴遠期假設,越需保守。
+      安全邊際準則:趨勢明確的公司要求 >30%,自己沒把握的要求 >50%。此為規則化試算,輸入假設決定結果,非投資建議。</div>`;
+}
+function wireDcf(){
+  const host=document.getElementById('dcfBody');
+  if(!host)return;
+  host.querySelectorAll('[data-dcf]').forEach(inp=>{
+    inp.onchange=()=>{
+      try{localStorage.setItem('dcf_'+inp.dataset.dcf,inp.value);}catch(e){}
+      const s=window.__dcfS;if(!s)return;
+      const P={eps:+(s.eps||0),g1:+(localStorage.getItem('dcf_g1')||15),g2:+(localStorage.getItem('dcf_g2')||6),
+               r:+(localStorage.getItem('dcf_r')||10),tg:+(localStorage.getItem('dcf_tg')||2)};
+      host.innerHTML=dcfBody(s,P);wireDcf();
+    };
+  });
+  host.querySelectorAll('[data-dcfset]').forEach(a=>{a.onclick=()=>{
+    try{localStorage.setItem('dcf_r',a.dataset.dcfset);}catch(e){}
+    const s2=window.__dcfS;if(!s2)return;
+    host.innerHTML=dcfBody(s2,{eps:+(s2.eps||0),g1:+(localStorage.getItem('dcf_g1')||15),
+      g2:+(localStorage.getItem('dcf_g2')||6),r:+a.dataset.dcfset,tg:+(localStorage.getItem('dcf_tg')||2)});
+    wireDcf();};});
+  const rst=document.getElementById('dcfRst');
+  if(rst)rst.onclick=()=>{['g1','g2','r','tg'].forEach(k=>{try{localStorage.removeItem('dcf_'+k);}catch(e){}});
+    const s=window.__dcfS;if(!s)return;
+    host.innerHTML=dcfBody(s,{eps:+(s.eps||0),g1:15,g2:6,r:10,tg:2});wireDcf();};
+}
+
 function valBlock(s){
   if(!s.pe&&!s.eps)return '<div class="dim-block" style="border-left:4px solid #7FB4FF"><h3>💰 估值評價</h3><div class="dim-note">本益比資料待「每日資料更新」執行後產生;若更新後仍無,代表這檔近四季虧損(官方不提供虧損公司的本益比),可改看股價淨值比與營收動能。</div></div>';
   const ind=(DATA.indpe||{})[s.sector];
@@ -7572,7 +7682,7 @@ async function showDetail(id){
     <div class="sec-title" data-sec="stk_c">📊 籌碼圖表 <span style="font-weight:400;font-size:13px;letter-spacing:0">法人買賣超・大戶・信用交易(6個月)</span></div><div class="sec-body" id="sb-stk_c">
     <div id="chipwrap"></div>
     </div>
-    ${s.market==='TW'&&!s.etf?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:13px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${futureBlock(s)}</div>`:''}
+    ${s.market==='TW'&&!s.etf?`<div class="sec-title" data-sec="stk_v">💰 估值與未來性 <span style="font-weight:400;font-size:13px;letter-spacing:0">股價貴不貴・成長在哪裡</span></div><div class="sec-body" id="sb-stk_v">${valBlock(s)}${dcfBlock(s)}${futureBlock(s)}</div>`:''}
     <div class="sec-title" data-sec="stk_m">🎯 市場觀點與新聞 <span style="font-weight:400;font-size:13px;letter-spacing:0">目標價・研究報告・相關新聞</span></div><div class="sec-body" id="sb-stk_m">
     ${s.etf?``:`<div class="dim-block" id="anaBlock" style="border-left:4px solid #7FB4FF">
       <h3>分析師觀點|目標價與研究報告</h3>
@@ -7675,6 +7785,16 @@ async function showDetail(id){
   try{const tb=document.getElementById('t3qBox');if(tb){tb.style.display='';tb.innerHTML='<div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div>';}t3qBlock(s);}catch(e){}
   try{renderHeadStock(s);}catch(e){}
   try{renderFwStock(s);}catch(e){}
+  try{wireDcf();}catch(e){}
+  try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
+    const h=document.getElementById('dcfBody');
+    if(h&&window.__dcfS&&!h.innerHTML.includes('估值引力')){
+      const s2=window.__dcfS;
+      h.innerHTML=dcfBody(s2,{eps:+(s2.eps||0),g1:+(localStorage.getItem('dcf_g1')||15),
+        g2:+(localStorage.getItem('dcf_g2')||6),r:+(localStorage.getItem('dcf_r')||10),
+        tg:+(localStorage.getItem('dcf_tg')||2)});
+      wireDcf();}
+  });}catch(e){}
   try{usEarnBlock(s);}catch(e){}
   try{buildJumpBar(document.getElementById('detailView'));}catch(e){}
   loadAnalystDetail(s);
