@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r428 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r429 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r428</span>');
+  diag.push('<span style="color:var(--dim)">build r429</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3184,6 +3184,64 @@ async function asiaChart(sym,host){          // 🌏 亞股 60 日日K(點卡展
   }catch(e){}
 }
 
+
+async function asiaDetail(sym,host){          // 🌏 亞股詳細:全寬K線+均線+統計+白話說明(等同大盤詳情規格)
+  const NM={'^N225':['日經 225','🇯🇵','日本'],'^KS11':['韓國 KOSPI','🇰🇷','韓國'],'^HSI':['香港恆生','🇭🇰','香港']}[sym]||['指數','',''];
+  host.innerHTML='<div class="dim-note" style="padding:16px">載入中…</div>';
+  try{
+    const y=await yextData();
+    const d=((y&&y.series||{})[sym]||{}).d;
+    if(!d||!d.c||d.c.length<20){host.innerHTML='<div class="dim-note" style="padding:16px">此市場資料尚未回補——下一班資料更新後自動出現。</div>';return;}
+    const c=d.c,n=c.length,px=c[n-1];
+    const ch1=(c[n-1]/c[n-2]-1)*100;
+    const st=(p)=>n>p?((px/c[n-1-p]-1)*100):null;
+    const ma=(p)=>{if(n<p)return null;let t=0;for(let i=0;i<p;i++)t+=c[n-1-i];return t/p;};
+    const m20=ma(20),m60=ma(60);
+    const hi=Math.max(...c.slice(-60)),lo=Math.min(...c.slice(-60));
+    const posR=((px-lo)/((hi-lo)||1)*100);
+    const f=(v,dg)=>v==null?'—':(+v).toLocaleString(undefined,{maximumFractionDigits:dg==null?0:dg});
+    const pct=v=>v==null?'—':`<b class="${v>0?'pos':v<0?'neg':'flat'}">${v>0?'+':''}${v.toFixed(2)}%</b>`;
+    host.innerHTML=`
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <b style="font-size:19px">${NM[1]} ${NM[0]}</b>
+        <b style="font-family:var(--mono);font-size:22px">${f(px)}</b>${pct(ch1)}
+        <a href="javascript:void 0" onclick="const h=document.getElementById('asiaDetail');h.style.display='none';h.dataset.sym='';" style="margin-left:auto;color:var(--dim);font-size:13px">收合 ×</a></div>
+      <div class="earn-metrics" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
+        <div class="em-card"><div class="em-v ${st(5)>0?'pos':'neg'}">${st(5)!=null?(st(5)>0?'+':'')+st(5).toFixed(1)+'%':'—'}</div><div class="em-l">近 5 日</div></div>
+        <div class="em-card"><div class="em-v ${st(20)>0?'pos':'neg'}">${st(20)!=null?(st(20)>0?'+':'')+st(20).toFixed(1)+'%':'—'}</div><div class="em-l">近 20 日(月)</div></div>
+        <div class="em-card"><div class="em-v ${st(60)>0?'pos':'neg'}">${st(60)!=null?(st(60)>0?'+':'')+st(60).toFixed(1)+'%':'—'}</div><div class="em-l">近 60 日(季)</div></div>
+        <div class="em-card"><div class="em-v flat" style="font-size:16px;padding-top:5px">${f(m20)}</div><div class="em-l">月線(20MA)${px>m20?' · 站上':' · 跌破'}</div></div>
+        <div class="em-card"><div class="em-v flat" style="font-size:16px;padding-top:5px">${f(m60)}</div><div class="em-l">季線(60MA)${px>m60?' · 站上':' · 跌破'}</div></div>
+        <div class="em-card"><div class="em-v flat">${posR.toFixed(0)}%</div><div class="em-l">位於近60日高低區間</div></div>
+      </div>
+      <div id="asiaBigK" style="height:${innerWidth<640?260:340}px;margin-top:10px"></div>
+      <div class="dim-note" style="margin-top:8px;line-height:1.75">
+        <b>怎麼看</b>:${NM[2]}股市與台股同屬亞洲時區,收盤時間相近,常同步反映外資對亞洲資產的態度——${NM[2]}股大跌時台股隔日容易承壓,反之亦然。<br>
+        <b>目前結構</b>:指數${px>m20?'站上':'跌破'}月線、${px>m60?'站上':'跌破'}季線,位於近 60 日高低區間的 ${posR.toFixed(0)}% 位置(0%=區間最低、100%=區間最高)。${m20&&m60?(m20>m60?'月線在季線之上,中期結構偏多。':'月線在季線之下,中期結構偏空。'):''}<br>
+        <b>資料說明</b>:官方收盤價(FRED／Stooq),<u>盤中不跳動</u>;圖為近 120 日日K與 MA5／MA20。`;
+    const ok=await ensureECharts();
+    const el=document.getElementById('asiaBigK');
+    if(!ok||!el)return;
+    const S=Math.max(0,n-120);
+    const xs=(d.t||[]).slice(S).map(t=>new Date(t*1000).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'}));
+    const hasK=Array.isArray(d.o)&&Array.isArray(d.h)&&Array.isArray(d.l)&&d.o.length===n;
+    const mline=p=>c.slice(S).map((_,i)=>{const j=S+i;if(j<p-1)return null;let t=0;for(let k=0;k<p;k++)t+=c[j-k];return +(t/p).toFixed(1);});
+    const chart=echarts.init(el);
+    chart.setOption({animation:false,grid:{left:8,right:10,top:16,bottom:26,containLabel:true},
+      tooltip:{trigger:'axis'},legend:{show:true,top:0,textStyle:{fontSize:11}},
+      dataZoom:[{type:'inside'},{type:'slider',height:16,bottom:2}],
+      xAxis:{type:'category',data:xs,axisLabel:{fontSize:10,color:'#9A938A'}},
+      yAxis:{scale:true,axisLabel:{fontSize:10,color:'#9A938A'},splitLine:{lineStyle:{opacity:.35}}},
+      series:[hasK
+        ?{name:'K線',type:'candlestick',data:c.slice(S).map((c2,i)=>[d.o[S+i],c2,d.l[S+i],d.h[S+i]]),
+          itemStyle:{color:CT.up2,color0:CT.dn2,borderColor:CT.up2,borderColor0:CT.dn2}}
+        :{name:'收盤',type:'line',data:c.slice(S),showSymbol:false,lineStyle:{width:2,color:'#8A6D3B'},areaStyle:{color:'rgba(138,109,59,.14)'}},
+        {name:'MA5',type:'line',data:mline(5),showSymbol:false,lineStyle:{width:1.2,color:'#E8A33D'}},
+        {name:'MA20',type:'line',data:mline(20),showSymbol:false,lineStyle:{width:1.2,color:'#7FB4FF'}}]});
+    setTimeout(()=>{try{chart.resize();}catch(e){}},120);
+  }catch(e){host.innerHTML='<div class="dim-note" style="padding:16px">載入失敗:'+String(e).slice(0,60)+'</div>';}
+}
+
 async function asiaCard(){
   const box=document.getElementById('asiaBox');
   if(!box)return;
@@ -3233,10 +3291,13 @@ async function asiaCard(){
         :`亞股漲跌互見(${upN}/${nD} 上漲)——無一致方向,台股回歸自身籌碼與權值股表現。`}
         日韓港收盤時間與台股相近,常同步反映外資對亞股的態度;來源:FRED/Stooq 官方收盤價,盤中不跳動。</div>`;
     box.querySelectorAll('[data-asia]').forEach(el=>{el.onclick=()=>{
-      const m=el.querySelector('.asia-more');
-      if(!m)return;
-      m.hidden=!m.hidden;
-      if(!m.hidden)asiaChart(el.dataset.asia,m);
+      const sym=el.dataset.asia;
+      const host=document.getElementById('asiaDetail');
+      if(!host)return;
+      if(host.dataset.sym===sym&&host.style.display!=='none'){host.style.display='none';host.dataset.sym='';return;}
+      host.dataset.sym=sym;host.style.display='';
+      asiaDetail(sym,host);
+      setTimeout(()=>host.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
     };});
   }catch(e){box.style.display='none';}
 }
@@ -3273,6 +3334,68 @@ function buildMacroJump(){                   // 🧭 大盤頁快速導覽:點�
   }catch(e){}
 }
 setTimeout(buildMacroJump,900);
+
+
+function infoModal(title,html){              // 📖 詳解彈窗(卡片點擊 → 完整說明)
+  let m=document.getElementById('infoMask');
+  if(!m){
+    m=document.createElement('div');m.id='infoMask';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px';
+    m.innerHTML='<div id="infoBox" style="background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:640px;width:100%;max-height:82vh;overflow:auto;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.28)"></div>';
+    m.onclick=e=>{if(e.target===m)m.remove();};
+    document.body.appendChild(m);
+  }else{m.style.display='flex';}
+  m.querySelector('#infoBox').innerHTML=
+    `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <b style="font-size:18px">${title}</b>
+      <a href="javascript:void 0" onclick="document.getElementById('infoMask').remove()" style="margin-left:auto;color:var(--dim);font-size:20px;font-weight:800">×</a></div>
+    <div style="font-size:14px;line-height:1.75">${html}</div>`;
+}
+const TEMP_DOC={
+  twFng:['🌡️ 台股恐懼貪婪指數(站內合成)',`
+    <b>這是什麼</b>:把五個市場情緒指標合成 0~100 的溫度計。0=極度恐懼(人人想逃)、100=極度貪婪(人人搶進)。<br><br>
+    <b>五個因子</b>:<br>①<b>即時漲跌家數</b>——當下有幾成股票在漲(盤中跳動)<br>②<b>市場廣度</b>——多少股票站在季線之上<br>③<b>融資動能</b>——散戶借錢買股的增減速度<br>④<b>外資期貨</b>——外資期貨部位在過去一年的相對位置<br>⑤<b>VIX外溢</b>——美股恐慌指數的外溢效應<br><br>
+    <b>怎麼用</b>:情緒是<u>反向指標</u>——極度恐懼(&lt;25)常是長線買點,極度貪婪(&gt;75)要留意追高風險。但<b>它不是進出訊號</b>:恐懼可以更恐懼,一定要搭配頭部七腳印(結構)與防守價位(紀律)使用。<br><br>
+    <b>小白重點</b>:數字低=大家在怕→機會可能在醞釀;數字高=大家很嗨→這時進場代價高。看變化方向比看絕對值更有用。`],
+  volTemp:['💧 大盤量能溫度計',`
+    <b>這是什麼</b>:今天的成交金額 ÷ 近 20 日平均成交金額。100% 代表跟平常一樣,超過就是量增、低於就是量縮。盤中會用「目前累計金額÷時間進度」推估全日量。<br><br>
+    <b>四種狀態</b>:<br>🔴 <b>爆量(≥130%)</b>——資金洶湧。<u>漲時</u>=攻擊有燃料;<u>跌時</u>=出貨疑慮,要盯緊防線<br>🟠 <b>量增(105~130%)</b>——人氣回溫,常是方向表態日<br>⚪ <b>正常(80~105%)</b>——順著趨勢看即可<br>🟢 <b>量縮(&lt;80%)</b>——觀望氣氛。<u>跌時</u>=殺盤力道漸竭(可能接近底部);<u>漲時</u>=續航力存疑<br><br>
+    <b>小白重點</b>:「價漲量增」最健康;「價漲量縮」小心後繼無力;「價跌量增」是恐慌出貨;「價跌量縮」代表想賣的差不多賣完了。`],
+  rsCard:['👑 台積電 vs 大盤(相對強弱 RS)',`
+    <b>這是什麼</b>:台積電股價 ÷ 加權指數 的比值走勢。線往上=台積電比大盤強、往下=比大盤弱。<br><br>
+    <b>為什麼重要</b>:台積電佔加權指數約三成權重,是<b>指數的引擎</b>。歷史上龍頭轉弱常<u>領先大盤做頭 1~2 週</u>——指數還在高檔但 RS 已經下彎,是很典型的警訊。<br><br>
+    <b>怎麼用</b>:<br>• 線往上+指數漲 → 最健康,主流資金在權值股<br>• 線往下+指數漲 → 靠中小型股撐盤,續航力較差<br>• 線往下+指數跌 → 引擎熄火,提高警戒<br><br>
+    <b>小白重點</b>:不用管絕對數字,只看<b>線的方向</b>。盤中會用即時報價補上今天這一點。點卡片可直接進台積電個股頁。`],
+  mtCard:['🧮 大盤融資維持率(估算)',`
+    <b>這是什麼</b>:融資是「借錢買股」。維持率 = 股票現值 ÷ 借款金額。開戶初始約 166%,<b>跌到 130% 券商會發追繳令</b>,再不補錢就被強制賣出(斷頭)。<br><br>
+    <b>為什麼重要</b>:這是<b>崩跌的加速器</b>。大跌時融資戶被斷頭 → 被迫賣出 → 股價再跌 → 更多人被斷頭,形成「多殺多」。維持率越低,這個連鎖反應越容易引爆。<br><br>
+    <b>四個區間</b>:<br>🟢 <b>≥155% 安全區</b>——有緩衝,斷頭風險低<br>🟠 <b>140~155% 偏低警戒</b>——融資戶普遍套牢<br>🔴 <b>130~140% 斷頭邊緣</b>——再跌一段就進入追繳潮<br>🔴 <b>&lt;130% 追繳風暴區</b>——賣壓隨時引爆<br><br>
+    <b>注意</b>:這是站內用「融資增量×當日指數」加權成本法<u>估算</u>,不是官方數字(官方不公布)。看<b>趨勢與區間</b>即可,別當成精準值。`]
+};
+
+
+function wireTempDocs(){
+  try{
+    Object.keys(TEMP_DOC).forEach(id=>{
+      const el=document.getElementById(id);
+      if(!el||el.dataset.docWired)return;
+      el.dataset.docWired='1';
+      el.style.cursor='pointer';el.title='點我看完整說明';
+      el.addEventListener('click',ev=>{
+        if(ev.target.closest('a'))return;
+        if(id==='rsCard'&&ev.detail===2){location.hash='#stock/2330';return;}
+        infoModal(TEMP_DOC[id][0],TEMP_DOC[id][1]);
+      });
+      if(!el.querySelector('.doc-hint')){
+        const h=document.createElement('span');h.className='doc-hint';
+        h.style.cssText='position:absolute;right:10px;bottom:8px;font-size:11px;color:var(--dim)';
+        h.textContent='點我看說明 ›';el.style.position='relative';el.appendChild(h);
+      }
+    });
+  }catch(e){}
+}
+setInterval(wireTempDocs,3000);
+setTimeout(wireTempDocs,7000);
 
 function tldrCard(){
   const box=document.getElementById('tldrBox');
@@ -7407,7 +7530,7 @@ function kChartBoxHTML(){
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
-          <div class="ind-seg" id="fwSeg"><button data-t="1">🔄轉折Fib</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="fwSeg"><button data-t="1">🔄轉折點</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="instSeg"><button data-t="1">法人副圖</button><button data-t="0">隱藏</button></div>
@@ -7476,7 +7599,7 @@ function kdrawBindClick(){
   }catch(e){}
 }
 
-function __fwOverlay(o){                   // 🔄 K線圖疊加:轉折點▲▼+本段近端Fib支撐/目標(開關 kFW)
+function __fwOverlay(o){                   // 🔄 K線疊加:ZigZag 轉折折線(取代舊的▲▼文字)+近端Fib(開關 kFW)
   try{
     if(localStorage.getItem('kFW')!=='1')return [];
     if(!Array.isArray(o)||o.length<60)return [];
@@ -7485,20 +7608,30 @@ function __fwOverlay(o){                   // 🔄 K線圖疊加:轉折點▲▼
     if(!r)return [];
     const F2=r.F2,mk=[];
     r.near.forEach(v=>{mk.push({yAxis:v.px,
-      lineStyle:v.r===0.618?{color:'#E8A33D',width:2,type:'solid'}:{color:'#9A938A',width:1,type:'dashed',opacity:.75},
+      lineStyle:v.r===0.618?{color:'#E8A33D',width:1.6,type:'solid'}:{color:'#9A938A',width:1,type:'dashed',opacity:.65},
       label:{formatter:`${r.upLeg?'支撐':'壓力'}${v.r} ${F2(v.px)}`,position:'insideEndTop',fontSize:10,
         color:v.r===0.618?'#E8A33D':'#9A938A',fontWeight:v.r===0.618?900:400}});});
     r.targets.slice(0,2).forEach(v=>{mk.push({yAxis:v.px,lineStyle:{color:'#7FB4FF',width:1,type:'dotted'},
       label:{formatter:`目標${v.m}倍 ${F2(v.px)}`,position:'insideEndTop',fontSize:10,color:'#7FB4FF'}});});
-    const pts=(r.zz||[]).map(p=>({coord:[p.i,p.px],
-      value:p.t===1?'▲':'▼',
-      label:{fontSize:12,fontWeight:900,color:p.t===1?'#C62828':'#0B7A4B',
-             position:p.t===1?'top':'bottom',formatter:`{a|${p.t===1?'▲':'▼'}${F2(p.px)}}`,
-             rich:{a:{fontSize:10.5,fontWeight:800,color:p.t===1?'#C62828':'#0B7A4B'}}},
-      symbol:'circle',symbolSize:4,itemStyle:{color:p.t===1?'#C62828':'#0B7A4B'}}));
-    return [{name:'🔄轉折Fib',type:'line',data:[],xAxisIndex:0,yAxisIndex:0,silent:true,tooltip:{show:false},
-      markLine:{symbol:'none',silent:true,data:mk},
-      markPoint:{silent:true,data:pts}}];
+    // ZigZag:把轉折點連成一條清楚的折線,只在端點標價
+    const zz=(r.zz||[]).slice().sort((a2,b2)=>a2.i-b2.i);
+    const line=new Array(o.length).fill(null);
+    zz.forEach(p=>{line[p.i]=+p.px;});
+    if(zz.length){                                   // 收尾接到最新一根,折線不斷在半空
+      const lastI=zz[zz.length-1].i;
+      if(lastI<o.length-1)line[o.length-1]=o[o.length-1][3];
+    }
+    const pts=zz.map(p=>({coord:[p.i,p.px],symbol:'circle',symbolSize:7,
+      itemStyle:{color:p.t===1?'#C62828':'#0B7A4B',borderColor:'#fff',borderWidth:1.5},
+      label:{show:true,position:p.t===1?'top':'bottom',distance:5,fontSize:10.5,fontWeight:800,
+        color:p.t===1?'#C62828':'#0B7A4B',formatter:F2(p.px)}}));
+    return [
+      {name:'🔄轉折折線',type:'line',xAxisIndex:0,yAxisIndex:0,data:line,connectNulls:true,
+       showSymbol:false,silent:true,tooltip:{show:false},z:3,
+       lineStyle:{color:'#8f6fc0',width:1.6,type:'dashed',opacity:.9},
+       markPoint:{silent:true,data:pts}},
+      {name:'🔄Fib價位',type:'line',data:[],xAxisIndex:0,yAxisIndex:0,silent:true,tooltip:{show:false},
+       markLine:{symbol:'none',silent:true,data:mk}}];
   }catch(e){return [];}
 }
 
