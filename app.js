@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r412 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r413 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1508,7 +1508,11 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
-  diag.push('<span style="color:var(--dim)">build r412</span>');
+  try{const n=(window.__rtOkN||0),ts=window.__rtOkT||0;
+    const fresh=ts&&(Date.now()-ts<90000);
+    diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
+  }catch(e){}
+  diag.push('<span style="color:var(--dim)">build r413</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2928,6 +2932,7 @@ function paintHeadScan(scan){
   const row=x=>`<div class="earn-row" data-hs="${x.id}" style="cursor:pointer;padding:8px 12px;margin:6px 0;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center">
     <b style="min-width:96px">${(window.__ptIds&&window.__ptIds.has(x.id))?'💼 ':''}${x.name} <span style="color:var(--dim);font-weight:400">${x.id}</span></b>
     <span>${chip(x)}</span>
+    <span data-hspx="${x.id}" style="font-family:var(--mono);font-size:12.5px;color:var(--mut)"></span>
     <span style="font-family:var(--mono);font-size:13px;font-weight:800;color:${x.prob>=70?'#C62828':x.prob>=45?'#D9822B':'var(--mut)'}">${x.prob}%</span></div>`;
   const grp=(t,arr,cap)=>arr.length?`<div class="earn-sub" style="margin-top:12px">${t}(${arr.length} 檔)</div>`
     +arr.sort((a,b)=>(b.prob-a.prob)||(b.back-a.back)).slice(0,cap).map(row).join('')
@@ -3122,6 +3127,12 @@ setInterval(()=>{                                          // 📶 報價即時:
       if(el.textContent!==t)el.textContent=t;
       const ch=box.querySelector(`[data-pch="${st.id}"]`);
       if(ch)ch.innerHTML=chgHtml(+st.chg);
+    });
+    document.querySelectorAll('[data-hspx]').forEach(el=>{      // 頭部掃描/持股體檢:現價+漲跌同步
+      const st=(DATA.stocks||[]).find(x=>x.id===el.dataset.hspx);
+      if(!st||st.price==null)return;
+      const t=`${(+st.price).toLocaleString()} ${st.chg>0?'+':''}${st.chg}%`;
+      if(el.textContent!==t){el.textContent=t;el.style.color=st.chg>0?'var(--up)':st.chg<0?'var(--down)':'var(--mut)';}
     });
   }catch(e){}
 },6000);
@@ -5099,6 +5110,13 @@ function rtTargets(){
   try{portGet().forEach(p=>add((DATA.stocks||[]).find(x=>x.id===p.id)));}catch(e){}                   // 💼 持股永遠即時
   (window.__shownIds||[]).forEach(id=>add((DATA.stocks||[]).find(x=>x.id===id)));
   document.querySelectorAll('[data-candle]').forEach(el=>add((DATA.stocks||[]).find(x=>x.id===el.dataset.candle)));
+  try{(((window.__picks||{}).picks)||[]).forEach(p=>add((DATA.stocks||[]).find(x=>x.id===p.id)));}catch(e){}   // 📌 關注五檔
+  try{                                                                                                        // 畫面上任何帶股號的卡/列(頭部掃描、持股體檢、相關個股…)
+    document.querySelectorAll('[data-ppx],[data-pk],[data-hs],[data-ph],[data-rel],[data-go2]').forEach(el=>{
+      const id=el.dataset.ppx||el.dataset.pk||el.dataset.hs||el.dataset.ph||el.dataset.rel||el.dataset.go2;
+      if(id)add((DATA.stocks||[]).find(x=>x.id===id));
+    });
+  }catch(e){}
   return [...ids].slice(0,180);
 }
 const MY_PROXY_DEFAULT='https://muddy-cake-cb69.frankccc199.workers.dev';   // 站方自家 Worker:全站自動套用,免設定
@@ -5205,6 +5223,8 @@ async function rtTick(){
   if(RT.tickN%3===0&&stockChans.length>140)
     reqs.push(fetchMIS(stockChans.slice(140,260)));   // 輪動批:約每18秒一發
   const parts=await Promise.all(reqs);
+  try{const cnt=parts.reduce((a,p)=>a+((p&&p.length)||0),0);
+    if(cnt){window.__rtOkN=cnt;window.__rtOkT=Date.now();}}catch(e){}
   let arr=[],okN=0;
   parts.forEach(p=>{if(p){arr=arr.concat(p);okN++;}});
   if(!okN){
@@ -11137,7 +11157,7 @@ async function portHeadRisk(){
     ${risk.length?`<div style="color:#C62828;font-weight:800;font-size:13.5px;margin-bottom:7px">⚠ ${risk.length} 檔頭部機率 ≥50%——反彈宜視為減碼機會,防守線見個股頁</div>`
                  :`<div style="color:#0B7A4B;font-weight:800;font-size:13.5px;margin-bottom:7px">✓ 持股皆未達頭部警戒線(50%),結構尚可</div>`}
     ${rows.map(r2=>`<div data-ph="${r2.id}" style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;cursor:pointer;font-size:13.5px;border-bottom:1px dashed var(--line)">
-      <span><b>${r2.name}</b> <span style="color:var(--dim)">${r2.id}</span> · <span style="color:var(--mut)">${r2.trend}</span></span>
+      <span><b>${r2.name}</b> <span style="color:var(--dim)">${r2.id}</span> <span data-hspx="${r2.id}" style="font-family:var(--mono);font-size:12.5px"></span> · <span style="color:var(--mut)">${r2.trend}</span></span>
       <b style="font-family:var(--mono);color:${r2.prob>=70?'#C62828':r2.prob>=50?'#D9822B':'var(--mut)'}">${r2.prob}%</b></div>`).join('')}`;
   box.querySelectorAll('[data-ph]').forEach(el=>{el.onclick=()=>{location.hash='#stock/'+el.dataset.ph;};});
 }
