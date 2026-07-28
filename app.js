@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r419 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r420 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r419</span>');
+  diag.push('<span style="color:var(--dim)">build r420</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5940,18 +5940,20 @@ function boxDetect(o,thr,maxW,minW){
   return null;
 }
 /* 自動趨勢線:轉折點擬合——上升線=連接波段低點且全程未被跌破;下降線=連接波段高點且全程未被突破 */
-function trendLines(o){
+function trendLines(o,winS,winE){
   const n=o.length;
   if(n<30)return null;
-  const S=Math.max(0,n-130);
+  const E=(winE!=null&&winE>10)?Math.min(n,winE):n;        // 依可視範圍計算(拉近時重算)
+  const S=(winS!=null)?Math.max(0,winS):Math.max(0,E-130);
+  if(E-S<25)return null;
   const H=[],L=[];
-  for(let i=Math.max(S,2);i<n-2;i++){
+  for(let i=Math.max(S,2);i<E-2;i++){
     const hi=o[i][1],lo=o[i][2];
     if(hi>=o[i-1][1]&&hi>=o[i-2][1]&&hi>=o[i+1][1]&&hi>=o[i+2][1])H.push([i,hi]);
     if(lo<=o[i-1][2]&&lo<=o[i-2][2]&&lo<=o[i+1][2]&&lo<=o[i+2][2])L.push([i,lo]);
   }
   const pick=(P,isLow)=>{
-    let best=null;
+    let best=null;const outs=[];
     for(let b=P.length-1;b>=1;b--)for(let a=b-1;a>=0;a--){
       const [x1,y1]=P[a],[x2,y2]=P[b];
       if(x2-x1<8)continue;
@@ -5959,7 +5961,7 @@ function trendLines(o){
       if(isLow&&k<=0)continue;                     // 上升趨勢線必須向上(修:原版會把下降的連線標成上升線)
       if(!isLow&&k>=0)continue;                    // 下降壓力線必須向下
       let ok=true;
-      for(let i=x1;i<n;i++){
+      for(let i=x1;i<E;i++){
         const yl=y1+k*(i-x1);
         if(isLow?(o[i][2]<yl*0.99):(o[i][1]>yl*1.01)){ok=false;break;}
       }
@@ -5970,11 +5972,30 @@ function trendLines(o){
         if(xi>=x1&&Math.abs(yi-yl)/yl<=0.01){touch++;tpts.push([xi,yi]);}
       });
       const score=(x2-x1)+touch*12;                // 教科書準則:跨度長+觸點多=更有效的線
-      if(!best||score>best.score)best={x1,y1,k,ye:+(y1+k*(n-1-x1)).toFixed(2),touch,tpts,score};
+      const cand={x1,y1,k,x2,ye:+(y1+k*(E-1-x1)).toFixed(2),touch,tpts,score,span:x2-x1};
+      outs.push(cand);
+      if(!best||score>best.score)best=cand;
     }
-    return best;
+    if(!best)return null;
+    const recent=outs.filter(c=>c!==best&&c.x1>best.x1+6&&c.touch>=2).sort((a,b)=>b.score-a.score)[0]||null;
+    return {main:best,recent};
   };
-  return {up:pick(L,true),dn:pick(H,false)};
+  const mkCh=(base,P,isLow)=>{
+    if(!base||!P.length)return null;
+    let bd=0;
+    P.forEach(([xi,yi])=>{
+      if(xi<base.x1)return;
+      const yl=base.y1+base.k*(xi-base.x1);
+      const d=isLow?(yi-yl):(yl-yi);
+      if(d>bd)bd=d;
+    });
+    if(bd<=0)return null;
+    const c=base.y1+(isLow?bd:-bd);
+    return {y1:c,x1:base.x1,k:base.k,ye:+(c+base.k*(E-1-base.x1)).toFixed(2)};
+  };
+  const U=pick(L,true),D=pick(H,false);
+  return {up:U&&U.main,upR:U&&U.recent,dn:D&&D.main,dnR:D&&D.recent,
+          upCh:U&&mkCh(U.main,H,false),dnCh:D&&mkCh(D.main,L,true),E,S};
 }
 function keyLevels(o){
   const closes=o.map(x=>x[3]), highs=o.map(x=>x[1]), lows=o.map(x=>x[2]);
@@ -7409,6 +7430,23 @@ function drawKChart(){
   try{
     const kr=window.__kRestore;
     if(kr&&kr.legend)chartInst.setOption({legend:{selected:kr.legend}});
+  try{                                                     // 🔍 縮放時依可視範圍重算趨勢線(防抖)
+    if(!chartInst.__tlZoomBound){
+      chartInst.__tlZoomBound=1;
+      chartInst.on('datazoom',()=>{
+        try{
+          if(localStorage.getItem('kTL')==='0')return;
+          const dz=(chartInst.getOption().dataZoom||[])[0]||{};
+          const st=dz.start!=null?dz.start:0,en=dz.end!=null?dz.end:100;
+          const prev=window.__kZoom||{s:0,e:100};
+          if(Math.abs(prev.s-st)<1.5&&Math.abs(prev.e-en)<1.5)return;
+          window.__kZoom={s:st,e:en};
+          clearTimeout(window.__tlZoomT);
+          window.__tlZoomT=setTimeout(()=>{try{drawKChart();}catch(e){}},420);
+        }catch(e){}
+      });
+    }
+  }catch(e){}
   try{chartInst.setOption({series:[{name:'K線',markPoint:{silent:true,
     data:(localStorage.getItem('kTL')!=='0'&&window.__tlTouchMk)||[]}}]});}catch(e){}  // 趨勢線觸點圓圈(本輪新值後寫)
     window.__kRestore=null;
@@ -7456,19 +7494,26 @@ function drawKChart(){
               ...(function(){
                 if(localStorage.getItem('kTL')==='0'){window.__tlTouchMk=[];
                   const kn=document.getElementById('kNoteTl');if(kn)kn.remove();return [];}
-                const tl=trendLines(o);
+                const zw=window.__kZoom;                       // 依目前縮放的可視範圍重算(拉近也精準)
+                const zS=zw?Math.max(0,Math.floor(zw.s/100*o.length)):null;
+                const zE=zw?Math.min(o.length,Math.ceil(zw.e/100*o.length)):null;
+                const tl=trendLines(o,zS,zE);
                 if(!tl){window.__tlTouchMk=[];return [];}
                 const mk=[];
                 const lastPx=o[o.length-1][3];
                 const fmtTl=(t,up2)=>`${up2?'↗支撐':'↘壓力'} ${(+t.ye).toLocaleString(undefined,{maximumFractionDigits:2})}(${t.touch}觸)`;
-                if(tl.up)mk.push([{name:'↗ 上升趨勢線',coord:[curDates[tl.up.x1],tl.up.y1],
-                  lineStyle:{color:'#4BD695',width:1.7,type:'solid'},
-                  label:{show:true,position:'insideEndTop',formatter:fmtTl(tl.up,true),color:'#4BD695',fontSize:10.5,fontWeight:800,distance:6}},
-                  {coord:[curDates[o.length-1],tl.up.ye]}]);
-                if(tl.dn)mk.push([{name:'↘ 下降壓力線',coord:[curDates[tl.dn.x1],tl.dn.y1],
-                  lineStyle:{color:'#FF8A8E',width:1.7,type:'solid'},
-                  label:{show:true,position:'insideEndBottom',formatter:fmtTl(tl.dn,false),color:'#FF8A8E',fontSize:10.5,fontWeight:800,distance:6}},
-                  {coord:[curDates[o.length-1],tl.dn.ye]}]);
+                const EIx=(tl.E||o.length)-1;
+                const seg=(t,col,txt,w,dash,pos)=>{if(!t)return;
+                  mk.push([{coord:[curDates[t.x1],t.y1],
+                    lineStyle:{color:col,width:w,type:dash||'solid',opacity:dash?0.75:1},
+                    label:txt?{show:true,position:pos,formatter:txt,color:col,fontSize:10.5,fontWeight:800,distance:6}:{show:false}},
+                    {coord:[curDates[EIx],t.ye]}]);};
+                seg(tl.up,'#4BD695',fmtTl(tl.up,true),1.8,null,'insideEndTop');
+                seg(tl.upCh,'#4BD695',tl.upCh?'通道上緣 '+(+tl.upCh.ye).toLocaleString(undefined,{maximumFractionDigits:2}):'',1,'dashed','insideEndTop');
+                seg(tl.upR,'#7FD9B0',tl.upR?'近期支撐 '+(+tl.upR.ye).toLocaleString(undefined,{maximumFractionDigits:2}):'',1.3,'dotted','insideStartTop');
+                seg(tl.dn,'#FF8A8E',fmtTl(tl.dn,false),1.8,null,'insideEndBottom');
+                seg(tl.dnCh,'#FF8A8E',tl.dnCh?'通道下緣 '+(+tl.dnCh.ye).toLocaleString(undefined,{maximumFractionDigits:2}):'',1,'dashed','insideEndBottom');
+                seg(tl.dnR,'#FFB3B6',tl.dnR?'近期壓力 '+(+tl.dnR.ye).toLocaleString(undefined,{maximumFractionDigits:2}):'',1.3,'dotted','insideStartBottom');
                 try{                                   // 圖下說明(一次注入)
                   const kc=document.getElementById('kNoteTl')||(()=>{
                     const host=document.getElementById('kC');
@@ -7479,13 +7524,16 @@ function drawKChart(){
                     return d2;})();
                   if(kc){
                     const seg=[];
+                    if(zw)seg.push(`<span style="color:var(--mut)">已依目前縮放範圍重新計算</span>`);
                     const inf=t=>{const slp=(t.k/((t.y1+t.ye)/2)*100).toFixed(2);
                       const dist=((lastPx/t.ye-1)*100).toFixed(1);
                       return `今值 ${(+t.ye).toLocaleString()} · 斜率 ${slp>0?'+':''}${slp}%/日 · ${t.touch} 個觸點 · 距現價 ${dist>0?'+':''}${dist}%`;};
                     if(tl.up)seg.push(`<b style="color:#4BD695">↗上升趨勢線</b>=連接波段低點、全程未跌破的支撐(${inf(tl.up)})——收盤跌破且隔日站不回=趨勢轉弱訊號`);
                     if(tl.dn)seg.push(`<b style="color:#FF8A8E">↘下降壓力線</b>=連接波段高點、全程未突破的壓力(${inf(tl.dn)})——帶量突破=轉強訊號`);
                     if(!tl.up&&!tl.dn)seg.push('目前找不到有效趨勢線(需兩個以上同向轉折點且全程未被貫穿)——盤整期屬正常,箱型上下緣更具參考性');
-                    kc.innerHTML='📏 '+seg.join(';')+'。觸點越多、跨度越長的線越有效;單一貫穿不算破,以「收盤價+隔日確認」為準。';
+                    if(tl.upCh||tl.dnCh)seg.push('<b>虛線=通道</b>(平行線,價格常在通道內來回;觸及上緣易回落、下緣易反彈)');
+                    if(tl.upR||tl.dnR)seg.push('<b>點線=近期線</b>(較短波段,對當下進出更敏感)');
+                    kc.innerHTML='📏 '+seg.join(';')+'。觸點越多、跨度越長的線越有效;單一貫穿不算破,以「收盤價+隔日確認」為準。拉近/縮放圖表時會自動依可視範圍重算。';
                   }
                 }catch(e2){}
                 const tpMk=[...(tl.up?tl.up.tpts:[]).map(p=>({coord:[curDates[p[0]],p[1]],symbol:'circle',symbolSize:7,
