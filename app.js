@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r433 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r434 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r433</span>');
+  diag.push('<span style="color:var(--dim)">build r434</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7701,7 +7701,7 @@ function __fwOverlay(o){                   // 🔄 K線疊加:ZigZag 轉折折�
         position:p.t===1?'top':'bottom',distance:5,fontSize:10.5,fontWeight:800,
         color:p.t===1?'#C62828':'#0B7A4B',formatter:F2(p.px)}}));
     try{                                                  // 圖下圖例說明(避免看不懂線在幹嘛)
-      const host=document.getElementById('kC');
+      const host=document.getElementById('kbox');
       if(host&&host.parentNode){
         let nb=document.getElementById('kNoteFw');
         if(!nb){nb=document.createElement('div');nb.id='kNoteFw';nb.className='dim-note';
@@ -7957,7 +7957,7 @@ function drawKChart(){
                 seg(tl.dnR,'#FFB3B6',tl.dnR?'近期壓力 '+(+tl.dnR.ye).toLocaleString(undefined,{maximumFractionDigits:2}):'',1.3,'dotted','insideStartBottom');
                 try{                                   // 圖下說明(一次注入)
                   const kc=document.getElementById('kNoteTl')||(()=>{
-                    const host=document.getElementById('kC');
+                    const host=document.getElementById('kbox');
                     if(!host||!host.parentNode)return null;
                     const d2=document.createElement('div');
                     d2.id='kNoteTl';d2.className='dim-note';d2.style.marginTop='4px';
