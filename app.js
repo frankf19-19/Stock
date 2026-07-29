@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r455 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r456 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r455</span>');
+  diag.push('<span style="color:var(--dim)">build r456</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4209,7 +4209,22 @@ async function refreshIdxMis(){
           }
         }
       }else{
-        window.__idxDiag[key]=(window.__idxDiag[key]&&window.__idxDiag[key].includes('點'))?window.__idxDiag[key]:'回補失敗(端點/代理均不通)';
+        let fixed=false;
+        try{                                              // 🐦 富果指數頻道救援:加權 IX0001 / 櫃買 IX0043
+          const sym=key==='tw'?'IX0001':key==='otc'?'IX0043':null;
+          if(sym){
+            const fd=await fglCandles(sym,true);
+            if(fd&&fd.c.length>=2&&tpDay(fd.t[fd.t.length-1])===sessDay()){
+              window.__idxDiag[key]='富果 '+fd.c.length+'點';
+              IDX.misD[key]=Object.assign({t:fd.t,c:fd.c,prev:(IDX.misD[key]||{}).prev||null},
+                {day:sessDay(),via:'富果'});
+              if(IDX.sel===key)drawIdxSel();
+              if(window.__mkMis===key&&location.hash.startsWith('#macro/'))drawMkLive(key);
+              fixed=true;
+            }
+          }
+        }catch(e2){}
+        if(!fixed)window.__idxDiag[key]=(window.__idxDiag[key]&&window.__idxDiag[key].includes('點'))?window.__idxDiag[key]:'回補失敗(端點/代理均不通)';
       }
     }catch(e){}
   }
@@ -4657,6 +4672,40 @@ function fglEnsure(force){                    // 連線管理:個股頁+盤中+�
   }catch(e){}
 }
 
+
+const __fglCd={};                             // 60秒快取:symbol → {at,d}
+async function fglCandles(symbol,isIndex){    // 🐦 富果 REST:當日開盤至今的完整 1 分 K(全網站台股即時的底圖)
+  try{
+    const key=fglKey();
+    if(!key)return null;
+    const c0=__fglCd[symbol];
+    if(c0&&Date.now()-c0.at<55000)return c0.d;
+    const r=await fglRawGet2('https://api.fugle.tw/marketdata/v1.0/stocks/intraday/candles/'
+      +encodeURIComponent(symbol)+'?timeframe=1',key,9000);
+    if(!r||!r.ok)return null;
+    const j=await r.json();
+    const rows=(j&&j.data)||[];
+    if(!rows.length)return null;
+    const t=[],c=[],v=[];
+    rows.forEach(b=>{
+      const ts=Math.floor(Date.parse(b.date)/1000);
+      if(!(ts>0)||!(b.close>0))return;
+      t.push(ts);c.push(+b.close);
+      v.push(isIndex?0:Math.round((+b.volume||0)*1000));   // 個股:張→股;指數不用量
+    });
+    if(c.length<2)return null;
+    const d={t,c,v};
+    __fglCd[symbol]={at:Date.now(),d};
+    return d;
+  }catch(e){return null;}
+}
+async function fglRawGet2(url,key,ms){
+  const ac=new AbortController();
+  const t=setTimeout(()=>ac.abort(),ms||9000);
+  try{return await fetch(url,{signal:ac.signal,cache:'no-store',headers:{'X-API-KEY':key}});}
+  finally{clearTimeout(t);}
+}
+
 async function fglRawGet(url,ms){             // /fk 專用:原生 fetch,不經站內代理包裝(fT 會重包網址導致 400)
   const ac=new AbortController();
   const t=setTimeout(()=>ac.abort(),ms||8000);
@@ -4809,8 +4858,17 @@ function stkLiveStart(s){
   };
   tick();
   STK_TIMER=setInterval(tick,6000);
+  try{clearInterval(window.__fglIntraT);}catch(e){}
+  window.__fglIntraT=setInterval(()=>{                     // 🐦 富果全日K:盤中每60秒重畫分時圖(快取55秒,恰好取到新棒)
+    try{
+      if(!fglKey()||!marketOpen())return;
+      if(!/^#stock\//.test(location.hash))return;
+      loadIntraDetail(s,false);
+    }catch(e){}
+  },60000);
 }
-function stkLiveStop(){if(STK_TIMER){clearInterval(STK_TIMER);STK_TIMER=null;}}
+function stkLiveStop(){
+  try{clearInterval(window.__fglIntraT);}catch(e){}if(STK_TIMER){clearInterval(STK_TIMER);STK_TIMER=null;}}
 async function misOhlcCore(ch,prev){
   // 證交所 MIS 站內分線端點(非正式):成功=瞬間補全 09:00 起走勢;失敗=無感回退
   // ch:MIS 頻道(tse_2330.tw / tse_t00.tw / otc_o00.tw)、prev:昨收(彈性掃描值域基準)
@@ -5026,9 +5084,19 @@ async function loadIntraDetail(s,accOnly){
       }
       window.__stkToday=true;
     }else if(marketOpen()){
-      // 🎯 個股分時「完美即時」:🐦富果逐筆(券商級)最優先 → 本機即時累積 → MIS 底圖
+      // 🎯 個股分時:🐦富果全日1分K(完整底圖) → 富果逐筆 → 本機累積 → MIS
+      try{
+        const fd=await fglCandles(s.id,false);
+        if(fd&&fd.c.length>=2){
+          d={t:fd.t,c:fd.c,v:fd.v,prev:((RTC[s.id]||{}).y)||(s.chg!=null&&s.price?s.price/(1+s.chg/100):null)};
+          window.__stkToday=true;
+          const st8=document.getElementById('intraStat');
+          if(st8)setTimeout(()=>{try{const e8=document.getElementById('intraStat');
+            if(e8&&!/富果/.test(e8.innerHTML))e8.innerHTML+=' · <span style="color:var(--up)">🐦 富果全日1分K</span>';}catch(e){}},400);
+        }
+      }catch(e){}
       try{const B=FGL.bars;
-        if(B&&B.id===s.id&&B.c.length>=2){
+        if(!d&&B&&B.id===s.id&&B.c.length>=2){
           d={t:B.t.slice(),c:B.c.slice(),v:B.v.map(x=>x*1000),prev:B.prev||acc.prev||((RTC[s.id]||{}).y)||null};
           window.__stkToday=true;
           const st8=document.getElementById('intraStat');
@@ -5071,7 +5139,13 @@ async function loadIntraDetail(s,accOnly){
         const acc=stkAcc(s.id);
         if(acc.c.length>=2)d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev};
         else if(!accOnly){
-          const md=openish()?await misIntraday(s):null;   // 非交易時段不打當日端點(必然無資料,只會空等)
+          try{const fd2=await fglCandles(s.id,false);      // 🐦 收盤後同日:富果全日K優先(完整,不再殘缺)
+            if(fd2&&fd2.c.length>=2&&tpDay(fd2.t[fd2.t.length-1])===today){
+              d={t:fd2.t,c:fd2.c,v:fd2.v,prev:((RTC[s.id]||{}).y)||(s.chg!=null&&s.price?s.price/(1+s.chg/100):null)};
+              window.__stkToday=true;
+            }
+          }catch(e){}
+          const md=(!d&&openish())?await misIntraday(s):null;
           if(md&&location.hash===KHASH)d=md;
           if(!d){                // 🌙 開盤前/收盤後最後防線:spark.json 前一交易日 5 分快照
             try{await loadSpark();}catch(e){}
