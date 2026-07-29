@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r429 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r430 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r429</span>');
+  diag.push('<span style="color:var(--dim)">build r430</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7443,18 +7443,17 @@ function bindKControls(sLike){
       };
     });
   }
-  const fw=document.getElementById('fwSeg');
-  if(fw){
+  document.querySelectorAll('#fwSeg').forEach(fw=>{
     const cur=localStorage.getItem('kFW')==='1';
     fw.querySelectorAll('button').forEach(b=>{
       b.classList.toggle('on',(b.dataset.t==='1')===cur);
       b.onclick=()=>{
         localStorage.setItem('kFW',b.dataset.t);
-        fw.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+        document.querySelectorAll('#fwSeg button').forEach(x=>x.classList.toggle('on',x.dataset.t===b.dataset.t));
         try{drawKChart();}catch(e){}
       };
     });
-  }
+  });
   const tl=document.getElementById('tlSeg');
   if(tl){
     const cur=localStorage.getItem('kTL')!=='0';
@@ -8279,6 +8278,7 @@ async function showDetail(id){
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="fwSeg"><button data-t="1">🔄轉折點</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="instSeg"><button data-t="1">法人副圖</button><button data-t="0">隱藏</button></div>
