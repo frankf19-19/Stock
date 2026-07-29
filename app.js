@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r451 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r452 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r451</span>');
+  diag.push('<span style="color:var(--dim)">build r452</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4541,6 +4541,7 @@ function fglPanel(){                          // ⚙️ 設定面板:貼 Key/清
       style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--txt);font-family:var(--mono);font-size:13px">
     <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
       <button id="fglSave" style="background:var(--amber);color:#fff;border:none;border-radius:9px;padding:9px 18px;font-weight:900;cursor:pointer">儲存並啟用</button>
+      <button id="fglTest" style="background:transparent;border:1px solid var(--amber);border-radius:9px;padding:9px 14px;color:var(--amber);font-weight:800;cursor:pointer">測試自動領取</button>
       ${has?'<button id="fglClr" style="background:transparent;border:1px solid var(--line);border-radius:9px;padding:9px 14px;color:var(--mut);cursor:pointer">清除 Key</button>':''}
       <span id="fglSt" style="font-size:12.5px;color:${FGL.ok?'var(--up)':'var(--dim)'}">${FGL.ok?'● 已連線':has?'○ 已設定,待連線':'○ 未設定'}</span></div></div>`;
   m.onclick=e=>{if(e.target===m)m.remove();};
@@ -4552,6 +4553,21 @@ function fglPanel(){                          // ⚙️ 設定面板:貼 Key/清
     m.remove();
     try{toastLite('富果 Key 已儲存——進入任一個股即啟用逐筆行情');}catch(e){}
     try{fglEnsure(true);}catch(e){}
+  };
+  const ts=m.querySelector('#fglTest');
+  if(ts)ts.onclick=async()=>{
+    const st9=m.querySelector('#fglSt');
+    st9.textContent='… 測試中';
+    try{
+      const host=(typeof myProxy==='function'?myProxy():'')||'https://muddy-cake-cb69.frankccc199.workers.dev';
+      const r=await fT(host.replace(/\/$/,'')+'/fk',8000);
+      if(r.status===200){const j=await r.json();
+        if(j&&j.k){localStorage.setItem('fugleKey',j.k);st9.style.color='var(--up)';st9.textContent='✅ 成功!Key 已自動存入本機('+j.k.length+' 字元)——盤中進個股即啟用逐筆';return;}
+        st9.textContent='⚠ 200 但無內容';}
+      else if(r.status===403){st9.textContent='❌ 403:Worker 拒絕——通常是從非網站來源測;若在網站上看到此訊息,貼給我';}
+      else if(r.status===404){st9.textContent='❌ 404:Secret 未設定——Cloudflare 變數名必須是 FUGLE_KEY(全大寫)';}
+      else st9.textContent='❌ HTTP '+r.status+':可能 worker.js 還是舊版,重貼 r450 的 worker.js 再 Deploy';
+    }catch(e){st9.textContent='❌ 連不上 Worker:'+String(e).slice(0,60);}
   };
   const cl=m.querySelector('#fglClr');
   if(cl)cl.onclick=()=>{try{localStorage.removeItem('fugleKey');}catch(e){}
