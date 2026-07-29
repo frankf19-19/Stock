@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r446 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r447 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r446</span>');
+  diag.push('<span style="color:var(--dim)">build r447</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7984,9 +7984,9 @@ function drawKChart(){
     const dedOn=localStorage.getItem('kDED')!=='0';
     let nb=document.getElementById('kNoteDed');
     if(!dedOn){window.__dedMk=[];if(nb)nb.remove();}
-    else if(Array.isArray(o)&&o.length>60){
+    else if(Array.isArray(o)&&o.length>20){
       const n=o.length,last=o[n-1][3];
-      const MAP=[[5,'#D9822B'],[10,'#5B8FF9'],[20,'#9C6ADE'],[60,'#333']];
+      const MAP=[[5,'#D9822B'],[10,'#5B8FF9'],[20,'#9C6ADE'],[60,'#333'],[120,'#E8759A'],[240,'#4CBBA5']];  // 含半年線/年線
       const mkd=[],txt=[];
       MAP.forEach(([P,col])=>{
         const idx=n-P;
@@ -8006,7 +8006,7 @@ function drawKChart(){
           if(!nb){nb=document.createElement('div');nb.id='kNoteDed';nb.className='dim-note';
             nb.style.margin='2px 0 4px';host.parentNode.insertBefore(nb,host);}
           nb.innerHTML='📍 <b>均線扣抵</b>:'+txt.join(' · ')
-            +'。<span style="color:var(--mut)">扣抵值=即將移出均線計算的舊K收盤價(圖上▲位置);現價<b>高於</b>扣抵價→該均線未來幾日<b>上彎助漲</b>,低於→<b>下彎轉壓</b>;扣抵價往下走(扣低)最有利上彎——這就是「均線扣抵」預判法。</span>';
+            +'。<span style="color:var(--mut)">扣抵值=即將移出均線計算的舊K收盤價(圖上▲位置);現價<b>高於</b>扣抵價→該均線未來幾日<b>上彎助漲</b>,低於→<b>下彎轉壓</b>;扣抵價往下走(扣低)最有利上彎——這就是「均線扣抵」預判法。視圖K棒數不足該週期時(如6個月視圖看年線扣抵),切「全部」即可顯示。</span>';
         }
       }
     }
