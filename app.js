@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r452 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r453 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r452</span>');
+  diag.push('<span style="color:var(--dim)">build r453</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4560,7 +4560,7 @@ function fglPanel(){                          // ⚙️ 設定面板:貼 Key/清
     st9.textContent='… 測試中';
     try{
       const host=(typeof myProxy==='function'?myProxy():'')||'https://muddy-cake-cb69.frankccc199.workers.dev';
-      const r=await fT(host.replace(/\/$/,'')+'/fk',8000);
+      const r=await fglRawGet(host.replace(/\/$/,'')+'/fk',8000);
       if(r.status===200){const j=await r.json();
         if(j&&j.k){localStorage.setItem('fugleKey',j.k);st9.style.color='var(--up)';st9.textContent='✅ 成功!Key 已自動存入本機('+j.k.length+' 字元)——盤中進個股即啟用逐筆';return;}
         st9.textContent='⚠ 200 但無內容';}
@@ -4645,11 +4645,19 @@ function fglEnsure(force){                    // 連線管理:個股頁+盤中+�
     ws.onerror=()=>{};
   }catch(e){}
 }
+
+async function fglRawGet(url,ms){             // /fk 專用:原生 fetch,不經站內代理包裝(fT 會重包網址導致 400)
+  const ac=new AbortController();
+  const t=setTimeout(()=>ac.abort(),ms||8000);
+  try{return await fetch(url,{signal:ac.signal,cache:'no-store'});}
+  finally{clearTimeout(t);}
+}
+
 async function fglAutoKey(){                 // 🔑 自動領 Key:從自家 Worker 的加密環境變數(個人站零輸入)
   try{
     if(fglKey())return;
     const host=(typeof myProxy==='function'?myProxy():'')||'https://muddy-cake-cb69.frankccc199.workers.dev';   // r451:改用站內既有 Worker 設定(修正網址寫錯)
-    const r=await fT(host.replace(/\/$/,'')+'/fk',6000);
+    const r=await fglRawGet(host.replace(/\/$/,'')+'/fk',6000);
     if(!r.ok)return;
     const j=await r.json();
     if(j&&j.k&&j.k.length>20){
