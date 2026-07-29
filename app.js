@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r432 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r433 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r432</span>');
+  diag.push('<span style="color:var(--dim)">build r433</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2970,6 +2970,60 @@ function paintHeadScan(scan){
     <div class="dim-note" style="margin-top:8px">燈號=七腳印:①背離 ②缺口不補 ③破趨勢線 ④破末升低 ⑤反彈不創高 ⑥再破前低 ⑦空頭浪。點任一列進該股個股頁看完整判讀。</div>`;
   out.querySelectorAll('[data-hs]').forEach(el=>{el.onclick=()=>{location.hash='#stock/'+el.dataset.hs;};});
 }
+
+const FOLD_CFG=[
+  ['boxHead7',()=>{const h=window.__headStkC;return h?`機率 ${h.prob}% · ${h.trend}`:'點開看七步檢核';}],
+  ['boxTurn',()=>{const t=window.__turnStkC&&window.__turnStkC.r;
+    return t?`${t.upLeg?'上漲段':'下跌段'} · ${t.due?'已達轉折週期⚠':`轉折窗 ${Math.max(0,t.winLo)}~${t.winHi} 日`}`:'點開看節奏與價位';}],
+  ['turtleBox',()=>'點開看進出檢核'],
+  ['zt8Box',()=>'點開看八招檢核'],
+  ['gemBox',()=>'點開看蓄勢診斷']];
+function foldInit(){                          // 📦 分析卡收合:標題列顯示一行摘要,點開才看細節
+  FOLD_CFG.forEach(([id,sf])=>{
+    try{
+      const box=document.getElementById(id);
+      if(!box||box.dataset.foldWired)return;
+      const h3=box.querySelector('h3');
+      if(!h3)return;
+      box.dataset.foldWired='1';
+      const body=document.createElement('div');
+      body.className='fold-body';
+      while(h3.nextSibling)body.appendChild(h3.nextSibling);
+      box.appendChild(body);
+      const key='kfold_'+id;
+      const closed=localStorage.getItem(key)!=='0';
+      const arw=document.createElement('span');
+      arw.className='fold-arw';arw.textContent=closed?'▸':'▾';
+      h3.insertBefore(arw,h3.firstChild);
+      const sum=document.createElement('span');
+      sum.className='fold-sum';
+      h3.appendChild(sum);
+      body.style.display=closed?'none':'';
+      h3.style.cursor='pointer';h3.title='點我展開/收合';
+      h3.onclick=()=>{
+        const c=body.style.display==='none';
+        body.style.display=c?'':'none';
+        arw.textContent=c?'▾':'▸';
+        localStorage.setItem(key,c?'0':'1');
+        if(c)try{box.querySelectorAll('canvas,div[_echarts_instance_]').forEach(el=>{const ch=echarts.getInstanceByDom(el);if(ch)ch.resize();});}catch(e){}
+      };
+      box.__foldSum=sf;
+    }catch(e){}
+  });
+}
+setInterval(()=>{                             // 摘要即時更新(機率/轉折窗算好後自動補上)
+  FOLD_CFG.forEach(([id])=>{
+    try{
+      const box=document.getElementById(id);
+      if(!box||!box.__foldSum)return;
+      const el=box.querySelector('.fold-sum');
+      if(!el)return;
+      const t=box.__foldSum();
+      if(t&&el.textContent!==t)el.textContent=t;
+    }catch(e){}
+  });
+},2500);
+
 async function renderHeadStock(s){
   const box=document.getElementById('headStk');
   if(!box||!s)return;
@@ -7651,7 +7705,7 @@ function __fwOverlay(o){                   // 🔄 K線疊加:ZigZag 轉折折�
       if(host&&host.parentNode){
         let nb=document.getElementById('kNoteFw');
         if(!nb){nb=document.createElement('div');nb.id='kNoteFw';nb.className='dim-note';
-          nb.style.marginTop='4px';host.parentNode.insertBefore(nb,host.nextSibling);}
+          nb.style.margin='2px 0 4px';host.parentNode.insertBefore(nb,host);}   // r433:圖上方
         nb.innerHTML='🔄 <b style="color:#8f6fc0">紫色虛折線</b>=轉折點連線(波段節奏),'
           +'<b style="color:#C62828">紅點</b>=波段高點、<b style="color:#0B7A4B">綠點</b>=波段低點,點旁數字為該轉折價;'
           +'<b style="color:#E8A33D">橘實線</b>=本段 0.618 關鍵'+(r.upLeg?'支撐':'壓力')+'(左側標示),'
@@ -7907,7 +7961,7 @@ function drawKChart(){
                     if(!host||!host.parentNode)return null;
                     const d2=document.createElement('div');
                     d2.id='kNoteTl';d2.className='dim-note';d2.style.marginTop='4px';
-                    host.parentNode.insertBefore(d2,host.nextSibling);
+                    host.parentNode.insertBefore(d2,host);   // r433:說明移到圖上方,開開關立刻看到
                     return d2;})();
                   if(kc){
                     const seg=[];
@@ -8222,6 +8276,7 @@ async function showDetail(id){
   try{renderHeadStock(s);}catch(e){}
   try{renderFwStock(s);}catch(e){}
   try{wireDcf();}catch(e){}
+  try{setTimeout(foldInit,700);}catch(e){}
   try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
     const h=document.getElementById('dcfBody');
     if(h&&window.__dcfS&&!h.innerHTML.includes('估值引力')){
@@ -8712,6 +8767,8 @@ function buildJumpBar(root){
     }
     if(el.hidden||(el.offsetParent===null&&!sec)){try{toastLite('這個區塊目前沒有內容,資料到位後會自動出現');}catch(e){}return;}
     el.classList.remove('closed');
+    try{const fb=el.querySelector&&el.querySelector('.fold-body');
+      if(fb&&fb.style.display==='none'){const h=el.querySelector('h3');if(h)h.click();}}catch(e){}
     setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),80);
   });
 }

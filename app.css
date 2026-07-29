@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r432 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r433 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
@@ -723,3 +723,9 @@ a.earn-more{border-radius:22px;font-weight:700}
 .asia-c{padding:8px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;transition:border-color .15s}
 .asia-c:hover{border-color:var(--amber)}
 @media(max-width:640px){.asia-grid{grid-template-columns:1fr 1fr}}
+
+/* r433:K圖說明條(圖上方)+分析卡收合 */
+#kNoteTl,#kNoteFw{background:var(--panel2);border-radius:9px;padding:7px 11px;font-size:12.5px;line-height:1.6}
+.fold-arw{margin-right:7px;color:var(--amber);font-size:13px}
+.fold-sum{margin-left:10px;font-size:12px;color:var(--amber);font-weight:800;background:color-mix(in srgb,var(--amber) 10%,transparent);border-radius:6px;padding:2px 8px}
+.chart-box h3:hover .fold-arw{transform:translateX(2px)}
