@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r449 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r450 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r449</span>');
+  diag.push('<span style="color:var(--dim)">build r450</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4629,6 +4629,22 @@ function fglEnsure(force){                    // 連線管理:個股頁+盤中+�
     ws.onerror=()=>{};
   }catch(e){}
 }
+async function fglAutoKey(){                 // 🔑 自動領 Key:從自家 Worker 的加密環境變數(個人站零輸入)
+  try{
+    if(fglKey())return;
+    const base=(typeof MY_PROXY==='string'&&MY_PROXY)||(localStorage.getItem('myProxy')||'');
+    const host=base||'https://stock.frankccc199.workers.dev';
+    const r=await fT(host.replace(/\/$/,'')+'/fk',6000);
+    if(!r.ok)return;
+    const j=await r.json();
+    if(j&&j.k&&j.k.length>20){
+      localStorage.setItem('fugleKey',j.k);
+      try{toastLite('🐦 富果即時已自動啟用');}catch(e){}
+      fglEnsure(true);
+    }
+  }catch(e){}
+}
+setTimeout(fglAutoKey,2500);
 setInterval(fglEnsure,5000);
 window.addEventListener('hashchange',()=>{window.__fglVTot=0;setTimeout(fglEnsure,600);});
 
