@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r430 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r431 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r430</span>');
+  diag.push('<span style="color:var(--dim)">build r431</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2680,7 +2680,7 @@ function turnEngine(K){
       near=[0.382,0.5,0.618].map(r=>({r,px:upLeg?legExt-legRng*r:legExt+legRng*r}));
       targets=[1,1.272,1.618].map(m=>({m,px:upLeg?legBase+prevLegLen*m:legBase-prevLegLen*m}));
     }
-    return {px,F2,rows,avg,sd,since,winLo,winHi,due,upLeg,legBase,legExt,near,targets,
+    return {px,F2,rows,avg,sd,since,winLo,winHi,due,upLeg,legBase,legExt,legRng,near,targets,
             lastIdx:last.i,zz:rec,n};
   }catch(e){return null;}
 }
@@ -2688,6 +2688,24 @@ function turnHtml(r){
   if(!r)return '<div class="dim-note">日K資料不足(需60根以上),暫無法判讀。</div>';
   const F2=r.F2;
   const head=[];
+  {// 📖 白話導讀:轉折點定義 + 現在位置 + 轉折後的目標價
+    const legPct=r.legRng!=null&&r.legBase?((r.legExt/r.legBase-1)*100):null;
+    const fromExt=r.legExt?((r.px/r.legExt-1)*100):null;
+    const t1=r.targets&&r.targets[0]?r.targets[0].px:null;
+    const s1=r.near&&r.near[0]?r.near[0].px:null;
+    const s618=r.near?(r.near.find(x=>x.r===0.618)||{}).px:null;
+    head.push(`<div style="padding:11px 14px;background:var(--panel2);border-radius:11px;margin-bottom:10px;line-height:1.75;font-size:13.5px">
+      <b>📖 什麼是轉折點</b>:股價不會直線走,而是<b>漲一段→回一段→再漲一段</b>。每一次由漲轉跌的高點、由跌轉漲的低點,就是「轉折點」。把它們連起來就是這檔股票的<b>波段節奏</b>——知道節奏,才知道現在是「剛起漲」還是「漲到末端」。<br>
+      <b>🧭 現在在哪</b>:最近一次轉折是 ${r.rows[0]?`${r.rows[0].d} 的${r.rows[0].t===1?'高點':'低點'} <b>${F2(r.rows[0].px)}</b>`:'—'},之後走的是<b>${r.upLeg?'上漲段':'下跌段'}</b>,
+      至今${r.upLeg?'最高到':'最低到'} <b>${F2(r.legExt)}</b>(這一段${legPct!=null?(legPct>0?'漲':'跌')+Math.abs(legPct).toFixed(1)+'%':''});現價 <b>${F2(r.px)}</b>,距離這段${r.upLeg?'高點':'低點'} ${fromExt!=null?(fromExt>0?'高':'低')+Math.abs(fromExt).toFixed(1)+'%':'—'}。<br>
+      <b>💡 轉折之後會到哪</b>:
+      ${r.upLeg
+        ?`若<b>向下轉折</b>(漲勢結束),第一個可能停下來的位置是 <b style="color:var(--down)">${F2(s1)}</b>(回檔 0.382),再破看 <b style="color:var(--amber)">${F2(s618)}</b>(0.618 黃金口袋,多空分水嶺);
+          若<b>續漲不轉折</b>,上方測量目標約 <b style="color:var(--up)">${F2(t1)}</b>(以上一段波幅等距推算)。`
+        :`若<b>向上轉折</b>(跌勢結束),第一個壓力在 <b style="color:var(--up)">${F2(s1)}</b>(反彈 0.382),過了看 <b style="color:var(--amber)">${F2(s618)}</b>(0.618,站回才算轉強);
+          若<b>續跌不轉折</b>,下方測量目標約 <b style="color:var(--down)">${F2(t1)}</b>。`}<br>
+      <b>⏱ 什麼時候可能轉</b>:${r.due?`已經走了 ${r.since} 天,<b style="color:#C62828">超過平均週期 ${r.avg.toFixed(0)} 天,隨時可能轉折</b>`:`已走 ${r.since} 天,平均 ${r.avg.toFixed(0)} 天一轉,<b>預估還有 ${Math.max(0,r.winLo)}~${r.winHi} 個交易日</b>進入轉折窗口`}——時間到了<u>不代表一定會轉</u>,要等價格真的跌破/突破關鍵價位才算數。</div>`);
+  }
   head.push(`<div style="display:flex;gap:9px;margin:5px 0;line-height:1.55"><span style="font-size:16px">⏱</span>
     <div style="font-size:14px"><b>轉折節奏</b>:近 ${r.rows.length} 次轉折平均 <b>${r.avg.toFixed(0)}±${r.sd.toFixed(0)} 個交易日</b>一轉;距上次轉折已 ${r.since} 天 →
     ${r.due?`<b style="color:#C62828">已達平均週期,隨時留意反轉</b>`
@@ -2712,7 +2730,7 @@ function turnHtml(r){
         <div class="${x.chg>0?'pos':x.chg<0?'neg':'flat'}" style="font-weight:700">${x.chg!=null?(x.chg>0?'+':'')+x.chg.toFixed(1)+'%':'—'}</div>
         <div style="color:var(--mut)">${x.dur!=null?x.dur+'日':'—'}</div>`).join('')}
     </div></div>`;
-  return head.join('')+tbl+`<div class="dim-note" style="margin-top:8px">轉折點=鋸齒法自動辨識(前後4根K的極值);「預估窗口」是節奏統計非保證,價位到了、時間到了、量能背離三者共振時勝率最高。個股日期為交易日回推之約略值。非投資建議。</div>`;
+  return head.join('')+tbl+`<div class="dim-note" style="margin-top:8px"><b>怎麼用這張表</b>:①看「波段幅度」——這檔平常一段漲跌約幾%,現在這段是否已達平均;②看「費時」——這檔平常幾天轉一次;③高點一個比一個低=空頭節奏,低點一個比一個高=多頭節奏。<br>轉折點以鋸齒法自動辨識(前後4根K的極值);「預估窗口」是節奏統計非保證——<b>價位到了、時間到了、量能背離三者共振時勝率最高</b>。個股日期為交易日回推之約略值。非投資建議。</div>`;
 }
 
 async function usEarnBlock(s){                        // 📡 美股個股財報卡:賽前預期/賽後結果(來源 yext.earn)
