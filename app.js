@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r434 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r436 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r434</span>');
+  diag.push('<span style="color:var(--dim)">build r436</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7515,7 +7515,54 @@ function bindKControls(sLike){
       };
     });
   }
-  document.querySelectorAll('#fwSeg').forEach(fw=>{
+  
+
+const SEG_CARD={lvSeg:['kLV','lvBox'],fwSeg:['kFW','boxTurn'],dvSeg:['kDV','divTL']};
+function wireSegRelocate(){
+  Object.entries(SEG_CARD).forEach(([segId,[lsKey,boxId]])=>{
+    document.querySelectorAll('#'+segId+' button').forEach(b=>{
+      if(b.dataset.relWired)return;
+      b.dataset.relWired='1';
+      b.addEventListener('click',()=>{try{relocateCard(boxId,b.dataset.t==='1');}catch(e){}});
+    });
+  });
+  try{Object.entries(SEG_CARD).forEach(([segId,[lsKey,boxId]])=>{   // 進頁時已開啟的直接就定位
+    const on=segId==='fwSeg'?localStorage.getItem(lsKey)==='1':localStorage.getItem(lsKey)!=='0';
+    if(on&&document.getElementById(boxId))relocateCard(boxId,true);
+  });}catch(e){}
+}
+
+function relocateCard(boxId,on){              // 🔀 開啟開關 → 對應詳細卡搬到K線圖正下方;關閉 → 歸位
+  try{
+    const box=document.getElementById(boxId);
+    const kb=document.getElementById('kbox');
+    if(!box)return;
+    if(on&&kb){
+      const kcb=kb.closest('.chart-box')||kb.parentNode;
+      if(!box.__homeMark){
+        box.__homeMark=document.createComment(boxId+'-home');
+        box.parentNode.insertBefore(box.__homeMark,box);
+      }
+      let after=kcb;                                       // 多卡同時開啟時依序往下排
+      while(after.nextSibling&&after.nextSibling.__relocated)after=after.nextSibling;
+      kcb.parentNode.insertBefore(box,after.nextSibling);
+      box.__relocated=true;
+      const fb=box.querySelector('.fold-body');
+      if(fb&&fb.style.display==='none'){const h=box.querySelector('h3');if(h)h.click();}
+      box.style.outline='2px solid var(--amber)';
+      box.style.outlineOffset='2px';
+      setTimeout(()=>{box.style.outline='';},1500);
+    }else if(!on&&box.__homeMark&&box.__homeMark.parentNode){
+      box.__homeMark.parentNode.insertBefore(box,box.__homeMark.nextSibling);
+      box.__relocated=false;
+      const fb=box.querySelector('.fold-body');
+      if(fb&&fb.style.display!=='none'){const h=box.querySelector('h3');if(h)h.click();}
+    }
+  }catch(e){}
+}
+function relocateTurn(on){relocateCard('boxTurn',on);}
+
+document.querySelectorAll('#fwSeg').forEach(fw=>{
     const cur=localStorage.getItem('kFW')==='1';
     fw.querySelectorAll('button').forEach(b=>{
       b.classList.toggle('on',(b.dataset.t==='1')===cur);
@@ -8277,6 +8324,7 @@ async function showDetail(id){
   try{renderFwStock(s);}catch(e){}
   try{wireDcf();}catch(e){}
   try{setTimeout(foldInit,700);}catch(e){}
+  try{setTimeout(wireSegRelocate,950);}catch(e){}
   try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
     const h=document.getElementById('dcfBody');
     if(h&&window.__dcfS&&!h.innerHTML.includes('估值引力')){
@@ -8380,7 +8428,7 @@ async function showDetail(id){
       <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K=上市全歷史;日K/週K=每日累積加深至約一年) · MA5~MA240 全數預設顯示(點圖例可開關;年線需背景載入約2秒) · 滾輪/滑桿縮放</div>
       <div id="kbox" style="height:560px"></div>
     </div>
-    <div class="dim-block">
+    <div class="dim-block" id="lvBox">
       <h3>關鍵價位(規則化計算)<span class="ds">現價 <b id="lvPx">${s.price??'—'}</b></span></h3>
       <div class="kv">
         <div><dt>壓力 2|前波高(60日)</dt><dd class="pos">${lv.h60.toFixed(1)}</dd></div>
