@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r431 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r432 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r431</span>');
+  diag.push('<span style="color:var(--dim)">build r432</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7618,18 +7618,20 @@ function kdrawBindClick(){
 
 function __fwOverlay(o){                   // 🔄 K線疊加:ZigZag 轉折折線(取代舊的▲▼文字)+近端Fib(開關 kFW)
   try{
-    if(localStorage.getItem('kFW')!=='1')return [];
+    if(localStorage.getItem('kFW')!=='1'){const nb0=document.getElementById('kNoteFw');if(nb0)nb0.remove();return [];}
     if(!Array.isArray(o)||o.length<60)return [];
     const K={o:o.map(x=>x[0]),h:o.map(x=>x[1]),l:o.map(x=>x[2]),c:o.map(x=>x[3])};
     const r=turnEngine(K);
     if(!r)return [];
     const F2=r.F2,mk=[];
-    r.near.forEach(v=>{mk.push({yAxis:v.px,
-      lineStyle:v.r===0.618?{color:'#E8A33D',width:1.6,type:'solid'}:{color:'#9A938A',width:1,type:'dashed',opacity:.65},
-      label:{formatter:`${r.upLeg?'支撐':'壓力'}${v.r} ${F2(v.px)}`,position:'insideEndTop',fontSize:10,
-        color:v.r===0.618?'#E8A33D':'#9A938A',fontWeight:v.r===0.618?900:400}});});
-    r.targets.slice(0,2).forEach(v=>{mk.push({yAxis:v.px,lineStyle:{color:'#7FB4FF',width:1,type:'dotted'},
-      label:{formatter:`目標${v.m}倍 ${F2(v.px)}`,position:'insideEndTop',fontSize:10,color:'#7FB4FF'}});});
+    const g618=(r.near||[]).find(v=>v.r===0.618);
+    if(g618)mk.push({yAxis:g618.px,
+      lineStyle:{color:'#E8A33D',width:1.6,type:'solid'},
+      label:{formatter:`${r.upLeg?'支撐':'壓力'} 0.618 ${F2(g618.px)}`,position:'insideStartTop',fontSize:10,
+        color:'#E8A33D',fontWeight:900,distance:4}});
+    const tg1=(r.targets||[])[1]||(r.targets||[])[0];
+    if(tg1)mk.push({yAxis:tg1.px,lineStyle:{color:'#8f6fc0',width:1,type:'dotted'},
+      label:{formatter:`目標 ${F2(tg1.px)}`,position:'insideStartBottom',fontSize:10,color:'#8f6fc0',distance:4}});
     // ZigZag:把轉折點連成一條清楚的折線,只在端點標價
     const zz=(r.zz||[]).slice().sort((a2,b2)=>a2.i-b2.i);
     const line=new Array(o.length).fill(null);
@@ -7638,10 +7640,26 @@ function __fwOverlay(o){                   // 🔄 K線疊加:ZigZag 轉折折�
       const lastI=zz[zz.length-1].i;
       if(lastI<o.length-1)line[o.length-1]=o[o.length-1][3];
     }
+    let lastLabI=-99;
     const pts=zz.map(p=>({coord:[p.i,p.px],symbol:'circle',symbolSize:7,
       itemStyle:{color:p.t===1?'#C62828':'#0B7A4B',borderColor:'#fff',borderWidth:1.5},
-      label:{show:true,position:p.t===1?'top':'bottom',distance:5,fontSize:10.5,fontWeight:800,
+      label:{show:(()=>{const ok=(p.i-lastLabI)>=6;if(ok)lastLabI=p.i;return ok;})(),
+        position:p.t===1?'top':'bottom',distance:5,fontSize:10.5,fontWeight:800,
         color:p.t===1?'#C62828':'#0B7A4B',formatter:F2(p.px)}}));
+    try{                                                  // 圖下圖例說明(避免看不懂線在幹嘛)
+      const host=document.getElementById('kC');
+      if(host&&host.parentNode){
+        let nb=document.getElementById('kNoteFw');
+        if(!nb){nb=document.createElement('div');nb.id='kNoteFw';nb.className='dim-note';
+          nb.style.marginTop='4px';host.parentNode.insertBefore(nb,host.nextSibling);}
+        nb.innerHTML='🔄 <b style="color:#8f6fc0">紫色虛折線</b>=轉折點連線(波段節奏),'
+          +'<b style="color:#C62828">紅點</b>=波段高點、<b style="color:#0B7A4B">綠點</b>=波段低點,點旁數字為該轉折價;'
+          +'<b style="color:#E8A33D">橘實線</b>=本段 0.618 關鍵'+(r.upLeg?'支撐':'壓力')+'(左側標示),'
+          +'<b style="color:#8f6fc0">紫點線</b>=本段測量目標。'
+          +(r.due?'⏱ <b>已達平均轉折週期,隨時留意轉向</b>。':'⏱ 預估 '+Math.max(0,r.winLo)+'~'+r.winHi+' 個交易日內進入轉折窗口。')
+          +'詳細解讀見下方「🔄 轉折點分析」。';
+      }
+    }catch(e2){}
     return [
       {name:'🔄轉折折線',type:'line',xAxisIndex:0,yAxisIndex:0,data:line,connectNulls:true,
        showSymbol:false,silent:true,tooltip:{show:false},z:3,
