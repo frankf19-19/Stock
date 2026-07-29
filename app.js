@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r447 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r449 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,11 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r447</span>');
+  try{const fk=!!fglKey();
+    const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
+    diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
+  }catch(e){}
+  diag.push('<span style="color:var(--dim)">build r449</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4518,6 +4522,116 @@ setTimeout(refreshRisk,5000);
 setInterval(refreshRisk,60000);
 
 /* ── 個股即時走勢(個股頁載入,60秒更新)── */
+
+/* ══════════ 🐦 富果 Fugle 即時行情層(WebSocket 逐筆;Key 僅存本機瀏覽器,絕不進 repo) ══════════ */
+const FGL={ws:null,sym:null,ok:false,retry:0,bars:null};
+function fglKey(){try{return localStorage.getItem('fugleKey')||'';}catch(e){return '';}}
+function fglPanel(){                          // ⚙️ 設定面板:貼 Key/清除/狀態
+  let m=document.getElementById('fglMask');
+  if(m){m.remove();return;}
+  m=document.createElement('div');m.id='fglMask';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2100;display:flex;align-items:center;justify-content:center;padding:16px';
+  const has=!!fglKey();
+  m.innerHTML=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:560px;width:100%;padding:18px 20px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><b style="font-size:17px">🐦 富果即時行情(券商級)</b>
+      <a href="javascript:void 0" onclick="document.getElementById('fglMask').remove()" style="margin-left:auto;color:var(--dim);font-size:20px;font-weight:800">×</a></div>
+    <div style="font-size:13.5px;line-height:1.7;color:var(--mut);margin-bottom:10px">
+      貼上你在 developer.fugle.tw 申請的行情 API Key。<b>Key 只儲存在這台裝置的瀏覽器</b>(localStorage),不會上傳、不會進入網站原始碼;啟用後「正在觀看的個股」改用富果 WebSocket 逐筆行情(真即時價/量/力道),其餘功能維持原樣;無 Key 或斷線時自動退回現行模式。</div>
+    <input id="fglKeyIn" type="password" placeholder="${has?'已設定(輸入新值可覆蓋)':'貼上 API Key'}"
+      style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--txt);font-family:var(--mono);font-size:13px">
+    <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
+      <button id="fglSave" style="background:var(--amber);color:#fff;border:none;border-radius:9px;padding:9px 18px;font-weight:900;cursor:pointer">儲存並啟用</button>
+      ${has?'<button id="fglClr" style="background:transparent;border:1px solid var(--line);border-radius:9px;padding:9px 14px;color:var(--mut);cursor:pointer">清除 Key</button>':''}
+      <span id="fglSt" style="font-size:12.5px;color:${FGL.ok?'var(--up)':'var(--dim)'}">${FGL.ok?'● 已連線':has?'○ 已設定,待連線':'○ 未設定'}</span></div></div>`;
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  document.body.appendChild(m);
+  const sv=m.querySelector('#fglSave');
+  if(sv)sv.onclick=()=>{
+    const v=(m.querySelector('#fglKeyIn').value||'').trim();
+    if(v){try{localStorage.setItem('fugleKey',v);}catch(e){}}
+    m.remove();
+    try{toastLite('富果 Key 已儲存——進入任一個股即啟用逐筆行情');}catch(e){}
+    try{fglEnsure(true);}catch(e){}
+  };
+  const cl=m.querySelector('#fglClr');
+  if(cl)cl.onclick=()=>{try{localStorage.removeItem('fugleKey');}catch(e){}
+    try{if(FGL.ws)FGL.ws.close();}catch(e){}
+    FGL.ok=false;m.remove();try{toastLite('已清除,退回一般模式');}catch(e){}};
+}
+function fglBarsPush(px,vol,tsec){            // 逐筆 → 1分K累積(供分時圖/力道/總量)
+  const B=FGL.bars;if(!B)return;
+  const mkey=Math.floor(tsec/60)*60;
+  const L=B.t.length;
+  if(L&&B.t[L-1]===mkey){
+    B.c[L-1]=px;
+    if(vol>0)B.v[L-1]+=vol;
+  }else{
+    B.t.push(mkey);B.c.push(px);B.v.push(vol>0?vol:0);
+    if(B.t.length>400){B.t.shift();B.c.shift();B.v.shift();}
+  }
+}
+function fglEnsure(force){                    // 連線管理:個股頁+盤中+有Key 才開;離開自動關
+  try{
+    const key=fglKey();
+    const onStk=/^#stock\//.test(location.hash);
+    const st=onStk?(DATA.stocks||[]).find(x=>x.id===decodeURIComponent(location.hash.split('/')[1]||'')):null;
+    const want=key&&onStk&&st&&st.market==='TW'&&typeof marketOpen==='function'&&marketOpen();
+    if(!want){
+      if(FGL.ws){try{FGL.ws.close();}catch(e){}FGL.ws=null;FGL.ok=false;}
+      return;
+    }
+    if(FGL.ws&&FGL.sym===st.id&&FGL.ws.readyState<=1&&!force)return;
+    if(FGL.ws){try{FGL.ws.close();}catch(e){}}
+    FGL.sym=st.id;
+    FGL.bars={id:st.id,t:[],c:[],v:[],prev:null};
+    const ws=new WebSocket('wss://api.fugle.tw/marketdata/v1.0/stocks/streaming?apiKey='+encodeURIComponent(key));
+    FGL.ws=ws;
+    ws.onopen=()=>{};
+    ws.onmessage=ev=>{
+      try{
+        const j=JSON.parse(ev.data);
+        if(j.event==='authenticated'){
+          FGL.ok=true;FGL.retry=0;
+          ws.send(JSON.stringify({event:'subscribe',data:{channel:'aggregates',symbol:FGL.sym}}));
+          return;
+        }
+        if(j.event==='error'){FGL.ok=false;return;}
+        if(j.event!=='data'||!j.data)return;
+        const d=j.data;
+        const lt=d.lastTrade||d.lastPrice!=null&&{price:d.lastPrice}||null;
+        const px=lt&&+lt.price;
+        if(!(px>0))return;
+        const tot=d.total||{};
+        const vTot=+tot.tradeVolume>0?+tot.tradeVolume:null;      // 張(富果整股 tradeVolume 單位=張)
+        const prev=+d.previousClose>0?+d.previousClose:null;
+        const o9=+d.openPrice>0?+d.openPrice:null;
+        const hi=+d.highPrice>0?+d.highPrice:null;
+        const lo=+d.lowPrice>0?+d.lowPrice:null;
+        const tsec=lt&&lt.time?Math.floor(+lt.time/1e6):Math.floor(Date.now()/1e3);   // 富果 time=微秒
+        const id=FGL.sym;
+        const st2=(DATA.stocks||[]).find(x=>x.id===id);
+        if(st2){st2.price=px;if(prev)st2.chg=+(((px/prev)-1)*100).toFixed(2);}
+        RTC[id]=Object.assign(RTC[id]||{},{c:px,o:o9||((RTC[id]||{}).o),h:hi||((RTC[id]||{}).h),
+          l:lo||((RTC[id]||{}).l),y:prev||((RTC[id]||{}).y)});
+        if(vTot!=null){
+          const pv=window.__fglVTot||0;
+          const dv=vTot-pv;
+          window.__fglVTot=vTot;
+          window.__intraVSum=vTot;                                 // 券商級累計量,直接覆蓋
+          fglBarsPush(px,dv>0&&dv<1e6?dv:0,tsec);
+        }else fglBarsPush(px,0,tsec);
+        FGL.bars.prev=prev||FGL.bars.prev;
+        window.__fglT=Date.now();
+      }catch(e){}
+    };
+    ws.onclose=()=>{FGL.ok=false;
+      if(fglKey()&&FGL.retry<6){FGL.retry++;setTimeout(()=>fglEnsure(true),Math.min(30000,3000*FGL.retry));}};
+    ws.onerror=()=>{};
+  }catch(e){}
+}
+setInterval(fglEnsure,5000);
+window.addEventListener('hashchange',()=>{window.__fglVTot=0;setTimeout(fglEnsure,600);});
+
 function intraStatTxt(s,extra){
   const px=s.price!=null?s.price:'—';
   const cg=s.chg!=null?` <span class="${s.chg>=0?'pos':'neg'}">${s.chg>=0?'▲':'▼'} ${Math.abs(s.chg).toFixed(2)}%</span>`:'';
@@ -4544,8 +4658,9 @@ function intraStatTxt(s,extra){
     const open2=typeof marketOpen==='function'&&marketOpen();
     const expct=(window.__v1&&open2&&mins>0)?window.__v1*cumPct(Math.min(mins,270))/100:null;
     if(vv>0){
-      const sparse=expct!=null&&vv<expct*0.2;              // 明顯偏低=來源缺分鐘 → 誠實標示,不給誤導%
-      vt=` <span style="font-size:11px;color:var(--dim)">總量 ${sparse?'≥':''}${Math.round(vv).toLocaleString()} 張${sparse?'(來源回補中)':''}</span>`;
+      const cut=(!open2&&window.__stkToday&&window.__intraLastM!=null&&window.__intraLastM<795);   // 收盤後但只擷半場
+      const sparse=(expct!=null&&vv<expct*0.2)||cut;       // 偏低或中斷 → 誠實標示,不給誤導%
+      vt=` <span style="font-size:11px;color:var(--dim)">${cut?'已收錄':'總量'} ${sparse?'≥':''}${Math.round(vv).toLocaleString()} 張${cut?'(不完整)':sparse?'(來源回補中)':''}</span>`;
       if(!sparse&&(window.__v1||window.__v20)&&open2&&mins>=20&&mins<270){
         const est=vv/(cumPct(mins)/100);
         const base=window.__v1||window.__v20;
@@ -4854,9 +4969,17 @@ async function loadIntraDetail(s,accOnly){
       }
       window.__stkToday=true;
     }else if(marketOpen()){
-      // 🎯 個股分時「完美即時」:優先用本機即時累積(不依賴易掛的 MIS 底圖端點/公共代理)
-      //    先試 misIntraday 補全 09:00 起完整底圖(成功更好),抓不到也用純累積線起步、絕不顯示「連不上」空圖
-      if(acc.c.length>=2){d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev||((d&&d.prev)||null)};window.__stkToday=true;}
+      // 🎯 個股分時「完美即時」:🐦富果逐筆(券商級)最優先 → 本機即時累積 → MIS 底圖
+      try{const B=FGL.bars;
+        if(B&&B.id===s.id&&B.c.length>=2){
+          d={t:B.t.slice(),c:B.c.slice(),v:B.v.map(x=>x*1000),prev:B.prev||acc.prev||((RTC[s.id]||{}).y)||null};
+          window.__stkToday=true;
+          const st8=document.getElementById('intraStat');
+          if(st8)setTimeout(()=>{try{const e8=document.getElementById('intraStat');
+            if(e8&&!/富果/.test(e8.innerHTML))e8.innerHTML+=' · <span style="color:var(--up)">🐦 富果逐筆</span>';}catch(e){}},400);
+        }
+      }catch(e){}
+      if(!d&&acc.c.length>=2){d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev||((d&&d.prev)||null)};window.__stkToday=true;}
       else{
         let md=null;
         try{md=await misIntraday(s);}catch(e){}
@@ -4883,6 +5006,10 @@ async function loadIntraDetail(s,accOnly){
       }
     }else{
       window.__stkToday=false;   // 顯示最近完整一日,禁止即時戳點
+      if(!d){
+        try{const B=FGL.bars;                                   // 🐦 富果逐筆1分K:有就優先
+          if(B&&B.id===s.id&&B.c.length>=2)d={t:B.t.slice(),c:B.c.slice(),v:B.v.map(x=>x*1000),prev:B.prev||((RTC[s.id]||{}).y)||null};
+        }catch(e){}}
       if(!d){                    // Yahoo 停用後的收盤替補鏈:當日本機累積 → MIS 當日圖 → 最近交易時段快照
         const acc=stkAcc(s.id);
         if(acc.c.length>=2)d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev};
@@ -4911,7 +5038,18 @@ async function loadIntraDetail(s,accOnly){
   const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
   const isTW=s.market==='TW';
   window.__intraVSum=isTW?Math.round(totV/1000):totV;      // 唯一真相來源:分時量加總(台股股→張)
+  try{                                                     // 圖資完整度:記錄最後時刻,收盤後只擷半場要說清楚
+    const lt=d.t&&d.t.length?new Date(d.t[d.t.length-1]*1000):null;
+    window.__intraLastM=lt?(lt.getUTCHours()*60+lt.getUTCMinutes()+480)%1440:null;   // 台北分鐘
+    window.__intraLastS=lt?new Date(d.t[d.t.length-1]*1000).toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit'}):'';
+  }catch(e){window.__intraLastM=null;}
   if(stat)stat.innerHTML=intraStatTxt(s);
+  try{
+    const open3=typeof marketOpen==='function'&&marketOpen();
+    if(!open3&&window.__stkToday&&window.__intraLastM!=null&&window.__intraLastM<795&&stat){   // 13:15 前就斷
+      stat.innerHTML+=` · <span style="color:var(--amber)">圖擷至 ${window.__intraLastS},當日後段來源中斷(價格以右上收盤為準;盤中開著本頁可完整累積)</span>`;
+    }
+  }catch(e){}
   d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
   if(fl)fl.innerHTML=flowHTML(d,isTW?'張':'股');
