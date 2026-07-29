@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r441 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r442 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r441</span>');
+  diag.push('<span style="color:var(--dim)">build r442</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1778,7 +1778,12 @@ function killCtx(ctx,domId){   // 🧹 通用銷毀:LWC→remove / ECharts→dis
   try{const b=domId&&document.getElementById(domId);if(b&&b.__lwc){try{b.__lwc.remove();}catch(_){}b.__lwc=null;}}catch(e){}
 }
 function drawIntraLWC(domId,d){
- try{                                          // 🛡️ 任何失敗回 null → 呼叫端 || 自動退 ECharts,永不空白
+ try{
+  try{
+    if(domId==='intraChart'&&d&&Array.isArray(d.v)){
+      window.__intraVSum=d.v.reduce((a,b)=>a+(+b>0?+b:0),0);
+    }
+  }catch(e0){}                                          // 🛡️ 任何失敗回 null → 呼叫端 || 自動退 ECharts,永不空白
   d=padDay0900(d);
   const box=document.getElementById(domId);
   if(!box||!window.LightweightCharts)return null;
@@ -1875,6 +1880,11 @@ function drawIntraLWC(domId,d){
  }
 }
 function drawIntra(domId,d){
+  try{                                                     // 📦 當日累計量(張)=分時量加總——MIS 個股 v 實測為「當盤量」,不可靠
+    if(domId==='intraChart'&&d&&Array.isArray(d.v)){
+      window.__intraVSum=d.v.reduce((a,b)=>a+(+b>0?+b:0),0);
+    }
+  }catch(e){}
   d=padDay0900(d);
   const box=document.getElementById(domId);
   if(!box)return;
@@ -4532,12 +4542,12 @@ function intraStatTxt(s,extra){
     }catch(e){}
     tt=` <span style="font-size:11px;color:${stale?'var(--amber)':'var(--dim)'}" title="交易所成交時刻">成交 ${String(mt).slice(0,8)}${stale?`(${mins>0?'延遲約'+mins+'分':'非本場'},非最新)`:''}</span>`;
   }
-  const vv=(RTC[s.id]&&RTC[s.id].v)||0;
+  const vv=Math.max((RTC[s.id]&&RTC[s.id].v)||0,(window.__intraVSum||0));   // 取報價與分時加總較大者
   let vt=vv>0?` <span style="font-size:11px;color:var(--dim)">總量 ${Math.round(vv).toLocaleString()} 張</span>`:'';
   try{                                                     // 📐 盤中預估全日量(較20日均 ±%)
     const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
     const mins=now.getHours()*60+now.getMinutes()-540;
-    if(vv>0&&(window.__v1||window.__v20)&&typeof marketOpen==='function'&&marketOpen()&&mins>10&&mins<270){
+    if(vv>0&&(window.__v1||window.__v20)&&typeof marketOpen==='function'&&marketOpen()&&mins>=20&&mins<270){
       const est=vv/(cumPct(mins)/100);
       const base=window.__v1||window.__v20;
       const df=(est/base-1)*100;
@@ -5822,7 +5832,7 @@ async function rtTick(){
       }
       try{accPush(key,last,y);}catch(e){}
       {const o=parseFloat(m.o),h=parseFloat(m.h),l=parseFloat(m.l);
-       if(o>0&&h>0&&l>0)IDXRTC[key]={o,h:Math.max(h,last),l:Math.min(l,last),c:last,y:y>0?y:null,v:(()=>{const vv=parseFloat(String(m.v||'').replace(/,/g,''));return vv>0?vv:(RTC[key]&&RTC[key].v)||0;})()};}
+       if(o>0&&h>0&&l>0)IDXRTC[key]={o,h:Math.max(h,last),l:Math.min(l,last),c:last,y:y>0?y:null,v:(()=>{const vv=parseFloat(String(m.v||'').replace(/,/g,''));const old=(RTC[key]&&RTC[key].v)||0;return Math.max(vv>0?vv:0,old);})()};}
       try{liveKBar(key);}catch(e){}
       if(window.__mkMis===key&&location.hash.startsWith('#macro/')){
         const px=document.getElementById('mkPx'),cg=document.getElementById('mkChg');
