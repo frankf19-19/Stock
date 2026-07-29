@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r443 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r445 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r443</span>');
+  diag.push('<span style="color:var(--dim)">build r445</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1778,12 +1778,7 @@ function killCtx(ctx,domId){   // 🧹 通用銷毀:LWC→remove / ECharts→dis
   try{const b=domId&&document.getElementById(domId);if(b&&b.__lwc){try{b.__lwc.remove();}catch(_){}b.__lwc=null;}}catch(e){}
 }
 function drawIntraLWC(domId,d){
- try{
-  try{
-    if(domId==='intraChart'&&d&&Array.isArray(d.v)){
-      window.__intraVSum=d.v.reduce((a,b)=>a+(+b>0?+b:0),0);
-    }
-  }catch(e0){}                                          // 🛡️ 任何失敗回 null → 呼叫端 || 自動退 ECharts,永不空白
+ try{                                          // 🛡️ 任何失敗回 null → 呼叫端 || 自動退 ECharts,永不空白
   d=padDay0900(d);
   const box=document.getElementById(domId);
   if(!box||!window.LightweightCharts)return null;
@@ -1880,11 +1875,6 @@ function drawIntraLWC(domId,d){
  }
 }
 function drawIntra(domId,d){
-  try{                                                     // 📦 當日累計量(張)=分時量加總——MIS 個股 v 實測為「當盤量」,不可靠
-    if(domId==='intraChart'&&d&&Array.isArray(d.v)){
-      window.__intraVSum=d.v.reduce((a,b)=>a+(+b>0?+b:0),0);
-    }
-  }catch(e){}
   d=padDay0900(d);
   const box=document.getElementById(domId);
   if(!box)return;
@@ -3620,11 +3610,13 @@ async function volTempCard(){
     if(!tv||!tv.amt||tv.amt.length<10){box.style.display='none';return;}
     const hist=tv.amt;
     const avg20=hist.slice(-20).reduce((a,b)=>a+b,0)/Math.min(20,hist.length);
-    let cur=hist[hist.length-1],tag='最新交易日';
+    let cur=hist[hist.length-1],tag='最新交易日',accV=null,accT='';
     const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
     const mins=now.getHours()*60+now.getMinutes()-540;
     if(typeof RT!=='undefined'&&RT.t00v>0&&now.getDay()>=1&&now.getDay()<=5&&mins>0&&mins<270){
       const pct=cumPct(mins);
+      accV=RT.t00v;
+      accT=now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
       cur=RT.t00v/(pct/100);
       tag=`盤中預估(時間進度 ${pct.toFixed(0)}%)`;
     }
@@ -3639,7 +3631,9 @@ async function volTempCard(){
         const yd=ydv?((cur/ydv-1)*100):null;window.__twVolYd=yd;
         return `<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap"><b style="font-size:27px;font-family:var(--mono);color:${st[1]}">${r.toFixed(0)}%</b><b style="color:${st[1]};font-size:15px">${st[0]}</b>
         ${yd!=null?`<span style="font-family:var(--mono);font-size:13px;color:${yd>=0?'var(--down)':'var(--up)'}">(較昨日 ${yd>0?'+':''}${yd.toFixed(0)}%)</span>`:''}</div>
-      <div style="font-size:12px;color:var(--mut);margin-top:3px">上市:${tag} <b>${cur.toFixed(0)} 億</b> · 昨日 ${ydv?ydv.toFixed(0):'—'} 億 · 20日均 ${avg20.toFixed(0)} 億</div>`;})()}
+      <div style="font-size:12px;color:var(--mut);margin-top:3px">上市:${accV!=null
+        ?`今累計 <b style="color:var(--txt)">${accV.toFixed(0)} 億</b>(${accT}) → 預估全日 <b>${cur.toFixed(0)} 億</b>`
+        :`${tag} <b>${cur.toFixed(0)} 億</b>`} · 昨日 ${ydv?ydv.toFixed(0):'—'} 億 · 20日均 ${avg20.toFixed(0)} 億</div>`;})()}
       ${(()=>{try{
         const tp=y.series&&y.series.TPEXVOL;
         if(!tp||!tp.amt||tp.amt.length<10)return '';
@@ -3651,7 +3645,7 @@ async function volTempCard(){
       <div style="font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.5">${st[2]}</div>`;
   }catch(e){box.style.display='none';}
 }
-setTimeout(volTempCard,6000);setInterval(volTempCard,120000);
+setTimeout(volTempCard,6000);setInterval(volTempCard,60000);
 async function rsCard(){
   const box=document.getElementById('rsCard');
   if(!box)return;
@@ -4542,16 +4536,22 @@ function intraStatTxt(s,extra){
     }catch(e){}
     tt=` <span style="font-size:11px;color:${stale?'var(--amber)':'var(--dim)'}" title="交易所成交時刻">成交 ${String(mt).slice(0,8)}${stale?`(${mins>0?'延遲約'+mins+'分':'非本場'},非最新)`:''}</span>`;
   }
-  const vv=Math.max((RTC[s.id]&&RTC[s.id].v)||0,(window.__intraVSum||0));   // 取報價與分時加總較大者
-  let vt=vv>0?` <span style="font-size:11px;color:var(--dim)">總量 ${Math.round(vv).toLocaleString()} 張</span>`:'';
-  try{                                                     // 📐 盤中預估全日量(較20日均 ±%)
+  const vv=(window.__intraVSum||0);                        // 唯一來源:分時量加總(RTC.v 實測為單筆量,棄用)
+  let vt='';
+  try{
     const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
     const mins=now.getHours()*60+now.getMinutes()-540;
-    if(vv>0&&(window.__v1||window.__v20)&&typeof marketOpen==='function'&&marketOpen()&&mins>=20&&mins<270){
-      const est=vv/(cumPct(mins)/100);
-      const base=window.__v1||window.__v20;
-      const df=(est/base-1)*100;
-      vt+=` <span style="font-size:11px;color:${df>=30?'var(--down)':df<=-30?'var(--up)':'var(--dim)'}" title="以量能時間曲線推估的全日成交量,與昨日成交量比較">預估 ${Math.round(est).toLocaleString()} 張(較昨日 ${df>0?'+':''}${df.toFixed(0)}%)</span>`;
+    const open2=typeof marketOpen==='function'&&marketOpen();
+    const expct=(window.__v1&&open2&&mins>0)?window.__v1*cumPct(Math.min(mins,270))/100:null;
+    if(vv>0){
+      const sparse=expct!=null&&vv<expct*0.2;              // 明顯偏低=來源缺分鐘 → 誠實標示,不給誤導%
+      vt=` <span style="font-size:11px;color:var(--dim)">總量 ${sparse?'≥':''}${Math.round(vv).toLocaleString()} 張${sparse?'(來源回補中)':''}</span>`;
+      if(!sparse&&(window.__v1||window.__v20)&&open2&&mins>=20&&mins<270){
+        const est=vv/(cumPct(mins)/100);
+        const base=window.__v1||window.__v20;
+        const df=(est/base-1)*100;
+        vt+=` <span style="font-size:11px;color:${df>=30?'var(--down)':df<=-30?'var(--up)':'var(--dim)'}" title="以量能時間曲線推估的全日成交量,與昨日比較">預估 ${Math.round(est).toLocaleString()} 張(較昨日 ${df>0?'+':''}${df.toFixed(0)}%)</span>`;
+      }
     }
   }catch(e){}
   return `<b style="font-family:var(--mono)">${px}</b>${cg}${tt}${vt}${extra?' · '+extra:''}`;
@@ -4909,11 +4909,9 @@ async function loadIntraDetail(s,accOnly){
   }
   if(!d){if(stat)stat.innerHTML=intraStatTxt(s,'分線暫不可得(收盤後來源已關,本檔也不在最近盤中快照內;開盤後走勢會即時累積並保存)——K線圖與所有分析不受影響');return;}
   const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
-  const yv=(curOhlc&&curOhlc.length)?curOhlc[curOhlc.length-1][4]:0; // 昨日量(張)
   const isTW=s.market==='TW';
-  const vTxt=totV<=0?'量能待來源回補':(isTW?`總量 ${(totV/1000).toLocaleString(undefined,{maximumFractionDigits:0})} 張${yv?` · 為昨量 ${Math.round(totV/1000/yv*100)}%`:''}`
-                 :`Vol ${(totV/1e6).toFixed(1)}M`);
-  if(stat)stat.innerHTML=intraStatTxt(s,vTxt);
+  window.__intraVSum=isTW?Math.round(totV/1000):totV;      // 唯一真相來源:分時量加總(台股股→張)
+  if(stat)stat.innerHTML=intraStatTxt(s);
   d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
   if(fl)fl.innerHTML=flowHTML(d,isTW?'張':'股');
