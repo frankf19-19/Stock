@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r438 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r440 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r438</span>');
+  diag.push('<span style="color:var(--dim)">build r440</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5822,7 +5822,7 @@ async function rtTick(){
       }
       try{accPush(key,last,y);}catch(e){}
       {const o=parseFloat(m.o),h=parseFloat(m.h),l=parseFloat(m.l);
-       if(o>0&&h>0&&l>0)IDXRTC[key]={o,h:Math.max(h,last),l:Math.min(l,last),c:last,y:y>0?y:null};}
+       if(o>0&&h>0&&l>0)IDXRTC[key]={o,h:Math.max(h,last),l:Math.min(l,last),c:last,y:y>0?y:null,v:(()=>{const vv=parseFloat(String(m.v||'').replace(/,/g,''));return vv>0?vv:(RTC[key]&&RTC[key].v)||0;})()};}
       try{liveKBar(key);}catch(e){}
       if(window.__mkMis===key&&location.hash.startsWith('#macro/')){
         const px=document.getElementById('mkPx'),cg=document.getElementById('mkChg');
@@ -7547,17 +7547,22 @@ function wireSegRelocate(){
       b.addEventListener('click',()=>{try{relocateCard(boxId,b.dataset.t==='1');}catch(e){}});
     });
   });
-  try{Object.entries(SEG_CARD).forEach(([segId,[lsKey,boxId]])=>{   // 進頁時已開啟的直接就定位
-    const on=segId==='fwSeg'?localStorage.getItem(lsKey)==='1':localStorage.getItem(lsKey)!=='0';
-    if(on&&document.getElementById(boxId))relocateCard(boxId,true);
-  });}catch(e){}
+  if(!wireSegRelocate.__init){wireSegRelocate.__init=1;
+    setTimeout(()=>{try{Object.entries(SEG_CARD).forEach(([segId,[lsKey,boxId]])=>{   // 進頁時已開啟的直接就定位
+      const on=segId==='fwSeg'?localStorage.getItem(lsKey)==='1':localStorage.getItem(lsKey)!=='0';
+      if(on&&document.getElementById(boxId))relocateCard(boxId,true);
+    });}catch(e){}},1200);}
 }
 
 function relocateCard(boxId,on){              // 🔀 開啟開關 → 對應詳細卡搬到K線圖正下方;關閉 → 歸位
   try{
     const box=document.getElementById(boxId);
     const kb=document.getElementById('kbox');
-    if(!box)return;
+    if(!box||(on&&!kb)){                                    // 元素未就緒 → 0.5秒後重試一次
+      if(!relocateCard.__retry){relocateCard.__retry=1;
+        setTimeout(()=>{relocateCard.__retry=0;relocateCard(boxId,on);},500);}
+      return;
+    }
     if(on&&kb){
       const kcb=kb.closest('.chart-box')||kb.parentNode;
       if(!box.__homeMark){
@@ -7573,6 +7578,7 @@ function relocateCard(boxId,on){              // 🔀 開啟開關 → 對應詳
       box.style.outline='2px solid var(--amber)';
       box.style.outlineOffset='2px';
       setTimeout(()=>{box.style.outline='';},1500);
+      setTimeout(()=>{try{box.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(e){}},120);
     }else if(!on&&box.__homeMark&&box.__homeMark.parentNode){
       box.__homeMark.parentNode.insertBefore(box,box.__homeMark.nextSibling);
       box.__relocated=false;
@@ -8346,6 +8352,7 @@ async function showDetail(id){
   try{wireDcf();}catch(e){}
   try{setTimeout(foldInit,700);}catch(e){}
   try{setTimeout(wireSegRelocate,950);}catch(e){}
+  try{clearInterval(window.__segRelT);window.__segRelT=setInterval(wireSegRelocate,2500);}catch(e){}
   try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
     const h=document.getElementById('dcfBody');
     if(h&&window.__dcfS&&!h.innerHTML.includes('估值引力')){
