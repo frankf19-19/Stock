@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r436 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r438 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r436</span>');
+  diag.push('<span style="color:var(--dim)">build r438</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3625,8 +3625,19 @@ async function volTempCard(){
              ['量縮','#0B7A4B','觀望氣氛——跌時=殺盤力道漸竭;漲時=續航力存疑'];
     box.style.display='';
     box.innerHTML=`<div class="nm">大盤量能溫度計${frBadge(tag.indexOf('盤中')>=0?'mix':'day')}</div>
-      <div style="display:flex;align-items:baseline;gap:9px"><b style="font-size:27px;font-family:var(--mono);color:${st[1]}">${r.toFixed(0)}%</b><b style="color:${st[1]};font-size:15px">${st[0]}</b></div>
-      <div style="font-size:12px;color:var(--mut);margin-top:3px">${tag} <b>${cur.toFixed(0)} 億</b> vs 20日均 ${avg20.toFixed(0)} 億</div>
+      ${(()=>{const ydv=(tag.indexOf('盤中')>=0)?hist[hist.length-1]:(hist.length>=2?hist[hist.length-2]:null);
+        const yd=ydv?((cur/ydv-1)*100):null;window.__twVolYd=yd;
+        return `<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap"><b style="font-size:27px;font-family:var(--mono);color:${st[1]}">${r.toFixed(0)}%</b><b style="color:${st[1]};font-size:15px">${st[0]}</b>
+        ${yd!=null?`<span style="font-family:var(--mono);font-size:13px;color:${yd>=0?'var(--down)':'var(--up)'}">(較昨日 ${yd>0?'+':''}${yd.toFixed(0)}%)</span>`:''}</div>
+      <div style="font-size:12px;color:var(--mut);margin-top:3px">上市:${tag} <b>${cur.toFixed(0)} 億</b> · 昨日 ${ydv?ydv.toFixed(0):'—'} 億 · 20日均 ${avg20.toFixed(0)} 億</div>`;})()}
+      ${(()=>{try{
+        const tp=y.series&&y.series.TPEXVOL;
+        if(!tp||!tp.amt||tp.amt.length<10)return '';
+        const oa=tp.amt, oavg=oa.slice(-20).reduce((a,b)=>a+b,0)/Math.min(20,oa.length);
+        const ocur=oa[oa.length-1], oyd=oa.length>=2?oa[oa.length-2]:null;
+        const od=oyd?((ocur/oyd-1)*100):null;
+        return `<div style="font-size:12px;color:var(--mut);margin-top:2px">櫃買:最新交易日 <b>${ocur.toFixed(0)} 億</b> · 昨日 ${oyd?oyd.toFixed(0):'—'} 億 ${od!=null?`<span style="font-family:var(--mono);color:${od>=0?'var(--down)':'var(--up)'}">(較昨日 ${od>0?'+':''}${od.toFixed(0)}%)</span>`:''} · 20日均 ${oavg.toFixed(0)} 億</div>`;
+      }catch(e2){return '';}})()}
       <div style="font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.5">${st[2]}</div>`;
   }catch(e){box.style.display='none';}
 }
@@ -4522,7 +4533,17 @@ function intraStatTxt(s,extra){
     tt=` <span style="font-size:11px;color:${stale?'var(--amber)':'var(--dim)'}" title="交易所成交時刻">成交 ${String(mt).slice(0,8)}${stale?`(${mins>0?'延遲約'+mins+'分':'非本場'},非最新)`:''}</span>`;
   }
   const vv=(RTC[s.id]&&RTC[s.id].v)||0;
-  const vt=vv>0?` <span style="font-size:11px;color:var(--dim)">總量 ${Math.round(vv).toLocaleString()} 張</span>`:'';
+  let vt=vv>0?` <span style="font-size:11px;color:var(--dim)">總量 ${Math.round(vv).toLocaleString()} 張</span>`:'';
+  try{                                                     // 📐 盤中預估全日量(較20日均 ±%)
+    const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const mins=now.getHours()*60+now.getMinutes()-540;
+    if(vv>0&&(window.__v1||window.__v20)&&typeof marketOpen==='function'&&marketOpen()&&mins>10&&mins<270){
+      const est=vv/(cumPct(mins)/100);
+      const base=window.__v1||window.__v20;
+      const df=(est/base-1)*100;
+      vt+=` <span style="font-size:11px;color:${df>=30?'var(--down)':df<=-30?'var(--up)':'var(--dim)'}" title="以量能時間曲線推估的全日成交量,與昨日成交量比較">預估 ${Math.round(est).toLocaleString()} 張(較昨日 ${df>0?'+':''}${df.toFixed(0)}%)</span>`;
+    }
+  }catch(e){}
   return `<b style="font-family:var(--mono)">${px}</b>${cg}${tt}${vt}${extra?' · '+extra:''}`;
 }
 /* 個股即時解讀:開盤型態/日內位置/均價關係/短線動能/量能/關卡距離 */
@@ -8356,6 +8377,13 @@ async function showDetail(id){
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
   kView={rng:'6m',itv:'1d'}; baseK=k;
+  try{                                                     // 昨日量+20日均量(張):供盤中預估量比較
+    const bars=(k&&k.ohlc||[]);
+    const vs=bars.slice(-21,-1).map(b=>b[4]).filter(x=>x>0);
+    window.__v20=vs.length>=10?vs.reduce((a,b)=>a+b,0)/vs.length:null;
+    const yb=bars[bars.length-1];
+    window.__v1=(yb&&yb[4]>0)?yb[4]:null;                   // 最後一根=昨日(盤中當日棒未入shard)
+  }catch(e){window.__v20=null;window.__v1=null;}
   {const _s=kSanitize(k.dates,k.ohlc);curOhlc=_s.ohlc;curDates=_s.dates;} curLevels=keyLevels(curOhlc);
   window.__kBox=boxDetect(k.ohlc,0.10);
   /* 🐢 海龜法則:計算 + 詳情區塊 + K 線出場線 */

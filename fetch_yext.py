@@ -522,6 +522,36 @@ def main():
             print("  大盤成交金額:沿用前檔")
     except Exception as e:
         print(f"  [warn] FMTQIK: {e}")
+    # ── 🏪 櫃買成交金額日史(st41 官方;量能溫度計櫃買列)──
+    try:
+        _tp3 = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+        ot_t, ot_a = [], []
+        for _mb3 in (1, 0):
+            _y3 = _tp3.year; _m3 = _tp3.month - _mb3
+            while _m3 <= 0: _m3 += 12; _y3 -= 1
+            try:
+                _u3 = ("https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_index/"
+                       f"st41_result.php?l=zh-tw&d={_y3-1911}/{_m3:02d}&_={int(time.time()*1000)}")
+                j3 = json.loads(http_get(_u3, timeout=25))
+                for row in (j3.get("aaData") or j3.get("tables", [{}])[0].get("data", []) or []):
+                    try:
+                        r3 = [str(x).replace(",", "") for x in row]
+                        dd3 = r3[0].split("/")
+                        ot_t.append(f"{int(dd3[0])+1911}-{int(dd3[1]):02d}-{int(dd3[2]):02d}")
+                        ot_a.append(round(float(r3[1]) / 1e5, 1))   # 千元 → 億
+                    except Exception:
+                        continue
+            except Exception as _e3:
+                print(f"    [warn] 櫃買量 {_y3}/{_m3}: {str(_e3)[:50]}")
+            time.sleep(0.8)
+        if len(ot_a) >= 10:
+            series["TPEXVOL"] = {"d": ot_t[-45:], "amt": ot_a[-45:]}
+            print(f"  櫃買成交金額 ← st41({len(ot_a[-45:])} 日,最新 {ot_a[-1]} 億)")
+        elif (old_series.get("TPEXVOL") or {}).get("amt"):
+            series["TPEXVOL"] = old_series["TPEXVOL"]
+            print("  櫃買成交金額:沿用前檔")
+    except Exception as e:
+        print(f"  [warn] 櫃買量: {e}")
     # ── 🌏 亞股指數(韓國 KOSPI / 香港恆生;Stooq 免費日線 CSV,無需金鑰)──
     try:
         for _sym, _stq, _nm in (("^KS11", "^kospi", "韓國KOSPI"), ("^HSI", "^hsi", "香港恆生")):
