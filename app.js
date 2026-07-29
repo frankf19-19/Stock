@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r454 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r455 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r454</span>');
+  diag.push('<span style="color:var(--dim)">build r455</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4559,15 +4559,25 @@ function fglPanel(){                          // ⚙️ 設定面板:貼 Key/清
     const st9=m.querySelector('#fglSt');
     st9.textContent='… 測試中';
     try{
-      let host='https://muddy-cake-cb69.frankccc199.workers.dev';
-      try{const p=(typeof myProxy==='function'?myProxy():'');if(p)host=new URL(p).origin;}catch(e){}
-      const r=await fglRawGet(host+'/fk',8000);
-      if(r.status===200){const j=await r.json();
-        if(j&&j.k){localStorage.setItem('fugleKey',j.k);st9.style.color='var(--up)';st9.textContent='✅ 成功!Key 已自動存入本機('+j.k.length+' 字元)——盤中進個股即啟用逐筆';return;}
-        st9.textContent='⚠ 200 但無內容';}
-      else if(r.status===403){st9.textContent='❌ 403:Worker 拒絕——通常是從非網站來源測;若在網站上看到此訊息,貼給我';}
-      else if(r.status===404){st9.textContent='❌ 404:Secret 未設定——Cloudflare 變數名必須是 FUGLE_KEY(全大寫)';}
-      else st9.textContent='❌ HTTP '+r.status+':可能 worker.js 還是舊版,重貼 r450 的 worker.js 再 Deploy';
+      const MAIN='https://muddy-cake-cb69.frankccc199.workers.dev';
+      let hosts=[MAIN];
+      try{const p=(typeof myProxy==='function'?myProxy():'');
+        const o=p?new URL(p).origin:'';
+        if(o&&o!==MAIN)hosts=[o,MAIN];}catch(e){}
+      let done=false,logs=[];
+      for(const h of hosts){
+        try{
+          const r=await fglRawGet(h+'/fk',8000);
+          const tag=h.includes('muddy-cake')?'muddy-cake(主力)':h.replace('https://','').split('.')[0];
+          if(r.status===200){const j=await r.json();
+            if(j&&j.k){localStorage.setItem('fugleKey',j.k);
+              st9.style.color='var(--up)';
+              st9.textContent=`✅ 成功!經由 ${tag} 取得 Key(${j.k.length} 字元)——盤中進個股即啟用逐筆`;done=true;break;}
+            logs.push(tag+':200無內容');}
+          else logs.push(tag+':HTTP '+r.status);
+        }catch(e){logs.push('連線失敗');}
+      }
+      if(!done)st9.textContent='❌ '+logs.join(' → ')+'(全部截圖給我)';
     }catch(e){st9.textContent='❌ 連不上 Worker:'+String(e).slice(0,60);}
   };
   const cl=m.querySelector('#fglClr');
@@ -4657,10 +4667,16 @@ async function fglRawGet(url,ms){             // /fk 專用:原生 fetch,不經�
 async function fglAutoKey(){                 // 🔑 自動領 Key:從自家 Worker 的加密環境變數(個人站零輸入)
   try{
     if(fglKey())return;
-    let host='https://muddy-cake-cb69.frankccc199.workers.dev';
-    try{const p=(typeof myProxy==='function'?myProxy():'');if(p)host=new URL(p).origin;}catch(e){}   // r454:只取網域根(設定值可能帶 ?url= 路徑)
-    const r=await fglRawGet(host+'/fk',6000);
-    if(!r.ok)return;
+    const MAIN='https://muddy-cake-cb69.frankccc199.workers.dev';
+    let hosts=[MAIN];
+    try{const p=(typeof myProxy==='function'?myProxy():'');
+      const o=p?new URL(p).origin:'';
+      if(o&&o!==MAIN)hosts=[o,MAIN];}catch(e){}
+    let r=null;
+    for(const h of hosts){                                   // r455:兩路嘗試——設定值失敗自動退主力 Worker
+      try{r=await fglRawGet(h+'/fk',6000);if(r&&r.status===200)break;}catch(e){r=null;}
+    }
+    if(!r||!r.ok)return;
     const j=await r.json();
     if(j&&j.k&&j.k.length>20){
       localStorage.setItem('fugleKey',j.k);
