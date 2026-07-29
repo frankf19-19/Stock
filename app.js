@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r440 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r441 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r440</span>');
+  diag.push('<span style="color:var(--dim)">build r441</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7538,8 +7538,8 @@ function bindKControls(sLike){
   }
   
 
-const SEG_CARD={lvSeg:['kLV','lvBox'],fwSeg:['kFW','boxTurn'],dvSeg:['kDV','divTL']};
-function wireSegRelocate(){
+window.SEG_CARD={lvSeg:['kLV','lvBox'],fwSeg:['kFW','boxTurn'],dvSeg:['kDV','divTL']};
+window.wireSegRelocate=function(){
   Object.entries(SEG_CARD).forEach(([segId,[lsKey,boxId]])=>{
     document.querySelectorAll('#'+segId+' button').forEach(b=>{
       if(b.dataset.relWired)return;
@@ -7547,14 +7547,14 @@ function wireSegRelocate(){
       b.addEventListener('click',()=>{try{relocateCard(boxId,b.dataset.t==='1');}catch(e){}});
     });
   });
-  if(!wireSegRelocate.__init){wireSegRelocate.__init=1;
+  if(!window.wireSegRelocate.__init){window.wireSegRelocate.__init=1;
     setTimeout(()=>{try{Object.entries(SEG_CARD).forEach(([segId,[lsKey,boxId]])=>{   // 進頁時已開啟的直接就定位
       const on=segId==='fwSeg'?localStorage.getItem(lsKey)==='1':localStorage.getItem(lsKey)!=='0';
       if(on&&document.getElementById(boxId))relocateCard(boxId,true);
     });}catch(e){}},1200);}
-}
+};
 
-function relocateCard(boxId,on){              // 🔀 開啟開關 → 對應詳細卡搬到K線圖正下方;關閉 → 歸位
+window.relocateCard=function(boxId,on){              // 🔀 開啟開關 → 對應詳細卡搬到K線圖正下方;關閉 → 歸位
   try{
     const box=document.getElementById(boxId);
     const kb=document.getElementById('kbox');
@@ -7587,7 +7587,7 @@ function relocateCard(boxId,on){              // 🔀 開啟開關 → 對應詳
     }
   }catch(e){}
 }
-function relocateTurn(on){relocateCard('boxTurn',on);}
+window.relocateTurn=function(on){relocateCard('boxTurn',on);};
 
 document.querySelectorAll('#fwSeg').forEach(fw=>{
     const cur=localStorage.getItem('kFW')==='1';
