@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r442 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r443 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1512,7 +1512,7 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r442</span>');
+  diag.push('<span style="color:var(--dim)">build r443</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7587,8 +7587,7 @@ window.relocateCard=function(boxId,on){              // 🔀 開啟開關 → �
       if(fb&&fb.style.display==='none'){const h=box.querySelector('h3');if(h)h.click();}
       box.style.outline='2px solid var(--amber)';
       box.style.outlineOffset='2px';
-      setTimeout(()=>{box.style.outline='';},1500);
-      setTimeout(()=>{try{box.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(e){}},120);
+      setTimeout(()=>{box.style.outline='';},1500);   // r443:不再自動捲動,畫面停在原地(卡片已就位在圖下方)
     }else if(!on&&box.__homeMark&&box.__homeMark.parentNode){
       box.__homeMark.parentNode.insertBefore(box,box.__homeMark.nextSibling);
       box.__relocated=false;
