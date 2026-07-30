@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r461 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r462 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r461</span>');
+  diag.push('<span style="color:var(--dim)">build r462</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4657,7 +4657,7 @@ function fglPanel(){                          // ⚙️ 設定面板:貼 Key/清
     st9.style.color='var(--mut)';st9.textContent='… 三路實測中(約8秒)';
     const out=[];
     const key=fglKey();
-    const api='https://api.fugle.tw/marketdata/v1.0/stocks/intraday/candles/2330?timeframe=1';
+    const api='https://api.fugle.tw/marketdata/v1.0/stock/intraday/candles/2330?timeframe=1';
     try{const r1=await fglRawGet2(api,key,6000);
       out.push('REST直連:'+(r1&&r1.ok?'✅ '+((await r1.json()).data||[]).length+'根':'HTTP '+(r1?r1.status:'CORS/連線失敗')));
     }catch(e){out.push('REST直連:❌'+String(e).slice(0,40));}
@@ -4668,9 +4668,10 @@ function fglPanel(){                          // ⚙️ 設定面板:貼 Key/清
     }catch(e){out.push('REST經Worker:❌'+String(e).slice(0,40));}
     await new Promise(res=>{
       try{
-        const ws=new WebSocket('wss://api.fugle.tw/marketdata/v1.0/stocks/streaming?apiKey='+encodeURIComponent(key));
+        const ws=new WebSocket('wss://api.fugle.tw/marketdata/v1.0/stock/streaming');
         const done=v=>{out.push('WS:'+v);try{ws.close();}catch(e){}res();};
         const to=setTimeout(()=>done('⏱ 5秒無回應'),5000);
+        ws.onopen=()=>{try{ws.send(JSON.stringify({event:'auth',data:{apikey:key}}));}catch(e){}};
         ws.onmessage=ev=>{try{const j=JSON.parse(ev.data);
           if(j.event==='authenticated'){clearTimeout(to);done('✅ 認證成功');}
           else if(j.event==='error'){clearTimeout(to);done('❌ '+((j.data&&j.data.message)||'error'));}
@@ -4712,9 +4713,9 @@ function fglEnsure(force){                    // 連線管理:個股頁+盤中+�
     if(FGL.ws){try{FGL.ws.close();}catch(e){}}
     FGL.sym=st.id;
     FGL.bars={id:st.id,t:[],c:[],v:[],prev:null};
-    const ws=new WebSocket('wss://api.fugle.tw/marketdata/v1.0/stocks/streaming?apiKey='+encodeURIComponent(key));
+    const ws=new WebSocket('wss://api.fugle.tw/marketdata/v1.0/stock/streaming');
     FGL.ws=ws;
-    ws.onopen=()=>{};
+    ws.onopen=()=>{try{ws.send(JSON.stringify({event:'auth',data:{apikey:key}}));}catch(e){}};
     ws.onmessage=ev=>{
       try{
         const j=JSON.parse(ev.data);
@@ -4766,7 +4767,7 @@ async function fglCandles(symbol,isIndex){    // 🐦 富果 REST:當日開盤�
     if(!key)return null;
     const c0=__fglCd[symbol];
     if(c0&&Date.now()-c0.at<55000)return c0.d;
-    const api='https://api.fugle.tw/marketdata/v1.0/stocks/intraday/candles/'
+    const api='https://api.fugle.tw/marketdata/v1.0/stock/intraday/candles/'
       +encodeURIComponent(symbol)+'?timeframe=1';
     let r=null;
     try{r=await fglRawGet2(api,key,7000);}catch(e){r=null;}  // 直連(部分環境 CORS 擋)
