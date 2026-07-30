@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r458 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r459 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r458</span>');
+  diag.push('<span style="color:var(--dim)">build r459</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3920,7 +3920,33 @@ async function loadUSIdx(key){
   }
 }
 /* 美股分頁已改 TradingView 即時圖,停用 yext 輪詢 */
-function idxPick(key){
+
+function idxPick(key){                        // 🛡 1分線資料鐵則(r459):月線永不進面板;昨日全日補真昨收
+  const r=idxPickRaw(key);
+  if(!r||key==='sp'||key==='nq')return r;
+  try{
+    if(Array.isArray(r.t)&&r.t.length>1){
+      const span=(r.t[r.t.length-1]-r.t[0])/86400;
+      if(span>2)return null;                               // 鐵則1:跨多日(月線/日線)一律不給 1分線面板
+      const ld=tpDay(r.t[r.t.length-1]);
+      if(ld!==tpDay(Date.now()/1000)){                     // 鐵則2:顯示前一交易日全日時,昨收改用「該日的前一日收盤」
+        const dl=IDX.d[key];
+        if(dl&&Array.isArray(dl.t)&&Array.isArray(dl.c)){
+          let pv=null;
+          for(let i2=dl.t.length-1;i2>=0;i2--){
+            if(dl.c[i2]!=null&&tpDay(dl.t[i2])<ld){pv=+dl.c[i2];break;}
+          }
+          const last=r.c[r.c.length-1];
+          if(pv&&Math.abs(pv-last)>1e-9)return Object.assign({},r,{prev:pv,ydayFull:ld});
+        }
+      }
+    }
+  }catch(e){}
+  return r;
+}
+function idxPick_POSTMARK(){}
+
+function idxPickRaw(key){
   const yd=IDX.d[key];
   if(key==='sp'||key==='nq')return yd;                 // 美股:直接用 Yahoo
   const acc=accOf(key);
@@ -4001,17 +4027,17 @@ function drawIdxSel(){
   if(title)title.textContent=`${IDX_NM[IDX.sel]} 即時走勢(1分線)`;
   const stat=document.getElementById('idxStat');
   if(!d){
+    const accOk2=(IDX.sel==='otc'&&OTCACC.c.length>=2);
+    if(!accOk2){                                            // 無任何分線 → 占位說明(絕不畫月線也不留舊圖)
+      const ch9=document.getElementById('idxChart');
+      if(ch9){try{if(RT.idx){killCtx(RT.idx,'idxChart');RT.idx=null;}}catch(e){}
+        delete ch9.dataset.tv;
+        ch9.innerHTML='<div class="dim-note" style="padding:44px 12px;text-align:center;line-height:1.8">🕘 目前無本檔分線資料——<b>09:00 開盤</b>起自動繪製今日 1 分線。<br><span style="color:var(--dim)">(昨日分線來源缺檔;今起由富果補齊,之後盤前會顯示前一交易日全日走勢)</span></div>';}
+      if(stat)stat.innerHTML='<span class="c-code" style="color:var(--amber)">盤前・待 09:00 今日分線</span>';
+      if(typeof paintDefense==='function')paintDefense();
+      return;
+    }
     if(IDX.sel==='otc'&&OTCACC.c.length>=2){   // 用累積點畫線
-  if(d&&Array.isArray(d.t)&&d.t.length>1&&(d.t[d.t.length-1]-d.t[0])/86400>2){   // 跨多日=退回長天期 → 1分線面板不畫月線
-    const ch9=document.getElementById('idxChart');
-    if(ch9){try{if(RT.idx){killCtx(RT.idx,'idxChart');RT.idx=null;}}catch(e){}
-      delete ch9.dataset.tv;
-      ch9.innerHTML='<div class="dim-note" style="padding:44px 12px;text-align:center;line-height:1.8">🕘 盤前時段——今日 1 分線於 <b>09:00 開盤</b>自動開始繪製。<br><span style="color:var(--dim)">昨日分線來源缺檔(今起已由富果補齊,明日盤前會顯示前一交易日全日走勢)。</span></div>';}
-    try{const st0=document.getElementById('idxStat');
-      if(st0)st0.innerHTML=`${(+d.c[d.c.length-1]).toFixed(2)} <span class="c-code" style="color:var(--amber)">盤前・待 09:00 今日分線</span>`;}catch(e){}
-    if(typeof paintDefense==='function')paintDefense();
-    return;
-  }
       RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',OTCACC))||drawIntra('idxChart',OTCACC);
       const last=OTCACC.c[OTCACC.c.length-1],pv=OTCACC.prev;
       if(stat&&pv){const chg=(last-pv)/pv*100;
