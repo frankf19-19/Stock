@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r466 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r467 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r466</span>');
+  diag.push('<span style="color:var(--dim)">build r467</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8293,9 +8293,33 @@ function kdrawBindClick(){
   }catch(e){}
 }
 
+function fwPivShow(i){                     // r467:點K線圖上的轉折點 → 該點完整資訊卡跑到圖上方
+  try{
+    const P=window.__fwPivInfo;if(!P||!P.by||!P.by[i])return;
+    const v=P.by[i];
+    const host=document.getElementById('kNoteFw');
+    let nb=document.getElementById('kNoteFwPiv');
+    if(!nb){
+      if(!host||!host.parentNode)return;
+      nb=document.createElement('div');nb.id='kNoteFwPiv';
+      host.parentNode.insertBefore(nb,host.nextSibling);
+    }
+    const F2=x=>(+x).toLocaleString(undefined,{maximumFractionDigits:2});
+    const dPx=P.px>0?((P.px-v.px)/v.px*100):null;
+    nb.style.cssText='margin:2px 0 6px;padding:9px 12px;border:1.5px solid '+(v.t===1?'#C62828':'#0B7A4B')+';border-radius:10px;background:var(--panel2);font-size:13px;line-height:1.7';
+    nb.innerHTML=`<b style="color:${v.t===1?'#C62828':'#0B7A4B'}">📍 轉折點資訊|${v.d} ${v.t===1?'▲波段高點':'▼波段低點'} ${F2(v.px)}</b>
+      <span style="float:right;cursor:pointer;color:var(--dim);font-weight:900" onclick="this.parentNode.remove()">✕</span><br>
+      ${v.prev?`・由前一轉折 <b>${v.prev.d} ${v.prev.t===1?'高點':'低點'} ${F2(v.prev.px)}</b> ${v.chg>=0?'上漲':'下跌'} <b class="${v.chg>=0?'pos':'neg'}">${v.chg>=0?'+':''}${v.chg.toFixed(1)}%</b>,費時 <b>${v.dur}</b> 個交易日走完這段。<br>`:''}
+      ${v.next?`・之後${v.next.chg>=0?'轉漲':'轉跌'}:到下一轉折 <b>${v.next.d} ${v.next.t===1?'高點':'低點'} ${F2(v.next.px)}</b>,${v.next.chg>=0?'漲':'跌'} <b class="${v.next.chg>=0?'pos':'neg'}">${v.next.chg>=0?'+':''}${v.next.chg.toFixed(1)}%</b>、費時 ${v.next.dur} 個交易日。<br>`
+              :`・這是<b>最近一次轉折</b>,之後走的就是目前這段${P.upLeg?'上漲段':'下跌段'}。<br>`}
+      ・距今 <b>${v.ago}</b> 個交易日;現價 <b>${F2(P.px)}</b>${dPx!=null?(dPx>=0?' 高於':' 低於')+'此轉折價 <b>'+Math.abs(dPx).toFixed(1)+'%</b>':''}${v.t===1?'——此高點可視為前波壓力參考':'——此低點可視為前波支撐參考'}。
+      <span class="dim-note">點圖上其他紅/綠轉折點可切換查看;✕ 關閉。</span>`;
+    try{nb.scrollIntoView({block:'nearest'});}catch(e2){}
+  }catch(e){}
+}
 function __fwOverlay(o){                   // 🔄 K線疊加:ZigZag 轉折折線(取代舊的▲▼文字)+近端Fib(開關 kFW)
   try{
-    if(localStorage.getItem('kFW')!=='1'){const nb0=document.getElementById('kNoteFw');if(nb0)nb0.remove();return [];}
+    if(localStorage.getItem('kFW')!=='1'){const nb0=document.getElementById('kNoteFw');if(nb0)nb0.remove();const nb1=document.getElementById('kNoteFwPiv');if(nb1)nb1.remove();return [];}
     if(!Array.isArray(o)||o.length<60)return [];
     const K={o:o.map(x=>x[0]),h:o.map(x=>x[1]),l:o.map(x=>x[2]),c:o.map(x=>x[3])};
     const r=turnEngine(K);
@@ -8317,6 +8341,26 @@ function __fwOverlay(o){                   // 🔄 K線疊加:ZigZag 轉折折�
       const lastI=zz[zz.length-1].i;
       if(lastI<o.length-1)line[o.length-1]=o[o.length-1][3];
     }
+    try{                                                  // r467:轉折點資訊索引 + 圖上點擊綁定
+      const livePx=(window.__turnStkC&&window.__turnStkC.r&&+window.__turnStkC.r.px>0)?+window.__turnStkC.r.px:o[o.length-1][3];
+      const by={};
+      zz.forEach((p,ix)=>{
+        const pv=zz[ix-1]||null,nx=zz[ix+1]||null;
+        by[p.i]={i:p.i,t:p.t,px:p.px,d:tpApproxDate(o.length-1-p.i,null),ago:o.length-1-p.i,
+          prev:pv?{d:tpApproxDate(o.length-1-pv.i,null),t:pv.t,px:pv.px}:null,
+          chg:pv?((p.px/pv.px-1)*100):null,dur:pv?(p.i-pv.i):null,
+          next:nx?{d:tpApproxDate(o.length-1-nx.i,null),t:nx.t,px:nx.px,chg:(nx.px/p.px-1)*100,dur:nx.i-p.i}:null};
+      });
+      window.__fwPivInfo={by,px:livePx,upLeg:r.upLeg};
+      setTimeout(()=>{try{
+        if(typeof chartInst==='undefined'||!chartInst)return;
+        if(chartInst.__fwPivH)chartInst.off('click',chartInst.__fwPivH);
+        chartInst.__fwPivH=p2=>{try{
+          if(p2&&p2.componentType==='markPoint'&&p2.data&&p2.data.coord)fwPivShow(+p2.data.coord[0]);
+        }catch(e4){}};
+        chartInst.on('click',chartInst.__fwPivH);
+      }catch(e3){}},300);
+    }catch(eP){}
     let lastLabI=-99;
     const pts=zz.map(p=>({coord:[p.i,p.px],symbol:'circle',symbolSize:7,
       itemStyle:{color:p.t===1?'#C62828':'#0B7A4B',borderColor:'#fff',borderWidth:1.5},
@@ -8329,7 +8373,7 @@ function __fwOverlay(o){                   // 🔄 K線疊加:ZigZag 轉折折�
         let nb=document.getElementById('kNoteFw');
         if(!nb){nb=document.createElement('div');nb.id='kNoteFw';nb.className='dim-note';
           nb.style.margin='2px 0 4px';host.parentNode.insertBefore(nb,host);}   // r433:圖上方
-        nb.innerHTML='🔄 <b style="color:#8f6fc0">紫色虛折線</b>=轉折點連線(波段節奏),'
+        nb.innerHTML='🔄 <b>點圖上任一紅/綠轉折點,該點詳細資訊會直接跑上來</b>。<b style="color:#8f6fc0">紫色虛折線</b>=轉折點連線(波段節奏),'
           +'<b style="color:#C62828">紅點</b>=波段高點、<b style="color:#0B7A4B">綠點</b>=波段低點,點旁數字為該轉折價;'
           +'<b style="color:#E8A33D">橘實線</b>=本段 0.618 關鍵'+(r.upLeg?'支撐':'壓力')+'(左側標示),'
           +'<b style="color:#8f6fc0">紫點線</b>=本段測量目標。'
@@ -8339,9 +8383,9 @@ function __fwOverlay(o){                   // 🔄 K線疊加:ZigZag 轉折折�
     }catch(e2){}
     return [
       {name:'🔄轉折折線',type:'line',xAxisIndex:0,yAxisIndex:0,data:line,connectNulls:true,
-       showSymbol:false,silent:true,tooltip:{show:false},z:3,
+       showSymbol:false,silent:false,tooltip:{show:false},z:3,
        lineStyle:{color:'#8f6fc0',width:1.6,type:'dashed',opacity:.9},
-       markPoint:{silent:true,data:pts}},
+       markPoint:{silent:false,data:pts,emphasis:{scale:1.6},tooltip:{show:false}}},
       {name:'🔄Fib價位',type:'line',data:[],xAxisIndex:0,yAxisIndex:0,silent:true,tooltip:{show:false},
        markLine:{symbol:'none',silent:true,data:mk}}];
   }catch(e){return [];}
