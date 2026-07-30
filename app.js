@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r470 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r472 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1518,7 +1518,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r470</span>');
+  diag.push('<span style="color:var(--dim)">build r472</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2947,7 +2947,11 @@ async function renderFwMacro(){
   }catch(e){box.innerHTML='<div class="dim-note">引擎異常:'+String(e).slice(0,60)+'</div>';}
 }
 setTimeout(renderFwMacro,5000);
-setInterval(renderFwMacro,900000);
+setInterval(()=>{try{                                     // r472:大盤轉折盤中2分鐘、盤外15分鐘
+  const open=typeof marketOpen==='function'&&marketOpen();
+  if(Date.now()-(window.__fwMacT||0)<(open?120000:900000)-500)return;
+  window.__fwMacT=Date.now();renderFwMacro();
+}catch(e){}},60000);
 
 async function renderHeadMacro(){
   const box=document.getElementById('headMacro');
@@ -3760,8 +3764,12 @@ async function twFngCard(){
       <div style="font-size:11px;color:var(--dim);margin-top:3px">情緒是溫度計不是進出訊號;極端值請配合頭部七腳印與防守線使用。</div>`;
   }catch(e){box.style.display='none';}
 }
-setTimeout(twFngCard,5500);setInterval(()=>{try{twFngCard();}catch(e){}},(typeof marketOpen==='function'&&marketOpen())?60000:600000);
-setInterval(()=>{try{if(typeof marketOpen==='function'&&marketOpen())twFngCard();}catch(e){}},60000);
+setTimeout(twFngCard,5500);
+setInterval(()=>{try{                                      // r472:單一計時器,節奏每次即時判斷(修雙重觸發+凍結節奏)
+  const open=typeof marketOpen==='function'&&marketOpen();
+  if(Date.now()-(window.__fngT||0)<(open?60000:600000)-500)return;
+  window.__fngT=Date.now();twFngCard();
+}catch(e){}},60000);
 async function volTempCard(){
   const box=document.getElementById('volTemp');
   if(!box)return;
@@ -3847,8 +3855,12 @@ async function rsCard(){
     box.onclick=()=>{location.hash='#stock/2330';};
   }catch(e){box.style.display='none';}
 }
-setTimeout(rsCard,6500);setInterval(()=>{try{rsCard();}catch(e){}},(typeof marketOpen==='function'&&marketOpen())?180000:1800000);
-setInterval(()=>{try{if(typeof marketOpen==='function'&&marketOpen())rsCard();}catch(e){}},180000);
+setTimeout(rsCard,6500);
+setInterval(()=>{try{                                      // r472:單一計時器,節奏每次即時判斷
+  const open=typeof marketOpen==='function'&&marketOpen();
+  if(Date.now()-(window.__rsT||0)<(open?180000:1800000)-500)return;
+  window.__rsT=Date.now();rsCard();
+}catch(e){}},60000);
 function rotBoard(){
   const box=document.getElementById('rotBoard');
   if(!box)return;
@@ -4932,6 +4944,8 @@ function fglEnsure(force){                    // 連線管理:個股頁+盤中+�
                 const lp2=document.getElementById('dPx'),ch2=document.getElementById('dChg');
                 if(lp2)lp2.textContent=st2.price;
                 if(ch2)ch2.innerHTML=chgHtml(st2.chg);
+                const lv2=document.getElementById('lvPx');
+                if(lv2)lv2.textContent=st2.price;
               }
             }
           }
@@ -5294,6 +5308,10 @@ function stitchStk(s){                                     // r468:任何來源�
     if(RT.intra&&RT.intra.id===s.id&&window.__stkToday)pokeChart(RT.intra,+s.price);
     const st=document.getElementById('intraStat');
     if(st){const keep=(st.innerHTML.split(' · ').slice(1)||[]).join(' · ');st.innerHTML=intraStatTxt(s,keep||null);}
+    const lv9=document.getElementById('lvPx');if(lv9)lv9.textContent=s.price;     // r472:關鍵價位現價同步
+    const px9=document.getElementById('dPx'),ch9=document.getElementById('dChg');
+    if(px9)px9.textContent=s.price;
+    if(ch9)ch9.innerHTML=chgHtml(s.chg);
   }catch(e){}
 }
 async function misIntraday(s){
@@ -5552,6 +5570,7 @@ async function loadIntraDetail(s,accOnly){
     try{const pv9=prevCloseOf(s);if(pv9>0)d.prev=+(+pv9).toFixed(2);}catch(e){}   // r468:昨收線總閘門
     try{d=gridIntra(d);if(window.__stkToday)d=capLast(d,s);}catch(e){}            // r469:時間軸等距化+線尾=最新價
   }
+  window.__intraDrawT=Date.now();
   d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
   if(fl)fl.innerHTML=flowHTML(d,isTW?'張':'股');
@@ -5559,6 +5578,11 @@ async function loadIntraDetail(s,accOnly){
 /* 個股走勢的輕量重繪:用快取的 Yahoo 底圖 + 最新累積,零網路請求 */
 function refreshIntraLight(s){
   if(location.hash!=='#stock/'+s.id)return;
+  if(Date.now()-(window.__intraDrawT||0)<45000){            // r472:45秒內不整圖重建(去頓),線尾交給即時戳點
+    try{const a0=stkAcc(s.id),px0=a0.c[a0.c.length-1];
+      if(px0>0&&RT.intra&&RT.intra.id===s.id&&window.__stkToday)pokeChart(RT.intra,px0);}catch(e){}
+    return;
+  }
   const acc=stkAcc(s.id);
   if(acc.c.length<2)return;
   const yd=RT.lastYD&&RT.lastYD[s.id];
@@ -5576,6 +5600,7 @@ function refreshIntraLight(s){
   window.__stkToday=true;
   try{const pv9=prevCloseOf(s);if(pv9>0)d.prev=+(+pv9).toFixed(2);}catch(e){}   // r468:昨收線總閘門
   try{d=gridIntra(d);d=capLast(d,s);}catch(e){}                                  // r469:時間軸等距化+線尾=最新價
+  window.__intraDrawT=Date.now();
   d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
 }
@@ -5585,7 +5610,7 @@ setInterval(()=>{
   if(!mm)return;
   const s=(DATA.stocks||[]).find(x=>x.id===decodeURIComponent(mm[1]));
   if(s&&s.market==='TW')loadIntraDetail(s);
-},20000);
+},60000);                                                  // r472:20s→60s,整圖重建是頓的最大來源;線尾由即時戳點維持
 
 /* ── 秒級即時報價:瀏覽器直連證交所 MIS 快照(每10秒,僅更新畫面上的個股)── */
 const RT={lastOk:0};
@@ -6529,6 +6554,8 @@ async function rtTick(){
     const px=document.getElementById('dPx'), ch=document.getElementById('dChg');
     if(s&&px){px.textContent=s.price??'—';}
     if(s&&ch){ch.innerHTML=chgHtml(s.chg);}
+    const lv8=document.getElementById('lvPx');
+    if(s&&lv8)lv8.textContent=s.price??'—';
   }
 }
 function livePatchCards(){

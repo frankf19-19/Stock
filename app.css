@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r465 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r471 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
@@ -729,3 +729,101 @@ a.earn-more{border-radius:22px;font-weight:700}
 .fold-arw{margin-right:7px;color:var(--amber);font-size:13px}
 .fold-sum{margin-left:10px;font-size:12px;color:var(--amber);font-weight:800;background:color-mix(in srgb,var(--amber) 10%,transparent);border-radius:6px;padding:2px 8px}
 .chart-box h3:hover .fold-arw{transform:translateX(2px)}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   r471 · Design Refresh —「研究墨韻」設計系統覆蓋層
+   概念:紙上研究報告 × 終端機——宋體章節標題壓陣、金墨作記、
+        數字全部等寬對齊;層次靠柔影不靠硬框。疊加式覆蓋,零破壞。
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#F6F6F3; --panel:#FFFFFF; --panel2:#EFEEE9; --line:#E4E2DA; --hdr:#F1F0EB;
+  --txt:#1B1C20; --txt2:#2B2D33; --mut:#4E5058; --dim:#6E7078;
+  --amber:#A9750D;                                   /* 品牌色:燒金——與漲跌紅綠徹底分離 */
+  --serif:'Noto Serif TC',serif;
+  --r1:10px; --r2:14px; --r3:18px;
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --sh1:0 1px 2px rgba(24,22,14,.04),0 4px 14px rgba(24,22,14,.05);
+  --sh2:0 2px 6px rgba(24,22,14,.06),0 12px 30px rgba(24,22,14,.10);
+  --sh3:0 8px 20px rgba(24,22,14,.12),0 28px 70px rgba(24,22,14,.18);
+}
+html[data-theme="black"],html[data-theme="teal"],html[data-theme="lucky"],html[data-theme="graphite"]{
+  --sh1:0 1px 2px rgba(0,0,0,.25),0 5px 16px rgba(0,0,0,.28);
+  --sh2:0 3px 8px rgba(0,0,0,.32),0 14px 34px rgba(0,0,0,.40);
+  --sh3:0 10px 26px rgba(0,0,0,.45),0 32px 80px rgba(0,0,0,.55);
+}
+
+/* ── 字理:真字型 + 等寬數字 ── */
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  font-variant-numeric:tabular-nums;font-size:15.5px}
+h1,h2,h3,.sec-title{text-wrap:balance}
+h1{font-family:var(--serif);font-weight:900;letter-spacing:.02em}
+.sub{letter-spacing:.14em;font-size:13px;text-transform:none}
+a{text-decoration-thickness:1px;text-underline-offset:3px}
+::selection{background:color-mix(in srgb,var(--amber) 22%,transparent)}
+
+/* ── 表層:柔影層次系統 ── */
+header{background:var(--hdr);border-bottom:1px solid var(--line)}
+.card,.r-card,.chart-box,.dim-block,.sector-panel,.sp-box,.idx-card{
+  border-radius:var(--r2);box-shadow:var(--sh1)}
+.card,.r-card{transition:box-shadow .22s var(--ease),transform .18s var(--ease),border-color .18s}
+.card:hover,.r-card:hover{border-color:color-mix(in srgb,var(--amber) 45%,var(--line));
+  box-shadow:var(--sh2);transform:translateY(-2px)}
+.modal{border-radius:var(--r3);box-shadow:var(--sh3)}
+.overlay{background:rgba(18,17,12,.45);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+
+/* ── 簽名元素:研究報告章節標(宋體 × 墨檻金記)── */
+.sec-title{font-family:var(--serif);font-size:19px;font-weight:900;letter-spacing:.07em;
+  background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--txt);
+  border-radius:0 var(--r1) var(--r1) 0;padding:10px 15px;margin:30px 0 14px;
+  box-shadow:var(--sh1);position:relative}
+.sec-title::before{color:var(--amber)}
+.sec-title::after{content:'';position:absolute;left:-4px;top:0;height:16px;width:4px;
+  background:var(--amber);flex:none}
+.sec-title span{font-family:var(--sans);font-weight:400;font-size:13px;color:var(--dim)}
+.sec-title.tap:hover{opacity:1;box-shadow:var(--sh2)}
+.dim-block h3,.chart-box h3{font-family:var(--serif);letter-spacing:.05em}
+.dim-block h3::before,.chart-box h3::before{content:'';display:inline-block;width:7px;height:7px;
+  background:var(--amber);border-radius:2px;margin-right:8px;vertical-align:2px}
+
+/* ── 控制元件:一致的手感 ── */
+button{font-family:var(--sans)}
+.seg{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:3px;gap:2px}
+.seg button{border-radius:8px;padding:7px 14px;transition:background .16s var(--ease),color .16s}
+.seg button.on{background:var(--panel);box-shadow:var(--sh1);font-weight:800;color:var(--txt)}
+.chip{transition:all .16s var(--ease)}
+.chip:hover{transform:translateY(-1px);box-shadow:var(--sh1)}
+.chip.on{box-shadow:0 2px 8px color-mix(in srgb,var(--amber) 40%,transparent)}
+.chip:active,.seg button:active,.mob-jump button:active{transform:scale(.97)}
+select,input[type=search]{border-radius:var(--r1);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.035);transition:border-color .16s,box-shadow .16s}
+select:hover,input[type=search]:hover{border-color:var(--dim)}
+select:focus,input:focus,button:focus-visible,a:focus-visible{
+  outline:2px solid var(--amber);outline-offset:2px;border-radius:6px}
+.mob-jump{background:color-mix(in srgb,var(--bg) 78%,transparent);
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+  border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent);padding-top:6px;padding-bottom:6px}
+.mob-jump button{transition:all .16s var(--ease)}
+
+/* ── 細節:捲軸、分隔、留白韻律 ── */
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.dim-note{color:var(--dim)}
+.c-price .px{letter-spacing:-.01em}
+.badge{letter-spacing:.02em}
+.bar-fill{background:linear-gradient(90deg,color-mix(in srgb,var(--amber) 55%,#6b4e08),var(--amber))}
+
+/* ── 行動裝置:維持既有緊湊節奏 ── */
+@media(max-width:760px){
+  .sec-title{font-size:16px;padding:8px 12px;margin:16px 0 10px}
+  .sec-title span{display:none}
+  .card,.r-card,.chart-box{border-radius:var(--r1)}
+}
+/* ── 動效尊重 ── */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}
+  .card:hover,.r-card:hover,.chip:hover{transform:none}
+}
