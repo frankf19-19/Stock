@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r467 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r468 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1495,6 +1495,8 @@ async function refreshLive(auto){
         try{snapLoad();}catch(e){}
         try{applyRTQ();}catch(e){}                        // 立刻蓋回最新即時價,不閃舊資料
         window.__sweepForce=Date.now()+5*60e3;            // 更新後強制再掃一輪矯正
+        try{const mm2=location.hash.match(/^#stock\/(.+)$/);   // r468:回載的最新掃價立刻縫進分線線尾
+          if(mm2){const s2=(DATA.stocks||[]).find(x=>x.id===decodeURIComponent(mm2[1]));if(s2)stitchStk(s2);}}catch(e){}
         diag.push(`<span class="ok">✓</span> 資料 ${DATA.updated||''}`);}
       else diag.push(`<span class="bad">✗ data.json</span> HTTP ${r.status}(repo 裡還沒有 data.json?到 Actions 手動 Run daily-update)`);
   }catch(e){diag.push(`<span class="bad">✗ data.json</span> 讀取失敗(本機直接開檔案會這樣,請用 github.io 網址或 python -m http.server)`);}
@@ -1516,7 +1518,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r467</span>');
+  diag.push('<span style="color:var(--dim)">build r468</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5201,11 +5203,41 @@ async function misOhlcCore(ch,prev){
             v:vArr,prev:+(+prev).toFixed(2)};
   }catch(e){return null;}
 }
+function prevCloseOf(s){                                   // r468:個股昨收單一事實來源(MIS y → 日K分片精確昨收 → 累積 → 推導)
+  try{
+    if(!s)return null;
+    try{const y=(typeof RTC!=='undefined'&&RTC[s.id]&&+RTC[s.id].y>0)?+RTC[s.id].y:null;if(y)return y;}catch(e0){}
+    try{                                                   // 日K分片:不受四捨五入漲跌幅污染的精確昨收
+      const sh=shardOf(s),e=(KCACHE[sh]||{})[s.id];
+      if(e&&e.o&&e.o.length>=2){
+        const today=tpDay(Date.now()/1000);
+        const lastD=e.d&&e.d.length?String(e.d[e.d.length-1]).slice(0,10):null;
+        const c1=+e.o[e.o.length-1][3],c2=+e.o[e.o.length-2][3];
+        const v=lastD===today?c2:c1;
+        if(v>0)return v;
+      }
+    }catch(e2){}
+    try{const a=(typeof STK_ACC!=='undefined')&&STK_ACC[s.id];if(a&&+a.prev>0)return +a.prev;}catch(e3){}
+    if(s.chg!=null&&+s.price>0)return +(+s.price/(1+s.chg/100)).toFixed(2);
+    return null;
+  }catch(e){return null;}
+}
+function stitchStk(s){                                     // r468:任何來源更新現價後,把分線線尾縫到最新價(冷門股 MIS 不回也不再脫節)
+  try{
+    if(!s||!(+s.price>0)||s.market!=='TW')return;
+    if(location.hash!=='#stock/'+s.id)return;
+    if(typeof marketOpen==='function'&&!marketOpen())return;
+    try{stkAccPush(s.id,+s.price,prevCloseOf(s)||null);}catch(e1){}   // 收進當日累積線(後端5分掃價同為真實成交價)
+    if(RT.intra&&RT.intra.id===s.id&&window.__stkToday)pokeChart(RT.intra,+s.price);
+    const st=document.getElementById('intraStat');
+    if(st){const keep=(st.innerHTML.split(' · ').slice(1)||[]).join(' · ');st.innerHTML=intraStatTxt(s,keep||null);}
+  }catch(e){}
+}
 async function misIntraday(s){
   // 個股版:算出頻道與昨收後交給共用核心
   try{
     const ch=`${s.ex==='otc'?'otc':'tse'}_${s.id}.tw`;
-    const prev=(RTC[s.id]&&RTC[s.id].y)||s.price/(1+(s.chg||0)/100);
+    const prev=prevCloseOf(s)||s.price/(1+(s.chg||0)/100);
     return await misOhlcCore(ch,prev);
   }catch(e){return null;}
 }
@@ -5349,7 +5381,7 @@ async function loadIntraDetail(s,accOnly){
       try{
         const fd=await fglCandles(s.id,false);
         if(fd&&fd.c.length>=2){
-          d={t:fd.t,c:fd.c,v:fd.v,prev:((RTC[s.id]||{}).y)||(s.chg!=null&&s.price?s.price/(1+s.chg/100):null)};
+          d={t:fd.t,c:fd.c,v:fd.v,prev:prevCloseOf(s)};
           window.__stkToday=true;
           const st8=document.getElementById('intraStat');
           if(st8)setTimeout(()=>{try{const e8=document.getElementById('intraStat');
@@ -5374,10 +5406,10 @@ async function loadIntraDetail(s,accOnly){
           (RT.lastYD=RT.lastYD||{})[s.id]=md;   // 當底圖,累積點續接
         }else if(acc.c.length>=1){
           // 底圖抓不到 → 用純即時累積線起步(哪怕只有 1~2 點,隨每次報價 tick 長大)
-          d={t:acc.t.slice(),c:acc.c.slice(),v:acc.v.slice(),prev:acc.prev||(RTC[s.id]&&RTC[s.id].y)||null};
+          d={t:acc.t.slice(),c:acc.c.slice(),v:acc.v.slice(),prev:acc.prev||prevCloseOf(s)};
           window.__stkToday=true;
         }else{
-          const sk=sparkStockAlone(s.id,(RTC[s.id]&&RTC[s.id].y)||null);   // 🌐 全市場快照救援:本機還沒累積時也有走勢
+          const sk=sparkStockAlone(s.id,prevCloseOf(s));   // 🌐 全市場快照救援:本機還沒累積時也有走勢
           if(sk&&sk.c.length>=2){
             d=sk;window.__stkToday=true;
             if(stat)stat.innerHTML=intraStatTxt(s,'站內全市場分時快照(每10分鐘更新)');
@@ -5402,7 +5434,7 @@ async function loadIntraDetail(s,accOnly){
         else if(!accOnly){
           try{const fd2=await fglCandles(s.id,false);      // 🐦 收盤後同日:富果全日K優先(完整,不再殘缺)
             if(fd2&&fd2.c.length>=2&&tpDay(fd2.t[fd2.t.length-1])===today){
-              d={t:fd2.t,c:fd2.c,v:fd2.v,prev:((RTC[s.id]||{}).y)||(s.chg!=null&&s.price?s.price/(1+s.chg/100):null)};
+              d={t:fd2.t,c:fd2.c,v:fd2.v,prev:prevCloseOf(s)};
               window.__stkToday=true;
             }
           }catch(e){}
@@ -5410,7 +5442,7 @@ async function loadIntraDetail(s,accOnly){
           if(md&&location.hash===KHASH)d=md;
           if(!d){                // 🌙 開盤前/收盤後最後防線:spark.json 前一交易日 5 分快照
             try{await loadSpark();}catch(e){}
-            const pv=(typeof RTC!=='undefined'&&RTC[s.id]&&RTC[s.id].y)||(s.chg!=null&&s.price?s.price/(1+s.chg/100):null);
+            const pv=prevCloseOf(s);
             const pd=sparkStockAlone(s.id,pv);
             if(pd&&location.hash===KHASH)d=pd;
           }
@@ -5442,6 +5474,7 @@ async function loadIntraDetail(s,accOnly){
       stat.innerHTML+=` · <span style="color:var(--amber)">圖擷至 ${window.__intraLastS},當日後段來源中斷(價格以右上收盤為準;盤中開著本頁可完整累積)</span>`;
     }
   }catch(e){}
+  if(isTW){try{const pv9=prevCloseOf(s);if(pv9>0)d.prev=+(+pv9).toFixed(2);}catch(e){}}   // r468:昨收線總閘門
   d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
   if(fl)fl.innerHTML=flowHTML(d,isTW?'張':'股');
@@ -5464,6 +5497,7 @@ function refreshIntraLight(s){
     d={t:acc.t,c:acc.c,v:acc.v,prev:acc.prev};
   }
   window.__stkToday=true;
+  try{const pv9=prevCloseOf(s);if(pv9>0)d.prev=+(+pv9).toFixed(2);}catch(e){}   // r468:昨收線總閘門
   d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
 }
