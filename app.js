@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r459 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r460 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r459</span>');
+  diag.push('<span style="color:var(--dim)">build r460</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4054,10 +4054,14 @@ function drawIdxSel(){
   let last=IDX.last[IDX.sel]??[...d.c].reverse().find(x=>x!=null);
   let pv=d.prev;
   if(IDX.sel==='tw'||IDX.sel==='otc'){
-    pv=accOf(IDX.sel).prev||pv;                                    // 昨收以 MIS 官方 y 為準
-    if(window.__idxToday){                                          // 圖是今日資料:標頭跟圖走,永不對不上
+    if(window.__idxToday){                                          // 圖是今日資料:即時昨收/末值覆寫(標頭跟圖走)
+      pv=accOf(IDX.sel).prev||pv;
       const cl=[...d.c].reverse().find(x=>x!=null);
       if(cl!=null)last=cl;
+    }else{                                                          // r460:圖為前一交易日 → 標頭完全跟圖,昨收用該日真前收(鐵則2)
+      const cl=[...d.c].reverse().find(x=>x!=null);
+      if(cl!=null)last=cl;
+      pv=d.prev;                                                    // 絕不讓「今天的昨收」污染昨日圖的基準(這就是 0.00% 的病根)
     }
   }
   let chg=pv>0?(last-pv)/pv*100:null;
@@ -4074,7 +4078,7 @@ function drawIdxSel(){
         srcTag=` <span class="c-code" style="color:var(--amber)">盤前</span>`;
         window.__idxHdrSuppress=true;
         window.__idxNoDraw=true;
-      }else if(!isTodayD&&!marketOpen()){
+      }else if(!isTodayD){
         const dstr=new Date(lt*1000).toLocaleDateString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric'});
         srcTag+=` <span class="c-code" style="color:var(--amber)">${dstr} 全日(盤前顯示前一交易日)</span>`;
         window.__idxHdrSuppress=false;window.__idxNoDraw=false;
