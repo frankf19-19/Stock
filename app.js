@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r462 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r464 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r462</span>');
+  diag.push('<span style="color:var(--dim)">build r464</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1972,6 +1972,11 @@ function liveDot(ctx,i,val){
 }
 /* 即時縫合:MIS 每10秒的最新價直接推動走勢圖線尾 */
 function pokeChart(ctx,price,statEl,unitFix){
+  try{                                                       // 🛡 量級防護:新價與線尾差>50% → 源不匹配,不戳(懸崖絕跡)
+    const tail=ctx&&(ctx.lastV??(ctx.disp&&[...ctx.disp].reverse().find(x=>x!=null)));
+    if(price&&tail&&Math.abs(price/tail-1)>0.5)return;
+    if(ctx)ctx.lastV=price||ctx.lastV;
+  }catch(e){}
   if(ctx&&ctx.lwc&&ctx.area&&price){   // 📈 LWC 即時戳點:秒級 update 最後一點
     try{
       const pv=+(+price).toFixed(unitFix??2);
@@ -3928,6 +3933,9 @@ function idxPick(key){                        // 🛡 1分線資料鐵則(r459):
     if(Array.isArray(r.t)&&r.t.length>1){
       const span=(r.t[r.t.length-1]-r.t[0])/86400;
       if(span>2)return null;                               // 鐵則1:跨多日(月線/日線)一律不給 1分線面板
+      const lastV=r.c[r.c.length-1];                       // 鐵則4:量級交叉污染防護(櫃買~數百,加權~數萬)
+      if(key==='otc'&&lastV>3000)return null;
+      if(key==='tw'&&lastV<5000)return null;
       const ld=tpDay(r.t[r.t.length-1]);
       if(ld!==tpDay(Date.now()/1000)){                     // 鐵則2:顯示前一交易日全日時,昨收改用「該日的前一日收盤」
         const dl=IDX.d[key];
@@ -4672,9 +4680,10 @@ function fglPanel(){                          // ⚙️ 設定面板:貼 Key/清
         const done=v=>{out.push('WS:'+v);try{ws.close();}catch(e){}res();};
         const to=setTimeout(()=>done('⏱ 5秒無回應'),5000);
         ws.onopen=()=>{try{ws.send(JSON.stringify({event:'auth',data:{apikey:key}}));}catch(e){}};
-        ws.onmessage=ev=>{try{const j=JSON.parse(ev.data);
-          if(j.event==='authenticated'){clearTimeout(to);done('✅ 認證成功');}
+        ws.onmessage=ev=>{try{const raw=String(ev.data).slice(0,110);const j=JSON.parse(ev.data);
+          if(j.event==='authenticated'||/authenticated/i.test(raw)){clearTimeout(to);done('✅ 認證成功');}
           else if(j.event==='error'){clearTimeout(to);done('❌ '+((j.data&&j.data.message)||'error'));}
+          else {clearTimeout(to);done('❓收到:'+raw);}         // 未知回覆:原文攤開,一眼定案
         }catch(e){}};
         ws.onerror=()=>{clearTimeout(to);done('❌ 連線錯誤');};
       }catch(e){out.push('WS:❌'+String(e).slice(0,30));res();}
@@ -4716,14 +4725,19 @@ function fglEnsure(force){                    // 連線管理:個股頁+盤中+�
     const ws=new WebSocket('wss://api.fugle.tw/marketdata/v1.0/stock/streaming');
     FGL.ws=ws;
     ws.onopen=()=>{try{ws.send(JSON.stringify({event:'auth',data:{apikey:key}}));}catch(e){}};
+    let authT=setTimeout(()=>{try{ws.send(JSON.stringify({event:'auth',data:{apikey:key}}));}catch(e){}},2000);
+    const authOK=()=>{clearTimeout(authT);
+      if(FGL.ok)return;
+      FGL.ok=true;FGL.retry=0;
+      try{ws.send(JSON.stringify({event:'subscribe',data:{channel:'aggregates',symbol:FGL.sym}}));}catch(e){}
+      try{ws.send(JSON.stringify({event:'subscribe',data:{channel:'trades',symbol:FGL.sym}}));}catch(e){}
+    };
     ws.onmessage=ev=>{
       try{
         const j=JSON.parse(ev.data);
-        if(j.event==='authenticated'){
-          FGL.ok=true;FGL.retry=0;
-          ws.send(JSON.stringify({event:'subscribe',data:{channel:'aggregates',symbol:FGL.sym}}));
-          return;
-        }
+        const msg=JSON.stringify(j).slice(0,120);
+        if(j.event==='authenticated'||/authenticated/i.test(msg)||(j.event==='auth'&&!/error|invalid/i.test(msg))){authOK();return;}
+        if(j.event==='data'&&!FGL.ok)authOK();               // 有資料=已通(容錯:成功事件名不明時)
         if(j.event==='error'){FGL.ok=false;window.__fglLastErr='WS '+((j.data&&j.data.message)||'error');return;}
         if(j.event!=='data'||!j.data)return;
         const d=j.data;
@@ -4776,7 +4790,9 @@ async function fglCandles(symbol,isIndex){    // 🐦 富果 REST:當日開盤�
       try{const p=(typeof myProxy==='function'?myProxy():'');if(p)host=new URL(p).origin;}catch(e){}
       try{r=await fglRawGet(host+'/?url='+encodeURIComponent(api),9000);}catch(e){r=null;}
     }
-    if(!r||!r.ok){window.__fglLastErr='REST '+(r?('HTTP '+r.status):'連線失敗');return null;}
+    if(!r||!r.ok){window.__fglLastErr='REST '+(r?('HTTP '+r.status):'連線失敗');
+      if(c0&&Date.now()-c0.at<600000)return c0.d;           // 沿用10分鐘內的最後成功快取,圖不倒退
+      return null;}
     const j=await r.json();
     const rows=(j&&j.data)||[];
     if(!rows.length)return null;
@@ -4859,7 +4875,8 @@ function intraStatTxt(s,extra){
     const expct=(window.__v1&&open2&&mins>0)?window.__v1*cumPct(Math.min(mins,270))/100:null;
     if(vv>0){
       const cut=(!open2&&window.__stkToday&&window.__intraLastM!=null&&window.__intraLastM<795);   // 收盤後但只擷半場
-      const sparse=(expct!=null&&vv<expct*0.2)||cut;       // 偏低或中斷 → 誠實標示,不給誤導%
+      const sparse=(expct!=null&&vv<expct*0.2)||cut||vv<50
+        ||(window.__v1&&vv<window.__v1*0.02);               // 偏低/中斷/絕對過少 → 誠實標示,不給誤導%
       vt=` <span style="font-size:11px;color:var(--dim)">${cut?'已收錄':'總量'} ${sparse?'≥':''}${Math.round(vv).toLocaleString()} 張${cut?'(不完整)':sparse?'(來源回補中)':''}</span>`;
       if(!sparse&&(window.__v1||window.__v20)&&open2&&mins>=20&&mins<270){
         const est=vv/(cumPct(mins)/100);
