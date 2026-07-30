@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r465 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r466 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r465</span>');
+  diag.push('<span style="color:var(--dim)">build r466</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2651,8 +2651,24 @@ function turnPills(r,add,scope){                          // 🔔 轉折提醒:�
   }catch(e){}
 }
 
-function turnEngine(K){
+function turnEngine(K,lv){
   try{
+    let lvInfo=null;                                       // r466:即時價縫合——把最新成交價併入日K,所有轉折運算依即時價
+    if(lv&&+lv.px>0&&K.c&&K.c.length){
+      const today=tpDay(Date.now()/1000),m=K.c.length-1;
+      const lastD=K.d&&K.d.length?String(K.d[K.d.length-1]).slice(0,10)
+                 :(K.t&&K.t.length?tpDay(K.t[K.t.length-1]):null);
+      const hi=+lv.hi>0?+lv.hi:+lv.px, lo=+lv.lo>0?+lv.lo:+lv.px;
+      if(lastD===today){                                   // 今日K已入檔 → 用即時高低收修補最後一根
+        K.h[m]=Math.max(K.h[m],hi);K.l[m]=Math.min(K.l[m],lo);K.c[m]=+lv.px;
+        lvInfo={px:+lv.px,mode:'patch',live:!!lv.live};
+      }else if(lastD){                                     // 檔內最後一根是舊交易日 → 追加今日即時K棒
+        K.o=K.o.concat([+lv.px]);K.h=K.h.concat([hi]);K.l=K.l.concat([lo]);K.c=K.c.concat([+lv.px]);
+        if(K.d)K.d=K.d.concat([today]);
+        if(K.t)K.t=K.t.concat([Math.floor(Date.now()/1000)]);
+        lvInfo={px:+lv.px,mode:'append',live:!!lv.live};
+      }
+    }
     const c=K.c,n=c.length;
     if(n<60)return null;
     const px=c[n-1],F2=x=>(+x).toLocaleString(undefined,{maximumFractionDigits:2});
@@ -2689,9 +2705,122 @@ function turnEngine(K){
       near=[0.382,0.5,0.618].map(r=>({r,px:upLeg?legExt-legRng*r:legExt+legRng*r}));
       targets=[1,1.272,1.618].map(m=>({m,px:upLeg?legBase+prevLegLen*m:legBase-prevLegLen*m}));
     }
+    const _ups=rows.map(x=>x.chg).filter(x=>x!=null&&x>0),
+          _dns=rows.map(x=>x.chg).filter(x=>x!=null&&x<0);
+    const avgUp=_ups.length?_ups.reduce((a,b)=>a+b,0)/_ups.length:null;   // 本檔歷史平均上漲段幅度%
+    const avgDn=_dns.length?_dns.reduce((a,b)=>a+b,0)/_dns.length:null;   // 本檔歷史平均下跌段幅度%(負值)
     return {px,F2,rows,avg,sd,since,winLo,winHi,due,upLeg,legBase,legExt,legRng,near,targets,
-            lastIdx:last.i,zz:rec,n};
+            lastIdx:last.i,zz:rec,n,lvInfo,avgUp,avgDn};
   }catch(e){return null;}
+}
+function turnLiveBar(s){                                  // r466:個股即時價包(RTC 盤中即時 → data.json 最新掃價)
+  try{
+    if(!s)return null;
+    const r=(typeof RTC!=='undefined')?RTC[s.id]:null;
+    const px=(r&&+r.c>0)?+r.c:(+s.price>0?+s.price:null);
+    if(!(px>0))return null;
+    return {px,hi:(r&&+r.h>0)?+r.h:px,lo:(r&&+r.l>0)?+r.l:px,live:!!(r&&+r.c>0)};
+  }catch(e){return null;}
+}
+function turnLiveHtml(r){                                 // r466:📡 依即時價評估接下來走勢(位置/情境/幅度/時間全數字化)
+  try{
+    if(!r||!(r.legRng>0))return '';
+    const F2=r.F2,px=r.px,up=r.upLeg;
+    const pt=a=>{if(!(a>0))return '—';const d=(a-px)/px*100;return `${d>=0?'+':''}${d.toFixed(1)}%`;};
+    const s382=r.near&&r.near[0]?r.near[0].px:null,
+          s500=r.near?(r.near.find(x=>x.r===0.5)||{}).px:null,
+          s618=r.near?(r.near.find(x=>x.r===0.618)||{}).px:null;
+    const t1=r.targets&&r.targets[0]?r.targets[0].px:null,
+          t2=r.targets&&r.targets[1]?r.targets[1].px:null,
+          t3=r.targets&&r.targets[2]?r.targets[2].px:null;
+    const retr=up?(r.legExt-px)/r.legRng:(px-r.legExt)/r.legRng;   // 現價自本段極值的回檔/反彈深度
+    const rp=(retr*100).toFixed(1);
+    // ① 位階判定(依即時價)
+    let zone,zcol;
+    if(retr<=0){zone=up?'現價正處/正創<b>本波段新高</b>——上升結構最強狀態,尚無任何回檔':'現價正處/正破<b>本波段新低</b>——下跌結構最弱狀態,尚無像樣反彈';zcol=up?'var(--up)':'var(--down)';}
+    else if(retr<0.382){zone=up?`自波段高點僅回檔 <b>${rp}%</b>(未觸 0.382 支撐)——回檔仍屬<b>強勢整理</b>,上升結構未受傷`:`自波段低點僅反彈 <b>${rp}%</b>(未觸 0.382 壓力)——反彈仍弱,<b>空方結構未變</b>`;zcol='var(--txt2)';}
+    else if(retr<0.5){zone=up?`已回檔 <b>${rp}%</b>(跌破 0.382)——屬正常回檔深度,現在看 <b>0.5(${F2(s500)})</b>有沒有人承接`:`已反彈 <b>${rp}%</b>(突破 0.382)——反彈有力道,現在看 <b>0.5(${F2(s500)})</b>壓力擋不擋得住`;zcol='var(--amber)';}
+    else if(retr<0.618){zone=up?`已回檔 <b>${rp}%</b>(跌破 0.5)——逼近 <b>0.618 黃金口袋(${F2(s618)})</b>,這是多方<b>最後防線</b>`:`已反彈 <b>${rp}%</b>(突破 0.5)——逼近 <b>0.618(${F2(s618)})</b>,這是空方<b>最後壓力帶</b>`;zcol='var(--amber)';}
+    else{zone=up?`回檔已達 <b>${rp}%</b>(跌破 0.618)——本段上漲結構<b>實質破壞</b>,向下轉折大概率已經發生`:`反彈已達 <b>${rp}%</b>(突破 0.618)——空方結構鬆動,<b>向上轉折</b>機率大增`;zcol=up?'var(--down)':'var(--up)';}
+    // ② 價格階梯(所有關鍵價位 vs 現價距離)
+    const rowsL=[];
+    if(up){
+      if(t3)rowsL.push(['1.618 擴延目標',t3]);if(t2)rowsL.push(['1.272 擴延目標',t2]);if(t1)rowsL.push(['等距測量目標(1倍)',t1]);
+      rowsL.push(['本波段高點',r.legExt]);
+      if(s382)rowsL.push(['0.382 回檔支撐',s382]);if(s500)rowsL.push(['0.5 回檔支撐',s500]);if(s618)rowsL.push(['0.618 黃金口袋',s618]);
+      rowsL.push(['本波段起漲點',r.legBase]);
+    }else{
+      if(s618)rowsL.push(['0.618 反彈壓力',s618]);if(s500)rowsL.push(['0.5 反彈壓力',s500]);if(s382)rowsL.push(['0.382 反彈壓力',s382]);
+      rowsL.push(['本波段起跌點',r.legBase]);rowsL.push(['本波段低點',r.legExt]);
+      if(t1)rowsL.push(['等距下方目標(1倍)',t1]);if(t2)rowsL.push(['1.272 擴延目標',t2]);if(t3)rowsL.push(['1.618 擴延目標',t3]);
+    }
+    const lad=rowsL.filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+    let ins=lad.findIndex(x=>x[1]<=px);if(ins<0)ins=lad.length;
+    lad.splice(ins,0,['📍 現價(以此評估)',px]);
+    const ladHtml=lad.map(x=>{
+      const me=x[1]===px&&x[0].indexOf('現價')>=0;
+      const c2=me?'var(--txt)':(x[1]>px?'var(--up)':'var(--down)');
+      const c3=x[0].indexOf('0.618')>=0?'var(--amber)':c2;
+      return `<div style="display:grid;grid-template-columns:1fr 92px 72px;gap:6px;padding:2.5px 8px;border-radius:6px;font-size:12.5px;${me?'background:var(--panel);border:1px solid var(--line);font-weight:900':''}">
+        <span style="color:${me?'var(--txt)':'var(--txt2)'}">${x[0]}</span>
+        <b style="font-family:var(--mono);text-align:right;color:${c3}">${F2(x[1])}</b>
+        <span style="font-family:var(--mono);text-align:right;color:var(--dim);font-size:11.5px">${me?'—':pt(x[1])}</span></div>`;}).join('');
+    // ③ 三種情境 + 依本檔歷史平均波段推估幅度與時間
+    const legPct=(r.legExt/r.legBase-1)*100;
+    const w1=tpFutureDate(Math.max(1,Math.round(r.avg-r.sd))),w2=tpFutureDate(Math.max(2,Math.round(r.avg+r.sd)));
+    let scUp,scDn;
+    if(up){
+      const rem=r.avgUp!=null?(r.avgUp-legPct):null;
+      const upFull=r.avgUp!=null?r.legBase*(1+r.avgUp/100):null;
+      scUp=`<b>觸發條件</b>:站上並突破波段高點 <b>${F2(r.legExt)}</b>(距現價 ${pt(r.legExt)})。<br>
+        <b>預估幅度</b>:目標依序 <b style="color:var(--up)">${F2(t1)}</b>(${pt(t1)})→ <b>${F2(t2)}</b>(${pt(t2)})→ <b>${F2(t3)}</b>(${pt(t3)});
+        本檔歷史平均一段漲 <b>${r.avgUp!=null?'+'+r.avgUp.toFixed(1)+'%':'—'}</b>,本段自 ${F2(r.legBase)} 起已漲 <b>+${legPct.toFixed(1)}%</b>${rem!=null?(rem>0?`,依平均還有約 <b>+${rem.toFixed(1)}%</b> 空間(對應約 <b>${F2(upFull)}</b>)`:`,<b style="color:var(--amber)">已超出歷史平均 ${Math.abs(rem).toFixed(1)}%</b>——續漲屬強勢延伸,防守務必跟上`):''}。`;
+      const dnFull=r.avgDn!=null?r.legExt*(1+r.avgDn/100):null;
+      scDn=`<b>觸發條件</b>:跌破 <b>${F2(s382)}</b>(距現價 ${pt(s382)})= 轉折啟動第一訊號;跌破 <b style="color:var(--amber)">${F2(s618)}</b>(${pt(s618)})= 波段轉空確立。<br>
+        <b>預估幅度</b>:第一站 <b>${F2(s382)}</b> → <b>${F2(s500)}</b> → <b>${F2(s618)}</b>;本檔歷史平均一段跌 <b>${r.avgDn!=null?r.avgDn.toFixed(1)+'%':'—'}</b>,若自高點 ${F2(r.legExt)} 走完平均跌幅,約落在 <b style="color:var(--down)">${dnFull?F2(dnFull):'—'}</b>(距現價 ${dnFull?pt(dnFull):'—'});守不住則下探起漲點 <b>${F2(r.legBase)}</b>(${pt(r.legBase)})。<br>
+        <b>預估時間</b>:一旦轉折啟動,依節奏統計這段約走 <b>${r.avg.toFixed(0)}±${r.sd.toFixed(0)} 個交易日</b>(約 ${w1}~${w2} 前後見下一個轉折點)。`;
+    }else{
+      const upFull2=r.avgUp!=null?r.legExt*(1+r.avgUp/100):null;
+      scUp=`<b>觸發條件</b>:站回 <b>${F2(s382)}</b>(距現價 ${pt(s382)})= 止跌第一訊號;站回 <b style="color:var(--amber)">${F2(s618)}</b>(${pt(s618)})= 波段轉多確立。<br>
+        <b>預估幅度</b>:反彈依序看 <b>${F2(s382)}</b> → <b>${F2(s500)}</b> → <b>${F2(s618)}</b>;本檔歷史平均一段漲 <b>${r.avgUp!=null?'+'+r.avgUp.toFixed(1)+'%':'—'}</b>,若自低點 ${F2(r.legExt)} 走完平均漲幅,約到 <b style="color:var(--up)">${upFull2?F2(upFull2):'—'}</b>(距現價 ${upFull2?pt(upFull2):'—'})。<br>
+        <b>預估時間</b>:反彈段依節奏約走 <b>${r.avg.toFixed(0)}±${r.sd.toFixed(0)} 個交易日</b>(約 ${w1}~${w2} 前後)。`;
+      const legDn=Math.abs(legPct);
+      const remD=r.avgDn!=null?(Math.abs(r.avgDn)-legDn):null;
+      scDn=`<b>觸發條件</b>:跌破波段低點 <b>${F2(r.legExt)}</b>(距現價 ${pt(r.legExt)})。<br>
+        <b>預估幅度</b>:下方測量目標依序 <b style="color:var(--down)">${F2(t1)}</b>(${pt(t1)})→ <b>${F2(t2)}</b>(${pt(t2)})→ <b>${F2(t3)}</b>(${pt(t3)});
+        本檔歷史平均一段跌 <b>${r.avgDn!=null?r.avgDn.toFixed(1)+'%':'—'}</b>,本段已跌 <b>${legPct.toFixed(1)}%</b>${remD!=null?(remD>0?`,依平均還有約 <b>${remD.toFixed(1)}%</b> 下探空間`:`,<b>跌幅已超出歷史平均</b>,超跌反彈的醞釀期`):''}。`;
+    }
+    const flat=up?`現價在 <b>${F2(s382)}</b>(下)與 <b>${F2(r.legExt)}</b>(上)之間屬正常回檔震盪——<b>未破不追殺、未過不追高</b>,等價格自己表態。`
+               :`現價在 <b>${F2(r.legExt)}</b>(下)與 <b>${F2(s382)}</b>(上)之間屬低檔震盪——反彈未站回關鍵價前,以觀望為主。`;
+    // ④ 綜合判定
+    const timing=r.due
+      ?`<b style="color:#C62828">時間面已達平均週期</b>(已走 ${r.since} 天 > 平均 ${r.avg.toFixed(0)} 天),轉折隨時可能發生`
+      :`時間面尚在週期內(已走 ${r.since} 天,平均 ${r.avg.toFixed(0)}±${r.sd.toFixed(0)} 天),預估 ${Math.max(0,r.winLo)}~${r.winHi} 個交易日後進入轉折窗口`;
+    let verdict;
+    if(up){
+      verdict=retr<=0?`價格面仍在創高、${timing}——<b>時間有風險、價格還沒轉</b>:續抱可,但跌破 ${F2(s382)} 就是第一時間的減碼訊號。`
+        :retr<0.382?`價格面回檔尚淺、${timing}——${r.due?'<b>時間到了+開始回檔</b>,這裡最需要盯 '+F2(s382)+':守住=強勢整理,跌破=轉折啟動。':'結構健康,回檔到 '+F2(s382)+' 附近反而是觀察承接的位置。'}`
+        :retr<0.618?`價格面已回檔到中段、${timing}——多空拉鋸區:<b>${F2(s618)} 黃金口袋是本波段生死線</b>,守住醞釀再攻,跌破波段翻空。`
+        :`價格面已跌破 0.618、${timing}——<b>轉折大概率已確立</b>,反彈至 ${F2(s500)}~${F2(s382)} 屬逃命波性質,下一個支撐看起漲點 ${F2(r.legBase)}。`;
+    }else{
+      verdict=retr<=0?`價格面仍在破底、${timing}——弱勢中不猜底,站回 ${F2(s382)} 之前都以觀望為主。`
+        :retr<0.618?`價格面開始反彈、${timing}——反彈能否站上 <b>${F2(s618)}</b> 是轉多與否的分水嶺,站不上就只是跌深反彈。`
+        :`價格面已站上 0.618、${timing}——<b>向上轉折機率大增</b>,回測 ${F2(s500)}~${F2(s382)} 不破可視為轉多確認。`;
+    }
+    const src=r.lvInfo?(r.lvInfo.live?'<b style="color:var(--up)">盤中即時價</b>':'最新收盤/掃描價'):'最近日K收盤價';
+    return `<div style="border:1.5px solid ${zcol};border-radius:12px;padding:11px 13px;margin:9px 0;line-height:1.7;font-size:13.5px">
+      <div style="font-weight:900;font-size:14.5px;margin-bottom:5px">📡 依即時價評估接下來走勢
+        <span style="font-size:12px;font-weight:400;color:var(--dim)">計算基準:現價 <b style="font-family:var(--mono);color:var(--txt)">${F2(px)}</b>(${src},已即時併入轉折運算)</span></div>
+      <div style="margin-bottom:7px"><b>① 現在位置</b>:<span style="color:${zcol}">${zone}</span>。</div>
+      <div style="margin-bottom:7px"><b>② 關鍵價位階梯(距現價%)</b>:
+        <div style="margin-top:4px;background:var(--panel2);border-radius:9px;padding:5px 3px">${ladHtml}</div></div>
+      <div style="margin-bottom:4px"><b>③ 接下來三種走法(附預估幅度/時間)</b>:</div>
+      <div style="border-left:3.5px solid var(--up);background:var(--panel2);border-radius:0 9px 9px 0;padding:7px 11px;margin:5px 0">🔺 <b>${up?'續漲不轉折':'向上轉折(止跌)'}</b><br>${scUp}</div>
+      <div style="border-left:3.5px solid var(--down);background:var(--panel2);border-radius:0 9px 9px 0;padding:7px 11px;margin:5px 0">🔻 <b>${up?'向下轉折(漲勢結束)':'續跌不轉折'}</b><br>${scDn}</div>
+      <div style="border-left:3.5px solid var(--line);background:var(--panel2);border-radius:0 9px 9px 0;padding:7px 11px;margin:5px 0">↔ <b>區間震盪</b><br>${flat}</div>
+      <div style="margin-top:7px;padding:8px 11px;background:var(--panel2);border-radius:9px"><b>④ 綜合判定</b>:${verdict}</div>
+      <div class="dim-note" style="margin-top:6px">幅度以「本檔歷史平均波段」與費波納契等距推算、時間以「近 ${r.rows.length} 次轉折節奏」統計——皆為規則化估計,盤中每分鐘隨即時價自動重算;非投資建議。</div></div>`;
+  }catch(e){return '';}
 }
 function turnHtml(r){
   if(!r)return '<div class="dim-note">日K資料不足(需60根以上),暫無法判讀。</div>';
@@ -2706,7 +2835,7 @@ function turnHtml(r){
     head.push(`<div style="padding:11px 14px;background:var(--panel2);border-radius:11px;margin-bottom:10px;line-height:1.75;font-size:13.5px">
       <b>📖 什麼是轉折點</b>:股價不會直線走,而是<b>漲一段→回一段→再漲一段</b>。每一次由漲轉跌的高點、由跌轉漲的低點,就是「轉折點」。把它們連起來就是這檔股票的<b>波段節奏</b>——知道節奏,才知道現在是「剛起漲」還是「漲到末端」。<br>
       <b>🧭 現在在哪</b>:最近一次轉折是 ${r.rows[0]?`${r.rows[0].d} 的${r.rows[0].t===1?'高點':'低點'} <b>${F2(r.rows[0].px)}</b>`:'—'},之後走的是<b>${r.upLeg?'上漲段':'下跌段'}</b>,
-      至今${r.upLeg?'最高到':'最低到'} <b>${F2(r.legExt)}</b>(這一段${legPct!=null?(legPct>0?'漲':'跌')+Math.abs(legPct).toFixed(1)+'%':''});現價 <b>${F2(r.px)}</b>,距離這段${r.upLeg?'高點':'低點'} ${fromExt!=null?(fromExt>0?'高':'低')+Math.abs(fromExt).toFixed(1)+'%':'—'}。<br>
+      至今${r.upLeg?'最高到':'最低到'} <b>${F2(r.legExt)}</b>(這一段${legPct!=null?(legPct>0?'漲':'跌')+Math.abs(legPct).toFixed(1)+'%':''});現價 <b>${F2(r.px)}</b>${r.lvInfo?`<span style="font-size:11px;color:${r.lvInfo.live?'var(--up)':'var(--dim)'}">(${r.lvInfo.live?'盤中即時':'最新報價'})</span>`:''},距離這段${r.upLeg?'高點':'低點'} ${fromExt!=null?(fromExt>0?'高':'低')+Math.abs(fromExt).toFixed(1)+'%':'—'}。<br>
       <b>💡 轉折之後會到哪</b>:
       ${r.upLeg
         ?`若<b>向下轉折</b>(漲勢結束),第一個可能停下來的位置是 <b style="color:var(--down)">${F2(s1)}</b>(回檔 0.382),再破看 <b style="color:var(--amber)">${F2(s618)}</b>(0.618 黃金口袋,多空分水嶺);
@@ -2715,6 +2844,7 @@ function turnHtml(r){
           若<b>續跌不轉折</b>,下方測量目標約 <b style="color:var(--down)">${F2(t1)}</b>。`}<br>
       <b>⏱ 什麼時候可能轉</b>:${r.due?`已經走了 ${r.since} 天,<b style="color:#C62828">超過平均週期 ${r.avg.toFixed(0)} 天,隨時可能轉折</b>`:`已走 ${r.since} 天,平均 ${r.avg.toFixed(0)} 天一轉,<b>預估還有 ${Math.max(0,r.winLo)}~${r.winHi} 個交易日</b>進入轉折窗口`}——時間到了<u>不代表一定會轉</u>,要等價格真的跌破/突破關鍵價位才算數。</div>`);
   }
+  head.push(turnLiveHtml(r));                              // r466:📡 依即時價評估接下來走勢
   head.push(`<div style="display:flex;gap:9px;margin:5px 0;line-height:1.55"><span style="font-size:16px">⏱</span>
     <div style="font-size:14px"><b>轉折節奏</b>:近 ${r.rows.length} 次轉折平均 <b>${r.avg.toFixed(0)}±${r.sd.toFixed(0)} 個交易日</b>一轉;距上次轉折已 ${r.since} 天 →
     ${r.due?`<b style="color:#C62828">已達平均週期,隨時留意反轉</b>`
@@ -2779,10 +2909,23 @@ async function renderFwStock(s){
     }
     const e=(KCACHE[sh]||{})[s.id];
     if(!e||!e.o||e.o.length<60){box.innerHTML='<div class="dim-note">日K資料不足(需60根以上),此檔暫無法判讀。</div>';return;}
-    const tr=turnEngine({o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3])});
+    const mk=()=>turnEngine({o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3]),
+                             d:e.d?e.d.slice():null},turnLiveBar(s));   // r466:帶日期+即時價進引擎
+    const tr=mk();
     window.__turnStkC={id:s.id,r:tr};
     box.innerHTML=turnHtml(tr);
     try{renderStkAlerts&&window.__lastStkAlertArgs&&renderStkAlerts(...window.__lastStkAlertArgs);}catch(e){}
+    try{clearInterval(window.__turnLiveT);}catch(e){}
+    if(s.market==='TW')window.__turnLiveT=setInterval(()=>{   // r466:台股盤中每60秒依即時價重算整段評估
+      try{
+        if(location.hash!=='#stock/'+s.id){clearInterval(window.__turnLiveT);return;}
+        if(typeof openish==='function'&&!openish())return;
+        const t2=mk();if(!t2)return;
+        window.__turnStkC={id:s.id,r:t2};
+        const bx=document.getElementById('fwStk');
+        if(bx)bx.innerHTML=turnHtml(t2);
+      }catch(x){}
+    },60000);
   }catch(err){box.innerHTML='<div class="dim-note">引擎異常:'+String(err).slice(0,60)+'</div>';}
 }
 async function renderFwMacro(){
@@ -2792,7 +2935,10 @@ async function renderFwMacro(){
     const y=await yextData();
     const dd=y&&y.series&&y.series['^TWII']&&(y.series['^TWII'].dl||y.series['^TWII'].d);
     if(!dd||!dd.c||dd.c.length<60){box.innerHTML='<div class="dim-note">大盤日線回補中。</div>';return;}
-    const tr=turnEngine({c:dd.c,h:dd.h||dd.c,l:dd.l||dd.c,o:dd.o||dd.c,t:dd.t});
+    const lvb=(typeof IDXRTC!=='undefined'&&IDXRTC.tw&&+IDXRTC.tw.c>0)
+      ?{px:+IDXRTC.tw.c,hi:+IDXRTC.tw.h||+IDXRTC.tw.c,lo:+IDXRTC.tw.l||+IDXRTC.tw.c,live:true}:null;   // r466:加權即時價
+    const tr=turnEngine({c:dd.c.slice(),h:(dd.h||dd.c).slice(),l:(dd.l||dd.c).slice(),
+                         o:(dd.o||dd.c).slice(),t:dd.t?dd.t.slice():null},lvb);
     window.__turnIdx=tr;
     box.innerHTML=turnHtml(tr);
     try{renderMacroAlerts();}catch(e){}
