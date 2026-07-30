@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r457 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r458 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r457</span>');
+  diag.push('<span style="color:var(--dim)">build r458</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4002,6 +4002,16 @@ function drawIdxSel(){
   const stat=document.getElementById('idxStat');
   if(!d){
     if(IDX.sel==='otc'&&OTCACC.c.length>=2){   // 用累積點畫線
+  if(d&&Array.isArray(d.t)&&d.t.length>1&&(d.t[d.t.length-1]-d.t[0])/86400>2){   // 跨多日=退回長天期 → 1分線面板不畫月線
+    const ch9=document.getElementById('idxChart');
+    if(ch9){try{if(RT.idx){killCtx(RT.idx,'idxChart');RT.idx=null;}}catch(e){}
+      delete ch9.dataset.tv;
+      ch9.innerHTML='<div class="dim-note" style="padding:44px 12px;text-align:center;line-height:1.8">🕘 盤前時段——今日 1 分線於 <b>09:00 開盤</b>自動開始繪製。<br><span style="color:var(--dim)">昨日分線來源缺檔(今起已由富果補齊,明日盤前會顯示前一交易日全日走勢)。</span></div>';}
+    try{const st0=document.getElementById('idxStat');
+      if(st0)st0.innerHTML=`${(+d.c[d.c.length-1]).toFixed(2)} <span class="c-code" style="color:var(--amber)">盤前・待 09:00 今日分線</span>`;}catch(e){}
+    if(typeof paintDefense==='function')paintDefense();
+    return;
+  }
       RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',OTCACC))||drawIntra('idxChart',OTCACC);
       const last=OTCACC.c[OTCACC.c.length-1],pv=OTCACC.prev;
       if(stat&&pv){const chg=(last-pv)/pv*100;
@@ -4034,15 +4044,17 @@ function drawIdxSel(){
       const lt=d.t[d.t.length-1];
       const spanDays=(lt-d.t[0])/86400;
       const isTodayD=tpDay(lt)===tpDay(Date.now()/1000);
-      if(spanDays>2){                                       // 退回長天期資料 → 如實標示,不再假裝是1分線
-        srcTag=` <span class="c-code" style="color:var(--amber)">盤前・近月走勢(09:00 起切換今日1分線)</span>`;
+      if(spanDays>2){                                       // 退回長天期資料 → 不在1分線面板畫月線
+        srcTag=` <span class="c-code" style="color:var(--amber)">盤前</span>`;
         window.__idxHdrSuppress=true;
+        window.__idxNoDraw=true;
       }else if(!isTodayD&&!marketOpen()){
         const dstr=new Date(lt*1000).toLocaleDateString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric'});
         srcTag+=` <span class="c-code" style="color:var(--amber)">${dstr} 全日(盤前顯示前一交易日)</span>`;
-        window.__idxHdrSuppress=false;
+        window.__idxHdrSuppress=false;window.__idxNoDraw=false;
+        if(d&&d.prev!=null&&Math.abs(d.prev-last)/Math.max(1,last)<1e-6)chg=null;   // 昨收基準=末值 → 資料缺真昨收,不顯誤導%
       }else{
-        window.__idxHdrSuppress=false;
+        window.__idxHdrSuppress=false;window.__idxNoDraw=false;
         const hhmm=new Date(lt*1000).toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hour12:false});
         const ago=Math.max(0,Math.floor(Date.now()/1000-lt));
         const warn=(marketOpen()&&ago>90);
