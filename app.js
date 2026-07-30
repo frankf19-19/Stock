@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r456 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r457 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1516,7 +1516,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r456</span>');
+  diag.push('<span style="color:var(--dim)">build r457</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4032,12 +4032,25 @@ function drawIdxSel(){
   try{
     if((IDX.sel==='tw'||IDX.sel==='otc')&&Array.isArray(d.t)&&d.t.length){
       const lt=d.t[d.t.length-1];
-      const hhmm=new Date(lt*1000).toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hour12:false});
-      const ago=Math.max(0,Math.floor(Date.now()/1000-lt));
-      const warn=(marketOpen()&&ago>90);
-      srcTag+=` <span class="c-code" title="最後資料點時間;盤中若持續變大代表沒有新資料進來" ${warn?'style="color:var(--amber)"':''}>末點 ${hhmm}${warn?`·${ago}s前⚠`:''}</span>`;
+      const spanDays=(lt-d.t[0])/86400;
+      const isTodayD=tpDay(lt)===tpDay(Date.now()/1000);
+      if(spanDays>2){                                       // 退回長天期資料 → 如實標示,不再假裝是1分線
+        srcTag=` <span class="c-code" style="color:var(--amber)">盤前・近月走勢(09:00 起切換今日1分線)</span>`;
+        window.__idxHdrSuppress=true;
+      }else if(!isTodayD&&!marketOpen()){
+        const dstr=new Date(lt*1000).toLocaleDateString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric'});
+        srcTag+=` <span class="c-code" style="color:var(--amber)">${dstr} 全日(盤前顯示前一交易日)</span>`;
+        window.__idxHdrSuppress=false;
+      }else{
+        window.__idxHdrSuppress=false;
+        const hhmm=new Date(lt*1000).toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hour12:false});
+        const ago=Math.max(0,Math.floor(Date.now()/1000-lt));
+        const warn=(marketOpen()&&ago>90);
+        srcTag+=` <span class="c-code" title="最後資料點時間;盤中若持續變大代表沒有新資料進來" ${warn?'style="color:var(--amber)"':''}>末點 ${hhmm}${warn?`·${ago}s前⚠`:''}</span>`;
+      }
     }
   }catch(e){}
+  if(window.__idxHdrSuppress)chg=null;                     // 長天期回退時不顯示誤導的當日%
   if(stat)stat.innerHTML=`${(+last).toFixed(2)} ${chg!=null?`<span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`:'<span class="c-code">昨收校正中</span>'}${srcTag}${d.approx&&d.src!=='ETF換算'?' <span class="c-code" title="無櫃買分線,以上櫃ETF走勢按指數比例換算">ETF換算</span>':''}`;
   RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',d))||drawIntra('idxChart',d);
   const fl=document.getElementById('idxFlow');
