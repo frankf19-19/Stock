@@ -10,7 +10,8 @@ const ALLOW = new Set([
   'openapi.twse.com.tw',  // 證交所 OpenAPI(季報三率最新季等)
   'mops.twse.com.tw',     // 公開資訊觀測站
   'mopsov.twse.com.tw',   // 公開資訊觀測站(舊版,季報歷史回補用)
-  'www.tpex.org.tw'       // 櫃買中心(OpenAPI 與各式端點)
+  'www.tpex.org.tw',      // 櫃買中心(OpenAPI 與各式端點)
+  'api.fugle.tw'          // 🐦 富果行情 REST(瀏覽器 CORS 受限,由 Worker 代發並自動附金鑰)
 ]);
 
 export default {
@@ -53,6 +54,8 @@ export default {
         'Referer': t.origin + '/'
       }
     };
+    if (t.hostname === 'api.fugle.tw' && env && env.FUGLE_KEY)
+      init.headers['X-API-KEY'] = env.FUGLE_KEY;   // 🐦 金鑰由 Worker 加密變數注入,前端與網址都不含 Key
     if (req.method === 'POST') {
       init.body = await req.arrayBuffer();
       const ct = req.headers.get('content-type');
