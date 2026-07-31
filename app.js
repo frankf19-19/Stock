@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r489 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r490 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1012,7 +1012,7 @@ function renderMacro(){
     :'<div class="idx-card" id="idxEmpty"><div class="nm">台股指數載入中…</div></div>';
   try{ensureUsTvCards();}catch(e){}
   const fx=m.fx||{};
-  const items=[["美元/台幣","usdtwd","FX_IDC:USDTWD"],["日圓/台幣","jpytwd","FX_IDC:JPYTWD"],["美元指數(DXY 即時)","dxy","TVC:DXY"]];   // r488:三卡改 TV 迷你即時卡(價+%+走勢線);Fed廣義序列保留在 dxy 詳細頁
+  const items=[["美元/台幣","usdtwd","FX_IDC:USDTWD"],["日圓/台幣","jpytwd","FX_IDC:JPYTWD"],["美元指數(DXY 即時)","dxy","CAPITALCOM:DXY"]];   // r488:三卡改 TV 迷你即時卡(價+%+走勢線);Fed廣義序列保留在 dxy 詳細頁
   document.getElementById('fxRow').innerHTML=items.map(([n,k])=>
     `<div class="idx-card" style="position:relative;padding:10px 12px 8px"><div class="nm">${n}<span style="color:var(--dim)"> ›</span></div><div id="fxTv_${k}"><div class="dim-note" style="padding:10px 0">載入中…</div></div><div data-fxgo="${k}" style="position:absolute;inset:0;height:24px;cursor:pointer" title="點我看詳細"></div></div>`).join('');
   items.forEach(([n,k,tvs])=>{
@@ -1197,13 +1197,15 @@ function tvMiniQuote(domId,tvsym){     // 卡片報價(TradingView 迷你走勢 
 }
 /* 🏷️ 卡片漲跌%徽章:TradingView 部分資料源在嵌入版不給漲跌值 → 用自家 yext.json 疊上,保證每張卡都有 % */
 const CARD_PCT={copper:'HG=F',nickel:'NI=F',alum:'ALI=F',gold:'GC=F',silver:'SI=F',
-  wti:'CL=F',brent:'BZ=F',natgas:'NG=F'};   // 美股四卡改為自家渲染,徽章只負責原物料
+  wti:'CL=F',brent:'BZ=F',natgas:'NG=F',
+  ixic:'^IXIC',dji:'^DJI',                                 // r490:TV 嵌入版這幾張不給漲跌% → 自家 yext 疊徽章
+  usdtwd:'TWD=X',jpytwd:'JPYTWD=X',dxy:'DX-Y.NYB'};
 async function refreshCardPct(){
-  if(!document.getElementById('usTvCards')&&!document.getElementById('cmdGrid'))return;
+  if(!document.getElementById('usTvCards')&&!document.getElementById('cmdGrid')&&!document.getElementById('fxRow'))return;
   const j=await yextData();
   if(!j||!j.series)return;
   Object.entries(CARD_PCT).forEach(([mk,sym])=>{
-    const host=document.getElementById('tvC_'+mk)||document.getElementById('tvCmd_'+mk);
+    const host=document.getElementById('tvC_'+mk)||document.getElementById('tvCmd_'+mk)||document.getElementById('fxTv_'+mk);
     if(!host||!host.parentNode)return;
     const e=j.series[sym];
     if(!e)return;
@@ -1524,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r489</span>');
+  diag.push('<span style="color:var(--dim)">build r490</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3526,8 +3528,7 @@ async function asiaCard(){                                 // r489:亞洲股市�
     wrap.appendChild(sc);
   }catch(e){box.style.display='none';}
 }
-setTimeout(asiaCard,5800);
-setInterval(asiaCard,900000);
+/* r490:亞洲股市區已依需求移除,asiaCard 退役 */
 
 
 /* ══ 🧭 今日市場懶人包:把站內所有引擎的結論翻成白話,小白看這段就夠 ══ */
@@ -3862,8 +3863,8 @@ function rotBoard(){
       .map(([k,v])=>({k,n:v.length,avg:v.reduce((a,b)=>a+b,0)/v.length,up:v.filter(z=>z>0).length}))
       .sort((a,b)=>b.avg-a.avg);
     if(rows.length<6){box.style.display='none';return;}
-    const cell=r2=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px">
-      <span>${r2.k}<span style="color:var(--dim);font-size:11px">(${r2.up}/${r2.n}紅)</span></span>
+    const cell=r2=>`<div data-rots="${r2.k}" title="點我看這個產業有哪些股票" style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px;cursor:pointer;border-radius:6px" onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background=''">
+      <span>${r2.k}<span style="color:var(--dim);font-size:11px">(${r2.up}/${r2.n}紅)</span> <span style="color:var(--dim)">›</span></span>
       <b class="${r2.avg>0?'pos':r2.avg<0?'neg':'flat'}" style="font-family:var(--mono)">${r2.avg>0?'+':''}${r2.avg.toFixed(2)}%</b></div>`;
     const hot=rows.slice(0,5),cold=rows.slice(-5).reverse();
     const dnr=rows.filter(r2=>r2.avg<0).length/rows.length;
@@ -3872,8 +3873,28 @@ function rotBoard(){
       <div class="rot2">
         <div><div style="font-size:11.5px;color:var(--dim);margin-bottom:2px">🔥 資金流入</div>${hot.map(cell).join('')}</div>
         <div><div style="font-size:11.5px;color:var(--dim);margin-bottom:2px">🧊 資金流出</div>${cold.map(cell).join('')}</div></div>
-      ${dnr>=0.8?'<div style="font-size:12px;color:#C62828;font-weight:800;margin-top:6px">⚠ 逾八成產業同步下跌——「輪動變輪跌」,典型頭部特徵之一</div>':dnr<=0.2?'<div style="font-size:12px;color:#0B7A4B;font-weight:800;margin-top:6px">普漲格局,資金全面性進場</div>':''}`;
+      ${dnr>=0.8?'<div style="font-size:12px;color:#C62828;font-weight:800;margin-top:6px">⚠ 逾八成產業同步下跌——「輪動變輪跌」,典型頭部特徵之一</div>':dnr<=0.2?'<div style="font-size:12px;color:#0B7A4B;font-weight:800;margin-top:6px">普漲格局,資金全面性進場</div>':''}
+      <div id="rotDetail" style="display:none;margin-top:8px;border-top:1px dashed var(--line);padding-top:8px"></div>`;
+    box.querySelectorAll('[data-rots]').forEach(el=>{el.onclick=()=>rotDetail(el.dataset.rots);});   // r490:點產業看成分股
+    if(window.__rotSec){const kept=window.__rotSec;window.__rotSec=null;rotDetail(kept);}            // 60秒重繪後保持展開
   }catch(e){box.style.display='none';}
+}
+function rotDetail(sec){                                   // r490:展開該產業全部成分股(依漲跌排序,可點進個股)
+  try{
+    const host=document.getElementById('rotDetail');if(!host)return;
+    if(window.__rotSec===sec&&host.style.display!=='none'){host.style.display='none';window.__rotSec=null;return;}
+    window.__rotSec=sec;
+    const list=(DATA.stocks||[]).filter(x=>x.market==='TW'&&!x.etf&&x.sector===sec&&x.chg!=null)
+      .sort((a,b)=>(+b.chg)-(+a.chg));
+    if(!list.length){host.style.display='none';return;}
+    host.style.display='';
+    host.innerHTML=`<div style="font-size:12.5px;font-weight:800;margin-bottom:5px">${sec} 全部 ${list.length} 檔(依今日漲跌排序,點任一檔進個股頁)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:3px 12px;max-height:260px;overflow:auto">
+      ${list.map(x=>`<div data-rotgo="${x.id}" style="display:flex;justify-content:space-between;gap:6px;padding:2.5px 6px;font-size:12.5px;cursor:pointer;border-radius:6px" onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background=''">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.id} ${x.name||''}</span>
+        <b class="${+x.chg>0?'pos':+x.chg<0?'neg':'flat'}" style="font-family:var(--mono);flex:none">${+x.chg>0?'+':''}${(+x.chg).toFixed(2)}%</b></div>`).join('')}</div>`;
+    host.querySelectorAll('[data-rotgo]').forEach(el=>{el.onclick=ev=>{ev.stopPropagation();location.hash='#stock/'+el.dataset.rotgo;};});
+  }catch(e){}
 }
 setTimeout(rotBoard,5000);setInterval(rotBoard,60000);
 
