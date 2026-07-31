@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r486 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r489 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1012,9 +1012,14 @@ function renderMacro(){
     :'<div class="idx-card" id="idxEmpty"><div class="nm">台股指數載入中…</div></div>';
   try{ensureUsTvCards();}catch(e){}
   const fx=m.fx||{};
-  const items=[["美元/台幣",fx.USDTWD,"usdtwd"],["日圓/台幣",fx.JPYTWD,"jpytwd"],["美元指數(Fed廣義)",fx.DXY,"dxy"]];
-  document.getElementById('fxRow').innerHTML=items.map(([n,v,k])=>
-    `<div class="idx-card" data-mk="${k}"><div class="nm">${n}</div><div class="vl">${v??'—'}</div></div>`).join('');
+  const items=[["美元/台幣","usdtwd","FX_IDC:USDTWD"],["日圓/台幣","jpytwd","FX_IDC:JPYTWD"],["美元指數(DXY 即時)","dxy","TVC:DXY"]];   // r488:三卡改 TV 迷你即時卡(價+%+走勢線);Fed廣義序列保留在 dxy 詳細頁
+  document.getElementById('fxRow').innerHTML=items.map(([n,k])=>
+    `<div class="idx-card" style="position:relative;padding:10px 12px 8px"><div class="nm">${n}<span style="color:var(--dim)"> ›</span></div><div id="fxTv_${k}"><div class="dim-note" style="padding:10px 0">載入中…</div></div><div data-fxgo="${k}" style="position:absolute;inset:0;height:24px;cursor:pointer" title="點我看詳細"></div></div>`).join('');
+  items.forEach(([n,k,tvs])=>{
+    try{tvMiniQuote('fxTv_'+k,tvs);}catch(e){}
+    const go=document.querySelector(`[data-fxgo="${k}"]`);
+    if(go)go.onclick=()=>{location.hash='#macro/'+k;};
+  });
   const tone=fx.USDTWD?(fx.USDTWD>=32.8?'台幣偏弱(外資匯出壓力,出口有匯兌收益但指數易承壓)':fx.USDTWD<=31.5?'台幣偏強(外資匯入,易走資金行情)':'台幣區間震盪'):null;
   window.__noteFx=tone?`匯率:美元/台幣 ${fx.USDTWD},<b>${tone}</b>。`:'';
   composeMacroNote();
@@ -1276,7 +1281,7 @@ const __cmdPoll=setInterval(()=>{try{ensureCmdCards();if(window.__cmdTv)clearInt
   const sync=()=>{b.style.display=(location.hash&&location.hash.includes('/'))?'flex':'none';};
   window.addEventListener('hashchange',sync);sync();
 })();
-function ensureUsTvCards(){             // 📺 美股四卡:自家即時資料(yext ^GSPC/^IXIC/^DJI/^SOX),不再依賴 TV 嵌入
+function ensureUsTvCards(){             // 📺 r487:美股四卡=TradingView 迷你即時卡(SPX/NSX/DJI/SOXX,官方串流價)
   if(window.__usTv)return;
   const row=document.getElementById('idxRow');
   if(!row||!row.parentNode)return;
@@ -1288,16 +1293,17 @@ function ensureUsTvCards(){             // 📺 美股四卡:自家即時資料(
     const cell=document.createElement('div');
     cell.className='idx-card';
     cell.style.cssText='position:relative;padding:10px 12px 8px';
-    cell.innerHTML=`<div class="nm">${nm}<span style="color:var(--dim)"> ›</span></div><div id="tvC_${mk}"><div class="dim-note" style="padding:10px 0">載入中…</div></div><div data-go="${mk}" title="點我看詳細" style="position:absolute;inset:0;cursor:pointer"></div>`;
+    cell.innerHTML=`<div class="nm">${nm}<span style="color:var(--dim)"> ›</span></div><div id="tvC_${mk}"><div class="dim-note" style="padding:10px 0">載入中…</div></div><div data-go="${mk}" title="點我看詳細" style="position:absolute;inset:0;height:24px;cursor:pointer"></div>`;
     grid.appendChild(cell);
     const go=cell.querySelector('[data-go]');
     if(go)go.onclick=()=>{location.hash='#macro/'+mk;};
+    try{tvMiniQuote('tvC_'+mk,TV_SYM[mk]);}catch(e){}       // r487:四卡直接用 TradingView 迷你即時卡(價格+%+當日線全即時)
   });
   window.__usTv=1;
-  refreshUsCards();
 }
 const US_CARD_SYM={gspc:'^GSPC',ixic:'^IXIC',dji:'^DJI',sox:'^SOX'};
-async function refreshUsCards(){        // 美股四卡內容:價格+漲跌%+當日走勢線(60秒更新)
+async function refreshUsCards(){        // r487:已退役——四卡改 TradingView 迷你卡(tvMiniQuote),自帶即時串流
+  return;
   if(!document.getElementById('usTvCards'))return;
   const j=await yextData();
   if(!j||!j.series)return;
@@ -1325,7 +1331,7 @@ async function refreshUsCards(){        // 美股四卡內容:價格+漲跌%+當
       <div style="font-size:11px;color:var(--dim);margin-top:2px">${e.m?'當日走勢 · 即時':'日線走勢 · 日更'}</div>`;
   });
 }
-setInterval(()=>{try{refreshUsCards();}catch(e){}},60000);
+/* r487:refreshUsCards 已退役,移除 60 秒重畫註冊(重畫會把 TV 元件洗掉) */
 function tvTape(){                      // 全站即時跑馬燈(首頁最上方,掛一次)
   if(window.__tvTape)return;
   const row=document.getElementById('idxRow');
@@ -1518,7 +1524,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r486</span>');
+  diag.push('<span style="color:var(--dim)">build r489</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3492,63 +3498,32 @@ async function asiaDetail(sym,host){          // 🌏 亞股詳細:全寬K線+�
   }catch(e){host.innerHTML='<div class="dim-note" style="padding:16px">載入失敗:'+String(e).slice(0,60)+'</div>';}
 }
 
-async function asiaCard(){
+async function asiaCard(){                                 // r489:亞洲股市改 TradingView 即時列(同「指數」側欄樣式),不再等 FRED/Stooq 回補
   const box=document.getElementById('asiaBox');
   if(!box)return;
   try{
-    const y=await yextData();
-    const ser=(y&&y.series)||{};
-    const defs=[['^N225','日經 225','🇯🇵'],['^KS11','韓國 KOSPI','🇰🇷'],['^HSI','香港恆生','🇭🇰']];
-    const cards=[];
-    defs.forEach(([sym,nm,flag])=>{
-      const d=(ser[sym]||{}).d;
-      const c0=(d&&d.c)?d.c.filter(x=>x!=null&&isFinite(x)):[];
-      if(c0.length<2){                                     // 尚未回補 → 占位卡,不讓版面塌掉
-        cards.push(`<div class="asia-c" style="opacity:.5"><div style="display:flex;align-items:baseline;gap:6px">
-          <span style="font-size:12.5px;font-weight:800;color:var(--txt2)">${flag} ${nm}</span>
-          <span style="margin-left:auto;font-size:11.5px;color:var(--dim)">回補中</span></div></div>`);
-        return;
-      }
-      const c=c0;
-      const last=c[c.length-1],prev=c[c.length-2];
-      const chg=(last/prev-1)*100;
-      const w5=c.length>=6?((last/c[c.length-6]-1)*100):null;
-      const col=chg>0?'var(--up)':chg<0?'var(--down)':'var(--mut)';
-      const v=c.slice(-30),mn=Math.min(...v),mx=Math.max(...v),rg=(mx-mn)||1;
-      const W=88,H=22;
-      const pts=v.map((p,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(H-2-(p-mn)/rg*(H-4)).toFixed(1)}`).join(' ');
-      const dt=(d.t&&d.t.length)?new Date(d.t[d.t.length-1]*1000).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'}):'';
-      cards.push(`<div class="asia-c" data-asia="${sym}" title="點我看走勢與細節">
-        <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
-          <span style="font-size:12.5px;font-weight:800;color:var(--txt2)">${flag} ${nm}</span>
-          <b style="font-family:var(--mono);font-size:17px;margin-left:auto">${last.toLocaleString(undefined,{maximumFractionDigits:0})}</b>
-          <b style="color:${col};font-size:13.5px;font-family:var(--mono)">${chg>0?'+':''}${chg.toFixed(2)}%</b>
-          <span style="color:var(--dim);font-size:11px">›</span></div>
-        <div class="asia-more" hidden>
-          <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;margin-top:6px" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/></svg>
-          <div style="font-size:11px;color:var(--dim);margin-top:3px">${dt} 收盤 · 近5日 ${w5!=null?(w5>0?'+':'')+w5.toFixed(1)+'%':'—'} · 近30日走勢</div></div></div>`);
-    });
-    if(!cards.length){box.style.display='none';return;}
-    const okD=defs.filter(([sym])=>{const d=(ser[sym]||{}).d;const c=(d&&d.c)?d.c.filter(x=>x!=null):[];return c.length>=2;});
-    const upN=okD.filter(([sym])=>{const c=ser[sym].d.c.filter(x=>x!=null);return c[c.length-1]>c[c.length-2];}).length;
-    const nD=okD.length;
-    box.style.display='';
-    box.innerHTML=`<div class="nm" style="margin-bottom:7px">🌏 亞洲股市${frBadge('day')}</div>
-      <div class="asia-grid">${cards.join('')}</div>
-      <div class="dim-note" style="margin-top:7px">${nD<2?`目前僅 ${nD} 個市場有資料,待其餘回補後提供區域判讀。`
-        :upN===nD?'亞股全面收紅——區域資金氣氛偏多,台股開盤易有撐。'
-        :upN===0?'亞股全面收黑——區域同步走弱,台股開盤宜保守。'
-        :`亞股漲跌互見(${upN}/${nD} 上漲)——無一致方向,台股回歸自身籌碼與權值股表現。`}
-        日韓港收盤時間與台股相近,常同步反映外資對亞股的態度;來源:FRED/Stooq 官方收盤價,盤中不跳動。</div>`;
-    box.querySelectorAll('[data-asia]').forEach(el=>{el.onclick=()=>{
-      const sym=el.dataset.asia;
-      const host=document.getElementById('asiaDetail');
-      if(!host)return;
-      if(host.dataset.sym===sym&&host.style.display!=='none'){host.style.display='none';host.dataset.sym='';return;}
-      host.dataset.sym=sym;host.style.display='';
-      asiaDetail(sym,host);
-      setTimeout(()=>host.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
-    };});
+    if(box.dataset.tvmounted==='1')return;
+    box.dataset.tvmounted='1';
+    box.innerHTML=`<div class="nm" style="margin-bottom:7px">🌏 亞洲股市 <span class="c-code" style="color:var(--up)">TV 即時</span></div>
+      <div id="asiaTvRow"></div>
+      <div class="dim-note" style="margin-top:7px">日韓港與台股交易時段相近,常同步反映外資對亞股的態度;點卡片可到 TradingView 看大圖。來源:TradingView 即時。</div>`;
+    const host=document.getElementById('asiaTvRow');
+    const wrap=document.createElement('div');
+    wrap.className='tradingview-widget-container';
+    const inner=document.createElement('div');
+    inner.className='tradingview-widget-container__widget';
+    wrap.appendChild(inner);host.appendChild(wrap);
+    const sc=document.createElement('script');
+    sc.src='https://s3.tradingview.com/external-embedding/embed-widget-tickers.js';
+    sc.async=true;
+    sc.innerHTML=JSON.stringify({symbols:[
+        {proName:'TVC:NI225',title:'日經 225'},
+        {proName:'KRX:KOSPI',title:'韓國 KOSPI'},
+        {proName:'TVC:HSI',title:'香港恆生'},
+        {proName:'SSE:000001',title:'上證指數'}],
+      colorTheme:document.documentElement.dataset.theme==='black'?'dark':'light',
+      isTransparent:true,showSymbolLogo:true,locale:'zh_TW'});
+    wrap.appendChild(sc);
   }catch(e){box.style.display='none';}
 }
 setTimeout(asiaCard,5800);
