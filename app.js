@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r482 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r483 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1518,7 +1518,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r482</span>');
+  diag.push('<span style="color:var(--dim)">build r483</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6346,14 +6346,16 @@ function stkForceUI(s){
       return;
     }
     if(!(await ensureECharts()))return;
-    const times=a.t.map(ts=>{const d=new Date(ts*1000);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');});
+    const times=a.t.map(ts=>{const d=new Date(ts*1000),p=n=>String(n).padStart(2,'0');
+      return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());});   // r483:資料6秒一點,精確到秒(tooltip 用)
     const big=forceCum(a.bb),sm=forceCum(a.sb);
     let ch=el.__ec;
     if(!ch){el.innerHTML='';ch=echarts.init(el);el.__ec=ch;}
     ch.setOption({animation:false,grid:{left:52,right:14,top:26,bottom:24},
       legend:{data:['大戶(累積)','散戶(累積)'],top:0,textStyle:{fontSize:11}},
       tooltip:{trigger:'axis'},
-      xAxis:{type:'category',data:times,axisLabel:{fontSize:10}},
+      xAxis:{type:'category',data:times,axisLabel:{fontSize:10,formatter:v=>v.slice(0,5),
+        interval:(i)=>i===0||times[i].slice(0,5)!==times[i-1].slice(0,5)}},   // r483:軸標籤每分鐘只標一次,不再連續重複 09:02
       yAxis:{type:'value',name:'淨買賣(張)',nameTextStyle:{fontSize:10},splitLine:{lineStyle:{opacity:.25}}},
       series:[{name:'大戶(累積)',type:'line',data:big,showSymbol:false,lineStyle:{width:2,color:'#c0392b'},itemStyle:{color:'#c0392b'}},
               {name:'散戶(累積)',type:'line',data:sm,showSymbol:false,lineStyle:{width:2,color:'#2e8b57'},itemStyle:{color:'#2e8b57'}}]},true);
