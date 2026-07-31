@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r477 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r479 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1518,7 +1518,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r477</span>');
+  diag.push('<span style="color:var(--dim)">build r479</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1993,7 +1993,8 @@ function pokeChart(ctx,price,statEl,unitFix){
   if(ctx&&ctx.lwc&&ctx.area&&price){   // 📈 LWC 即時戳點:秒級 update 最後一點
     try{
       const pv=+(+price).toFixed(unitFix??2);
-      const now=Math.max(ctx.lastT||0,Math.floor(Date.now()/1000)+_TZ8);
+      const nowR=Math.floor(Date.now()/1000)+_TZ8;
+      const now=(ctx.lastT&&Math.abs(nowR-ctx.lastT)>2*3600)?ctx.lastT+60:Math.max(ctx.lastT||0,nowR);   // r479:時間域錯配防護
       ctx.lastT=now;
       ctx.area.update({time:now,value:pv});
       if(ctx.avgS&&ctx.cv>0)ctx.avgS.update({time:now,value:+(ctx.cpv/ctx.cv).toFixed(2)});
@@ -4228,7 +4229,8 @@ function drawIdxSel(){
       return;
     }
     if(IDX.sel==='otc'&&OTCACC.c.length>=2){   // 用累積點畫線
-      RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',OTCACC))||drawIntra('idxChart',OTCACC);
+      {let dA=OTCACC;try{dA=gridIntra(sanitizeIntra({t:OTCACC.t.slice(),c:OTCACC.c.slice(),v:(OTCACC.v||[]).slice(),prev:OTCACC.prev},+(OTCACC.c[OTCACC.c.length-1])||0));}catch(e){}
+      RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',dA))||drawIntra('idxChart',dA);}
       const last=OTCACC.c[OTCACC.c.length-1],pv=OTCACC.prev;
       if(stat&&pv){const chg=(last-pv)/pv*100;
         stat.innerHTML=`${(+last).toFixed(2)} <span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`;}
@@ -4284,6 +4286,7 @@ function drawIdxSel(){
   }catch(e){}
   if(window.__idxHdrSuppress)chg=null;                     // 長天期回退時不顯示誤導的當日%
   if(stat)stat.innerHTML=`${(+last).toFixed(2)} ${chg!=null?`<span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`:'<span class="c-code">昨收校正中</span>'}${srcTag}${d.approx&&d.src!=='ETF換算'?' <span class="c-code" title="無櫃買分線,以上櫃ETF走勢按指數比例換算">ETF換算</span>':''}`;
+  if(IDX.sel==='tw'||IDX.sel==='otc'){try{d=gridIntra(sanitizeIntra(d,+last||0));}catch(e){}}   // r479:指數分線等距網格+消毒
   RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',d))||drawIntra('idxChart',d);
   const fl=document.getElementById('idxFlow');
   if(fl)fl.innerHTML=IDX.sel==='tw'?flowHTML(d,'股'):'';
@@ -5300,6 +5303,34 @@ function capLast(d,s){                                     // r469:線尾封頂=
     return d;
   }catch(e){return d;}
 }
+function sanitizeIntra(d,truthPx){                         // r479:分線消毒——孤立長針剔除+時段長度封頂+時間嚴格遞增(時間域無關)
+  try{
+    if(!d||!d.t||d.t.length<3)return d;
+    const t=[],c=[],v=[];
+    const t0=d.t[0];
+    const cap=t0+4.7*3600+900;                             // 09:00→13:42 再加緩衝;超出=跑錯時間域的野點
+    let lastT=-Infinity;
+    for(let i=0;i<d.t.length;i++){
+      if(d.t[i]<=lastT)continue;                           // 時間必須嚴格遞增
+      if((d.t[d.t.length-1]-t0)<=8*3600&&d.t[i]>cap)continue;   // 日內資料才封頂
+      t.push(d.t[i]);c.push(d.c[i]==null?null:+d.c[i]);v.push((d.v&&+d.v[i])||0);
+      lastT=d.t[i];
+    }
+    for(let i=1;i<c.length-1;i++){                          // 孤立長針:與前後都偏離>6%,且與最新真價矛盾 → 剔除
+      if(c[i]==null||c[i-1]==null||c[i+1]==null)continue;
+      const d1=Math.abs(c[i]/c[i-1]-1),d2=Math.abs(c[i]/c[i+1]-1);
+      if(d1>0.06&&d2>0.06){
+        if(!(truthPx>0)||Math.abs(c[i]/truthPx-1)>0.06)c[i]=null;
+      }
+    }
+    const li=c.length-1;                                    // 線尾野點:與前點偏離>6% 且與最新真價矛盾 → 剔除
+    if(li>=1&&c[li]!=null&&c[li-1]!=null){
+      const dv=Math.abs(c[li]/c[li-1]-1);
+      if(dv>0.06&&truthPx>0&&Math.abs(c[li]/truthPx-1)>0.06){t.pop();c.pop();v.pop();}
+    }
+    return Object.assign({},d,{t,c,v});
+  }catch(e){return d;}
+}
 function padTail1330(d){                                   // r474:ECharts 備援引擎固定框架——補 null 空槽到 13:30(LWC 走 setVisibleRange,不吃這個)
   try{
     if(!d||!d.t||!d.t.length)return d;
@@ -5605,7 +5636,7 @@ async function loadIntraDetail(s,accOnly){
     try{const pv9=prevCloseOf(s);if(pv9>0)d.prev=+(+pv9).toFixed(2);}catch(e){}   // r468:昨收線總閘門
     try{d=gridIntra(d);if(window.__stkToday)d=capLast(d,s);}catch(e){}            // r469:時間軸等距化+線尾=最新價
     try{if(!window.LightweightCharts)d=padTail1330(d);}catch(e){}                 // r474:備援引擎固定框架
-    try{d.fixFrame=true;}catch(e){}                                               // r477:個股分線才鎖 09:00~13:30 框架
+    try{d=sanitizeIntra(d,+s.price||0);d.fixFrame=true;}catch(e){}                // r477/r479:消毒後才鎖框
   }
   window.__intraDrawT=Date.now();
   d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
@@ -5639,7 +5670,7 @@ function refreshIntraLight(s){
   try{const pv9=prevCloseOf(s);if(pv9>0)d.prev=+(+pv9).toFixed(2);}catch(e){}   // r468:昨收線總閘門
   try{d=gridIntra(d);d=capLast(d,s);}catch(e){}                                  // r469:時間軸等距化+線尾=最新價
   try{if(!window.LightweightCharts)d=padTail1330(d);}catch(e){}                   // r474:備援引擎固定框架
-  try{d.fixFrame=true;}catch(e){}                                                 // r477:個股分線才鎖框
+  try{d=sanitizeIntra(d,+s.price||0);d.fixFrame=true;}catch(e){}                  // r477/r479:消毒後才鎖框
   window.__intraDrawT=Date.now();
   d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
@@ -8392,6 +8423,44 @@ document.querySelectorAll('#fwSeg').forEach(fw=>{
     drawKChart();
   });
 }
+function indReadTxt(mode,o,closes){                        // r478:MACD/KD/RSI 白話判讀(規則化,非投資建議)
+  try{
+    const n=closes.length;if(n<30)return '';
+    const F=x=>(+x).toFixed(2);
+    const lastCross=(A,B)=>{                               // 回看最近 40 根內的金叉/死叉
+      for(let i=n-1;i>=Math.max(1,n-40);i--){
+        const a1=A[i]-B[i],a0=A[i-1]-B[i-1];
+        if(a0<=0&&a1>0)return {t:'gold',ago:n-1-i};
+        if(a0>=0&&a1<0)return {t:'dead',ago:n-1-i};
+      }return null;};
+    const agoTxt=x=>x.ago===0?'本根K':`${x.ago} 根K前`;
+    if(mode==='MACD'){
+      const m=macd(closes),dif=m.dif[n-1],dea=m.dea[n-1],bar=m.bar[n-1],bar0=m.bar[n-2]||0;
+      const x=lastCross(m.dif,m.dea),above=dif>dea;
+      const zero=(dif>0&&dea>0)?'雙線在零軸之上=多方架構':(dif<0&&dea<0)?'雙線仍在零軸之下=空方架構(此時的金叉多屬跌深反彈,力道要打折)':'雙線正於零軸附近換手,多空架構切換中';
+      const mom=bar>=0?(bar>=bar0?'紅柱持續擴大=上漲動能增強':'紅柱收斂=漲勢動能放緩,留意高檔轉弱')
+                      :(bar<=bar0?'綠柱持續擴大=下跌動能增強':'綠柱收斂=跌勢動能減弱,醞釀止跌');
+      return `<b>MACD 現在的意思</b>:DIF ${F(dif)} ${above?'在':'低於'} DEA ${F(dea)} ${above?'之上(偏多)':'之下(偏空)'}${x?`,${agoTxt(x)}剛${x.t==='gold'?'黃金交叉':'死亡交叉'}`:''};${zero};柱狀 ${F(bar)}——${mom}。`;
+    }
+    if(mode==='KD'){
+      const m=kdCalc(o),K=m.K[n-1],D=m.D[n-1];
+      const x=lastCross(m.K,m.D);
+      let zone=K>=80?'K 在 80 以上超買區——強勢股常「高檔鈍化」,超買≠必跌,轉弱訊號看 K 跌破 D 且跌破均線'
+              :K<=20?'K 在 20 以下超賣區——弱勢股也會「低檔鈍化」,超賣≠必漲,等 K 站回 D 上+帶量再看'
+              :K>=50?'位於 50 以上偏多半場':'位於 50 以下偏空半場';
+      const k3=m.K.slice(-3);
+      if(k3.length===3&&k3.every(v=>v>=80))zone='K 連 3 根站穩 80 以上=<b>高檔鈍化</b>——通常是主升段的強勢特徵,不因超買急著離場,防守改盯 D 線與月線';
+      if(k3.length===3&&k3.every(v=>v<=20))zone='K 連 3 根壓在 20 以下=<b>低檔鈍化</b>——主跌段特徵,搶反彈勝率差,等金叉+放量再評估';
+      return `<b>KD 現在的意思</b>:K ${F(K)} / D ${F(D)},K ${K>=D?'在 D 之上(偏多)':'在 D 之下(偏空)'}${x?`,${agoTxt(x)}剛${x.t==='gold'?'金叉':'死叉'}`:''};${zone}。`;
+    }
+    const r=rsiCalc(closes),v=r[n-1],v5=r[n-6]??v;
+    const dirn=v>v5+2?'走升(動能回溫)':v<v5-2?'走低(動能降溫)':'大致走平';
+    const zone=v>=70?'70 以上超買區——多頭強勢的表現,追價風險升高;跌回 70 以下是轉弱第一訊號'
+             :v<=30?'30 以下超賣區——重挫後的狀態,站回 30 以上才算止跌訊號'
+             :v>=50?'在 50 之上=買方掌控(50 是 RSI 的多空分界)':'在 50 之下=賣方掌控(50 是 RSI 的多空分界)';
+    return `<b>RSI 現在的意思</b>:RSI14 = ${F(v)},近 5 根${dirn};${zone}。`;
+  }catch(e){return '';}
+}
 function kChartBoxHTML(){
   return `<div class="chart-box">
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
@@ -8669,6 +8738,18 @@ function drawKChart(){
     indSeries=[subLine('K9',m.K,'#E8B44A'),subLine('D9',m.D,'#7FB4FF')];}
   else{indSeries=[subLine('RSI14',rsiCalc(closes),'#E8B44A'),
     subLine('中線50',closes.map(()=>50),'#5A6478')];}
+  try{setTimeout(()=>{try{                                  // r478:副圖下方注入「現在代表什麼」白話判讀
+    const kb=document.getElementById('kbox');
+    const host=kb?kb.closest('.chart-box'):null;
+    if(!host)return;
+    let nb=document.getElementById('indRead');
+    if(!nb){nb=document.createElement('div');nb.id='indRead';
+      nb.style.cssText='margin:6px 2px 0;padding:8px 11px;background:var(--panel2);border-radius:9px;font-size:12.5px;line-height:1.65;color:var(--txt2)';
+      host.appendChild(nb);}
+    const tx=indReadTxt(indMode,o,closes);
+    nb.innerHTML=tx?tx+' <span class="dim-note">指標是溫度計不是訊號機,請與價量/均線互相印證;非投資建議。</span>':'';
+    nb.style.display=tx?'':'none';
+  }catch(e){}},0);}catch(e){}
   chartInst.setOption({
     backgroundColor:'transparent',animation:false,
     textStyle:{fontFamily:'IBM Plex Mono,monospace'},
