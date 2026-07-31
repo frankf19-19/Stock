@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r481 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r482 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1406,7 +1406,7 @@ async function refreshUSLive(){          // 已退役(四卡改 TV 即時)
     if(nm&&nm.textContent.indexOf('⚡')<0)nm.insertAdjacentHTML('afterbegin','<span title="Finnhub 秒級即時(ETF換算)" style="color:var(--amber)">⚡</span>');
   }
 }
-setInterval(refreshUSLive,15000);
+/* r482:refreshUSLive 已退役(美股四卡改 TV 即時),移除每15秒空轉註冊 */
 setTimeout(refreshUSLive,8000);
 function fhDetailLive(key,def){          // 指數詳情頁秒級層(約10秒一跳)
   if(!FH_ETF[key])return;
@@ -1518,7 +1518,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r481</span>');
+  diag.push('<span style="color:var(--dim)">build r482</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5460,6 +5460,7 @@ async function seedStk(s){
   }catch(e){}
 }
 async function loadIntraDetail(s,accOnly){
+  const __seq=(window.__intraSeq=(window.__intraSeq||0)+1);   // r482:併發競態防護——舊呼叫不得覆蓋新呼叫
   if(window.__tvMode){                                     // r481:旗標自我驗證——TV 確實掛在本檔才讓路
     const e0=document.getElementById('intraChart');
     if(e0&&s&&e0.dataset.tvfor===s.id)return;              // TV 正掛在本檔 → 尊重使用者選擇
@@ -5643,6 +5644,7 @@ async function loadIntraDetail(s,accOnly){
     try{if(!window.LightweightCharts)d=padTail1330(d);}catch(e){}                 // r474:備援引擎固定框架
     try{d=sanitizeIntra(d,+s.price||0);d.fixFrame=true;}catch(e){}                // r477/r479:消毒後才鎖框
   }
+  if(__seq!==window.__intraSeq)return;                     // r482:期間有更新的呼叫進來 → 本輪放棄,不覆蓋
   window.__intraDrawT=Date.now();
   d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
@@ -9242,7 +9244,10 @@ async function showDetail(id){
   try{wireDcf();}catch(e){}
   try{setTimeout(foldInit,700);}catch(e){}
   try{setTimeout(wireSegRelocate,950);}catch(e){}
-  try{clearInterval(window.__segRelT);window.__segRelT=setInterval(wireSegRelocate,2500);}catch(e){}
+  try{clearInterval(window.__segRelT);window.__segRelT=setInterval(()=>{
+    if(!location.hash.startsWith('#stock/')){clearInterval(window.__segRelT);return;}   // r482:離開個股頁自動停止
+    wireSegRelocate();
+  },2500);}catch(e){}
   try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
     const h=document.getElementById('dcfBody');
     if(h&&window.__dcfS&&!h.innerHTML.includes('估值引力')){
