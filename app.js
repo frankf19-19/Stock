@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r480 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r481 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1518,7 +1518,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r480</span>');
+  diag.push('<span style="color:var(--dim)">build r481</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1543,13 +1543,13 @@ function tvToggle(){
   }
   if(window.__tvMode){                          // 切回站內圖
     window.__tvMode=false;
+    try{const e9=document.getElementById('intraChart');if(e9)delete e9.dataset.tvfor;}catch(e){}
     if(btn)btn.textContent='📺 TV 全能圖';
-    
     loadIntraDetail(s);
-  window.__tvMode=false;   // 每次進個股一律預設站內圖(TV 需手動點,不自動記憶,避免混淆)
     return;
   }
   window.__tvMode=true;
+  try{const e9=document.getElementById('intraChart');if(e9)e9.dataset.tvfor=s.id;}catch(e){}   // r481:記錄TV掛載對象
   if(btn)btn.textContent='↩ 站內走勢';
   
   const sym=s.market==='TW'?((s.ex==='otc'?'TPEX:':'TWSE:')+s.id):s.id;   // 美股裸代號由 TV 自動解析
@@ -5460,7 +5460,11 @@ async function seedStk(s){
   }catch(e){}
 }
 async function loadIntraDetail(s,accOnly){
-  if(window.__tvMode)return;
+  if(window.__tvMode){                                     // r481:旗標自我驗證——TV 確實掛在本檔才讓路
+    const e0=document.getElementById('intraChart');
+    if(e0&&s&&e0.dataset.tvfor===s.id)return;              // TV 正掛在本檔 → 尊重使用者選擇
+    window.__tvMode=false;                                 // 殘留旗標(看過別檔TV後切頁)→ 清除,照常畫站內圖
+  }
   try{await ensureLWC();}catch(e){}   // 📈 優先載 TradingView 開源引擎,載不到自動退 ECharts             // 📺 TV 模式中:站內走勢暫停重畫,避免互蓋
   const box=document.getElementById('intraChart');
   if(!box)return;
