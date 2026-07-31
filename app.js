@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r483 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r484 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1518,7 +1518,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r483</span>');
+  diag.push('<span style="color:var(--dim)">build r484</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6346,23 +6346,49 @@ function stkForceUI(s){
       return;
     }
     if(!(await ensureECharts()))return;
-    const times=a.t.map(ts=>{const d=new Date(ts*1000),p=n=>String(n).padStart(2,'0');
-      return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());});   // r483:資料6秒一點,精確到秒(tooltip 用)
-    const big=forceCum(a.bb),sm=forceCum(a.sb);
+    // r484:看盤軟體式三欄布局——每分鐘彙整:分時大戶淨額柱 + 大戶累積柱 + 散戶累積柱(紅買綠賣)
+    const bk=new Map();
+    for(let i=0;i<a.t.length;i++){
+      const d0=new Date(a.t[i]*1000),p=n=>String(n).padStart(2,'0');
+      const k=p(d0.getHours())+':'+p(d0.getMinutes());
+      const o0=bk.get(k)||{bb:0,sb:0};
+      o0.bb+=(a.bb[i]||0);o0.sb+=(a.sb[i]||0);
+      bk.set(k,o0);
+    }
+    const times=[...bk.keys()];
+    const minBig=times.map(k=>+bk.get(k).bb.toFixed(0));
+    const minSm=times.map(k=>+bk.get(k).sb.toFixed(0));
+    const cum9=arr=>{let s2=0;return arr.map(v=>+(s2+=v).toFixed(0));};
+    const cumBig=cum9(minBig),cumSm=cum9(minSm);
+    const UP9='#C62828',DN9='#0B7A4B';
+    const barSty=v=>({value:v,itemStyle:{color:v>=0?UP9:DN9}});
     let ch=el.__ec;
+    if(el.style.height!=='340px'){el.style.height='340px';}
     if(!ch){el.innerHTML='';ch=echarts.init(el);el.__ec=ch;}
-    ch.setOption({animation:false,grid:{left:52,right:14,top:26,bottom:24},
-      legend:{data:['大戶(累積)','散戶(累積)'],top:0,textStyle:{fontSize:11}},
-      tooltip:{trigger:'axis'},
-      xAxis:{type:'category',data:times,axisLabel:{fontSize:10,formatter:v=>v.slice(0,5),
-        interval:(i)=>i===0||times[i].slice(0,5)!==times[i-1].slice(0,5)}},   // r483:軸標籤每分鐘只標一次,不再連續重複 09:02
-      yAxis:{type:'value',name:'淨買賣(張)',nameTextStyle:{fontSize:10},splitLine:{lineStyle:{opacity:.25}}},
-      series:[{name:'大戶(累積)',type:'line',data:big,showSymbol:false,lineStyle:{width:2,color:'#c0392b'},itemStyle:{color:'#c0392b'}},
-              {name:'散戶(累積)',type:'line',data:sm,showSymbol:false,lineStyle:{width:2,color:'#2e8b57'},itemStyle:{color:'#2e8b57'}}]},true);
+    ch.setOption({animation:false,
+      axisPointer:{link:[{xAxisIndex:'all'}]},
+      tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+      title:[{text:'分時大戶買賣力(每分鐘淨額)',left:56,top:0,textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}},
+             {text:'大戶買賣力(累積)',left:56,top:'34%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}},
+             {text:'散戶買賣力(累積)',left:56,top:'68%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}}],
+      grid:[{left:56,right:14,top:20,height:'23%'},
+            {left:56,right:14,top:'40%',height:'22%'},
+            {left:56,right:14,top:'74%',height:'19%'}],
+      xAxis:[0,1,2].map(i=>({type:'category',gridIndex:i,data:times,
+        axisLabel:{show:i===2,fontSize:10},axisTick:{show:false},
+        axisLine:{lineStyle:{opacity:.4}}})),
+      yAxis:[0,1,2].map(i=>({type:'value',gridIndex:i,name:i===0?'張':'',nameTextStyle:{fontSize:9},
+        axisLabel:{fontSize:10},splitLine:{lineStyle:{opacity:.18}}})),
+      series:[
+        {name:'分時大戶',type:'bar',xAxisIndex:0,yAxisIndex:0,data:minBig.map(barSty),barWidth:'62%'},
+        {name:'大戶累積',type:'bar',xAxisIndex:1,yAxisIndex:1,data:cumBig.map(barSty),barWidth:'62%'},
+        {name:'散戶累積',type:'bar',xAxisIndex:2,yAxisIndex:2,data:cumSm.map(barSty),barWidth:'62%'}
+      ]},true);
+    try{ch.resize();}catch(e){}
     if(note){
-      const bl=big[big.length-1]||0,sl=sm[sm.length-1]||0;
+      const bl=cumBig[cumBig.length-1]||0,sl=cumSm[cumSm.length-1]||0;
       const lab=v=>(v>0?'淨買 +':v<0?'淨賣 ':'持平 ')+Math.abs(v)+' 張';
-      note.innerHTML=`<b>大戶:</b><span style="color:${bl>=0?'var(--down)':'var(--up)'}">${lab(bl)}</span> · <b>散戶:</b><span style="color:${sl>=0?'var(--down)':'var(--up)'}">${lab(sl)}</span><span style="color:var(--dim)"> · 成交價貼賣=買力+、貼買=賣壓-;單筆(6秒)金額≥500萬歸大戶。近似值,供方向判讀。</span>`;
+      note.innerHTML=`<b>大戶:</b><span style="color:${bl>=0?'var(--up)':'var(--down)'}">${lab(bl)}</span> · <b>散戶:</b><span style="color:${sl>=0?'var(--up)':'var(--down)'}">${lab(sl)}</span><span style="color:var(--dim)"> · 紅柱=淨買、綠柱=淨賣;成交價貼賣=買力+、貼買=賣壓-;單筆(6秒)金額≥500萬歸大戶。近似值,供方向判讀。</span>`;   // r484:配色改台股慣例(紅買綠賣;原本相反)
     }
   };
   draw();
