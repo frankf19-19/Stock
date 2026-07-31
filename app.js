@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r484 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r486 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1509,7 +1509,7 @@ async function refreshLive(auto){
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
-      diag.push(`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}`);}catch(e){}
+      diag.push(`<span id="diagIdxMis"><span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}</span>`);}catch(e){}
   try{const n=(window.__rtOkN||0),ts=window.__rtOkT||0;
     const fresh=ts&&(Date.now()-ts<90000);
     diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
@@ -1518,7 +1518,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r484</span>');
+  diag.push('<span style="color:var(--dim)">build r486</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4404,12 +4404,21 @@ function idxBoot(){
 setTimeout(idxBoot,1200);
 /* 🌄 指數全日分線回補:MIS getChartOhlcStatis(tse_t00/otc_o00)
    中途開頁也能瞬間補全 09:00 起完整走勢——不再只有開頁後累積的一小段 */
+function updIdxDiagBar(){try{                             // r486:指數回補診斷即時化(原為開機一次性快照,永遠顯示「尚未執行」)
+  const el=document.getElementById('diagIdxMis');if(!el)return;
+  const g=window.__idxDiag||{};
+  el.innerHTML=`<span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}${g.run?` · 上次執行 ${g.run}`:''}`;
+}catch(e){}}
+setInterval(updIdxDiagBar,30000);
 async function refreshIdxMis(){
-  try{await idxBoot();}catch(e){}                      // 先等櫃買頻道探測(OTC_CH)
+  window.__idxDiag=window.__idxDiag||{};
+  window.__idxDiag.run=new Date().toLocaleTimeString('zh-TW',{hour12:false});   // r486:執行證據——有跑必留時間戳
+  try{await Promise.race([idxBoot(),new Promise(r=>setTimeout(r,4000))]);}catch(e){}   // r486:探測上限4秒,夜間休眠不陪葬
   IDX.misD=IDX.misD||{};
   for(const key of ['tw','otc']){
     try{
-      const ch=key==='tw'?'tse_t00.tw':OTC_CH;
+      window.__idxDiag[key]='執行中…';                  // r486:先寫再做——之後任何一步炸掉都看得到卡在哪
+      const ch=key==='tw'?'tse_t00.tw':(typeof OTC_CH!=='undefined'&&OTC_CH?OTC_CH:null);
       const acc=accOf(key);
       // 昨收基準:MIS 累積的 y → idxBoot 存的 → 即時報價現問 → yext 備援
       let prev=acc.prev||(key==='otc'&&IDX.mis&&IDX.mis.prev)||null;
@@ -4420,7 +4429,8 @@ async function refreshIdxMis(){
       if(!prev&&IDX.d[key]&&IDX.d[key].prev)prev=IDX.d[key].prev;
       window.__idxDiag=window.__idxDiag||{};
       if(!prev){window.__idxDiag[key]='無昨收基準';continue;}
-      let d=await misOhlcCore(ch,prev);
+      let d=ch?await misOhlcCore(ch,prev):null;
+      if(!ch)window.__idxDiag[key]='頻道未探測(夜間MIS休眠)→改走備援';
       let via='MIS全日';
       if((!d||d.c.length<5)&&key==='tw'){d=await twse5sIdx(prev);via='官方5秒';}   // 加權第二備援:證交所官方端點
       if((!d||d.c.length<5)&&key==='otc'){
@@ -4475,8 +4485,10 @@ async function refreshIdxMis(){
         }catch(e2){}
         if(!fixed)window.__idxDiag[key]=(window.__idxDiag[key]&&window.__idxDiag[key].includes('點'))?window.__idxDiag[key]:'回補失敗(端點/代理均不通)';
       }
-    }catch(e){}
+    }catch(e){try{window.__idxDiag[key]='例外:'+String(e).slice(0,70);}catch(_){}}   // r486:例外浮上檯面
   }
+  try{updIdxDiagBar();}catch(e){}
+  try{if(IDX.sel==='tw'||IDX.sel==='otc')drawIdxSel();}catch(e){}   // r486:回補完成即重畫當前分頁
 }
 /* 📱 PWA:註冊 Service Worker + 「安裝 App」入口 */
 try{if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');}catch(e){}
@@ -4498,7 +4510,13 @@ function pwaInstall(){
            :'請用 Chrome/Edge 開啟本站,網址列右側會出現「安裝」圖示;或瀏覽器選單 → 安裝應用程式。');
 }
 setTimeout(refreshIdxMis,2600);
-setInterval(()=>{if(openish())refreshIdxMis();},60000);
+setInterval(()=>{try{
+  const ok9=k=>{const m=(IDX.misD||{})[k];return m&&Array.isArray(m.c)&&m.c.length>5;};
+  if(openish()){refreshIdxMis();return;}
+  if((!ok9('tw')||!ok9('otc'))&&Date.now()-(window.__idxMisT||0)>5*60e3){   // r486:盤外自癒
+    window.__idxMisT=Date.now();refreshIdxMis();
+  }
+}catch(e){}},60000);
 /* 櫃買分線第三備援:上櫃 ETF(006201)分線 × 指數比例換算(ETF 追蹤指數,形狀一致) */
 async function otcFromETF(){
   await idxBoot();
@@ -6331,68 +6349,69 @@ function stkForceFromMIS(id,m,last){   // 🥊 內外盤力道(近似):成交貼
   }catch(e){}
 }
 function forceCum(arr){const out=[];let s2=0;(arr||[]).forEach(v=>{s2+=(v||0);out.push(+s2.toFixed(0));});return out;}
-function stkForceUI(s){
+function stkForceUI(s){                                   // r485:每日版——分時資料源不可得,改用盤後法人+集保大戶(站上最可靠的大戶視角)
   try{clearInterval(window.__fTm);}catch(e){}
   const draw=async()=>{
-    if(!location.hash.includes(s.id)){try{clearInterval(window.__fTm);}catch(e){}return;}
+    if(!location.hash.includes(s.id))return;
     const el=document.getElementById('forceBox');
     if(!el)return;
-    const a=(typeof stkAcc==='function')?stkAcc(s.id):null;
-    const has=a&&a.t&&a.t.length>1&&((a.bb||[]).some(x=>x)||(a.sb||[]).some(x=>x));
     const note=document.getElementById('forceNote');
-    if(!has){
-      el.innerHTML='<div class="dim-note" style="padding-top:76px;text-align:center;color:var(--dim)">盤中開啟本頁後開始即時累積,<b>當日會自動保存</b>——重新整理或收盤後回來看都還在。<br>免費來源無逐筆資料(以 6 秒輪詢金額分類近似);未開頁的時段無法回補,明日開盤記得把頁面掛著。</div>';
+    let e=null;
+    try{e=await loadChips(s);}catch(e2){}
+    if(location.hash!=='#stock/'+s.id)return;
+    const n=e&&Array.isArray(e.d)?e.d.length:0;
+    if(!n||!Array.isArray(e.f)){
+      el.style.height='110px';
+      el.innerHTML='<div class="dim-note" style="padding-top:40px;text-align:center">此檔法人日資料累積中(每日盤後自動更新後逐步補齊)。</div>';
       if(note)note.textContent='';
       return;
     }
     if(!(await ensureECharts()))return;
-    // r484:看盤軟體式三欄布局——每分鐘彙整:分時大戶淨額柱 + 大戶累積柱 + 散戶累積柱(紅買綠賣)
-    const bk=new Map();
-    for(let i=0;i<a.t.length;i++){
-      const d0=new Date(a.t[i]*1000),p=n=>String(n).padStart(2,'0');
-      const k=p(d0.getHours())+':'+p(d0.getMinutes());
-      const o0=bk.get(k)||{bb:0,sb:0};
-      o0.bb+=(a.bb[i]||0);o0.sb+=(a.sb[i]||0);
-      bk.set(k,o0);
-    }
-    const times=[...bk.keys()];
-    const minBig=times.map(k=>+bk.get(k).bb.toFixed(0));
-    const minSm=times.map(k=>+bk.get(k).sb.toFixed(0));
-    const cum9=arr=>{let s2=0;return arr.map(v=>+(s2+=v).toFixed(0));};
-    const cumBig=cum9(minBig),cumSm=cum9(minSm);
+    const N=Math.min(60,n);
+    const dts=e.d.slice(-N).map(x=>String(x).slice(5).replace('-','/'));
+    const tot=[];for(let i=n-N;i<n;i++)tot.push(Math.round((+e.f[i]||0)+((e.t&&+e.t[i])||0)+((e.g&&+e.g[i])||0)));
+    let s2=0;const cum=tot.map(v=>(s2+=v));
+    const hasBd=Array.isArray(e.bd)&&e.bd.length>=2&&Array.isArray(e.bp)&&e.bp.length===e.bd.length;
     const UP9='#C62828',DN9='#0B7A4B';
     const barSty=v=>({value:v,itemStyle:{color:v>=0?UP9:DN9}});
+    el.style.height=hasBd?'360px':'260px';
     let ch=el.__ec;
-    if(el.style.height!=='340px'){el.style.height='340px';}
     if(!ch){el.innerHTML='';ch=echarts.init(el);el.__ec=ch;}
+    const grids=hasBd
+      ?[{left:60,right:16,top:22,height:'22%'},{left:60,right:16,top:'38%',height:'22%'},{left:60,right:16,top:'73%',height:'20%'}]
+      :[{left:60,right:16,top:22,height:'34%'},{left:60,right:16,top:'56%',height:'32%'}];
+    const titles=[{text:`三大法人每日買賣超(近 ${N} 個交易日,張)`,left:60,top:0,textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}},
+                  {text:'區間累積買賣超(張)——大戶方向',left:60,top:hasBd?'33%':'50%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}}];
+    if(hasBd)titles.push({text:'集保千張大戶持股比(週,%)——反向即散戶',left:60,top:'68%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}});
+    const xAxes=[{type:'category',gridIndex:0,data:dts,axisLabel:{show:!hasBd&&false,fontSize:10},axisTick:{show:false}},
+                 {type:'category',gridIndex:1,data:dts,axisLabel:{show:true,fontSize:10},axisTick:{show:false}}];
+    const yAxes=[{type:'value',gridIndex:0,axisLabel:{fontSize:10},splitLine:{lineStyle:{opacity:.18}}},
+                 {type:'value',gridIndex:1,axisLabel:{fontSize:10},splitLine:{lineStyle:{opacity:.18}}}];
+    const series=[
+      {name:'法人日買賣超',type:'bar',xAxisIndex:0,yAxisIndex:0,data:tot.map(barSty),barWidth:'62%'},
+      {name:'區間累積',type:'bar',xAxisIndex:1,yAxisIndex:1,data:cum.map(v=>barSty(Math.round(v))),barWidth:'62%'}];
+    if(hasBd){
+      const bdD=e.bd.map(x=>String(x).slice(5).replace('-','/'));
+      xAxes.push({type:'category',gridIndex:2,data:bdD,axisLabel:{fontSize:10},axisTick:{show:false}});
+      yAxes.push({type:'value',gridIndex:2,scale:true,axisLabel:{fontSize:10,formatter:'{value}%'},splitLine:{lineStyle:{opacity:.18}}});
+      series.push({name:'千張大戶%',type:'line',xAxisIndex:2,yAxisIndex:2,data:e.bp.map(v=>+(+v).toFixed(2)),
+        showSymbol:true,symbolSize:5,lineStyle:{width:2,color:'#A9750D'},itemStyle:{color:'#A9750D'}});
+    }
     ch.setOption({animation:false,
-      axisPointer:{link:[{xAxisIndex:'all'}]},
       tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
-      title:[{text:'分時大戶買賣力(每分鐘淨額)',left:56,top:0,textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}},
-             {text:'大戶買賣力(累積)',left:56,top:'34%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}},
-             {text:'散戶買賣力(累積)',left:56,top:'68%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}}],
-      grid:[{left:56,right:14,top:20,height:'23%'},
-            {left:56,right:14,top:'40%',height:'22%'},
-            {left:56,right:14,top:'74%',height:'19%'}],
-      xAxis:[0,1,2].map(i=>({type:'category',gridIndex:i,data:times,
-        axisLabel:{show:i===2,fontSize:10},axisTick:{show:false},
-        axisLine:{lineStyle:{opacity:.4}}})),
-      yAxis:[0,1,2].map(i=>({type:'value',gridIndex:i,name:i===0?'張':'',nameTextStyle:{fontSize:9},
-        axisLabel:{fontSize:10},splitLine:{lineStyle:{opacity:.18}}})),
-      series:[
-        {name:'分時大戶',type:'bar',xAxisIndex:0,yAxisIndex:0,data:minBig.map(barSty),barWidth:'62%'},
-        {name:'大戶累積',type:'bar',xAxisIndex:1,yAxisIndex:1,data:cumBig.map(barSty),barWidth:'62%'},
-        {name:'散戶累積',type:'bar',xAxisIndex:2,yAxisIndex:2,data:cumSm.map(barSty),barWidth:'62%'}
-      ]},true);
-    try{ch.resize();}catch(e){}
+      title:titles,grid:grids,xAxis:xAxes,yAxis:yAxes,series},true);
+    try{ch.resize();}catch(e2){}
     if(note){
-      const bl=cumBig[cumBig.length-1]||0,sl=cumSm[cumSm.length-1]||0;
-      const lab=v=>(v>0?'淨買 +':v<0?'淨賣 ':'持平 ')+Math.abs(v)+' 張';
-      note.innerHTML=`<b>大戶:</b><span style="color:${bl>=0?'var(--up)':'var(--down)'}">${lab(bl)}</span> · <b>散戶:</b><span style="color:${sl>=0?'var(--up)':'var(--down)'}">${lab(sl)}</span><span style="color:var(--dim)"> · 紅柱=淨買、綠柱=淨賣;成交價貼賣=買力+、貼買=賣壓-;單筆(6秒)金額≥500萬歸大戶。近似值,供方向判讀。</span>`;   // r484:配色改台股慣例(紅買綠賣;原本相反)
+      const last=tot[tot.length-1]||0,c=Math.round(cum[cum.length-1]||0);
+      const lab=v=>(v>0?'淨買 +':v<0?'淨賣 ':'持平 ')+Math.abs(v).toLocaleString()+' 張';
+      let bdTxt='';
+      if(hasBd){const b1=+e.bp[e.bp.length-1],b0=+e.bp[e.bp.length-2];
+        bdTxt=` · <b>千張大戶</b> ${b1.toFixed(2)}%(週${b1>=b0?'+':''}${(b1-b0).toFixed(2)})——升=大戶吸籌、降=大戶出貨/散戶接手`;}
+      note.innerHTML=`<b>最新交易日法人:</b><span style="color:${last>=0?'var(--up)':'var(--down)'}">${lab(last)}</span> · <b>近 ${N} 日累積:</b><span style="color:${c>=0?'var(--up)':'var(--down)'}">${lab(c)}</span>${bdTxt}<span style="color:var(--dim)"> · 紅=淨買、綠=淨賣;免費來源無分點大戶逐筆,以法人+集保為大戶視角。</span>`;
     }
   };
   draw();
-  window.__fTm=setInterval(draw,15000);
+  window.__fTm=setInterval(draw,10*60*1000);              // 盤後資料:10 分鐘檢查一次即可
 }
 function candleFromMIS(id,m,last){
   const o=parseFloat(m.o),h=parseFloat(m.h),l=parseFloat(m.l),y=parseFloat(m.y);
@@ -9125,7 +9144,7 @@ async function showDetail(id){
     <div id="divTL" data-jumpname="📅 除權息與配息"></div>
     </div>
     ${s.etf?etfSec(s):''}
-    ${s.market==='TW'?`<div class="sec-title" data-sec="stk_f">⚖️ 大戶/散戶買賣力 <span style="font-weight:400;font-size:13px;letter-spacing:0">盤中即時累積・6秒近似・單筆≥500萬=大單</span></div><div class="sec-body" id="sb-stk_f"><div id="forceBox" style="height:230px"></div><div class="dim-note" id="forceNote"></div></div>`:''}
+    ${s.market==='TW'?`<div class="sec-title" data-sec="stk_f">⚖️ 大戶買賣力(每日) <span style="font-weight:400;font-size:13px;letter-spacing:0">三大法人日買賣超・區間累積・集保千張大戶週趨勢</span></div><div class="sec-body" id="sb-stk_f"><div id="forceBox" style="height:230px"></div><div class="dim-note" id="forceNote"></div></div>`:''}
     ${(()=>{const ch=confHTML(s);return `<div class="sec-title" data-sec="stk_conf">📣 法說會專區 <span style="font-weight:400;font-size:13px;letter-spacing:0">排程・公司擇要重點・站內解讀・相關報導</span></div><div class="sec-body" id="sb-stk_conf">${ch||'<div class="dim-note" style="padding:14px 4px">此檔目前無已排程或近期召開的法說會資料——公司公告法說後,每日更新會自動帶入排程與站內解讀。</div>'}</div>`})()}
     <div class="sec-title" data-sec="stk_ai">🤖 AI 綜合研判・投資策略 <span style="font-weight:400;font-size:13px;letter-spacing:0">規則化研判・投資論點・進出場規劃</span></div><div class="sec-body" id="sb-stk_ai">
     ${s.etf?'':(()=>{const v=aiVerdict(s);return `
