@@ -15,6 +15,37 @@ UA    = {"User-Agent": "Mozilla/5.0 (gooaye-digest; personal dashboard)"}
 def log(*a): print(*a, flush=True)
 
 def newest_episode():
+    """r494:改走節目 RSS(權威源、零快取延遲;前端就是這樣即時看到新集的)。
+       Apple episode lookup 有數小時邊緣快取,曾造成 EP684 上片10小時後端仍看到 EP683。"""
+    try:
+        j = requests.get(f"https://itunes.apple.com/lookup?id={GA_ID}",
+                         headers=UA, timeout=20).json()
+        feed = ((j.get("results") or [{}])[0]).get("feedUrl")
+        if feed:
+            xml = requests.get(feed, headers=UA, timeout=25).text
+            m = re.search(r"<item>(.*?)</item>", xml, re.S)          # RSS 首項=最新集
+            if m:
+                blk = m.group(1)
+                def tag(t):
+                    mm = re.search(rf"<{t}[^>]*>(.*?)</{t}>", blk, re.S)
+                    v = (mm.group(1) if mm else "").strip()
+                    v = re.sub(r"^<!\[CDATA\[(.*)\]\]>$", r"\1", v, flags=re.S).strip()
+                    return v
+                title = tag("title")
+                enc = (re.search(r'<enclosure[^>]*url="([^"]+)"', blk) or [None, ""])[1]
+                link = tag("link")
+                pub = tag("pubDate")
+                iso = ""
+                try:
+                    from email.utils import parsedate_to_datetime
+                    iso = parsedate_to_datetime(pub).strftime("%Y-%m-%dT%H:%M:%SZ")
+                except Exception: pass
+                if title:
+                    log(f"  RSS 最新集:{title}")
+                    return {"trackName": title, "releaseDate": iso,
+                            "episodeUrl": enc, "trackViewUrl": link or enc}
+    except Exception as e:
+        log(f"  RSS 路失敗({e}),退回 iTunes episode lookup")
     j = requests.get(f"https://itunes.apple.com/lookup?id={GA_ID}&entity=podcastEpisode&limit=5&country=tw",
                      headers=UA, timeout=20).json()
     eps = [x for x in j.get("results", []) if x.get("kind") == "podcast-episode"]
