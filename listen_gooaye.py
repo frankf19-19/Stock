@@ -1,8 +1,9 @@
 """股癌最新集自動聆聽整理 → gooaye.json
-流程:iTunes 查最新集 → 同集已整理過就直接結束(零成本)→ 找 YouTube 版
-      → Gemini 聽完全集 → 寫入 gooaye.json 供前端秒開。
-需要 Secret:GEMINI_KEY(免費 Gemini 金鑰)。排程:每 4 小時(gooaye.yml)。"""
-import json, os, re, sys
+流程:iTunes 查最新集 → 同集已整理過就直接結束(零成本)
+      → 優先找 YouTube 版;找不到(機房被 YouTube 擋是常態)→ 路線C:
+        iTunes episodeUrl 直下 mp3 → Gemini Files API 上傳 → 聆聽整理。
+需要 Secret:GEMINI_KEY(免費 Gemini 金鑰)。排程:每 2 小時(gooaye.yml)。"""
+import json, os, re, sys, time
 import requests
 
 GA_ID = "1500839292"
@@ -80,9 +81,47 @@ def youtube_url(ep_no):
         log(f"  路線B失敗:{e}")
     return None
 
+def gemini_upload_audio(mp3_url):
+    """路線C:下載 podcast mp3 → Gemini Files API resumable 上傳 → 等 ACTIVE → 回 (uri, mime)"""
+    log(f"  路線C:下載音檔 {mp3_url[:90]}…")
+    ar = requests.get(mp3_url, headers=UA, timeout=300)
+    ar.raise_for_status()
+    data = ar.content
+    mime = (ar.headers.get("Content-Type", "audio/mpeg").split(";")[0].strip()) or "audio/mpeg"
+    if not mime.startswith("audio/"): mime = "audio/mpeg"
+    log(f"  音檔 {len(data)/1e6:.1f} MB({mime}),上傳 Gemini Files…")
+    r = requests.post(
+        f"https://generativelanguage.googleapis.com/upload/v1beta/files?key={KEY}",
+        headers={"X-Goog-Upload-Protocol": "resumable", "X-Goog-Upload-Command": "start",
+                 "X-Goog-Upload-Header-Content-Length": str(len(data)),
+                 "X-Goog-Upload-Header-Content-Type": mime,
+                 "Content-Type": "application/json"},
+        json={"file": {"display_name": "gooaye_ep"}}, timeout=60)
+    up = r.headers.get("X-Goog-Upload-URL") or r.headers.get("x-goog-upload-url")
+    if not up:
+        log(f"  ✗ Files 起始失敗 {r.status_code}: {r.text[:200]}"); return None, None
+    r2 = requests.post(up, headers={"X-Goog-Upload-Command": "upload, finalize",
+                                    "X-Goog-Upload-Offset": "0"},
+                       data=data, timeout=900)
+    fj = (r2.json() or {}).get("file", {})
+    name, uri, state = fj.get("name"), fj.get("uri"), fj.get("state")
+    for _ in range(60):                                   # 等處理完成(長音檔約數十秒~數分)
+        if state == "ACTIVE": break
+        time.sleep(6)
+        try:
+            fj = requests.get(f"https://generativelanguage.googleapis.com/v1beta/{name}?key={KEY}",
+                              timeout=30).json()
+            state = fj.get("state")
+        except Exception: pass
+    if state != "ACTIVE":
+        log(f"  ✗ 音檔處理未完成(state={state})"); return None, None
+    log("  ✓ 音檔就緒")
+    return (fj.get("uri") or uri), mime
+
 def listen(yt, title):
     body = {"contents": [{"role": "user", "parts": [
-        {"file_data": {"file_uri": yt}},
+        ({"file_data": {"file_uri": yt[0], "mime_type": yt[1]}} if isinstance(yt, tuple)
+         else {"file_data": {"file_uri": yt}}),
         {"text": f"""請完整聽完這一集台股 Podcast「股癌」({title}),用繁體中文寫一份「聽完可以不用再聽」等級的詳細整理,總長 800~1500 字,直接開始不要開場白。
 
 格式要求:
@@ -125,15 +164,26 @@ def main():
     if not ep_no:
         log("⚠ 標題無集數編號,跳過"); return
     yt = youtube_url(ep_no)
-    if not yt:
-        log("⚠ YouTube 版尚未上架,下次排程再試。"); return
-    log(f"YouTube:{yt},開始聆聽(50 分鐘節目約需 1~3 分鐘)…")
-    s = listen(yt, title)
+    src = yt
+    link = yt
+    if not yt:                                            # r492 路線C:YouTube 全被擋也照樣整理
+        mp3 = ep.get("episodeUrl") or ""
+        if not mp3:
+            log("⚠ YouTube 未找到且 iTunes 無音檔直鏈,下次排程再試。"); return
+        uri, mime = gemini_upload_audio(mp3)
+        if not uri:
+            log("✗ 路線C上傳失敗,下次排程再試。"); return
+        src = (uri, mime)
+        link = ep.get("trackViewUrl") or mp3              # 前端「原頁面」改連 Apple 集頁
+        log("以音檔直讀模式聆聽…")
+    else:
+        log(f"YouTube:{yt},開始聆聽(50 分鐘節目約需 1~3 分鐘)…")
+    s = listen(src, title)
     if not s:
         log("✗ 空回應"); sys.exit(1)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump({"v": 3, "t": title, "ep": ep_no, "dt": ep.get("releaseDate", ""),
-                   "yt": yt, "s": s}, f, ensure_ascii=False)
+                   "yt": link, "s": s}, f, ensure_ascii=False)
     log(f"完成:gooaye.json({len(s)} 字)")
 
 if __name__ == "__main__":

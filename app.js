@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r490 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r492 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r490</span>');
+  diag.push('<span style="color:var(--dim)">build r492</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13609,6 +13609,13 @@ async function loadTdcc(s){
       </div>
       ${one?'':'<div id="tdccChart" style="height:220px"></div>'}
       <div style="overflow-x:auto;margin-top:8px"><div style="display:grid;grid-template-columns:70px repeat(3,1fr);min-width:360px">
+        ${(()=>{try{                                    // r491:資料時效說明+過期警示
+          const lastD=wk[wk.length-1].d;
+          const ageD=Math.round((Date.now()-new Date(lastD+'T00:00:00+08:00').getTime())/86400000);
+          return ageD>9
+            ?`<div style="grid-column:1/-1;font-size:12px;color:#C62828;font-weight:800;padding:2px 0">⚠ 集保資料已 ${ageD} 天未更新(最新週 ${lastD.slice(5)})——TDCC 官方換檔延遲或後端週更異常,將自動重試(週六全天每2小時)。</div>`
+            :`<div style="grid-column:1/-1;font-size:11.5px;color:var(--dim);padding:2px 0">資料至 ${lastD.slice(5)}(週資料)・TDCC 每週六釋出上週集保結算,站台週六全天自動抓取,取得後即更新。</div>`;
+        }catch(e){return '';}})()}
         <div style="${cell};color:var(--mut);font-size:12px;text-align:left">週別</div><div style="${cell};color:var(--mut);font-size:12px">大戶>${bSel}張</div><div style="${cell};color:var(--mut);font-size:12px">週增減</div><div style="${cell};color:var(--mut);font-size:12px">散戶<${rSel}張</div>
         ${tbl}</div></div>
       <div class="dim-note" style="margin-top:8px">最新:大戶(>${bSel}張)<b>${last.big.toFixed(2)}%</b>${one?'':`(週${(last.big-prev.big)>=0?'增':'減'} ${Math.abs(last.big-prev.big).toFixed(2)}pp)`}、散戶(<${rSel}張)${last.ret.toFixed(2)}%。${one?'':(()=>{const f=wk[0],cB=last.big-f.big,cR=last.ret-f.ret;const dir=cB>0.3?'📈 籌碼流向大戶':cB<-0.3?'📉 大戶趨勢減碼':'➡️ 大戶持股大致持平';return `<b>自 ${f.d.slice(5)} 以來 ${wk.length} 週累計:大戶 <span style="color:${cB>0?CT.up2:cB<0?CT.dn2:'var(--mut)'}">${cB>=0?'+':''}${cB.toFixed(2)}pp</span>、散戶 <span style="color:${cR<0?CT.up2:cR>0?CT.dn2:'var(--mut)'}">${cR>=0?'+':''}${cR.toFixed(2)}pp</span> → ${dir}</b>。`;})()}<b>大戶增+散戶減=籌碼流向大手</b>;門檻可切換,設定會記住。集保每週結算,本站自動累積。</div>`;
