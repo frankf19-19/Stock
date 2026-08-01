@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r494 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r495 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r494</span>');
+  diag.push('<span style="color:var(--dim)">build r495</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5068,6 +5068,29 @@ async function fglAutoKey(){                 // 🔑 自動領 Key:從自家 Wor
   }catch(e){}
 }
 setTimeout(fglAutoKey,2500);
+async function gemAutoKey(){                 // r495:🤖 比照富果——Worker /gk 自動發 Gemini 金鑰,任何裝置零輸入
+  try{
+    if(AI&&AI.keys&&AI.keys.gemini)return;                 // 已有金鑰不動
+    if(AI&&AI.prov==='shared'&&AI.keys.shared)return;      // 已用通行碼者尊重其選擇
+    const MAIN='https://muddy-cake-cb69.frankccc199.workers.dev';
+    let hosts=[MAIN];
+    try{const p=(typeof myProxy==='function'?myProxy():'');
+      const o=p?new URL(p).origin:'';
+      if(o&&o!==MAIN)hosts=[o,MAIN];}catch(e){}
+    let j=null;
+    for(const h of hosts){
+      try{const r=await fetch(h+'/gk',{cache:'no-store'});
+        if(r&&r.ok){j=await r.json();break;}}catch(e){}
+    }
+    if(j&&j.k&&j.k.length>20){
+      AI.keys.gemini=j.k;AI.prov='gemini';
+      try{localStorage.setItem('ai_prov','gemini');
+          localStorage.setItem('ai_key_gemini',j.k);}catch(e){}
+      try{toastLite('🤖 Gemini AI 已自動啟用');}catch(e){}
+    }
+  }catch(e){}
+}
+setTimeout(gemAutoKey,3200);
 setInterval(fglEnsure,5000);
 window.addEventListener('hashchange',()=>{window.__fglVTot=0;setTimeout(fglEnsure,600);});
 
