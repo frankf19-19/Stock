@@ -138,11 +138,22 @@ def listen(yt, title):
 
 規則:純閒聊哏可以一句帶過;業配段落完全跳過;他沒講的不要腦補;聽不清楚的段落註明。最後一行固定:AI 聆聽全集整理,觀點屬節目主持人,非投資建議。"""}]}],
         "generationConfig": {"maxOutputTokens": 8192}}
-    r = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}",
-        json=body, timeout=600)
-    if not r.ok:
-        log(f"✗ Gemini {r.status_code}: {r.text[:300]}"); sys.exit(1)
+    r = None
+    for att in range(1, 4):                               # r493:長音檔常超過10分鐘——上限25分+逾時重試(檔案已在雲端,重試通常快)
+        try:
+            r = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}",
+                json=body, timeout=1500)
+            if r.ok: break
+            if r.status_code in (429, 500, 502, 503):
+                log(f"  第{att}次 Gemini {r.status_code},60秒後重試…"); time.sleep(60); continue
+            log(f"✗ Gemini {r.status_code}: {r.text[:300]}"); sys.exit(1)
+        except requests.exceptions.Timeout:
+            log(f"  第{att}次讀取逾時(1500s),重試…")
+        except Exception as e:
+            log(f"  第{att}次連線異常:{e},60秒後重試…"); time.sleep(60)
+    if r is None or not r.ok:
+        log("✗ Gemini 連續失敗,下次排程再試。"); sys.exit(1)
     parts = ((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
     return "".join(p.get("text", "") for p in parts).strip()
 
