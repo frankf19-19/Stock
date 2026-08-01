@@ -2,7 +2,7 @@ name: 股癌最新集自動整理
 on:
   workflow_dispatch:
   schedule:
-    - cron: "15 */4 * * *"    # 每 4 小時檢查一次(同集不重跑,零成本)
+    - cron: "15 */2 * * *"    # r492:每 2 小時(同集已整理直接跳過零成本;上片日延遲減半)
 permissions:
   contents: write
 jobs:
