@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r497 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r498 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r497</span>');
+  diag.push('<span style="color:var(--dim)">build r498</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6544,7 +6544,7 @@ function stkForceUI(s){                                   // r485:每日版—�
       ?[{left:60,right:16,top:22,height:'22%'},{left:60,right:16,top:'38%',height:'22%'},{left:60,right:16,top:'73%',height:'20%'}]
       :[{left:60,right:16,top:22,height:'34%'},{left:60,right:16,top:'56%',height:'32%'}];
     const titles=[{text:`三大法人每日買賣超(近 ${N} 個交易日,張)`,left:60,top:0,textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}},
-                  {text:'區間累積買賣超(張)——大戶方向',left:60,top:hasBd?'33%':'50%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}}];
+                  {text:'區間累積買賣超(張)——大戶方向(線在零軸上=區間淨買、下=淨賣)',left:60,top:hasBd?'33%':'50%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}}];
     if(hasBd)titles.push({text:'集保千張大戶持股比(週,%)——反向即散戶',left:60,top:'68%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}});
     const xAxes=[{type:'category',gridIndex:0,data:dts,axisLabel:{show:!hasBd&&false,fontSize:10},axisTick:{show:false}},
                  {type:'category',gridIndex:1,data:dts,axisLabel:{show:true,fontSize:10},axisTick:{show:false}}];
@@ -6552,7 +6552,10 @@ function stkForceUI(s){                                   // r485:每日版—�
                  {type:'value',gridIndex:1,axisLabel:{fontSize:10},splitLine:{lineStyle:{opacity:.18}}}];
     const series=[
       {name:'法人日買賣超',type:'bar',xAxisIndex:0,yAxisIndex:0,data:tot.map(barSty),barWidth:'62%'},
-      {name:'區間累積',type:'bar',xAxisIndex:1,yAxisIndex:1,data:cum.map(v=>barSty(Math.round(v))),barWidth:'62%'}];
+      {name:'區間累積',type:'line',xAxisIndex:1,yAxisIndex:1,data:cum.map(v=>Math.round(v)),
+       showSymbol:false,smooth:.12,lineStyle:{width:2.2},areaStyle:{opacity:.16},
+       markLine:{silent:true,symbol:'none',lineStyle:{color:'#8a8577',opacity:.55},
+                 data:[{yAxis:0}],label:{show:false}}}];   // r498:累積是趨勢量,改面積線(柱狀垂簾視覺誤導)
     if(hasBd){
       const bdD=e.bd.map(x=>String(x).slice(5).replace('-','/'));
       xAxes.push({type:'category',gridIndex:2,data:bdD,axisLabel:{fontSize:10},axisTick:{show:false}});
@@ -6562,6 +6565,8 @@ function stkForceUI(s){                                   // r485:每日版—�
     }
     ch.setOption({animation:false,
       tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+      visualMap:{show:false,seriesIndex:1,type:'piecewise',
+        pieces:[{gt:0,color:UP9},{lte:0,color:DN9}]},       // r498:累積線 正=紅、負=綠
       title:titles,grid:grids,xAxis:xAxes,yAxis:yAxes,series},true);
     try{ch.resize();}catch(e2){}
     if(note){
