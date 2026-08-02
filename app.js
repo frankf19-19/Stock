@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r499 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r501 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r499</span>');
+  diag.push('<span style="color:var(--dim)">build r501</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4587,6 +4587,44 @@ function renderMacroAlerts(){
     :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>風險溫度計與外電目前無特別警示</span></span>';
 }
 setTimeout(()=>{try{renderMacroAlerts();}catch(e){}},4500);
+function stkReorderSections(s){                            // r501:個股頁資訊架構重排——「四層決策流」
+  try{
+    if(s&&s.etf)return;                                     // ETF 頁維持原專屬排版
+    const first=document.querySelector('[data-sec="stk_k"]');
+    if(!first)return;
+    const root=first.parentNode;
+    const GROUPS=[
+      ['📈','技術與價格','現在怎麼走・在哪進出',['stk_k','stk_3','stk_s']],
+      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_h','stk_c']],
+      ['💰','基本面與價值','值不值得・前景如何',['stk_r','stk_v','stk_conf']],
+      ['🧭','綜合研判與背景','AI 總結・市場觀點・公司背景',['stk_ai','stk_m','stk_p','stk_e']],
+    ];
+    const pair=k=>{
+      const t=root.querySelector(`[data-sec="${k}"]`);
+      if(!t)return null;
+      const b=document.getElementById('sb-'+k);
+      return b?{t,b}:null;
+    };
+    const used=new Set();
+    GROUPS.forEach(([ico,nm,sub,keys])=>{
+      const got=keys.map(pair).filter(Boolean);
+      if(!got.length)return;
+      const band=document.createElement('div');
+      band.className='grp-band';
+      band.style.cssText='margin:32px 0 2px;padding:10px 16px;border-radius:0 12px 12px 0;background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--txt);box-shadow:var(--sh1,0 1px 3px rgba(0,0,0,.05));font-family:var(--serif,inherit);font-weight:900;font-size:17.5px;letter-spacing:.08em;position:relative';
+      band.innerHTML=`<span style="position:absolute;left:-6px;top:0;width:6px;height:18px;background:var(--amber)"></span>${ico} ${nm} <span style="font-family:var(--sans,inherit);font-weight:400;font-size:12.5px;color:var(--dim);letter-spacing:.02em">${sub}</span>`;
+      root.appendChild(band);
+      got.forEach(p=>{root.appendChild(p.t);root.appendChild(p.b);});
+      keys.forEach(k=>used.add(k));
+    });
+    root.querySelectorAll('.sec-title[data-sec]').forEach(t=>{   // 未列入者維持相對順序附於最後
+      const k=t.dataset.sec;
+      if(used.has(k)||!k.startsWith('stk_'))return;
+      const b=document.getElementById('sb-'+k);
+      root.appendChild(t);if(b)root.appendChild(b);
+    });
+  }catch(e){}
+}
 function renderStkAlerts(s,k,tt){
   const el=document.getElementById('stkAlerts');
   if(!el||location.hash!=='#stock/'+s.id)return;
@@ -6565,7 +6603,7 @@ function stkForceUI(s){                                   // r485:每日版—�
       ?[{left:60,right:16,top:22,height:'22%'},{left:60,right:16,top:'38%',height:'22%'},{left:60,right:16,top:'73%',height:'20%'}]
       :[{left:60,right:16,top:22,height:'34%'},{left:60,right:16,top:'56%',height:'32%'}];
     const titles=[{text:`三大法人每日買賣超(近 ${N} 個交易日,張)`,left:60,top:0,textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}},
-                  {text:'區間累積買賣超(張)——大戶方向(線在零軸上=區間淨買、下=淨賣)',left:60,top:hasBd?'33%':'50%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}}];
+                  {text:'區間累積買賣超(張)——大戶方向(紅=區間淨買、綠=區間淨賣;灰線=零軸)',left:60,top:hasBd?'33%':'50%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}}];
     if(hasBd)titles.push({text:'集保千張大戶持股比(週,%)——反向即散戶',left:60,top:'68%',textStyle:{fontSize:11.5,fontWeight:600,color:'#8a8577'}});
     const xAxes=[{type:'category',gridIndex:0,data:dts,axisLabel:{show:!hasBd&&false,fontSize:10},axisTick:{show:false}},
                  {type:'category',gridIndex:1,data:dts,axisLabel:{show:true,fontSize:10},axisTick:{show:false}}];
@@ -6574,9 +6612,12 @@ function stkForceUI(s){                                   // r485:每日版—�
     const series=[
       {name:'法人日買賣超',type:'bar',xAxisIndex:0,yAxisIndex:0,data:tot.map(barSty),barWidth:'62%'},
       {name:'區間累積',type:'line',xAxisIndex:1,yAxisIndex:1,data:cum.map(v=>Math.round(v)),
-       showSymbol:false,smooth:.12,lineStyle:{width:2.2},areaStyle:{opacity:.16},
+       showSymbol:false,smooth:.12,
+       lineStyle:{width:2.4,color:(cum[cum.length-1]>=0?UP9:DN9)},
+       itemStyle:{color:(cum[cum.length-1]>=0?UP9:DN9)},
+       areaStyle:{opacity:.15,color:(cum[cum.length-1]>=0?UP9:DN9)},
        markLine:{silent:true,symbol:'none',lineStyle:{color:'#8a8577',opacity:.55},
-                 data:[{yAxis:0}],label:{show:false}}}];   // r498:累積是趨勢量,改面積線(柱狀垂簾視覺誤導)
+                 data:[{yAxis:0}],label:{show:false}}}];   // r500:改最終方向單色(visualMap 分色在此組合會吃掉線體)
     if(hasBd){
       const bdD=e.bd.map(x=>String(x).slice(5).replace('-','/'));
       xAxes.push({type:'category',gridIndex:2,data:bdD,axisLabel:{fontSize:10},axisTick:{show:false}});
@@ -6586,8 +6627,6 @@ function stkForceUI(s){                                   // r485:每日版—�
     }
     ch.setOption({animation:false,
       tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
-      visualMap:{show:false,seriesIndex:1,type:'piecewise',
-        pieces:[{gt:0,color:UP9},{lte:0,color:DN9}]},       // r498:累積線 正=紅、負=綠
       title:titles,grid:grids,xAxis:xAxes,yAxis:yAxes,series},true);
     try{ch.resize();}catch(e2){}
     if(note){
@@ -9474,6 +9513,7 @@ async function showDetail(id){
   })();
   const aBtn=document.getElementById('anaAiBtn');
   if(aBtn)aBtn.onclick=()=>aiInline(aBtn,`請上網查詢並整理 ${s.name}(${s.id}) 近三個月外資與投顧研究報告的觀點(直接條列不要開場白):哪些券商出過報告或升降評、評等為何(買進/中立/賣出)、目標價各是多少、調整理由是什麼。最後一句總結市場共識與分歧點。若查不到個別報告,就整理新聞中提到的最新目標價。結尾一行:非投資建議。`,true,1600);
+  try{stkReorderSections(s);}catch(e){}                     // r501:四層決策流重排(先搬 DOM 再初始化圖表)
   loadProfileDetail(s);
   try{const tb=document.getElementById('t3qBox');if(tb){tb.style.display='';tb.innerHTML='<div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div>';}t3qBlock(s);}catch(e){}
   try{renderHeadStock(s);}catch(e){}
