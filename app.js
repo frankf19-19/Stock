@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r498 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r499 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r498</span>');
+  diag.push('<span style="color:var(--dim)">build r499</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4626,9 +4626,29 @@ function renderStkAlerts(s,k,tt){
     if(r&&r.bigw!=null&&r.bigw<=-0.5)add('amb','👑',`千張大戶週減 ${Math.abs(r.bigw).toFixed(1)}pp——大戶調節持股`);
   }catch(e){}
   el.style.display='';
-  el.innerHTML=A.length
-    ?A.map(a=>`<span class="alert-pill alert-${a.lv}"><span class="ico">${a.ico}</span><span>${a.txt}</span></span>`).join('')
-    :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>目前無特別風險警示</span></span>';
+  const HINTS=[                                            // r499:膠囊白話提示字典(這代表什麼/該怎麼做/詳解在哪)
+    [/頭部機率/,'頭部機率=「打頭七腳印」證據數換算:≥50% 反彈視為減碼機會、≥70% 證據齊備紀律出場。完整證據清單在下方「⚖️ 三力檢視」。'],
+    [/已達平均週期|轉折窗|留意反轉/,'轉折節奏是時間統計:時間到了不代表一定轉,要等價格真的跌破/突破關鍵價才算數。價位與情境詳解在「🔄 轉折點分析」。'],
+    [/跌破季線/,'季線(60日均線)=中期多空分界:站不回去之前中期趨勢視為轉弱,反彈到季線附近常遇解套賣壓——搶反彈以季線為壓力參考。'],
+    [/跌破月線/,'月線(20日均線)=短線多空分界:下一道防線看季線;若 1~2 天內快速站回,視為假跌破。'],
+    [/乖離過大|高於月線/,'股價離月線太遠時均值回歸的力量增強——不追高,等回測月線不破再評估,或等乖離收斂。'],
+    [/低於月線.*%|負乖離/,'跌深後技術性反彈機率升高——但這是左側訊號:分批、小量、先設好停損再進場。'],
+    [/海龜/,'海龜法則:跌破 10 日低點=趨勢單出場訊號——重紀律不重預測,出場後突破新高可再進。'],
+    [/法人籌碼轉弱|同步賣超/,'外資+投信 5 日同賣是籌碼轉空的前兆——搭配量價確認:帶量下跌可信度高,無量緩跌可能只是調節。'],
+    [/大戶調節|千張大戶週減/,'籌碼從大戶流向散戶=中期偏空訊號。完整分級趨勢在「👑 大戶持股趨勢」。'],
+    [/處置股/,'處置=分盤交易/預收款券:流動性差、進出成本高、波動放大——短線族建議避開,持有者降槓桿。'],
+    [/觸及本波段高點/,'價格進入轉折敏感區,又與時間週期共振——不是叫你賣,是叫你把防守價設好。'],
+    [/趨勢:頭部確認中|已破末升低/,'「末升低點」跌破=頭部型態的確認要件之一——反彈不過前波高,以頭部劇本操作(反彈減碼優先於攤平)。'],
+  ];
+  const hintOf=t=>{const x=String(t).replace(/<[^>]+>/g,'');for(const [re,h] of HINTS)if(re.test(x))return h;return '';};
+  el.innerHTML=(A.length
+    ?A.map((a,i)=>{const h=hintOf(a.txt);
+      return `<span class="alert-pill alert-${a.lv}" ${h?`data-hint="${i}" style="cursor:pointer" title="點我看白話解讀"`:''}><span class="ico">${a.ico}</span><span>${a.txt}${h?' <span style="opacity:.55;font-size:11px">ⓘ</span>':''}</span></span>`
+        +(h?`<div id="pillHint_${i}" style="display:none;font-size:12.5px;color:var(--txt2);background:var(--panel2);border-radius:8px;padding:7px 11px;margin:3px 0 5px;line-height:1.65">💡 ${h}</div>`:'');}).join('')
+    :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>目前無特別風險警示</span></span>');
+  el.querySelectorAll('[data-hint]').forEach(p=>{p.onclick=()=>{
+    const d=document.getElementById('pillHint_'+p.dataset.hint);
+    if(d)d.style.display=d.style.display==='none'?'':'none';};});
 }
 /* ── 恐懼貪婪指數(CNN 同款半圓儀表;資料:後端 yext.json ← CNN 公開端點)── */
 function fngZh(s){return s<25?'極度恐懼':s<45?'恐懼':s<=55?'中性':s<=75?'貪婪':'極度貪婪';}
@@ -6509,7 +6529,8 @@ async function fundAlertUI(s){                             // r496:基本面/前
         <div style="font-weight:900;font-size:13.5px;color:${oCol}">🔭 ${oTtl}</div>
         ${out.map(x=>`<div style="font-size:12.8px;color:var(--txt2)">・${x}</div>`).join('')}
       </div>`:''}
-      <div class="dim-note" style="margin-top:5px">規則化自動判讀(月營收動能/季三率/法人20日對比/集保大戶週趨勢;半年展望=股價半年相對強弱+動能連續性+估值透支度+獲利外推),每月10日營收與季報公布即滾動重判;非投資建議。</div></div>`;
+      <div style="margin-top:6px;font-size:12.5px">深入:<a href="javascript:void 0" onclick="try{document.querySelector('[data-sec=stk_r]').scrollIntoView({behavior:'smooth'})}catch(e){}" style="color:var(--amber)">💰 營收與獲利</a> · <a href="javascript:void 0" onclick="try{document.querySelector('[data-sec=stk_v]').scrollIntoView({behavior:'smooth'})}catch(e){}" style="color:var(--amber)">💰 估值與未來性</a> · <a href="javascript:void 0" onclick="try{document.querySelector('[data-sec=stk_f]').scrollIntoView({behavior:'smooth'})}catch(e){}" style="color:var(--amber)">⚖️ 大戶買賣力</a></div>
+      <div class="dim-note" style="margin-top:4px">規則化自動判讀(月營收動能/季三率/法人20日對比/集保大戶週趨勢;半年展望=股價半年相對強弱+動能連續性+估值透支度+獲利外推),每月10日營收與季報公布即滾動重判;非投資建議。此橫幅為全頁「摘要層」,各區塊是「深度層」——同主題不同深度,非重複資訊。</div></div>`;
   }catch(e2){}
 }
 function stkForceUI(s){                                   // r485:每日版——分時資料源不可得,改用盤後法人+集保大戶(站上最可靠的大戶視角)
@@ -6534,7 +6555,7 @@ function stkForceUI(s){                                   // r485:每日版—�
     const dts=e.d.slice(-N).map(x=>String(x).slice(5).replace('-','/'));
     const tot=[];for(let i=n-N;i<n;i++)tot.push(Math.round((+e.f[i]||0)+((e.t&&+e.t[i])||0)+((e.g&&+e.g[i])||0)));
     let s2=0;const cum=tot.map(v=>(s2+=v));
-    const hasBd=Array.isArray(e.bd)&&e.bd.length>=2&&Array.isArray(e.bp)&&e.bp.length===e.bd.length;
+    const hasBd=false;                                     // r499:千張大戶欄與「👑 大戶持股趨勢」互動區100%重複,整併移除(摘要留在頂部體檢)
     const UP9='#C62828',DN9='#0B7A4B';
     const barSty=v=>({value:v,itemStyle:{color:v>=0?UP9:DN9}});
     el.style.height=hasBd?'360px':'260px';
@@ -6575,7 +6596,7 @@ function stkForceUI(s){                                   // r485:每日版—�
       let bdTxt='';
       if(hasBd){const b1=+e.bp[e.bp.length-1],b0=+e.bp[e.bp.length-2];
         bdTxt=` · <b>千張大戶</b> ${b1.toFixed(2)}%(週${b1>=b0?'+':''}${(b1-b0).toFixed(2)})——升=大戶吸籌、降=大戶出貨/散戶接手`;}
-      note.innerHTML=`<b>最新交易日法人:</b><span style="color:${last>=0?'var(--up)':'var(--down)'}">${lab(last)}</span> · <b>近 ${N} 日累積:</b><span style="color:${c>=0?'var(--up)':'var(--down)'}">${lab(c)}</span>${bdTxt}<span style="color:var(--dim)"> · 紅=淨買、綠=淨賣;免費來源無分點大戶逐筆,以法人+集保為大戶視角。</span>`;
+      note.innerHTML=`<b>最新交易日法人:</b><span style="color:${last>=0?'var(--up)':'var(--down)'}">${lab(last)}</span> · <b>近 ${N} 日累積:</b><span style="color:${c>=0?'var(--up)':'var(--down)'}">${lab(c)}</span>${bdTxt} · <a href="javascript:void 0" onclick="try{document.querySelector('[data-sec=stk_h]').scrollIntoView({behavior:'smooth'})}catch(e){}" style="color:var(--amber);font-weight:700">👑 集保大戶分級詳圖 ↓</a><span style="color:var(--dim)"> · 紅=淨買、綠=淨賣;免費來源無分點逐筆,以法人+集保為大戶視角。</span>`;
     }
   };
   draw();
