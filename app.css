@@ -783,6 +783,7 @@ header{background:var(--hdr);border-bottom:1px solid var(--line)}
 .sec-title span{font-family:var(--sans);font-weight:400;font-size:13px;color:var(--dim)}
 .sec-title.tap:hover{opacity:1;box-shadow:var(--sh2)}
 .dim-block h3,.chart-box h3{font-family:var(--serif);letter-spacing:.05em}
+.dim-block h3:empty,.chart-box h3:empty{display:none}
 .dim-block h3::before,.chart-box h3::before{content:'';display:inline-block;width:7px;height:7px;
   background:var(--amber);border-radius:2px;margin-right:8px;vertical-align:2px}
 

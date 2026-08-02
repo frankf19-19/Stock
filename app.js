@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r502 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r503 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r502</span>');
+  diag.push('<span style="color:var(--dim)">build r503</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7213,8 +7213,8 @@ function dcfBody(s,P){
   const px=+(s.price||0);
   const R=dcfCalc(P.eps,P.g1,P.g2,P.r,P.tg);
   const up=(R.val&&px)?((R.val/px-1)*100):null;
-  const col=up==null?'var(--mut)':up>=50?'#0B7A4B':up>=30?'#2E8B57':up>=0?'#B8860B':'#C62828';
-  const lab=up==null?'—':up>=50?'安全邊際充足':up>=30?'具吸引力':up>=0?'略低估,邊際不足':'高於估算價值';
+  const col=up==null?'var(--mut)':up>=50?'#C62828':up>=30?'#D25A2E':up>=0?'#B8860B':'#0B7A4B';   // r503:改台股紅漲綠跌慣例(原為美式反向,與下表打架)
+  const lab=up==null?'—':up>=50?'安全邊際充足':up>=30?'具吸引力':up>=0?'略低估,邊際不足':`現價溢價 ${((+(s.price||0))&&R.val?((+(s.price)/R.val-1)*100).toFixed(0):'—')}%——貴`;   // r503:負值時講人話:現在買比內在價值貴多少
   const sens=[P.r-1,P.r,P.r+1].map(rr=>{
     const c=dcfCalc(P.eps,P.g1,P.g2,rr,P.tg);
     return {r:rr,val:c.val,up:(c.val&&px)?((c.val/px-1)*100):null};
