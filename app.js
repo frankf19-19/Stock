@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r501 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r502 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r501</span>');
+  diag.push('<span style="color:var(--dim)">build r502</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -9985,6 +9985,9 @@ function setupSections(){
         try{if(RT.idx&&RT.idx.ch&&!RT.idx.lwc)RT.idx.ch.resize();}catch(e){}
         try{if(RT.intra&&RT.intra.ch)RT.intra.ch.resize();}catch(e){}
         try{if(chartInst)chartInst.resize();}catch(e){}
+        try{body.querySelectorAll('div').forEach(el=>{      // r502:泛用復活——收合期間 init 的寬0圖展開即重算(修籌碼圖永遠空白;大盤頁同款早已存在)
+          const inst=window.echarts&&echarts.getInstanceByDom&&echarts.getInstanceByDom(el);
+          if(inst)inst.resize();});}catch(e){}
       },80);
     };
   });
@@ -10099,6 +10102,9 @@ async function loadChipDetail(s){
   if(KHASH==='#stock/'+s.id)try{drawKChart();}catch(e2){}   // ⚖️ 法人副圖:資料到位就地重繪(日/週/月)
   renderChipCharts(s,e);
   loadCreditTrend(s,e);
+  [900,2600].forEach(ms=>setTimeout(()=>{                  // r502:繪製後體檢——任何寬0殭屍圖自動復活
+    try{chipCharts.forEach(c2=>{if(c2.getWidth()<50)c2.resize();});}catch(e2){}
+  },ms));
 }
 function renderChipCharts(s,e){
   const box=document.getElementById('chipwrap');
