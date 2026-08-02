@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r503 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r505 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r503</span>');
+  diag.push('<span style="color:var(--dim)">build r505</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8705,7 +8705,15 @@ document.querySelectorAll('#fwSeg').forEach(fw=>{
     drawKChart();
   });
 }
-function indReadTxt(mode,o,closes){                        // r478:MACD/KD/RSI 白話判讀(規則化,非投資建議)
+function indReadTxt(mode,o,closes,itv){                    // r478/r505:MACD/KD/RSI 白話判讀——r505 加週期語境(週/月訊號級別不同)
+  const _u=itv==='1wk'?'週':itv==='1mo'?'個月':'根K';
+  const _tf=itv==='1wk'?'週':itv==='1mo'?'月':'';
+  const _lv={MACD:itv==='1wk'?'週MACD 的零軸與交叉屬「波段級」訊號,一次方向常走數週~數月':
+                 itv==='1mo'?'月MACD 是牛熊分界級訊號——零軸附近的金叉/死叉極少出現,一旦出現常定調一年以上的大方向':'',
+             KD:itv==='1wk'?'週KD 屬波段級:金叉/死叉對應數週方向;週KD 高檔鈍化=主升段的典型特徵':
+                itv==='1mo'?'月KD 屬大級距:一次交叉常對應一年以上趨勢段,月KD 低檔金叉是長線底部最有名的訊號之一':'',
+             RSI:itv==='1wk'?'週RSI 站上 70 常是主升段而非見頂;跌破 50 才是波段轉弱':
+                 itv==='1mo'?'月RSI 極少觸及超買超賣——一旦到了,通常是歷史級別的過熱/恐慌':''};
   try{
     const n=closes.length;if(n<30)return '';
     const F=x=>(+x).toFixed(2);
@@ -8715,14 +8723,14 @@ function indReadTxt(mode,o,closes){                        // r478:MACD/KD/RSI �
         if(a0<=0&&a1>0)return {t:'gold',ago:n-1-i};
         if(a0>=0&&a1<0)return {t:'dead',ago:n-1-i};
       }return null;};
-    const agoTxt=x=>x.ago===0?'本根K':`${x.ago} 根K前`;
+    const agoTxt=x=>x.ago===0?(itv==='1mo'?'本月':itv==='1wk'?'本週':'本根K'):`${x.ago} ${_u}前`;
     if(mode==='MACD'){
       const m=macd(closes),dif=m.dif[n-1],dea=m.dea[n-1],bar=m.bar[n-1],bar0=m.bar[n-2]||0;
       const x=lastCross(m.dif,m.dea),above=dif>dea;
       const zero=(dif>0&&dea>0)?'雙線在零軸之上=多方架構':(dif<0&&dea<0)?'雙線仍在零軸之下=空方架構(此時的金叉多屬跌深反彈,力道要打折)':'雙線正於零軸附近換手,多空架構切換中';
       const mom=bar>=0?(bar>=bar0?'紅柱持續擴大=上漲動能增強':'紅柱收斂=漲勢動能放緩,留意高檔轉弱')
                       :(bar<=bar0?'綠柱持續擴大=下跌動能增強':'綠柱收斂=跌勢動能減弱,醞釀止跌');
-      return `<b>MACD 現在的意思</b>:DIF ${F(dif)} ${above?'在':'低於'} DEA ${F(dea)} ${above?'之上(偏多)':'之下(偏空)'}${x?`,${agoTxt(x)}剛${x.t==='gold'?'黃金交叉':'死亡交叉'}`:''};${zero};柱狀 ${F(bar)}——${mom}。`;
+      return `<b>MACD${_tf?'('+_tf+'K)':''} 現在的意思</b>:${_lv.MACD?_lv.MACD+'。':''}DIF ${F(dif)} ${above?'在':'低於'} DEA ${F(dea)} ${above?'之上(偏多)':'之下(偏空)'}${x?`,${agoTxt(x)}剛${x.t==='gold'?'黃金交叉':'死亡交叉'}`:''};${zero};柱狀 ${F(bar)}——${mom}。`;
     }
     if(mode==='KD'){
       const m=kdCalc(o),K=m.K[n-1],D=m.D[n-1];
@@ -8731,16 +8739,16 @@ function indReadTxt(mode,o,closes){                        // r478:MACD/KD/RSI �
               :K<=20?'K 在 20 以下超賣區——弱勢股也會「低檔鈍化」,超賣≠必漲,等 K 站回 D 上+帶量再看'
               :K>=50?'位於 50 以上偏多半場':'位於 50 以下偏空半場';
       const k3=m.K.slice(-3);
-      if(k3.length===3&&k3.every(v=>v>=80))zone='K 連 3 根站穩 80 以上=<b>高檔鈍化</b>——通常是主升段的強勢特徵,不因超買急著離場,防守改盯 D 線與月線';
-      if(k3.length===3&&k3.every(v=>v<=20))zone='K 連 3 根壓在 20 以下=<b>低檔鈍化</b>——主跌段特徵,搶反彈勝率差,等金叉+放量再評估';
-      return `<b>KD 現在的意思</b>:K ${F(K)} / D ${F(D)},K ${K>=D?'在 D 之上(偏多)':'在 D 之下(偏空)'}${x?`,${agoTxt(x)}剛${x.t==='gold'?'金叉':'死叉'}`:''};${zone}。`;
+      if(k3.length===3&&k3.every(v=>v>=80))zone=`K 連 3 ${_u}站穩 80 以上=<b>高檔鈍化</b>——通常是主升段的強勢特徵,不因超買急著離場,防守改盯 D 線與均線`;
+      if(k3.length===3&&k3.every(v=>v<=20))zone=`K 連 3 ${_u}壓在 20 以下=<b>低檔鈍化</b>——主跌段特徵,搶反彈勝率差,等金叉+放量再評估`;
+      return `<b>KD${_tf?'('+_tf+'K)':''} 現在的意思</b>:${_lv.KD?_lv.KD+'。':''}K ${F(K)} / D ${F(D)},K ${K>=D?'在 D 之上(偏多)':'在 D 之下(偏空)'}${x?`,${agoTxt(x)}剛${x.t==='gold'?'金叉':'死叉'}`:''};${zone}。`;
     }
     const r=rsiCalc(closes),v=r[n-1],v5=r[n-6]??v;
-    const dirn=v>v5+2?'走升(動能回溫)':v<v5-2?'走低(動能降溫)':'大致走平';
+    const dirn=v>v5+2?'走升(動能回溫)':v<v5-2?'走低(動能降溫)':'大致走平';   // 單位由呼叫端 _u 帶入
     const zone=v>=70?'70 以上超買區——多頭強勢的表現,追價風險升高;跌回 70 以下是轉弱第一訊號'
              :v<=30?'30 以下超賣區——重挫後的狀態,站回 30 以上才算止跌訊號'
              :v>=50?'在 50 之上=買方掌控(50 是 RSI 的多空分界)':'在 50 之下=賣方掌控(50 是 RSI 的多空分界)';
-    return `<b>RSI 現在的意思</b>:RSI14 = ${F(v)},近 5 根${dirn};${zone}。`;
+    return `<b>RSI${_tf?'('+_tf+'K)':''} 現在的意思</b>:${_lv.RSI?_lv.RSI+'。':''}RSI14 = ${F(v)},近 5 ${_u}${dirn};${zone}。`;
   }catch(e){return '';}
 }
 function kChartBoxHTML(){
@@ -8998,8 +9006,16 @@ function drawKChart(){
       ze=Math.max(0,Math.min(100,+(i2/n*100).toFixed(3)));
     }
   }
-  const maCfg=[['MA5',5,'#E8B44A'],['MA10',10,'#7FB4FF'],['MA20',20,'#C792EA'],['MA60',60,CT.ma60],
-               ['MA120',120,'#FF8FB0'],['MA240',240,'#5BD9C0']];
+  const _itv=(typeof kView!=='undefined'&&kView.itv)||'1d';   // r504:均線參數隨週期換算——週/月K不再「很多數據都沒有」
+  const maCfg=_itv==='1wk'
+    ?[['MA4(月線)',4,'#E8B44A'],['MA13(季線)',13,'#7FB4FF'],['MA26(半年線)',26,'#C792EA'],['MA52(年線)',52,CT.ma60]]
+    :_itv==='1mo'
+    ?[['MA3(季)',3,'#E8B44A'],['MA6(半年)',6,'#7FB4FF'],['MA12(年線)',12,'#C792EA'],['MA24(兩年)',24,CT.ma60],['MA60(五年)',60,'#FF8FB0']]
+    :[['MA5',5,'#E8B44A'],['MA10',10,'#7FB4FF'],['MA20',20,'#C792EA'],['MA60',60,CT.ma60],
+      ['MA120',120,'#FF8FB0'],['MA240',240,'#5BD9C0']];
+  try{const kn=document.getElementById('kBoxNote');
+    if(kn)kn.textContent=_itv==='1wk'?' · 週K均線=4/13/26/52 週(月/季/半年/年線)':_itv==='1mo'?' · 月K均線=3/6/12/24/60 月(季~五年線)':'';
+  }catch(e){}
   const maSeries=maCfg.map(([nm,p,col])=>({name:nm,type:'line',xAxisIndex:0,yAxisIndex:0,
     data:closes.map((_,i)=>i<p-1?null:+avg(closes.slice(i-p+1,i+1)).toFixed(2)),
     showSymbol:false,lineStyle:{width:1.2,color:col},itemStyle:{color:col},smooth:true}));
@@ -9028,7 +9044,7 @@ function drawKChart(){
     if(!nb){nb=document.createElement('div');nb.id='indRead';
       nb.style.cssText='margin:6px 2px 0;padding:8px 11px;background:var(--panel2);border-radius:9px;font-size:12.5px;line-height:1.65;color:var(--txt2)';
       host.appendChild(nb);}
-    const tx=indReadTxt(indMode,o,closes);
+    const tx=indReadTxt(indMode,o,closes,(typeof kView!=='undefined'&&kView.itv)||'1d');
     nb.innerHTML=tx?tx+' <span class="dim-note">指標是溫度計不是訊號機,請與價量/均線互相印證;非投資建議。</span>':'';
     nb.style.display=tx?'':'none';
   }catch(e){}},0);}catch(e){}
@@ -9103,7 +9119,10 @@ function drawKChart(){
     if(!dedOn){window.__dedMk=[];if(nb)nb.remove();}
     else if(Array.isArray(o)&&o.length>20){
       const n=o.length,last=o[n-1][3];
-      const MAP=[[5,'#D9822B'],[10,'#5B8FF9'],[20,'#9C6ADE'],[60,'#333'],[120,'#E8759A'],[240,'#4CBBA5']];  // 含半年線/年線
+      const _itv2=(typeof kView!=='undefined'&&kView.itv)||'1d';   // r504:扣抵週期同步換算
+      const MAP=_itv2==='1wk'?[[4,'#D9822B'],[13,'#5B8FF9'],[26,'#9C6ADE'],[52,'#333']]
+               :_itv2==='1mo'?[[3,'#D9822B'],[6,'#5B8FF9'],[12,'#9C6ADE'],[24,'#333'],[60,'#E8759A']]
+               :[[5,'#D9822B'],[10,'#5B8FF9'],[20,'#9C6ADE'],[60,'#333'],[120,'#E8759A'],[240,'#4CBBA5']];  // 含半年線/年線
       const mkd=[],txt=[];
       MAP.forEach(([P,col])=>{
         const idx=n-P;
