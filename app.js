@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r505 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r506 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r505</span>');
+  diag.push('<span style="color:var(--dim)">build r506</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3996,6 +3996,10 @@ function accOf(key){return key==='tw'?TWACC:OTCACC;}
 function accPush(key,last,y){
   if(!marketOpen())return;
   const acc=accOf(key);
+  if(acc.t.length&&tpDay(acc.t[acc.t.length-1])!==tpDay(Date.now()/1000)){   // r506:換日防護——頁面掛過夜的昨日殘留全清
+    acc.t=[];acc.c=[];acc.v=[];acc.prev=null;
+    try{localStorage.removeItem(key+'_acc');}catch(e){}
+  }
   if(y>0&&!acc.prev)acc.prev=y;
   const now=Math.floor(Date.now()/1000);
   const i=acc.t.length-1;
@@ -4225,7 +4229,7 @@ function drawIdxSel(){
       return;
     }
     if(IDX.sel==='otc'&&OTCACC.c.length>=2){   // 用累積點畫線
-      {let dA=OTCACC;try{dA=gridIntra(sanitizeIntra({t:OTCACC.t.slice(),c:OTCACC.c.slice(),v:(OTCACC.v||[]).slice(),prev:OTCACC.prev},+(OTCACC.c[OTCACC.c.length-1])||0));}catch(e){}
+      {let dA=OTCACC;try{dA=gridIntra(sanitizeIntra(clipSession({t:OTCACC.t.slice(),c:OTCACC.c.slice(),v:(OTCACC.v||[]).slice(),prev:OTCACC.prev}),+(OTCACC.c[OTCACC.c.length-1])||0));}catch(e){}
       RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',dA))||drawIntra('idxChart',dA);}
       const last=OTCACC.c[OTCACC.c.length-1],pv=OTCACC.prev;
       if(stat&&pv){const chg=(last-pv)/pv*100;
@@ -4283,7 +4287,7 @@ function drawIdxSel(){
   }catch(e){}
   if(window.__idxHdrSuppress)chg=null;                     // 長天期回退時不顯示誤導的當日%
   if(stat)stat.innerHTML=`${(+last).toFixed(2)} ${chg!=null?`<span class="${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`:'<span class="c-code">昨收校正中</span>'}${srcTag}${d.approx&&d.src!=='ETF換算'?' <span class="c-code" title="無櫃買分線,以上櫃ETF走勢按指數比例換算">ETF換算</span>':''}`;
-  if(IDX.sel==='tw'||IDX.sel==='otc'){try{d=gridIntra(sanitizeIntra(d,+last||0));}catch(e){}}   // r479:指數分線等距網格+消毒
+  if(IDX.sel==='tw'||IDX.sel==='otc'){try{d=gridIntra(sanitizeIntra(clipSession(d),+last||0));}catch(e){}}   // r479/r506:夾取單日→消毒→等距
   RT.idx=(window.LightweightCharts&&drawIntraLWC('idxChart',d))||drawIntra('idxChart',d);
   const fl=document.getElementById('idxFlow');
   if(fl)fl.innerHTML=IDX.sel==='tw'?flowHTML(d,'股'):'';
@@ -5355,6 +5359,16 @@ async function misOhlcCore(ch,prev){
             v:vArr,prev:+(+prev).toFixed(2)};
   }catch(e){return null;}
 }
+function clipSession(d){                                   // r506:序列夾取——只留最後一個交易日(跨日殘留=左側大空白的元兇)
+  try{
+    if(!d||!d.t||d.t.length<2)return d;
+    const lastDay=tpDay(d.t[d.t.length-1]);
+    let i0=0;
+    for(let i=d.t.length-1;i>=0;i--){if(tpDay(d.t[i])!==lastDay){i0=i+1;break;}}
+    if(i0<=0)return d;
+    return Object.assign({},d,{t:d.t.slice(i0),c:d.c.slice(i0),v:Array.isArray(d.v)?d.v.slice(i0):d.v});
+  }catch(e){return d;}
+}
 function gridIntra(d){                                     // r469:重採樣為每分鐘等距網格——稀疏來源(5分掃描/快照)不再扭曲時間軸
   try{
     if(!d||!d.t||d.t.length<2)return d;
@@ -5737,7 +5751,7 @@ async function loadIntraDetail(s,accOnly){
     try{const pv9=prevCloseOf(s);if(pv9>0)d.prev=+(+pv9).toFixed(2);}catch(e){}   // r468:昨收線總閘門
     try{d=gridIntra(d);if(window.__stkToday)d=capLast(d,s);}catch(e){}            // r469:時間軸等距化+線尾=最新價
     try{if(!window.LightweightCharts)d=padTail1330(d);}catch(e){}                 // r474:備援引擎固定框架
-    try{d=sanitizeIntra(d,+s.price||0);d.fixFrame=true;}catch(e){}                // r477/r479:消毒後才鎖框
+    try{d=sanitizeIntra(clipSession(d),+s.price||0);d.fixFrame=true;}catch(e){}   // r477/r479/r506:夾取單日→消毒→鎖框
   }
   if(__seq!==window.__intraSeq)return;                     // r482:期間有更新的呼叫進來 → 本輪放棄,不覆蓋
   window.__intraDrawT=Date.now();
@@ -5772,7 +5786,7 @@ function refreshIntraLight(s){
   try{const pv9=prevCloseOf(s);if(pv9>0)d.prev=+(+pv9).toFixed(2);}catch(e){}   // r468:昨收線總閘門
   try{d=gridIntra(d);d=capLast(d,s);}catch(e){}                                  // r469:時間軸等距化+線尾=最新價
   try{if(!window.LightweightCharts)d=padTail1330(d);}catch(e){}                   // r474:備援引擎固定框架
-  try{d=sanitizeIntra(d,+s.price||0);d.fixFrame=true;}catch(e){}                  // r477/r479:消毒後才鎖框
+  try{d=sanitizeIntra(clipSession(d),+s.price||0);d.fixFrame=true;}catch(e){}     // r477/r479/r506:夾取單日→消毒→鎖框
   window.__intraDrawT=Date.now();
   d.__id=s.id;RT.intra=(window.LightweightCharts&&drawIntraLWC('intraChart',d))||drawIntra('intraChart',d);
   if(RT.intra)RT.intra.id=s.id;
