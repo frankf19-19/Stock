@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r506 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r507 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r506</span>');
+  diag.push('<span style="color:var(--dim)">build r507</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -9242,13 +9242,16 @@ function drawKChart(){
                     if(zw)seg.push(`<span style="color:var(--mut)">已依目前縮放範圍重新計算</span>`);
                     const inf=t=>{const slp=(t.k/((t.y1+t.ye)/2)*100).toFixed(2);
                       const dist=((lastPx/t.ye-1)*100).toFixed(1);
-                      return `今值 ${(+t.ye).toLocaleString()} · 斜率 ${slp>0?'+':''}${slp}%/日 · ${t.touch} 個觸點 · 距現價 ${dist>0?'+':''}${dist}%`;};
+                      const conf=t.touch>=3?'<b style="color:var(--up)">✅三點確認・有效線</b>':'<b style="color:var(--amber)">⚠兩點試探線</b>(第3次觸及反彈才算確認)';   // r507:三點確認法
+                      const a=Math.abs(+slp);
+                      const ang=a>1.2?'・<b style="color:var(--amber)">角度過陡</b>(急行情難持久,留意修正回貼)':a<0.15?'・角度過平(力道弱,易轉盤整)':'・角度穩健';   // r507:角度強度
+                      return `今值 ${(+t.ye).toLocaleString()} · 斜率 ${slp>0?'+':''}${slp}%/日 · ${t.touch} 個觸點 · 距現價 ${dist>0?'+':''}${dist}% · ${conf}${ang}`;};
                     if(tl.up)seg.push(`<b style="color:#4BD695">↗上升趨勢線</b>=連接波段低點、全程未跌破的支撐(${inf(tl.up)})——收盤跌破且隔日站不回=趨勢轉弱訊號`);
                     if(tl.dn)seg.push(`<b style="color:#FF8A8E">↘下降壓力線</b>=連接波段高點、全程未突破的壓力(${inf(tl.dn)})——帶量突破=轉強訊號`);
-                    if(!tl.up&&!tl.dn)seg.push('目前找不到有效趨勢線(需兩個以上同向轉折點且全程未被貫穿)——盤整期屬正常,箱型上下緣更具參考性');
+                    if(!tl.up&&!tl.dn)seg.push('目前找不到可用趨勢線(需至少兩個同向轉折點成線、全程未被貫穿;三點觸及才算確認)——盤整期屬正常,箱型上下緣更具參考性');
                     if(tl.upCh||tl.dnCh)seg.push('<b>虛線=通道</b>(平行線,價格常在通道內來回;觸及上緣易回落、下緣易反彈)');
                     if(tl.upR||tl.dnR)seg.push('<b>點線=近期線</b>(較短波段,對當下進出更敏感)');
-                    kc.innerHTML='📏 '+seg.join(';')+'。觸點越多、跨度越長的線越有效;單一貫穿不算破,以「收盤價+隔日確認」為準。拉近/縮放圖表時會自動依可視範圍重算。';
+                    kc.innerHTML='📏 '+seg.join(';')+'。<b>判讀原則</b>:觸點越多、跨度越長的線越有效(兩點成線、三點確認);盤中穿越只是雜訊,<b>收盤價</b>站上/跌破且幅度逾 3% 或帶量,才算有效突破;突破後常<b>回測原線</b>——支撐壓力互換(升勢線跌破轉壓力、壓力線突破轉支撐),回測不破再進場勝率更高。拉近/縮放圖表時會自動依可視範圍重算。';
                   }
                 }catch(e2){}
                 const tpMk=[...(tl.up?tl.up.tpts:[]).map(p=>({coord:[curDates[p[0]],p[1]],symbol:'circle',symbolSize:7,
