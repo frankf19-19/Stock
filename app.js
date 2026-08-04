@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r513 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r514 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r513</span>');
+  diag.push('<span style="color:var(--dim)">build r514</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4164,6 +4164,9 @@ function idxPick(key){                        // 🛡 1分線資料鐵則(r459):
 }
 function idxPick_POSTMARK(){}
 
+function _nrmT(t){                                         // r514:時間域正規化——分線時戳若落在台北 15:00~06:00,即混進 +8h 域,轉回真實紀元
+  try{const h=new Date(t*1000).getHours();return (h>=15||h<6)?t-8*3600:t;}catch(e){return t;}
+}
 function idxPickRaw(key){
   const yd=IDX.d[key];
   if(key==='sp'||key==='nq')return yd;                 // 美股:直接用 Yahoo
@@ -4183,7 +4186,7 @@ function idxPickRaw(key){
   })();
   if(_mdFresh&&Array.isArray(md.c)&&md.c.length>=5){
     // 🌄 MIS/官方全日分線為底(最近時段 09:00 起完整);盤中把累積中更新的點接上,收盤/深夜則直接呈現最近完整一日
-    const t=[...md.t],c=[...md.c],v=Array.isArray(md.v)?[...md.v]:md.c.map(()=>0);   // r480:防彈——任何來源缺量能都不炸
+    const t=md.t.map(_nrmT),c=[...md.c],v=Array.isArray(md.v)?[...md.v]:md.c.map(()=>0);   // r480/r514:缺量能不炸+時間域一律正規化
     const lastT=t[t.length-1];
     for(let i=0;i<acc.t.length;i++)
       if(acc.t[i]>lastT+30){t.push(acc.t[i]);c.push(acc.c[i]);v.push(0);}
@@ -4508,7 +4511,7 @@ async function refreshIdxMis(){
             const fd=await fglCandles(sym,true);
             if(fd&&fd.c.length>=2&&tpDay(fd.t[fd.t.length-1])===sessDay()){
               window.__idxDiag[key]='富果 '+fd.c.length+'點';
-              IDX.misD[key]=Object.assign({t:fd.t,c:fd.c,v:Array.isArray(fd.v)?fd.v:fd.c.map(()=>0),   // r480:真因——漏 v 欄位使 idxPickRaw 展開 undefined 炸掉,整鏈退回累積線
+              IDX.misD[key]=Object.assign({t:fd.t.map(_nrmT),c:fd.c,v:Array.isArray(fd.v)?fd.v:fd.c.map(()=>0),   // r480/r514:漏v防彈+時間域正規化(富果+8h域與spark/MIS真實域混排=左側8小時空白的真因)
                 prev:(IDX.misD[key]||{}).prev||null},{day:sessDay(),via:'富果'});
               if(IDX.sel===key)drawIdxSel();
               if(window.__mkMis===key&&location.hash.startsWith('#macro/'))drawMkLive(key);
