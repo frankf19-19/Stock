@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r514 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r516 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1520,13 +1520,15 @@ async function refreshLive(auto){
       diag.push(`<span id="diagIdxMis"><span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}</span>`);}catch(e){}
   try{const n=(window.__rtOkN||0),ts=window.__rtOkT||0;
     const fresh=ts&&(Date.now()-ts<90000);
-    diag.push(`<span style="color:${fresh?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':'待開盤'}</span>`);
+    const offOk=window.__fglSnapOk&&(Date.now()-window.__fglSnapOk<16*60e3);
+    const dfn=window.__snapDiffN||0;
+    diag.push(`<span style="color:${fresh?'var(--up)':offOk?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':offOk?'收盤已對帳 ✓'+n+'檔':'待開盤'}</span>${dfn>50?` <span style="color:#C62828">⚠盤後檔偏差 ${dfn} 檔(已用官方值)</span>`:''}`);
   }catch(e){}
   try{const fk=!!fglKey();
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r514</span>');
+  diag.push('<span style="color:var(--dim)">build r516</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4175,7 +4177,10 @@ function idxPickRaw(key){
   const md=(IDX.misD||{})[key];
   const _mdFresh=(()=>{
     if(!md||!Array.isArray(md.t)||!md.t.length)return false;
-    if(md.day!==sessDay())return false;
+    if(md.day!==sessDay()){
+      if(marketOpen())return false;                     // 盤中:嚴格要求當日
+      return true;                                      // r515:盤外(含盤前)接受最近完整一日——櫃買清晨三路全滅時靠快取撐住
+    }
     if(!marketOpen())return true;                       // 收盤/盤後:顯示最近完整一日,不設限
     // 盤中:末點日期須今日,且末點時間不得超過現在+5分(過期回退檔末點常是13:30,會遠超現在)
     const lt=md.t[md.t.length-1];
@@ -4519,7 +4524,20 @@ async function refreshIdxMis(){
             }
           }
         }catch(e2){}
+        if(!fixed){                                    // r515:全滅前先掏 localStorage 快取(最近一次成功回補的完整一日)
+          try{
+            const sv=JSON.parse(localStorage.getItem('idxmis_'+key)||'null');
+            if(sv&&Array.isArray(sv.t)&&sv.t.length>5&&!marketOpen()){
+              IDX.misD[key]=sv;fixed=true;
+              window.__idxDiag[key]='快取 '+String(sv.day||'').slice(5)+' '+sv.t.length+'點';
+            }
+          }catch(e){}
+        }
         if(!fixed)window.__idxDiag[key]=(window.__idxDiag[key]&&window.__idxDiag[key].includes('點'))?window.__idxDiag[key]:'回補失敗(端點/代理均不通)';
+        try{const m9=IDX.misD[key];                      // r515:任何來源成功都持久化,供盤外快取還原
+          if(m9&&Array.isArray(m9.c)&&m9.c.length>5&&m9.day)
+            localStorage.setItem('idxmis_'+key,JSON.stringify({t:m9.t,c:m9.c,v:m9.v||[],prev:m9.prev||null,day:m9.day,via:(m9.via||'')+'・快取'}));
+        }catch(e){}
       }
     }catch(e){try{window.__idxDiag[key]='例外:'+String(e).slice(0,70);}catch(_){}}   // r486:例外浮上檯面
   }
@@ -5104,8 +5122,9 @@ async function fglSnapshot(){                              // r509:🐦 富果�
     if(document.hidden)return;                             // r513:分頁隱藏休眠
     const key=fglKey();
     if(!key||!DATA||!Array.isArray(DATA.stocks))return;
-    if(!(typeof marketOpen==='function'&&marketOpen()))return;
-    if(Date.now()-(window.__fglSnapT||0)<17000)return;   // r511:20秒/輪
+    const open9=(typeof marketOpen==='function'&&marketOpen());
+    if(open9){if(Date.now()-(window.__fglSnapT||0)<17000)return;}
+    else{if(Date.now()-(window.__fglSnapOff||0)<10*60e3)return;window.__fglSnapOff=Date.now();}   // r516:盤外=開機對帳+每10分鐘(修「盤後檔過期/污染→全站錯價」)
     window.__fglSnapT=Date.now();
     const map=new Map();DATA.stocks.forEach(x=>{if(x.market==='TW')map.set(x.id,x);});
     let n=0;
@@ -5125,6 +5144,7 @@ async function fglSnapshot(){                              // r509:🐦 富果�
         if(!st)return;
         const px=+q.closePrice||+q.lastPrice||0;
         if(!(px>0))return;
+        try{if(st.price>0&&Math.abs(px/st.price-1)>0.03)window.__snapDiffN=(window.__snapDiffN||0)+1;}catch(e){}   // r516:對帳差異統計
         st.price=px;
         if(q.changePercent!=null)st.chg=+(+q.changePercent).toFixed(2);
         const r0=RTC[st.id]||(RTC[st.id]={});
@@ -5141,7 +5161,13 @@ async function fglSnapshot(){                              // r509:🐦 富果�
       window.__rtOkN=n;window.__rtOkT=Date.now();window.__fglSnapOk=Date.now();
       try{const mm2=location.hash.match(/^#stock\/(.+)$/);
         if(mm2){const s2=DATA.stocks.find(x=>x.id===decodeURIComponent(mm2[1]));
-          if(s2){stitchStk(s2);try{liveKBar(s2.id);}catch(e){}}}}catch(e){}
+          if(s2){
+            const px8=document.getElementById('dPx'),ch8=document.getElementById('dChg');   // r516:盤外對帳也更新標頭大字
+            if(px8)px8.textContent=s2.price;
+            if(ch8)ch8.innerHTML=chgHtml(s2.chg);
+            if(open9){stitchStk(s2);try{liveKBar(s2.id);}catch(e){}}
+          }}}catch(e){}
+      try{if(window.__snapDirty&&typeof snapFlush==='function')snapFlush();}catch(e){}
     }
   }catch(e){}
 }
