@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r512 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r513 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1526,7 +1526,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r512</span>');
+  diag.push('<span style="color:var(--dim)">build r513</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3409,6 +3409,7 @@ setInterval(()=>{                                          // 📶 報價即時:
   try{
     const _n=new Date(),_h=_n.getHours()+_n.getMinutes()/60;
     if(!((typeof marketOpen==='function'&&marketOpen())||_h>=21.4||_h<5.2))return;   // r474:台股盤中或美股時段才同步,收盤後不空轉
+    if(document.hidden)return;                             // r513:分頁隱藏休眠
     if(!document.querySelector('[data-ppx],[data-pch],[data-hspx]'))return;   // r473:修「被 pickBox 綁架」——最愛頁/任何頁有標記就同步
     document.querySelectorAll('[data-ppx]').forEach(el=>{   // r465:全頁即時同步(最愛/清單/所有卡片)
       const st=(DATA.stocks||[]).find(x=>x.id===el.dataset.ppx);
@@ -5069,14 +5070,18 @@ function fglEnsure(force){                    // 連線管理:個股頁+盤中+�
               window.__fglUiT=nowMs;
               if(st2){
                 const st3=document.getElementById('intraStat');
-                if(st3){const keep=(st3.innerHTML.split(' · ').slice(1)||[]).join(' · ');
-                  st3.innerHTML=intraStatTxt(st2,keep||null);
-                  if(!/富果/.test(st3.innerHTML))st3.innerHTML+=' · <span style="color:var(--up)">🐦 富果逐筆</span>';}
+                if(st3){
+                  if(st3.dataset.keep==null)st3.dataset.keep=(st3.innerHTML.split(' · ').slice(1)||[]).join(' · ');   // r513:徽章尾巴只讀一次
+                  let h9=intraStatTxt(st2,st3.dataset.keep||null);
+                  if(!/富果/.test(h9))h9+=' · <span style="color:var(--up)">🐦 富果逐筆</span>';
+                  if(window.__isHtml!==h9){window.__isHtml=h9;st3.innerHTML=h9;}   // r513:內容沒變不寫DOM
+                }
                 const lp2=document.getElementById('dPx'),ch2=document.getElementById('dChg');
-                if(lp2)lp2.textContent=st2.price;
-                if(ch2)ch2.innerHTML=chgHtml(st2.chg);
+                const pt2=String(st2.price);
+                if(lp2&&lp2.textContent!==pt2)lp2.textContent=pt2;
+                if(ch2){const ch9=chgHtml(st2.chg);if(window.__dchH!==ch9){window.__dchH=ch9;ch2.innerHTML=ch9;}}
                 const lv2=document.getElementById('lvPx');
-                if(lv2)lv2.textContent=st2.price;
+                if(lv2&&lv2.textContent!==pt2)lv2.textContent=pt2;
               }
             }
           }
@@ -5091,8 +5096,9 @@ function fglEnsure(force){                    // 連線管理:個股頁+盤中+�
 
 
 const __fglCd={};                             // 60秒快取:symbol → {at,d}
-async function fglSnapshot(){                              // r509:🐦 富果全市場快照——TSE+OTC 各一請求=全市場~1,800檔即時報價(60秒/輪)
+async function fglSnapshot(){                              // r509:🐦 富果全市場快照——TSE+OTC 各一請求=全市場~1,800檔即時報價
   try{
+    if(document.hidden)return;                             // r513:分頁隱藏休眠
     const key=fglKey();
     if(!key||!DATA||!Array.isArray(DATA.stocks))return;
     if(!(typeof marketOpen==='function'&&marketOpen()))return;
@@ -5139,6 +5145,7 @@ async function fglSnapshot(){                              // r509:🐦 富果�
 setInterval(fglSnapshot,20000);setTimeout(fglSnapshot,4500);   // r511:快照 20 秒
 async function fglIdxTick(){                               // r510:🐦 加權/櫃買即時改吃富果(IX0001/IX0043)
   try{
+    if(document.hidden)return;                             // r513:分頁隱藏休眠
     const key=fglKey();
     if(!key)return;
     if(!(typeof marketOpen==='function'&&marketOpen()))return;
@@ -5344,6 +5351,7 @@ function stkLiveStart(s){
   const tick=async()=>{
     if(location.hash!=='#stock/'+s.id){stkLiveStop();return;}
     if(typeof marketOpen==='function'&&!marketOpen())return;   // r474:收盤即停,開盤才即時
+    if(document.hidden)return;                             // r513:分頁隱藏休眠
     if(fglKey()){                                          // r510:🐦 富果 /intraday/quote 為個股 tick 主源(穩定、欄位齊);失敗才退 MIS
       try{
         const rq=await fglRawGet2('https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/'+encodeURIComponent(s.id),fglKey(),6000);
