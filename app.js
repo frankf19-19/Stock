@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r519 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r520 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1540,6 +1540,7 @@ async function refreshLive(auto){
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
   try{const g=window.__idxDiag||{};
       diag.push(`<span id="diagIdxMis"><span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}</span>`);}catch(e){}
+  diag.push(`<span style="cursor:pointer;color:var(--amber);font-weight:800" onclick="try{dataDoctor()}catch(e){}" title="現場實測快照/報價/卡片對帳">🩺 健檢</span>`);
   try{const n=(window.__rtOkN||0),ts=window.__rtOkT||0;
     const fresh=ts&&(Date.now()-ts<90000);
     const offOk=window.__fglSnapOk&&(Date.now()-window.__fglSnapOk<16*60e3);
@@ -1550,7 +1551,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r519</span>');
+  diag.push('<span style="color:var(--dim)">build r520</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4467,6 +4468,52 @@ function idxBoot(){
 setTimeout(idxBoot,1200);
 /* 🌄 指數全日分線回補:MIS getChartOhlcStatis(tse_t00/otc_o00)
    中途開頁也能瞬間補全 09:00 起完整走勢——不再只有開頁後累積的一小段 */
+async function dataDoctor(){                               // r520:🩺 資料健檢——在使用者瀏覽器現場採證(快照原始回應+卡片逐檔對帳)
+  let box=document.getElementById('drBox');
+  if(!box){box=document.createElement('div');box.id='drBox';
+    box.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9999;width:min(860px,94vw);max-height:78vh;overflow:auto;background:var(--panel);border:2px solid var(--amber);border-radius:14px;padding:14px 18px;font-size:12.5px;line-height:1.7;box-shadow:0 12px 40px rgba(0,0,0,.25)';
+    document.body.appendChild(box);}
+  const L=[];const W=t=>{L.push(t);box.innerHTML='<div style="display:flex;justify-content:space-between"><b style="font-size:15px">🩺 資料健檢報告</b><span style="cursor:pointer;font-weight:900" onclick="this.closest(\'#drBox\').remove()">✕ 關閉</span></div>'+L.join('<br>');};
+  const key=fglKey();
+  W(`build ${(document.querySelector('#diagBar')||{textContent:''}).textContent.match(/build \S+/)?.[0]||'?'} · ${new Date().toLocaleTimeString('zh-TW',{hour12:false})} · 富果Key ${key?'✓(尾碼'+key.slice(-4)+')':'✗ 無'} · marketOpen=${(typeof marketOpen==='function'&&marketOpen())}`);
+  // ① 快照原始回應
+  for(const mkt of ['TSE','OTC']){
+    try{
+      const r=await fglRawGet2('https://api.fugle.tw/marketdata/v1.0/stock/snapshot/quotes/'+mkt,key,9000);
+      if(!r){W(`① 快照 ${mkt}:連線失敗(CORS/網路)`);continue;}
+      if(!r.ok){W(`① 快照 ${mkt}:HTTP ${r.status} — ${(await r.text()).slice(0,120)}`);continue;}
+      const j=await r.json();
+      const arr=Array.isArray(j.data)?j.data:(j.data&&Array.isArray(j.data.quotes)?j.data.quotes:null);
+      W(`① 快照 ${mkt}:HTTP 200 · 頂層鍵=[${Object.keys(j).join(',')}] · data型別=${Array.isArray(j.data)?'array('+j.data.length+')':typeof j.data} ${arr?'· 首筆鍵=['+Object.keys(arr[0]||{}).slice(0,10).join(',')+'] · 首3代號='+arr.slice(0,3).map(x=>JSON.stringify(x.symbol)).join(','):''}`);
+    }catch(e){W(`① 快照 ${mkt}:例外 ${String(e).slice(0,80)}`);}
+  }
+  // ② 單檔報價 2330
+  try{
+    const r=await fglRawGet2('https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/2330',key,7000);
+    if(r&&r.ok){const q=await r.json();
+      W(`② 報價 2330:HTTP 200 · closePrice=${q.closePrice} lastPrice=${q.lastPrice} lastTrade.price=${q.lastTrade&&q.lastTrade.price} previousClose=${q.previousClose} 鍵=[${Object.keys(q).slice(0,12).join(',')}]`);
+    }else W(`② 報價 2330:${r?('HTTP '+r.status):'連線失敗'}`);
+  }catch(e){W(`② 報價 2330:例外 ${String(e).slice(0,80)}`);}
+  // ③ 卡片逐檔對帳(畫面上的前 12 檔)
+  const ids=[...new Set([...document.querySelectorAll('[data-ppx]')].map(el=>el.dataset.ppx))].slice(0,12);
+  W(`③ 卡片對帳(畫面 ${ids.length} 檔):卡片值 vs 富果官方`);
+  for(const id of ids){
+    const st=(DATA.stocks||[]).find(x=>x.id===id);
+    if(!st)continue;
+    try{
+      const r=await fglRawGet2('https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/'+id,key,7000);
+      if(r&&r.ok){const q=await r.json();
+        const off=+q.closePrice||+q.lastPrice||0,y=+q.previousClose||0;
+        const offC=y>0?((off-y)/y*100):null;
+        const bad=off>0&&Math.abs((+st.price)/off-1)>0.005;
+        W(`&nbsp;&nbsp;${id} ${st.name||''}:卡片 <b>${st.price}(${st.chg}%)</b> vs 官方 <b style="color:${bad?'#C62828':'var(--up)'}">${off}(${offC!=null?offC.toFixed(2):'?'}%)</b> ${bad?'⚠不符':'✓'} · __RTQ=${JSON.stringify((window.__RTQ||{})[id]||null)}`);
+      }else W(`&nbsp;&nbsp;${id}:官方查詢 ${r?('HTTP '+r.status):'失敗'}`);
+    }catch(e){W(`&nbsp;&nbsp;${id}:例外`);}
+    await new Promise(r2=>setTimeout(r2,250));
+  }
+  W(`④ 旗標:__fglSnapOk=${window.__fglSnapOk?new Date(window.__fglSnapOk).toLocaleTimeString('zh-TW',{hour12:false}):'null'} · __fglSnapErr=${window.__fglSnapErr||'null'} · __rtOkN=${window.__rtOkN} · __RTQ檔數=${Object.keys(window.__RTQ||{}).length}`);
+  W('<b>—— 報告完畢,請整張截圖回傳 ——</b>');
+}
 function updIdxDiagBar(){try{                             // r486:指數回補診斷即時化(原為開機一次性快照,永遠顯示「尚未執行」)
   const el=document.getElementById('diagIdxMis');if(!el)return;
   const g=window.__idxDiag||{};
