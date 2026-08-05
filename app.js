@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r520 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r522 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1543,15 +1543,15 @@ async function refreshLive(auto){
   diag.push(`<span style="cursor:pointer;color:var(--amber);font-weight:800" onclick="try{dataDoctor()}catch(e){}" title="現場實測快照/報價/卡片對帳">🩺 健檢</span>`);
   try{const n=(window.__rtOkN||0),ts=window.__rtOkT||0;
     const fresh=ts&&(Date.now()-ts<90000);
-    const offOk=window.__fglSnapOk&&(Date.now()-window.__fglSnapOk<16*60e3);
+    const offOk=window.__fqsOk&&(Date.now()-window.__fqsOk<16*60e3);   // r522:改接巡檢旗標(快照旗標已死)
     const dfn=window.__snapDiffN||0;
-    diag.push(`<span style="color:${fresh?'var(--up)':offOk?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':offOk?'收盤已對帳 ✓'+n+'檔':'待開盤'}</span>${dfn>50?` <span style="color:#C62828">⚠盤後檔偏差 ${dfn} 檔(已用官方值)</span>`:''}${window.__fglSnapErr?` <span style="color:var(--amber)" title="富果全市場快照失敗原因">快照:${window.__fglSnapErr}</span>`:''}`);
+    diag.push(`<span style="color:${fresh?'var(--up)':offOk?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':offOk?'收盤已對帳 ✓'+n+'檔':'待開盤'}</span>${dfn>50?` <span style="color:#C62828">⚠盤後檔偏差 ${dfn} 檔(已用官方值)</span>`:''}${window.__fqsNote?` <span style="color:var(--up)" title="可見卡片+最愛的富果官方值巡檢">${window.__fqsNote}</span>`:window.__fglSnapErr?` <span style="color:var(--amber)">快照:${window.__fglSnapErr}</span>`:''}`);
   }catch(e){}
   try{const fk=!!fglKey();
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r520</span>');
+  diag.push('<span style="color:var(--dim)">build r522</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4487,6 +4487,20 @@ async function dataDoctor(){                               // r520:🩺 資料�
       W(`① 快照 ${mkt}:HTTP 200 · 頂層鍵=[${Object.keys(j).join(',')}] · data型別=${Array.isArray(j.data)?'array('+j.data.length+')':typeof j.data} ${arr?'· 首筆鍵=['+Object.keys(arr[0]||{}).slice(0,10).join(',')+'] · 首3代號='+arr.slice(0,3).map(x=>JSON.stringify(x.symbol)).join(','):''}`);
     }catch(e){W(`① 快照 ${mkt}:例外 ${String(e).slice(0,80)}`);}
   }
+  // ①b 其餘在用端點逐一實測
+  for(const [nm,api] of [
+    ['歷史日K 2330','https://api.fugle.tw/marketdata/v1.0/stock/historical/candles/2330?from=2026-07-20&to=2026-08-05&fields=open,high,low,close,volume'],
+    ['當日分K 2330','https://api.fugle.tw/marketdata/v1.0/stock/intraday/candles/2330?timeframe=1'],
+    ['指數quote IX0001','https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/IX0001']]){
+    try{
+      const r=await fglRawGet2(api,key,8000);
+      if(!r){W(`①b ${nm}:連線失敗`);continue;}
+      if(!r.ok){W(`①b ${nm}:HTTP ${r.status} — ${(await r.text()).slice(0,90)}`);continue;}
+      const j=await r.json();
+      const dl=Array.isArray(j.data)?j.data.length:(j.data?'obj':'-');
+      W(`①b ${nm}:HTTP 200 · data=${dl} ${j.closePrice!=null?'closePrice='+j.closePrice:''}`);
+    }catch(e){W(`①b ${nm}:例外 ${String(e).slice(0,60)}`);}
+  }
   // ② 單檔報價 2330
   try{
     const r=await fglRawGet2('https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/2330',key,7000);
@@ -5186,7 +5200,8 @@ function fglEnsure(force){                    // 連線管理:個股頁+盤中+�
 
 
 const __fglCd={};                             // 60秒快取:symbol → {at,d}
-async function fglSnapshot(){                              // r509:🐦 富果全市場快照——TSE+OTC 各一請求=全市場~1,800檔即時報價
+async function fglSnapshot(){                              // r509→r522:已退役(健檢實測 snapshot 端點 HTTP 403,免費方案不含);保留僅供查考
+  return;
   try{
     if(document.hidden)return;                             // r513:分頁隱藏休眠
     const key=fglKey();
@@ -5245,7 +5260,49 @@ async function fglSnapshot(){                              // r509:🐦 富果�
     }
   }catch(e){}
 }
-setInterval(fglSnapshot,20000);setTimeout(fglSnapshot,4500);   // r511:快照 20 秒
+/* r521:snapshot 端點經健檢實測 HTTP 403(免費方案不含)——正式退役,改報價巡檢 */
+async function fglQuoteSweep(){                            // r521:🐦 報價巡檢——可見卡片∪最愛,8檔/15秒輪流打單檔 quote;盤外每10分鐘對帳一輪
+  try{
+    if(document.hidden)return;
+    const key=fglKey();if(!key)return;
+    const open9=(typeof marketOpen==='function'&&marketOpen());
+    if(!open9&&Date.now()-(window.__fqsOffT||0)<10*60e3)return;
+    const set=new Set();
+    document.querySelectorAll('[data-ppx]').forEach(el=>{if(el.dataset.ppx)set.add(el.dataset.ppx);});
+    try{JSON.parse(localStorage.getItem('fav_ids')||'[]').forEach(x=>{const id=typeof x==='string'?x:(x&&x.id);if(id)set.add(id);});}catch(e){}
+    const all=[...set].filter(id=>(DATA.stocks||[]).some(x=>x.id===id&&x.market==='TW'));
+    if(!all.length){if(!open9)window.__fqsOffT=Date.now();return;}
+    window.__fqsI=window.__fqsI||0;
+    const batch=[];
+    for(let k=0;k<Math.min(8,all.length);k++)batch.push(all[(window.__fqsI+k)%all.length]);
+    window.__fqsI=(window.__fqsI+batch.length)%all.length;
+    let ok=0;
+    await Promise.all(batch.map(async id=>{
+      try{
+        const r=await fglRawGet2('https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/'+encodeURIComponent(id),key,6000);
+        if(!r||!r.ok)return;
+        const q=await r.json();
+        const px=+q.closePrice||+q.lastPrice||+(((q.lastTrade||{}).price)||0);
+        const y=+q.previousClose||0;
+        if(!(px>0))return;
+        const st=(DATA.stocks||[]).find(x=>x.id===id);
+        try{if(st&&st.price>0&&Math.abs(px/st.price-1)>0.03)window.__snapDiffN=(window.__snapDiffN||0)+1;}catch(e){}   // r522:對帳差異統計移入巡檢
+        if(st){st.price=px;if(y>0)st.chg=+(((px-y)/y)*100).toFixed(2);}
+        snapPut(id,px,st?st.chg:null);
+        const r0=RTC[id]||(RTC[id]={});
+        if(+q.openPrice>0)r0.o=+q.openPrice;
+        if(+q.highPrice>0)r0.h=+q.highPrice;
+        if(+q.lowPrice>0)r0.l=+q.lowPrice;
+        r0.c=px;if(y>0)r0.y=y;
+        ok++;
+      }catch(e){}
+    }));
+    if(ok){window.__fqsOk=Date.now();window.__fqsN=all.length;window.__rtOkT=Date.now();
+      window.__fglSnapErr=null;window.__fqsNote='巡檢 ✓'+ok+'/'+all.length+'檔';}
+    if(!open9)window.__fqsOffT=Date.now();
+  }catch(e){}
+}
+setInterval(fglQuoteSweep,15000);setTimeout(fglQuoteSweep,3000);
 async function fglIdxTick(){                               // r510:🐦 加權/櫃買即時改吃富果(IX0001/IX0043)
   try{
     if(document.hidden)return;                             // r513:分頁隱藏休眠
@@ -5269,7 +5326,7 @@ async function fglIdxTick(){                               // r510:🐦 加權/�
     }
   }catch(e){}
 }
-setInterval(fglIdxTick,10000);setTimeout(fglIdxTick,5200);   // r511:指數10秒
+setInterval(fglIdxTick,15000);setTimeout(fglIdxTick,5200);   // r521:指數15秒(額度回配)
 async function fglCandles(symbol,isIndex){    // 🐦 富果 REST:當日開盤至今的完整 1 分 K(全網站台股即時的底圖)
   try{
     const key=fglKey();
@@ -5548,7 +5605,7 @@ function stkLiveStart(s){
     }catch(e){}
   };
   tick();
-  STK_TIMER=setInterval(tick,(typeof fglKey==='function'&&fglKey())?3000:6000);   // r511:富果3秒/MIS備援6秒
+  STK_TIMER=setInterval(tick,(typeof fglKey==='function'&&fglKey())?5000:6000);   // r521:額度回配——巡檢進場,tick 5秒(WS逐筆仍為秒級主源)
   try{clearInterval(window.__fglIntraT);}catch(e){}
   window.__fglIntraT=setInterval(()=>{                     // 🐦 富果全日K:盤中每30秒重畫分時圖(快取25秒,恰好取到新棒)
     try{
@@ -7104,15 +7161,16 @@ async function rtTick(){
   }
   const exOf=id=>{const s=DATA.stocks.find(x=>x.id===id);return (s&&s.ex==='otc')?'otc':'tse';};
   // 禮貌節奏:單一大請求(指數+優先股),避免觸發證交所限流;輪動每3輪補一批
-  if(window.__fglSnapOk&&Date.now()-window.__fglSnapOk<150000){   // r509:富果快照健在→MIS 個股輪掃休兵,只保指數頻道
-    try{await fetchMIS(['tse_t00.tw',(typeof OTC_CH!=='undefined'&&OTC_CH)||'otc_o00.tw']);}catch(e){}
-    return;
-  }
+  /* r522:原「快照健在→MIS休兵」閘已移除——snapshot 403 退役後 MIS 恆為全市場輪掃主力,富果巡檢負責可見+最愛 */
   RT.tickN=(RT.tickN||0)+1;
   try{const vis=new Set();                                  // r519:可見卡片優先——畫面上的 data-ppx/data-pch 卡永遠第一批掃
     document.querySelectorAll('[data-ppx],[data-pch]').forEach(el=>{
       const id=el.dataset.ppx||el.dataset.pch;if(id)vis.add(id);});
-    if(vis.size)ids.sort((a,b)=>(vis.has(b)?1:0)-(vis.has(a)?1:0));   // 原地穩定排序(ids 為 const)
+    if(vis.size){
+      ids.sort((a,b)=>(vis.has(b)?1:0)-(vis.has(a)?1:0));   // 原地穩定排序(ids 為 const)
+      let add=0;                                            // r521:可見卡片不在名單=強制加入(健檢實證 2454 __RTQ=null 從未被掃)
+      vis.forEach(id=>{if(add<40&&!ids.includes(id)&&/^\d{4,6}[A-Z]?$/.test(id)){ids.unshift(id);add++;}});
+    }
   }catch(e){}
   const stockChans=ids.map(id=>`${exOf(id)}_${id}.tw`);
   const priCh=['tse_t00.tw',OTC_CH,...stockChans.slice(0,140)];
