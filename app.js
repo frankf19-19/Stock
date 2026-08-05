@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r516 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r517 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -407,7 +407,14 @@ function applyRTQ(){
 function snapLoad(){
   try{
     const j=JSON.parse(localStorage.getItem(SNAP_KEY)||'null');
-    if(!j||!j.q||Date.now()-j.ts>36*3600e3)return;   // 超過1.5天的快照不用
+    if(!j||!j.q)return;
+    // r517:真因修復——只有「同一交易時段」的快照才准覆蓋盤後檔;隔日/隔夜殘值=污染源,一律丟棄
+    const sameSess=(()=>{try{
+      if(tpDay(j.ts/1000)!==tpDay(Date.now()/1000))return false;
+      const o=new Date();o.setHours(8,55,0,0);
+      return j.ts>=o.getTime();
+    }catch(e){return false;}})();
+    if(!sameSess){try{localStorage.removeItem(SNAP_KEY);}catch(e){}return;}
     let n=0;
     DATA.stocks.forEach(s=>{
       const v=j.q[s.id];
@@ -1528,7 +1535,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r516</span>');
+  diag.push('<span style="color:var(--dim)">build r517</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5157,7 +5164,9 @@ async function fglSnapshot(){                              // r509:🐦 富果�
         n++;
       });
     }
+    if(!n){window.__fglSnapErr='快照0檔(端點或方案不可用)';}   // r517:誠實化——失敗不冒充成功
     if(n){
+      window.__fglSnapErr=null;
       window.__rtOkN=n;window.__rtOkT=Date.now();window.__fglSnapOk=Date.now();
       try{const mm2=location.hash.match(/^#stock\/(.+)$/);
         if(mm2){const s2=DATA.stocks.find(x=>x.id===decodeURIComponent(mm2[1]));
@@ -5374,7 +5383,28 @@ function stkRead(s){
   return `${strength}——${pat},現於 ${c}(${chg>=0?'+':''}${chg.toFixed(2)}%),日內 ${l}~${h},${posTxt}${vw?'、'+vw:''}${mom?'、'+mom:''}。${notes.length?notes.join(';')+'。':''}<span class="dim-note">規則化描述,非投資建議。</span>`;
 }
 let STK_TIMER=null;
+async function fglQuoteOnce(s){                            // r517:單檔官方對帳——開頁即打 /intraday/quote(盤外回最後收盤官方值)
+  try{
+    const key=fglKey();
+    if(!key||!s||s.market!=='TW')return;
+    const rq=await fglRawGet2('https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/'+encodeURIComponent(s.id),key,6000);
+    if(!rq||!rq.ok)return;
+    const q=await rq.json();
+    const last=+q.closePrice||+q.lastPrice||+(((q.lastTrade||{}).price)||0);
+    const y=+q.previousClose||0;
+    if(!(last>0))return;
+    s.price=+last.toFixed(2);
+    if(y>0)s.chg=+(((last-y)/y)*100).toFixed(2);
+    try{snapPut(s.id,s.price,s.chg);}catch(e){}
+    const px8=document.getElementById('dPx'),ch8=document.getElementById('dChg');
+    if(px8)px8.textContent=s.price;
+    if(ch8)ch8.innerHTML=chgHtml(s.chg);
+    const st8=document.getElementById('intraStat');
+    if(st8&&!/富果/.test(st8.innerHTML))st8.innerHTML+=' · <span style="color:var(--up)">🐦 富果官方值</span>';
+  }catch(e){}
+}
 function stkLiveStart(s){
+  try{fglQuoteOnce(s);}catch(e){}                          // r517:開頁單檔對帳(全時段)
   stkLiveStop();
   if(s.market!=='TW')return;
   const tick=async()=>{
