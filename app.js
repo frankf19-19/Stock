@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r518 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r519 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1544,13 +1544,13 @@ async function refreshLive(auto){
     const fresh=ts&&(Date.now()-ts<90000);
     const offOk=window.__fglSnapOk&&(Date.now()-window.__fglSnapOk<16*60e3);
     const dfn=window.__snapDiffN||0;
-    diag.push(`<span style="color:${fresh?'var(--up)':offOk?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':offOk?'收盤已對帳 ✓'+n+'檔':'待開盤'}</span>${dfn>50?` <span style="color:#C62828">⚠盤後檔偏差 ${dfn} 檔(已用官方值)</span>`:''}`);
+    diag.push(`<span style="color:${fresh?'var(--up)':offOk?'var(--up)':'var(--dim)'}">即時 ${fresh?'✓ '+n+' 檔/輪':offOk?'收盤已對帳 ✓'+n+'檔':'待開盤'}</span>${dfn>50?` <span style="color:#C62828">⚠盤後檔偏差 ${dfn} 檔(已用官方值)</span>`:''}${window.__fglSnapErr?` <span style="color:var(--amber)" title="富果全市場快照失敗原因">快照:${window.__fglSnapErr}</span>`:''}`);
   }catch(e){}
   try{const fk=!!fglKey();
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r518</span>');
+  diag.push('<span style="color:var(--dim)">build r519</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5150,16 +5150,19 @@ async function fglSnapshot(){                              // r509:🐦 富果�
     window.__fglSnapT=Date.now();
     const map=new Map();DATA.stocks.forEach(x=>{if(x.market==='TW')map.set(x.id,x);});
     let n=0;
+    const errs=[];
     for(const mkt of ['TSE','OTC']){
       const api='https://api.fugle.tw/marketdata/v1.0/stock/snapshot/quotes/'+mkt;
-      let r=null;
-      try{r=await fglRawGet2(api,key,9000);}catch(e){r=null;}
+      let r=null,e1='';
+      try{r=await fglRawGet2(api,key,9000);}catch(e){r=null;e1=String(e&&e.name||e).slice(0,16);}
+      if(r&&!r.ok)e1='HTTP'+r.status;
       if(!r||!r.ok){
         let host='https://muddy-cake-cb69.frankccc199.workers.dev';
         try{const p=(typeof myProxy==='function'?myProxy():'');if(p)host=new URL(p).origin;}catch(e){}
-        try{r=await fT(host+'/fgl?u='+encodeURIComponent(api),9000);}catch(e){r=null;}
+        try{r=await fT(host+'/fgl?u='+encodeURIComponent(api),9000);
+          if(r&&!r.ok)e1+='/代發HTTP'+r.status;}catch(e){e1+='/代發失敗';r=null;}
       }
-      if(!r||!r.ok)continue;
+      if(!r||!r.ok){errs.push(mkt+':'+(e1||'?'));continue;}   // r519:每市場精確錯因
       const j=await r.json();
       (j&&j.data||[]).forEach(q=>{
         const st=map.get(String(q.symbol));
@@ -5179,7 +5182,7 @@ async function fglSnapshot(){                              // r509:🐦 富果�
         n++;
       });
     }
-    if(!n){window.__fglSnapErr='快照0檔(端點或方案不可用)';}   // r517:誠實化——失敗不冒充成功
+    if(!n){window.__fglSnapErr=errs.length?errs.join(' '):'快照0檔';}   // r517/r519:精確錯因(403=方案不含/TypeError=CORS需代發/代發HTTP404=Worker缺/fgl路由)
     if(n){
       window.__fglSnapErr=null;
       window.__rtOkN=n;window.__rtOkT=Date.now();window.__fglSnapOk=Date.now();
@@ -7059,6 +7062,11 @@ async function rtTick(){
     return;
   }
   RT.tickN=(RT.tickN||0)+1;
+  try{const vis=new Set();                                  // r519:可見卡片優先——畫面上的 data-ppx/data-pch 卡永遠第一批掃
+    document.querySelectorAll('[data-ppx],[data-pch]').forEach(el=>{
+      const id=el.dataset.ppx||el.dataset.pch;if(id)vis.add(id);});
+    if(vis.size)ids.sort((a,b)=>(vis.has(b)?1:0)-(vis.has(a)?1:0));   // 原地穩定排序(ids 為 const)
+  }catch(e){}
   const stockChans=ids.map(id=>`${exOf(id)}_${id}.tw`);
   const priCh=['tse_t00.tw',OTC_CH,...stockChans.slice(0,140)];
   const reqs=[fetchMIS(priCh)];
