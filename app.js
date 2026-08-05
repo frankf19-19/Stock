@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r517 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r518 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -433,6 +433,21 @@ async function boot(){
   try{snapLoad();}catch(e){}
   setBadges(); renderAll(); route();   // 資料一到立即渲染,背景抓取由各計時器延後進行
 }
+(function dayRolloverGuard(){                              // r518:換日總清——頁面掛過夜的所有記憶體殘留(RTC昨日開高低/__RTQ舊值/各累積器)一次歸零
+  let d0=tpDay(Date.now()/1000);
+  setInterval(()=>{try{
+    const d1=tpDay(Date.now()/1000);
+    if(d1===d0)return;
+    if(document.hidden||new Date().getHours()<8){location.reload();return;}   // 背景分頁或清晨:直接軟重載,最乾淨
+    d0=d1;                                                  // 前景深夜使用中:先清關鍵殘留,切到背景時再完整重載
+    try{window.__RTQ={};localStorage.removeItem(SNAP_KEY);}catch(e){}
+    try{if(typeof RTC==='object')Object.keys(RTC).forEach(k=>delete RTC[k]);}catch(e){}
+    window.__needReload=1;
+  }catch(e){}},60000);
+  document.addEventListener('visibilitychange',()=>{try{
+    if(window.__needReload&&document.hidden)location.reload();
+  }catch(e){}});
+})();
 window.addEventListener('error',e=>{
   try{
     window.__lastErr=(e.message||'')+' @'+String(e.filename||'').split('/').pop()+':'+e.lineno;
@@ -1535,7 +1550,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r517</span>');
+  diag.push('<span style="color:var(--dim)">build r518</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6055,6 +6070,11 @@ function stkAccSave(id){
 function stkAccPush(id,last,y){
   if(!marketOpen())return;
   const a=stkAcc(id);
+  if(a.t.length&&tpDay(a.t[a.t.length-1])!==tpDay(Date.now()/1000)){   // r518:換日防護——掛過夜的昨日殘留(走勢+力道)全清
+    a.t=[];a.c=[];a.v=[];a.prev=null;
+    if(Array.isArray(a.bs))a.bs=[];if(Array.isArray(a.bb))a.bb=[];if(Array.isArray(a.sb))a.sb=[];
+    try{localStorage.removeItem('sacc_'+id);}catch(e){}
+  }
   if(y>0&&!a.prev)a.prev=y;
   const now=Math.floor(Date.now()/1000);
   const i=a.t.length-1;
