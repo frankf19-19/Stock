@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r522 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r523 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1551,7 +1551,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r522</span>');
+  diag.push('<span style="color:var(--dim)">build r523</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8883,7 +8883,9 @@ function liveKBar(idOrKey){
   if(!rtc||!(rtc.o>0))return;
   if(location.hash!==KHASH)return;
   const today=tpDay(Date.now()/1000);
-  const bar=[+rtc.o.toFixed(2),+rtc.h.toFixed(2),+rtc.l.toFixed(2),+rtc.c.toFixed(2),0];
+  const _vPrev=(curDates[curDates.length-1]===today&&curOhlc[curOhlc.length-1])?(+curOhlc[curOhlc.length-1][4]||0):0;   // r523:別把已有的當日量蓋成 0
+  const _vLive=(KHASH==='#stock/'+idOrKey&&window.__intraVSum>0)?Math.round(window.__intraVSum):_vPrev;               // 富果累計量(張)→ 今日量能柱同步呼吸
+  const bar=[+rtc.o.toFixed(2),+Math.max(rtc.h,rtc.c).toFixed(2),+Math.min(rtc.l,rtc.c).toFixed(2),+rtc.c.toFixed(2),_vLive];
   if(curDates[curDates.length-1]===today){
     curOhlc[curOhlc.length-1]=bar;
   }else{
@@ -9690,18 +9692,79 @@ async function loadK(s){
         KCACHE[sh]=r.ok?await r.json():{};}
     catch(e){KCACHE[sh]={};}
   }
+  // r523:收盤後分片強制回源一次——?v=日期 整天不變,CDN 會鎖住早上的舊分片,
+  //       導致官方當日K已入庫、前端卻整晚看不到 → 15:00 後若分片仍缺今日,直連 repo 重抓(每分片一次)
+  if(s.market==='TW'){try{
+    const _e0=KCACHE[sh][s.id];
+    const _tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const _hm=_tp.getHours()*60+_tp.getMinutes(), _wd=_tp.getDay();
+    KCACHE.__re=KCACHE.__re||{};
+    if(_e0&&Array.isArray(_e0.d)&&_e0.d.length&&_wd>=1&&_wd<=5&&_hm>=900
+       &&_e0.d[_e0.d.length-1]<tpDay(Date.now()/1000)&&!KCACHE.__re[sh]){
+      KCACHE.__re[sh]=1;
+      const r2=await fetch(sh+'?r='+Date.now(),{cache:'no-store'});
+      if(r2.ok){const j2=await r2.json();if(j2&&j2[s.id])KCACHE[sh]=Object.assign(j2,{__re:KCACHE.__re});}
+    }
+  }catch(e){}}
   const e=KCACHE[sh][s.id];
   if(!(e&&Array.isArray(e.o)&&e.o.length>5))return null;
   const dates=e.d.slice(), ohlc=e.o.map(r=>r.slice());
-  // 📌 補最新K棒:K線落後最新交易日、且有最新價 → 補一根(官方日K源延遲;明日完整資料自動覆蓋)
+  // 📌 補最新K棒(r523 真實化):分片落後最新交易日 → 依「MIS 官方快照 → 富果/MIS 即時快取 → spark 盤中5分快照」
+  //    取真實開高低收(+量)補當日棒;三源皆失敗才退回舊法(昨收→現價)。明日官方完整資料自動覆蓋。
   const today=DATA.updated;
   const _live=(s.price>0)?s:(DATA.stocks||[]).find(x=>x.id===s.id);   // 指數替身(pseudo)沒帶價 → 查主表
   const _px=_live&&+_live.price>0?+_live.price:0;
-  if(s.market==='TW'&&today&&dates.length&&dates[dates.length-1]<today&&_px>0){
-    const prevC=ohlc[ohlc.length-1][3];
-    const o=prevC>0?prevC:_px;
-    dates.push(today);
-    ohlc.push([+o.toFixed(2),+Math.max(o,_px).toFixed(2),+Math.min(o,_px).toFixed(2),+_px.toFixed(2),0]);
+  if(s.market==='TW'&&dates.length&&_px>0){
+    const tpToday=tpDay(Date.now()/1000);
+    window.__KBARFIX=window.__KBARFIX||{};
+    let fix=window.__KBARFIX[s.id];
+    if(fix&&(fix.day!==tpToday||(openish()&&Date.now()-fix.t>60000)))fix=null;   // 盤中60秒後重取;跨日作廢
+    let bar=fix?fix.bar.slice():null, barDay=fix?fix.d:null;
+    if(!bar&&location.hash==='#stock/'+s.id){try{   // ① MIS 官方快照(僅個股頁,避免收藏清單批量轟 MIS):
+      // 盤中/盤後皆供應當日 開高低收+累計量(張);msg.d=行情所屬日期,非今日交易日就不補(假日/夜間安全)
+      const ex=(_live&&_live.ex==='otc')?'otc':'tse';
+      const arr=await Promise.race([fetchMIS([`${ex}_${s.id}.tw`]),new Promise(r=>setTimeout(()=>r(null),2500))]);
+      const m=arr&&arr.find(x=>String(x.c||'').trim()===s.id);
+      if(m){
+        const P=k2=>{const f=parseFloat(String(m[k2]||'-').split('_')[0]);return f>0?f:null;};
+        const md=String(m.d||'').replace(/\D/g,'');
+        const o=P('o'),h=P('h'),l=P('l'),z=P('z')||_px,vv=P('v');
+        if(md.length===8&&o&&h&&l&&z){
+          barDay=`${md.slice(0,4)}-${md.slice(4,6)}-${md.slice(6,8)}`;
+          bar=[o,Math.max(h,z),Math.min(l,z),z,vv?Math.round(vv):0];
+          window.__KBARFIX[s.id]={t:Date.now(),day:tpToday,d:barDay,bar:bar.slice()};
+        }
+      }
+    }catch(e){}}
+    if(!bar){try{   // ② 富果/MIS 即時快取(盤中逐筆已到位時)
+      const r=(typeof RTC!=='undefined')?RTC[s.id]:null;
+      if(openish()&&r&&r.o>0&&r.h>0&&r.l>0&&r.c>0){
+        barDay=tpToday;
+        const vL=(location.hash==='#stock/'+s.id&&window.__intraVSum>0)?Math.round(window.__intraVSum):0;
+        bar=[+r.o,Math.max(+r.h,+r.c),Math.min(+r.l,+r.c),+r.c,vL];
+      }
+    }catch(e){}}
+    if(!bar){try{   // ③ spark 盤中5分快照重建(收盤後任何裝置可用;高低略保守但遠勝假棒)
+      const sp=await loadSpark();
+      const seq=sp&&sp.s&&sp.s[s.id];
+      if(sp&&Array.isArray(seq)){
+        const vals=seq.filter(x=>x!=null&&isFinite(+x)).map(Number);
+        if(vals.length>=2){
+          barDay=sp.d;
+          const c2=_px||vals[vals.length-1];
+          bar=[vals[0],Math.max(Math.max(...vals),c2),Math.min(Math.min(...vals),c2),c2,0];
+        }
+      }
+    }catch(e){}}
+    if(bar&&barDay&&dates[dates.length-1]<barDay){
+      dates.push(barDay);
+      ohlc.push([+(+bar[0]).toFixed(2),+(+bar[1]).toFixed(2),+(+bar[2]).toFixed(2),+(+bar[3]).toFixed(2),bar[4]||0]);
+    }else if(!bar&&today&&dates[dates.length-1]<today){   // ④ 舊法保底(三源皆失敗)
+      const prevC=ohlc[ohlc.length-1][3];
+      const o=prevC>0?prevC:_px;
+      dates.push(today);
+      ohlc.push([+o.toFixed(2),+Math.max(o,_px).toFixed(2),+Math.min(o,_px).toFixed(2),+_px.toFixed(2),0]);
+    }
   }
   if(s.market==='US'&&dates.length&&_px>0){                 // 🇺🇸 美股:補到最近一個美東交易日
     const usD=usLastTradeDay();
