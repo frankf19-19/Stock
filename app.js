@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r523 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r524 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1551,7 +1551,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r523</span>');
+  diag.push('<span style="color:var(--dim)">build r524</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6741,16 +6741,24 @@ function candlePaint(id){
   return candlePaint2(id);
 }
 function candlePaint2(id){
-  const svg=candleSVG(RTC[id])||sparkMiniSVG(id)||dailyMiniSVG(id);   // 即時K棒 → 全市場分時快照 → 近20日日線(非交易時段備援)
+  // r524:卡片迷你圖統一「當日分時線」——分時快照 → 近20日日線(假日/開盤前備援)→ 單根K棒(最後保底,補上標記待升級)
+  const g1=sparkMiniSVG(id),g2=g1?null:dailyMiniSVG(id),g3=(g1||g2)?null:candleSVG(RTC[id]);
+  const svg=g1||g2||g3;
   if(!svg)return;
-  document.querySelectorAll(`[data-candle="${id}"]`).forEach(el=>{el.innerHTML=svg;});
+  const kind=g1?'spark':g2?'daily':'candle';
+  document.querySelectorAll(`[data-candle="${id}"]`).forEach(el=>{el.innerHTML=svg;el.dataset.mini=kind;});
 }
-function paintAllMini(){                            // 快照載入/更新後,補畫畫面上所有沒圖的列
+function paintAllMini(){                            // 快照載入/更新後,補畫畫面上所有沒圖的列;r524:並把K棒保底/20日備援升級成當日分時線
   try{
     document.querySelectorAll('[data-candle]').forEach(el=>{
-      if(el.innerHTML.trim())return;
-      const g=sparkMiniSVG(el.dataset.candle)||dailyMiniSVG(el.dataset.candle);
-      if(g)el.innerHTML=g;
+      const id=el.dataset.candle;
+      const has=el.innerHTML.trim();
+      if(has&&el.dataset.mini==='spark')return;            // 已是當日分時線:不動
+      const g1=sparkMiniSVG(id);
+      if(g1){el.innerHTML=g1;el.dataset.mini='spark';return;}   // 快照到位:一律升級統一畫面
+      if(has)return;                                       // 快照還沒有:留住現有備援圖
+      const g2=dailyMiniSVG(id);
+      if(g2){el.innerHTML=g2;el.dataset.mini='daily';}
     });
   }catch(e){}
 }
@@ -7033,7 +7041,10 @@ function hydrateSparks(){   // 名稱沿用:各區塊渲染後呼叫,補畫/排�
   const pend=new Set();
   document.querySelectorAll('[data-candle]').forEach(el=>{
     const id=el.dataset.candle;
-    if(RTC[id]){if(!el.firstChild)el.innerHTML=candleSVG(RTC[id]);}
+    if(RTC[id]){if(!el.firstChild){   // r524:同樣以當日分時線為先,K棒只當保底
+      const g1=sparkMiniSVG(id),g2=g1?null:dailyMiniSVG(id),g3=(g1||g2)?null:candleSVG(RTC[id]);
+      if(g1||g2||g3){el.innerHTML=g1||g2||g3;el.dataset.mini=g1?'spark':g2?'daily':'candle';}
+    }}
     else{
       const s=(DATA&&DATA.stocks||[]).find(x=>x.id===id);
       // 台股開盤中交給 MIS(幾秒到3分鐘內輪到);美股或收盤時段用 Yahoo 補
