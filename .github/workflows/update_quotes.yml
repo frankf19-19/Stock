@@ -1,44 +1,53 @@
 # 放到 repo 的 .github/workflows/update_quotes.yml
-# rev: 2026-07-23 排程重新掛載+MIS公共代理備援(7/20起spark斷更;修改本檔可讓 GitHub 重新註冊 cron)
-# 開盤時段(台北 09:00–13:55,週一至五)每 5 分鐘更新盤中報價備援
+# rev: 2026-08-06 r525 架構重造——排程只當「點火器」,掃價改為 job 內自迴圈
+#      舊架構賭「每5分鐘的獨立班次都活著」,GitHub 靜默停用/塞車就整天斷針(8/6 spark 只剩 1 點的事故根因)。
+#      新架構:每30分鐘點火一班,班內自己每5分鐘掃一輪+逐輪提交,掃到 13:45 為止;
+#      新班啟動自動砍舊班(concurrency)=卡死自癒;一天只要任一班點著,盤中快照就連續。
 name: intraday-quotes
 on:
   schedule:
-    - cron: "*/5 1-5 * * 1-5"   # UTC 01–05 時 = 台北 09:00–13:55
+    - cron: "20,50 0-5 * * 1-5"   # 台北 08:20 起每30分點火(班內迴圈才是真正的每5分鐘)
   workflow_dispatch: {}
 permissions:
   contents: write
 concurrency:
   group: quotes
-  cancel-in-progress: true
+  cancel-in-progress: true        # 新班砍舊班:卡死的迴圈被下一班自動接手
 jobs:
   quotes:
-    timeout-minutes: 10
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
-      - run: pip install requests   # 只裝實際用到的,移除 yfinance/pandas 安裝失敗導致整個 job 掛掉的風險
-      - run: python update_quotes.py
-      - name: commit
+      - run: pip install requests
+      - name: 盤中自迴圈掃價(每5分鐘一輪,逐輪提交)
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
-          git add data.json
-          if [ -f spark.json ]; then git add spark.json; fi
-          if git diff --cached --quiet; then
-            echo "沒有變更,略過"
-            exit 0
-          fi
-          git commit -m "quotes: $(TZ=Asia/Taipei date +%H:%M)"
-          # 與每日更新撞車時:禮讓——放棄本輪(報價5分鐘後自動再來,絕不覆蓋盤後資料)
-          for i in 1 2 3; do
-            if git pull --rebase origin main && git push; then
-              exit 0
+          END=$(( $(date +%s) + 45*60 ))          # 單班最長 45 分鐘(30分班距+緩衝,交棒無縫)
+          while : ; do
+            HM=$(TZ=Asia/Taipei date +%H%M); HM=$((10#$HM))
+            [ $HM -gt 1345 ] && { echo "已過 13:45,本班收工"; break; }
+            [ $(date +%s) -ge $END ] && { echo "班時已滿,交棒下一班"; break; }
+            if [ $HM -ge 855 ]; then
+              git pull --rebase origin main || true      # 先同步,拿到別班/主更新最新的 spark 續寫
+              python update_quotes.py || echo "本輪掃價失敗,5分鐘後再試"
+              git add data.json 2>/dev/null || true
+              [ -f spark.json ] && git add spark.json
+              if ! git diff --cached --quiet; then
+                git commit -m "quotes: $(TZ=Asia/Taipei date +%H:%M)"
+                if ! { git pull --rebase origin main && git push; }; then
+                  git rebase --abort 2>/dev/null || true
+                  git reset --hard origin/main            # 撞車禮讓:丟本輪,5分鐘後重掃(spark會重抓續寫)
+                  echo "推送撞車,本輪禮讓"
+                fi
+              else
+                echo "沒有變更,略過提交"
+              fi
+            else
+              echo "$HM 未到 08:55,待命中"
             fi
-            git rebase --abort 2>/dev/null || true
-            sleep 5
+            sleep 300
           done
-          echo "推送撞車,本輪禮讓略過(下一輪自動再試)"
-          exit 0
