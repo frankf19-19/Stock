@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r527 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r528 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1555,7 +1555,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r527</span>');
+  diag.push('<span style="color:var(--dim)">build r528</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5167,6 +5167,8 @@ function fglEnsure(force){                    // 連線管理:個股頁+盤中+�
           fglBarsPush(px,dv>0&&dv<1e6?dv:0,tsec);
         }else fglBarsPush(px,0,tsec);
         FGL.bars.prev=prev||FGL.bars.prev;
+        try{if((d.bids||d.asks)&&(!window.__l5T||Date.now()-window.__l5T>1000)){   // r528:WS 帶委託簿→秒級五檔
+          window.__l5T=Date.now();l5FromFugle(id,d);}}catch(e5){}
         window.__fglT=Date.now();
         try{stkAccPush(id,px,prev||null);}catch(e8){}       // r470:斷線備援——逐筆同步進本機累積(自帶節流)
         try{                                                // r470:逐筆秒級戳圖——線尾跟著每一筆成交跳
@@ -5558,6 +5560,7 @@ function stkLiveStart(s){
             if(y>0)s.chg=+(((last-y)/y)*100).toFixed(2);
             try{snapPut(s.id,s.price,s.chg);}catch(e){}
             stkAccPush(s.id,last,y||null);
+            try{l5FromFugle(s.id,q);}catch(e){}            // r528:即時五檔(富果 quote 含 bids/asks/漲跌停)
             try{liveKBar(s.id);}catch(e){}
             if(RT.intra&&RT.intra.id===s.id&&window.__stkToday)pokeChart(RT.intra,last);
             const st9=document.getElementById('intraStat');
@@ -5591,6 +5594,7 @@ function stkLiveStart(s){
       try{snapPut(s.id,s.price,s.chg);}catch(e){}
       stkAccPush(s.id,last,y);
       try{candleFromMIS(s.id,m,last);}catch(e){}
+      try{l5FromMIS(s.id,m);}catch(e){}                    // r528:即時五檔(MIS a/f 賣、b/g 買、u/w 漲跌停)
       try{liveKBar(s.id);}catch(e){}
       if(RT.intra&&RT.intra.id===s.id&&window.__stkToday)pokeChart(RT.intra,last);
       const st=document.getElementById('intraStat');
@@ -5909,6 +5913,7 @@ async function seedStk(s){
     try{snapPut(s.id,s.price,s.chg);}catch(e){}
     stkAccPush(s.id,last,y);
     try{candleFromMIS(s.id,m,last);}catch(e){}
+    try{l5FromMIS(s.id,m);}catch(e){}                      // r528:開頁即出五檔,不等輪詢
     const st=document.getElementById('intraStat');
     if(st&&location.hash===KHASH)st.innerHTML=intraStatTxt(s);
     const px0=document.getElementById('dPx'),ch0=document.getElementById('dChg');
@@ -6794,6 +6799,61 @@ function paintAllMini(){                            // r527:卡片一律當天K�
       const[g,rk]=dayCandleOf(id);
       if(g&&rk>(isNaN(cur)?-1:cur)){el.innerHTML=g;el.dataset.mini=String(rk);}
     });
+  }catch(e){}
+}
+/* ══ ⚖️ r528 即時五檔:MIS(a/f 賣檔價量、b/g 買檔價量、u/w 漲跌停)與富果 quote(bids/asks)雙源 ══ */
+function renderL5(id,bids,asks,limUp,limDn){
+  try{
+    if(location.hash!=='#stock/'+id)return;
+    const box=document.getElementById('l5Box'),bd=document.getElementById('l5Body');
+    if(!box||!bd)return;
+    bids=(bids||[]).filter(x=>x&&x.p>0).slice(0,5);
+    asks=(asks||[]).filter(x=>x&&x.p>0).slice(0,5);
+    if(!bids.length&&!asks.length)return;
+    const mx=Math.max(1,...bids.map(x=>x.v||0),...asks.map(x=>x.v||0));
+    const row=(x,side)=>{
+      const w=Math.max(2,Math.round((x.v||0)/mx*100));
+      const col=side>0?'rgba(46,125,50,.28)':'rgba(198,40,40,.25)';   // 委買綠/委賣紅(掛單非成交,不用漲跌紅綠語意)
+      const lab=side>0?'買':'賣';
+      return `<div style="display:flex;align-items:center;gap:8px">
+        <span style="width:26px;color:var(--dim)">${lab}${x.n}</span>
+        <b style="width:72px;text-align:right">${(+x.p).toLocaleString(undefined,{maximumFractionDigits:2})}</b>
+        <span style="flex:1;position:relative;height:14px;background:var(--card2,rgba(0,0,0,.04));border-radius:3px;overflow:hidden">
+          <i style="position:absolute;${side>0?'left':'right'}:0;top:0;bottom:0;width:${w}%;background:${col}"></i>
+        </span>
+        <span style="width:64px;text-align:right;color:var(--dim)">${Math.round(x.v||0).toLocaleString()} 張</span></div>`;
+    };
+    const bSum=bids.reduce((a,x)=>a+(x.v||0),0), aSum=asks.reduce((a,x)=>a+(x.v||0),0);
+    const tot=bSum+aSum, bp=tot?Math.round(bSum/tot*100):50;
+    const asc=asks.slice().sort((a,b)=>b.p-a.p).map((x,i)=>({...x,n:asks.length-i}));
+    const bsc=bids.slice().sort((a,b)=>b.p-a.p).map((x,i)=>({...x,n:i+1}));
+    bd.innerHTML=
+      asc.map(x=>row(x,-1)).join('')+
+      `<div style="border-top:1px dashed var(--line,#ccc);margin:4px 0"></div>`+
+      bsc.map(x=>row(x,1)).join('')+
+      `<div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+        <span style="color:var(--dim)">掛單力道</span>
+        <span style="flex:1;height:10px;border-radius:5px;overflow:hidden;display:flex">
+          <i style="width:${bp}%;background:rgba(46,125,50,.55)"></i><i style="flex:1;background:rgba(198,40,40,.5)"></i></span>
+        <b>${bp}% 買</b></div>`+
+      ((limUp>0||limDn>0)?`<div class="dim-note" style="margin-top:6px">漲停 ${limUp>0?(+limUp).toLocaleString():'—'} · 跌停 ${limDn>0?(+limDn).toLocaleString():'—'}</div>`:'');
+    box.style.display='';
+    const mt=document.getElementById('l5Meta');
+    if(mt)mt.textContent=(typeof marketOpen==='function'&&marketOpen())?'盤中同步 · 委買綠/委賣紅為掛單量':'收盤定格 · 最後一筆掛單';
+  }catch(e){}
+}
+function l5Pairs(ps,vs){   // MIS "p1_p2_…_" 與 "v1_v2_…_" 併成 [{p,v}]
+  const P=String(ps||'').split('_').map(parseFloat), V=String(vs||'').split('_').map(x=>parseFloat(String(x).replace(/,/g,'')));
+  const out=[];for(let i=0;i<5;i++){if(P[i]>0)out.push({p:P[i],v:V[i]>0?V[i]:0});}
+  return out;
+}
+function l5FromMIS(id,m){
+  try{renderL5(id,l5Pairs(m.b,m.g),l5Pairs(m.a,m.f),parseFloat(m.u),parseFloat(m.w));}catch(e){}
+}
+function l5FromFugle(id,q){
+  try{
+    const mp=arr=>(arr||[]).map(x=>({p:+x.price,v:+x.volume||+x.size||0}));
+    renderL5(id,mp(q.bids),mp(q.asks),+q.limitUpPrice||0,+q.limitDownPrice||0);
   }catch(e){}
 }
 function stkForceFromMIS(id,m,last){   // 🥊 內外盤力道(近似):成交貼賣=外盤買力+、貼買=內盤賣壓-;分類不到用升降序
@@ -10120,6 +10180,10 @@ async function showDetail(id){
     <div class="dim-block" id="liveRead" style="border-left:4px solid var(--amber);display:none">
       <h3>📡 個股即時解讀 <span class="c-code">盤中約每12秒自動改寫</span></h3>
       <div class="dim-note" id="liveReadTxt"></div>
+    </div>
+    <div class="dim-block" id="l5Box" style="border-left:4px solid var(--gold,#B08D44);display:none">
+      <h3>⚖️ 即時五檔 <span class="c-code" id="l5Meta">盤中同步 · 委買綠/委賣紅為掛單量</span></h3>
+      <div id="l5Body" style="font-family:var(--mono);font-size:13px;line-height:1.9"></div>
     </div>
     <div class="chart-box">
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
