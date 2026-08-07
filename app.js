@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r526 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r527 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1555,7 +1555,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r526</span>');
+  diag.push('<span style="color:var(--dim)">build r527</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6748,25 +6748,51 @@ function candlePaint(id){
   }
   return candlePaint2(id);
 }
-function candlePaint2(id){
-  // r524:卡片迷你圖統一「當日分時線」——分時快照 → 近20日日線(假日/開盤前備援)→ 單根K棒(最後保底,補上標記待升級)
-  const g1=sparkMiniSVG(id),g2=g1?null:dailyMiniSVG(id),g3=(g1||g2)?null:candleSVG(RTC[id]);
-  const svg=g1||g2||g3;
-  if(!svg)return;
-  const kind=g1?'spark':g2?'daily':'candle';
-  document.querySelectorAll(`[data-candle="${id}"]`).forEach(el=>{el.innerHTML=svg;el.dataset.mini=kind;});
+function dayCandleOf(id){
+  // r527:卡片一律「當天K棒」——依來源品質給分,paintAllMini 只升不降:
+  //   3=RTC(盤中 MIS/富果輪掃的今日開高低收) 2=日K分片末棒(盤後官方棒/假日) 1=spark 重建(開=首點/高低=極值/收=末點) 0=近20日線(最後備援)
+  try{const r=RTC[id];
+    if(r&&r.o>0&&r.h>0&&r.l>0&&r.c>0){const g=candleSVG(r);if(g)return[g,3];}
+  }catch(e){}
+  try{const st=(DATA.stocks||[]).find(x=>x.id===id);
+    if(st&&st.market==='TW'){
+      const sh=shardOf(st),J=KCACHE[sh],e=J&&J!=='loading'&&J[id];
+      if(e&&Array.isArray(e.o)&&e.o.length){
+        const b=e.o[e.o.length-1],y=e.o.length>1?+e.o[e.o.length-2][3]:null;
+        if(b&&+b[0]>0&&+b[1]>0&&+b[2]>0&&+b[3]>0){
+          const g=candleSVG({o:+b[0],h:+b[1],l:+b[2],c:+b[3],y:y>0?y:null});
+          if(g)return[g,2];
+        }
+      }
+    }
+  }catch(e){}
+  try{const sp=window.__SPARK,seq=sp&&sp.s&&sp.s[id];
+    if(seq&&Array.isArray(seq)){
+      const vals=seq.filter(x=>x!=null&&isFinite(+x)).map(Number);
+      if(vals.length>=2){
+        const st=(DATA.stocks||[]).find(x=>x.id===id);
+        const c=st&&+st.price>0?+st.price:vals[vals.length-1];
+        const g=candleSVG({o:vals[0],h:Math.max(Math.max(...vals),c),l:Math.min(Math.min(...vals),c),c:c,y:null});
+        if(g)return[g,1];
+      }
+    }
+  }catch(e){}
+  try{const g=dailyMiniSVG(id);if(g)return[g,0];}catch(e){}
+  return['', -1];
 }
-function paintAllMini(){                            // 快照載入/更新後,補畫畫面上所有沒圖的列;r524:並把K棒保底/20日備援升級成當日分時線
+function candlePaint2(id){
+  const[g,rk]=dayCandleOf(id);
+  if(!g)return;
+  document.querySelectorAll(`[data-candle="${id}"]`).forEach(el=>{el.innerHTML=g;el.dataset.mini=String(rk);});
+}
+function paintAllMini(){                            // r527:卡片一律當天K棒;每15秒巡檢,來源只升不降(RTC>官方末棒>spark重建>20日線)
   try{
     document.querySelectorAll('[data-candle]').forEach(el=>{
       const id=el.dataset.candle;
-      const has=el.innerHTML.trim();
-      if(has&&el.dataset.mini==='spark')return;            // 已是當日分時線:不動
-      const g1=sparkMiniSVG(id);
-      if(g1){el.innerHTML=g1;el.dataset.mini='spark';return;}   // 快照到位:一律升級統一畫面
-      if(has)return;                                       // 快照還沒有:留住現有備援圖
-      const g2=dailyMiniSVG(id);
-      if(g2){el.innerHTML=g2;el.dataset.mini='daily';}
+      const cur=el.innerHTML.trim()?parseInt(el.dataset.mini||'-1',10):-1;
+      if(cur>=3)return;                                    // 已是盤中即時K棒:不動
+      const[g,rk]=dayCandleOf(id);
+      if(g&&rk>(isNaN(cur)?-1:cur)){el.innerHTML=g;el.dataset.mini=String(rk);}
     });
   }catch(e){}
 }
@@ -7049,9 +7075,9 @@ function hydrateSparks(){   // 名稱沿用:各區塊渲染後呼叫,補畫/排�
   const pend=new Set();
   document.querySelectorAll('[data-candle]').forEach(el=>{
     const id=el.dataset.candle;
-    if(RTC[id]){if(!el.firstChild){   // r524:同樣以當日分時線為先,K棒只當保底
-      const g1=sparkMiniSVG(id),g2=g1?null:dailyMiniSVG(id),g3=(g1||g2)?null:candleSVG(RTC[id]);
-      if(g1||g2||g3){el.innerHTML=g1||g2||g3;el.dataset.mini=g1?'spark':g2?'daily':'candle';}
+    if(RTC[id]){if(!el.firstChild){   // r527:一律當天K棒(dayCandleOf 四層排序)
+      const[g,rk]=dayCandleOf(id);
+      if(g){el.innerHTML=g;el.dataset.mini=String(rk);}
     }}
     else{
       const s=(DATA&&DATA.stocks||[]).find(x=>x.id===id);
