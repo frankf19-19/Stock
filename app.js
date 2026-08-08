@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r530 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r535 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1555,7 +1555,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r530</span>');
+  diag.push('<span style="color:var(--dim)">build r535</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -11728,6 +11728,15 @@ function showLearnDetail(key){
 })();
 
 /* ══════════════ 公司簡介(Yahoo 公司資料 + AI 白話解讀)══════════════ */
+let __cdCache=null;
+async function coDescData(){                 // r535:站內公司簡介檔(繁中,全數 538 檔美股+可擴充台股)
+  if(__cdCache)return __cdCache;
+  try{
+    const r=await fT('codesc.json?_='+Math.floor(Date.now()/864e5),8000);
+    if(r.ok)__cdCache=await r.json();
+  }catch(e){}
+  return __cdCache;
+}
 const YSUM={};
 function ySym(s){return s.market==='TW'?`${s.id}.${s.ex==='tse'?'TW':'TWO'}`:s.id;}
 async function jinaRead(url,ms){
@@ -12003,6 +12012,12 @@ async function loadProfileDetail(s){
       }
     }catch(e){}
   }
+  if(!desc){try{                             // r535:站內簡介檔——美股 538 檔全覆蓋(繁中「做什麼・賣什麼」),台股缺官方簡介時也補位
+    const cd=await coDescData();
+    const t=cd&&cd[String(s.id).toUpperCase()];
+    if(t)desc=`<div class="prof-sum">${t}</div>
+      <div class="dim-note" style="margin-top:6px">站內簡介;想更深入商業模式與競爭格局,點下方「AI 白話解讀」。</div>`;
+  }catch(e){}}
   if(!desc)desc=`<div class="dim-note">此檔尚未納入每日業務簡介掃描(僅涵蓋重點股)——點下方「AI 白話解讀」,AI 會直接為你介紹這家公司與產品分類,通常這個答案還更完整。</div>`;
   paint();
 }
