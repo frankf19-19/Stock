@@ -30,7 +30,15 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r552">
+<link rel="stylesheet" href="app.css?v=r553">
+<style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
+.gmkt-bar button[data-gm="TW"].on{background:#B3402F!important;color:#FFF7EF!important;box-shadow:0 3px 12px rgba(179,64,47,.35)!important}
+.gmkt-bar button[data-gm="TW"]:not(.on):hover{color:#B3402F!important}
+.gmkt-bar button[data-gm="US"].on{background:#31589E!important;color:#F0F5FF!important;box-shadow:0 3px 12px rgba(49,88,158,.35)!important}
+.gmkt-bar button[data-gm="US"]:not(.on):hover{color:#31589E!important}
+.home-tabs button.on{background:#32323A!important;border-color:#32323A!important;color:#F2ECDF!important;box-shadow:0 4px 14px rgba(30,30,36,.28)!important}
+#mobNav button.on{color:#F2ECDF!important;background:#32323A!important;border-radius:10px}
+</style>
 </head>
 <body>
 
@@ -302,6 +310,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r552"></script>
+<script src="app.js?v=r553"></script>
 </body>
 </html>
