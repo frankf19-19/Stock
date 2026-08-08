@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r538 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r539 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -892,6 +892,7 @@ async function t3qBlockCore(s){
   try{
     const e=await loadChips(s);
     try{finQBlock(s,e);}catch(err){}
+    try{finHealth(s,e);}catch(err){}   // r539:財報健檢(月營收+三率白話判讀)
     if(e&&Array.isArray(e.fq)&&e.fq.length){
       backRows=e.fq.map((q,i)=>({q,v:{gm:(e.gm||[])[i],om:(e.om||[])[i],nm:(e.nm||[])[i],rev:(e.qr||[])[i]??null}}))
         .filter(r=>[r.v.gm,r.v.om,r.v.nm].every(x=>x!=null&&isFinite(x)));
@@ -1555,7 +1556,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r538</span>');
+  diag.push('<span style="color:var(--dim)">build r539</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2965,7 +2966,25 @@ async function usFundBlock(s){                        // 📊 r530:美股財報�
         <div class="em-card"><div class="em-v flat">${nm[i9]!=null?nm[i9]+'%':'—'}</div><div class="em-l">淨利率</div></div>
       </div>
       <div id="usfChart" style="height:250px;margin-top:8px"></div>
-      <div class="dim-note" style="margin-top:6px">資料:SEC EDGAR 官方 XBRL(每日更新);營收單位百萬美元。會計年度未對齊日曆季的公司(部分零售/半導體)僅顯示可對齊季度。三率=毛利/營益/淨利率,連兩季齊升即掛章。非投資建議。</div></div>`;
+      ${(()=>{   // r539:美股財報健檢列——與台股同語言的好事/警訊
+        const good=[],warn=[],mid2=[];
+        if(revY[i9]!=null&&revY[i9]>=15)good.push(`營收 YoY +${revY[i9]}%——高速成長`);
+        else if(revY[i9]!=null&&revY[i9]>=5)good.push(`營收 YoY +${revY[i9]}%——穩健成長`);
+        else if(revY[i9]!=null&&revY[i9]<0)warn.push(`營收 YoY ${revY[i9]}%——營收年減,留意需求循環`);
+        const acc=revY[i9]!=null&&revY[i9-1]!=null?revY[i9]-revY[i9-1]:null;
+        if(acc!=null&&acc>=3&&revY[i9]>0)good.push(`成長率較上季 +${acc.toFixed(1)} 個百分點——動能加速`);
+        if(acc!=null&&acc<=-5&&revY[i9]>0)mid2.push(`成長率較上季 ${acc.toFixed(1)} 個百分點——仍成長但在減速`);
+        if(epsY!=null&&epsY>=15)good.push(`EPS YoY +${epsY}%——獲利跳增`);
+        if(epsY!=null&&epsY<0&&revY[i9]!=null&&revY[i9]>0)warn.push(`營收成長但 EPS 年減 ${epsY}%——獲利率被侵蝕,查毛利/費用`);
+        if(t3)good.push(`三率三升——毛利/營益/淨利率連兩季齊揚,獲利結構全面改善`);
+        const gv=gm.filter(x=>x!=null);
+        if(gv.length>=6&&gm[i9]!=null&&gm[i9]>=Math.max(...gv))good.push(`毛利率 ${gm[i9]}% 創近 ${gv.length} 季新高`);
+        if(gv.length>=6&&gm[i9]!=null&&gm[i9]<=Math.min(...gv))warn.push(`毛利率 ${gm[i9]}% 落至近 ${gv.length} 季最低`);
+        if(nm[i9]!=null&&nm[i9]<0)warn.push(`淨利率 ${nm[i9]}%——本期虧損`);
+        const row=(ic,tx,col)=>`<div style="display:flex;gap:7px;margin:4px 0;line-height:1.6"><span>${ic}</span><span style="color:${col}">${tx}</span></div>`;
+        return `<div style="margin-top:8px">${good.map(x=>row('✅',x,'var(--up)')).join('')}${warn.map(x=>row('⚠️',x,'var(--down)')).join('')}${mid2.map(x=>row('▪️',x,'var(--txt2)')).join('')}</div>`;
+      })()}
+      <div class="dim-note" style="margin-top:6px">紅=偏多、綠=偏空(台股慣例)。資料:SEC EDGAR 官方 XBRL(每日更新);營收單位百萬美元。會計年度未對齊日曆季的公司(部分零售/半導體)僅顯示可對齊季度。非投資建議。</div></div>`;
     try{
       await ensureECharts();
       const el=document.getElementById('usfChart');
@@ -6920,7 +6939,19 @@ function renderL5(id,bids,asks,limUp,limDn){
         <span style="flex:1;height:10px;border-radius:5px;overflow:hidden;display:flex">
           <i style="width:${bp}%;background:rgba(198,40,40,.6)"></i><i style="flex:1;background:rgba(46,125,50,.5)"></i></span>
         <b style="color:${bp>=50?'var(--up)':'var(--down)'}">${bp}% 買</b></div>`+
-      ((limUp>0||limDn>0)?`<div class="dim-note" style="margin-top:6px">漲停 ${limUp>0?(+limUp).toLocaleString():'—'} · 跌停 ${limDn>0?(+limDn).toLocaleString():'—'}</div>`:'');
+      (()=>{   // r539:五檔白話判讀——掛單傾斜+大單牆+漲跌停距離
+        const reads=[];
+        if(bp>=65)reads.push(`<b style="color:var(--up)">委買掛單量壓過委賣(${bp}%)——下方承接意願強</b>`);
+        else if(bp<=35)reads.push(`<b style="color:var(--down)">委賣掛單量壓過委買(賣方 ${100-bp}%)——上方賣壓沉重</b>`);
+        const mxB=bids.reduce((a,x)=>x.v>(a?a.v:0)?x:a,null), mxA=asks.reduce((a,x)=>x.v>(a?a.v:0)?x:a,null);
+        if(mxB&&mxB.v>=mx*0.99&&mxB.v>0)reads.push(`最大買單牆在 <b>${(+mxB.p).toLocaleString()}</b>(${Math.round(mxB.v).toLocaleString()} 張)——短線支撐參考`);
+        if(mxA&&mxA.v>=mx*0.99&&mxA.v>0)reads.push(`最大賣單牆在 <b>${(+mxA.p).toLocaleString()}</b>(${Math.round(mxA.v).toLocaleString()} 張)——短線壓力參考`);
+        const px0=bids.length?bids[0].p:(asks.length?asks[0].p:0);
+        if(limUp>0&&px0>0&&(limUp-px0)/px0<0.02)reads.push(`<b style="color:var(--up)">距漲停僅 ${((limUp-px0)/px0*100).toFixed(1)}%</b>——留意鎖死後買不到/隔日沖出貨兩面性`);
+        if(limDn>0&&px0>0&&(px0-limDn)/px0<0.02)reads.push(`<b style="color:var(--down)">距跌停僅 ${((px0-limDn)/px0*100).toFixed(1)}%</b>——留意鎖死後賣不掉的流動性風險`);
+        const lim=(limUp>0||limDn>0)?`漲停 ${limUp>0?(+limUp).toLocaleString():'—'} · 跌停 ${limDn>0?(+limDn).toLocaleString():'—'}`:'';
+        return (reads.length||lim)?`<div class="dim-note" style="margin-top:6px">${reads.join('<br>')}${reads.length&&lim?'<br>':''}${lim}${reads.length?'<br><span style="color:var(--dim)">掛單牆可能是真實意願也可能是誘單,成交才算數;非投資建議。</span>':''}</div>`:'';
+      })();
     box.style.display='';
     const mt=document.getElementById('l5Meta');
     if(mt)mt.textContent=(typeof marketOpen==='function'&&marketOpen())?'盤中同步 · 委買紅/委賣綠為掛單量':'收盤定格 · 最後一筆掛單';
@@ -10057,6 +10088,7 @@ async function showDetail(id){
     ${!s.etf?`<div class="sec-title" data-sec="stk_r">💰 ${s.market==='US'?'財報與獲利':'營收與獲利'} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.market==='US'?'財報結果・EPS 驚喜・獲利指標':'月營收趨勢・季報三率・近兩年'}</span></div><div class="sec-body" id="sb-stk_r">
     <div class="chart-box" style="${s.market==='US'?'display:none':''}"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>
     <div id="t3qBox" class="dim-block"><div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div></div>
+    <div id="finHealth"></div>
     <div id="finQBox"></div>
     <div id="usFundBox"></div>
     <div id="usEarnBox"></div>
@@ -10768,6 +10800,56 @@ async function loadChipDetail(s){
   [900,2600].forEach(ms=>setTimeout(()=>{                  // r502:繪製後體檢——任何寬0殭屍圖自動復活
     try{chipCharts.forEach(c2=>{if(c2.getWidth()<50)c2.resize();});}catch(e2){}
   },ms));
+}
+/* ══ r539 共用健檢渲染器:好事(紅)/警訊(綠)/觀察(灰)+總評章 ══ */
+function healthHTML(title,icon,good,warn,mid,extraNote){
+  const sc=good.length-warn.length;
+  const v=sc>=2?['偏多','var(--up)']:sc<=-2?['偏空','var(--down)']:['多空並陳','var(--txt2)'];
+  const row=(ic,txt,col)=>`<div style="display:flex;gap:7px;margin:4px 0;line-height:1.6"><span>${ic}</span><span style="color:${col}">${txt}</span></div>`;
+  return `<div class="dim-block" style="border-left:4px solid var(--amber);margin-top:10px">
+    <h3>${icon} ${title} <span class="ds" style="color:${v[1]};font-weight:800">${v[0]}</span></h3>
+    ${good.map(x=>row('✅',x,'var(--up)')).join('')}
+    ${warn.map(x=>row('⚠️',x,'var(--down)')).join('')}
+    ${mid.map(x=>row('▪️',x,'var(--txt2)')).join('')}
+    ${(good.length+warn.length+mid.length)?'':row('▪️','各項指標皆在正常區間,無顯著訊號','var(--txt2)')}
+    <div class="dim-note" style="margin-top:6px">紅=偏多、綠=偏空(台股慣例);規則化整理非投資建議。${extraNote||''}</div></div>`;
+}
+/* ══ 📊 r539 財報健檢(台股):月營收+季報三率 → 白話好壞 ══ */
+function finHealth(s,e){
+  try{
+    const host=document.getElementById('finHealth');
+    if(!host||!e)return;
+    const good=[],warn=[],mid=[];
+    const ry=e.ry||[],ra=e.ra||[],rm=e.rm||[];
+    if(ry.length>=3){
+      const y0=ry[ry.length-1];
+      let up=0;for(let i=ry.length-1;i>=0;i--){if(ry[i]>0)up++;else break;}
+      let dn=0;for(let i=ry.length-1;i>=0;i--){if(ry[i]<0)dn++;else break;}
+      if(up>=3)good.push(`月營收 YoY 連 ${up} 個月正成長(最新 +${(+y0).toFixed(1)}%)——成長趨勢確立`);
+      if(dn>=3)warn.push(`月營收 YoY 連 ${dn} 個月衰退(最新 ${(+y0).toFixed(1)}%)——需求降溫中`);
+      if(ry.length>=4&&y0>ry[ry.length-2]&&ry[ry.length-2]>ry[ry.length-3])good.push(`YoY 連兩個月加速(${(+ry[ry.length-3]).toFixed(1)}→${(+ry[ry.length-2]).toFixed(1)}→${(+y0).toFixed(1)}%)——動能增強`);
+      if(ry.length>=4&&y0<ry[ry.length-2]&&ry[ry.length-2]<ry[ry.length-3]&&y0>0)mid.push(`YoY 仍正但連兩個月減速——留意高基期或動能鈍化`);
+      if(ra.length>=13&&ra[ra.length-1]>=Math.max(...ra.slice(-13)))good.push(`最新月營收創近 13 個月新高`);
+    }
+    const fq=e.fq||[],gm=e.gm||[],om=e.om||[],nm=e.nm||[];
+    if(fq.length>=3){
+      const n=fq.length-1;
+      const rise=a=>a[n]!=null&&a[n-1]!=null&&a[n]>a[n-1];
+      const fall=a=>a[n]!=null&&a[n-1]!=null&&a[n]<a[n-1];
+      if(rise(gm)&&rise(om)&&rise(nm))good.push(`三率三升(${fq[n]}:毛利 ${(+gm[n]).toFixed(1)}%/營益 ${(+om[n]).toFixed(1)}%/淨利 ${(+nm[n]).toFixed(1)}%)——獲利結構全面改善`);
+      else if(fall(gm)&&fall(om)&&fall(nm))warn.push(`三率齊降(${fq[n]})——成本或價格競爭侵蝕獲利,追蹤是否連兩季`);
+      else{
+        if(rise(gm))good.push(`毛利率回升至 ${(+gm[n]).toFixed(1)}%(${fq[n]})——產品組合或成本改善`);
+        if(fall(gm)&&gm[n]!=null&&gm[n-1]-gm[n]>=1.5)warn.push(`毛利率季減 ${(gm[n-1]-gm[n]).toFixed(1)} 個百分點——留意殺價或成本壓力`);
+      }
+      const valid=gm.filter(x=>x!=null);
+      if(valid.length>=6&&gm[n]!=null&&gm[n]>=Math.max(...valid))good.push(`毛利率創近 ${valid.length} 季新高`);
+      if(valid.length>=6&&gm[n]!=null&&gm[n]<=Math.min(...valid))warn.push(`毛利率落至近 ${valid.length} 季最低`);
+      if(nm[n]!=null&&nm[n]<0)warn.push(`最新季淨利率為負(${(+nm[n]).toFixed(1)}%)——本業處於虧損`);
+    }
+    if(!good.length&&!warn.length&&!mid.length&&!ry.length&&!fq.length){host.innerHTML='';return;}
+    host.innerHTML=healthHTML('財報健檢','📊',good,warn,mid,'月營收與三率來自官方申報;三率=毛利/營益/淨利率。');
+  }catch(err){}
 }
 /* ══ 🧠 r538 籌碼健檢:法人+大戶+信用交易 → 好事/警訊/觀察+總評(規則引擎,非投資建議) ══ */
 function chipHealth(s,e){
