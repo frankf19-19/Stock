@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r539 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r540 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1556,7 +1556,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r539</span>');
+  diag.push('<span style="color:var(--dim)">build r540</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2789,11 +2789,11 @@ function turnLiveHtml(r){                                 // r466:📡 依即時
     const rp=(retr*100).toFixed(1);
     // ① 位階判定(依即時價)
     let zone,zcol;
-    if(retr<=0){zone=up?'現價正處/正創<b>本波段新高</b>——上升結構最強狀態,尚無任何回檔':'現價正處/正破<b>本波段新低</b>——下跌結構最弱狀態,尚無像樣反彈';zcol=up?'var(--up)':'var(--down)';}
-    else if(retr<0.382){zone=up?`自波段高點僅回檔 <b>${rp}%</b>(未觸 0.382 支撐)——回檔仍屬<b>強勢整理</b>,上升結構未受傷`:`自波段低點僅反彈 <b>${rp}%</b>(未觸 0.382 壓力)——反彈仍弱,<b>空方結構未變</b>`;zcol='var(--txt2)';}
-    else if(retr<0.5){zone=up?`已回檔 <b>${rp}%</b>(跌破 0.382)——屬正常回檔深度,現在看 <b>0.5(${F2(s500)})</b>有沒有人承接`:`已反彈 <b>${rp}%</b>(突破 0.382)——反彈有力道,現在看 <b>0.5(${F2(s500)})</b>壓力擋不擋得住`;zcol='var(--amber)';}
-    else if(retr<0.618){zone=up?`已回檔 <b>${rp}%</b>(跌破 0.5)——逼近 <b>0.618 黃金口袋(${F2(s618)})</b>,這是多方<b>最後防線</b>`:`已反彈 <b>${rp}%</b>(突破 0.5)——逼近 <b>0.618(${F2(s618)})</b>,這是空方<b>最後壓力帶</b>`;zcol='var(--amber)';}
-    else{zone=up?`回檔已達 <b>${rp}%</b>(跌破 0.618)——本段上漲結構<b>實質破壞</b>,向下轉折大概率已經發生`:`反彈已達 <b>${rp}%</b>(突破 0.618)——空方結構鬆動,<b>向上轉折</b>機率大增`;zcol=up?'var(--down)':'var(--up)';}
+    if(retr<=0){zone=up?'現價正在創<b>這一波的新高</b>——漲得完全沒回頭,是上升趨勢最強的狀態':'現價正在破<b>這一波的新低</b>——跌得完全沒反彈,是下跌趨勢最弱的狀態';zcol=up?'var(--up)':'var(--down)';}
+    else if(retr<0.382){zone=up?`這波漲幅只吐回 <b>${rp}%</b>(連三分之一都不到)——<b>強勢洗盤</b>,漲勢沒受傷`:`這波跌幅只彈回 <b>${rp}%</b>(連三分之一都不到)——反彈無力,<b>空方還在主導</b>`;zcol='var(--txt2)';}
+    else if(retr<0.5){zone=up?`這波漲幅已吐回 <b>${rp}%</b>(超過三分之一)——還算正常的回檔深度,接下來看 <b>${F2(s500)}</b>(吐回一半的位置)有沒有人接`:`這波跌幅已彈回 <b>${rp}%</b>(超過三分之一)——反彈有力道,接下來看 <b>${F2(s500)}</b>(彈回一半的位置)擋不擋得住`;zcol='var(--amber)';}
+    else if(retr<0.618){zone=up?`這波漲幅已吐回<b>超過一半(${rp}%)</b>——逼近 <b>${F2(s618)} 的「黃金口袋」</b>(=吐回約六成的位置):歷史上很多回檔跌到這附近就止跌回升,所以它被當成<b>多方最後防線</b>——守住多半只是洗盤,跌破就把這波漲勢當作結束`:`這波跌幅已彈回<b>超過一半(${rp}%)</b>——逼近 <b>${F2(s618)}</b>(彈回約六成的位置),這是<b>空方最後一道壓力</b>:站上它,跌勢很可能反轉;站不上就只是跌深反彈`;zcol='var(--amber)';}
+    else{zone=up?`這波漲幅已吐回 <b>${rp}%</b>(超過六成、跌破黃金口袋)——上漲結構<b>實質被破壞</b>,「漲完了、開始走跌」的機率很高`:`這波跌幅已彈回 <b>${rp}%</b>(超過六成、站上關鍵壓力)——空方結構鬆動,<b>由跌轉漲</b>的機率大增`;zcol=up?'var(--down)':'var(--up)';}
     // ② 價格階梯(所有關鍵價位 vs 現價距離)
     const rowsL=[];
     if(up){
@@ -2852,7 +2852,7 @@ function turnLiveHtml(r){                                 // r466:📡 依即時
     if(up){
       verdict=retr<=0?`價格面仍在創高、${timing}——<b>時間有風險、價格還沒轉</b>:續抱可,但跌破 ${F2(s382)} 就是第一時間的減碼訊號。`
         :retr<0.382?`價格面回檔尚淺、${timing}——${r.due?'<b>時間到了+開始回檔</b>,這裡最需要盯 '+F2(s382)+':守住=強勢整理,跌破=轉折啟動。':'結構健康,回檔到 '+F2(s382)+' 附近反而是觀察承接的位置。'}`
-        :retr<0.618?`價格面已回檔到中段、${timing}——多空拉鋸區:<b>${F2(s618)} 黃金口袋是本波段生死線</b>,守住醞釀再攻,跌破波段翻空。`
+        :retr<0.618?`價格面已回檔到中段、${timing}——多空拉鋸區:<b>${F2(s618)}(黃金口袋)就是這波的生死線</b>——收盤守住,回檔當洗盤看、醞釀再攻;收盤跌破,直接把這波漲勢當結束、按紀律退出。`
         :`價格面已跌破 0.618、${timing}——<b>轉折大概率已確立</b>,反彈至 ${F2(s500)}~${F2(s382)} 屬逃命波性質,下一個支撐看起漲點 ${F2(r.legBase)}。`;
     }else{
       verdict=retr<=0?`價格面仍在破底、${timing}——弱勢中不猜底,站回 ${F2(s382)} 之前都以觀望為主。`
@@ -2864,6 +2864,7 @@ function turnLiveHtml(r){                                 // r466:📡 依即時
       <div style="font-weight:900;font-size:14.5px;margin-bottom:5px">📡 依即時價評估接下來走勢
         <span style="font-size:12px;font-weight:400;color:var(--dim)">計算基準:現價 <b style="font-family:var(--mono);color:var(--txt)">${F2(px)}</b>(${src},已即時併入轉折運算)</span></div>
       <div style="margin-bottom:7px"><b>① 現在位置</b>:<span style="color:${zcol}">${zone}</span>。</div>
+      <div style="margin:0 0 8px;padding:7px 11px;background:var(--panel2);border-radius:9px;font-size:12.5px;line-height:1.7;color:var(--txt2)">📖 <b>看不懂 0.382/0.5/0.618?白話版</b>:把${up?`這波從 <b>${F2(r.legBase)}</b> 漲到 <b>${F2(r.legExt)}</b> 的漲幅`:`這波從 <b>${F2(r.legBase)}</b> 跌到 <b>${F2(r.legExt)}</b> 的跌幅`}想成 100 分${up?'的樓梯,回檔就是往下退幾階':'的樓梯,反彈就是往上爬幾階'}:${s382?`<b>${F2(s382)}</b>=退回約 1/3(0.382)、`:''}${s500?`<b>${F2(s500)}</b>=退回一半(0.5)、`:''}${s618?`<b style="color:var(--amber)">${F2(s618)}</b>=退回約 6 成(0.618)`:''}。<b style="color:var(--amber)">「黃金口袋」就是 0.618 這一帶</b>——名字來自黃金比例 61.8%,全球交易者都盯著同一個位置,${up?'歷史上大量回檔在這裡止跌,所以視為「多方最後防線」:守住=洗盤結束再攻,跌破=這波漲勢正式收工':'是空方回補與多方試單的密集區:站上=跌勢可能反轉,站不上=只是跌深反彈'}。</div>
       <div style="margin-bottom:7px"><b>② 關鍵價位階梯(距現價%)</b>:
         <div style="margin-top:4px;background:var(--panel2);border-radius:9px;padding:5px 3px">${ladHtml}</div></div>
       <div style="margin-bottom:4px"><b>③ 接下來三種走法(附預估幅度/時間)</b>:</div>
@@ -2890,7 +2891,7 @@ function turnHtml(r){
       至今${r.upLeg?'最高到':'最低到'} <b>${F2(r.legExt)}</b>(這一段${legPct!=null?(legPct>0?'漲':'跌')+Math.abs(legPct).toFixed(1)+'%':''});現價 <b>${F2(r.px)}</b>${r.lvInfo?`<span style="font-size:11px;color:${r.lvInfo.live?'var(--up)':'var(--dim)'}">(${r.lvInfo.live?'盤中即時':'最新報價'})</span>`:''},距離這段${r.upLeg?'高點':'低點'} ${fromExt!=null?(fromExt>0?'高':'低')+Math.abs(fromExt).toFixed(1)+'%':'—'}。<br>
       <b>💡 轉折之後會到哪</b>:
       ${r.upLeg
-        ?`若<b>向下轉折</b>(漲勢結束),第一個可能停下來的位置是 <b style="color:var(--down)">${F2(s1)}</b>(回檔 0.382),再破看 <b style="color:var(--amber)">${F2(s618)}</b>(0.618 黃金口袋,多空分水嶺);
+        ?`若<b>向下轉折</b>(漲勢結束),第一個可能停下來的位置是 <b style="color:var(--down)">${F2(s1)}</b>(吐回約 1/3),再破就看 <b style="color:var(--amber)">${F2(s618)}</b>(吐回約 6 成=黃金口袋,守住是洗盤、跌破算翻空);
           若<b>續漲不轉折</b>,上方測量目標約 <b style="color:var(--up)">${F2(t1)}</b>(以上一段波幅等距推算)。`
         :`若<b>向上轉折</b>(跌勢結束),第一個壓力在 <b style="color:var(--up)">${F2(s1)}</b>(反彈 0.382),過了看 <b style="color:var(--amber)">${F2(s618)}</b>(0.618,站回才算轉強);
           若<b>續跌不轉折</b>,下方測量目標約 <b style="color:var(--down)">${F2(t1)}</b>。`}<br>
