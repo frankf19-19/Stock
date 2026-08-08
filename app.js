@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r542 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r544 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r542</span>');
+  diag.push('<span style="color:var(--dim)">build r544</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3708,12 +3708,12 @@ function buildMacroJump(){                   // 🧭 大盤頁快速導覽:點�
     const pane=document.getElementById('tp-macro');
     if(!bar||!pane)return;
     const secs=[...pane.querySelectorAll('.sec-title[data-sec]')]
-      .filter(t=>t.dataset.sec!=='macro');
+      .filter(t=>t.dataset.sec!=='macro'&&!t.classList.contains('gm-hide'));
     if(!secs.length)return;
     bar.innerHTML=secs.map(t=>{
       const txt=(t.childNodes[0]&&t.childNodes[0].textContent||t.textContent).trim();
       return `<button data-mj="${t.dataset.sec}">${txt}</button>`;
-    }).join('')+`<button data-mj="__pick">📌 關注五檔</button>`;
+    }).join('')+((window.GMKT||'TW')==='TW'?`<button data-mj="__pick">📌 關注五檔</button>`:'');
     bar.querySelectorAll('[data-mj]').forEach(b=>b.onclick=()=>{
       const k=b.dataset.mj;
       let el=null;
@@ -7550,7 +7550,7 @@ setInterval(async()=>{   // r526:盤後同步窗——13:40~19:30 每10分鐘自
 }, 600000);
 
 function renderChips(){
-  const pool=DATA.stocks.filter(s=>!s.etf&&(mkt==='ALL'||s.market===mkt));
+  const pool=DATA.stocks.filter(s=>!s.etf&&s.market===(window.GMKT||'TW')&&(mkt==='ALL'||s.market===mkt));
   const secs=['全部',...[...new Set(pool.map(s=>s.sector))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))];
   document.getElementById('chips').innerHTML=secs.map(s=>
     `<button class="chip ${s===sector?'on':''}" data-s="${s}">${s}</button>`).join('');
@@ -7560,7 +7560,7 @@ function renderChips(){
 function sectorPanel(){
   const el=document.getElementById('sectorPanel');
   if(sector==='全部'){ el.innerHTML=''; return; }
-  const pool=DATA.stocks.filter(s=>!s.etf&&(mkt==='ALL'||s.market===mkt)&&s.sector===sector);
+  const pool=DATA.stocks.filter(s=>!s.etf&&s.market===(window.GMKT||'TW')&&(mkt==='ALL'||s.market===mkt)&&s.sector===sector);
   const withP=pool.filter(s=>s.price!=null);
   const upN=withP.filter(s=>s.chg>0).length;
   const avgT=pool.length?Math.round(pool.reduce((a,s)=>a+total(s),0)/pool.length):0;
@@ -10607,7 +10607,7 @@ function radarItems(){
     if(s)push(s,x.g);
   });
   // 左側/右側交易分類(未來性濾網把關)
-  sideItems().forEach(x=>items.push(x));
+  sideItems().forEach(x=>{if(x&&x.s&&x.s.market===(window.GMKT||'TW'))items.push(x);});   // r543:左右側清單同樣鎖定當前市場分頁
   // 研究觀點:潛在漲價/缺料
   PRICE_WATCH.forEach(([id,why])=>{
     const s=byId[id];
@@ -10671,8 +10671,27 @@ function setGMKT(m,skipRender){
       x.classList.toggle('on',x.dataset.m==='ALL');
     });
   }catch(e){}
-  const twOnly=['mk_temp','mk_idx','mk_rot','mk_fut','mk_head','mk_conf','glb'];   // 大盤分頁的台股專屬區,美股模式收起
+  const twOnly=['mk_temp','mk_rot','mk_fut','mk_head','mk_conf','glb'];   // r544:大盤走勢區(mk_idx)不再整區隱藏——美股共用即時走勢引擎,細項分流
   twOnly.forEach(k=>{document.querySelectorAll(`.sec-title[data-sec="${k}"],#sb-${k}`).forEach(el=>el.classList.toggle('gm-hide',m==='US'));});
+  document.documentElement.classList.toggle('gm-us',m==='US');            // r544:美股大盤細分流(CSS 隱藏台股卡/台指期/加權櫃買鈕)
+  try{
+    const tt=document.querySelector('.sec-title[data-sec="mk_idx"]');
+    if(tt){
+      if(!tt.dataset.twHtml)tt.dataset.twHtml=tt.innerHTML;
+      tt.innerHTML=m==='US'
+        ?'📈 美股大盤走勢與近期大事 <span style="font-weight:400;font-size:13px;letter-spacing:0">標普/那指即時走勢・道瓊費半・行事曆</span>'
+        :tt.dataset.twHtml;
+    }
+    const fr=document.getElementById('futRow');
+    if(fr&&fr.previousElementSibling&&fr.previousElementSibling.classList.contains('mini-cap'))
+      fr.previousElementSibling.classList.toggle('gm-hide',m==='US');     // 「期貨籌碼(台指)」小標一併收
+    const seg=document.getElementById('idxSeg');
+    if(seg){
+      const cur=seg.querySelector('button.on');
+      if(m==='US'&&cur&&(cur.dataset.x==='tw'||cur.dataset.x==='otc')){const b=seg.querySelector('[data-x="sp"]');if(b)b.click();}
+      if(m==='TW'&&cur&&(cur.dataset.x==='sp'||cur.dataset.x==='nq')&&!skipRender){const b=seg.querySelector('[data-x="tw"]');if(b)b.click();}
+    }
+  }catch(e){}
   if(!skipRender){try{renderChips();}catch(e){}try{renderAll();}catch(e){}}
 }
 document.querySelectorAll('#gmktBar button').forEach(b=>b.onclick=()=>{if(b.dataset.gm!==window.GMKT)setGMKT(b.dataset.gm);});

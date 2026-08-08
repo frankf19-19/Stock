@@ -844,3 +844,12 @@ select:focus,input:focus,button:focus-visible,a:focus-visible{
 .gmkt-bar button.on{background:var(--amber);border-color:var(--amber);color:#1A1206;box-shadow:0 3px 14px rgba(176,141,68,.35)}
 @media(max-width:640px){.gmkt-bar button{font-size:16.5px;padding:11px 8px;letter-spacing:.06em}}
 .gm-hide{display:none!important}
+
+/* ── r544 美股大盤細分流:美股模式下收起台股專屬卡 ── */
+.gm-us #futRow,
+.gm-us #idxSeg button[data-x="tw"],
+.gm-us #idxSeg button[data-x="otc"],
+.gm-us #idxRow .idx-card[data-mk="twii"],
+.gm-us #idxRow .idx-card[data-mk="otc"],
+.gm-us #idxRow #idxEmpty,
+.gm-us #fut_EWT{display:none!important}
