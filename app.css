@@ -853,3 +853,23 @@ select:focus,input:focus,button:focus-visible,a:focus-visible{
 .gm-us #idxRow .idx-card[data-mk="otc"],
 .gm-us #idxRow #idxEmpty,
 .gm-us #fut_EWT{display:none!important}
+
+/* ══ 🧭 r549 導覽區重排:三層明確層級,消除「四排相似膠囊」的混亂 ══ */
+/* 第 1 層:市場總開關——一體式分段控制,置中、視覺最重 */
+.gmkt-bar{justify-content:center;margin:16px auto 10px;max-width:560px;gap:0;
+  background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:5px;
+  box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.gmkt-bar button{max-width:none;border:none;border-radius:10px;padding:12px 10px;letter-spacing:.14em;
+  background:transparent;box-shadow:none}
+.gmkt-bar button:hover{color:var(--txt);border:none;background:var(--panel2)}
+.gmkt-bar button.on{background:var(--amber);color:#1A1206;box-shadow:0 3px 12px rgba(176,141,68,.35)}
+/* 第 2 層:功能分頁——置中膠囊列,底線收束,與第 1 層拉開重量差 */
+.home-tabs{justify-content:center;margin:0 0 2px;border-bottom:1px solid var(--line);padding:8px 0 12px}
+.home-tabs button{max-width:150px;font-size:14.5px;padding:9px 0}
+/* 第 3 層:分區快速跳轉——降級為單行滑動索引列,不再換行堆成兩排膠囊牆 */
+.mob-jump{align-items:center;margin:8px 0 10px;padding:7px 2px}
+@media(min-width:641px){.mob-jump{flex-wrap:nowrap;overflow-x:auto}}
+.mob-jump::before{content:'跳到:';flex-shrink:0;font-size:12.5px;color:var(--dim);font-weight:800;letter-spacing:.06em;padding-right:2px}
+.mob-jump button{padding:5.5px 12px;font-size:12.5px;font-weight:700;border-width:1px;color:var(--mut)}
+.mob-jump button:hover{color:var(--amber)}
+@media(max-width:640px){.gmkt-bar{margin:12px 0 8px}}
