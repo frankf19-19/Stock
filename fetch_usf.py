@@ -149,7 +149,21 @@ def main():
             print(f"  {tag[:34]:<34} CY{y}Q{q}: 命中 {hit}", flush=True)
 
     # 4) 組裝輸出(百萬美元、EPS 兩位小數;至少 4 季營收才收錄)
-    labs = [f"{y % 100}Q{q}" for (y, q) in qs]
+    # r551 增量合併:載入既有 usf.json,新資料「補洞不清舊」——每天收斂更完整,單次失敗不倒退
+    try:
+        prev = json.load(open("usf.json", encoding="utf-8")).get("s", {})
+        for tk, pe in prev.items():
+            if tk not in store: store[tk] = {}
+            for i, lab in enumerate(pe.get("q", [])):
+                cell = store[tk].setdefault(lab, {})
+                for key, arr in (("rev", pe.get("rev")), ("gp", pe.get("gp")), ("oi", pe.get("oi")),
+                                 ("ni", pe.get("ni")), ("eps", pe.get("eps"))):
+                    if arr and i < len(arr) and arr[i] is not None and key not in cell:
+                        cell[key] = arr[i] * (1e6 if key != "eps" else 1)
+        print(f"  合併既有 usf.json:{len(prev)} 檔舊資料補洞", flush=True)
+    except Exception:
+        pass
+    labs = sorted({lab for rows in store.values() for lab in rows} | {f"{y % 100}Q{q}" for (y, q) in qs})[-10:]
     out_s = {}
     for tk, rows in store.items():
         q_l, rev, gp, oi, ni, eps = [], [], [], [], [], []

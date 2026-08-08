@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r549 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r551 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r549</span>');
+  diag.push('<span style="color:var(--dim)">build r551</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2938,6 +2938,48 @@ async function usfData(){                             // r530:美股基本面(SE
   }catch(e){}
   return __usfCache;
 }
+function usfCalc(e){   // r551:usf 一檔的分數與摘要(全域套分與個股頁共用同一套規則精神)
+  const F1=v=>v==null?null:+(+v).toFixed(1);
+  const pct=(a,b)=>(a!=null&&b!=null&&b>0)?F1(a/b*100):null;
+  const n=e.q.length-1;
+  const gm=e.q.map((_,i)=>pct(e.gp[i],e.rev[i])),om=e.q.map((_,i)=>pct(e.oi[i],e.rev[i])),nm=e.q.map((_,i)=>pct(e.ni[i],e.rev[i]));
+  const yoy=(arr,i)=>{const j=e.q.indexOf((+e.q[i].slice(0,2)-1)+e.q[i].slice(2));return(j>=0&&arr[j]>0&&arr[i]!=null)?F1((arr[i]/arr[j]-1)*100):null;};
+  const revY=yoy(e.rev,n);
+  const jE=e.q.indexOf((+e.q[n].slice(0,2)-1)+e.q[n].slice(2));
+  const epsY=(jE>=0&&e.eps[jE]!=null&&e.eps[n]!=null&&Math.abs(e.eps[jE])>0.005)?F1((e.eps[n]/Math.abs(e.eps[jE])-1)*100):null;
+  const rise=a=>a[n]!=null&&a[n-1]!=null&&a[n]>a[n-1];
+  const t3=rise(gm)&&rise(om)&&rise(nm);
+  let sc=50;
+  if(revY!=null)sc+=revY>=20?18:revY>=8?12:revY>=0?5:revY>=-8?-6:-14;
+  if(epsY!=null)sc+=epsY>=20?10:epsY>=0?5:-8;
+  if(nm[n]!=null)sc+=nm[n]>=20?8:nm[n]>=10?4:nm[n]<0?-10:0;
+  if(t3)sc+=6;
+  sc=Math.max(20,Math.min(92,Math.round(sc)));
+  const sgn=v=>v==null?'—':(v>0?'+':'')+v+'%';
+  return {score:sc,
+    kv:{'營收YoY(季)':sgn(revY),'EPS(稀釋)':(e.eps[n]!=null?e.eps[n]+'':'—')+'('+sgn(epsY)+')','毛利率':gm[n]!=null?gm[n]+'%':'—','營益率':om[n]!=null?om[n]+'%':'—','淨利率':nm[n]!=null?nm[n]+'%':'—','資料季度':e.q[n]+'(SEC)'},
+    note:(revY!=null&&revY>=8?'營收成長動能佳。':revY!=null&&revY<0?'營收年減,留意需求循環。':'營收平穩。')+(t3?'三率三升,獲利結構改善。':'')};
+}
+let __usfApplied=false;
+async function applyUsfAll(){   // r551:usf 到貨後,一次替「全部美股」改寫基本面分(清單/綜合分/雷達同步受惠;原本只有點進個股頁那檔會升級)
+  if(__usfApplied)return;
+  try{
+    const u=await usfData();
+    if(!u||!u.s||!DATA||!DATA.stocks)return;
+    let n=0;
+    DATA.stocks.forEach(s=>{
+      if(s.market!=='US'||s.etf)return;
+      const e=u.s[String(s.id).toUpperCase()];
+      if(!e||!Array.isArray(e.q)||e.q.length<4)return;
+      try{const r=usfCalc(e);s.f={score:r.score,kv:r.kv,note:r.note};n++;}catch(e2){}
+    });
+    __usfApplied=true;
+    console.log('usf 全域套分:',n,'檔');
+    if(n&&(window.GMKT||'TW')==='US'){try{renderAll();}catch(e3){}}
+  }catch(e){}
+}
+setTimeout(applyUsfAll,2500);
+setInterval(()=>{if(!__usfApplied)applyUsfAll();},30000);   // data.json 較晚到貨時自動補套
 async function usFundBlock(s){                        // 📊 r530:美股財報速覽——近8季營收/EPS/三率(對標台股季報區)
   const box=document.getElementById('usFundBox');
   if(!box||!s||s.market!=='US'||s.etf)return;
@@ -3017,14 +3059,7 @@ async function usFundBlock(s){                        // 📊 r530:美股財報�
     }catch(err){}
     // 基本面卡(三力檢視)就地升級:以官方數字取代佔位符,分數重估
     try{
-      let sc=50;
-      if(revY[i9]!=null)sc+=revY[i9]>=20?18:revY[i9]>=8?12:revY[i9]>=0?5:revY[i9]>=-8?-6:-14;
-      if(epsY!=null)sc+=epsY>=20?10:epsY>=0?5:-8;
-      if(nm[i9]!=null)sc+=nm[i9]>=20?8:nm[i9]>=10?4:nm[i9]<0?-10:0;
-      if(t3)sc+=6;
-      sc=Math.max(20,Math.min(92,Math.round(sc)));
-      s.f={score:sc,kv:{'營收YoY(季)':sgn(revY[i9]),'EPS(稀釋)':(e.eps[i9]!=null?e.eps[i9]+'':'—')+'('+sgn(epsY)+')','毛利率':gm[i9]!=null?gm[i9]+'%':'—','營益率':om[i9]!=null?om[i9]+'%':'—','淨利率':nm[i9]!=null?nm[i9]+'%':'—','資料季度':e.q[i9]+'(SEC)'},
-           note:(revY[i9]!=null&&revY[i9]>=8?'營收成長動能佳。':revY[i9]!=null&&revY[i9]<0?'營收年減,留意需求循環。':'營收平穩。')+(t3?'三率三升,獲利結構改善。':'')};
+      const r=usfCalc(e);s.f={score:r.score,kv:r.kv,note:r.note};   // r551:與全域套分共用同一套規則
       document.querySelectorAll('#sb-stk_3 .dim-block h3').forEach(h=>{
         if(/基本面/.test(h.textContent)){const w=h.closest('.dim-block');if(w)w.outerHTML=dimBlock('基本面(權重40%)',s.f);}
       });
