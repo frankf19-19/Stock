@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r528 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r529 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1555,7 +1555,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r528</span>');
+  diag.push('<span style="color:var(--dim)">build r529</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6813,7 +6813,7 @@ function renderL5(id,bids,asks,limUp,limDn){
     const mx=Math.max(1,...bids.map(x=>x.v||0),...asks.map(x=>x.v||0));
     const row=(x,side)=>{
       const w=Math.max(2,Math.round((x.v||0)/mx*100));
-      const col=side>0?'rgba(46,125,50,.28)':'rgba(198,40,40,.25)';   // 委買綠/委賣紅(掛單非成交,不用漲跌紅綠語意)
+      const col=side>0?'rgba(198,40,40,.30)':'rgba(46,125,50,.28)';   // r529:台灣慣例——委買紅(多方)、委賣綠(空方),與紅漲綠跌同語意
       const lab=side>0?'買':'賣';
       return `<div style="display:flex;align-items:center;gap:8px">
         <span style="width:26px;color:var(--dim)">${lab}${x.n}</span>
@@ -6834,12 +6834,12 @@ function renderL5(id,bids,asks,limUp,limDn){
       `<div style="margin-top:8px;display:flex;align-items:center;gap:8px">
         <span style="color:var(--dim)">掛單力道</span>
         <span style="flex:1;height:10px;border-radius:5px;overflow:hidden;display:flex">
-          <i style="width:${bp}%;background:rgba(46,125,50,.55)"></i><i style="flex:1;background:rgba(198,40,40,.5)"></i></span>
-        <b>${bp}% 買</b></div>`+
+          <i style="width:${bp}%;background:rgba(198,40,40,.6)"></i><i style="flex:1;background:rgba(46,125,50,.5)"></i></span>
+        <b style="color:${bp>=50?'var(--up)':'var(--down)'}">${bp}% 買</b></div>`+
       ((limUp>0||limDn>0)?`<div class="dim-note" style="margin-top:6px">漲停 ${limUp>0?(+limUp).toLocaleString():'—'} · 跌停 ${limDn>0?(+limDn).toLocaleString():'—'}</div>`:'');
     box.style.display='';
     const mt=document.getElementById('l5Meta');
-    if(mt)mt.textContent=(typeof marketOpen==='function'&&marketOpen())?'盤中同步 · 委買綠/委賣紅為掛單量':'收盤定格 · 最後一筆掛單';
+    if(mt)mt.textContent=(typeof marketOpen==='function'&&marketOpen())?'盤中同步 · 委買紅/委賣綠為掛單量':'收盤定格 · 最後一筆掛單';
   }catch(e){}
 }
 function l5Pairs(ps,vs){   // MIS "p1_p2_…_" 與 "v1_v2_…_" 併成 [{p,v}]
@@ -10182,7 +10182,7 @@ async function showDetail(id){
       <div class="dim-note" id="liveReadTxt"></div>
     </div>
     <div class="dim-block" id="l5Box" style="border-left:4px solid var(--gold,#B08D44);display:none">
-      <h3>⚖️ 即時五檔 <span class="c-code" id="l5Meta">盤中同步 · 委買綠/委賣紅為掛單量</span></h3>
+      <h3>⚖️ 即時五檔 <span class="c-code" id="l5Meta">盤中同步 · 委買紅/委賣綠為掛單量</span></h3>
       <div id="l5Body" style="font-family:var(--mono);font-size:13px;line-height:1.9"></div>
     </div>
     <div class="chart-box">
