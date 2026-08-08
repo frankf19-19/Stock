@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r540 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r541 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1556,7 +1556,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r540</span>');
+  diag.push('<span style="color:var(--dim)">build r541</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -9649,7 +9649,7 @@ function drawKChart(){
   }catch(e){}},0);}catch(e){}
   try{   // r536:法人副圖=五面板 → 容器自動加高,擺脫全部擠在 560px 的緊繃排版
     const kb=document.getElementById('kbox');
-    if(kb){const h=__inst?(innerWidth<640?640:700):(innerWidth<640?400:560);
+    if(kb){const h=__inst?(innerWidth<640?690:720):(innerWidth<640?400:560);   // r541:手機日期軸與滑桿重疊修正
       if(kb.clientHeight!==h){kb.style.setProperty('height',h+'px','important');chartInst.resize();}}
   }catch(e){}
   chartInst.setOption({
@@ -9692,7 +9692,7 @@ function drawKChart(){
         {gridIndex:3,scale:true,position:'right',axisLabel:{show:false},splitLine:{show:false}},
         {gridIndex:4,scale:true,position:'right',axisLabel:{show:false},splitLine:{show:false}}]:[])],
     dataZoom:[{type:'inside',xAxisIndex:__inst?[0,1,2,3,4]:[0,1,2],start:zs,end:ze},
-      {type:'slider',xAxisIndex:__inst?[0,1,2,3,4]:[0,1,2],bottom:6,height:18,start:zs,end:ze,showDetail:false,
+      {type:'slider',xAxisIndex:__inst?[0,1,2,3,4]:[0,1,2],bottom:__inst?2:6,height:__inst?16:18,start:zs,end:ze,showDetail:false,
        borderColor:CT.border,fillerColor:hexA(cssVar('--amber'),.15),
        handleStyle:{color:cssVar('--amber')},textStyle:{color:CT.axis,fontSize:11}}],
     series:[...__fwOverlay(o),{name:'K線',type:'candlestick',xAxisIndex:0,yAxisIndex:0,
