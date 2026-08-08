@@ -873,3 +873,19 @@ select:focus,input:focus,button:focus-visible,a:focus-visible{
 .mob-jump button{padding:5.5px 12px;font-size:12.5px;font-weight:700;border-width:1px;color:var(--mut)}
 .mob-jump button:hover{color:var(--amber)}
 @media(max-width:640px){.gmkt-bar{margin:12px 0 8px}}
+
+/* ══ 🎨 r550 導覽配色分層:市場=紅/藍身分色、功能分頁=墨色、金色留給內容層 ══ */
+/* 台股選中=朱紅(紅漲文化的市場身分色) */
+.gmkt-bar button[data-gm="TW"].on{background:#B3402F;color:#FFF7EF;
+  box-shadow:0 3px 12px rgba(179,64,47,.35)}
+.gmkt-bar button[data-gm="TW"]:not(.on):hover{color:#B3402F}
+/* 美股選中=靛藍(華爾街身分色) */
+.gmkt-bar button[data-gm="US"].on{background:#31589E;color:#F0F5FF;
+  box-shadow:0 3px 12px rgba(49,88,158,.35)}
+.gmkt-bar button[data-gm="US"]:not(.on):hover{color:#31589E}
+/* 功能分頁選中=墨色(第二層,和市場身分色、金色內容層都區隔開) */
+.home-tabs button.on{background:#32323A;border-color:#32323A;color:#F2ECDF;
+  box-shadow:0 4px 14px rgba(30,30,36,.28)}
+.home-tabs button.on:hover{filter:brightness(1.15)}
+/* 手機底部導航同步墨色選中(若存在) */
+#mobNav button.on{color:#F2ECDF;background:#32323A;border-radius:10px}
