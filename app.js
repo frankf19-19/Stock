@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r544 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r546 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r544</span>');
+  diag.push('<span style="color:var(--dim)">build r546</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3519,8 +3519,9 @@ function paintPicks(p){
   const medal=['🥇','🥈','🥉','4','5'];
   box.style.display='';
   const stamp=new Date(p.ts).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
-  box.innerHTML=`<div class="sec-title tap" data-sec="mk_pick">📌 ${title} <span style="font-weight:400;font-size:13px;letter-spacing:0">規則化雙階段篩選・報價即時・榜單盤中每5分鐘重算(${stamp})</span></div>
-  <div class="sec-body" id="sb-mk_pick">
+  const _gmh=(window.GMKT==='US')?' gm-hide':'';   // r545:台股專屬區,美股模式渲染即隱藏(重繪也不會冒出)
+  box.innerHTML=`<div class="sec-title tap${_gmh}" data-sec="mk_pick">📌 ${title} <span style="font-weight:400;font-size:13px;letter-spacing:0">規則化雙階段篩選・報價即時・榜單盤中每5分鐘重算(${stamp})</span></div>
+  <div class="sec-body${_gmh}" id="sb-mk_pick">
     <div class="pick-grid">
       ${p.picks.map((x,i)=>`<div class="pick-card" data-pk="${x.id}">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
@@ -4783,7 +4784,12 @@ async function otcFromETF(){
 function renderMacroAlerts(){
   const el=document.getElementById('macroAlerts');
   if(!el)return;
-  const A=[];const add=(lv,ico,txt)=>A.push({lv,ico,txt});
+  const A=[];
+  const __twMode=(window.GMKT||'TW')==='TW';
+  const add=(lv,ico,txt)=>{   // r546:美股分頁過濾台股專屬警示(加權/櫃買/台指/融資/夜盤/小台/選擇權/外資現貨)
+    if(!__twMode&&/加權|櫃買|台指|台股|小台|融資維持率|夜盤|外資期貨|外資現貨|P\/C|PCR/.test(String(txt)))return;
+    A.push({lv,ico,txt});
+  };
   try{const pc=((DATA.macro||{}).pcr||{});                   // ⚖️ 台指選擇權 P/C(未平倉)極端時提示
     if(pc.oi&&pc.oi.length>=20){
       const cur=pc.oi[pc.oi.length-1];
@@ -10671,7 +10677,7 @@ function setGMKT(m,skipRender){
       x.classList.toggle('on',x.dataset.m==='ALL');
     });
   }catch(e){}
-  const twOnly=['mk_temp','mk_rot','mk_fut','mk_head','mk_conf','glb'];   // r544:大盤走勢區(mk_idx)不再整區隱藏——美股共用即時走勢引擎,細項分流
+  const twOnly=['mk_temp','mk_rot','mk_fut','mk_head','mk_conf','mk_pick','glb'];   // r544:大盤走勢區(mk_idx)不再整區隱藏——美股共用即時走勢引擎,細項分流
   twOnly.forEach(k=>{document.querySelectorAll(`.sec-title[data-sec="${k}"],#sb-${k}`).forEach(el=>el.classList.toggle('gm-hide',m==='US'));});
   document.documentElement.classList.toggle('gm-us',m==='US');            // r544:美股大盤細分流(CSS 隱藏台股卡/台指期/加權櫃買鈕)
   try{
@@ -10693,7 +10699,27 @@ function setGMKT(m,skipRender){
     }
   }catch(e){}
   if(!skipRender){try{renderChips();}catch(e){}try{renderAll();}catch(e){}}
+  try{applyGmUsFineTune();setTimeout(applyGmUsFineTune,600);}catch(e){}   // r546:切換立即清場+非同步渲染後補刀
 }
+function applyGmUsFineTune(){   // r546:美股分頁細部清場——處理非同步重繪冒回來的台股內容,每5秒自癒
+  try{
+    const us=(window.GMKT||'TW')==='US';
+    const T=(el,h)=>{if(el)el.classList.toggle('gm-hide',h);};
+    const inst=document.getElementById('instRow');
+    T(inst&&inst.closest('.macro-band>div'),us);
+    const tbl=document.getElementById('instTblBox');
+    T(tbl,us);T(tbl&&tbl.previousElementSibling,us);
+    T(document.getElementById('macroNote'),us);
+    T(document.getElementById('tldrBox'),us);
+    document.querySelectorAll('#riskRow .idx-card').forEach(c=>{if(/信用交易/.test(c.textContent))T(c,us);});
+    document.querySelectorAll('#macroJump [data-mj]').forEach(b=>{
+      if(b.dataset.mj==='__pick'){T(b,us);return;}
+      const t=document.querySelector(`.sec-title[data-sec="${b.dataset.mj}"]`);
+      T(b,!!(t&&t.classList.contains('gm-hide')));
+    });
+  }catch(e){}
+}
+setInterval(applyGmUsFineTune,5000);
 document.querySelectorAll('#gmktBar button').forEach(b=>b.onclick=()=>{if(b.dataset.gm!==window.GMKT)setGMKT(b.dataset.gm);});
 setGMKT(window.GMKT,true);
 document.getElementById('sortSel').onchange=e=>{sortBy=e.target.value;page=1;render();};
