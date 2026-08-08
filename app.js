@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r529 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r530 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1555,7 +1555,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r529</span>');
+  diag.push('<span style="color:var(--dim)">build r530</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2923,6 +2923,90 @@ function turnHtml(r){
   return head.join('')+tbl+`<div class="dim-note" style="margin-top:8px"><b>怎麼用這張表</b>:①看「波段幅度」——這檔平常一段漲跌約幾%,現在這段是否已達平均;②看「費時」——這檔平常幾天轉一次;③高點一個比一個低=空頭節奏,低點一個比一個高=多頭節奏。<br>轉折點以鋸齒法自動辨識(前後4根K的極值);「預估窗口」是節奏統計非保證——<b>價位到了、時間到了、量能背離三者共振時勝率最高</b>。個股日期為交易日回推之約略值。非投資建議。</div>`;
 }
 
+let __usfCache=null,__usfAt=0;
+async function usfData(){                             // r530:美股基本面(SEC EDGAR 官方 XBRL,後端每日組 usf.json)
+  if(__usfCache&&Date.now()-__usfAt<36e5)return __usfCache;
+  try{
+    const r=await fT('usf.json?_='+Math.floor(Date.now()/36e5),8000);
+    if(r.ok){__usfCache=await r.json();__usfAt=Date.now();}
+  }catch(e){}
+  return __usfCache;
+}
+async function usFundBlock(s){                        // 📊 r530:美股財報速覽——近8季營收/EPS/三率(對標台股季報區)
+  const box=document.getElementById('usFundBox');
+  if(!box||!s||s.market!=='US'||s.etf)return;
+  try{
+    const u=await usfData();
+    const e=u&&u.s&&u.s[String(s.id).toUpperCase()];
+    if(location.hash!=='#stock/'+s.id)return;
+    if(!e||!Array.isArray(e.q)||e.q.length<4){
+      box.innerHTML='<div class="dim-block"><h3>📊 財報速覽</h3><div class="dim-note">SEC 尚無此檔可對齊日曆季的 XBRL 財報(ADR/會計年度特殊者常見),請以下方外部連結查閱。</div></div>';return;
+    }
+    const N=e.q.length, F1=v=>v==null?null:+(+v).toFixed(1);
+    const pct=(a,b)=>(a!=null&&b!=null&&b>0)?F1(a/b*100):null;
+    const gm=e.q.map((_,i)=>pct(e.gp[i],e.rev[i])), om=e.q.map((_,i)=>pct(e.oi[i],e.rev[i])), nm=e.q.map((_,i)=>pct(e.ni[i],e.rev[i]));
+    const yoyAt=(arr,i)=>{const j=e.q.indexOf((+e.q[i].slice(0,2)-1)+e.q[i].slice(2));return(j>=0&&arr[j]>0&&arr[i]!=null)?F1((arr[i]/arr[j]-1)*100):null;};
+    const revY=e.q.map((_,i)=>yoyAt(e.rev,i)), i9=N-1;
+    const epsY=(()=>{const j=e.q.indexOf((+e.q[i9].slice(0,2)-1)+e.q[i9].slice(2));
+      return(j>=0&&e.eps[j]!=null&&e.eps[i9]!=null&&Math.abs(e.eps[j])>0.005)?F1((e.eps[i9]/Math.abs(e.eps[j])-1)*100):null;})();
+    const rise=a=>a[i9]!=null&&a[i9-1]!=null&&a[i9]>a[i9-1];
+    const t3=rise(gm)&&rise(om)&&rise(nm);
+    const sgn=v=>v==null?'—':(v>0?'+':'')+v+'%';
+    const cls=v=>v==null?'flat':v>=0?'pos':'neg';
+    const bn=v=>v==null?'—':v>=1000?(v/1000).toFixed(v>=10000?0:1)+' 億':v.toFixed(0)+' 百萬';
+    box.innerHTML=`<div class="dim-block" style="border-left:4px solid #6FA8DC">
+      <h3>📊 財報速覽 <span class="ds">SEC 官方 XBRL · 近 ${N} 季</span>${t3?' <span style="background:rgba(198,40,40,.12);color:var(--up);font-weight:800;font-size:12px;padding:2px 8px;border-radius:10px">三率三升</span>':''}</h3>
+      <div class="earn-metrics" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+        <div class="em-card"><div class="em-v flat" style="font-size:15px;padding-top:5px">${bn(e.rev[i9])} 美元</div><div class="em-l">${e.q[i9]} 營收</div></div>
+        <div class="em-card"><div class="em-v ${cls(revY[i9])}">${sgn(revY[i9])}</div><div class="em-l">營收 YoY</div></div>
+        <div class="em-card"><div class="em-v ${cls(epsY)}">${e.eps[i9]!=null?e.eps[i9]:'—'}</div><div class="em-l">稀釋 EPS(YoY ${sgn(epsY)})</div></div>
+        <div class="em-card"><div class="em-v flat">${gm[i9]!=null?gm[i9]+'%':'—'}</div><div class="em-l">毛利率</div></div>
+        <div class="em-card"><div class="em-v flat">${om[i9]!=null?om[i9]+'%':'—'}</div><div class="em-l">營益率</div></div>
+        <div class="em-card"><div class="em-v flat">${nm[i9]!=null?nm[i9]+'%':'—'}</div><div class="em-l">淨利率</div></div>
+      </div>
+      <div id="usfChart" style="height:250px;margin-top:8px"></div>
+      <div class="dim-note" style="margin-top:6px">資料:SEC EDGAR 官方 XBRL(每日更新);營收單位百萬美元。會計年度未對齊日曆季的公司(部分零售/半導體)僅顯示可對齊季度。三率=毛利/營益/淨利率,連兩季齊升即掛章。非投資建議。</div></div>`;
+    try{
+      await ensureECharts();
+      const el=document.getElementById('usfChart');
+      if(el&&window.echarts){
+        try{echarts.dispose(el);}catch(e0){}
+        const ch=echarts.init(el,null,{renderer:'svg'});
+        setTimeout(()=>{try{ch.resize();}catch(e1){}},350);   // 摺疊區展開時寬度歸零保險
+        try{if(window.__usfChart&&window.__usfChart!==ch)window.__usfChart.dispose();}catch(e2){}
+        window.__usfChart=ch;
+        ch.setOption({backgroundColor:'transparent',
+          tooltip:{trigger:'axis',confine:true},
+          legend:{data:['營收(百萬$)','營收YoY%','淨利率%'],textStyle:{color:CT.axis,fontSize:11},top:0},
+          grid:{left:52,right:44,top:28,bottom:22},
+          xAxis:{type:'category',data:e.q,axisLabel:{color:CT.axis,fontSize:10},axisLine:{lineStyle:{color:CT.border}}},
+          yAxis:[{type:'value',axisLabel:{color:CT.axis,fontSize:10,formatter:v=>v>=1000?(v/1000)+'k':v},splitLine:{lineStyle:{color:CT.split}}},
+                 {type:'value',axisLabel:{color:CT.axis,fontSize:10,formatter:'{value}%'},splitLine:{show:false}}],
+          series:[
+            {name:'營收(百萬$)',type:'bar',data:e.rev,itemStyle:{color:'rgba(176,141,68,.55)'},barMaxWidth:26},
+            {name:'營收YoY%',type:'line',yAxisIndex:1,data:revY,connectNulls:true,showSymbol:true,symbolSize:5,
+             lineStyle:{width:2,color:'#E5484D'},itemStyle:{color:'#E5484D'}},
+            {name:'淨利率%',type:'line',yAxisIndex:1,data:nm,connectNulls:true,showSymbol:false,
+             lineStyle:{width:1.6,color:'#7FB4FF',type:'dashed'},itemStyle:{color:'#7FB4FF'}}
+          ]});
+      }
+    }catch(err){}
+    // 基本面卡(三力檢視)就地升級:以官方數字取代佔位符,分數重估
+    try{
+      let sc=50;
+      if(revY[i9]!=null)sc+=revY[i9]>=20?18:revY[i9]>=8?12:revY[i9]>=0?5:revY[i9]>=-8?-6:-14;
+      if(epsY!=null)sc+=epsY>=20?10:epsY>=0?5:-8;
+      if(nm[i9]!=null)sc+=nm[i9]>=20?8:nm[i9]>=10?4:nm[i9]<0?-10:0;
+      if(t3)sc+=6;
+      sc=Math.max(20,Math.min(92,Math.round(sc)));
+      s.f={score:sc,kv:{'營收YoY(季)':sgn(revY[i9]),'EPS(稀釋)':(e.eps[i9]!=null?e.eps[i9]+'':'—')+'('+sgn(epsY)+')','毛利率':gm[i9]!=null?gm[i9]+'%':'—','營益率':om[i9]!=null?om[i9]+'%':'—','淨利率':nm[i9]!=null?nm[i9]+'%':'—','資料季度':e.q[i9]+'(SEC)'},
+           note:(revY[i9]!=null&&revY[i9]>=8?'營收成長動能佳。':revY[i9]!=null&&revY[i9]<0?'營收年減,留意需求循環。':'營收平穩。')+(t3?'三率三升,獲利結構改善。':'')};
+      document.querySelectorAll('#sb-stk_3 .dim-block h3').forEach(h=>{
+        if(/基本面/.test(h.textContent)){const w=h.closest('.dim-block');if(w)w.outerHTML=dimBlock('基本面(權重40%)',s.f);}
+      });
+    }catch(err){}
+  }catch(err){box.innerHTML='';}
+}
 async function usEarnBlock(s){                        // 📡 美股個股財報卡:賽前預期/賽後結果(來源 yext.earn)
   const box=document.getElementById('usEarnBox');
   if(!box||!s||s.market!=='US')return;
@@ -9966,6 +10050,7 @@ async function showDetail(id){
     <div class="chart-box" style="${s.market==='US'?'display:none':''}"><div class="ind-head"><h3>營收趨勢(月營收+年增率)</h3><span class="c-code" id="revStat">載入中…</span></div><div id="revChart" style="height:262px"></div></div>
     <div id="t3qBox" class="dim-block"><div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div></div>
     <div id="finQBox"></div>
+    <div id="usFundBox"></div>
     <div id="usEarnBox"></div>
     </div>`:''}
     <div class="sec-title" data-sec="stk_h">👑 大戶持股趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">集保週資料・千張大戶 vs 散戶</span></div><div class="sec-body" id="sb-stk_h">
@@ -10101,6 +10186,7 @@ async function showDetail(id){
       wireDcf();}
   });}catch(e){}
   try{usEarnBlock(s);}catch(e){}
+  try{usFundBlock(s);}catch(e){}   // r530:美股財報速覽(SEC XBRL)
   try{buildJumpBar(document.getElementById('detailView'));}catch(e){}
   loadAnalystDetail(s);
   loadChipDetail(s);
