@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r541">
+<link rel="stylesheet" href="app.css?v=r542">
 </head>
 <body>
 
@@ -86,6 +86,10 @@
     <div class="ticker-track" id="tickerTrack"></div>
   </div>
 
+<div class="gmkt-bar" id="gmktBar" role="tablist" aria-label="市場總分頁">
+  <button data-gm="TW" class="on">🇹🇼 台股</button>
+  <button data-gm="US">🇺🇸 美股</button>
+</div>
 <div class="home-tabs" id="homeTabs">
   <button data-tab="macro"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M3 16l5-6 4 3 6-8"/><path d="M3 21h18"/></svg>大盤</button>
   <button data-tab="stocks"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px;margin-right:4px"><line x1="7" y1="3" x2="7" y2="21"/><rect x="4.5" y="8" width="5" height="7" rx="1"/><line x1="17" y1="3" x2="17" y2="21"/><rect x="14.5" y="6" width="5" height="9" rx="1"/></svg>個股</button>
@@ -298,6 +302,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r541"></script>
+<script src="app.js?v=r542"></script>
 </body>
 </html>

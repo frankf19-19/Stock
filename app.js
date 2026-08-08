@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r541 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r542 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -559,18 +559,21 @@ function renderFav(){
       ${s.etf?'':'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>'}
     </div>`;
   };
-  const g={tw:[],us:[],etf:[],other:[]};
+  const g={tw:[],us:[],etf:[],etfUS:[],other:[]};
   ids.forEach(id=>{
     const s=byId[id];
     if(!s){g.other.push(id);return;}
-    if(s.etf)g.etf.push(id);
+    if(s.etf){(s.market==='US'?g.etfUS:g.etf).push(id);}
     else if(s.market==='TW')g.tw.push(id);
     else g.us.push(id);
   });
   const sec=(title,list)=>list.length?`
     <div style="grid-column:1/-1;font-size:14px;font-weight:900;color:var(--amber);letter-spacing:.06em;margin:6px 0 -4px">${title} <span style="font-weight:400;color:var(--dim)">${list.length} 檔</span></div>
     ${list.map(card).join('')}`:'';
-  box.innerHTML=sec('🇹🇼 台股',g.tw)+sec('🇺🇸 美股',g.us)+sec('🧺 ETF',g.etf)+sec('待更新',g.other);
+  box.innerHTML=(window.GMKT==='US')
+    ?(sec('🇺🇸 美股',g.us)+sec('🧺 美股 ETF',g.etfUS)+sec('待更新',g.other))
+    :(sec('🇹🇼 台股',g.tw)+sec('🧺 ETF',g.etf)+sec('待更新',g.other));
+  if(!box.innerHTML.trim())box.innerHTML='<div class="fav-empty">這個市場分頁還沒有收藏——切到另一個市場看看,或在個股頁點名稱旁的 ☆ 收藏。</div>';
   box.querySelectorAll('.r-card').forEach(c=>c.onclick=e=>{
     const st=e.target.closest('.fav-tg');
     if(st){e.stopPropagation();favToggle(st.dataset.fav);return;}
@@ -1556,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r541</span>');
+  diag.push('<span style="color:var(--dim)">build r542</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7594,6 +7597,7 @@ function chgHtml(c){
 function render(){
   sectorPanel();
   let list=DATA.stocks.filter(s=>!s.etf&&
+    s.market===(window.GMKT||'TW')&&
     (mkt==='ALL'||(mkt==='FAV'?favHas(s.id):s.market===mkt))&&
     (sector==='全部'||s.sector===sector)&&
     (q===''||s.name.toLowerCase().includes(q.toLowerCase())||s.id.toLowerCase().includes(q.toLowerCase())||String(s.full||'').toLowerCase().includes(q.toLowerCase())));
@@ -10447,8 +10451,10 @@ function signals(s){
     if(!c||!c.dataset.sec)return;
     const sec=c.dataset.sec;
     window.__navScrollTs=Date.now();
-    mkt=sec.startsWith('美股')?'US':'TW'; sector=sec; page=1;
-    document.querySelectorAll('#mktSeg button').forEach(x=>x.classList.toggle('on',x.dataset.m===mkt));
+    const m2=sec.startsWith('美股')?'US':'TW';
+    if(m2!==window.GMKT)setGMKT(m2,true);
+    mkt='ALL'; sector=sec; page=1;
+    document.querySelectorAll('#mktSeg button').forEach(x=>x.classList.toggle('on',x.dataset.m==='ALL'));
     renderChips(); render();
     const t=document.getElementById('chips'); if(t) t.scrollIntoView({behavior:'smooth'});
   });
@@ -10456,7 +10462,7 @@ function signals(s){
 function renderPulse(){
   const secBox=document.getElementById('pulseSec');
   const stBox=document.getElementById('pulseStocks');
-  const priced=DATA.stocks.filter(s=>!s.etf&&s.price!=null&&typeof s.chg==='number');
+  const priced=DATA.stocks.filter(s=>!s.etf&&s.price!=null&&typeof s.chg==='number'&&s.market===(window.GMKT||'TW'));
   // 族群強度:平均漲幅排行(至少4檔有報價的族群才列入)
   const g={};
   priced.forEach(s=>{(g[s.sector]=g[s.sector]||[]).push(s);});
@@ -10567,7 +10573,7 @@ function sideItems(){
 }
 function radarItems(){
   const items=[];
-  const push=(s,g)=>{if(s)items.push({s,g});};
+  const push=(s,g)=>{if(s&&s.market===(window.GMKT||'TW'))items.push({s,g});};
   const byId={};(DATA.stocks||[]).forEach(s=>byId[s.id]=s);
   if(DATA.source==='live'){
     DATA.stocks.forEach(s=>(s.sig||[]).forEach(g=>push(s,g)));
@@ -10653,6 +10659,24 @@ document.querySelectorAll('#mktSeg button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#mktSeg button').forEach(x=>x.classList.toggle('on',x===b));
   renderChips(); render();
 });
+/* ══ 🌏 r542 市場總分頁:台股/美股 兩大分頁,全站狀態記憶 ══ */
+window.GMKT=(function(){try{return localStorage.getItem('gmkt')||'TW';}catch(e){return 'TW';}})();
+function setGMKT(m,skipRender){
+  window.GMKT=m;try{localStorage.setItem('gmkt',m);}catch(e){}
+  document.querySelectorAll('#gmktBar button').forEach(b=>b.classList.toggle('on',b.dataset.gm===m));
+  try{
+    mkt='ALL';sector='全部';page=1;q='';const qi=document.getElementById('q');if(qi)qi.value='';
+    document.querySelectorAll('#mktSeg button').forEach(x=>{
+      if(x.dataset.m==='TW'||x.dataset.m==='US')x.classList.add('gm-hide');   // 市場改由總分頁主導,清單內只留「全部/最愛」
+      x.classList.toggle('on',x.dataset.m==='ALL');
+    });
+  }catch(e){}
+  const twOnly=['mk_temp','mk_idx','mk_rot','mk_fut','mk_head','mk_conf','glb'];   // 大盤分頁的台股專屬區,美股模式收起
+  twOnly.forEach(k=>{document.querySelectorAll(`.sec-title[data-sec="${k}"],#sb-${k}`).forEach(el=>el.classList.toggle('gm-hide',m==='US'));});
+  if(!skipRender){try{renderChips();}catch(e){}try{renderAll();}catch(e){}}
+}
+document.querySelectorAll('#gmktBar button').forEach(b=>b.onclick=()=>{if(b.dataset.gm!==window.GMKT)setGMKT(b.dataset.gm);});
+setGMKT(window.GMKT,true);
 document.getElementById('sortSel').onchange=e=>{sortBy=e.target.value;page=1;render();};
 document.getElementById('q').oninput=e=>{q=e.target.value.trim();page=1;render();};
 
