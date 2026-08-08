@@ -10,22 +10,58 @@ frames 一個請求=全市場一個科目一季,6 科目 × 9 季 ≈ 55 個請�
 """
 import json, time, datetime, urllib.request, sys
 
-UA = {"User-Agent": "MajiStockLab/1.0 (research; frankf19-19@users.noreply.github.com)",
+UA = {"User-Agent": "MajiStock frankf19-19@users.noreply.github.com",
+      "Accept": "application/json",
       "Accept-Encoding": "gzip, deflate"}
 
+def _proxy_url():
+    """repo 根目錄 proxy.json 的自家 Cloudflare Worker(無檔案=不借道)"""
+    try:
+        u = json.load(open("proxy.json", encoding="utf-8")).get("url", "").strip()
+        return u.rstrip("/") if u.startswith("https://") else ""
+    except Exception:
+        return ""
+
+def _fetch(url, timeout):
+    req = urllib.request.Request(url, headers=UA)
+    import gzip, io
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        raw = r.read()
+        if r.headers.get("Content-Encoding") == "gzip":
+            raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
+        return json.loads(raw.decode("utf-8", "replace"))
+
 def get_json(url, timeout=40, retry=2):
+    """r532 多路備援:直連(重試)→ 自家 Worker(若已加 SEC 白名單)→ 免費公共代理
+    (allorigins/corsproxy/codetabs,前端同款)——SEC 的 Akamai 間歇封鎖機房 IP,
+    公共代理是伺服器端轉發、出口 IP 不同,無需任何設定即可繞過。"""
+    import urllib.parse
+    err = None
     for i in range(retry + 1):
         try:
-            req = urllib.request.Request(url, headers=UA)
-            import gzip, io
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                raw = r.read()
-                if r.headers.get("Content-Encoding") == "gzip":
-                    raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
-                return json.loads(raw.decode("utf-8", "replace"))
+            return _fetch(url, timeout)
         except Exception as e:
-            if i == retry: print(f"  [warn] {url.split('/')[-1][:40]}: {e}")
-            time.sleep(1.2 * (i + 1))
+            err = e
+            time.sleep(1.0 * (i + 1))
+    routes = []
+    pu = _proxy_url()
+    if pu:
+        routes.append(pu + "/?url=" + urllib.parse.quote(url, safe=""))
+    q = urllib.parse.quote(url, safe="")
+    routes += [
+        "https://api.allorigins.win/raw?url=" + q,
+        "https://corsproxy.io/?url=" + q,
+        "https://api.codetabs.com/v1/proxy?quest=" + q,
+    ]
+    for r in routes:
+        try:
+            j = _fetch(r, timeout + 15)
+            if j is not None:
+                return j
+        except Exception as e:
+            err = e
+            time.sleep(0.4)
+    print(f"  [warn] {url.split('/')[-1][:44]}: {err}")
     return None
 
 def last_quarters(n=9):
@@ -61,12 +97,24 @@ def main():
 
     # 2) ticker ↔ CIK 對照(SEC 官方)
     mp = get_json("https://www.sec.gov/files/company_tickers.json")
-    if not mp: print("對照表抓取失敗"); return 1
     t2c = {}
-    for v in mp.values():
-        tk = str(v.get("ticker", "")).upper()
-        if tk in want and tk not in t2c:
-            t2c[tk] = int(v.get("cik_str"))
+    if mp:
+        for v in mp.values():
+            tk = str(v.get("ticker", "")).upper()
+            if tk in want and tk not in t2c:
+                t2c[tk] = int(v.get("cik_str"))
+        try:  # 成功 → 回寫 repo 快取,日後 SEC 封 IP 也不斷炊(對照表變動極慢)
+            json.dump(t2c, open("us_cik.json", "w"), separators=(",", ":"))
+        except Exception:
+            pass
+    else:
+        try:
+            t2c = {k: int(v) for k, v in json.load(open("us_cik.json", encoding="utf-8")).items()}
+            print(f"  對照表走 repo 快取 us_cik.json({len(t2c)} 檔)")
+        except Exception:
+            pass
+    if not t2c:
+        print("對照表三路皆失敗(官方/Worker/快取),中止"); return 1
     c2t = {c: t for t, c in t2c.items()}
     print(f"對到 CIK:{len(t2c)} 檔(對不到者多為 ADR 別名/已下市,前端顯示不適用)")
 
