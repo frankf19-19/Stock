@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r546 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r548 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r546</span>');
+  diag.push('<span style="color:var(--dim)">build r548</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2228,6 +2228,7 @@ async function renderEarnRadar(){
         <a class="earn-more" id="earnMore">顯示其餘 ${rest.length} 場 ▾</a>`:'');
   }
   html+=`<div class="dim-note" style="margin-top:8px">來源:Nasdaq 官方財報行事曆+日線收盤(每 20 分鐘同步);EPS 為市場共識與公司公布值,股價反應=財報後首個交易日收盤漲跌。美股盤後公布=台北隔日清晨才有結果,<b>隔天台股開盤前記得回來看戰報</b>。</div>`;
+  if(__other)html+=`<div class="dim-note" style="margin-top:8px">另有 ${__other} 檔${__gmUS?'台股':'美股'}持股——切換上方「${__gmUS?'🇹🇼 台股':'🇺🇸 美股'}」市場分頁查看。</div>`;
   box.innerHTML=html;
   const more=document.getElementById('earnMore');
   if(more)more.onclick=()=>{
@@ -10680,6 +10681,24 @@ function setGMKT(m,skipRender){
   const twOnly=['mk_temp','mk_rot','mk_fut','mk_head','mk_conf','mk_pick','glb'];   // r544:大盤走勢區(mk_idx)不再整區隱藏——美股共用即時走勢引擎,細項分流
   twOnly.forEach(k=>{document.querySelectorAll(`.sec-title[data-sec="${k}"],#sb-${k}`).forEach(el=>el.classList.toggle('gm-hide',m==='US'));});
   document.documentElement.classList.toggle('gm-us',m==='US');            // r544:美股大盤細分流(CSS 隱藏台股卡/台指期/加權櫃買鈕)
+  try{   // r547:股癌=台股專屬大分類——美股模式藏分頁鈕;若正停在股癌頁則跳回個股
+    const gb=document.querySelector('#homeTabs [data-tab="gooaye"]');
+    if(gb)gb.classList.toggle('gm-hide',m==='US');
+    if(m==='US'&&gb&&gb.classList.contains('on'))setHomeTab('stocks');
+  }catch(e){}
+  try{   // r547:ETF 子分頁跟隨市場——美股模式鎖「美股精選」並藏台股子分頁;台股模式反向
+    const sub=document.getElementById('etfSub');
+    if(sub){
+      sub.querySelectorAll('button').forEach(b=>{
+        const isUS=b.dataset.s==='us';
+        b.classList.toggle('gm-hide',m==='US'?!isUS:isUS);
+      });
+      const want=m==='US'?'us':(window.__etfSub==='us'?'tw':window.__etfSub);
+      if(window.__etfSub!==want){window.__etfSub=want;
+        sub.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.s===want));
+        try{renderEtf();}catch(e2){}}
+    }
+  }catch(e){}
   try{
     const tt=document.querySelector('.sec-title[data-sec="mk_idx"]');
     if(tt){
@@ -10699,6 +10718,7 @@ function setGMKT(m,skipRender){
     }
   }catch(e){}
   if(!skipRender){try{renderChips();}catch(e){}try{renderAll();}catch(e){}}
+  try{renderMacroAlerts();}catch(e){}                                      // r548:警示條依新市場立即重建(原本只在載入/資料到貨時建,切換後殘留舊市場過濾結果)
   try{applyGmUsFineTune();setTimeout(applyGmUsFineTune,600);}catch(e){}   // r546:切換立即清場+非同步渲染後補刀
 }
 function applyGmUsFineTune(){   // r546:美股分頁細部清場——處理非同步重繪冒回來的台股內容,每5秒自癒
@@ -10716,6 +10736,8 @@ function applyGmUsFineTune(){   // r546:美股分頁細部清場——處理非�
       if(b.dataset.mj==='__pick'){T(b,us);return;}
       const t=document.querySelector(`.sec-title[data-sec="${b.dataset.mj}"]`);
       T(b,!!(t&&t.classList.contains('gm-hide')));
+      if(t){const txt=(t.childNodes[0]&&t.childNodes[0].textContent||'').trim();   // r548:鈕文字跟著區塊標題換裝(修市場切換後的標題殘影)
+        if(txt&&b.textContent!==txt)b.textContent=txt;}
     });
   }catch(e){}
 }
@@ -14145,7 +14167,8 @@ function renderPort(){
   const ts=new Date().toLocaleTimeString('zh-TW',{hour12:false});
   let html='';
   // ── 英雄總覽 ──
-  const twRows=arr.map(p=>({p,s:(DATA.stocks||[]).find(x=>x.id===p.id)})).filter(r=>r.s&&r.s.price&&r.s.market!=='US');
+  const __gmUS=(window.GMKT||'TW')==='US';   // r547:持股跟隨市場大分頁
+  const twRows=arr.map(p=>({p,s:(DATA.stocks||[]).find(x=>x.id===p.id)})).filter(r=>r.s&&r.s.price&&(__gmUS?r.s.market==='US':r.s.market!=='US'));
   if(twRows.length){
     let mv=0,ct=0;
     twRows.forEach(({p,s})=>{mv+=s.price*p.sh;ct+=p.cost*p.sh;});
@@ -14157,11 +14180,12 @@ function renderPort(){
       <span>🟢 自動即時——報價、健檢隨行情與庫存增減立即重算</span>
       <span style="margin-left:auto;font-family:var(--mono)">更新 ${ts}</span></div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-      ${hero('台股總市值',fmt(mv))}${hero('未實現損益',(pnl>=0?'+':'-')+fmt(Math.abs(pnl)),col)}
+      ${hero(__gmUS?'美股總市值(US$)':'台股總市值',fmt(mv))}${hero('未實現損益',(pnl>=0?'+':'-')+fmt(Math.abs(pnl)),col)}
       ${hero('報酬率',(pct>=0?'+':'')+pct.toFixed(1)+'%',col)}${hero('持股檔數',twRows.length+' 檔')}</div>`;
   }
   // ── 持股行卡 ──
-  const groups=[['🇹🇼 台股/ETF','NT$',x=>x.market!=='US'],['🇺🇸 美股','US$',x=>x.market==='US']];
+  const groups=(__gmUS?[['🇺🇸 美股','US$',x=>x.market==='US']]:[['🇹🇼 台股/ETF','NT$',x=>x.market!=='US']]);   // r547:只列當前市場
+  const __other=arr.map(p=>(DATA.stocks||[]).find(x=>x.id===p.id)).filter(s=>s&&(__gmUS?s.market!=='US':s.market==='US')).length;
   for(const [gn,cur,filt] of groups){
     const rows=arr.map(p=>({p,s:(DATA.stocks||[]).find(x=>x.id===p.id)})).filter(r=>r.s&&filt(r.s));
     if(!rows.length)continue;
@@ -14298,6 +14322,8 @@ function renderEtf(){
     box.innerHTML='<div class="dim-note">ETF 名單將於下一次「每日資料更新」(Actions)執行後自動產生。</div>';
     return;
   }
+  if((window.GMKT||'TW')==='US'&&window.__etfSub!=='us')window.__etfSub='us';   // r547:美股分頁鎖美股 ETF
+  else if((window.GMKT||'TW')==='TW'&&window.__etfSub==='us')window.__etfSub='tw';
   const sub=window.__etfSub;
   L=L.filter(s=> sub==='us'?s.sub==='us' : sub==='tw'?s.market==='TW' : s.sub===sub);
   const q=((document.getElementById('etfQ')||{}).value||'').trim().toLowerCase();
