@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r554 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r555 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r554</span>');
+  diag.push('<span style="color:var(--dim)">build r555</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10664,8 +10664,11 @@ function renderRadar(){
   const cnt={};items.forEach(({g})=>cnt[g.type]=(cnt[g.type]||0)+1);
   // 策略選單
   const seg=document.getElementById('stratSeg');
+  const __gmU=(window.GMKT||'TW')==='US';
+  if(__gmU&&curStrat!=='all'&&!(cnt[curStrat]||0))curStrat='all';   // r555:美股模式下當前策略沒有標的→退回全部
   if(seg)seg.innerHTML=STRATS.map(([k,n])=>{
     const c=k==='all'?items.length:(cnt[k]||0);
+    if(__gmU&&!c&&k!=='all')return '';                              // r555:美股不渲染 0 檔策略鈕(多為台股專屬,佔位又誤導)
     return `<button data-st="${k}" class="${k===curStrat?'on':''}" ${!c&&k!=='all'?'style="opacity:.45"':''}>${n}${c?` <span style="font-size:11px;opacity:.75">${c}</span>`:''}</button>`;
   }).join('');
   if(seg&&!seg.dataset.b){seg.dataset.b='1';
@@ -10733,6 +10736,15 @@ function setGMKT(m,skipRender){
         sub.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.s===want));
         try{renderEtf();}catch(e2){}}
     }
+  }catch(e){}
+  try{   // r555:區塊標題/副標依市場換裝(總經、清單、搜尋提示)
+    const swap=(sel,usHtml)=>{const el=document.querySelector(sel);if(!el)return;
+      if(!el.dataset.twHtml)el.dataset.twHtml=el.innerHTML;
+      el.innerHTML=m==='US'?usHtml:el.dataset.twHtml;};
+    swap('.sec-title[data-sec="macro"]','美股總經環境 <span style="font-weight:400;font-size:13px;letter-spacing:0">指數走勢・財報雷達・風險指標即時更新</span>');
+    swap('.sec-title[data-sec="list"]','美股清單 <span style="font-weight:400;font-size:13px;letter-spacing:0">S&P 500+台積電等 ADR 共 538 檔・SEC 官方基本面,可搜尋/排序/依產業篩選</span>');
+    const qi2=document.getElementById('q');
+    if(qi2)qi2.placeholder=m==='US'?'搜尋名稱或代號,例如 NVDA、輝達':'搜尋名稱或代號,例如 3665、貿聯';
   }catch(e){}
   try{
     const tt=document.querySelector('.sec-title[data-sec="mk_idx"]');
