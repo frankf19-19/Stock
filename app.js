@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r556 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r558 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -582,7 +582,7 @@ function renderFav(){
   clearTimeout(window.__favStT);
   window.__favStT=setTimeout(()=>{try{favStateFill();}catch(e){}},800);
 }
-function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderFav(); renderMacro(); try{renderFutTab();}catch(e){} renderNews(); renderChips(); render(); setTimeout(hydrateSparks,300);
+function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderFav(); renderMacro(); try{renderFutTab();}catch(e){} try{rotBoard();}catch(e){} renderNews(); renderChips(); render(); setTimeout(hydrateSparks,300);
   try{if(!window.__ptEdit){const p=document.getElementById('tp-port');if(p&&p.style.display!=='none')renderPort();}}catch(e){} }
 let T3_BUSY=false;
 function t3ParseOpen(arr,cur){
@@ -600,7 +600,6 @@ function t3ParseOpen(arr,cur){
     if(!(y>1900&&s_>=1&&s_<=4))return;
     cur[sid]={q:`${y}Q${s_}`,gm,om,nm,rev:parseFloat(String(r[kr]||'').replace(/,/g,''))||null};
   });
-  try{renderFundMap();}catch(e){}   // r556:每日資金流向熱力圖(台美)
 }
 async function t3Mops(year,season){
   const url='https://mopsov.twse.com.tw/mops/web/ajax_t163sb06';
@@ -1560,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r556</span>');
+  diag.push('<span style="color:var(--dim)">build r558</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4057,34 +4056,26 @@ setInterval(()=>{try{                                      // r472:單一計時�
   if(Date.now()-(window.__rsT||0)<(open?180000:1800000)-500)return;
   window.__rsT=Date.now();rsCard();
 }catch(e){}},60000);
-function rotBoard(){
+function rotBoard(){   // r557:類股資金輪動=熱力圖(原流入/流出清單退役);普跌/普漲頭部判讀保留於圖下
   const box=document.getElementById('rotBoard');
   if(!box)return;
   try{
+    const GM=window.GMKT||'TW';
     const g={};
     (DATA.stocks||[]).forEach(x=>{
-      if(x.market!=='TW'||x.etf||!x.sector||x.chg==null)return;
+      if(x.market!==GM||x.etf||!x.sector||x.chg==null)return;
       (g[x.sector]=g[x.sector]||[]).push(+x.chg);
     });
-    const rows=Object.entries(g).filter(([k,v])=>v.length>=5)
-      .map(([k,v])=>({k,n:v.length,avg:v.reduce((a,b)=>a+b,0)/v.length,up:v.filter(z=>z>0).length}))
-      .sort((a,b)=>b.avg-a.avg);
-    if(rows.length<6){box.style.display='none';return;}
-    const cell=r2=>`<div data-rots="${r2.k}" title="點我看這個產業有哪些股票" style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px;cursor:pointer;border-radius:6px" onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background=''">
-      <span>${r2.k}<span style="color:var(--dim);font-size:11px">(${r2.up}/${r2.n}紅)</span> <span style="color:var(--dim)">›</span></span>
-      <b class="${r2.avg>0?'pos':r2.avg<0?'neg':'flat'}" style="font-family:var(--mono)">${r2.avg>0?'+':''}${r2.avg.toFixed(2)}%</b></div>`;
-    const hot=rows.slice(0,5),cold=rows.slice(-5).reverse();
-    const dnr=rows.filter(r2=>r2.avg<0).length/rows.length;
-    box.style.display='';
-    box.innerHTML=`<div class="nm" style="margin-bottom:6px">🔁 類股資金輪動(今日,產業平均漲跌)</div>
-      <div class="rot2">
-        <div><div style="font-size:11.5px;color:var(--dim);margin-bottom:2px">🔥 資金流入</div>${hot.map(cell).join('')}</div>
-        <div><div style="font-size:11.5px;color:var(--dim);margin-bottom:2px">🧊 資金流出</div>${cold.map(cell).join('')}</div></div>
-      ${dnr>=0.8?'<div style="font-size:12px;color:#C62828;font-weight:800;margin-top:6px">⚠ 逾八成產業同步下跌——「輪動變輪跌」,典型頭部特徵之一</div>':dnr<=0.2?'<div style="font-size:12px;color:#0B7A4B;font-weight:800;margin-top:6px">普漲格局,資金全面性進場</div>':''}
-      <div id="rotDetail" style="display:none;margin-top:8px;border-top:1px dashed var(--line);padding-top:8px"></div>`;
-    box.querySelectorAll('[data-rots]').forEach(el=>{el.onclick=()=>rotDetail(el.dataset.rots);});   // r490:點產業看成分股
-    if(window.__rotSec){const kept=window.__rotSec;window.__rotSec=null;rotDetail(kept);}            // 60秒重繪後保持展開
-  }catch(e){box.style.display='none';}
+    const rows=Object.values(g).filter(v=>v.length>=5);
+    const dnr=rows.length?rows.filter(v=>v.reduce((a,b)=>a+b,0)/v.length<0).length/rows.length:0.5;
+    window.__rotJudge=dnr>=0.8?'<b style="color:var(--down)">⚠ 逾八成產業同步下跌——「輪動變輪跌」,典型頭部特徵之一。</b>'
+      :dnr<=0.2?'<b style="color:var(--up)">普漲格局,資金全面性進場。</b>':'';
+    if(!document.getElementById('fundMap')){
+      box.style.display='';
+      box.innerHTML=`<div id="fundMap" style="height:560px"></div><div class="dim-note" id="fundMapNote" style="margin-top:6px"></div>`;
+    }
+    renderFundMap();
+  }catch(e){}
 }
 function rotDetail(sec){                                   // r490:展開該產業全部成分股(依漲跌排序,可點進個股)
   try{
@@ -10717,7 +10708,7 @@ function setGMKT(m,skipRender){
       x.classList.toggle('on',x.dataset.m==='ALL');
     });
   }catch(e){}
-  const twOnly=['mk_temp','mk_rot','mk_fut','mk_head','mk_conf','mk_pick','glb'];   // r544:大盤走勢區(mk_idx)不再整區隱藏——美股共用即時走勢引擎,細項分流
+  const twOnly=['mk_temp','mk_fut','mk_head','mk_conf','mk_pick','glb'];   // r557:mk_rot(資金輪動熱力圖)台美通用   // r544:大盤走勢區(mk_idx)不再整區隱藏——美股共用即時走勢引擎,細項分流
   twOnly.forEach(k=>{document.querySelectorAll(`.sec-title[data-sec="${k}"],#sb-${k}`).forEach(el=>el.classList.toggle('gm-hide',m==='US'));});
   document.documentElement.classList.toggle('gm-us',m==='US');            // r544:美股大盤細分流(CSS 隱藏台股卡/台指期/加權櫃買鈕)
   try{   // r547:股癌=台股專屬大分類——美股模式藏分頁鈕;若正停在股癌頁則跳回個股
@@ -10779,19 +10770,10 @@ function heatColor(c){   // -3%~+3% 漸層,台灣慣例紅漲綠跌
 async function renderFundMap(){
   try{
     if(!DATA||!DATA.stocks)return;
-    // 區塊殼:插在市場溫度之前(不存在則附掛到大盤分頁尾)
-    if(!document.querySelector('.sec-title[data-sec="mk_map"]')){
-      const host=document.querySelector('.sec-title[data-sec="mk_temp"]')||document.getElementById('tp-macro');
-      if(!host)return;
-      const html=`<div class="sec-title tap" data-sec="mk_map">🗺️ 每日資金流向 <span style="font-weight:400;font-size:13px;letter-spacing:0" id="mkMapSub"></span></div>
-        <div class="sec-body" id="sb-mk_map"><div id="fundMap" style="height:560px"></div>
-        <div class="dim-note" id="fundMapNote" style="margin-top:6px"></div></div>`;
-      if(host.id==='tp-macro')host.insertAdjacentHTML('beforeend',html);
-      else host.insertAdjacentHTML('beforebegin',html);
-      try{if(typeof setupSections==='function')setupSections();}catch(e0){}
-    }
-    const el=document.getElementById('fundMap');
-    if(!el||el.closest('.sec-body').classList.contains('closed'))return;
+    const el=document.getElementById('fundMap');                             // r557:畫進「類股資金輪動」區(rotBoard 準備容器)
+    if(!el)return;
+    const _sb=el.closest('.sec-body');
+    if(_sb&&_sb.classList.contains('closed'))return;
     const GM=window.GMKT||'TW';
     let shMap={};
     if(GM==='US'){try{const u=await usfData();if(u&&u.s)Object.keys(u.s).forEach(k=>{if(u.s[k].sh)shMap[k]=u.s[k].sh;});}catch(e1){}}
@@ -10820,10 +10802,11 @@ async function renderFundMap(){
       return {name:`${sec}  ${secChg>0?'+':''}${secChg.toFixed(2)}%`,children:kids,
         upperLabel:{show:true,height:22,color:'#EFE8DA',fontSize:11.5,fontWeight:800,backgroundColor:'rgba(30,30,36,.92)'}};
     }).sort((a,b)=>b.children.reduce((x,c)=>x+c.value,0)-a.children.reduce((x,c)=>x+c.value,0));
-    const sub=document.getElementById('mkMapSub');
-    if(sub)sub.textContent=GM==='US'?'面積=市值(SEC 股數×價)・顏色=今日漲跌・點格子進個股':'面積=近20日日均成交值(資金聚集度)・顏色=今日漲跌・點格子進個股';
     const nt=document.getElementById('fundMapNote');
-    if(nt)nt.innerHTML='紅=上漲、綠=下跌(台股慣例),色階 ±3% 飽和;產業標題列附「產業加權漲跌」。'+(GM==='US'&&!Object.keys(shMap).length?'<b>美股股數資料尚未到貨(usf 工作流跑過後自動補上),暫以等面積顯示。</b>':'');
+    if(nt)nt.innerHTML=(window.__rotJudge||'')+(window.__rotJudge?'<br>':'')
+      +(GM==='US'?'面積=市值(SEC 股數×價)':'面積=近20日日均成交值(資金聚集度)')
+      +'・顏色=今日漲跌(紅漲綠跌,±3% 飽和)・產業標題列=產業加權漲跌・點格子進個股。'
+      +(GM==='US'&&!Object.keys(shMap).length?'<b>美股股數資料尚未到貨(usf 工作流跑過後自動補上),暫以等面積顯示。</b>':'');
     try{await ensureECharts();}catch(e2){}
     if(!window.echarts)return;
     try{echarts.dispose(el);}catch(e3){}
@@ -10844,7 +10827,7 @@ async function renderFundMap(){
     ch.on('click',p=>{const d=p.data||{};if(d._nm&&p.name&&p.name!=='…')location.hash='#stock/'+p.name;});
   }catch(err){}
 }
-setInterval(()=>{try{const b=document.getElementById('sb-mk_map');if(b&&!b.classList.contains('closed')&&!document.hidden)renderFundMap();}catch(e){}},120000);
+setInterval(()=>{try{const el=document.getElementById('fundMap');const b=el&&el.closest('.sec-body');if(b&&!b.classList.contains('closed')&&!document.hidden)rotBoard();}catch(e){}},120000);
 function applyGmUsFineTune(){   // r546:美股分頁細部清場——處理非同步重繪冒回來的台股內容,每5秒自癒
   try{
     const us=(window.GMKT||'TW')==='US';
