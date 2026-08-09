@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r558 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r559 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r558</span>');
+  diag.push('<span style="color:var(--dim)">build r559</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4094,7 +4094,7 @@ function rotDetail(sec){                                   // r490:展開該產�
     host.querySelectorAll('[data-rotgo]').forEach(el=>{el.onclick=ev=>{ev.stopPropagation();location.hash='#stock/'+el.dataset.rotgo;};});
   }catch(e){}
 }
-setTimeout(rotBoard,5000);setInterval(rotBoard,60000);
+setTimeout(rotBoard,5000);setInterval(()=>{try{const q=(typeof marketOpen==='function'&&marketOpen());if(q||!window.__rotT||Date.now()-window.__rotT>60000){window.__rotT=Date.now();rotBoard();}}catch(e){}},30000);   // r559:盤中30秒/盤後60秒重繪
 
 /* ── 大盤即時解讀:走勢型態、日線趨勢、量能評估與預估量 ── */
 let IDXD=null,IDXD_T=0;
@@ -10777,26 +10777,35 @@ async function renderFundMap(){
     const GM=window.GMKT||'TW';
     let shMap={};
     if(GM==='US'){try{const u=await usfData();if(u&&u.s)Object.keys(u.s).forEach(k=>{if(u.s[k].sh)shMap[k]=u.s[k].sh;});}catch(e1){}}
-    const pool=DATA.stocks.filter(s=>!s.etf&&s.market===GM&&s.price>0&&typeof s.chg==='number');
+    const rt=id=>{try{const r=RTC[id];return(r&&r.c>0&&r.y>0)?{chg:(r.c/r.y-1)*100,px:r.c}:null;}catch(e){return null;}};   // r559:即時價優先(MIS/富果輪掃快取)
+    const pool=DATA.stocks.filter(s=>!s.etf&&s.market===GM&&s.price>0&&typeof s.chg==='number')
+      .map(s=>{const q=rt(s.id);return q?Object.assign({},s,{chg:+q.chg.toFixed(2),price:q.px}):s;});
     const wOf=s=>{
       if(GM==='US'){const sh=shMap[String(s.id).toUpperCase()];return sh?sh*s.price:s.price*8;}   // 市值(百萬美元);無股數者給小面積保底
       const v=(s.al&&s.al.v20)||0;return v*s.price/100;                                            // 近20日均成交值(約=張×價,相對面積)
     };
     const bySec={};
     pool.forEach(s=>{const k=(s.sector||'其他').replace(/^美股·/,'');(bySec[k]=bySec[k]||[]).push(s);});
+    const __mob=innerWidth<640;
     const children=Object.entries(bySec).map(([sec,arr])=>{
       arr.sort((a,b)=>wOf(b)-wOf(a));
-      const top=arr.slice(0,GM==='US'?24:18);
+      const top=arr.slice(0,GM==='US'?28:26);                                   // r559:多收幾檔主角
       const rest=arr.slice(top.length);
-      const kids=top.map(s=>({name:s.id,value:Math.max(wOf(s),0.01),
-        _nm:s.name,_chg:s.chg,_px:s.price,
-        label:{formatter:p=>`${s.name}\n${s.chg>0?'+':''}${(+s.chg).toFixed(2)}%`},
-        itemStyle:{color:heatColor(s.chg),borderColor:'rgba(0,0,0,.25)',borderWidth:1}}));
+      const secW=arr.reduce((a,s)=>a+wOf(s),0)||1;
+      const kids=top.map(s=>{
+        const w=Math.max(wOf(s),0.01), sh=w/secW;
+        const big=sh>=(__mob?0.14:0.08), mid=sh>=(__mob?0.05:0.025);            // r559:標籤三級制——小格不標字消雜訊
+        return {name:s.id,value:w,_nm:s.name,_chg:s.chg,_px:s.price,
+          label:big?{show:true,fontSize:12.5,fontWeight:800,formatter:()=>`${s.name}\n${s.chg>0?'+':''}${(+s.chg).toFixed(2)}%`}
+               :mid?{show:true,fontSize:10.5,formatter:()=>s.name}
+               :{show:false},
+          itemStyle:{color:heatColor(s.chg),borderColor:'rgba(0,0,0,.25)',borderWidth:1}};
+      });
       if(rest.length){
-        const rv=rest.reduce((a,s)=>a+wOf(s),0), rc=rest.reduce((a,s)=>a+s.chg,0)/rest.length;
-        kids.push({name:'…',value:Math.max(rv,0.01),_nm:`其餘 ${rest.length} 檔`,_chg:+rc.toFixed(2),
-          label:{formatter:()=>`其餘${rest.length}檔`},
-          itemStyle:{color:heatColor(rc),borderColor:'rgba(0,0,0,.2)',borderWidth:1}});
+        const rv=rest.reduce((a,s)=>a+wOf(s),0)*0.3, rc=rest.reduce((a,s)=>a+s.chg,0)/rest.length;   // r559:「其餘」面積壓縮 0.3 倍,不再吃掉主角版面
+        kids.push({name:'…',value:Math.max(rv,0.01),_nm:`其餘 ${rest.length} 檔(面積已壓縮)`,_chg:+rc.toFixed(2),
+          label:{show:true,fontSize:10.5,color:'#C9C2B4',formatter:()=>`其餘${rest.length}檔`},
+          itemStyle:{color:heatColor(rc),borderColor:'rgba(0,0,0,.2)',borderWidth:1,opacity:.85}});
       }
       const secChg=arr.reduce((a,s)=>a+wOf(s)*s.chg,0)/Math.max(1,arr.reduce((a,s)=>a+wOf(s),0));
       return {name:`${sec}  ${secChg>0?'+':''}${secChg.toFixed(2)}%`,children:kids,
@@ -10805,7 +10814,7 @@ async function renderFundMap(){
     const nt=document.getElementById('fundMapNote');
     if(nt)nt.innerHTML=(window.__rotJudge||'')+(window.__rotJudge?'<br>':'')
       +(GM==='US'?'面積=市值(SEC 股數×價)':'面積=近20日日均成交值(資金聚集度)')
-      +'・顏色=今日漲跌(紅漲綠跌,±3% 飽和)・產業標題列=產業加權漲跌・點格子進個股。'
+      +'・顏色=今日漲跌(紅漲綠跌,±3% 飽和)・產業標題列=產業加權漲跌・點格子進個股・<b>盤中每 30 秒隨全市場輪掃報價跳動</b>。'
       +(GM==='US'&&!Object.keys(shMap).length?'<b>美股股數資料尚未到貨(usf 工作流跑過後自動補上),暫以等面積顯示。</b>':'');
     try{await ensureECharts();}catch(e2){}
     if(!window.echarts)return;
