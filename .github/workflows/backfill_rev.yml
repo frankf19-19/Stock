@@ -1,0 +1,34 @@
+name: 月營收與季報歷史回補
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 20 12 * *'    # 每月 13 日台北 04:00 補一次(月營收申報截止後)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backfill-rev
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests pandas lxml html5lib
+      - name: 回補月營收 40 個月 + 季報 12 季
+        env: { PYTHONUNBUFFERED: "1" }
+        run: python backfill_rev.py
+      - name: 提交
+        run: |
+          git config user.name github-actions
+          git config user.email actions@github.com
+          git add c/ || true
+          git diff --cached --quiet || git commit -m "backfill: 月營收/季報歷史回補"
+          git push || true
