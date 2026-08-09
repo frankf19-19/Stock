@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r568 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r569 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r568</span>');
+  diag.push('<span style="color:var(--dim)">build r569</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2989,30 +2989,111 @@ async function rptData(s){
   try{const cd=await coDescData();d.desc=(cd&&cd[String(s.id).toUpperCase()])||'';}catch(e){d.desc='';}
   if(s.market==='US'){try{const u=await usfData();const e=u&&u.s&&u.s[String(s.id).toUpperCase()];
     if(e&&e.q&&e.q.length>=4)d.usf=usfCalc(e);}catch(e){}}
+  try{   // r569:季度損益+月營收完整資料(券商級報告核心)
+    let e=null;
+    if(typeof curChips!=='undefined'&&curChips&&curChips.s&&curChips.s.id===s.id)e=curChips.e;
+    else if(s.market==='TW')e=await loadChips(s);
+    if(e){
+      d.e=e;
+      if(e.eqv>0&&Array.isArray(e.fq)&&Array.isArray(e.qr)&&Array.isArray(e.nm)){
+        let ni=0,nq=0;
+        for(let i=e.fq.length-1;i>=0&&nq<4;i--){if(e.qr[i]!=null&&e.nm[i]!=null){ni+=e.qr[i]*e.nm[i]/100;nq++;}}
+        if(nq>=3)d.roe=+(ni/e.eqv*100).toFixed(1);
+      }
+      if(e.debt!=null)d.debt=+(+e.debt).toFixed(1);
+    }
+    if(s.market==='US'&&d.usf){   // 美股:usf 季列轉同構表
+      d.e={fq:[],qr:[],gm:[],om:[],nm:[],ry:[],rm:[],ra:[]};
+    }
+  }catch(eE){}
   return d;
 }
 function rptKV(kv){return Object.entries(kv||{}).map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');}
 function rptHTML(d){
-  const g=rptGrade(d.T),F=v=>(+v).toLocaleString();
+  const g=rptGrade(d.T),F=v=>v==null?'—':(+v).toLocaleString();
+  const P=(v,dg)=>v==null?'—':(v>0?'+':'')+(+v).toFixed(dg==null?1:dg)+'%';
   const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
   const dt=`${today.getFullYear()}/${today.getMonth()+1}/${today.getDate()}`;
+  const e=d.e||{};
+  // ── 規則化「投資重點」五點(帶實際數字,仿券商評等理由結構;不含目標價) ──
+  const pts=[];
+  try{
+    if(Array.isArray(e.ra)&&e.ra.length>=2){
+      const n=e.ra.length-1,mLab=(e.rm||[])[n]||'最新月';
+      const mom=+e.ra[n-1]>0?(+e.ra[n]/+e.ra[n-1]-1)*100:null;
+      const yoy=(e.ry||[])[n];
+      let run=0;for(let i=(e.ry||[]).length-1;i>=0;i--){if(e.ry[i]>0)run++;else break;}
+      let dn=0;for(let i=(e.ry||[]).length-1;i>=0;i--){if(e.ry[i]<0)dn++;else break;}
+      pts.push(`<b>${mLab} 營收 ${F(e.ra[n])} 億元</b>,月增 ${P(mom)}、年增 ${P(yoy)}${run>=3?`;YoY 已連 ${run} 個月正成長,成長趨勢確立`:dn>=3?`;YoY 連 ${dn} 個月衰退,需求降溫中`:''}${(e.ry||[]).length>=3&&e.ry[n]>e.ry[n-1]&&e.ry[n-1]>e.ry[n-2]?`;且連兩個月加速(${P(e.ry[n-2],1)}→${P(e.ry[n-1],1)}→${P(yoy,1)}),動能增強`:''}。`);
+    }
+    if(Array.isArray(e.fq)&&e.fq.length){
+      const i=e.fq.length-1,lab=e.fq[i];
+      const jY=e.fq.indexOf((+lab.slice(0,2)-1)+lab.slice(2));
+      const qy=(jY>=0&&e.qr&&e.qr[jY]>0&&e.qr[i]!=null)?(e.qr[i]/e.qr[jY]-1)*100:null;
+      const rise=a=>a&&a[i]!=null&&a[i-1]!=null&&a[i]>a[i-1];
+      const t3=rise(e.gm)&&rise(e.om)&&rise(e.nm);
+      pts.push(`<b>${lab} 營收 ${F(e.qr&&e.qr[i])} 億元</b>(年增 ${P(qy)}),毛利率 ${P((e.gm||[])[i],1).replace('+','')}、營益率 ${P((e.om||[])[i],1).replace('+','')}、淨利率 ${P((e.nm||[])[i],1).replace('+','')}${t3?';<b style="color:var(--up)">三率三升</b>,獲利結構全面改善':rise(e.gm)?';毛利率回升,產品組合或成本改善':''}。`);
+    }
+    if(Array.isArray(e.f)&&e.f.length>=20){
+      const s5=a=>a.slice(-5).reduce((x,y)=>x+(y||0),0),s20=a=>a.slice(-20).reduce((x,y)=>x+(y||0),0);
+      const f5=s5(e.f),f20=s20(e.f),t5=s5(e.t||[]),t20=s20(e.t||[]);
+      const bp=e.bp||[],big=bp.length?bp[bp.length-1]:null,bw4=bp.length>4?big-bp[bp.length-5]:null;
+      pts.push(`籌碼面:外資 5/20 日 ${F(Math.round(f5))}/${F(Math.round(f20))} 張、投信 ${F(Math.round(t5))}/${F(Math.round(t20))} 張${f20>0&&t20>0?'(<b style="color:var(--up)">土洋同買</b>)':f20<0&&t20<0?'(<b style="color:var(--down)">土洋同賣</b>)':''}${big!=null?`;400 張大戶持股 ${(+big).toFixed(1)}%${bw4!=null?`,四週 ${P(bw4,2)}${bw4>=0.5?'(收攏)':bw4<=-0.5?'(派發)':''}`:''}`:''}。`);
+    }
+  }catch(e9){}
+  pts.push(`技術面:${(d.t.kv&&d.t.kv['20/60MA'])?`20/60MA ${d.t.kv['20/60MA']}、乖離 ${d.t.kv['乖離(20MA)']||'—'};`:''}${d.t.note||''}`);
+  pts.push(`體質與估值:${d.debt!=null?`負債比 ${d.debt}%`:''}${d.roe!=null?`、近四季 ROE 約 ${d.roe}%`:''}${(d.f.kv&&d.f.kv['殖利率'])?`、殖利率 ${d.f.kv['殖利率']}`:''}${d.debt==null&&d.roe==null?'詳見估值與未來性區(DCF 三情境)。':';估值情境詳見「估值與未來性」區(DCF 樂觀/中性/保守)。'}`);
+  // ── 近 8 季損益概覽表 ──
+  let qTbl='';
+  try{
+    if(Array.isArray(e.fq)&&e.fq.length>=4){
+      const idx=e.fq.map((_,i)=>i).slice(-8);
+      const row=(name,arr,fmt)=>`<tr><td style="text-align:left;font-weight:700">${name}</td>${idx.map(i=>`<td>${fmt(arr&&arr[i])}</td>`).join('')}</tr>`;
+      const fv=v=>v==null?'—':(+v).toLocaleString();
+      const fp=v=>v==null?'—':(+v).toFixed(1);
+      const yy=i=>{const lab=e.fq[i],j=e.fq.indexOf((+lab.slice(0,2)-1)+lab.slice(2));
+        return(j>=0&&e.qr&&e.qr[j]>0&&e.qr[i]!=null)?((e.qr[i]/e.qr[j]-1)*100).toFixed(1)+'%':'—';};
+      qTbl=`<div style="overflow-x:auto;margin:8px 0"><table class="rpt-tbl" style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);text-align:right">
+        <tr style="border-bottom:1.5px solid var(--line)"><td style="text-align:left;font-weight:800">季度</td>${idx.map(i=>`<td style="font-weight:800">${e.fq[i]}</td>`).join('')}</tr>
+        ${row('營收(億)',e.qr,fv)}
+        <tr><td style="text-align:left;font-weight:700">營收YoY</td>${idx.map(i=>`<td>${yy(i)}</td>`).join('')}</tr>
+        ${row('毛利率%',e.gm,fp)}${row('營益率%',e.om,fp)}${row('淨利率%',e.nm,fp)}
+      </table></div>`;
+    }
+  }catch(e8){}
+  // ── 近 6 月月營收表 ──
+  let mTbl='';
+  try{
+    if(Array.isArray(e.ra)&&e.ra.length>=3){
+      const idx=e.ra.map((_,i)=>i).slice(-6);
+      mTbl=`<div style="overflow-x:auto;margin:8px 0"><table class="rpt-tbl" style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);text-align:right">
+        <tr style="border-bottom:1.5px solid var(--line)"><td style="text-align:left;font-weight:800">月份</td>${idx.map(i=>`<td style="font-weight:800">${(e.rm||[])[i]||''}</td>`).join('')}</tr>
+        <tr><td style="text-align:left;font-weight:700">營收(億)</td>${idx.map(i=>`<td>${(+e.ra[i]).toLocaleString()}</td>`).join('')}</tr>
+        <tr><td style="text-align:left;font-weight:700">MoM</td>${idx.map(i=>`<td>${i>0&&+e.ra[i-1]>0?((+e.ra[i]/+e.ra[i-1]-1)*100).toFixed(1)+'%':'—'}</td>`).join('')}</tr>
+        <tr><td style="text-align:left;font-weight:700">YoY</td>${idx.map(i=>`<td>${(e.ry||[])[i]!=null?(+e.ry[i]).toFixed(1)+'%':'—'}</td>`).join('')}</tr>
+      </table></div>`;
+    }
+  }catch(e7){}
   const plan=d.al&&d.al.z1?`<div class="kv">${rptKV({'回檔參考承接區':`${F(d.al.z0)} ~ ${F(d.al.z1)}`,'防守參考(跌破檢討)':F(d.al.stop),'近20日高(突破觀察)':F(d.al.h20),'趨勢狀態':d.al.bull?'多方結構':'非多方結構'})}</div>`
     :'<div class="dim-note">目前不符合劇本條件(非多方結構或評分不足),以觀察為主。</div>';
   return `<div class="dim-block" style="border-left:4px solid var(--amber)">
     <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:baseline">
       <h3 style="font-size:17px">📑 ${d.name}(${d.id})站內研究報告 <span class="ds">${dt}</span></h3>
       <b style="color:${g[1]};font-size:15px">綜合 ${d.T} 分・${g[0]}</b></div>
-    <div class="dim-note" style="margin:4px 0 10px">現價 ${F(d.px)}(${d.chg>0?'+':''}${(+d.chg).toFixed(2)}%)・${d.sector}${d.mkt==='US'?'・美股':''}。<b>本報告為站內公開資料的規則化彙整,非投顧報告、非投資建議,不提供目標價。</b></div>
-    <h3>一、公司在做什麼</h3><div class="dim-note">${d.desc||'見「認識這家公司」區。'}</div>
-    <h3 style="margin-top:10px">二、基本面(權重40%・${(d.f.score??50)} 分)</h3>
-    <div class="kv">${rptKV(d.f.kv)}</div><div class="dim-note">${d.f.note||''}</div>
-    <h3 style="margin-top:10px">三、籌碼面(權重30%・${(d.c.score??50)} 分)</h3>
-    <div class="kv">${rptKV(d.c.kv)}</div><div class="dim-note">${d.c.note||''}${d.mkt==='TW'?' 詳細訊號見「籌碼健檢」。':''}</div>
-    <h3 style="margin-top:10px">四、技術面與參考劇本(權重30%・${(d.t.score??50)} 分)</h3>
-    <div class="kv">${rptKV(d.t.kv)}</div><div class="dim-note">${d.t.note||''}</div>${plan}
-    <h3 style="margin-top:10px">五、追蹤檢核(什麼情況要重新評估)</h3>
+    <div class="dim-note" style="margin:4px 0 10px">現價 ${F(d.px)}(${P(d.chg,2)})・${d.sector}${d.mkt==='US'?'・美股':''}。<b>本報告為站內公開資料的規則化彙整,非投顧報告、非投資建議,不提供目標價與買賣評等。</b></div>
+    <h3>一、投資重點(規則化摘要)</h3>
+    <ol style="margin:6px 0 4px;padding-left:22px;line-height:1.85">${pts.map(x=>`<li style="margin:4px 0">${x}</li>`).join('')}</ol>
+    <h3 style="margin-top:12px">二、公司在做什麼</h3><div class="dim-note">${d.desc||'見「認識這家公司」區。'}</div>
+    <h3 style="margin-top:12px">三、營運數據${d.mkt==='TW'?'(官方申報)':''}</h3>
+    ${mTbl?'<div style="font-weight:800;font-size:12.5px;margin-top:4px">近 6 個月月營收</div>'+mTbl:''}
+    ${qTbl?'<div style="font-weight:800;font-size:12.5px;margin-top:6px">近 8 季損益概覽</div>'+qTbl:''}
+    ${!mTbl&&!qTbl?`<div class="kv">${rptKV(d.f.kv)}</div><div class="dim-note">${d.f.note||''}</div>`:''}
+    ${d.mkt==='US'&&d.usf?`<div class="kv" style="margin-top:6px">${rptKV(d.usf.kv)}</div>`:''}
+    <h3 style="margin-top:12px">四、籌碼與技術・參考劇本</h3>
+    <div class="kv">${rptKV(d.c.kv)}</div><div class="dim-note">${d.c.note||''} ${d.t.note||''}</div>${plan}
+    <h3 style="margin-top:12px">五、追蹤檢核(什麼情況要重新評估)</h3>
     <div class="dim-note">① 收盤跌破防守價位;② 月營收/財報轉差(YoY 轉負或三率齊降);③ 大戶持股連兩週下滑或土洋同賣;④ 產業龍頭財報/指引轉弱。任一發生就回站上重看各區健檢,不要凹單。</div>
-    <div class="dim-note" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:6px">資料來源:證交所/櫃買/集保/SEC EDGAR 等公開資料的站內彙整;評分為規則化計算,非任何形式之投資建議。</div>
+    <div class="dim-note" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:6px">資料來源:證交所/櫃買/集保/公開資訊觀測站/SEC EDGAR 等公開資料;評分與摘要為規則化計算,非任何形式之投資建議。</div>
   </div>`;
 }
 function rptPlain(d){   // 複製用純文字
@@ -3034,16 +3115,25 @@ async function rptRun(s,mode){
           try{await gemAutoKey();}catch(e){}
           if(!(AI&&AI.keys&&AI.keys.gemini))await new Promise(r=>setTimeout(r,900));
         }
-        const p=`你是台灣投資研究助理。以下是「${d.name}(${d.id})」的站內量化彙整:綜合${d.T}分;基本面:${JSON.stringify(d.f.kv)}(${d.f.note});籌碼:${JSON.stringify(d.c.kv)};技術:${JSON.stringify(d.t.note)};公司簡介:${d.desc}。
-請用繁體中文寫「深度研究敘事」四段,各 120~200 字:①成長動能與產業地位(結合最新新聞、訂單/產品進展,標注時間);②近期市場關注焦點與催化劑;③主要風險(至少3點,具體);④綜合觀點(多空並陳,說「哪些條件成立會更好/更壞」)。
-規則:可搜尋最新新聞並註明日期;絕對不要給目標價或買賣建議;結尾加一行「以上為資料整理與觀點討論,非投資建議」。`;
-        const ck='rptAI_'+s.id, today2=tpDay(Date.now()/1000);
+        const eD=d.e||{};
+        const qJson=Array.isArray(eD.fq)?JSON.stringify({季:eD.fq.slice(-8),營收億:(eD.qr||[]).slice(-8),毛利率:(eD.gm||[]).slice(-8),營益率:(eD.om||[]).slice(-8),淨利率:(eD.nm||[]).slice(-8)}):'無';
+        const mJson=Array.isArray(eD.ra)?JSON.stringify({月:(eD.rm||[]).slice(-7),營收億:eD.ra.slice(-7),YoY:(eD.ry||[]).slice(-7)}):'無';
+        const p=`你是台灣頂尖的證券研究員,擅長寫結構完整的個股研究報告(繁體中文)。以下是「${d.name}(${d.id},${d.sector})」的站內量化資料:
+現價 ${d.px}(${d.chg>0?'+':''}${d.chg}%);綜合評分 ${d.T};近8季損益:${qJson};近7月營收:${mJson};籌碼:${JSON.stringify(d.c.kv)};技術:${JSON.stringify(d.t.kv)}(${d.t.note});${d.roe!=null?'近四季ROE '+d.roe+'%;':''}${d.debt!=null?'負債比 '+d.debt+'%;':''}公司簡介:${d.desc}。
+請搜尋這檔的最新新聞/法說/月營收公告(標注日期),寫出以下結構的深度報告:
+【一、投資評等理由】列 4~5 點,每一點都要像券商報告:具體數字+因果(例:某季/某月營收多少億、季增年增幾%、為什麼——哪個產品線/客戶/訂單驅動)。
+【二、成長動能分析】2~3 個小節,各取一個粗體小標(像「HVDC 推升單櫃產值」這種產業敘事風格),每節 120~180 字,講清楚技術趨勢、公司卡位、量價驅動與時間軸。
+【三、同業與產業位置】60~120 字,這家在產業鏈的位置與相對優劣。
+【四、風險因子】至少 4 點,要具體(客戶集中、匯率、擴產、競爭、庫存循環等,結合這家的實況)。
+【五、綜合觀點】多空並陳:哪些條件成立會更好、哪些訊號出現要保守;可討論市場目前給的評價水位(本益比區間),但絕對不要給出你自己的目標價或買進賣出建議。
+結尾加一行「以上為資料整理與觀點討論,非投資建議」。全文約 700~1000 字,善用數字。`;
+        const ck='rptAI2_'+s.id, today2=tpDay(Date.now()/1000);
         let txt=null, fromCache=false;
         if(!window.__rptForce){try{const c=JSON.parse(localStorage.getItem(ck)||'null');   // r564:每檔每日快取——當天重看不耗 API 額度
           if(c&&c.d===today2&&c.t){txt=c.t;fromCache=true;}}catch(eC){}}
         window.__rptForce=false;
         if(!txt){
-          txt=await gaAiOnce(p,null,false,3000);
+          txt=await gaAiOnce(p,null,false,4096);
           try{localStorage.setItem(ck,JSON.stringify({d:today2,t:txt}));}catch(eC2){}
         }
         const blk=document.getElementById('rptAiBlk');
