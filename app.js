@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r555 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r556 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -600,6 +600,7 @@ function t3ParseOpen(arr,cur){
     if(!(y>1900&&s_>=1&&s_<=4))return;
     cur[sid]={q:`${y}Q${s_}`,gm,om,nm,rev:parseFloat(String(r[kr]||'').replace(/,/g,''))||null};
   });
+  try{renderFundMap();}catch(e){}   // r556:每日資金流向熱力圖(台美)
 }
 async function t3Mops(year,season){
   const url='https://mopsov.twse.com.tw/mops/web/ajax_t163sb06';
@@ -1559,7 +1560,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r555</span>');
+  diag.push('<span style="color:var(--dim)">build r556</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10768,6 +10769,82 @@ function setGMKT(m,skipRender){
   try{renderMacroAlerts();}catch(e){}                                      // r548:警示條依新市場立即重建(原本只在載入/資料到貨時建,切換後殘留舊市場過濾結果)
   try{applyGmUsFineTune();setTimeout(applyGmUsFineTune,600);}catch(e){}   // r546:切換立即清場+非同步渲染後補刀
 }
+/* ══ 🗺️ r556 每日資金流向熱力圖:Finviz 式 treemap(產業分群);台股面積=近20日均成交值、美股面積=市值(SEC股數×價);顏色=今日漲跌(紅漲綠跌) ══ */
+function heatColor(c){   // -3%~+3% 漸層,台灣慣例紅漲綠跌
+  if(c==null||!isFinite(c))return '#4A4A52';
+  const t=Math.max(-1,Math.min(1,c/3));
+  if(t>=0){const k=t;return `rgb(${Math.round(90+120*k)},${Math.round(62-20*k)},${Math.round(58-18*k)})`;}
+  const k=-t;return `rgb(${Math.round(52-14*k)},${Math.round(96+50*k)},${Math.round(70+12*k)})`;
+}
+async function renderFundMap(){
+  try{
+    if(!DATA||!DATA.stocks)return;
+    // 區塊殼:插在市場溫度之前(不存在則附掛到大盤分頁尾)
+    if(!document.querySelector('.sec-title[data-sec="mk_map"]')){
+      const host=document.querySelector('.sec-title[data-sec="mk_temp"]')||document.getElementById('tp-macro');
+      if(!host)return;
+      const html=`<div class="sec-title tap" data-sec="mk_map">🗺️ 每日資金流向 <span style="font-weight:400;font-size:13px;letter-spacing:0" id="mkMapSub"></span></div>
+        <div class="sec-body" id="sb-mk_map"><div id="fundMap" style="height:560px"></div>
+        <div class="dim-note" id="fundMapNote" style="margin-top:6px"></div></div>`;
+      if(host.id==='tp-macro')host.insertAdjacentHTML('beforeend',html);
+      else host.insertAdjacentHTML('beforebegin',html);
+      try{if(typeof setupSections==='function')setupSections();}catch(e0){}
+    }
+    const el=document.getElementById('fundMap');
+    if(!el||el.closest('.sec-body').classList.contains('closed'))return;
+    const GM=window.GMKT||'TW';
+    let shMap={};
+    if(GM==='US'){try{const u=await usfData();if(u&&u.s)Object.keys(u.s).forEach(k=>{if(u.s[k].sh)shMap[k]=u.s[k].sh;});}catch(e1){}}
+    const pool=DATA.stocks.filter(s=>!s.etf&&s.market===GM&&s.price>0&&typeof s.chg==='number');
+    const wOf=s=>{
+      if(GM==='US'){const sh=shMap[String(s.id).toUpperCase()];return sh?sh*s.price:s.price*8;}   // 市值(百萬美元);無股數者給小面積保底
+      const v=(s.al&&s.al.v20)||0;return v*s.price/100;                                            // 近20日均成交值(約=張×價,相對面積)
+    };
+    const bySec={};
+    pool.forEach(s=>{const k=(s.sector||'其他').replace(/^美股·/,'');(bySec[k]=bySec[k]||[]).push(s);});
+    const children=Object.entries(bySec).map(([sec,arr])=>{
+      arr.sort((a,b)=>wOf(b)-wOf(a));
+      const top=arr.slice(0,GM==='US'?24:18);
+      const rest=arr.slice(top.length);
+      const kids=top.map(s=>({name:s.id,value:Math.max(wOf(s),0.01),
+        _nm:s.name,_chg:s.chg,_px:s.price,
+        label:{formatter:p=>`${s.name}\n${s.chg>0?'+':''}${(+s.chg).toFixed(2)}%`},
+        itemStyle:{color:heatColor(s.chg),borderColor:'rgba(0,0,0,.25)',borderWidth:1}}));
+      if(rest.length){
+        const rv=rest.reduce((a,s)=>a+wOf(s),0), rc=rest.reduce((a,s)=>a+s.chg,0)/rest.length;
+        kids.push({name:'…',value:Math.max(rv,0.01),_nm:`其餘 ${rest.length} 檔`,_chg:+rc.toFixed(2),
+          label:{formatter:()=>`其餘${rest.length}檔`},
+          itemStyle:{color:heatColor(rc),borderColor:'rgba(0,0,0,.2)',borderWidth:1}});
+      }
+      const secChg=arr.reduce((a,s)=>a+wOf(s)*s.chg,0)/Math.max(1,arr.reduce((a,s)=>a+wOf(s),0));
+      return {name:`${sec}  ${secChg>0?'+':''}${secChg.toFixed(2)}%`,children:kids,
+        upperLabel:{show:true,height:22,color:'#EFE8DA',fontSize:11.5,fontWeight:800,backgroundColor:'rgba(30,30,36,.92)'}};
+    }).sort((a,b)=>b.children.reduce((x,c)=>x+c.value,0)-a.children.reduce((x,c)=>x+c.value,0));
+    const sub=document.getElementById('mkMapSub');
+    if(sub)sub.textContent=GM==='US'?'面積=市值(SEC 股數×價)・顏色=今日漲跌・點格子進個股':'面積=近20日日均成交值(資金聚集度)・顏色=今日漲跌・點格子進個股';
+    const nt=document.getElementById('fundMapNote');
+    if(nt)nt.innerHTML='紅=上漲、綠=下跌(台股慣例),色階 ±3% 飽和;產業標題列附「產業加權漲跌」。'+(GM==='US'&&!Object.keys(shMap).length?'<b>美股股數資料尚未到貨(usf 工作流跑過後自動補上),暫以等面積顯示。</b>':'');
+    try{await ensureECharts();}catch(e2){}
+    if(!window.echarts)return;
+    try{echarts.dispose(el);}catch(e3){}
+    el.style.height=(innerWidth<640?440:560)+'px';
+    const ch=echarts.init(el,null,{renderer:'canvas'});
+    setTimeout(()=>{try{ch.resize();}catch(e4){}},350);
+    try{if(window.__fmChart&&window.__fmChart!==ch)window.__fmChart.dispose();}catch(e5){}
+    window.__fmChart=ch;
+    ch.setOption({backgroundColor:'#1E1E24',
+      tooltip:{confine:true,formatter:p=>{const d=p.data||{};
+        return d._nm?`<b>${d._nm}</b> ${p.name!=='…'?p.name:''}<br>漲跌:${d._chg>0?'+':''}${d._chg}%${d._px?`<br>價:${(+d._px).toLocaleString()}`:''}`:p.name;}},
+      series:[{type:'treemap',roam:false,nodeClick:false,breadcrumb:{show:false},
+        width:'100%',height:'100%',top:0,left:0,
+        label:{show:true,color:'#F3EDE0',fontSize:11,fontWeight:700,overflow:'truncate'},
+        levels:[{itemStyle:{gapWidth:3,borderColor:'#1E1E24'}},{itemStyle:{gapWidth:1}}],
+        data:children}]});
+    ch.off('click');
+    ch.on('click',p=>{const d=p.data||{};if(d._nm&&p.name&&p.name!=='…')location.hash='#stock/'+p.name;});
+  }catch(err){}
+}
+setInterval(()=>{try{const b=document.getElementById('sb-mk_map');if(b&&!b.classList.contains('closed')&&!document.hidden)renderFundMap();}catch(e){}},120000);
 function applyGmUsFineTune(){   // r546:美股分頁細部清場——處理非同步重繪冒回來的台股內容,每5秒自癒
   try{
     const us=(window.GMKT||'TW')==='US';

@@ -163,6 +163,24 @@ def main():
         print(f"  合併既有 usf.json:{len(prev)} 檔舊資料補洞", flush=True)
     except Exception:
         pass
+    # r556:流通股數(dei 即期 frames)-> 前端市值熱力圖權重;近4個即期季由舊到新覆蓋取最新
+    shares = {}
+    for (y, q) in qs[-4:]:
+        j = get_json(f"https://data.sec.gov/api/xbrl/frames/dei/EntityCommonStockSharesOutstanding/shares/CY{y}Q{q}I.json")
+        time.sleep(0.25)
+        if not j: continue
+        hit = 0
+        for row in j.get("data") or []:
+            tk = c2t.get(int(row.get("cik", 0)))
+            v = row.get("val")
+            if tk and v and v > 0:
+                shares[tk] = round(float(v) / 1e6, 1); hit += 1
+        print(f"  SharesOutstanding CY{y}Q{q}I: hit {hit}", flush=True)
+    try:
+        for tk, pe in json.load(open("usf.json", encoding="utf-8")).get("s", {}).items():
+            if tk not in shares and pe.get("sh"): shares[tk] = pe["sh"]
+    except Exception:
+        pass
     labs = sorted({lab for rows in store.values() for lab in rows} | {f"{y % 100}Q{q}" for (y, q) in qs})[-10:]
     out_s = {}
     for tk, rows in store.items():
@@ -178,6 +196,9 @@ def main():
             eps.append(round(c["eps"], 2) if c.get("eps") is not None else None)
         if len(q_l) >= 4:
             out_s[tk] = {"q": q_l, "rev": rev, "gp": gp, "oi": oi, "ni": ni, "eps": eps}
+            if shares.get(tk): out_s[tk]["sh"] = shares[tk]
+    for tk, sh in shares.items():   # 財報不足4季者也保留股數(熱力圖仍可用)
+        out_s.setdefault(tk, {"q": [], "rev": [], "gp": [], "oi": [], "ni": [], "eps": []})["sh"] = sh
     out = {"updated": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ"), "s": out_s}
     json.dump(out, open("usf.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print(f"✅ usf.json 寫出:{len(out_s)} 檔有效(≥4 季營收)", flush=True)
