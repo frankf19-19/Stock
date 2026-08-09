@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r553 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r554 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r553</span>');
+  diag.push('<span style="color:var(--dim)">build r554</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10767,13 +10767,17 @@ function applyGmUsFineTune(){   // r546:美股分頁細部清場——處理非�
     T(document.getElementById('macroNote'),us);
     T(document.getElementById('tldrBox'),us);
     document.querySelectorAll('#riskRow .idx-card').forEach(c=>{if(/信用交易/.test(c.textContent))T(c,us);});
+    const syncBtn=(b,secKey)=>{   // r554:跳轉鈕與目標區塊「顯示狀態+標題文字」雙同步
+      const t=document.querySelector(`.sec-title[data-sec="${secKey}"]`);
+      T(b,!!(t&&t.classList.contains('gm-hide')));
+      if(t){const txt=(t.childNodes[0]&&t.childNodes[0].textContent||'').trim();
+        if(txt&&b.textContent!==txt)b.textContent=txt;}
+    };
     document.querySelectorAll('#macroJump [data-mj]').forEach(b=>{
       if(b.dataset.mj==='__pick'){T(b,us);return;}
-      const t=document.querySelector(`.sec-title[data-sec="${b.dataset.mj}"]`);
-      T(b,!!(t&&t.classList.contains('gm-hide')));
-      if(t){const txt=(t.childNodes[0]&&t.childNodes[0].textContent||'').trim();   // r548:鈕文字跟著區塊標題換裝(修市場切換後的標題殘影)
-        if(txt&&b.textContent!==txt)b.textContent=txt;}
+      syncBtn(b,b.dataset.mj);
     });
+    document.querySelectorAll('.mob-jump [data-jm]').forEach(b=>syncBtn(b,b.dataset.jm));   // r554:各分頁通用跳轉列(buildJumpBar 產)全部納管——原本只鎖到總經內部那條,「沒有的就不顯示」全站生效
   }catch(e){}
 }
 setInterval(applyGmUsFineTune,5000);
