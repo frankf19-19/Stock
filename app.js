@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r562 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r564 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r562</span>');
+  diag.push('<span style="color:var(--dim)">build r564</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3029,13 +3029,36 @@ async function rptRun(s,mode){
       box.innerHTML=rptHTML(d);
     }else{
       box.innerHTML=rptHTML(d)+'<div class="dim-block" id="rptAiBlk" style="border-left:4px solid #6FA8DC;margin-top:10px"><h3>🤖 AI 深度敘事</h3><div class="dim-note">⏳ AI 產生中(含最新新聞查證,約 15~30 秒)…</div></div>';
-      try{await gemAutoKey();}catch(e){}
-      const p=`你是台灣投資研究助理。以下是「${d.name}(${d.id})」的站內量化彙整:綜合${d.T}分;基本面:${JSON.stringify(d.f.kv)}(${d.f.note});籌碼:${JSON.stringify(d.c.kv)};技術:${JSON.stringify(d.t.note)};公司簡介:${d.desc}。
+      try{   // r563:AI 段獨立容錯——失敗只影響 AI 區塊,即席報告照樣保留(原本會整框被錯誤訊息蓋掉)
+        for(let i=0;i<3&&!(AI&&AI.keys&&(AI.keys.gemini||(AI.prov==='shared'&&AI.keys.shared)));i++){   // 金鑰自動取得重試 3 次(手機網路/Worker 偶發瞬斷)
+          try{await gemAutoKey();}catch(e){}
+          if(!(AI&&AI.keys&&AI.keys.gemini))await new Promise(r=>setTimeout(r,900));
+        }
+        const p=`你是台灣投資研究助理。以下是「${d.name}(${d.id})」的站內量化彙整:綜合${d.T}分;基本面:${JSON.stringify(d.f.kv)}(${d.f.note});籌碼:${JSON.stringify(d.c.kv)};技術:${JSON.stringify(d.t.note)};公司簡介:${d.desc}。
 請用繁體中文寫「深度研究敘事」四段,各 120~200 字:①成長動能與產業地位(結合最新新聞、訂單/產品進展,標注時間);②近期市場關注焦點與催化劑;③主要風險(至少3點,具體);④綜合觀點(多空並陳,說「哪些條件成立會更好/更壞」)。
 規則:可搜尋最新新聞並註明日期;絕對不要給目標價或買賣建議;結尾加一行「以上為資料整理與觀點討論,非投資建議」。`;
-      const txt=await gaAiOnce(p,null,false,3000);
-      const blk=document.getElementById('rptAiBlk');
-      if(blk)blk.innerHTML='<h3>🤖 AI 深度敘事 <span class="ds">Gemini+即時新聞查證</span></h3><div class="dim-note" style="white-space:pre-wrap;line-height:1.8">'+txt.replace(/</g,'&lt;').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')+'</div>';
+        const ck='rptAI_'+s.id, today2=tpDay(Date.now()/1000);
+        let txt=null, fromCache=false;
+        if(!window.__rptForce){try{const c=JSON.parse(localStorage.getItem(ck)||'null');   // r564:每檔每日快取——當天重看不耗 API 額度
+          if(c&&c.d===today2&&c.t){txt=c.t;fromCache=true;}}catch(eC){}}
+        window.__rptForce=false;
+        if(!txt){
+          txt=await gaAiOnce(p,null,false,3000);
+          try{localStorage.setItem(ck,JSON.stringify({d:today2,t:txt}));}catch(eC2){}
+        }
+        const blk=document.getElementById('rptAiBlk');
+        if(blk){blk.innerHTML='<h3>🤖 AI 深度敘事 <span class="ds">'+(fromCache?'今日快取(不耗額度)・':'')+'Gemini+即時新聞查證</span>'
+          +(fromCache?' <a href="javascript:void 0" id="rptAiRegen" style="font-size:12px;color:var(--amber);font-weight:800">🔄 重新生成</a>':'')
+          +'</h3><div class="dim-note" style="white-space:pre-wrap;line-height:1.8">'+txt.replace(/</g,'&lt;').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')+'</div>';
+          const rg=document.getElementById('rptAiRegen');
+          if(rg)rg.onclick=()=>{window.__rptForce=true;rptRun(s,'ai');};}
+      }catch(errA){
+        const blk=document.getElementById('rptAiBlk');
+        if(blk)blk.innerHTML='<h3>🤖 AI 深度敘事</h3><div class="dim-note">⚠ AI 段產生失敗:'+String(errA&&errA.message||errA).slice(0,110)
+          +'<br>上方即席報告不受影響。<a href="javascript:void 0" id="rptAiRetry" style="color:var(--amber);font-weight:800">點此重試</a></div>';
+        const rb=document.getElementById('rptAiRetry');
+        if(rb)rb.onclick=()=>rptRun(s,'ai');
+      }
     }
     const cp=document.getElementById('rptCopy');
     if(cp){cp.style.display='';cp.onclick=()=>{try{navigator.clipboard.writeText(rptPlain(d)+(document.getElementById('rptAiBlk')?'\n\n'+(document.getElementById('rptAiBlk').textContent||''):''));cp.textContent='✅ 已複製';setTimeout(()=>cp.textContent='📋 複製全文',1500);}catch(e){}};}
