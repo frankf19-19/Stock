@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r559 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r560 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r559</span>');
+  diag.push('<span style="color:var(--dim)">build r560</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10787,17 +10787,27 @@ async function renderFundMap(){
     const bySec={};
     pool.forEach(s=>{const k=(s.sector||'其他').replace(/^美股·/,'');(bySec[k]=bySec[k]||[]).push(s);});
     const __mob=innerWidth<640;
-    const children=Object.entries(bySec).map(([sec,arr])=>{
+    // r560:總權重與微型產業合併——占全圖 <1.5% 的產業併入「其他產業」,右下角不再是馬賽克
+    const secList=Object.entries(bySec).map(([sec,arr])=>({sec,arr,w:arr.reduce((a,s)=>a+wOf(s),0)}));
+    const totalW=secList.reduce((a,x)=>a+x.w,0)||1;
+    const main=secList.filter(x=>x.w/totalW>=0.015);
+    const tail=secList.filter(x=>x.w/totalW<0.015);
+    if(tail.length>=2){
+      const merged=[].concat(...tail.map(x=>x.arr));
+      main.push({sec:'其他產業('+tail.length+'類)',arr:merged,w:tail.reduce((a,x)=>a+x.w,0)});
+    }else if(tail.length===1)main.push(tail[0]);
+    const children=main.map(({sec,arr})=>{
       arr.sort((a,b)=>wOf(b)-wOf(a));
       const top=arr.slice(0,GM==='US'?28:26);                                   // r559:多收幾檔主角
       const rest=arr.slice(top.length);
       const secW=arr.reduce((a,s)=>a+wOf(s),0)||1;
       const kids=top.map(s=>{
-        const w=Math.max(wOf(s),0.01), sh=w/secW;
-        const big=sh>=(__mob?0.14:0.08), mid=sh>=(__mob?0.05:0.025);            // r559:標籤三級制——小格不標字消雜訊
+        const w=Math.max(wOf(s),0.01), sh=w/secW, gh=w/totalW;
+        const big=gh>=(__mob?0.010:0.0055)||sh>=0.12;                            // r560:門檻改全圖占比——夠大的格子一律有名+%,小產業裡的老大也保底
+        const mid=gh>=(__mob?0.0035:0.0016)||sh>=0.045;
         return {name:s.id,value:w,_nm:s.name,_chg:s.chg,_px:s.price,
-          label:big?{show:true,fontSize:12.5,fontWeight:800,formatter:()=>`${s.name}\n${s.chg>0?'+':''}${(+s.chg).toFixed(2)}%`}
-               :mid?{show:true,fontSize:10.5,formatter:()=>s.name}
+          label:big?{show:true,fontSize:13,fontWeight:800,lineHeight:16,formatter:()=>`${s.name}\n${s.chg>0?'+':''}${(+s.chg).toFixed(2)}%`}
+               :mid?{show:true,fontSize:11,formatter:()=>s.name}
                :{show:false},
           itemStyle:{color:heatColor(s.chg),borderColor:'rgba(0,0,0,.25)',borderWidth:1}};
       });
@@ -10819,8 +10829,8 @@ async function renderFundMap(){
     try{await ensureECharts();}catch(e2){}
     if(!window.echarts)return;
     try{echarts.dispose(el);}catch(e3){}
-    el.style.height=(innerWidth<640?440:560)+'px';
-    const ch=echarts.init(el,null,{renderer:'canvas'});
+    el.style.height=(innerWidth<640?480:640)+'px';                              // r560:加高
+    const ch=echarts.init(el,null,{renderer:'svg'});                            // r560:SVG 渲染——高解析螢幕文字銳利(canvas 縮放是模糊主因)
     setTimeout(()=>{try{ch.resize();}catch(e4){}},350);
     try{if(window.__fmChart&&window.__fmChart!==ch)window.__fmChart.dispose();}catch(e5){}
     window.__fmChart=ch;
