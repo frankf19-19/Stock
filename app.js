@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r560 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r561 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r560</span>');
+  diag.push('<span style="color:var(--dim)">build r561</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10774,6 +10774,9 @@ async function renderFundMap(){
     if(!el)return;
     const _sb=el.closest('.sec-body');
     if(_sb&&_sb.classList.contains('closed'))return;
+    if(!el.clientWidth){window.__fmRetry=(window.__fmRetry||0)+1;            // r561:行動版常見 0 寬初始化——等版面就緒再畫(最多重試 10 次)
+      if(window.__fmRetry<=10)setTimeout(renderFundMap,700);return;}
+    window.__fmRetry=0;
     const GM=window.GMKT||'TW';
     let shMap={};
     if(GM==='US'){try{const u=await usfData();if(u&&u.s)Object.keys(u.s).forEach(k=>{if(u.s[k].sh)shMap[k]=u.s[k].sh;});}catch(e1){}}
@@ -10844,7 +10847,23 @@ async function renderFundMap(){
         data:children}]});
     ch.off('click');
     ch.on('click',p=>{const d=p.data||{};if(d._nm&&p.name&&p.name!=='…')location.hash='#stock/'+p.name;});
-  }catch(err){}
+  }catch(err){
+    try{   // r561:繪圖失敗→錯誤浮出+簡易產業色條保底,不留白箱
+      const el2=document.getElementById('fundMap'),nt2=document.getElementById('fundMapNote');
+      if(nt2)nt2.innerHTML='⚠ 熱力圖繪製失敗('+String(err&&err.message||err).slice(0,120)+'),已切換簡易檢視;請把此訊息截圖回報。';
+      if(el2&&DATA&&DATA.stocks){
+        const GM2=window.GMKT||'TW',g2={};
+        DATA.stocks.forEach(x=>{if(x.market!==GM2||x.etf||x.chg==null||!x.sector)return;(g2[x.sector]=g2[x.sector]||[]).push(+x.chg);});
+        const rows2=Object.entries(g2).filter(([k,v])=>v.length>=3)
+          .map(([k,v])=>({k,avg:v.reduce((a,b)=>a+b,0)/v.length,n:v.length})).sort((a,b)=>b.avg-a.avg);
+        el2.style.height='auto';
+        el2.innerHTML=rows2.map(r2=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px">
+          <span style="width:9em">${r2.k.replace(/^美股·/,'')}<span style="color:var(--dim);font-size:11px">(${r2.n})</span></span>
+          <span style="flex:1;height:12px;border-radius:6px;background:${heatColor(r2.avg)}"></span>
+          <b class="${r2.avg>=0?'pos':'neg'}" style="font-family:var(--mono);width:64px;text-align:right">${r2.avg>0?'+':''}${r2.avg.toFixed(2)}%</b></div>`).join('');
+      }
+    }catch(e9){}
+  }
 }
 setInterval(()=>{try{const el=document.getElementById('fundMap');const b=el&&el.closest('.sec-body');if(b&&!b.classList.contains('closed')&&!document.hidden)rotBoard();}catch(e){}},120000);
 function applyGmUsFineTune(){   // r546:美股分頁細部清場——處理非同步重繪冒回來的台股內容,每5秒自癒
