@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r573 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r574 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r573</span>');
+  diag.push('<span style="color:var(--dim)">build r574</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3262,71 +3262,81 @@ function rptPeers(d){   // r573:同業比較表(同產業依成交值取前段;�
       <div class="dim-note">同產業依近 20 日成交值取前段;分數為站內規則化計分,非同業推薦。</div>`;
   }catch(e){return '';}
 }
-async function rptPDF(s){   // r572:專屬印刷版排版(不再倒站內 HTML,改由資料重新排版)
+async function rptPDF(s){   // r574:完全仿券商版式(封面米色標題帶+左米色欄/右主文雙欄+每頁頁首頁尾+浮水印)
   const btn=document.getElementById('rptPDF');
   if(btn){btn.disabled=true;btn.textContent='⏳ 產生中…';}
   try{
     const d=await rptData(s);
-    const g=rptGrade(d.T);
-    const e=d.e||{};
+    const g=rptGrade(d.T), e=d.e||{};
     const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
-    const dt=`${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
-    const png=await rptChartPNG(d);
-    const pe=await rptPEPNG(d);
+    const dt=`${today.getFullYear()}/${today.getMonth()+1}/${today.getDate()}`;
+    const png=await rptChartPNG(d), pe=await rptPEPNG(d);
     const F=v=>v==null?'—':(+v).toLocaleString();
     const P=(v,n)=>v==null?'—':((v>0?'+':'')+(+v).toFixed(n==null?1:n)+'%');
     const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    const N=e.ra?e.ra.length-1:-1, Q=e.fq?e.fq.length-1:-1;
 
-    /* ── 投資重點(取即席報告的規則化五點,轉純文字結構) ── */
+    /* ── 封面紅色主標(依實際數據自動生成,對應「7月營收優預期…」那行) ── */
+    const hl=[];
+    if(N>=1&&(e.ry||[])[N]!=null)hl.push(`${(e.rm||[])[N]}營收年增 ${(+e.ry[N]).toFixed(0)}%`);
+    if(Q>=1){const rise=a=>a&&a[Q]!=null&&a[Q-1]!=null&&a[Q]>a[Q-1];
+      if(rise(e.gm)&&rise(e.om)&&rise(e.nm))hl.push('三率三升');
+      else if(rise(e.gm))hl.push('毛利率回升');}
+    if(Array.isArray(e.bp)&&e.bp.length>4){const bw=e.bp[e.bp.length-1]-e.bp[e.bp.length-5];
+      if(bw>=0.5)hl.push('大戶四週收攏籌碼');else if(bw<=-0.5)hl.push('大戶四週派發');}
+    if(pe&&pe.curPE)hl.push(`本益比 ${pe.curPE} 倍`);
+    const headline=hl.length?hl.join('、'):'站內公開資料規則化彙整';
+
+    /* ── 觀察重點(帶數字的條列) ── */
     const pts=[];
-    try{
-      if(Array.isArray(e.ra)&&e.ra.length>=2){
-        const n=e.ra.length-1,mLab=(e.rm||[])[n]||'最新月';
-        const mom=+e.ra[n-1]>0?(+e.ra[n]/+e.ra[n-1]-1)*100:null;
-        let run=0;for(let i=(e.ry||[]).length-1;i>=0;i--){if(e.ry[i]>0)run++;else break;}
-        pts.push([`營收動能:${mLab} 營收 ${F(e.ra[n])} 億元`,
-          `月增 ${P(mom)}、年增 ${P((e.ry||[])[n])}${run>=3?`;YoY 已連 ${run} 個月正成長,成長趨勢確立`:''}${(e.ry||[]).length>=3&&e.ry[n]>e.ry[n-1]&&e.ry[n-1]>e.ry[n-2]?`,且連兩個月加速(${P(e.ry[n-2])}→${P(e.ry[n-1])}→${P(e.ry[n])}),動能增強`:''}。`]);
-      }
-      if(Array.isArray(e.fq)&&e.fq.length){
-        const i=e.fq.length-1,lab=e.fq[i];
-        const jY=e.fq.indexOf((+lab.slice(0,2)-1)+lab.slice(2));
-        const qy=(jY>=0&&e.qr&&e.qr[jY]>0&&e.qr[i]!=null)?(e.qr[i]/e.qr[jY]-1)*100:null;
-        const rise=a=>a&&a[i]!=null&&a[i-1]!=null&&a[i]>a[i-1];
-        const t3=rise(e.gm)&&rise(e.om)&&rise(e.nm);
-        pts.push([`獲利結構:${lab} 營收 ${F(e.qr&&e.qr[i])} 億元(年增 ${P(qy)})`,
-          `毛利率 ${(e.gm||[])[i]!=null?(+e.gm[i]).toFixed(1)+'%':'—'}、營益率 ${(e.om||[])[i]!=null?(+e.om[i]).toFixed(1)+'%':'—'}、淨利率 ${(e.nm||[])[i]!=null?(+e.nm[i]).toFixed(1)+'%':'—'}${t3?';<b>三率三升</b>,獲利結構全面改善':rise(e.gm)?';毛利率回升,產品組合或成本改善':''}。`]);
-      }
-      if(Array.isArray(e.f)&&e.f.length>=20){
-        const s5=a=>a.slice(-5).reduce((x,y)=>x+(y||0),0),s20=a=>a.slice(-20).reduce((x,y)=>x+(y||0),0);
-        const f5=s5(e.f),f20=s20(e.f),t5=s5(e.t||[]),t20=s20(e.t||[]);
-        const bp=e.bp||[],big=bp.length?bp[bp.length-1]:null,bw4=bp.length>4?big-bp[bp.length-5]:null;
-        pts.push([`籌碼結構`,
-          `外資 5/20 日 ${F(Math.round(f5))}/${F(Math.round(f20))} 張、投信 ${F(Math.round(t5))}/${F(Math.round(t20))} 張${f20>0&&t20>0?'(<b>土洋同買</b>)':f20<0&&t20<0?'(<b>土洋同賣</b>)':''}${big!=null?`;400 張大戶持股 ${(+big).toFixed(1)}%${bw4!=null?`,四週 ${P(bw4,2)}${bw4>=0.5?'(收攏)':bw4<=-0.5?'(派發)':''}`:''}`:''}。`]);
-      }
-    }catch(x){}
-    pts.push([`技術位置`,`${(d.t.kv&&d.t.kv['20/60MA'])?`20/60MA ${d.t.kv['20/60MA']}、乖離 ${d.t.kv['乖離(20MA)']||'—'};`:''}${esc(d.t.note||'')}`]);
-    pts.push([`體質與評價`,`${d.debt!=null?`負債比 ${d.debt}%`:''}${d.roe!=null?`${d.debt!=null?'、':''}近四季 ROE 約 ${d.roe}%`:''}${pe&&pe.curPE?`${(d.debt!=null||d.roe!=null)?';':''}目前本益比約 <b>${pe.curPE} 倍</b>(近四季 EPS ${pe.eps} 元)`:''}。`]);
+    if(N>=1){
+      const mom=+e.ra[N-1]>0?(+e.ra[N]/+e.ra[N-1]-1)*100:null;
+      let run=0;for(let i=(e.ry||[]).length-1;i>=0;i--){if(e.ry[i]>0)run++;else break;}
+      pts.push(`<b>${(e.rm||[])[N]} 營收 ${F(e.ra[N])} 億元,月增 ${P(mom)}、年增 ${P(e.ry[N])}</b>。${run>=3?`YoY 已連 ${run} 個月正成長,成長趨勢確立;`:''}${(e.ry||[]).length>=3&&e.ry[N]>e.ry[N-1]&&e.ry[N-1]>e.ry[N-2]?`且連兩個月加速(${P(e.ry[N-2])}→${P(e.ry[N-1])}→${P(e.ry[N])}),動能增強。`:''}近六個月營收與成長率走勢見右頁圖表。`);
+    }
+    if(Q>=1){
+      const lab=e.fq[Q],jY=e.fq.indexOf((+lab.slice(0,2)-1)+lab.slice(2));
+      const qy=(jY>=0&&e.qr&&e.qr[jY]>0)?(e.qr[Q]/e.qr[jY]-1)*100:null;
+      const qq=e.qr&&e.qr[Q-1]>0?(e.qr[Q]/e.qr[Q-1]-1)*100:null;
+      const rise=a=>a&&a[Q]!=null&&a[Q-1]!=null&&a[Q]>a[Q-1];
+      pts.push(`<b>${lab} 營收 ${F(e.qr&&e.qr[Q])} 億元,季增 ${P(qq)}、年增 ${P(qy)}</b>。毛利率 ${(e.gm||[])[Q]!=null?(+e.gm[Q]).toFixed(1)+'%':'—'}、營益率 ${(e.om||[])[Q]!=null?(+e.om[Q]).toFixed(1)+'%':'—'}、淨利率 ${(e.nm||[])[Q]!=null?(+e.nm[Q]).toFixed(1)+'%':'—'}${rise(e.gm)&&rise(e.om)&&rise(e.nm)?',三率三升,獲利結構全面改善':rise(e.gm)?',毛利率較上季回升':''}。`);
+    }
+    if(Array.isArray(e.f)&&e.f.length>=20){
+      const s5=a=>a.slice(-5).reduce((x,y)=>x+(y||0),0),s20=a=>a.slice(-20).reduce((x,y)=>x+(y||0),0);
+      const bp=e.bp||[],big=bp.length?bp[bp.length-1]:null,bw4=bp.length>4?big-bp[bp.length-5]:null;
+      pts.push(`<b>籌碼面</b>:外資 5/20 日 ${F(Math.round(s5(e.f)))}/${F(Math.round(s20(e.f)))} 張、投信 ${F(Math.round(s5(e.t||[])))}/${F(Math.round(s20(e.t||[])))} 張${s20(e.f)>0&&s20(e.t||[])>0?',土洋同買,籌碼結構最有力':s20(e.f)<0&&s20(e.t||[])<0?',土洋同賣,大戶端一致偏空':''}${big!=null?`;400 張大戶持股 ${(+big).toFixed(1)}%${bw4!=null?`,四週 ${P(bw4,2)}${bw4>=0.5?'(收貨)':bw4<=-0.5?'(派發)':''}`:''}`:''}。`);
+    }
+    pts.push(`<b>技術位置</b>:${d.t.kv&&d.t.kv['20/60MA']?`20/60MA ${d.t.kv['20/60MA']}、乖離 ${d.t.kv['乖離(20MA)']||'—'};`:''}${esc(d.t.note||'')}${d.al&&d.al.z1?` 回檔參考承接區 ${F(d.al.z0)}~${F(d.al.z1)},防守參考 ${F(d.al.stop)},突破觀察 ${F(d.al.h20)}。`:''}`);
+    if(pe&&pe.curPE)pts.push(`<b>評價位階</b>:目前本益比約 ${pe.curPE} 倍(近四季 EPS ${pe.eps} 元),近一年評價區間 ${pe.mult[0]}x~${pe.mult[4]}x,中位 ${pe.mult[2]}x。落在區間下緣代表相對歷史便宜、上緣代表偏貴,須搭配獲利成長性判讀(詳見末頁河流圖)。`);
 
     /* ── 表格 ── */
+    const tb=(head,rows)=>`<table class="tb"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
     let qTbl='';
-    if(Array.isArray(e.fq)&&e.fq.length>=4){
+    if(Q>=3){
       const idx=e.fq.map((_,i)=>i).slice(-8);
       const yy=i=>{const lab=e.fq[i],j=e.fq.indexOf((+lab.slice(0,2)-1)+lab.slice(2));
         return(j>=0&&e.qr&&e.qr[j]>0&&e.qr[i]!=null)?((e.qr[i]/e.qr[j]-1)*100).toFixed(1)+'%':'—';};
-      const r=(nm,fn)=>`<tr><th class="rh">${nm}</th>${idx.map(i=>`<td>${fn(i)}</td>`).join('')}</tr>`;
-      qTbl=`<table class="tb"><thead><tr><th class="rh">季度</th>${idx.map(i=>`<th>${e.fq[i]}</th>`).join('')}</tr></thead><tbody>
-        ${r('營收(億)',i=>F(e.qr&&e.qr[i]))}${r('營收 YoY',yy)}
-        ${r('毛利率',i=>(e.gm||[])[i]!=null?(+e.gm[i]).toFixed(1)+'%':'—')}
-        ${r('營益率',i=>(e.om||[])[i]!=null?(+e.om[i]).toFixed(1)+'%':'—')}
-        ${r('淨利率',i=>(e.nm||[])[i]!=null?(+e.nm[i]).toFixed(1)+'%':'—')}</tbody></table>`;
+      const r=(nm,fn,cls)=>`<tr class="${cls||''}"><th class="rh">${nm}</th>${idx.map(i=>`<td>${fn(i)}</td>`).join('')}</tr>`;
+      qTbl=tb(`<th class="rh">季度</th>${idx.map(i=>`<th>${e.fq[i]}</th>`).join('')}`,
+        r('營業收入(億)',i=>F(e.qr&&e.qr[i]))+r('營收 YoY',yy)+
+        r('毛利率',i=>(e.gm||[])[i]!=null?(+e.gm[i]).toFixed(1)+'%':'—')+
+        r('營業利益率',i=>(e.om||[])[i]!=null?(+e.om[i]).toFixed(1)+'%':'—')+
+        r('稅後淨利率',i=>(e.nm||[])[i]!=null?(+e.nm[i]).toFixed(1)+'%':'—')+
+        (d.shares?r('單季 EPS(元)',i=>(e.qr&&e.qr[i]!=null&&(e.nm||[])[i]!=null)?(e.qr[i]*e.nm[i]/100/d.shares).toFixed(2):'—','hi'):''));
     }
     let mTbl='';
-    if(Array.isArray(e.ra)&&e.ra.length>=3){
+    if(N>=2){
       const idx=e.ra.map((_,i)=>i).slice(-6);
-      mTbl=`<table class="tb"><thead><tr><th class="rh">月份</th>${idx.map(i=>`<th>${(e.rm||[])[i]||''}</th>`).join('')}</tr></thead><tbody>
-        <tr><th class="rh">營收(億)</th>${idx.map(i=>`<td>${(+e.ra[i]).toLocaleString()}</td>`).join('')}</tr>
-        <tr><th class="rh">MoM</th>${idx.map(i=>`<td>${i>0&&+e.ra[i-1]>0?((+e.ra[i]/+e.ra[i-1]-1)*100).toFixed(1)+'%':'—'}</td>`).join('')}</tr>
-        <tr><th class="rh">YoY</th>${idx.map(i=>`<td>${(e.ry||[])[i]!=null?(+e.ry[i]).toFixed(1)+'%':'—'}</td>`).join('')}</tr></tbody></table>`;
+      mTbl=tb(`<th class="rh">月份</th>${idx.map(i=>`<th>${(e.rm||[])[i]||''}</th>`).join('')}`,
+        `<tr><th class="rh">營收(億)</th>${idx.map(i=>`<td>${(+e.ra[i]).toLocaleString()}</td>`).join('')}</tr>`+
+        `<tr><th class="rh">MoM</th>${idx.map(i=>`<td>${i>0&&+e.ra[i-1]>0?((+e.ra[i]/+e.ra[i-1]-1)*100).toFixed(1)+'%':'—'}</td>`).join('')}</tr>`+
+        `<tr class="hi"><th class="rh">YoY</th>${idx.map(i=>`<td>${(e.ry||[])[i]!=null?(+e.ry[i]).toFixed(1)+'%':'—'}</td>`).join('')}</tr>`);
+    }
+    let vTbl='';
+    if(pe&&pe.eps>0){
+      vTbl=tb(`<th class="rh">本益比情境</th>${pe.mult.map(m=>`<th>${m}x</th>`).join('')}`,
+        `<tr><th class="rh">對應股價(元)</th>${pe.mult.map(m=>`<td>${Math.round(pe.eps*m).toLocaleString()}</td>`).join('')}</tr>`+
+        `<tr class="hi"><th class="rh">距現價</th>${pe.mult.map(m=>{const v=(pe.eps*m/d.px-1)*100;return `<td class="${v>=0?'up':'dn'}">${P(v,0)}</td>`;}).join('')}</tr>`);
     }
     let pTbl='';
     try{
@@ -3338,148 +3348,145 @@ async function rptPDF(s){   // r572:專屬印刷版排版(不再倒站內 HTML,�
         if(!top.some(x=>x.id===d.id)){const me=pool.find(x=>x.id===d.id);if(me){top.pop();top.push(me);}}
         const T=x=>(typeof total==='function')?total(x):50;
         const yo=x=>((x.f||{}).kv||{})['月營收YoY']||((x.f||{}).kv||{})['營收YoY(季)']||'—';
-        pTbl=`<table class="tb"><thead><tr><th class="rh">同業(${esc(sec)})</th><th>現價</th><th>漲跌</th><th>綜合</th><th>基本</th><th>籌碼</th><th>技術</th><th>營收YoY</th></tr></thead><tbody>
-          ${top.map(x=>`<tr class="${x.id===d.id?'me':''}"><th class="rh">${esc(x.name)} <span class="cd">${x.id}</span></th>
+        pTbl=tb(`<th class="rh">同業(${esc(sec)})</th><th>現價</th><th>漲跌</th><th>綜合</th><th>基本</th><th>籌碼</th><th>技術</th><th>營收YoY</th>`,
+          top.map(x=>`<tr class="${x.id===d.id?'me':''}"><th class="rh">${esc(x.name)} <span class="cd">${x.id}</span></th>
             <td>${(+x.price).toLocaleString()}</td><td class="${x.chg>=0?'up':'dn'}">${x.chg>0?'+':''}${(+x.chg).toFixed(2)}%</td>
-            <td>${T(x)}</td><td>${(x.f||{}).score??50}</td><td>${(x.c||{}).score??50}</td><td>${(x.t||{}).score??50}</td><td>${esc(yo(x))}</td></tr>`).join('')}
-        </tbody></table>`;
+            <td>${T(x)}</td><td>${(x.f||{}).score??50}</td><td>${(x.c||{}).score??50}</td><td>${(x.t||{}).score??50}</td><td>${esc(yo(x))}</td></tr>`).join(''));
       }
     }catch(x){}
 
+    /* ── AI 敘事切段:每個 h1/h2 一節,分派到各頁 ── */
     const aiTxt=(window.__rptAiTxt&&window.__rptAiTxt.id===s.id)?window.__rptAiTxt.t:'';
-    const bar=(lb,v)=>`<div class="bar"><span class="bl">${lb}</span><span class="bt"><i style="width:${Math.max(3,Math.min(100,v))}%"></i></span><b>${v}</b></div>`;
-    const plan=d.al&&d.al.z1?`<table class="tb kvt"><tbody>
-        <tr><th class="rh">回檔參考承接區</th><td>${F(d.al.z0)} ~ ${F(d.al.z1)}</td><th class="rh">防守參考(跌破檢討)</th><td>${F(d.al.stop)}</td></tr>
-        <tr><th class="rh">近 20 日高(突破觀察)</th><td>${F(d.al.h20)}</td><th class="rh">趨勢狀態</th><td>${d.al.bull?'多方結構':'非多方結構'}</td></tr></tbody></table>`
-      :`<p class="note">目前不符合劇本條件(非多方結構或評分不足),以觀察為主。</p>`;
+    let aiSecs=[];
+    if(aiTxt){
+      const html=rptMD(aiTxt);
+      const parts=html.split(/(?=<h[34] class="rpt-h[12]">)/).filter(x=>x.trim());
+      let buf='';
+      parts.forEach(p=>{
+        if(/<h3 class="rpt-h1">/.test(p)&&buf){aiSecs.push(buf);buf=p;}
+        else buf+=p;
+        if(buf.length>1700){aiSecs.push(buf);buf='';}
+      });
+      if(buf)aiSecs.push(buf);
+    }
+    const side=x=>`<div class="cal">${x}</div>`;
+    const H=(t)=>`<h2 class="sc">${t}</h2>`;
+    /* 頁面組裝 */
+    const pgs=[];
+    // 封面頁
+    pgs.push({side:`
+      <div class="rbox"><div class="rt1">${g[0]}</div>
+        <div class="rrow"><span>綜合評分</span><b>${d.T}</b></div>
+        <div class="rrow"><span>現價</span><b>${F(d.px)}</b></div>
+        <div class="rrow"><span>今日漲跌</span><b class="${d.chg>=0?'up':'dn'}">${P(d.chg,2)}</b></div>
+        ${pe&&pe.curPE?`<div class="rrow"><span>本益比(近四季)</span><b>${pe.curPE}x</b></div>`:''}
+      </div>
+      <div class="stbl"><div class="stt">評分細項</div>
+        <table class="tb sm"><tbody>
+        <tr><th class="rh">基本面(40%)</th><td>${d.f.score??50}</td></tr>
+        <tr><th class="rh">籌碼面(30%)</th><td>${d.c.score??50}</td></tr>
+        <tr><th class="rh">技術面(30%)</th><td>${d.t.score??50}</td></tr>
+        ${d.roe!=null?`<tr><th class="rh">近四季 ROE</th><td>${d.roe}%</td></tr>`:''}
+        ${d.debt!=null?`<tr><th class="rh">負債比</th><td>${d.debt}%</td></tr>`:''}
+        ${d.shares?`<tr><th class="rh">股數(億股)</th><td>${d.shares.toFixed(2)}</td></tr>`:''}
+        </tbody></table></div>
+      ${vTbl?`<div class="stbl"><div class="stt">評價情境試算</div>${vTbl}
+        <div class="sn">以近四季 EPS ${pe.eps} 元 × 歷史本益比分位換算,<b>非目標價、非預測</b>。</div></div>`:''}`,
+      main:`${H('觀察重點')}<ol class="pts">${pts.map(p=>`<li>${p}</li>`).join('')}</ol>
+        <div class="cal2"><b>公司在做什麼</b>|${esc(d.desc||'—')}</div>`,cover:1});
+    // 營運分析頁
+    if(mTbl||png||qTbl)pgs.push({side:side(`<b>營運數據摘要</b><br>${N>=1?`${(e.rm||[])[N]}營收 ${F(e.ra[N])} 億元,月增 ${P(+e.ra[N-1]>0?(+e.ra[N]/+e.ra[N-1]-1)*100:null)}、年增 ${P(e.ry[N])}。`:''}${Q>=1?`最新季 ${e.fq[Q]} 營收 ${F(e.qr&&e.qr[Q])} 億元,毛利率 ${(e.gm||[])[Q]!=null?(+e.gm[Q]).toFixed(1)+'%':'—'}、淨利率 ${(e.nm||[])[Q]!=null?(+e.nm[Q]).toFixed(1)+'%':'—'}。`:''}<br><span class="sn">資料來源:公開資訊觀測站月營收與季報,均為已公告實際值,不含任何預估。</span>`),
+      main:`${H('營運分析')}${mTbl?`<div class="stt2">近 6 個月月營收</div>${mTbl}`:''}
+        ${png?`<figure><img src="${png}"><figcaption>月營收(柱,億元)與月增率／年增率(線,%)</figcaption></figure>`:''}
+        ${qTbl?`<div class="stt2">近 8 季損益概覽(實際值)</div>${qTbl}`:''}`});
+    // AI 敘事頁
+    aiSecs.forEach((secHtml,i)=>{
+      const m=secHtml.match(/<h[34] class="rpt-h[12]">(.*?)<\/h[34]>/);
+      pgs.push({side:side(`<b>${m?esc(m[1].replace(/<[^>]+>/g,'')).slice(0,26):'研究敘事'}</b><br><span class="sn">本頁為 AI 依公開新聞與站內數據彙整之觀點討論,已標注可查證來源時間;非投資建議。</span>`),
+        main:`${i===0?H('深度研究敘事'):''}<div class="ai">${secHtml}</div>`});
+    });
+    // 評價與同業頁
+    if(pe&&pe.url||pTbl)pgs.push({side:side(`<b>評價與同業</b><br>${pe&&pe.curPE?`目前本益比約 ${pe.curPE} 倍,近一年區間 ${pe.mult[0]}x~${pe.mult[4]}x、中位 ${pe.mult[2]}x。`:''}<br><span class="sn">本益比帶為歷史評價分位,反映市場過去願意給的價格,不代表未來合理價。</span>`),
+      main:`${H('評價位階與同業比較')}
+        ${pe&&pe.url?`<figure><img src="${pe.url}"><figcaption>Forward PE Band:股價(綠線)對照本益比倍數帶(由下至上 ${pe.mult.join('x / ')}x)</figcaption></figure>`:''}
+        ${vTbl?`<div class="stt2">評價情境試算(非目標價)</div>${vTbl}`:''}
+        ${pTbl?`<div class="stt2">同業比較</div>${pTbl}<div class="sn">同產業依近 20 日成交值取前段,本檔以底色標示。</div>`:''}
+        <div class="stt2">追蹤檢核(什麼情況要重新評估)</div>
+        <ol class="pts sm2"><li>收盤跌破防守參考價位。</li><li>月營收或財報轉差(YoY 轉負、三率齊降)。</li>
+        <li>大戶持股連兩週下滑,或外資投信同步賣超。</li><li>產業龍頭財報或財測指引轉弱。</li></ol>`});
 
     const w=window.open('','_blank');
     if(!w){alert('瀏覽器阻擋了新視窗,請允許彈出視窗後再試一次。');return;}
     w.document.write(`<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
 <title>${esc(d.name)}(${d.id})研究報告_${dt.replace(/\//g,'')}</title>
 <style>
-@page{size:A4;margin:13mm 12mm 15mm}
+@page{size:A4;margin:0}
 *{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;color:#20201E;font-size:10.6px;line-height:1.72;padding-bottom:12mm}
-b{color:#111}
-.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
-/* 抬頭 */
-.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #B08D44;padding-bottom:7px}
-.head .nm{font-size:25px;font-weight:900;letter-spacing:.01em;line-height:1.1}
-.head .nm span{font-size:13px;font-weight:700;color:#7A736A;margin-left:5px}
-.head .tag{font-size:10.5px;color:#7A736A;margin-top:3px}
-.head .rt{text-align:right;font-size:9.8px;color:#7A736A;line-height:1.6}
-.head .rt .bd{font-size:12px;font-weight:900;color:#B08D44;letter-spacing:.06em}
-/* 評等橫幅 */
-.strip{display:flex;align-items:stretch;gap:0;margin:9px 0 11px;border:1px solid #E0D7C2;border-radius:6px;overflow:hidden}
-.strip .cell{flex:1;padding:7px 10px;border-right:1px solid #EFE8D8}
-.strip .cell:last-child{border-right:0}
-.strip .cell.hl{background:#F7F2E5}
-.strip dt{font-size:9.4px;color:#8A8073;margin-bottom:2px}
-.strip dd{margin:0;font-size:17px;font-weight:900;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;line-height:1.2}
-.strip dd.sm{font-size:13.5px}
-.up{color:#C0392B}.dn{color:#2E8B57}
-/* 分數條 */
-.bars{display:flex;gap:12px;margin:2px 0 0}
-.bar{flex:1;display:flex;align-items:center;gap:5px;font-size:9.6px}
-.bar .bl{color:#8A8073;width:30px;flex:none}
-.bar .bt{flex:1;height:5px;background:#EDE6D6;border-radius:3px;overflow:hidden}
-.bar .bt i{display:block;height:100%;background:#B08D44}
-.bar b{width:19px;text-align:right;font-family:ui-monospace,monospace}
-/* 章節 */
-h2.sc{font-size:13.4px;font-weight:900;margin:16px 0 6px;padding:4px 0 4px 10px;border-left:4px solid #B08D44;background:linear-gradient(90deg,#F7F2E5,rgba(255,255,255,0));page-break-after:avoid}
-h3.sub{font-size:11.6px;font-weight:900;color:#7A5C1E;margin:10px 0 3px;page-break-after:avoid}
-.sec{page-break-inside:avoid;margin-bottom:2px}
-/* 重點清單 */
-ol.pts{margin:4px 0 0;padding-left:0;list-style:none;counter-reset:p}
-ol.pts li{counter-increment:p;position:relative;padding:5px 0 5px 26px;border-bottom:1px dotted #E5DECD}
+html,body{margin:0;padding:0;background:#fff}
+body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;color:#231F1A;font-size:10.4px;line-height:1.78}
+.pg{position:relative;width:210mm;min-height:297mm;padding:13mm 12mm 15mm;page-break-after:always;overflow:hidden;background:#fff}
+.pg:last-of-type{page-break-after:auto}
+.wm{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) rotate(-24deg);font-size:78px;font-weight:900;color:rgba(176,141,68,.07);white-space:nowrap;letter-spacing:.16em;pointer-events:none}
+.ph{display:flex;justify-content:flex-end;align-items:flex-start;font-size:9.6px;color:#6E675E;line-height:1.55;text-align:right;border-bottom:1px solid #E6DFCE;padding-bottom:5px}
+.ph .lg{font-size:13px;font-weight:900;color:#B08D44;letter-spacing:.1em;margin-bottom:1px}
+.cvr{background:#E8DFC8;margin:9px 0 0;padding:13px 15px 15px;border-radius:2px}
+.cvr .nm{font-size:44px;font-weight:900;line-height:1;letter-spacing:.01em}
+.cvr .nm span{font-size:19px;font-weight:700;color:#5F584D;margin-left:4px}
+.cvr .hl{margin-top:9px;font-size:12.4px;font-weight:800;color:#B23A2E;line-height:1.55}
+.bd{display:grid;grid-template-columns:31% 1fr;gap:11px;margin-top:11px}
+aside{font-size:9.9px;line-height:1.7}
+.rbox{border-top:2px solid #2B2620;border-bottom:2px solid #2B2620;padding:7px 0}
+.rt1{font-size:19px;font-weight:900;letter-spacing:.05em;padding:2px 0 6px;border-bottom:1px solid #D9D1BF;margin-bottom:5px}
+.rrow{display:flex;justify-content:space-between;align-items:baseline;padding:3.5px 0;border-bottom:1px dotted #DDD5C2}
+.rrow:last-child{border-bottom:0}
+.rrow span{color:#6E675E;font-size:9.6px}
+.rrow b{font-size:14.5px;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.stbl{margin-top:11px}
+.stt{font-size:10.6px;font-weight:900;background:#EFE7D5;padding:3.5px 7px;border-left:3px solid #B08D44;margin-bottom:3px}
+.stt2{font-size:11px;font-weight:900;color:#5F4B18;margin:9px 0 2px}
+.sn{font-size:8.9px;color:#7E7669;line-height:1.6;margin-top:3px}
+.cal{background:#F6F1E4;border-left:3px solid #B08D44;padding:9px 10px;font-size:9.9px;line-height:1.78}
+.cal2{background:#F6F1E4;border-left:3px solid #B08D44;padding:8px 10px;margin-top:11px;font-size:10.2px}
+.mn{min-width:0}
+h2.sc{font-size:14.6px;font-weight:900;margin:0 0 7px;padding-left:15px;position:relative}
+h2.sc:before{content:'';position:absolute;left:0;top:6px;width:8px;height:8px;border-radius:50%;background:#2B2620}
+ol.pts{margin:0;padding-left:0;list-style:none;counter-reset:p}
+ol.pts li{counter-increment:p;position:relative;padding:5px 0 6px 21px;border-bottom:1px dotted #E5DECD;text-align:justify}
 ol.pts li:last-child{border-bottom:0}
-ol.pts li:before{content:counter(p);position:absolute;left:0;top:5px;width:17px;height:17px;border-radius:50%;background:#B08D44;color:#fff;font-size:9.6px;font-weight:800;text-align:center;line-height:17px}
-ol.pts .t{font-weight:900;color:#1a1a1a}
-/* 表格 */
-table.tb{width:100%;border-collapse:collapse;font-size:9.9px;margin:5px 0 3px;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;page-break-inside:avoid}
-table.tb th,table.tb td{border:1px solid #E4DCC9;padding:3.4px 6px;text-align:right;white-space:nowrap}
-table.tb thead th{background:#EFE7D5;font-weight:900;color:#5F4B18}
-table.tb th.rh{text-align:left;background:#FAF7EF;font-weight:800;color:#4A443A}
-table.tb tbody tr:nth-child(even) td{background:#FCFAF5}
-table.tb tr.me th.rh,table.tb tr.me td{background:#F3E7C9!important;font-weight:900}
-table.tb .cd{color:#9A9184;font-size:9px}
-table.kvt th.rh{width:22%}
-/* 圖 */
-figure{margin:6px 0 4px;page-break-inside:avoid}
-figure img{width:100%;border:1px solid #E4DCC9;border-radius:5px;display:block}
-figcaption{font-size:9.3px;color:#8A8073;margin-top:3px}
-.note{font-size:9.5px;color:#7A736A;line-height:1.65;margin:4px 0}
-.callout{background:#FAF7EF;border-left:3px solid #B08D44;padding:6px 9px;font-size:9.9px;margin:6px 0;page-break-inside:avoid}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-/* AI 段 */
-.ai .rpt-h1{font-size:12.4px;font-weight:900;margin:11px 0 4px;color:#20201E;border-left:3px solid #B08D44;padding-left:8px;page-break-after:avoid}
-.ai .rpt-h2{font-size:11.2px;font-weight:900;color:#7A5C1E;margin:9px 0 3px;page-break-after:avoid}
+ol.pts li:before{content:counter(p)".";position:absolute;left:2px;top:5px;font-weight:900;color:#B08D44}
+ol.pts.sm2 li{padding:3px 0 3px 21px;border-bottom:0}
+table.tb{width:100%;border-collapse:collapse;font-size:9.4px;margin:3px 0;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;page-break-inside:avoid}
+table.tb th,table.tb td{border:1px solid #DED6C3;padding:3px 5px;text-align:right;white-space:nowrap}
+table.tb thead th{background:#E8DFC8;font-weight:900;color:#4A3D14}
+table.tb th.rh{text-align:left;background:#FAF7EF;font-weight:800;color:#453F36}
+table.tb tr.hi th.rh,table.tb tr.hi td{background:#F6F1E4;font-weight:900}
+table.tb tr.me th.rh,table.tb tr.me td{background:#EBDFBE!important;font-weight:900}
+table.tb.sm{font-size:9.6px}
+table.tb .cd{color:#9A9184;font-size:8.8px}
+.up{color:#C0392B}.dn{color:#2E8B57}
+figure{margin:6px 0 3px;page-break-inside:avoid}
+figure img{width:100%;border:1px solid #DED6C3;display:block}
+figcaption{font-size:8.9px;color:#7E7669;margin-top:2.5px}
+.ai .rpt-h1{font-size:12.6px;font-weight:900;margin:9px 0 4px;padding-left:15px;position:relative}
+.ai .rpt-h1:before{content:'';position:absolute;left:0;top:5px;width:7px;height:7px;border-radius:50%;background:#2B2620}
+.ai .rpt-h2{font-size:11.4px;font-weight:900;color:#5F4B18;margin:8px 0 2px}
 .ai .rpt-p{margin:4px 0;text-align:justify}
-.ai .rpt-ol,.ai .rpt-ul{margin:4px 0 4px 17px;padding:0}
+.ai .rpt-ol,.ai .rpt-ul{margin:4px 0 4px 16px;padding:0}
 .ai .rpt-ol li,.ai .rpt-ul li{margin:3.5px 0;text-align:justify}
-/* 頁尾(Chrome 每頁重複) */
-.pfoot{position:fixed;left:0;right:0;bottom:-9mm;border-top:1px solid #E0D7C2;padding-top:3px;font-size:8.4px;color:#9A9184;display:flex;justify-content:space-between}
-.disc{margin-top:14px;border-top:1px dashed #D6CCB4;padding-top:7px;font-size:9px;color:#857D70;line-height:1.7}
+.pf{position:absolute;left:12mm;right:12mm;bottom:7mm;border-top:1px solid #E6DFCE;padding-top:4px;font-size:8.3px;color:#8C8479;display:flex;justify-content:space-between}
 @media print{.noprint{display:none!important}}
 .noprint{position:fixed;top:10px;right:10px;background:#B08D44;color:#fff;border:0;padding:10px 17px;border-radius:9px;font-size:14px;font-weight:800;cursor:pointer;z-index:99;box-shadow:0 3px 12px rgba(0,0,0,.2)}
 </style></head><body>
 <button class="noprint" onclick="window.print()">🖨 列印 / 另存 PDF</button>
-
-<div class="head">
-  <div><div class="nm">${esc(d.name)}<span>${d.id}${d.mkt==='US'?'.US':'.TW'}</span></div>
-    <div class="tag">${esc(d.sector)}${d.mkt==='US'?' · 美股':''}</div></div>
-  <div class="rt"><div class="bd">麻吉股研所</div>個股研究報告 · ${dt}<br>非投顧報告|非投資建議</div>
-</div>
-
-<div class="strip">
-  <div class="cell hl"><dt>綜合評分</dt><dd>${d.T}<span style="font-size:11px;font-weight:700;color:#8A8073"> / 100</span></dd></div>
-  <div class="cell hl"><dt>觀察評等</dt><dd class="sm">${g[0]}</dd></div>
-  <div class="cell"><dt>現價</dt><dd>${F(d.px)}</dd></div>
-  <div class="cell"><dt>今日漲跌</dt><dd class="sm ${d.chg>=0?'up':'dn'}">${P(d.chg,2)}</dd></div>
-  ${pe&&pe.curPE?`<div class="cell"><dt>本益比(近四季)</dt><dd class="sm">${pe.curPE}x</dd></div>`:''}
-  ${d.roe!=null?`<div class="cell"><dt>近四季 ROE</dt><dd class="sm">${d.roe}%</dd></div>`:''}
-  ${d.debt!=null?`<div class="cell"><dt>負債比</dt><dd class="sm">${d.debt}%</dd></div>`:''}
-</div>
-<div class="bars">${bar('基本',d.f.score??50)}${bar('籌碼',d.c.score??50)}${bar('技術',d.t.score??50)}</div>
-
-<div class="sec"><h2 class="sc">一、投資重點</h2>
-<ol class="pts">${pts.map(p=>`<li><span class="t">${p[0]}</span>——${p[1]}</li>`).join('')}</ol></div>
-
-<div class="sec"><h2 class="sc">二、公司在做什麼</h2>
-<div class="callout">${esc(d.desc||'—')}</div></div>
-
-<h2 class="sc">三、營運數據</h2>
-${mTbl?`<h3 class="sub">近 6 個月月營收</h3>${mTbl}`:''}
-${png?`<figure><img src="${png}"><figcaption>月營收(柱,億元)與月增率／年增率(線,%);資料來源:公開資訊觀測站。</figcaption></figure>`:''}
-${qTbl?`<h3 class="sub">近 8 季損益概覽</h3>${qTbl}`:''}
-
-${pe&&pe.url?`<h2 class="sc">四、評價位階:Forward PE Band</h2>
-<figure><img src="${pe.url}"><figcaption>股價(綠線)對照本益比倍數帶;倍數取自近一年評價分位,非目標價推估。</figcaption></figure>
-<div class="callout">目前本益比約 <b>${pe.curPE} 倍</b>(近四季 EPS ${pe.eps} 元)。倍數帶由下至上:${pe.mult.join('x / ')}x。落在下緣代表相對歷史便宜、上緣代表相對昂貴,須搭配獲利成長性一起看。</div>`:''}
-
-${pTbl?`<div class="sec"><h2 class="sc">${pe&&pe.url?'五':'四'}、同業比較</h2>${pTbl}
-<p class="note">同產業依近 20 日成交值取前段,本檔以底色標示;分數為站內規則化計分,非同業推薦。</p></div>`:''}
-
-<div class="sec"><h2 class="sc">${(pe&&pe.url?1:0)+(pTbl?1:0)+4}、籌碼與技術・參考劇本</h2>
-<p class="note">${esc(d.c.note||'')} ${esc(d.t.note||'')}</p>
-${plan}</div>
-
-<div class="sec"><h2 class="sc">${(pe&&pe.url?1:0)+(pTbl?1:0)+5}、追蹤檢核(什麼情況要重新評估)</h2>
-<ol class="pts">
-<li><span class="t">價位</span>——收盤跌破防守參考價位。</li>
-<li><span class="t">基本面</span>——月營收或財報轉差(YoY 轉負、三率齊降)。</li>
-<li><span class="t">籌碼</span>——大戶持股連兩週下滑,或外資投信同步賣超。</li>
-<li><span class="t">產業</span>——產業龍頭財報或財測指引轉弱。</li>
-</ol>
-<p class="note">任一項發生,回站上重看各區健檢並重新評估,不要凹單。</p></div>
-
-${aiTxt?`<h2 class="sc">${(pe&&pe.url?1:0)+(pTbl?1:0)+6}、深度研究敘事(AI 彙整・含新聞查證)</h2><div class="ai">${rptMD(aiTxt)}</div>`:''}
-
-<div class="disc"><b>免責聲明</b>|本報告由「麻吉股研所」個人研究工具自動彙整產生。資料來源:台灣證券交易所、櫃買中心、集保結算所、公開資訊觀測站、SEC EDGAR 等公開資訊,以及 AI 對公開新聞的整理。所有內容為規則化計算與觀點討論,<b>不構成任何投資建議,亦不提供目標價與買賣評等</b>;數據可能存在延遲或誤差,投資決策前請自行查證並詳閱公開說明書。投資有風險,盈虧自負。產生時間:${dt}</div>
-<div class="pfoot"><span>麻吉股研所 · ${esc(d.name)}(${d.id})研究報告</span><span>${dt} · 非投資建議</span></div>
-<script>setTimeout(function(){try{window.print()}catch(e){}},800)<\/script>
+${pgs.map((p,i)=>`<section class="pg">
+  <div class="wm">麻吉股研所</div>
+  <div class="ph"><div><div class="lg">麻吉股研所</div>${dt}<br>個人研究工具 · 非投顧報告</div></div>
+  ${p.cover?`<div class="cvr"><div class="nm">${esc(d.name)}<span>(${d.id}${d.mkt==='US'?'.US':'.TW'})</span></div>
+    <div class="hl">${esc(headline)}</div></div>`:''}
+  <div class="bd"><aside>${p.side}</aside><div class="mn">${p.main}</div></div>
+  <div class="pf"><span>麻吉股研所|${esc(d.name)}(${d.id})研究報告|資料來源:證交所・櫃買・集保・公開資訊觀測站・SEC EDGAR</span><span>${dt}|不構成投資建議,不提供目標價|${i+1} / ${pgs.length}</span></div>
+</section>`).join('')}
+<script>setTimeout(function(){try{window.print()}catch(e){}},900)<\/script>
 </body></html>`);
     w.document.close();
   }catch(err){alert('PDF 產生失敗:'+(err&&err.message||err));}
