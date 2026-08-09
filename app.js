@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r561 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r562 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r561</span>');
+  diag.push('<span style="color:var(--dim)">build r562</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2980,6 +2980,67 @@ async function applyUsfAll(){   // r551:usf 到貨後,一次替「全部美股�
 }
 setTimeout(applyUsfAll,2500);
 setInterval(()=>{if(!__usfApplied)applyUsfAll();},30000);   // data.json 較晚到貨時自動補套
+/* ══ 📑 r562 個股研究報告:站內即席版(規則化彙整)+ AI 深度版(Gemini+搜尋查證);全程非投顧、不給目標價 ══ */
+function rptGrade(T){return T>=75?['正向觀察','var(--up)']:T>=60?['中性偏多','var(--up)']:T>=45?['中性','var(--txt2)']:['保守觀察','var(--down)'];}
+async function rptData(s){
+  const d={id:s.id,name:s.name,px:s.price,chg:s.chg,mkt:s.market,sector:(s.sector||'').replace(/^美股·/,'')};
+  d.T=(typeof total==='function')?total(s):Math.round(((s.t||{}).score||50)*.3+((s.f||{}).score||50)*.4+((s.c||{}).score||50)*.3);
+  d.t=s.t||{},d.f=s.f||{},d.c=s.c||{},d.al=s.al||null;
+  try{const cd=await coDescData();d.desc=(cd&&cd[String(s.id).toUpperCase()])||'';}catch(e){d.desc='';}
+  if(s.market==='US'){try{const u=await usfData();const e=u&&u.s&&u.s[String(s.id).toUpperCase()];
+    if(e&&e.q&&e.q.length>=4)d.usf=usfCalc(e);}catch(e){}}
+  return d;
+}
+function rptKV(kv){return Object.entries(kv||{}).map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');}
+function rptHTML(d){
+  const g=rptGrade(d.T),F=v=>(+v).toLocaleString();
+  const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const dt=`${today.getFullYear()}/${today.getMonth()+1}/${today.getDate()}`;
+  const plan=d.al&&d.al.z1?`<div class="kv">${rptKV({'回檔參考承接區':`${F(d.al.z0)} ~ ${F(d.al.z1)}`,'防守參考(跌破檢討)':F(d.al.stop),'近20日高(突破觀察)':F(d.al.h20),'趨勢狀態':d.al.bull?'多方結構':'非多方結構'})}</div>`
+    :'<div class="dim-note">目前不符合劇本條件(非多方結構或評分不足),以觀察為主。</div>';
+  return `<div class="dim-block" style="border-left:4px solid var(--amber)">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:baseline">
+      <h3 style="font-size:17px">📑 ${d.name}(${d.id})站內研究報告 <span class="ds">${dt}</span></h3>
+      <b style="color:${g[1]};font-size:15px">綜合 ${d.T} 分・${g[0]}</b></div>
+    <div class="dim-note" style="margin:4px 0 10px">現價 ${F(d.px)}(${d.chg>0?'+':''}${(+d.chg).toFixed(2)}%)・${d.sector}${d.mkt==='US'?'・美股':''}。<b>本報告為站內公開資料的規則化彙整,非投顧報告、非投資建議,不提供目標價。</b></div>
+    <h3>一、公司在做什麼</h3><div class="dim-note">${d.desc||'見「認識這家公司」區。'}</div>
+    <h3 style="margin-top:10px">二、基本面(權重40%・${(d.f.score??50)} 分)</h3>
+    <div class="kv">${rptKV(d.f.kv)}</div><div class="dim-note">${d.f.note||''}</div>
+    <h3 style="margin-top:10px">三、籌碼面(權重30%・${(d.c.score??50)} 分)</h3>
+    <div class="kv">${rptKV(d.c.kv)}</div><div class="dim-note">${d.c.note||''}${d.mkt==='TW'?' 詳細訊號見「籌碼健檢」。':''}</div>
+    <h3 style="margin-top:10px">四、技術面與參考劇本(權重30%・${(d.t.score??50)} 分)</h3>
+    <div class="kv">${rptKV(d.t.kv)}</div><div class="dim-note">${d.t.note||''}</div>${plan}
+    <h3 style="margin-top:10px">五、追蹤檢核(什麼情況要重新評估)</h3>
+    <div class="dim-note">① 收盤跌破防守價位;② 月營收/財報轉差(YoY 轉負或三率齊降);③ 大戶持股連兩週下滑或土洋同賣;④ 產業龍頭財報/指引轉弱。任一發生就回站上重看各區健檢,不要凹單。</div>
+    <div class="dim-note" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:6px">資料來源:證交所/櫃買/集保/SEC EDGAR 等公開資料的站內彙整;評分為規則化計算,非任何形式之投資建議。</div>
+  </div>`;
+}
+function rptPlain(d){   // 複製用純文字
+  const g=rptGrade(d.T);
+  const kv=o=>Object.entries(o||{}).map(([k,v])=>`  ${k}:${v}`).join('\n');
+  return `【${d.name}(${d.id})站內研究報告】綜合 ${d.T} 分・${g[0]}\n現價 ${d.px}(${d.chg>0?'+':''}${d.chg}%)\n※ 非投顧報告、非投資建議\n\n一、公司在做什麼\n${d.desc}\n\n二、基本面(${d.f.score??50}分)\n${kv(d.f.kv)}\n${d.f.note||''}\n\n三、籌碼面(${d.c.score??50}分)\n${kv(d.c.kv)}\n${d.c.note||''}\n\n四、技術面(${d.t.score??50}分)\n${kv(d.t.kv)}\n${d.t.note||''}${d.al&&d.al.z1?`\n  參考承接區:${d.al.z0}~${d.al.z1}/防守:${d.al.stop}/20日高:${d.al.h20}`:''}\n\n(站內公開資料規則化彙整)`;
+}
+async function rptRun(s,mode){
+  const box=document.getElementById('rptBox');if(!box)return;
+  box.innerHTML='<div class="dim-note">⏳ 產生中…</div>';
+  try{
+    const d=await rptData(s);
+    if(mode==='quick'){
+      box.innerHTML=rptHTML(d);
+    }else{
+      box.innerHTML=rptHTML(d)+'<div class="dim-block" id="rptAiBlk" style="border-left:4px solid #6FA8DC;margin-top:10px"><h3>🤖 AI 深度敘事</h3><div class="dim-note">⏳ AI 產生中(含最新新聞查證,約 15~30 秒)…</div></div>';
+      try{await gemAutoKey();}catch(e){}
+      const p=`你是台灣投資研究助理。以下是「${d.name}(${d.id})」的站內量化彙整:綜合${d.T}分;基本面:${JSON.stringify(d.f.kv)}(${d.f.note});籌碼:${JSON.stringify(d.c.kv)};技術:${JSON.stringify(d.t.note)};公司簡介:${d.desc}。
+請用繁體中文寫「深度研究敘事」四段,各 120~200 字:①成長動能與產業地位(結合最新新聞、訂單/產品進展,標注時間);②近期市場關注焦點與催化劑;③主要風險(至少3點,具體);④綜合觀點(多空並陳,說「哪些條件成立會更好/更壞」)。
+規則:可搜尋最新新聞並註明日期;絕對不要給目標價或買賣建議;結尾加一行「以上為資料整理與觀點討論,非投資建議」。`;
+      const txt=await gaAiOnce(p,null,false,3000);
+      const blk=document.getElementById('rptAiBlk');
+      if(blk)blk.innerHTML='<h3>🤖 AI 深度敘事 <span class="ds">Gemini+即時新聞查證</span></h3><div class="dim-note" style="white-space:pre-wrap;line-height:1.8">'+txt.replace(/</g,'&lt;').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')+'</div>';
+    }
+    const cp=document.getElementById('rptCopy');
+    if(cp){cp.style.display='';cp.onclick=()=>{try{navigator.clipboard.writeText(rptPlain(d)+(document.getElementById('rptAiBlk')?'\n\n'+(document.getElementById('rptAiBlk').textContent||''):''));cp.textContent='✅ 已複製';setTimeout(()=>cp.textContent='📋 複製全文',1500);}catch(e){}};}
+  }catch(err){box.innerHTML='<div class="dim-note">⚠ 產生失敗:'+String(err&&err.message||err).slice(0,120)+'</div>';}
+}
 async function usFundBlock(s){                        // 📊 r530:美股財報速覽——近8季營收/EPS/三率(對標台股季報區)
   const box=document.getElementById('usFundBox');
   if(!box||!s||s.market!=='US'||s.etf)return;
@@ -10173,6 +10234,14 @@ async function showDetail(id){
       </div>
     </div>
     </div>
+    ${s.etf?``:`<div class="sec-title" data-sec="stk_rpt">📑 個股研究報告 <span style="font-weight:400;font-size:13px;letter-spacing:0">站內即席彙整+AI 深度敘事・非投顧報告</span></div><div class="sec-body" id="sb-stk_rpt">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn" id="rptQuick">⚡ 產生即席報告(站內資料)</button>
+        <button class="btn" id="rptAI">🤖 AI 深度版(查最新新聞)</button>
+        <button class="btn" id="rptCopy" style="display:none">📋 複製全文</button>
+      </div>
+      <div id="rptBox"></div>
+    </div>`}
     ${s.etf?``:`<div class="sec-title" data-sec="stk_p">🏢 認識這家公司 <span style="font-weight:400;font-size:13px;letter-spacing:0">公司簡介・產業教學・外部連結</span></div><div class="sec-body" id="sb-stk_p">
     ${(()=>{const lm=SEC2LEARN.find(([k])=>String(s.sector).includes(k));return `
     <div class="dim-block" id="profBlock">
@@ -10266,6 +10335,9 @@ async function showDetail(id){
   });}catch(e){}
   try{usEarnBlock(s);}catch(e){}
   try{usFundBlock(s);}catch(e){}   // r530:美股財報速覽(SEC XBRL)
+  try{const q=document.getElementById('rptQuick'),a=document.getElementById('rptAI');   // r562:研究報告
+    if(q)q.onclick=()=>rptRun(s,'quick');
+    if(a)a.onclick=()=>rptRun(s,'ai');}catch(e){}
   try{buildJumpBar(document.getElementById('detailView'));}catch(e){}
   loadAnalystDetail(s);
   loadChipDetail(s);
