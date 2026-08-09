@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r564 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r568 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r564</span>');
+  diag.push('<span style="color:var(--dim)">build r568</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5644,7 +5644,7 @@ async function gemAutoKey(){                 // r495:🤖 比照富果——Work
       try{const r=await fetch(h+'/gk',{cache:'no-store'});
         if(r&&r.ok){j=await r.json();break;}}catch(e){}
     }
-    if(j&&j.k&&j.k.length>20){
+    if(j&&j.k&&j.k.length>20){   // r567:金鑰不落地 repo(GitHub 掃描會擋+Google 會自動撤銷公開金鑰)——由 Worker /gk 或 ⚙ 設定供鑰
       AI.keys.gemini=j.k;AI.prov='gemini';
       try{localStorage.setItem('ai_prov','gemini');
           localStorage.setItem('ai_key_gemini',j.k);}catch(e){}
@@ -12882,7 +12882,7 @@ async function gaAiOnce(prompt,parts,noTools,maxTok){     // 單次生成(不開
   if(/2\.5|2\.0/.test(model))body.generationConfig.thinkingConfig={thinkingBudget:0};  // 關思考:不然思考吃掉輸出額度會斷頭
   if(!noTools)body.tools=[{google_search:{}}];
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
-    {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    {method:'POST',headers:{'content-type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)});   // r566:新版 AQ. 金鑰用標頭帶,舊版 AIza 兩式皆通
   if(!r.ok){let m='';try{const j=await r.json();m=(j.error&&j.error.message)||'';}catch(e){}
     throw new Error(r.status+(m?':'+m.slice(0,120):''));}
   const j=await r.json();
