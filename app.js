@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r572 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r573 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r572</span>');
+  diag.push('<span style="color:var(--dim)">build r573</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3153,6 +3153,113 @@ async function rptChartPNG(d){   // r570:月營收柱+MoM/YoY 雙線(仿券商�
     const url=ch.getDataURL({pixelRatio:2,backgroundColor:'#fff'});
     ch.dispose();host.remove();
     return url;
+  }catch(e){return '';}
+}
+function rptEpsSeries(d){   // r573:季度 TTM EPS 序列(台股:淨利=營收×淨利率,股數=實收資本額/10;美股:usf 直接有 eps)
+  try{
+    const e=d.e||{};
+    if(d.mkt==='US'&&d.usfRaw&&Array.isArray(d.usfRaw.q)){
+      const q=d.usfRaw.q,ep=d.usfRaw.eps||[],out=[];
+      for(let i=3;i<q.length;i++){
+        const w=ep.slice(i-3,i+1);
+        if(w.some(v=>v==null))continue;
+        out.push({q:q[i],eps:+w.reduce((a,b)=>a+b,0).toFixed(2)});
+      }
+      return out;
+    }
+    if(!Array.isArray(e.fq)||!Array.isArray(e.qr)||!Array.isArray(e.nm)||!d.shares)return [];
+    const out=[];
+    for(let i=3;i<e.fq.length;i++){
+      let ni=0,ok=true;
+      for(let j=i-3;j<=i;j++){
+        if(e.qr[j]==null||e.nm[j]==null){ok=false;break;}
+        ni+=e.qr[j]*e.nm[j]/100;
+      }
+      if(!ok)continue;
+      out.push({q:e.fq[i],eps:+(ni/d.shares).toFixed(2)});
+    }
+    return out;
+  }catch(err){return [];}
+}
+function rptPEOption(d,forPrint){   // r573:Forward PE Band 河流圖
+  const k=d.k;
+  const eps=rptEpsSeries(d);
+  if(!k||!k.d||k.d.length<60||eps.length<2)return null;
+  const qEnd=q=>{const y=2000+ +q.slice(0,2),s=+q.slice(3);return new Date(y,s*3,0).getTime();};
+  const pts=eps.map(x=>({t:qEnd(x.q),e:x.eps})).sort((a,b)=>a.t-b.t);
+  const epsAt=ts=>{
+    if(ts<=pts[0].t)return pts[0].e;
+    if(ts>=pts[pts.length-1].t)return pts[pts.length-1].e;
+    for(let i=1;i<pts.length;i++){
+      if(ts<=pts[i].t){const a=pts[i-1],b=pts[i];return a.e+(b.e-a.e)*((ts-a.t)/(b.t-a.t));}
+    }
+    return pts[pts.length-1].e;
+  };
+  const dates=k.d,closes=k.o.map(x=>x[3]);
+  const peSer=[];
+  dates.forEach((ds,i)=>{const ep=epsAt(Date.parse(ds));if(ep>0)peSer.push(closes[i]/ep);});
+  if(peSer.length<40)return null;
+  const sorted=peSer.slice().sort((a,b)=>a-b);
+  const qt=p=>sorted[Math.min(sorted.length-1,Math.max(0,Math.round((sorted.length-1)*p)))];
+  const mult=[qt(.05),qt(.275),qt(.5),qt(.725),qt(.95)].map(v=>+v.toFixed(1));
+  const bandCol=['#C9A227','#D4B24C','#DFC271','#E9D296','#F2E2BB'];
+  const series=mult.map((m,i)=>({name:m+'x',type:'line',symbol:'none',
+    lineStyle:{width:1.4,color:bandCol[i]},itemStyle:{color:bandCol[i]},
+    data:dates.map(ds=>+(epsAt(Date.parse(ds))*m).toFixed(1)),
+    endLabel:{show:true,formatter:m+'x',fontSize:10,color:'#8A6D1F'}}));
+  series.push({name:'股價',type:'line',symbol:'none',z:5,
+    lineStyle:{width:2,color:'#2E8B57'},itemStyle:{color:'#2E8B57'},data:closes});
+  const curPE=+(closes[closes.length-1]/epsAt(Date.parse(dates[dates.length-1]))).toFixed(1);
+  return {opt:{backgroundColor:forPrint?'#fff':'transparent',animation:false,
+      title:{text:'Forward PE Band(本益比河流圖)',left:'center',top:2,
+        textStyle:{fontSize:13,fontWeight:800,color:forPrint?'#333':((window.CT&&CT.legend)||'#888')}},
+      tooltip:{trigger:'axis',confine:true},
+      grid:{left:56,right:52,top:34,bottom:40},
+      xAxis:{type:'category',data:dates,axisLabel:{fontSize:9.5,color:forPrint?'#555':'#999'}},
+      yAxis:{type:'value',scale:true,axisLabel:{fontSize:9.5,color:forPrint?'#555':'#999'},splitLine:{lineStyle:{color:forPrint?'#eee':'rgba(150,150,150,.15)'}}},
+      series},
+    mult,curPE,eps:pts[pts.length-1].e};
+}
+async function rptPEPNG(d){
+  try{
+    const r=rptPEOption(d,true);if(!r)return '';
+    try{await ensureECharts();}catch(x){}
+    if(!window.echarts)return '';
+    const host=document.createElement('div');
+    host.style.cssText='position:fixed;left:-9999px;top:0;width:900px;height:400px';
+    document.body.appendChild(host);
+    const ch=echarts.init(host,null,{renderer:'canvas'});
+    ch.setOption(r.opt);
+    await new Promise(x=>setTimeout(x,300));
+    const url=ch.getDataURL({pixelRatio:2,backgroundColor:'#fff'});
+    ch.dispose();host.remove();
+    return {url,mult:r.mult,curPE:r.curPE,eps:r.eps};
+  }catch(e){return '';}
+}
+function rptPeers(d){   // r573:同業比較表(同產業依成交值取前段;本檔高亮)
+  try{
+    if(!DATA||!DATA.stocks)return '';
+    const sec=String(d.rawSector||d.sector).replace(/^美股·/,'');
+    const pool=DATA.stocks.filter(x=>!x.etf&&x.market===d.mkt&&(x.sector||'').replace(/^美股·/,'')===sec&&x.price>0);
+    if(pool.length<3)return '';
+    const w=x=>((x.al&&x.al.v20)||0)*(x.price||0);
+    const top=pool.slice().sort((a,b)=>w(b)-w(a)).slice(0,7);
+    if(!top.some(x=>x.id===d.id)){const me=pool.find(x=>x.id===d.id);if(me){top.pop();top.push(me);}}
+    const T=x=>(typeof total==='function')?total(x):Math.round(((x.t||{}).score||50)*.3+((x.f||{}).score||50)*.4+((x.c||{}).score||50)*.3);
+    const yoyOf=x=>((x.f||{}).kv||{})['月營收YoY']||((x.f||{}).kv||{})['營收YoY(季)']||'—';
+    const rows=top.map(x=>{
+      const me=x.id===d.id;
+      return `<tr${me?' style="background:rgba(176,141,68,.16);font-weight:800"':''}>
+        <td style="text-align:left">${x.name}<span style="color:var(--dim);font-size:10px"> ${x.id}</span>${me?' ◀':''}</td>
+        <td>${(+x.price).toLocaleString()}</td>
+        <td class="${x.chg>=0?'pos':'neg'}">${x.chg>0?'+':''}${(+x.chg).toFixed(2)}%</td>
+        <td>${T(x)}</td><td>${(x.f||{}).score??50}</td><td>${(x.c||{}).score??50}</td><td>${(x.t||{}).score??50}</td>
+        <td>${yoyOf(x)}</td></tr>`;
+    }).join('');
+    return `<div style="overflow-x:auto;margin:8px 0"><table class="rpt-tbl" style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);text-align:right">
+      <tr style="border-bottom:1.5px solid var(--line)"><th style="text-align:left">同業(${sec})</th><th>現價</th><th>漲跌</th><th>綜合</th><th>基本</th><th>籌碼</th><th>技術</th><th>營收YoY</th></tr>
+      ${rows}</table></div>
+      <div class="dim-note">同產業依近 20 日成交值取前段;分數為站內規則化計分,非同業推薦。</div>`;
   }catch(e){return '';}
 }
 async function rptPDF(s){   // r572:專屬印刷版排版(不再倒站內 HTML,改由資料重新排版)
