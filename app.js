@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r578 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r579 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r578</span>');
+  diag.push('<span style="color:var(--dim)">build r579</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7196,6 +7196,74 @@ function alertCheck(s,m,last){
 }
 /* 後端尚未提供 al 時,背景載入 K 線分片自行計算(僅盤中執行一次) */
 let AL_SEEDED=false;
+/* ══ 🌊 r579 戰法:外資連買 + 財報持續成長 + 有未來性 ══
+   三道關卡缺一不可:
+     ① 籌碼:外資連續買超 ≥3 日(且近5日累積為正,排除「買1張也算」的假連買)
+     ② 財報:月營收 YoY 連 3 個月為正 或 三率三升;且最新月 YoY > 0
+     ③ 未來性:futureOK(基本面 75+ / 成長產業 60+ / 有投資論述)
+   掃 c/tw*.json 籌碼分片,結果進 window.__FGO 供雷達顯示。*/
+let FGO_SEEDED=false, FGO_TS=0;
+async function fgoSeed(force){
+  try{
+    if(!DATA||DATA.source!=='live')return;
+    if(!force&&FGO_SEEDED&&Date.now()-FGO_TS<15*60*1000)return;
+    FGO_SEEDED=true;FGO_TS=Date.now();
+    const cand=(DATA.stocks||[]).filter(s=>s.market==='TW'&&!s.etf&&s.price>0&&futureOK(s));
+    if(!cand.length){window.__FGO=[];return;}
+    const out=[];
+    for(let d=0;d<10;d++){
+      const grp=cand.filter(s=>s.id[0]===String(d));
+      if(!grp.length)continue;
+      const sh=`c/tw${d}.json`;
+      if(!(sh in CCACHE)){
+        try{const r=await fT(sh+'?v='+kv(),12000);CCACHE[sh]=r.ok?await r.json():{};}
+        catch(e){CCACHE[sh]={};}
+      }
+      grp.forEach(s=>{
+        const e=CCACHE[sh][s.id];
+        if(!e||!Array.isArray(e.f)||e.f.length<5)return;
+        // ① 外資連買
+        let run=0;
+        for(let i=e.f.length-1;i>=0;i--){if((e.f[i]||0)>0)run++;else break;}
+        if(run<3)return;
+        const sum5=e.f.slice(-5).reduce((a,b)=>a+(b||0),0);
+        const sumRun=e.f.slice(-run).reduce((a,b)=>a+(b||0),0);
+        if(sum5<=0||sumRun<100)return;                       // 連買量太小(<100張)不算
+        // ② 財報持續成長
+        const ry=Array.isArray(e.ry)?e.ry:[];
+        let posM=0;
+        for(let i=ry.length-1;i>=0;i--){if(ry[i]>0)posM++;else break;}
+        const latestY=ry.length?ry[ry.length-1]:null;
+        const n=(e.fq||[]).length-1;
+        const rise=a=>Array.isArray(a)&&n>=1&&a[n]!=null&&a[n-1]!=null&&a[n]>a[n-1];
+        const t3=rise(e.gm)&&rise(e.om)&&rise(e.nm);
+        const revOK=(posM>=3)||(t3&&latestY!=null&&latestY>0);
+        if(!revOK)return;
+        if(latestY!=null&&latestY<=0)return;                 // 最新月轉負一律排除
+        // ③ 投信同買加分
+        let trun=0;
+        if(Array.isArray(e.t)){for(let i=e.t.length-1;i>=0;i--){if((e.t[i]||0)>0)trun++;else break;}}
+        const tSum5=Array.isArray(e.t)?e.t.slice(-5).reduce((a,b)=>a+(b||0),0):0;
+        const bp=Array.isArray(e.bp)?e.bp:[];
+        const bw4=bp.length>4?+(bp[bp.length-1]-bp[bp.length-5]).toFixed(2):null;
+        const tags=[];
+        if(trun>=2||tSum5>0)tags.push('投信同買');
+        if(t3)tags.push('三率三升');
+        if(bw4!=null&&bw4>=0.3)tags.push(`大戶四週 +${bw4}pp`);
+        if(s.thesis)tags.push('有投資論述');
+        out.push({id:s.id,run,sumRun:Math.round(sumRun),sum5:Math.round(sum5),
+          posM,latestY:latestY!=null?+(+latestY).toFixed(1):null,t3,tags,
+          score:run*10+(t3?25:0)+(posM>=3?posM*4:0)+(tags.includes('投信同買')?15:0)+(total(s)||0)*0.4});
+      });
+      await new Promise(r=>setTimeout(r,400));
+    }
+    out.sort((a,b)=>b.score-a.score);
+    window.__FGO=out;
+    try{if(typeof renderRadar==='function')renderRadar();}catch(e2){}
+  }catch(err){window.__FGO=window.__FGO||[];}
+}
+setTimeout(()=>fgoSeed(),12000);
+setInterval(()=>fgoSeed(),15*60*1000);
 async function alSeed(){
   if(AL_SEEDED||!DATA||DATA.source!=='live')return;
   const need=(DATA.stocks||[]).filter(s=>s.market==='TW'&&!s.al&&(total(s)>=66||s.thesis));
@@ -11351,6 +11419,7 @@ const STRATS=[
   ['left','◀ 左側·價值回檔'],
   ['right','▶ 右側·動能突破'],
   ['t3','📈 營收三率三升'],
+  ['fgo','🌊 外資連買·成長股'],
   ['price','🔥 漲價/缺料'],
   ['theme','🧠 潛在漲價(研究)'],
 ];
@@ -11426,6 +11495,15 @@ function radarItems(){
     if(!s||!t)return;
     push(s,{type:'t3',label:'三率三升 '+t.q,
       desc:`毛 ${arrow(t.gm[0],t.gm[1])} · 營益 ${arrow(t.om[0],t.om[1])} · 淨利 ${arrow(t.nm[0],t.nm[1])}${t.ry!=null?` · 月營收 ${t.ry>0?'+':''}${t.ry}%`:''}`});
+  });
+  // 🌊 外資連買·成長股(三關:外資連買 + 財報成長 + 未來性)
+  (window.__FGO||[]).forEach(x=>{
+    const s=byId[x.id];
+    if(!s)return;
+    push(s,{type:'fgo',label:`🌊 外資連買 ${x.run} 日`,
+      desc:`外資連 ${x.run} 日買超(累計 ${x.sumRun.toLocaleString()} 張、近5日 ${x.sum5>0?'+':''}${x.sum5.toLocaleString()} 張)`
+        +`${x.posM>=3?` · 月營收 YoY 連 ${x.posM} 月正成長`:''}${x.latestY!=null?`(最新 ${x.latestY>0?'+':''}${x.latestY}%)`:''}`
+        +`${x.tags.length?` · ${x.tags.join('/')}`:''}——籌碼+成長+未來性三關通過`});
   });
   // 🐢 海龜突破(瀏覽器背景掃描 K 線分片計算,結果陸續進場)
   (window.__TURTLE||[]).forEach(x=>{
