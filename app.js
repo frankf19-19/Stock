@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r576 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r578 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r576</span>');
+  diag.push('<span style="color:var(--dim)">build r578</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3159,6 +3159,138 @@ async function rptChartPNG(d){   // r570:月營收柱+MoM/YoY 雙線(仿券商�
     ch.dispose();host.remove();
     return url;
   }catch(e){return '';}
+}
+/* ══ 🎯 r577 主力帶動力分析:外資 vs 投信 vs 自營,誰真的帶得動這檔股價 ══ */
+function drvAnalyze(s,e,k){
+  try{
+    if(!e||!Array.isArray(e.d)||!Array.isArray(e.f)||!k||!k.d)return null;
+    const kmap={};k.d.forEach((d,i)=>kmap[d]=i);
+    const F=[],T=[],G=[],R=[],R1=[],DT=[];
+    e.d.forEach((d,i)=>{
+      const j=kmap[d];
+      if(j==null||j===0||!k.o[j]||!k.o[j-1])return;
+      const r=(k.o[j][3]/k.o[j-1][3]-1)*100;
+      const r1=(j+1<k.o.length)?(k.o[j+1][3]/k.o[j][3]-1)*100:null;
+      F.push(e.f[i]||0);T.push(e.t[i]||0);G.push((e.g||[])[i]||0);
+      R.push(r);R1.push(r1);DT.push(d);
+    });
+    const n=R.length;
+    if(n<40)return null;
+    const corr=(xs,ys)=>{
+      const v=[],w=[];
+      xs.forEach((x,i)=>{if(ys[i]!=null){v.push(x);w.push(ys[i]);}});
+      const m=v.length;if(m<20)return 0;
+      const mx=v.reduce((a,b)=>a+b,0)/m,my=w.reduce((a,b)=>a+b,0)/m;
+      const sx=Math.sqrt(v.reduce((a,x)=>a+(x-mx)**2,0)/m),sy=Math.sqrt(w.reduce((a,y)=>a+(y-my)**2,0)/m);
+      if(!sx||!sy)return 0;
+      return +(v.reduce((a,x,i)=>a+(x-mx)*(w[i]-my),0)/(m*sx*sy)).toFixed(3);
+    };
+    const stat=X=>{
+      const c0=corr(X,R),c1=corr(X,R1);
+      const idx=X.map((v,i)=>i);
+      const cut=Math.max(3,Math.round(n*0.2));
+      const buyIdx=idx.slice().sort((a,b)=>X[b]-X[a]).slice(0,cut);
+      const sellIdx=idx.slice().sort((a,b)=>X[a]-X[b]).slice(0,cut);
+      const avg=(ix,arr)=>{const v=ix.map(i=>arr[i]).filter(x=>x!=null);return v.length?+(v.reduce((a,b)=>a+b,0)/v.length).toFixed(2):null;};
+      const win=ix=>{const v=ix.map(i=>R[i]).filter(x=>x!=null);return v.length?Math.round(100*v.filter(x=>x>0).length/v.length):null;};
+      // 連買 3 日以上後的 5 日報酬
+      let stk=0,after=[];
+      X.forEach((v,i)=>{
+        if(v>0)stk++;else stk=0;
+        if(stk===3&&i+5<n){const a=k.o?null:null;}
+      });
+      let s3=[];
+      for(let i=2;i<n-5;i++){
+        if(X[i]>0&&X[i-1]>0&&X[i-2]>0){
+          let acc=0;for(let j2=1;j2<=5;j2++)if(R[i+j2]!=null)acc+=R[i+j2];
+          s3.push(acc);
+        }
+      }
+      return {c0,c1,
+        buyNext:avg(buyIdx,R1),sellNext:avg(sellIdx,R1),
+        buySame:avg(buyIdx,R),sellSame:avg(sellIdx,R),
+        buyWin:win(buyIdx),
+        streak:s3.length>=3?+(s3.reduce((a,b)=>a+b,0)/s3.length).toFixed(2):null,streakN:s3.length,
+        tot20:Math.round(X.slice(-20).reduce((a,b)=>a+b,0)),tot5:Math.round(X.slice(-5).reduce((a,b)=>a+b,0))};
+    };
+    const sf=stat(F),st_=stat(T),sg=stat(G);
+    // 組合情境
+    const comb=(cond)=>{
+      const ix=[];for(let i=0;i<n;i++)if(cond(F[i],T[i]))ix.push(i);
+      if(ix.length<5)return null;
+      const v=ix.map(i=>R[i]);
+      return {n:ix.length,same:+(v.reduce((a,b)=>a+b,0)/v.length).toFixed(2),
+        win:Math.round(100*v.filter(x=>x>0).length/v.length)};
+    };
+    const both=comb((f,t)=>f>0&&t>0), onlyF=comb((f,t)=>f>0&&t<=0), onlyT=comb((f,t)=>t>0&&f<=0), neither=comb((f,t)=>f<=0&&t<=0);
+    // r577:主導判定——主結論只比「外資 vs 投信」(自營商多為避險/造市單,跟價而非帶價,列為附註)
+    const score=x=>Math.abs(x.c0)*0.6+Math.abs(x.c1)*0.4;
+    const rank=[['外資',sf,score(sf)],['投信',st_,score(st_)]].sort((a,b)=>b[2]-a[2]);
+    const dealerNote=score(sg)>Math.max(score(sf),score(st_))*1.05;
+    return {n,sf,st:st_,sg,both,onlyF,onlyT,neither,rank,dealerNote,from:DT[0],to:DT[n-1]};
+  }catch(err){return null;}
+}
+function drvHTML(a,s){
+  if(!a)return '<div class="dim-note">此檔的法人日資料或K線不足(需 40 個交易日以上),無法進行帶動力分析。</div>';
+  const P=(v,dg)=>v==null?'—':((v>0?'+':'')+(+v).toFixed(dg==null?2:dg)+'%');
+  const lead=a.rank[0],second=a.rank[1];
+  const gap=lead[2]-second[2];
+  const strength=x=>{const c=Math.abs(x.c0);return c>=.45?'強':c>=.3?'中等':c>=.15?'偏弱':'幾乎無';};
+  // 明確方向結論
+  let verdict='',how='';
+  if(lead[2]<0.12){
+    verdict=`<b>這檔沒有明顯的法人帶動效應</b>——三大法人的買賣超與股價幾乎不同步(最高僅 ${lead[1].c0}),股價更可能由散戶情緒、隔日沖或消息面主導。`;
+    how='籌碼面在這檔的參考價值低,建議以技術面(均線、量價)與基本面為主,不要用法人動向當進出依據。';
+  }else if(gap<0.06){
+    verdict=`<b>${lead[0]}與${second[0]}影響力接近(${lead[1].c0} vs ${second[1].c0}),要「同時看」</b>——單看一方容易誤判。`;
+    how=`實務做法:兩者<b>同向</b>時訊號才算數(本檔土洋同買日平均 ${a.both?P(a.both.same):'—'}、勝率 ${a.both?a.both.win+'%':'—'});方向相反時視為雜訊、觀望。`;
+  }else{
+    verdict=`<b>這檔主要看「${lead[0]}」</b>——${lead[0]}買賣超與當日股價的相關度 ${lead[1].c0}(${strength(lead[1])}),明顯高於${second[0]}的 ${second[1].c0}。`;
+    how=`實務做法:把<b>${lead[0]}</b>的動向當主訊號;${second[0]}當輔助確認。`;
+  }
+  const dNote=a.dealerNote?`<div class="dim-note" style="margin:4px 0">附註:本檔<b>自營商</b>的同步性(${a.sg.c0})甚至高於外資與投信,但自營多為避險、造市與權證對沖單,通常是<b>跟著價格走而非帶動價格</b>,不建議當進出訊號;若你看到自營大買,先確認是否伴隨外資或投信同向。</div>`:'';
+  const row=(nm,x,hl)=>`<tr${hl?' style="background:rgba(176,141,68,.14);font-weight:800"':''}>
+    <td style="text-align:left">${nm}${hl?' ◀ 主導':''}</td>
+    <td>${x.c0}</td><td>${x.c1}</td>
+    <td class="${x.buySame>=0?'pos':'neg'}">${P(x.buySame)}</td>
+    <td class="${x.buyNext>=0?'pos':'neg'}">${P(x.buyNext)}</td>
+    <td>${x.buyWin!=null?x.buyWin+'%':'—'}</td>
+    <td class="${(x.streak||0)>=0?'pos':'neg'}">${x.streak!=null?P(x.streak):'—'}</td></tr>`;
+  const cRow=(nm,c,note)=>c?`<tr><td style="text-align:left">${nm}<span style="color:var(--dim);font-size:11px"> ${c.n}天</span></td>
+    <td class="${c.same>=0?'pos':'neg'}">${P(c.same)}</td><td>${c.win}%</td><td style="text-align:left;font-size:11.5px;color:var(--txt2)">${note}</td></tr>`:'';
+  return `<div class="dim-block" style="border-left:4px solid var(--amber)">
+    <h3>🎯 主力帶動力分析 <span class="ds">近 ${a.n} 個交易日(${a.from}~${a.to})</span></h3>
+    <div style="margin:6px 0 8px;line-height:1.8">${verdict}<br>${how}</div>${dNote}
+    <div style="overflow-x:auto"><table class="rpt-tbl" style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);text-align:right">
+      <tr style="border-bottom:1.5px solid var(--line)">
+        <th style="text-align:left">法人</th><th>當日相關</th><th>隔日相關</th><th>大買日當天</th><th>大買日隔天</th><th>大買日勝率</th><th>連買3日後5日</th></tr>
+      ${row('外資',a.sf,a.rank[0][0]==='外資')}
+      ${row('投信',a.st,a.rank[0][0]==='投信')}
+      ${row('自營商(參考)',a.sg,false)}
+    </table></div>
+    <div class="dim-note" style="margin-top:4px">「相關」= 買賣超與報酬的相關係數(±1 最強、0 無關);「大買日」= 買超金額前 20% 的日子。</div>
+    <h3 style="margin-top:12px;font-size:14px">組合情境:誰跟誰一起買最有效</h3>
+    <div style="overflow-x:auto"><table class="rpt-tbl" style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);text-align:right">
+      <tr style="border-bottom:1.5px solid var(--line)"><th style="text-align:left">情境</th><th>當日平均</th><th>勝率</th><th style="text-align:left">解讀</th></tr>
+      ${cRow('土洋同買(外資+投信)',a.both,'兩邊同向,籌碼結構最扎實')}
+      ${cRow('僅外資買(投信賣或不動)',a.onlyF,'外資單邊拉抬')}
+      ${cRow('僅投信買(外資賣或不動)',a.onlyT,'投信單邊認養')}
+      ${cRow('兩者皆不買',a.neither,'法人退場,靠散戶撐盤')}
+    </table></div>
+    <div class="dim-note" style="margin-top:6px">近 5/20 日買賣超:外資 ${a.sf.tot5.toLocaleString()}/${a.sf.tot20.toLocaleString()} 張、投信 ${a.st.tot5.toLocaleString()}/${a.st.tot20.toLocaleString()} 張、自營 ${a.sg.tot5.toLocaleString()}/${a.sg.tot20.toLocaleString()} 張。
+    以上為歷史統計的規則化整理,<b>相關不等於因果</b>——法人可能只是跟著趨勢走;樣本期間若經歷特殊行情,結論會偏移。非投資建議。</div>
+  </div>`;
+}
+async function drvRender(s){
+  try{
+    const host=document.getElementById('drvBox');
+    if(!host||s.market!=='TW')return;
+    host.innerHTML='<div class="dim-note">⏳ 分析中…</div>';
+    const e=(typeof curChips!=='undefined'&&curChips&&curChips.s&&curChips.s.id===s.id)?curChips.e:await loadChips(s);
+    let k=null;try{const sh=shardOf(s);k=KCACHE[sh]&&KCACHE[sh][s.id];}catch(x){}
+    if(!k){try{const sh=shardOf(s);const r=await fT(sh+'?v='+kv(),15000);if(r.ok){KCACHE[sh]=await r.json();k=KCACHE[sh][s.id];}}catch(x){}}
+    host.innerHTML=drvHTML(drvAnalyze(s,e,k),s);
+  }catch(err){}
 }
 async function rptPricePNG(d){   // r576:股價與均線走勢圖(只要有日K就一定畫得出來)
   try{
@@ -11863,11 +11995,13 @@ function renderChipCharts(s,e){
       return `<div style="font-size:13px;color:var(--mut);margin:2px 0 8px">👥 集保股東 <b style="font-family:var(--mono);color:var(--txt)">${cur.n.toLocaleString()}</b> 人(${cur.d})${d2!=null?` · 週${d2>0?'增 +':d2<0?'減 ':''}${d2!==0?Math.abs(d2).toLocaleString():'持平'}${d2!==0?' 人':''}`:''} ${read?'· '+read:''}</div>`;})()}
     <div class="chip-sum">${kvs.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</div>
     <div id="chipHealth"></div>
+    <div id="drvBox"></div>
     <div class="chart-box" style="margin-top:10px"><h3 style="font-size:15px">三大法人買賣超(張)· 折線為外資累計 · 滾輪/雙指縮放</h3><div id="instBox" style="height:280px"></div></div>
     <div class="chart-box"><div class="ind-head"><h3 style="font-size:15px">信用交易|融資・融券・借券賣出+股價(6個月)</h3><span class="c-code" id="credStat">載入中…</span></div><div id="credBox" style="height:250px"></div></div>
     <div class="dim-note">單位:法人買賣超與信用交易餘額皆為「張」。來源:證交所 T86、櫃買法人日報表、集保 TDCC 股權分散表、月營收彙總;信用交易為 FinMind 近一年歷史(失敗時回退站內每日累積)。法人/大戶歷史逐日累積,擴充至 130 日/52 週後首月會逐步補齊。</div>
   </div>`;
   try{chipHealth(s,e);}catch(e9){}
+  try{drvRender(s);}catch(e10){}   // r577:主力帶動力分析
   if(!window.echarts)return;
   const ax={axisLabel:{color:CT.axis,fontSize:11},axisLine:{lineStyle:{color:CT.border}},splitLine:{lineStyle:{color:CT.split}}};
   /* 法人買賣超 */
