@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r579 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r580 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r579</span>');
+  diag.push('<span style="color:var(--dim)">build r580</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -14923,6 +14923,78 @@ async function cfAiPlan(){
 }
 /* 💰 存股領息試算 */
 function cfSelSave(){try{localStorage.setItem('cf_sel',JSON.stringify([...(window.__cfSel||[])]));}catch(e){}}
+function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 → 月平均可領多少(含各月現金流分布)
+  const fundW=+(window.__cfFund||0);
+  if(!fundW||!es.length){out.innerHTML='<div class="dim-note">輸入總資金並勾選至少一檔 ETF(或用「AI 幫我搭」)。</div>';return;}
+  const fx=(DATA.macro&&DATA.macro.fx&&DATA.macro.fx.USDTWD)||32;
+  const perW=fundW/es.length;
+  let yearW=0,yearNetW=0;
+  const monthly=Array(12).fill(0);
+  let evOK=0;
+  const rows=es.map(s=>{
+    const us=!/^\d/.test(s.id);
+    const dyPct=s.hold.dy, effDyPct=us?dyPct*0.7:dyPct;
+    const shares=us?Math.floor(perW*1e4/(s.price*fx)):Math.floor(perW*1e4/(s.price*1000))*1000;
+    const lots=us?shares:shares/1000;
+    const investW=us?shares*s.price*fx/1e4:shares*s.price/1e4;
+    const yW=investW*effDyPct/100;
+    const netW=us?yW:yW*(1-0.0211);
+    yearW+=yW;yearNetW+=netW;
+    const o=window.__dyJ&&window.__dyJ[s.id];
+    if(o&&Array.isArray(o.ev)&&o.ev.length){
+      evOK++;
+      o.ev.forEach(([ym,amt])=>{
+        const m=+String(ym).slice(5)-1;
+        if(m>=0&&m<12){
+          let cash=shares*amt;              // 台股:股數×元;美股:股數×USD
+          if(us)cash=cash*0.7*fx;
+          monthly[m]+=cash/1e4;             // 萬
+        }
+      });
+    }
+    return `<tr>
+      <td style="padding:6px 8px;border-bottom:1px dashed var(--line)"><b>${s.name}</b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${us?' <span style="font-size:9.5px;font-weight:800;color:#5A8CD6">US·稅後</span>':''}</td>
+      <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${effDyPct.toFixed(2)}%</td>
+      <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800">${us?shares.toLocaleString()+' 股':lots.toLocaleString()+' 張'}</td>
+      <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${Math.round(investW).toLocaleString()} 萬</td>
+      <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800;color:var(--amber)">${yW.toFixed(1)} 萬/年</td>
+      <td style="padding:6px 4px;border-bottom:1px dashed var(--line);text-align:center"><button data-cfdel="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:3px 10px;font-size:12.5px">✕ 移除</button></td>
+    </tr>`;}).join('');
+  const blend=yearW/fundW*100;
+  const mAvg=yearNetW/12;
+  const maxM=Math.max(...monthly,0.001);
+  const mBar=evOK?`<div style="margin-top:12px"><div style="font-size:13px;font-weight:900;margin-bottom:4px">📅 各月現金流分布 <span style="font-size:11px;font-weight:400;color:var(--dim)">依過去 12 個月各檔「實際配息月份與金額」推估;台股毛額、美股稅後,單位:萬元</span></div>
+    <div style="display:flex;align-items:flex-end;gap:4px;height:96px">
+      ${monthly.map((v,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px">
+        <span style="font-size:9.5px;font-family:var(--mono);color:${v>0?'var(--amber)':'var(--dim)'}">${v>0?v.toFixed(1):''}</span>
+        <div style="width:100%;max-width:34px;height:${Math.max(2,v/maxM*66)}px;background:${v>0?'var(--amber)':'var(--line)'};border-radius:3px 3px 0 0;opacity:${v>0?1:.4}"></div>
+        <span style="font-size:10px;color:var(--dim)">${i+1}月</span></div>`).join('')}
+    </div></div>`:'';
+  out.innerHTML=`
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div style="flex:1;min-width:160px;background:var(--panel);border:1.5px solid var(--amber);border-radius:12px;padding:10px 14px;text-align:center">
+        <div style="font-size:12px;color:var(--mut);font-weight:800">每月平均可領(淨)</div>
+        <div style="font-size:26px;font-weight:900;font-family:var(--mono);color:var(--amber)">${mAvg.toFixed(1)} <small style="font-size:13px">萬</small></div>
+        <div style="font-size:10.5px;color:var(--dim)">台股已扣 2.11% 補充保費、美股已扣 30% 稅</div></div>
+      <div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;text-align:center">
+        <div style="font-size:12px;color:var(--mut);font-weight:800">年領(毛)</div>
+        <div style="font-size:22px;font-weight:900;font-family:var(--mono)">${yearW.toFixed(1)} 萬</div></div>
+      <div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;text-align:center">
+        <div style="font-size:12px;color:var(--mut);font-weight:800">組合加權殖利率</div>
+        <div style="font-size:22px;font-weight:900;font-family:var(--mono)">${blend.toFixed(2)}%</div></div>
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr style="color:var(--mut);font-size:12px;font-weight:800;text-align:right">
+        <th style="text-align:left;padding:4px 8px">ETF(資金平均分配 ${Math.round(perW).toLocaleString()} 萬/檔)</th><th>實配殖利率</th><th>可買</th><th>實際投入</th><th>年息</th><th></th></tr>
+      ${rows}</table></div>
+    ${mBar}
+    <div class="dim-note" style="margin-top:8px">配息月份與金額取自過去 12 個月實際除息事件,未來可能變動;零股/畸零資金未計入(台股以整張計)。試算非投資建議。</div>`;
+  out.querySelectorAll('[data-cfdel]').forEach(b=>b.onclick=()=>{
+    window.__cfSel.delete(b.dataset.cfdel);
+    try{cfSelSave();}catch(e){}
+    try{renderEtf();}catch(e){}
+    setTimeout(cfCalc,50);});
+}
 function cfCalc(){
   const out=document.getElementById('cfOut');
   if(!out)return;
@@ -14931,10 +15003,13 @@ function cfCalc(){
   const ids=[...(window.__cfSel||new Set())];
   const cfDy2=s=>{
     const c=(window.__cfCustom||{})[s.id];if(c!=null)return c;
-    const o=window.__dyJ&&window.__dyJ[s.id];if(o&&o.dy>0)return o.dy;
+    const o=window.__dyJ&&window.__dyJ[s.id];
+    if(o&&o.ps>0&&s.price>0)return +(o.ps/s.price*100).toFixed(2);   // r580:與渲染端同步的動態殖利率
+    if(o&&o.dy>0)return o.dy;
     return (s.hold&&s.hold.dy)||null;};
   const es=ids.map(id=>DATA.stocks.find(s=>s.id===id)).filter(s=>s&&s.price&&cfDy2(s)>0)
     .map(s=>({...s,hold:{...(s.hold||{}),dy:cfDy2(s)}}));
+  if((window.__cfWay||'goal')==='fund'){cfCalcFund(out,es);return;}   // r580:一筆資金模式
   if(!goal||!es.length){out.innerHTML='<div class="dim-note">輸入目標金額並勾選至少一檔 ETF。</div>';return;}
   const yGoalW=goal*12;                                   // 年目標(萬)
   const perW=yGoalW/es.length;
@@ -15479,7 +15554,9 @@ function renderEtf(){
   }
   const cfDy=s=>{
     const c=window.__cfCustom[s.id];if(c!=null)return c;
-    const o=window.__dyJ&&window.__dyJ[s.id];if(o&&o.dy>0)return o.dy;
+    const o=window.__dyJ&&window.__dyJ[s.id];
+    if(o&&o.ps>0&&s.price>0)return +(o.ps/s.price*100).toFixed(2);   // r580:近12月實配合計÷「即時現價」——價格波動下仍準
+    if(o&&o.dy>0)return o.dy;
     return (s.hold&&s.hold.dy)||null;};
   const cfFreq=id=>{
     const o=window.__dyJ&&window.__dyJ[id];
@@ -15504,15 +15581,25 @@ function renderEtf(){
   const cfSec=(sub==='cf')?`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 14px">
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <span style="font-size:20px;font-weight:900;letter-spacing:.04em">💰 存股領息試算</span>
-      <span style="font-size:13px;color:var(--dim)">殖利率=近一年配息÷現價,來自 Yahoo。<b style="color:var(--amber)">⚠ 台股 ETF 常見失真(可能含配本金)——點卡片上的 % 可修正,關鍵決策以發行商官網為準</b>;美股已按 30% 股息預扣稅折算並以即時匯率換台幣</span>
+      <span style="font-size:13px;color:var(--dim)">殖利率=<b>近12個月「實際配息事件」合計 ÷ 即時現價</b>(逐筆除息紀錄,非過期欄位)。<b style="color:var(--amber)">⚠ 台股 ETF 常見失真(可能含配本金)——點卡片上的 % 可修正,關鍵決策以發行商官網為準</b>;美股已按 30% 股息預扣稅折算並以即時匯率換台幣</span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;margin:12px 0;background:var(--panel);border:1.5px solid var(--amber);border-radius:12px;padding:12px 16px;flex-wrap:wrap">
+    <div style="display:flex;gap:8px;margin:12px 0 0">
+      <button data-cfway="goal" style="padding:7px 16px;border-radius:10px 10px 0 0;border:1.5px solid ${(window.__cfWay||'goal')!=='fund'?'var(--amber)':'var(--line)'};border-bottom:none;background:${(window.__cfWay||'goal')!=='fund'?'var(--panel)':'var(--panel2)'};font-weight:900;font-size:13.5px;cursor:pointer;color:${(window.__cfWay||'goal')!=='fund'?'var(--amber)':'var(--dim)'}">🎯 目標月領反推本金</button>
+      <button data-cfway="fund" style="padding:7px 16px;border-radius:10px 10px 0 0;border:1.5px solid ${(window.__cfWay||'goal')==='fund'?'var(--amber)':'var(--line)'};border-bottom:none;background:${(window.__cfWay||'goal')==='fund'?'var(--panel)':'var(--panel2)'};font-weight:900;font-size:13.5px;cursor:pointer;color:${(window.__cfWay||'goal')==='fund'?'var(--amber)':'var(--dim)'}">💼 一筆資金試算月領</button>
+    </div>
+    ${(window.__cfWay||'goal')!=='fund'?`<div style="display:flex;align-items:center;gap:10px;margin:0 0 12px;background:var(--panel);border:1.5px solid var(--amber);border-radius:0 12px 12px 12px;padding:12px 16px;flex-wrap:wrap">
       <span style="font-size:18px;font-weight:900">🎯 我每月想領</span>
       <input id="cfGoal" type="number" min="0.1" step="0.5" value="${window.__cfGoal||20}"
         style="width:120px;text-align:center;font-weight:900;font-size:28px;font-family:var(--mono);border:none;border-bottom:3px solid var(--amber);background:transparent;color:var(--amber)">
       <span style="font-size:18px;font-weight:900">萬元現金</span>
       <span style="font-size:14.5px;color:var(--txt2)">= 年領 <b id="cfYr" style="font-family:var(--mono);font-size:17px;color:var(--amber)">${((window.__cfGoal||20)*12).toLocaleString()}</b> 萬</span>
-    </div>
+    </div>`:`<div style="display:flex;align-items:center;gap:10px;margin:0 0 12px;background:var(--panel);border:1.5px solid var(--amber);border-radius:0 12px 12px 12px;padding:12px 16px;flex-wrap:wrap">
+      <span style="font-size:18px;font-weight:900">💼 我目前總資金</span>
+      <input id="cfFund" type="number" min="1" step="10" value="${window.__cfFund||300}"
+        style="width:140px;text-align:center;font-weight:900;font-size:28px;font-family:var(--mono);border:none;border-bottom:3px solid var(--amber);background:transparent;color:var(--amber)">
+      <span style="font-size:18px;font-weight:900">萬元</span>
+      <span style="font-size:14.5px;color:var(--txt2)">→ 勾選或讓 AI 搭配後,看每月平均可領多少</span>
+    </div>`}
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <button data-cfmode="self" style="flex:1;max-width:240px;padding:9px;border-radius:11px;border:1.5px solid ${window.__cfMode!=='ai'?'var(--amber)':'var(--line)'};background:${window.__cfMode!=='ai'?'var(--amber)':'var(--panel)'};color:${window.__cfMode!=='ai'?'var(--panel)':'var(--txt2)'};font-weight:900;font-size:14px;cursor:pointer">🎯 自己選(配息為主)</button>
       <button data-cfmode="ai" style="flex:1;max-width:240px;padding:9px;border-radius:11px;border:1.5px solid ${window.__cfMode==='ai'?'var(--amber)':'var(--line)'};background:${window.__cfMode==='ai'?'var(--amber)':'var(--panel)'};color:${window.__cfMode==='ai'?'var(--panel)':'var(--txt2)'};font-weight:900;font-size:14px;cursor:pointer">🤖 AI 幫我搭</button>
@@ -15543,6 +15630,9 @@ function renderEtf(){
   </div>`:'';
   if(sub==='cf'){
     box.innerHTML=cfSec||'<div class="dim-note">暫無殖利率資料的 ETF。</div>';
+    box.querySelectorAll('[data-cfway]').forEach(b=>b.onclick=()=>{window.__cfWay=b.dataset.cfway;renderEtf();setTimeout(cfCalc,50);});
+    const fu=document.getElementById('cfFund');
+    if(fu)fu.oninput=()=>{window.__cfFund=+fu.value||0;cfCalc();};
     const g=document.getElementById('cfGoal');
     if(g){
       g.oninput=()=>{window.__cfGoal=+g.value||0;

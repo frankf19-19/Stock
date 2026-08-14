@@ -49,10 +49,11 @@ def calc_dy(etf_id):
                 if d.get("date", 0) >= now - YEAR and d.get("amount", 0) > 0]
         total = sum(a for a, _ in hits)
         if total <= 0:
-            return {"dy": 0.0, "n": 0, "last": "", "sym": sym}   # 一年沒配息:誠實回 0
+            return {"dy": 0.0, "n": 0, "last": "", "sym": sym, "ps": 0.0, "ev": []}   # 一年沒配息:誠實回 0
         dy = round(total / price * 100, 2)
         last = max(t for _, t in hits)
-        return {"dy": dy, "n": len(hits),
+        ev = sorted([[time.strftime("%Y-%m", time.localtime(t)), round(a, 4)] for a, t in hits])
+        return {"dy": dy, "n": len(hits), "ps": round(total, 4), "ev": ev,
                 "last": time.strftime("%Y-%m-%d", time.localtime(last)), "sym": sym}
     return None
 
