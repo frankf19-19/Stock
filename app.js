@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r580 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r581 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r580</span>');
+  diag.push('<span style="color:var(--dim)">build r581</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -15639,6 +15639,7 @@ function renderEtf(){
         const y=document.getElementById('cfYr');
         if(y)y.textContent=((window.__cfGoal||0)*12).toLocaleString();
         cfCalc();};
+    }   // r581:if(g) 只管目標輸入框——其餘綁定移出;資金模式下 cfGoal 不存在,原本整包綁定被跳過(「AI 幫我搭」按不了的根因)
       box.querySelectorAll('[data-cf]').forEach(cb=>cb.onchange=()=>{
         cb.checked?window.__cfSel.add(cb.dataset.cf):window.__cfSel.delete(cb.dataset.cf);
         cfSelSave();
@@ -15691,7 +15692,6 @@ function renderEtf(){
         renderEtf();
       };
       cfCalc();
-    }
     return;
   }
   const pf=(s,k)=>{const v=(s.perf||{})[k];return v==null?'—':`<span style="color:${v>=0?CT.up2:CT.dn2}">${v>=0?'+':''}${v.toFixed(1)}%</span>`;};
