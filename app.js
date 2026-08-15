@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r581 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r582 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r581</span>');
+  diag.push('<span style="color:var(--dim)">build r582</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3930,16 +3930,29 @@ async function renderFwStock(s){
     box.innerHTML=turnHtml(tr);
     try{renderStkAlerts&&window.__lastStkAlertArgs&&renderStkAlerts(...window.__lastStkAlertArgs);}catch(e){}
     try{clearInterval(window.__turnLiveT);}catch(e){}
-    if(s.market==='TW')window.__turnLiveT=setInterval(()=>{   // r466:台股盤中每60秒依即時價重算整段評估
+    if(s.market==='TW')window.__turnLiveT=setInterval(async()=>{   // r582:盤中每15秒依即時價重算(純本地計算零成本);每5分鐘校正今日K尾端
       try{
         if(location.hash!=='#stock/'+s.id){clearInterval(window.__turnLiveT);return;}
-        if(typeof marketOpen==='function'&&!marketOpen())return;   // r474:收盤即停
+        const open=typeof marketOpen==='function'&&marketOpen();
+        if(!open){
+          if(Date.now()-(window.__turnIdleT||0)<300000)return;     // 盤外每5分鐘跟一次最新掃價,不再完全停擺
+          window.__turnIdleT=Date.now();
+        }
+        if(open&&Date.now()-(window.__turnMrgT||0)>300000){        // 盤中每5分鐘重跑今日K校正(高低收跟上盤面)
+          window.__turnMrgT=Date.now();
+          try{await fglDailyMerge(s);}catch(eM){}
+        }
         const t2=mk();if(!t2)return;
         window.__turnStkC={id:s.id,r:t2};
         const bx=document.getElementById('fwStk');
-        if(bx)bx.innerHTML=turnHtml(t2);
+        if(bx){
+          const openFold=bx.closest&&bx.closest('.fold-body')&&bx.closest('.fold-body').style.display!=='none';
+          if(openFold||!bx.closest('.fold-body'))bx.innerHTML=turnHtml(t2);   // 收合時不重畫內文省資源,徽章照樣更新
+        }
+        try{foldSync();}catch(eF){}                                 // r582:標題徽章(上漲段・轉折窗N日)即時同步
+        try{renderStkAlerts&&window.__lastStkAlertArgs&&renderStkAlerts(...window.__lastStkAlertArgs);}catch(eA){}
       }catch(x){}
-    },60000);
+    },15000);
   }catch(err){box.innerHTML='<div class="dim-note">引擎異常:'+String(err).slice(0,60)+'</div>';}
 }
 async function renderFwMacro(){
@@ -3961,7 +3974,7 @@ async function renderFwMacro(){
 setTimeout(renderFwMacro,5000);
 setInterval(()=>{try{                                     // r472:大盤轉折盤中2分鐘、盤外15分鐘
   const open=typeof marketOpen==='function'&&marketOpen();
-  if(Date.now()-(window.__fwMacT||0)<(open?120000:900000)-500)return;
+  if(Date.now()-(window.__fwMacT||0)<(open?60000:900000)-500)return;   // r582:大盤轉折盤中提速至60秒
   window.__fwMacT=Date.now();renderFwMacro();
 }catch(e){}},60000);
 
@@ -4151,6 +4164,15 @@ const FOLD_CFG=[
   ['turtleBox',()=>'點開看進出檢核'],
   ['zt8Box',()=>'點開看八招檢核'],
   ['gemBox',()=>'點開看蓄勢診斷']];
+function foldSync(){                          // r582:摘要徽章即時重刷——轉折循環每次重算後同步(原本只在佈線時渲染一次)
+  FOLD_CFG.forEach(([id,sf])=>{
+    try{
+      const box=document.getElementById(id);
+      const sum=box&&box.querySelector('.fold-sum');
+      if(sum){const t=sf();if(t&&sum.textContent!==t)sum.textContent=t;}
+    }catch(e){}
+  });
+}
 function foldInit(){                          // 📦 分析卡收合:標題列顯示一行摘要,點開才看細節
   FOLD_CFG.forEach(([id,sf])=>{
     try{
@@ -4183,6 +4205,7 @@ function foldInit(){                          // 📦 分析卡收合:標題列�
       box.__foldSum=sf;
     }catch(e){}
   });
+  foldSync();
 }
 setInterval(()=>{                             // 摘要即時更新(機率/轉折窗算好後自動補上)
   FOLD_CFG.forEach(([id])=>{
