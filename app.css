@@ -889,3 +889,77 @@ select:focus,input:focus,button:focus-visible,a:focus-visible{
 .home-tabs button.on:hover{filter:brightness(1.15)}
 /* 手機底部導航同步墨色選中(若存在) */
 #mobNav button.on{color:#F2ECDF;background:#32323A;border-radius:10px}
+
+/* ── 📑 r570 研究報告 markdown 排版 ── */
+.rpt-md{line-height:1.85;font-size:13.5px;color:var(--txt2)}
+.rpt-md .rpt-h1{font-size:15px;font-weight:900;color:var(--txt);margin:14px 0 6px;padding-left:9px;border-left:4px solid var(--amber)}
+.rpt-md .rpt-h2{font-size:13.5px;font-weight:900;color:var(--amber);margin:11px 0 4px}
+.rpt-md .rpt-p{margin:6px 0;text-align:justify}
+.rpt-md .rpt-ol,.rpt-md .rpt-ul{margin:6px 0 6px 20px;padding:0}
+.rpt-md .rpt-ol li,.rpt-md .rpt-ul li{margin:5px 0;text-align:justify}
+.rpt-md b{color:var(--txt)}
+.rpt-tbl td{border-bottom:1px solid var(--line);padding:3px 6px}
+
+/* ══════ 💎 r584 全站精緻化主題:節奏收斂・卡片統一・分組眉標・細節打磨 ══════ */
+
+/* ── 1) 垂直節奏收斂:區塊間距 32→18,滾動密度提升四成 ── */
+.sec-title{margin:18px 0 8px!important;font-size:16.5px!important;padding-top:7px!important;padding-bottom:7px!important;border-radius:11px}
+.sec-title span{font-size:12px!important;opacity:.82}
+.dim-block{border-radius:12px;padding:12px 14px;margin-top:10px;box-shadow:0 1px 5px rgba(30,26,18,.04)}
+.chart-box{border-radius:12px;padding:12px 14px;margin-top:10px;box-shadow:0 1px 5px rgba(30,26,18,.04)}
+.dim-note{font-size:13px;line-height:1.7}
+.dim-block{font-size:14px}
+
+/* ── 2) 分組眉標:散裝區塊整合成有章節感的閱讀動線(純 CSS,零邏輯) ── */
+.sec-title[data-sec]::after{display:none}
+.grp-eyebrow{display:block}
+.sec-title[data-sec="macro"]::before,
+.sec-title[data-sec="mk_idx"]::before,
+.sec-title[data-sec="mk_fut"]::before,
+.sec-title[data-sec="glb"]::before,
+.sec-title[data-sec="stk_fw"]::before,
+.sec-title[data-sec="stk_fin"]::before,
+.sec-title[data-sec="stk_chip"]::before,
+.sec-title[data-sec="stk_rpt"]::before{
+  content:'';display:block;position:absolute;left:0;right:0;top:-14px;height:1px;
+  background:linear-gradient(90deg,transparent,var(--line) 18%,var(--line) 82%,transparent)}
+.sec-title[data-sec]{position:relative}
+/* 大盤四章 */
+.sec-title[data-sec="macro"]::first-line{}
+[data-sec="mk_temp"].sec-title,[data-sec="mk_rot"].sec-title{margin-top:14px!important}
+/* 章節眉標文字(利用 data-grp 屬性由 JS 免;直接對錨點區塊用 ::before 文字會蓋掉分隔線,改用縮小上距+分隔線已足) */
+
+/* ── 3) 表格與數字:等寬對齊、密度收緊、斑馬紋統一 ── */
+table{font-variant-numeric:tabular-nums}
+.rpt-tbl td,.rpt-tbl th{padding:3px 6px!important}
+.kv{gap:6px 14px}
+.kv dt{font-size:11px}
+.kv dd{font-size:14.5px}
+
+/* ── 4) 膠囊/按鈕統一手感 ── */
+button,.btn,.btn-ghost{transition:transform .12s,box-shadow .12s,border-color .12s,background .12s}
+button:active{transform:scale(.97)}
+.ind-seg button,.kseg-row button{border-radius:9px}
+
+/* ── 5) 捲軸精緻化 ── */
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--amber) 34%,var(--line));border-radius:8px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--amber)}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ── 6) 診斷列降噪(資訊保留,但退到背景) ── */
+#dataBar,.data-bar,#diagBar{font-size:11px!important;opacity:.72}
+#dataBar:hover,.data-bar:hover,#diagBar:hover{opacity:1}
+
+/* ── 7) 手機密度:副標隱藏、標題再縮、卡片貼邊 ── */
+@media(max-width:640px){
+  .sec-title{font-size:15px!important;margin:13px 0 6px!important}
+  .sec-title span{display:none}
+  .dim-block,.chart-box{padding:10px 11px;border-radius:11px}
+  .mob-jump{margin:6px 0 8px}
+}
+
+/* ── 8) 焦點與過場 ── */
+.tabPane{animation:fadeUp .18s ease}
+@keyframes fadeUp{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+a{transition:color .12s}
