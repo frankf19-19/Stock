@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r582">
+<link rel="stylesheet" href="app.css?v=r583">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 .gmkt-bar button[data-gm="TW"].on{background:#B3402F!important;color:#FFF7EF!important;box-shadow:0 3px 12px rgba(179,64,47,.35)!important}
 .gmkt-bar button[data-gm="TW"]:not(.on):hover{color:#B3402F!important}
@@ -228,6 +228,8 @@
   </div>
 </div>
 <div class="tabPane" id="tp-port" style="display:none">
+  <div class="sec-title tap" data-sec="port_adv">🧭 資產配置顧問 <span style="font-weight:400;font-size:13px;letter-spacing:0">總資金 → 個股/ETF 各配多少 → 依偏好給具體標的與張數・規則化建議非投顧</span></div>
+  <div class="sec-body" id="sb-port_adv"><div id="advBox"></div></div>
   <div class="sec-title">💼 持股分析 <span style="font-weight:400;font-size:13px;letter-spacing:0">損益即時試算・資料只存在你這台裝置</span></div>
   <div class="sec-body">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px">
@@ -311,6 +313,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r582"></script>
+<script src="app.js?v=r583"></script>
 </body>
 </html>
