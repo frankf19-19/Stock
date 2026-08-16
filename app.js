@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r584 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r585 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r584</span>');
+  diag.push('<span style="color:var(--dim)">build r585</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -14975,8 +14975,14 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
         }
       });
     }
+    const mset=[...new Set(((o&&o.ev)||[]).map(([ym])=>+String(ym).slice(5)))].sort((a,b)=>a-b);
+    const yrs=(o&&o.yr)?Object.keys(o.yr).sort().slice(-4,-1):[];   // 近3個「完整」年度(排除今年進行中)
+    const yrTx=yrs.length?yrs.map(y=>`${y.slice(2)}年 ${o.yr[y]}元`).join('・'):'';
+    const yrAvg=yrs.length?yrs.reduce((a,y)=>a+o.yr[y],0)/yrs.length:null;
+    const yrDy=(yrAvg&&s.price>0)?(us?yrAvg/s.price*100:yrAvg/s.price*100):null;
     return `<tr>
-      <td style="padding:6px 8px;border-bottom:1px dashed var(--line)"><b>${s.name}</b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${us?' <span style="font-size:9.5px;font-weight:800;color:#5A8CD6">US·稅後</span>':''}</td>
+      <td style="padding:6px 8px;border-bottom:1px dashed var(--line)"><b><a href="#stock/${s.id}" style="color:var(--txt)">${s.name}</a></b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${us?' <span style="font-size:9.5px;font-weight:800;color:#5A8CD6">US·稅後</span>':''}
+        <br><span style="font-size:11px;color:var(--txt2)">${mset.length?`📅 配息月:<b>${mset.join('、')}</b> 月`:'📅 近一年無配息紀錄'}${yrTx?` ・ 近3年每股 ${yrTx}${yrDy?`(均值換算約 <b>${yrDy.toFixed(1)}%</b>)`:''}`:''}</span></td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${effDyPct.toFixed(2)}%</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800">${us?shares.toLocaleString()+' 股':lots.toLocaleString()+' 張'}</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${Math.round(investW).toLocaleString()} 萬</td>
@@ -14993,6 +14999,54 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
         <div style="width:100%;max-width:34px;height:${Math.max(2,v/maxM*66)}px;background:${v>0?'var(--amber)':'var(--line)'};border-radius:3px 3px 0 0;opacity:${v>0?1:.4}"></div>
         <span style="font-size:10px;color:var(--dim)">${i+1}月</span></div>`).join('')}
     </div></div>`:'';
+  /* r585:組合健檢與優化建議(規則化) */
+  let optTips=[];
+  try{
+    const covered=new Set();
+    es.forEach(s=>{const o=window.__dyJ&&window.__dyJ[s.id];((o&&o.ev)||[]).forEach(([ym])=>covered.add(+String(ym).slice(5)));});
+    const missing=[];for(let m=1;m<=12;m++)if(!covered.has(m))missing.push(m);
+    if(missing.length&&missing.length<12){
+      // 找能補缺月、殖利率最高的候選(未入選)
+      let best=null;
+      (DATA.stocks||[]).forEach(c=>{
+        if(!c.etf||es.some(x=>x.id===c.id)||!(c.price>0))return;
+        const o=window.__dyJ&&window.__dyJ[c.id];
+        if(!o||!Array.isArray(o.ev)||!o.ev.length||!(o.ps>0))return;
+        const ms=new Set(o.ev.map(([ym])=>+String(ym).slice(5)));
+        const fill=missing.filter(m=>ms.has(m)).length;
+        if(!fill)return;
+        const dyv=o.ps/c.price*100;
+        if(dyv>25||dyv<1)return;
+        const sc2=fill*10+dyv;
+        if(!best||sc2>best.sc2)best={c,fill,dyv,sc2,ms:[...ms].sort((a,b)=>a-b)};
+      });
+      optTips.push(`📅 <b>現金流空窗:${missing.join('、')} 月沒有配息</b>${best?`——加入「<a href="#stock/${best.c.id}" style="color:var(--amber);font-weight:800">${best.c.name}(${best.c.id})</a>」(配息月 ${best.ms.join('、')},實配約 ${best.dyv.toFixed(1)}%)可補上 ${best.fill} 個空窗月,讓現金流更平均。`:'——可考慮加入月配型或不同季配週期的 ETF 補齊。'}`);
+    }
+    const types={};es.forEach(s=>{const t=advEtfType?advEtfType(s):'mkt';types[t]=(types[t]||0)+1;});
+    if(es.length>=3&&Object.keys(types).length===1)optTips.push('⚖ <b>風格過度集中</b>:目前全部是同一類型——建議至少納入一檔市值型(如 0050/006208)或債券型平衡波動,「月領現金」和「資產成長」才能兼顧。');
+    es.forEach(s=>{const dyv=s.hold&&s.hold.dy;if(dyv>11)optTips.push(`⚠ <b>${s.name}</b> 殖利率 ${(+dyv).toFixed(1)}% 偏高——高息 ETF 常含「配本金」或受景氣循環影響,實際填息能力請查發行商行事曆,不宜把全部現金流押在它身上。`);});
+    // 同型升級試算:找同類型殖利率明顯更高者,提示換檔增益(取最大一條)
+    let up=null;
+    es.forEach(s=>{
+      const t0=advEtfType?advEtfType(s):'mkt';
+      const dy0=s.hold&&s.hold.dy;if(!(dy0>0))return;
+      (DATA.stocks||[]).forEach(c=>{
+        if(!c.etf||c.id===s.id||es.some(x=>x.id===c.id)||!(c.price>0))return;
+        if((advEtfType?advEtfType(c):'mkt')!==t0)return;
+        const o=window.__dyJ&&window.__dyJ[c.id];
+        const dy1=o&&o.ps>0?o.ps/c.price*100:null;
+        if(!dy1||dy1>20)return;
+        const liq0=((s.al&&s.al.v20)||0),liq1=((c.al&&c.al.v20)||0);
+        if(liq1<liq0*0.3)return;                                  // 流動性差太多的不建議
+        const gain=(dy1-dy0)/100*(fundW/es.length);
+        if(gain>0.5&&(!up||gain>up.gain))up={from:s,to:c,dy0,dy1,gain};
+      });
+    });
+    if(up)optTips.push(`💡 <b>同型升級參考</b>:把「${up.from.name}」(${up.dy0.toFixed(1)}%)換成同類型的「<a href="#stock/${up.to.id}" style="color:var(--amber);font-weight:800">${up.to.name}(${up.to.id})</a>」(實配約 ${up.dy1.toFixed(1)}%),年領約可 <b class="pos">+${up.gain.toFixed(1)} 萬</b>——但殖利率差距通常代表風險結構不同,換之前先進個股頁比較兩者成分與填息紀錄。`);
+  }catch(eOpt){}
+  const optBlk=optTips.length?`<div style="margin-top:12px;background:var(--panel);border:1.5px dashed var(--amber);border-radius:12px;padding:11px 14px">
+    <div style="font-weight:900;font-size:14px;margin-bottom:5px">💡 組合健檢與優化建議 <span style="font-size:11px;font-weight:400;color:var(--dim)">規則化分析,調整勾選後重算即可比較</span></div>
+    ${optTips.map(t=>`<div style="font-size:13px;line-height:1.8;margin:4px 0">${t}</div>`).join('')}</div>`:'';
   out.innerHTML=`
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
       <div style="flex:1;min-width:160px;background:var(--panel);border:1.5px solid var(--amber);border-radius:12px;padding:10px 14px;text-align:center">
@@ -15011,6 +15065,7 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
         <th style="text-align:left;padding:4px 8px">ETF(資金平均分配 ${Math.round(perW).toLocaleString()} 萬/檔)</th><th>實配殖利率</th><th>可買</th><th>實際投入</th><th>年息</th><th></th></tr>
       ${rows}</table></div>
     ${mBar}
+    ${optBlk}
     <div class="dim-note" style="margin-top:8px">配息月份與金額取自過去 12 個月實際除息事件,未來可能變動;零股/畸零資金未計入(台股以整張計)。試算非投資建議。</div>`;
   out.querySelectorAll('[data-cfdel]').forEach(b=>b.onclick=()=>{
     window.__cfSel.delete(b.dataset.cfdel);

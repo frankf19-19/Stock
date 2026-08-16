@@ -19,7 +19,7 @@ def etf_ids():
 def chart(sym):
     r = requests.get(
         f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}",
-        params={"range": "1y", "interval": "1mo", "events": "div"},
+        params={"range": "5y", "interval": "1mo", "events": "div"},   # r585:拉長到5年,供近年殖利率
         headers=UA, timeout=15)
     if not r.ok:
         return None
@@ -45,15 +45,19 @@ def calc_dy(etf_id):
             continue
         divs = ((c.get("events") or {}).get("dividends") or {})
         now = time.time()
-        hits = [(d.get("amount", 0), d.get("date", 0)) for d in divs.values()
-                if d.get("date", 0) >= now - YEAR and d.get("amount", 0) > 0]
+        allh = [(d.get("amount", 0), d.get("date", 0)) for d in divs.values() if d.get("amount", 0) > 0]
+        hits = [(a, t) for a, t in allh if t >= now - YEAR]
+        yr = {}                                              # r585:年度每股配息彙總(近年現金殖利率的基礎)
+        for a, t in allh:
+            y = time.strftime("%Y", time.localtime(t))
+            yr[y] = round(yr.get(y, 0) + a, 4)
         total = sum(a for a, _ in hits)
         if total <= 0:
-            return {"dy": 0.0, "n": 0, "last": "", "sym": sym, "ps": 0.0, "ev": []}   # 一年沒配息:誠實回 0
+            return {"dy": 0.0, "n": 0, "last": "", "sym": sym, "ps": 0.0, "ev": [], "yr": yr}   # 一年沒配息:誠實回 0(保留歷年)
         dy = round(total / price * 100, 2)
         last = max(t for _, t in hits)
         ev = sorted([[time.strftime("%Y-%m", time.localtime(t)), round(a, 4)] for a, t in hits])
-        return {"dy": dy, "n": len(hits), "ps": round(total, 4), "ev": ev,
+        return {"dy": dy, "n": len(hits), "ps": round(total, 4), "ev": ev, "yr": yr,
                 "last": time.strftime("%Y-%m-%d", time.localtime(last)), "sym": sym}
     return None
 
