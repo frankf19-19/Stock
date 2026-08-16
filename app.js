@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r592 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r593 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r592</span>');
+  diag.push('<span style="color:var(--dim)">build r593</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -14946,6 +14946,26 @@ async function cfAiPlan(){
 }
 /* 💰 存股領息試算 */
 function cfSelSave(){try{localStorage.setItem('cf_sel',JSON.stringify([...(window.__cfSel||[])]));}catch(e){}}
+function cfPlanSync(){   // r593:一鍵換檔/加入/移除後,建議組合的詳細說明跟著同步
+  try{
+    const P=window.__cfPlan;
+    if(!P)return;
+    const sel=[...(window.__cfSel||new Set())];
+    P.why=P.why||{};
+    sel.forEach(id=>{
+      if(P.why[id])return;
+      const s=(DATA.stocks||[]).find(x=>x.id===id);
+      if(!s)return;
+      const o=window.__dyJ&&window.__dyJ[id];
+      const tp={bond:'債券型',div:'高股息型',tech:'科技半導體型',mkt:'市值型',reit:'REITs'}[typeof advEtfType==='function'?advEtfType(s):'mkt']||'';
+      const dyv=(o&&o.ps>0&&s.price>0)?(o.ps/s.price*100).toFixed(1)+'%':(s.hold&&s.hold.dy?s.hold.dy.toFixed(1)+'%':'—');
+      const ms=[...new Set(((o&&o.ev)||[]).map(([ym])=>+String(ym).slice(5)))].sort((a,b)=>a-b);
+      P.why[id]=`手動加入・${tp},實配約 ${dyv}${ms.length?`,配息月 ${ms.join('、')}`:''}。`;
+    });
+    P.picks=sel.filter(id=>(DATA.stocks||[]).some(x=>x.id===id));
+    if(!/已手動調整/.test(P.src||''))P.src=(P.src||'')+'・已手動調整';
+  }catch(e){}
+}
 function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 → 月平均可領多少(含各月現金流分布)
   const fundW=+(window.__cfFund||0);
   if(!fundW||!es.length){out.innerHTML='<div class="dim-note">輸入總資金並勾選至少一檔 ETF(或用「AI 幫我搭」)。</div>';return;}
@@ -15129,17 +15149,20 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
     <div class="dim-note" style="margin-top:8px">配息月份與金額取自過去 12 個月實際除息事件,未來可能變動;零股/畸零資金未計入(台股以整張計)。試算非投資建議。</div>`;
   out.querySelectorAll('[data-cfdel]').forEach(b=>b.onclick=()=>{
     window.__cfSel.delete(b.dataset.cfdel);
+    try{cfPlanSync();}catch(e){}
     try{cfSelSave();}catch(e){}
     try{renderEtf();}catch(e){}
     setTimeout(cfCalc,50);});
   out.querySelectorAll('[data-cfopt]').forEach(b=>b.onclick=()=>{   // r591:健檢建議一鍵加入
     window.__cfSel.add(b.dataset.cfopt);
+    try{cfPlanSync();}catch(e){}
     try{cfSelSave();}catch(e){}
     try{renderEtf();}catch(e){}
     setTimeout(cfCalc,60);});
   out.querySelectorAll('[data-cfswap]').forEach(b=>b.onclick=()=>{  // r591:同型升級一鍵換檔
     const[f,t]=b.dataset.cfswap.split('|');
     window.__cfSel.delete(f);window.__cfSel.add(t);
+    try{cfPlanSync();}catch(e){}
     try{cfSelSave();}catch(e){}
     try{renderEtf();}catch(e){}
     setTimeout(cfCalc,60);});
@@ -16069,7 +16092,7 @@ function renderEtf(){
           if(hit){window.__cfSel.add(hit.id);added.push(hit.name+'('+hit.id+')');}
           else miss.push(tk);
         });
-        if(added.length){cfSelSave();qa.value='';renderEtf();setTimeout(cfCalc,60);}
+        if(added.length){try{cfPlanSync();}catch(e){}cfSelSave();qa.value='';renderEtf();setTimeout(cfCalc,60);}
         if(miss.length)alert('找不到:'+miss.join('、')+'(僅支援站內 ETF 池;個股請用持股分頁的資產配置顧問)');
       };
       if(qg)qg.onclick=quickAdd;
