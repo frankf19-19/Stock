@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r593 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r594 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r593</span>');
+  diag.push('<span style="color:var(--dim)">build r594</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -14946,6 +14946,112 @@ async function cfAiPlan(){
 }
 /* 💰 存股領息試算 */
 function cfSelSave(){try{localStorage.setItem('cf_sel',JSON.stringify([...(window.__cfSel||[])]));}catch(e){}}
+function cfExtrasHTML(items){   // r594:目標模式的完整分析(與資金模式同級)
+  try{
+    if(!items||!items.length)return '';
+    const fx=(DATA.macro&&DATA.macro.fx&&DATA.macro.fx.USDTWD)||32;
+    const monthly=Array(12).fill(0);let evOK=0;
+    let dcaEnd=0,dcaIn=0,lumpEnd=0,lumpIn=0,used=0;
+    items.forEach(({s,units,investW,us})=>{
+      const o=window.__dyJ&&window.__dyJ[s.id];
+      const shares=us?units:units*1000;
+      if(o&&Array.isArray(o.ev)&&o.ev.length){evOK++;
+        o.ev.forEach(([ym,amt])=>{const m=+String(ym).slice(5)-1;
+          if(m>=0&&m<12)monthly[m]+=shares*amt*(us?0.7*fx:1)/1e4;});}
+      const px=(o&&o.px||[]).slice(-37);
+      if(px.length>=24){
+        const cv=us?fx:1,evm={};((o&&o.ev)||[]).forEach(([ym,amt])=>{evm[ym]=(evm[ym]||0)+amt;});
+        const perM=investW/36*1e4;let sh=0,cash=0;
+        px.slice(0,36).forEach(([ym,p])=>{sh+=perM/(p*cv);if(evm[ym])cash+=sh*evm[ym]*(us?0.7:1)*cv;});
+        const endP=px[px.length-1][1]*cv;
+        dcaEnd+=(sh*endP+cash)/1e4;dcaIn+=investW;
+        const sh0=investW*1e4/(px[0][1]*cv);let cash0=0;
+        px.forEach(([ym])=>{if(evm[ym])cash0+=sh0*evm[ym]*(us?0.7:1)*cv;});
+        lumpEnd+=(sh0*endP+cash0)/1e4;lumpIn+=investW;used++;}
+    });
+    const maxM=Math.max(...monthly,0.001);
+    const mBar=evOK?`<div style="margin-top:12px"><div style="font-size:13px;font-weight:900;margin-bottom:4px">📅 各月現金流分布 <span style="font-size:11px;font-weight:400;color:var(--dim)">依過去 12 個月實際配息月份與金額推估;台股毛額、美股稅後,單位:萬元</span></div>
+      <div style="display:flex;align-items:flex-end;gap:4px;height:96px">
+      ${monthly.map((v,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px">
+        <span style="font-size:9.5px;font-family:var(--mono);color:${v>0?'var(--amber)':'var(--dim)'}">${v>0?v.toFixed(1):''}</span>
+        <div style="width:100%;max-width:34px;height:${Math.max(2,v/maxM*66)}px;background:${v>0?'var(--amber)':'var(--line)'};border-radius:3px 3px 0 0;opacity:${v>0?1:.4}"></div>
+        <span style="font-size:10px;color:var(--dim)">${i+1}月</span></div>`).join('')}
+      </div></div>`:'';
+    let dcaBlk='';
+    if(used){
+      const dcaR=(dcaEnd/dcaIn-1)*100,lumpR=(lumpEnd/lumpIn-1)*100,win=lumpR>dcaR;
+      dcaBlk=`<div style="margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 14px">
+        <div style="font-weight:900;font-size:14px;margin-bottom:6px">⏱ 買法比較:定期定額 vs 單筆(近3年真實回測・含息・${used}/${items.length} 檔有足夠歷史)</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:170px;text-align:center;padding:8px;border:1.5px solid ${!win?'var(--amber)':'var(--line)'};border-radius:10px">
+            <div style="font-size:12px;color:var(--mut);font-weight:800">每月分批投入(36期)</div>
+            <div style="font-size:20px;font-weight:900;font-family:var(--mono)" class="${dcaR>=0?'pos':'neg'}">${dcaR>0?'+':''}${dcaR.toFixed(1)}%</div></div>
+          <div style="flex:1;min-width:170px;text-align:center;padding:8px;border:1.5px solid ${win?'var(--amber)':'var(--line)'};border-radius:10px">
+            <div style="font-size:12px;color:var(--mut);font-weight:800">單筆一次投入</div>
+            <div style="font-size:20px;font-weight:900;font-family:var(--mono)" class="${lumpR>=0?'pos':'neg'}">${lumpR>0?'+':''}${lumpR.toFixed(1)}%</div></div>
+        </div>
+        <div class="dim-note" style="margin-top:6px">過去3年${win?'單筆較優(上漲行情越早進場越有利)':'定期定額較優(期間回檔,分批攤低成本)'}——<b>單筆賭「現在不是高點」,定期定額買「不用猜高低點」</b>;未計手續費,定期定額報酬為簡化計算(非 IRR)。</div></div>`;
+    }
+    let optTips=[];
+    const covered=new Set();
+    items.forEach(({s})=>{const o=window.__dyJ&&window.__dyJ[s.id];((o&&o.ev)||[]).forEach(([ym])=>covered.add(+String(ym).slice(5)));});
+    const missing=[];for(let m=1;m<=12;m++)if(!covered.has(m))missing.push(m);
+    if(missing.length&&missing.length<12){
+      let best=null;
+      (DATA.stocks||[]).forEach(c=>{
+        if(!c.etf||items.some(x=>x.s.id===c.id)||!(c.price>0))return;
+        const o=window.__dyJ&&window.__dyJ[c.id];
+        if(!o||!Array.isArray(o.ev)||!o.ev.length||!(o.ps>0))return;
+        const ms=new Set(o.ev.map(([ym])=>+String(ym).slice(5)));
+        const fill=missing.filter(m=>ms.has(m)).length;
+        if(!fill)return;
+        const dyv=o.ps/c.price*100;if(dyv>25||dyv<1)return;
+        const sc2=fill*10+dyv;
+        if(!best||sc2>best.sc2)best={c,fill,dyv,sc2,ms:[...ms].sort((a,b)=>a-b)};
+      });
+      optTips.push(`📅 <b>現金流空窗:${missing.join('、')} 月沒有配息</b>${best?`——加入「<a href="#stock/${best.c.id}" style="color:var(--amber);font-weight:800">${best.c.name}(${best.c.id})</a>」(配息月 ${best.ms.join('、')},實配約 ${best.dyv.toFixed(1)}%)可補上 ${best.fill} 個空窗月。<button data-cfopt="${best.c.id}" style="margin-left:6px;padding:3px 12px;border-radius:8px;border:none;background:var(--amber);color:var(--panel);font-weight:900;font-size:12px;cursor:pointer;vertical-align:middle">➕ 直接加入</button>`:''}`);
+    }
+    let up=null;
+    items.forEach(({s,investW})=>{
+      const t0=typeof advEtfType==='function'?advEtfType(s):'mkt';
+      const dy0=s.hold&&s.hold.dy;if(!(dy0>0))return;
+      (DATA.stocks||[]).forEach(c=>{
+        if(!c.etf||c.id===s.id||items.some(x=>x.s.id===c.id)||!(c.price>0))return;
+        if((typeof advEtfType==='function'?advEtfType(c):'mkt')!==t0)return;
+        const o=window.__dyJ&&window.__dyJ[c.id];
+        const dy1=o&&o.ps>0?o.ps/c.price*100:null;
+        if(!dy1||dy1>20)return;
+        if((((c.al&&c.al.v20)||0))<(((s.al&&s.al.v20)||0))*0.3)return;
+        const gain=(dy1-dy0)/100*investW;
+        if(gain>0.5&&(!up||gain>up.gain))up={from:s,to:c,dy0,dy1,gain};
+      });
+    });
+    if(up)optTips.push(`💡 <b>同型升級參考</b>:把「${up.from.name}」(${up.dy0.toFixed(1)}%)換成同類型的「<a href="#stock/${up.to.id}" style="color:var(--amber);font-weight:800">${up.to.name}(${up.to.id})</a>」(實配約 ${up.dy1.toFixed(1)}%),同樣月領目標<b>需投入的本金更少</b>——但殖利率差距通常代表風險結構不同,換之前先比較兩者成分與填息紀錄。<button data-cfswap="${up.from.id}|${up.to.id}" style="margin-left:6px;padding:3px 12px;border-radius:8px;border:none;background:var(--amber);color:var(--panel);font-weight:900;font-size:12px;cursor:pointer;vertical-align:middle">🔁 一鍵換檔</button>`);
+    const optBlk=optTips.length?`<div style="margin-top:12px;background:var(--panel);border:1.5px dashed var(--amber);border-radius:12px;padding:11px 14px">
+      <div style="font-weight:900;font-size:14px;margin-bottom:5px">💡 組合健檢與優化建議 <span style="font-size:11px;font-weight:400;color:var(--dim)">規則化分析,調整後自動重算</span></div>
+      ${optTips.map(t=>`<div style="font-size:13px;line-height:1.8;margin:4px 0">${t}</div>`).join('')}</div>`:'';
+    return mBar+dcaBlk+optBlk;
+  }catch(e){return '';}
+}
+function cfExtrasBind(out){   // r594:目標模式的一鍵按鈕綁定
+  try{
+    out.querySelectorAll('[data-cfopt]').forEach(b=>{if(b.dataset.wired)return;b.dataset.wired='1';
+      b.onclick=()=>{
+        window.__cfSel.add(b.dataset.cfopt);
+        try{cfPlanSync();}catch(e){}
+        try{cfSelSave();}catch(e){}
+        try{renderEtf();}catch(e){}
+        setTimeout(cfCalc,60);};});
+    out.querySelectorAll('[data-cfswap]').forEach(b=>{if(b.dataset.wired)return;b.dataset.wired='1';
+      b.onclick=()=>{
+        const[f,t]=b.dataset.cfswap.split('|');
+        window.__cfSel.delete(f);window.__cfSel.add(t);
+        try{cfPlanSync();}catch(e){}
+        try{cfSelSave();}catch(e){}
+        try{renderEtf();}catch(e){}
+        setTimeout(cfCalc,60);};});
+  }catch(e){}
+}
 function cfPlanSync(){   // r593:一鍵換檔/加入/移除後,建議組合的詳細說明跟著同步
   try{
     const P=window.__cfPlan;
@@ -15185,6 +15291,7 @@ function cfCalc(){
   if(!goal||!es.length){out.innerHTML='<div class="dim-note">輸入目標金額並勾選至少一檔 ETF。</div>';return;}
   const yGoalW=goal*12;                                   // 年目標(萬)
   const perW=yGoalW/es.length;
+  const __items=[];   // r594
   let totW=0;
   const fx=(DATA.macro&&DATA.macro.fx&&DATA.macro.fx.USDTWD)||32;
   const rows=es.map(s=>{
@@ -15194,6 +15301,7 @@ function cfCalc(){
     const capW=perW/dy;                                   // 需資金(萬台幣)
     const lots=us?Math.ceil(capW*1e4/(s.price*fx)):Math.ceil(capW*1e4/(s.price*1000));
     totW+=capW;
+    __items.push({s,units:lots,investW:capW,us});
     return `<tr>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line)"><b><a href="#stock/${s.id}" style="color:var(--txt)">${s.name}</a></b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${us?' <span style="font-size:9.5px;font-weight:800;color:#5A8CD6">US·稅後</span>':''}${(()=>{const o=window.__dyJ&&window.__dyJ[s.id];if(!o)return '';
         let h='';
@@ -15246,6 +15354,7 @@ function cfCalc(){
     <span style="font-size:13.5px">💵 扣二代健保補充保費後實拿約 <b style="font-family:var(--mono);color:var(--amber)">${netM.toFixed(1)} 萬/月</b>
     <span style="color:var(--dim);font-size:12px">(台股股利 ×97.89%;美股已按預扣稅折算——未含個人綜所稅/海外所得基本稅額,依個人級距而異)</span></span></div>
     ${window.__cfScen||''}
+    ${cfExtrasHTML(__items)}
     ${cfAdvice(es,yGoalW,totW)}
     ${cfRoutes(es,goal,blend)}`;
   out.querySelectorAll('[data-cfadd]').forEach(ch=>ch.onclick=()=>{
@@ -15258,6 +15367,7 @@ function cfCalc(){
     cfSelSave();
     renderEtf();
   });
+  try{cfExtrasBind(out);}catch(eX){}   // r594:目標模式的一鍵優化按鈕
 }
 setInterval(()=>{try{
   const p=document.getElementById('tp-etf');
