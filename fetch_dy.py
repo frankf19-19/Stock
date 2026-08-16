@@ -87,7 +87,7 @@ def main():
     for i, eid in enumerate(ids):
         r = calc_dy(eid)
         if r:
-            out[eid] = {"dy": r["dy"], "n": r["n"], "last": r["last"]}
+            out[eid] = r   # r590:全欄位直出(先前只挑 dy/n/last,ps/ev/yr/tr/px 全被丟棄——四輪零變化的真兇)
             ok += 1
             if r["dy"] > 0:
                 log(f"  {eid}: {r['dy']}%({r['n']} 次,最近 {r['last']})")
@@ -97,7 +97,7 @@ def main():
         if (i + 1) % 50 == 0:
             log(f"  …進度 {i+1}/{len(ids)}")
     out["_meta"] = {"gen": time.strftime("%Y-%m-%d %H:%M"), "ok": ok, "skip": skip,
-                    "note": "近365天實配加總/現價;0=一年未配息"}
+                    "note": "dy=近365天實配/現價;ev=逐期配息;yr=年度合計;tr=含息年化總報酬;px=近5年月線"}
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False)
     log(f"完成:dy.json({ok} 檔成功、{skip} 檔無資料)")
