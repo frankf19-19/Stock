@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r591 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r592 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r591</span>');
+  diag.push('<span style="color:var(--dim)">build r592</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -15172,7 +15172,26 @@ function cfCalc(){
     const lots=us?Math.ceil(capW*1e4/(s.price*fx)):Math.ceil(capW*1e4/(s.price*1000));
     totW+=capW;
     return `<tr>
-      <td style="padding:6px 8px;border-bottom:1px dashed var(--line)"><b>${s.name}</b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${us?' <span style="font-size:9.5px;font-weight:800;color:#5A8CD6">US·稅後</span>':''}${(()=>{const o=window.__dyJ&&window.__dyJ[s.id];return (o&&o.n)?`<br><span style="font-size:11px;color:var(--down);font-weight:800">${o.n>=11?'月配':o.n>=5?'雙月配':o.n>=3?'季配':o.n===2?'半年配':'年配'}</span><span style="font-size:10.5px;color:var(--dim)">(去年實配 ${o.n} 次${o.last?',最近 '+o.last:''})</span>`:'';})()}</td>
+      <td style="padding:6px 8px;border-bottom:1px dashed var(--line)"><b><a href="#stock/${s.id}" style="color:var(--txt)">${s.name}</a></b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${us?' <span style="font-size:9.5px;font-weight:800;color:#5A8CD6">US·稅後</span>':''}${(()=>{const o=window.__dyJ&&window.__dyJ[s.id];if(!o)return '';
+        let h='';
+        if(o.n)h+=`<br><span style="font-size:11px;color:var(--down);font-weight:800">${o.n>=11?'月配':o.n>=5?'雙月配':o.n>=3?'季配':o.n===2?'半年配':'年配'}</span><span style="font-size:10.5px;color:var(--dim)">(去年實配 ${o.n} 次${o.last?',最近 '+o.last:''})</span>`;
+        try{   // r592:與資金模式同步——配息月/近3年配息/含息總報酬/位階
+          const mset=[...new Set((o.ev||[]).map(([ym])=>+String(ym).slice(5)))].sort((a,b)=>a-b);
+          const yrs=o.yr?Object.keys(o.yr).sort().slice(-4,-1):[];
+          const yrTx=yrs.length?yrs.map(y=>`${y.slice(2)}年 ${o.yr[y]}元`).join('・'):'';
+          const yrAvg=yrs.length?yrs.reduce((a,y)=>a+o.yr[y],0)/yrs.length:null;
+          const t3=o.tr&&(o.tr.y3??o.tr.y1);
+          if(mset.length||yrTx||t3!=null)h+=`<br><span style="font-size:11px;color:var(--txt2)">${mset.length?`📅 配息月:<b>${mset.join('、')}</b> 月`:''}${yrTx?` ・ 近3年每股 ${yrTx}${yrAvg&&s.price>0?`(均值約 <b>${(yrAvg/s.price*100).toFixed(1)}%</b>)`:''}`:''}${t3!=null?` ・ 含息年化總報酬 <b class="${t3>=0?'pos':'neg'}">${t3>0?'+':''}${t3}%</b><span style="color:var(--dim)">(${o.tr.y3!=null?'3年':'1年'})</span>`:''}</span>`;
+          const pxs=(o.px||[]).map(x=>x[1]).filter(v=>v>0);
+          if(pxs.length>=12&&s.price>0){
+            const pct=Math.round(pxs.filter(v=>v<=s.price).length/pxs.length*100);
+            const ma12=pxs.slice(-12).reduce((a,b)=>a+b,0)/Math.min(12,pxs.length);
+            const dev=(s.price/ma12-1)*100;
+            const tag=pct<=25?'<b class="pos">相對低檔</b>':pct>=80?'<b class="neg">相對高檔</b>':'中間位置';
+            h+=`<br><span style="font-size:11px;color:var(--txt2)">📍 位階:近${Math.round(pxs.length/12)}年第 <b>${pct}</b> 百分位(${tag})・12月均線乖離 ${dev>0?'+':''}${dev.toFixed(1)}%</span>`;
+          }
+        }catch(e){}
+        return h;})()}</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${effDyPct.toFixed(2)}%${us?`<br><small style="color:var(--dim)">原 ${s.hold.dy.toFixed(1)}%</small>`:''}</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${s.price}</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800">${lots.toLocaleString()} ${us?'股':'張'}</td>
