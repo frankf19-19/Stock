@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r589 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r591 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r589</span>');
+  diag.push('<span style="color:var(--dim)">build r591</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -15032,7 +15032,7 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
         const sc2=fill*10+dyv;
         if(!best||sc2>best.sc2)best={c,fill,dyv,sc2,ms:[...ms].sort((a,b)=>a-b)};
       });
-      optTips.push(`📅 <b>現金流空窗:${missing.join('、')} 月沒有配息</b>${best?`——加入「<a href="#stock/${best.c.id}" style="color:var(--amber);font-weight:800">${best.c.name}(${best.c.id})</a>」(配息月 ${best.ms.join('、')},實配約 ${best.dyv.toFixed(1)}%)可補上 ${best.fill} 個空窗月,讓現金流更平均。`:'——可考慮加入月配型或不同季配週期的 ETF 補齊。'}`);
+      optTips.push(`📅 <b>現金流空窗:${missing.join('、')} 月沒有配息</b>${best?`——加入「<a href="#stock/${best.c.id}" style="color:var(--amber);font-weight:800">${best.c.name}(${best.c.id})</a>」(配息月 ${best.ms.join('、')},實配約 ${best.dyv.toFixed(1)}%)可補上 ${best.fill} 個空窗月,讓現金流更平均。<button data-cfopt="${best.c.id}" style="margin-left:6px;padding:3px 12px;border-radius:8px;border:none;background:var(--amber);color:var(--panel);font-weight:900;font-size:12px;cursor:pointer;vertical-align:middle">➕ 直接加入</button>`:'——可考慮加入月配型或不同季配週期的 ETF 補齊。'}`);
     }
     const types={};es.forEach(s=>{const t=advEtfType?advEtfType(s):'mkt';types[t]=(types[t]||0)+1;});
     if(es.length>=3&&Object.keys(types).length===1)optTips.push('⚖ <b>風格過度集中</b>:目前全部是同一類型——建議至少納入一檔市值型(如 0050/006208)或債券型平衡波動,「月領現金」和「資產成長」才能兼顧。');
@@ -15062,7 +15062,7 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
         if(gain>0.5&&(!up||gain>up.gain))up={from:s,to:c,dy0,dy1,gain};
       });
     });
-    if(up)optTips.push(`💡 <b>同型升級參考</b>:把「${up.from.name}」(${up.dy0.toFixed(1)}%)換成同類型的「<a href="#stock/${up.to.id}" style="color:var(--amber);font-weight:800">${up.to.name}(${up.to.id})</a>」(實配約 ${up.dy1.toFixed(1)}%),年領約可 <b class="pos">+${up.gain.toFixed(1)} 萬</b>——但殖利率差距通常代表風險結構不同,換之前先進個股頁比較兩者成分與填息紀錄。`);
+    if(up)optTips.push(`💡 <b>同型升級參考</b>:把「${up.from.name}」(${up.dy0.toFixed(1)}%)換成同類型的「<a href="#stock/${up.to.id}" style="color:var(--amber);font-weight:800">${up.to.name}(${up.to.id})</a>」(實配約 ${up.dy1.toFixed(1)}%),年領約可 <b class="pos">+${up.gain.toFixed(1)} 萬</b>——但殖利率差距通常代表風險結構不同,換之前先進個股頁比較兩者成分與填息紀錄。<button data-cfswap="${up.from.id}|${up.to.id}" style="margin-left:6px;padding:3px 12px;border-radius:8px;border:none;background:var(--amber);color:var(--panel);font-weight:900;font-size:12px;cursor:pointer;vertical-align:middle">🔁 一鍵換檔</button>`);
   }catch(eOpt){}
   const optBlk=optTips.length?`<div style="margin-top:12px;background:var(--panel);border:1.5px dashed var(--amber);border-radius:12px;padding:11px 14px">
     <div style="font-weight:900;font-size:14px;margin-bottom:5px">💡 組合健檢與優化建議 <span style="font-size:11px;font-weight:400;color:var(--dim)">規則化分析,調整勾選後重算即可比較</span></div>
@@ -15132,6 +15132,17 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
     try{cfSelSave();}catch(e){}
     try{renderEtf();}catch(e){}
     setTimeout(cfCalc,50);});
+  out.querySelectorAll('[data-cfopt]').forEach(b=>b.onclick=()=>{   // r591:健檢建議一鍵加入
+    window.__cfSel.add(b.dataset.cfopt);
+    try{cfSelSave();}catch(e){}
+    try{renderEtf();}catch(e){}
+    setTimeout(cfCalc,60);});
+  out.querySelectorAll('[data-cfswap]').forEach(b=>b.onclick=()=>{  // r591:同型升級一鍵換檔
+    const[f,t]=b.dataset.cfswap.split('|');
+    window.__cfSel.delete(f);window.__cfSel.add(t);
+    try{cfSelSave();}catch(e){}
+    try{renderEtf();}catch(e){}
+    setTimeout(cfCalc,60);});
 }
 function cfCalc(){
   const out=document.getElementById('cfOut');
