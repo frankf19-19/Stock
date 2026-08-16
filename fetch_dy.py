@@ -57,7 +57,24 @@ def calc_dy(etf_id):
         dy = round(total / price * 100, 2)
         last = max(t for _, t in hits)
         ev = sorted([[time.strftime("%Y-%m", time.localtime(t)), round(a, 4)] for a, t in hits])
-        return {"dy": dy, "n": len(hits), "ps": round(total, 4), "ev": ev, "yr": yr,
+        tr = {}                                              # r588:含息年化總報酬(市值型的公平尺)
+        try:
+            ts = c.get("timestamp") or []
+            cl = (((c.get("indicators") or {}).get("quote") or [{}])[0].get("close")) or []
+            pts = [(t, p) for t, p in zip(ts, cl) if p and p > 0]
+            if pts:
+                for n_y in (1, 3, 5):
+                    cutoff = now - n_y * YEAR
+                    base = next(((t, p) for t, p in pts if t >= cutoff), None)
+                    if not base or now - base[0] < n_y * YEAR * 0.8:
+                        continue                             # 資料不足該窗口八成長度就不算,避免新 ETF 失真
+                    p0 = base[1]
+                    dsum = sum(a for a, t in allh if t >= base[0])
+                    yrs_f = (now - base[0]) / YEAR
+                    tr[f"y{n_y}"] = round((((price + dsum) / p0) ** (1 / yrs_f) - 1) * 100, 2)
+        except Exception:
+            pass
+        return {"dy": dy, "n": len(hits), "ps": round(total, 4), "ev": ev, "yr": yr, "tr": tr,
                 "last": time.strftime("%Y-%m-%d", time.localtime(last)), "sym": sym}
     return None
 

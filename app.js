@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r587 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r588 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r587</span>');
+  diag.push('<span style="color:var(--dim)">build r588</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -14982,7 +14982,7 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
     const yrDy=(yrAvg&&s.price>0)?(us?yrAvg/s.price*100:yrAvg/s.price*100):null;
     return `<tr>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line)"><b><a href="#stock/${s.id}" style="color:var(--txt)">${s.name}</a></b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${us?' <span style="font-size:9.5px;font-weight:800;color:#5A8CD6">US·稅後</span>':''}
-        <br><span style="font-size:11px;color:var(--txt2)">${mset.length?`📅 配息月:<b>${mset.join('、')}</b> 月`:(o&&Array.isArray(o.ev))?'📅 近一年無配息紀錄':'📅 配息月資料更新中(跑一次「ETF 殖利率週更」工作流後顯示)'}${yrTx?` ・ 近3年每股 ${yrTx}${yrDy?`(均值換算約 <b>${yrDy.toFixed(1)}%</b>)`:''}`:''}</span></td>
+        <br><span style="font-size:11px;color:var(--txt2)">${mset.length?`📅 配息月:<b>${mset.join('、')}</b> 月`:(o&&Array.isArray(o.ev))?'📅 近一年無配息紀錄':'📅 配息月資料更新中(跑一次「ETF 殖利率週更」工作流後顯示)'}${yrTx?` ・ 近3年每股 ${yrTx}${yrDy?`(均值換算約 <b>${yrDy.toFixed(1)}%</b>)`:''}`:''}${(o&&o.tr&&(o.tr.y3!=null||o.tr.y1!=null))?` ・ 含息年化總報酬 <b class="${((o.tr.y3??o.tr.y1)>=0)?'pos':'neg'}">${(o.tr.y3??o.tr.y1)>0?'+':''}${(o.tr.y3??o.tr.y1)}%</b><span style="color:var(--dim)">(${o.tr.y3!=null?'3年':'1年'})</span>`:''}</span></td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${effDyPct.toFixed(2)}%</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800">${us?shares.toLocaleString()+' 股':lots.toLocaleString()+' 張'}</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${Math.round(investW).toLocaleString()} 萬</td>
@@ -14991,6 +14991,10 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
     </tr>`;}).join('');
   const blend=yearW/fundW*100;
   const mAvg=yearNetW/12;
+  let trW=0,trBase=0;   // r588:組合加權含息年化總報酬(有 tr 資料的檔)
+  es.forEach(s=>{const o=window.__dyJ&&window.__dyJ[s.id];const t=o&&o.tr&&(o.tr.y3??o.tr.y1);
+    if(t!=null){trW+=(fundW/es.length)*t;trBase+=fundW/es.length;}});
+  const trBlend=trBase>0?trW/trBase:null;
   const maxM=Math.max(...monthly,0.001);
   const mBar=evOK?`<div style="margin-top:12px"><div style="font-size:13px;font-weight:900;margin-bottom:4px">📅 各月現金流分布 <span style="font-size:11px;font-weight:400;color:var(--dim)">依過去 12 個月各檔「實際配息月份與金額」推估;台股毛額、美股稅後,單位:萬元</span></div>
     <div style="display:flex;align-items:flex-end;gap:4px;height:96px">
@@ -15024,6 +15028,14 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
     }
     const types={};es.forEach(s=>{const t=advEtfType?advEtfType(s):'mkt';types[t]=(types[t]||0)+1;});
     if(es.length>=3&&Object.keys(types).length===1)optTips.push('⚖ <b>風格過度集中</b>:目前全部是同一類型——建議至少納入一檔市值型(如 0050/006208)或債券型平衡波動,「月領現金」和「資產成長」才能兼顧。');
+    // r588:兩把尺的提醒——組合裡同時有高息與市值型時,點出各自的角色
+    try{
+      const hiDiv=es.filter(s=>(s.hold&&s.hold.dy)>6),lowDiv=es.filter(s=>{const o=window.__dyJ&&window.__dyJ[s.id];return (s.hold&&s.hold.dy)<2.5&&o&&o.tr&&(o.tr.y3??o.tr.y1)>6;});
+      if(lowDiv.length){
+        const x=lowDiv[0],ox=window.__dyJ[x.id];
+        optTips.push(`📏 <b>兩把尺提醒</b>:${x.name} 殖利率只有 ${(x.hold.dy).toFixed(2)}%,但近${ox.tr.y3!=null?'3':'1'}年<b>含息年化總報酬 ${(ox.tr.y3??ox.tr.y1)>0?'+':''}${ox.tr.y3??ox.tr.y1}%</b>——它的角色是「資產成長」不是「月領現金」;想比較不同組合,月領看「加權殖利率」、長期累積看「加權總報酬」,兩個都要看。`);
+      }
+    }catch(e2r){}
     es.forEach(s=>{const dyv=s.hold&&s.hold.dy;if(dyv>11)optTips.push(`⚠ <b>${s.name}</b> 殖利率 ${(+dyv).toFixed(1)}% 偏高——高息 ETF 常含「配本金」或受景氣循環影響,實際填息能力請查發行商行事曆,不宜把全部現金流押在它身上。`);});
     // 同型升級試算:找同類型殖利率明顯更高者,提示換檔增益(取最大一條)
     let up=null;
@@ -15058,7 +15070,12 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
         <div style="font-size:22px;font-weight:900;font-family:var(--mono)">${yearW.toFixed(1)} 萬</div></div>
       <div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;text-align:center">
         <div style="font-size:12px;color:var(--mut);font-weight:800">組合加權殖利率</div>
-        <div style="font-size:22px;font-weight:900;font-family:var(--mono)">${blend.toFixed(2)}%</div></div>
+        <div style="font-size:22px;font-weight:900;font-family:var(--mono)">${blend.toFixed(2)}%</div>
+        <div style="font-size:10.5px;color:var(--dim)">現金流的尺</div></div>
+      ${trBlend!=null?`<div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;text-align:center">
+        <div style="font-size:12px;color:var(--mut);font-weight:800">加權含息年化總報酬</div>
+        <div style="font-size:22px;font-weight:900;font-family:var(--mono)" class="${trBlend>=0?'pos':'neg'}">${trBlend>0?'+':''}${trBlend.toFixed(1)}%</div>
+        <div style="font-size:10.5px;color:var(--dim)">資產成長的尺(近3年)</div></div>`:''}
     </div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
       <tr style="color:var(--mut);font-size:12px;font-weight:800;text-align:right">
