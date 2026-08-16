@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r586 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r587 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r586</span>');
+  diag.push('<span style="color:var(--dim)">build r587</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -15891,6 +15891,12 @@ function renderEtf(){
       <button class="btn-ghost" id="cfAddGo" style="padding:5px 14px;font-weight:800">＋ 加入</button>
       <span style="font-size:11.5px;color:var(--dim)">殖利率請查發行商官網「近12個月配息 ÷ 現價」;自填項會標示</span>
     </div>`}
+    <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;background:var(--panel);border:1px dashed var(--amber);border-radius:11px;padding:9px 12px">
+      <span style="font-weight:900;font-size:13.5px">➕ 加入我要的標的</span>
+      <input id="cfQuickAdd" placeholder="輸入代號或名稱,如 0050、QQQ、VOO" style="flex:1;min-width:200px;padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--txt);font-size:13.5px">
+      <button id="cfQuickGo" style="padding:7px 18px;border-radius:9px;border:none;background:var(--amber);color:var(--panel);font-weight:900;cursor:pointer">加入並重算</button>
+      <span style="font-size:11.5px;color:var(--dim)">加入後金額自動重新平均分配,下方健檢會告訴你這樣搭好不好</span>
+    </div>
     <div id="cfOut" style="margin-top:14px"></div>
     <div class="dim-note" style="margin-top:10px">提醒:①股利單筆 ≥2 萬元有 2.11% 二代健保補充保費,且併入綜所稅(或 28% 分離課稅擇優)②市值型(如 0050)殖利率低但長期總報酬通常較佳——「月領現金」和「資產最大化」是兩個不同目標 ③各檔配息月份請查發行商行事曆(本站無配息月曆資料)④高股息殖利率隨市況大幅波動,過去配息不代表未來;試算非投資建議。</div>
   </div>`:'';
@@ -15957,6 +15963,27 @@ function renderEtf(){
         cfSelSave();
         renderEtf();
       };
+      const qa=document.getElementById('cfQuickAdd'),qg=document.getElementById('cfQuickGo');
+      const quickAdd=()=>{   // r587:快速加入指定標的(0050/QQQ/VOO…),支援多筆逗號/空格分隔
+        if(!qa)return;
+        const raw=String(qa.value||'').trim();
+        if(!raw)return;
+        const toks=raw.split(/[,,、\s]+/).filter(Boolean);
+        const pool=(DATA.stocks||[]).filter(x=>x.etf&&x.price>0);
+        const added=[],miss=[];
+        toks.forEach(tk=>{
+          const t=tk.toUpperCase();
+          let hit=pool.find(x=>String(x.id).toUpperCase()===t)
+               ||pool.find(x=>x.name&&x.name.includes(tk))
+               ||pool.find(x=>String(x.id).toUpperCase().startsWith(t));
+          if(hit){window.__cfSel.add(hit.id);added.push(hit.name+'('+hit.id+')');}
+          else miss.push(tk);
+        });
+        if(added.length){cfSelSave();qa.value='';renderEtf();setTimeout(cfCalc,60);}
+        if(miss.length)alert('找不到:'+miss.join('、')+'(僅支援站內 ETF 池;個股請用持股分頁的資產配置顧問)');
+      };
+      if(qg)qg.onclick=quickAdd;
+      if(qa)qa.onkeydown=e=>{if(e.key==='Enter')quickAdd();};
       cfCalc();
     return;
   }
