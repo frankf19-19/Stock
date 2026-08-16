@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r594 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r596 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r594</span>');
+  diag.push('<span style="color:var(--dim)">build r596</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -15109,6 +15109,13 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
     return `<tr>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line)"><b><a href="#stock/${s.id}" style="color:var(--txt)">${s.name}</a></b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${us?' <span style="font-size:9.5px;font-weight:800;color:#5A8CD6">US·稅後</span>':''}
         <br><span style="font-size:11px;color:var(--txt2)">${mset.length?`📅 配息月:<b>${mset.join('、')}</b> 月`:(o&&Array.isArray(o.ev))?'📅 近一年無配息紀錄':'📅 配息月資料更新中(跑一次「ETF 殖利率週更」工作流後顯示)'}${yrTx?` ・ 近3年每股 ${yrTx}${yrDy?`(均值換算約 <b>${yrDy.toFixed(1)}%</b>)`:''}`:''}${(o&&o.tr&&(o.tr.y3!=null||o.tr.y1!=null))?` ・ 含息年化總報酬 <b class="${((o.tr.y3??o.tr.y1)>=0)?'pos':'neg'}">${(o.tr.y3??o.tr.y1)>0?'+':''}${(o.tr.y3??o.tr.y1)}%</b><span style="color:var(--dim)">(${o.tr.y3!=null?'3年':'1年'})</span>`:''}${(()=>{try{
+      if(o&&!yrTx&&!(o.tr&&(o.tr.y3!=null||o.tr.y1!=null))){   // r595:新上市檔誠實說明,不留空白
+        const nM=(o.px||[]).length;
+        const curY=Object.keys(o.yr||{}).sort().slice(-1)[0];
+        const curAmt=curY?o.yr[curY]:null;
+        return ` ・ <span style="color:var(--amber)">🌱 新上市${nM?`約 ${nM} 個月`:''}${curAmt?`,今年已配 ${curAmt} 元`:''}——近年配息/總報酬/位階需滿一年後顯示</span>`;
+      }
+    }catch(eN){}return '';})()}${(()=>{try{
       const pxs=(o&&o.px||[]).map(x=>x[1]).filter(v=>v>0);
       if(pxs.length<12||!(s.price>0))return '';
       const below=pxs.filter(v=>v<=s.price).length,pct=Math.round(below/pxs.length*100);
@@ -15312,7 +15319,7 @@ function cfCalc(){
           const yrTx=yrs.length?yrs.map(y=>`${y.slice(2)}年 ${o.yr[y]}元`).join('・'):'';
           const yrAvg=yrs.length?yrs.reduce((a,y)=>a+o.yr[y],0)/yrs.length:null;
           const t3=o.tr&&(o.tr.y3??o.tr.y1);
-          if(mset.length||yrTx||t3!=null)h+=`<br><span style="font-size:11px;color:var(--txt2)">${mset.length?`📅 配息月:<b>${mset.join('、')}</b> 月`:''}${yrTx?` ・ 近3年每股 ${yrTx}${yrAvg&&s.price>0?`(均值約 <b>${(yrAvg/s.price*100).toFixed(1)}%</b>)`:''}`:''}${t3!=null?` ・ 含息年化總報酬 <b class="${t3>=0?'pos':'neg'}">${t3>0?'+':''}${t3}%</b><span style="color:var(--dim)">(${o.tr.y3!=null?'3年':'1年'})</span>`:''}</span>`;
+          if(mset.length||yrTx||t3!=null)h+=`<br><span style="font-size:11px;color:var(--txt2)">${mset.length?`📅 配息月:<b>${mset.join('、')}</b> 月`:''}${yrTx?` ・ 近3年每股 ${yrTx}${yrAvg&&s.price>0?`(均值約 <b>${(yrAvg/s.price*100).toFixed(1)}%</b>)`:''}`:''}${t3!=null?` ・ 含息年化總報酬 <b class="${t3>=0?'pos':'neg'}">${t3>0?'+':''}${t3}%</b><span style="color:var(--dim)">(${o.tr.y3!=null?'3年':'1年'})</span>`:''}${(!yrTx&&t3==null)?(()=>{const nM=(o.px||[]).length;const curY=Object.keys(o.yr||{}).sort().slice(-1)[0];const curAmt=curY?o.yr[curY]:null;return ` ・ <span style="color:var(--amber)">🌱 新上市${nM?`約 ${nM} 個月`:''}${curAmt?`,今年已配 ${curAmt} 元`:''}——歷史統計滿一年後顯示</span>`;})():''}</span>`;
           const pxs=(o.px||[]).map(x=>x[1]).filter(v=>v>0);
           if(pxs.length>=12&&s.price>0){
             const pct=Math.round(pxs.filter(v=>v<=s.price).length/pxs.length*100);
@@ -15592,13 +15599,16 @@ function renderAdvisor(){
       <input id="advTotal" type="number" min="10" step="10" value="${A.total}" style="width:100px;text-align:center;font-weight:900;font-size:22px;font-family:var(--mono);border:none;border-bottom:2.5px solid var(--amber);background:transparent;color:var(--amber)">
       <span style="font-weight:800">萬</span>
       <span style="color:var(--dim)">|</span>
-      <span style="font-weight:800">📈 個股</span>
+      ${A.manual?`<span style="font-weight:800">📈 個股</span>
       <input id="advStk" type="number" min="0" step="10" value="${A.stkW}" style="width:88px;text-align:center;font-weight:900;font-size:18px;font-family:var(--mono);border:none;border-bottom:2px solid var(--line);background:transparent">
       <span>萬</span>
       <span style="font-weight:800">🧺 ETF</span>
       <input id="advEtf" type="number" min="0" step="10" value="${A.etfW}" style="width:88px;text-align:center;font-weight:900;font-size:18px;font-family:var(--mono);border:none;border-bottom:2px solid var(--line);background:transparent">
       <span>萬</span>
-      <span id="advCash" style="font-size:13px;color:var(--dim)">→ 保留現金 ${cashW} 萬</span>
+      <span id="advCash" style="font-size:13px;color:var(--dim)">→ 保留現金 ${cashW} 萬</span>`:(()=>{
+        const r={steady:[25,65,10],bal:[40,50,10],aggr:[60,35,5]}[A.risk]||[40,50,10];
+        return `<span id="advCash" style="font-size:13px;color:var(--txt2)">→ 依<b>${{steady:'穩健',bal:'平衡',aggr:'積極'}[A.risk]}</b>自動配置:個股 ${r[0]}%(${Math.round(A.total*r[0]/100)} 萬)・ETF ${r[1]}%(${Math.round(A.total*r[1]/100)} 萬)・現金 ${r[2]}%</span>`;})()}
+      <a href="javascript:void 0" id="advManual" style="font-size:12px;color:var(--dim);text-decoration:underline">${A.manual?'↩ 改回自動配置':'⚙ 自訂比例'}</a>
     </div>
     <div style="margin:10px 0 4px;font-size:13px;font-weight:800;color:var(--mut)">① 風險屬性</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -15631,12 +15641,15 @@ function renderAdvisor(){
     <div id="advOut" style="margin-top:12px"></div>`;
   const upd=()=>{
     A.total=+document.getElementById('advTotal').value||0;
+    if(!A.manual){box.dataset.wired='';renderAdvisor();const el=document.getElementById('advTotal');if(el){el.focus();el.value=A.total;}return;}
     A.stkW=+document.getElementById('advStk').value||0;
     A.etfW=+document.getElementById('advEtf').value||0;
     if(A.stkW+A.etfW>A.total){A.etfW=Math.max(0,A.total-A.stkW);document.getElementById('advEtf').value=A.etfW;}
     document.getElementById('advCash').textContent=`→ 保留現金 ${Math.max(0,A.total-A.stkW-A.etfW)} 萬`;
   };
   ['advTotal','advStk','advEtf'].forEach(id=>{const el=document.getElementById(id);if(el)el.oninput=upd;});
+  const am=document.getElementById('advManual');
+  if(am)am.onclick=()=>{A.manual=!A.manual;box.dataset.wired='';renderAdvisor();};
   const rebind=(sel,fn)=>box.querySelectorAll(sel).forEach(b=>b.onclick=()=>{fn(b);box.dataset.wired='';renderAdvisor();});
   rebind('[data-advr]',b=>A.risk=b.dataset.advr);
   rebind('[data-advm]',b=>A.mkt=b.dataset.advm);
@@ -15648,6 +15661,10 @@ function renderAdvisor(){
 function advPlan(){
   const A=window.__adv,out=document.getElementById('advOut');
   if(!out)return;
+  if(!A.manual){   // r596:自動配置——比例由風險屬性決定
+    const r={steady:[.25,.65],bal:[.40,.50],aggr:[.60,.35]}[A.risk]||[.40,.50];
+    A.stkW=Math.round(A.total*r[0]);A.etfW=Math.round(A.total*r[1]);
+  }
   if(!A.total||(!A.stkW&&!A.etfW)){out.innerHTML='<div class="dim-note">請輸入總資金,並至少分配一部分給個股或 ETF。</div>';return;}
   const fx=(DATA.macro&&DATA.macro.fx&&DATA.macro.fx.USDTWD)||32;
   const mktOK=s=>A.mkt==='both'||(A.mkt==='tw'?s.market==='TW':s.market==='US');
