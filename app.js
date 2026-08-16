@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r588 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r589 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r588</span>');
+  diag.push('<span style="color:var(--dim)">build r589</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -14982,7 +14982,15 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
     const yrDy=(yrAvg&&s.price>0)?(us?yrAvg/s.price*100:yrAvg/s.price*100):null;
     return `<tr>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line)"><b><a href="#stock/${s.id}" style="color:var(--txt)">${s.name}</a></b> <span style="font-family:var(--mono);font-size:11.5px;color:var(--dim)">${s.id}</span>${us?' <span style="font-size:9.5px;font-weight:800;color:#5A8CD6">US·稅後</span>':''}
-        <br><span style="font-size:11px;color:var(--txt2)">${mset.length?`📅 配息月:<b>${mset.join('、')}</b> 月`:(o&&Array.isArray(o.ev))?'📅 近一年無配息紀錄':'📅 配息月資料更新中(跑一次「ETF 殖利率週更」工作流後顯示)'}${yrTx?` ・ 近3年每股 ${yrTx}${yrDy?`(均值換算約 <b>${yrDy.toFixed(1)}%</b>)`:''}`:''}${(o&&o.tr&&(o.tr.y3!=null||o.tr.y1!=null))?` ・ 含息年化總報酬 <b class="${((o.tr.y3??o.tr.y1)>=0)?'pos':'neg'}">${(o.tr.y3??o.tr.y1)>0?'+':''}${(o.tr.y3??o.tr.y1)}%</b><span style="color:var(--dim)">(${o.tr.y3!=null?'3年':'1年'})</span>`:''}</span></td>
+        <br><span style="font-size:11px;color:var(--txt2)">${mset.length?`📅 配息月:<b>${mset.join('、')}</b> 月`:(o&&Array.isArray(o.ev))?'📅 近一年無配息紀錄':'📅 配息月資料更新中(跑一次「ETF 殖利率週更」工作流後顯示)'}${yrTx?` ・ 近3年每股 ${yrTx}${yrDy?`(均值換算約 <b>${yrDy.toFixed(1)}%</b>)`:''}`:''}${(o&&o.tr&&(o.tr.y3!=null||o.tr.y1!=null))?` ・ 含息年化總報酬 <b class="${((o.tr.y3??o.tr.y1)>=0)?'pos':'neg'}">${(o.tr.y3??o.tr.y1)>0?'+':''}${(o.tr.y3??o.tr.y1)}%</b><span style="color:var(--dim)">(${o.tr.y3!=null?'3年':'1年'})</span>`:''}${(()=>{try{
+      const pxs=(o&&o.px||[]).map(x=>x[1]).filter(v=>v>0);
+      if(pxs.length<12||!(s.price>0))return '';
+      const below=pxs.filter(v=>v<=s.price).length,pct=Math.round(below/pxs.length*100);
+      const ma12=pxs.slice(-12).reduce((a,b)=>a+b,0)/Math.min(12,pxs.length);
+      const dev=(s.price/ma12-1)*100;
+      const tag=pct<=25?'<b class="pos">相對低檔</b>':pct>=80?'<b class="neg">相對高檔</b>':'中間位置';
+      return `<br>📍 位階參考:現價位於近${Math.round(pxs.length/12)}年第 <b>${pct}</b> 百分位(${tag})・12月均線乖離 ${dev>0?'+':''}${dev.toFixed(1)}%<span style="color:var(--dim)">——位階非買點,分批與紀律比擇時重要</span>`;
+    }catch(e){return '';}})()}</span></td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${effDyPct.toFixed(2)}%</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800">${us?shares.toLocaleString()+' 股':lots.toLocaleString()+' 張'}</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${Math.round(investW).toLocaleString()} 萬</td>
@@ -15082,6 +15090,41 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
         <th style="text-align:left;padding:4px 8px">ETF(資金平均分配 ${Math.round(perW).toLocaleString()} 萬/檔)</th><th>實配殖利率</th><th>可買</th><th>實際投入</th><th>年息</th><th></th></tr>
       ${rows}</table></div>
     ${mBar}
+    ${(()=>{try{   // r589:定期定額 vs 單筆(近36月真實回測,含息)
+      let dcaEnd=0,dcaIn=0,lumpEnd=0,lumpIn=0,used=0;
+      es.forEach(s=>{
+        const o=window.__dyJ&&window.__dyJ[s.id];
+        const px=(o&&o.px||[]).slice(-37);
+        if(px.length<24)return;
+        const us=!/^\d/.test(s.id),cv=us?fx:1,evm={};
+        ((o&&o.ev)||[]).forEach(([ym,amt])=>{evm[ym]=(evm[ym]||0)+amt;});
+        const perM=(fundW/es.length)/36*1e4;
+        let sh=0,cash=0;
+        px.slice(0,36).forEach(([ym,p])=>{sh+=perM/(p*cv);if(evm[ym])cash+=sh*evm[ym]*(us?0.7:1)*cv;});
+        const endP=px[px.length-1][1]*cv;
+        dcaEnd+=(sh*endP+cash)/1e4;dcaIn+=perM*36/1e4;
+        const sh0=(fundW/es.length)*1e4/(px[0][1]*cv);
+        let cash0=0;px.forEach(([ym])=>{if(evm[ym])cash0+=sh0*evm[ym]*(us?0.7:1)*cv;});
+        lumpEnd+=(sh0*endP+cash0)/1e4;lumpIn+=fundW/es.length;used++;
+      });
+      if(!used)return '';
+      const dcaR=(dcaEnd/dcaIn-1)*100,lumpR=(lumpEnd/lumpIn-1)*100;
+      const win=lumpR>dcaR;
+      return `<div style="margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 14px">
+        <div style="font-weight:900;font-size:14px;margin-bottom:6px">⏱ 買法比較:定期定額 vs 單筆(近3年真實回測・含息・${used}/${es.length} 檔有足夠歷史)</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:170px;text-align:center;padding:8px;border:1.5px solid ${!win?'var(--amber)':'var(--line)'};border-radius:10px">
+            <div style="font-size:12px;color:var(--mut);font-weight:800">每月分批投入(36期)</div>
+            <div style="font-size:20px;font-weight:900;font-family:var(--mono)" class="${dcaR>=0?'pos':'neg'}">${dcaR>0?'+':''}${dcaR.toFixed(1)}%</div>
+            <div style="font-size:11px;color:var(--dim)">期末約 ${Math.round(dcaEnd).toLocaleString()} 萬</div></div>
+          <div style="flex:1;min-width:170px;text-align:center;padding:8px;border:1.5px solid ${win?'var(--amber)':'var(--line)'};border-radius:10px">
+            <div style="font-size:12px;color:var(--mut);font-weight:800">單筆一次投入</div>
+            <div style="font-size:20px;font-weight:900;font-family:var(--mono)" class="${lumpR>=0?'pos':'neg'}">${lumpR>0?'+':''}${lumpR.toFixed(1)}%</div>
+            <div style="font-size:11px;color:var(--dim)">期末約 ${Math.round(lumpEnd).toLocaleString()} 萬</div></div>
+        </div>
+        <div class="dim-note" style="margin-top:6px">過去3年${win?'單筆較優(一路上漲的行情,越早全額進場越有利)':'定期定額較優(期間有大幅回檔,分批攤低了成本)'}——但歷史不代表未來:<b>單筆賭的是「現在不是高點」,定期定額買的是「不用猜高低點」</b>;心臟小、資金是陸續到位的,定期定額仍是存股最穩的紀律。回測未計手續費,定期定額報酬率為簡化計算(非 IRR)。</div>
+      </div>`;
+    }catch(eD){return '';}})()}
     ${optBlk}
     <div class="dim-note" style="margin-top:8px">配息月份與金額取自過去 12 個月實際除息事件,未來可能變動;零股/畸零資金未計入(台股以整張計)。試算非投資建議。</div>`;
   out.querySelectorAll('[data-cfdel]').forEach(b=>b.onclick=()=>{

@@ -58,10 +58,12 @@ def calc_dy(etf_id):
         last = max(t for _, t in hits)
         ev = sorted([[time.strftime("%Y-%m", time.localtime(t)), round(a, 4)] for a, t in hits])
         tr = {}                                              # r588:含息年化總報酬(市值型的公平尺)
+        px = []                                              # r589:近5年月收盤(位階/定期定額回測)
         try:
             ts = c.get("timestamp") or []
             cl = (((c.get("indicators") or {}).get("quote") or [{}])[0].get("close")) or []
             pts = [(t, p) for t, p in zip(ts, cl) if p and p > 0]
+            px = [[time.strftime("%Y-%m", time.localtime(t)), round(p, 2)] for t, p in pts][-61:]
             if pts:
                 for n_y in (1, 3, 5):
                     cutoff = now - n_y * YEAR
@@ -74,7 +76,7 @@ def calc_dy(etf_id):
                     tr[f"y{n_y}"] = round((((price + dsum) / p0) ** (1 / yrs_f) - 1) * 100, 2)
         except Exception:
             pass
-        return {"dy": dy, "n": len(hits), "ps": round(total, 4), "ev": ev, "yr": yr, "tr": tr,
+        return {"dy": dy, "n": len(hits), "ps": round(total, 4), "ev": ev, "yr": yr, "tr": tr, "px": px,
                 "last": time.strftime("%Y-%m-%d", time.localtime(last)), "sym": sym}
     return None
 
