@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r597 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r600 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r597</span>');
+  diag.push('<span style="color:var(--dim)">build r600</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -15052,6 +15052,65 @@ function cfExtrasBind(out){   // r594:目標模式的一鍵按鈕綁定
         setTimeout(cfCalc,60);};});
   }catch(e){}
 }
+(function pxAlertInit(){   // r599:🔔 到價提醒(網頁開啟時每60秒檢查,達標跳瀏覽器通知)
+  const load=()=>{try{return JSON.parse(localStorage.getItem('pxAlerts')||'[]');}catch(e){return [];}};
+  const save=a=>{try{localStorage.setItem('pxAlerts',JSON.stringify(a));}catch(e){}};
+  document.addEventListener('click',e=>{
+    const b=e.target.closest&&e.target.closest('[data-pxal]');
+    if(!b)return;
+    const id=b.dataset.pxal;
+    const s=(DATA&&DATA.stocks||[]).find(x=>x.id===id);
+    if(!s)return;
+    const o=window.__dyJ&&window.__dyJ[id];
+    let ma12=null,p50=null,p25=null,dev=null;
+    try{const pxs=(o&&o.px||[]).map(x=>x[1]).filter(v=>v>0);
+      if(pxs.length>=12){
+        ma12=pxs.slice(-12).reduce((a,c)=>a+c,0)/Math.min(12,pxs.length);
+        const so=pxs.slice().sort((a,b)=>a-b);
+        p50=so[Math.round((so.length-1)*.5)];p25=so[Math.round((so.length-1)*.25)];
+        dev=(s.price/ma12-1)*100;}}catch(x){}
+    const zLow=s.al&&s.al.z0>0?s.al.z0:null;
+    const sug=ma12||s.price*0.95;
+    let timing='';
+    if(dev!=null){
+      timing=dev>15?`目前乖離 +${dev.toFixed(0)}% 偏高——歷史上回到均線常需數週到數月,建議「分批+等回檔」,不追高;`
+        :dev>5?`乖離 +${dev.toFixed(0)}% 略高——可先買 1/3,回均線再加;`
+        :dev>-5?`價格貼近均線——已在合理帶,分批進場即可;`
+        :`價格低於均線 ${dev.toFixed(0)}%——相對便宜區,可提高分批比重;`;
+    }
+    const menu=[`🔔 ${s.name}(${id})現價 ${s.price}`,timing,
+      `參考價位(規則化,非買點預測):`,
+      ma12?`・積極:12月均線 ${ma12.toFixed(2)}(小回檔就到)`:'',
+      p50?`・中性:近年中位價 ${p50.toFixed(2)}(常態回檔目標)`:'',
+      (p25||zLow)?`・保守:${zLow?`承接區 ${zLow.toFixed(2)}`:`近年25%分位 ${p25.toFixed(2)}`}(大回檔才到,不一定等得到)`:'',
+      ``,`要在哪個價位提醒?`].filter(x=>x!=='').join('\n');
+    const v=prompt(menu,sug.toFixed(2));
+    if(v==null)return;
+    const px=+v;
+    if(!(px>0)){alert('請輸入有效價格');return;}
+    const a=load().filter(x=>x.id!==id);
+    a.push({id,name:s.name,px,op:px<s.price?'<=':'>='});
+    save(a);
+    try{if(Notification&&Notification.permission==='default')Notification.requestPermission();}catch(x){}
+    alert(`已設定:${s.name} ${px<s.price?'跌到':'漲到'} ${px} 時提醒(網頁開啟時生效;共 ${a.length} 筆,可再點 🔔 修改)`);
+  });
+  setInterval(()=>{
+    try{
+      const a=load();if(!a.length||!DATA||!DATA.stocks)return;
+      const keep=[];
+      a.forEach(al=>{
+        const s=DATA.stocks.find(x=>x.id===al.id);
+        if(!s||!(s.price>0)){keep.push(al);return;}
+        const hit=al.op==='<='?s.price<=al.px:s.price>=al.px;
+        if(hit){
+          const msg=`🔔 ${al.name}(${al.id})已${al.op==='<='?'跌到':'漲到'} ${s.price}(目標 ${al.px})`;
+          try{if(Notification&&Notification.permission==='granted')new Notification('麻吉股研所 到價提醒',{body:msg});else alert(msg);}catch(x){alert(msg);}
+        }else keep.push(al);
+      });
+      if(keep.length!==a.length)save(keep);
+    }catch(e){}
+  },60000);
+})();
 function cfPlanSync(){   // r593:一鍵換檔/加入/移除後,建議組合的詳細說明跟著同步
   try{
     const P=window.__cfPlan;
@@ -15128,7 +15187,7 @@ function cfCalcFund(out,es){   // r580:💼 一筆資金 → 建議怎麼搭 →
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800">${us?shares.toLocaleString()+' 股':lots.toLocaleString()+' 張'}</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${Math.round(investW).toLocaleString()} 萬</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800;color:var(--amber)">${yW.toFixed(1)} 萬/年</td>
-      <td style="padding:6px 4px;border-bottom:1px dashed var(--line);text-align:center"><button data-cfdel="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:3px 10px;font-size:12.5px">✕ 移除</button></td>
+      <td style="padding:6px 4px;border-bottom:1px dashed var(--line);text-align:center"><button data-pxal="${s.id}" title="到價提醒" style="background:none;border:1px solid var(--amber);border-radius:7px;color:var(--amber);cursor:pointer;padding:3px 8px;font-size:12.5px;margin-right:4px">🔔</button><button data-cfdel="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:3px 10px;font-size:12.5px">✕ 移除</button></td>
     </tr>`;}).join('');
   const blend=yearW/fundW*100;
   const mAvg=yearNetW/12;
@@ -15335,7 +15394,7 @@ function cfCalc(){
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800">${lots.toLocaleString()} ${us?'股':'張'}</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800;color:var(--amber)">${capW>=10000?(capW/10000).toFixed(2)+' 億':Math.round(capW).toLocaleString()+' 萬'}</td>
       <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${(perW/12).toFixed(1)} 萬/月</td>
-      <td style="padding:6px 4px;border-bottom:1px dashed var(--line);text-align:center"><button data-cfdel="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:3px 10px;font-size:12.5px">✕ 移除</button></td>
+      <td style="padding:6px 4px;border-bottom:1px dashed var(--line);text-align:center"><button data-pxal="${s.id}" title="到價提醒" style="background:none;border:1px solid var(--amber);border-radius:7px;color:var(--amber);cursor:pointer;padding:3px 8px;font-size:12.5px;margin-right:4px">🔔</button><button data-cfdel="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:3px 10px;font-size:12.5px">✕ 移除</button></td>
     </tr>`;}).join('');
   const blend=yGoalW/totW*100;
   const twM=es.filter(s=>/^\d/.test(s.id)).length*(perW/12);
@@ -15680,7 +15739,7 @@ function advPlan(){
     const isFin=s=>/金融/.test(s.sector||'');
     const isTrad=s=>!/電子|半導體|光電|資訊|通信|電腦/.test(s.sector||'')&&!/金融/.test(s.sector||'');
     const hitRadar=s=>(Array.isArray(s.sig)&&s.sig.length>0)||((window.__FGO||[]).some(x=>x.id===s.id));
-    let pool=(DATA.stocks||[]).filter(s=>!s.etf&&mktOK(s)&&s.price>0);
+    let pool=(DATA.stocks||[]).filter(s=>!s.etf&&mktOK(s)&&s.price>0&&!(window.__advExcl&&window.__advExcl.has(s.id)));
     if(A.stkPrefs.size){
       pool=pool.filter(s=>(A.stkPrefs.has('ai')&&isAI(s))||(A.stkPrefs.has('fin')&&isFin(s))
         ||(A.stkPrefs.has('trad')&&isTrad(s))||(A.stkPrefs.has('radar')&&hitRadar(s)));
@@ -15713,14 +15772,15 @@ function advPlan(){
         return `<tr><td style="padding:6px 8px;border-bottom:1px dashed var(--line)"><b><a href="#stock/${s.id}" style="color:var(--txt)">${s.name}</a></b> <span style="font-family:var(--mono);font-size:11px;color:var(--dim)">${s.id}</span>${us?' <span style="font-size:9.5px;color:#5A8CD6;font-weight:800">US</span>':''}<br><span style="font-size:11.5px;color:var(--txt2)">${why.join(' · ')}</span></td>
           <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${s.price}</td>
           <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800">${units>0?(us?units.toLocaleString()+' 股':units.toLocaleString()+' 張'):'<span style="color:var(--down)">1張買不起<br><small>可考慮零股</small></span>'}</td>
-          <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${units>0?Math.round(invest).toLocaleString()+' 萬':'—'}</td></tr>`;
+          <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${units>0?Math.round(invest).toLocaleString()+' 萬':'—'}</td>
+          <td style="padding:6px 4px;border-bottom:1px dashed var(--line)"><button data-advx="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:3px 9px;font-size:12px">🔄 換一檔</button></td></tr>`;
       }).join('');
     }
   }
   /* ── ETF 引擎 ── */
   let etfRows='',etfYearW=0,etfNote='';
   if(A.etfW>0){
-    let pool=(DATA.stocks||[]).filter(s=>s.etf&&s.price>0&&mktOK({market:/^\d/.test(s.id)?'TW':'US'})&&advDy(s)!=null&&advDy(s)>0.3&&advDy(s)<25);
+    let pool=(DATA.stocks||[]).filter(s=>s.etf&&s.price>0&&mktOK({market:/^\d/.test(s.id)?'TW':'US'})&&advDy(s)!=null&&advDy(s)>0.3&&advDy(s)<25&&!(window.__advExcl&&window.__advExcl.has(s.id)));
     let styles=new Set(A.etfStyles);
     if(!styles.size)styles=new Set(A.risk==='steady'?['bond','div']:A.risk==='aggr'?['tech','mkt']:['mkt','div']);
     pool=pool.filter(s=>styles.has(advEtfType(s)));
@@ -15750,7 +15810,8 @@ function advPlan(){
           <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${eff.toFixed(2)}%</td>
           <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);font-weight:800">${units>0?(us?units.toLocaleString()+' 股':units.toLocaleString()+' 張'):'—'}</td>
           <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)">${units>0?Math.round(invest).toLocaleString()+' 萬':'—'}</td>
-          <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);color:var(--amber);font-weight:800">${yW.toFixed(1)} 萬/年</td></tr>`;
+          <td style="padding:6px 8px;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono);color:var(--amber);font-weight:800">${yW.toFixed(1)} 萬/年</td>
+          <td style="padding:6px 4px;border-bottom:1px dashed var(--line)"><button data-advx="${s.id}" style="background:none;border:1px solid var(--line);border-radius:7px;color:var(--dim);cursor:pointer;padding:3px 9px;font-size:12px">🔄 換一檔</button></td></tr>`;
       }).join('');
     }
   }
@@ -15769,7 +15830,14 @@ function advPlan(){
     ${etfRows?`<div style="font-weight:900;font-size:14px;margin:12px 0 2px">🧺 ETF 建議(每檔約 ${Math.round(A.etfW/((etfRows.match(/<tr>/g)||[]).length))} 萬・預估年配息合計 <b style="color:var(--amber)">${etfYearW.toFixed(1)} 萬</b>)</div>
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
       <tr style="color:var(--mut);font-size:12px;font-weight:800;text-align:right"><th style="text-align:left">標的</th><th>實配殖利率</th><th>可買</th><th>投入</th><th>年息</th></tr>${etfRows}</table></div>`:etfNote}
+    ${(window.__advExcl&&window.__advExcl.size)?`<div style="font-size:12px;margin-top:6px;color:var(--dim)">已排除 ${window.__advExcl.size} 檔 <a href="javascript:void 0" id="advReset" style="color:var(--amber)">↺ 重置排除清單</a></div>`:''}
     <div class="dim-note" style="margin-top:10px">個股依「綜合評分+${riskLb}屬性調權+流動性」規則化排序;ETF 依風格分散(每風格至少一檔)。推薦為站內公開數據的規則化篩選,<b>非投資建議</b>——買前請進個股頁看完整健檢與研究報告;個股表中「1張買不起」代表單檔分配額低於一張價金,可用零股或調整分配。</div>`;
+  out.querySelectorAll('[data-advx]').forEach(b=>b.onclick=()=>{   // r598:換一檔=排除後重抽
+    window.__advExcl=window.__advExcl||new Set();
+    window.__advExcl.add(b.dataset.advx);
+    advPlan();});
+  const rs=document.getElementById('advReset');
+  if(rs)rs.onclick=()=>{window.__advExcl=new Set();advPlan();};
 }
 function renderPort(){
   try{renderAdvisor();}catch(eA){}   // r583:資產配置顧問
