@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r601 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r602 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r601</span>');
+  diag.push('<span style="color:var(--dim)">build r602</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3211,7 +3211,10 @@ function drvAnalyze(s,e,k){
         buySame:avg(buyIdx,R),sellSame:avg(sellIdx,R),
         buyWin:win(buyIdx),
         streak:s3.length>=3?+(s3.reduce((a,b)=>a+b,0)/s3.length).toFixed(2):null,streakN:s3.length,
-        tot20:Math.round(X.slice(-20).reduce((a,b)=>a+b,0)),tot5:Math.round(X.slice(-5).reduce((a,b)=>a+b,0))};
+        tot20:Math.round(X.slice(-20).reduce((a,b)=>a+b,0)),tot5:Math.round(X.slice(-5).reduce((a,b)=>a+b,0)),
+        thr:(()=>{const pos=X.filter(v=>v>0).sort((a,b)=>a-b);if(pos.length<10)return null;
+          const q=p=>pos[Math.min(pos.length-1,Math.round((pos.length-1)*p))];
+          return {p50:Math.round(q(.5)),p80:Math.round(q(.8))};})()};
     };
     const sf=stat(F),st_=stat(T),sg=stat(G);
     // 組合情境
@@ -3252,6 +3255,19 @@ function drvHTML(a,s){
     how=`實務做法:把<b>${lead[0]}</b>的動向當主訊號;${second[0]}當輔助確認。`;
   }
   const dNote=a.dealerNote?`<div class="dim-note" style="margin:4px 0">附註:本檔<b>自營商</b>的同步性(${a.sg.c0})甚至高於外資與投信,但自營多為避險、造市與權證對沖單,通常是<b>跟著價格走而非帶動價格</b>,不建議當進出訊號;若你看到自營大買,先確認是否伴隨外資或投信同向。</div>`:'';
+  const px=s&&s.price>0?s.price:null;
+  const amt=z=>px?`(約 ${(z*1000*px/1e8).toFixed(z*1000*px/1e8>=1?1:2)} 億)`:'';
+  const lvRow=(nm,x)=>x.thr?`<tr><td style="text-align:left;font-weight:800">${nm}</td>
+    <td class="pos">≥ ${x.thr.p80.toLocaleString()} 張 ${amt(x.thr.p80)}</td>
+    <td>${x.thr.p50.toLocaleString()} ~ ${x.thr.p80.toLocaleString()} 張</td>
+    <td style="color:var(--dim)">0 ~ ${x.thr.p50.toLocaleString()} 張</td>
+    <td class="${x.tot5>=x.thr.p80?'pos':''}" style="font-weight:800">${x.tot5>=0?'+':''}${x.tot5.toLocaleString()} 張${x.tot5>=x.thr.p80?' → 大買級':x.tot5>=x.thr.p50?' → 中買級':x.tot5>0?' → 小買級':' → 賣方'}</td></tr>`:'';
+  const lvBlk=(a.sf.thr||a.st.thr||a.sg.thr)?`<h3 style="margin-top:12px;font-size:14px">本檔買超分級標準 <span class="ds">依各法人自身近 ${a.n} 日買超分佈,每檔門檻不同</span></h3>
+    <div style="overflow-x:auto"><table class="rpt-tbl" style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);text-align:right">
+      <tr style="border-bottom:1.5px solid var(--line)"><th style="text-align:left">法人</th><th>大買(前20%)</th><th>中買</th><th>小買</th><th>近5日合計落點</th></tr>
+      ${lvRow('外資',a.sf)}${lvRow('投信',a.st)}${lvRow('自營商',a.sg)}
+    </table></div>
+    <div class="dim-note" style="margin-top:3px">「大買」不是固定張數——是該法人在<b>這一檔</b>的買超張數前 20% 門檻(表列即具體數字);同樣 500 張在大型股是小買、在小型股可能是大買。金額以現價概算。</div>`:'';
   const row=(nm,x,hl)=>`<tr${hl?' style="background:rgba(176,141,68,.14);font-weight:800"':''}>
     <td style="text-align:left">${nm}${hl?' ◀ 主導':''}</td>
     <td>${x.c0}</td><td>${x.c1}</td>
@@ -3271,7 +3287,8 @@ function drvHTML(a,s){
       ${row('投信',a.st,a.rank[0][0]==='投信')}
       ${row('自營商',a.sg,a.rank[0][0]==='自營商')}
     </table></div>
-    <div class="dim-note" style="margin-top:4px">「相關」= 買賣超與報酬的相關係數(±1 最強、0 無關);「大買日」= 買超金額前 20% 的日子。</div>
+    <div class="dim-note" style="margin-top:4px">「相關」= 買賣超與報酬的相關係數(±1 最強、0 無關);「大買日」= 買超張數前 20% 的日子(具體門檻見下表)。</div>
+    ${lvBlk}
     <h3 style="margin-top:12px;font-size:14px">組合情境:誰跟誰一起買最有效</h3>
     <div style="overflow-x:auto"><table class="rpt-tbl" style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);text-align:right">
       <tr style="border-bottom:1.5px solid var(--line)"><th style="text-align:left">情境</th><th>當日平均</th><th>勝率</th><th style="text-align:left">解讀</th></tr>
