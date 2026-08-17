@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r600 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r601 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r600</span>');
+  diag.push('<span style="color:var(--dim)">build r601</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3225,8 +3225,8 @@ function drvAnalyze(s,e,k){
     const both=comb((f,t)=>f>0&&t>0), onlyF=comb((f,t)=>f>0&&t<=0), onlyT=comb((f,t)=>t>0&&f<=0), neither=comb((f,t)=>f<=0&&t<=0);
     // r577:主導判定——主結論只比「外資 vs 投信」(自營商多為避險/造市單,跟價而非帶價,列為附註)
     const score=x=>Math.abs(x.c0)*0.6+Math.abs(x.c1)*0.4;
-    const rank=[['外資',sf,score(sf)],['投信',st_,score(st_)]].sort((a,b)=>b[2]-a[2]);
-    const dealerNote=score(sg)>Math.max(score(sf),score(st_))*1.05;
+    const rank=[['外資',sf,score(sf)],['投信',st_,score(st_)],['自營商',sg,score(sg)]].sort((a,b)=>b[2]-a[2]);   // r601:自營商納入主導判定
+    const dealerNote=false;
     return {n,sf,st:st_,sg,both,onlyF,onlyT,neither,rank,dealerNote,from:DT[0],to:DT[n-1]};
   }catch(err){return null;}
 }
@@ -3238,7 +3238,10 @@ function drvHTML(a,s){
   const strength=x=>{const c=Math.abs(x.c0);return c>=.45?'強':c>=.3?'中等':c>=.15?'偏弱':'幾乎無';};
   // 明確方向結論
   let verdict='',how='';
-  if(lead[2]<0.12){
+  if(lead[0]==='自營商'&&lead[2]>=0.12){
+    verdict=`<b>這檔「自營商」同步性最高</b>(${lead[1].c0}),高於${second[0]}的 ${second[1].c0}——但自營多為避險、造市與權證對沖單,常是<b>跟著價格走而非帶動價格</b>。`;
+    how=`實務做法:把自營當<b>「價格確認訊號」</b>(自營大買+當天強=盤面有真買盤);進出的主訊號建議看第二名的<b>${second[0]}</b>(${second[1].c0}),兩者同向時可信度最高。`;
+  }else if(lead[2]<0.12){
     verdict=`<b>這檔沒有明顯的法人帶動效應</b>——三大法人的買賣超與股價幾乎不同步(最高僅 ${lead[1].c0}),股價更可能由散戶情緒、隔日沖或消息面主導。`;
     how='籌碼面在這檔的參考價值低,建議以技術面(均線、量價)與基本面為主,不要用法人動向當進出依據。';
   }else if(gap<0.06){
@@ -3266,7 +3269,7 @@ function drvHTML(a,s){
         <th style="text-align:left">法人</th><th>當日相關</th><th>隔日相關</th><th>大買日當天</th><th>大買日隔天</th><th>大買日勝率</th><th>連買3日後5日</th></tr>
       ${row('外資',a.sf,a.rank[0][0]==='外資')}
       ${row('投信',a.st,a.rank[0][0]==='投信')}
-      ${row('自營商(參考)',a.sg,false)}
+      ${row('自營商',a.sg,a.rank[0][0]==='自營商')}
     </table></div>
     <div class="dim-note" style="margin-top:4px">「相關」= 買賣超與報酬的相關係數(±1 最強、0 無關);「大買日」= 買超金額前 20% 的日子。</div>
     <h3 style="margin-top:12px;font-size:14px">組合情境:誰跟誰一起買最有效</h3>
