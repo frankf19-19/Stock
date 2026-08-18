@@ -2814,6 +2814,20 @@ def main():
                 carried += 1
         if carried:
             print(f"  🛟 保底:{carried} 檔今日掃價失敗,沿用前一日資料(標記 stale)")
+        # r606 分數守門:今日評分退化成預設 50、但前一日有真分數 → 保留前一日評分(防止資料源單日故障洗掉好分數)
+        kept = 0
+        for x in stocks:
+            pv = prev_st.get(x.get("id"))
+            if not pv:
+                continue
+            for kk in ("t", "f", "c"):
+                cur = (x.get(kk) or {}).get("score")
+                old_s = (pv.get(kk) or {}).get("score")
+                if cur == 50 and old_s not in (None, 50):
+                    x[kk] = pv[kk]
+                    kept += 1
+        if kept:
+            print(f"  🛟 分數守門:{kept} 項評分沿用前一日(今日資料源失敗)")
     except Exception as e:
         print(f"  [warn] 保底繼承: {e}")
     out = {"updated": taipei, "source": "live",

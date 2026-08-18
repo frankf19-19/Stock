@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r602 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r605 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r602</span>');
+  diag.push('<span style="color:var(--dim)">build r605</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -11158,10 +11158,10 @@ async function showDetail(id){
   try{renderFwStock(s);}catch(e){}
   try{wireDcf();}catch(e){}
   try{setTimeout(foldInit,700);}catch(e){}
-  try{setTimeout(wireSegRelocate,950);}catch(e){}
+  try{setTimeout(()=>{try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e2){}},950);}catch(e){}
   try{clearInterval(window.__segRelT);window.__segRelT=setInterval(()=>{
     if(!location.hash.startsWith('#stock/')){clearInterval(window.__segRelT);return;}   // r482:離開個股頁自動停止
-    wireSegRelocate();
+    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r605:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
   },2500);}catch(e){}
   try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
     const h=document.getElementById('dcfBody');
