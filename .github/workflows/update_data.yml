@@ -20,7 +20,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 150
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4
@@ -32,23 +32,6 @@ jobs:
 
       - name: 安裝套件
         run: pip install requests pandas lxml pypdf
-
-      - name: 盤中先落一針(spark/報價先行提交,不等主程式長跑)   # r525:8/6 spark 斷針事故對策
-        run: |
-          HM=$(TZ=Asia/Taipei date +%H%M); HM=$((10#$HM))
-          if [ $HM -ge 855 ] && [ $HM -le 1340 ]; then
-            python update_quotes.py || { echo "先行掃價失敗,交給主流程"; exit 0; }
-            git config user.name "bot"
-            git config user.email "actions@users.noreply.github.com"
-            git add data.json
-            [ -f spark.json ] && git add spark.json
-            if ! git diff --cached --quiet; then
-              git commit -m "quotes(pre): $(TZ=Asia/Taipei date +%H:%M)"
-              { git pull --rebase --autostash origin main && git push; } || { git rebase --abort 2>/dev/null||true; git reset --hard origin/main; echo "先行提交撞車,略過"; }
-            fi
-          else
-            echo "非盤中時段,略過先行掃價"
-          fi
 
       - name: 抓 ETF 持股(主動式,先跑好給主程式讀)
         run: python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"
