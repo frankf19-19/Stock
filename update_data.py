@@ -93,13 +93,6 @@ def numf(s):
 def get_json(url, params=None, timeout=30):
     return requests.get(url, params=params, headers=UA, timeout=timeout).json()
 
-def get_text(url, timeout=30):
-    r = requests.get(url, headers=UA, timeout=timeout)
-    try:
-        return r.content.decode("utf-8-sig")
-    except Exception:
-        return r.content.decode("big5", "ignore")
-
 def _pick(fields, *needles):
     for i, f in enumerate(fields):
         if all(n in str(f) for n in needles): return i
@@ -587,65 +580,29 @@ def fill_tw_daily_official(hist, comps):
     print(f"  官方日行情續寫:{fixed} 檔(交易日 {day}{f'、新開檔 {born}' if born else ''})")
 
 # ═══════════════ 美股價格(批次)═══════════════
-def _us_from_stooq(sym):
-    """Stooq CSV 日K → e{d,o};失敗回 None(Stooq 有時擋機房)。"""
-    try:
-        d1 = (TODAY - dt.timedelta(days=230)).strftime("%Y%m%d")
-        df = pd.read_csv(StringIO(requests.get(
-            f"https://stooq.com/q/d/l/?s={sym.lower()}.us&d1={d1}&d2={TODAY:%Y%m%d}&i=d",
-            headers=UA, timeout=20).text))
-        if "Close" not in df.columns or len(df) < 20:
-            return None
-        e = {"d": [], "o": []}
-        for _, r in df.tail(KEEP_BARS).iterrows():
-            e["d"].append(str(r["Date"])[:10])
-            e["o"].append([round(float(r["Open"]),2), round(float(r["High"]),2),
-                           round(float(r["Low"]),2), round(float(r["Close"]),2),
-                           int(r.get("Volume") or 0)])
-        return e if e["d"] else None
-    except Exception:
-        return None
-
-def _us_from_yahoo(sym):
-    """Yahoo chart API 日K(1年)→ e{d,o};Stooq 被擋時的備援。"""
-    try:
-        u = (f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}"
-             f"?range=1y&interval=1d")
-        j = requests.get(u, headers=UA, timeout=20).json()
-        res = (((j or {}).get("chart") or {}).get("result") or [None])[0]
-        if not res:
-            return None
-        ts = res.get("timestamp") or []
-        q = (((res.get("indicators") or {}).get("quote") or [{}])[0])
-        o_,h_,l_,c_,v_ = q.get("open"),q.get("high"),q.get("low"),q.get("close"),q.get("volume")
-        if not ts or not c_:
-            return None
-        e = {"d": [], "o": []}
-        for i,t in enumerate(ts):
-            if c_[i] is None or o_[i] is None:
-                continue
-            ds = dt.datetime.utcfromtimestamp(t).strftime("%Y-%m-%d")
-            e["d"].append(ds)
-            e["o"].append([round(float(o_[i]),2), round(float(h_[i]),2),
-                           round(float(l_[i]),2), round(float(c_[i]),2),
-                           int(v_[i] or 0)])
-        return e if len(e["d"]) >= 20 else None
-    except Exception:
-        return None
-
 def update_us_prices(hist, us_comps):
-    """美股日K:Stooq(主)→ Yahoo chart(備)雙源,單源被擋不會整批停更。"""
-    ok = 0; via_y = 0
+    """美股日K:Stooq(免金鑰 CSV),全面取代 Yahoo。"""
+    ok = 0
     for c in us_comps:
         sym = c["id"]
-        e = _us_from_stooq(sym)
-        if not e:
-            e = _us_from_yahoo(sym)         # Stooq 擋機房 → Yahoo 備援
-            if e: via_y += 1
-        if e:
+        try:
+            d1 = (TODAY - dt.timedelta(days=230)).strftime("%Y%m%d")
+            df = pd.read_csv(StringIO(requests.get(
+                f"https://stooq.com/q/d/l/?s={sym.lower()}.us&d1={d1}&d2={TODAY:%Y%m%d}&i=d",
+                headers=UA, timeout=20).text))
+            if "Close" not in df.columns or len(df) < 20:
+                continue
+            e = {"d": [], "o": []}
+            for _, r in df.tail(KEEP_BARS).iterrows():
+                e["d"].append(str(r["Date"])[:10])
+                e["o"].append([round(float(r["Open"]),2), round(float(r["High"]),2),
+                               round(float(r["Low"]),2), round(float(r["Close"]),2),
+                               int(r.get("Volume") or 0)])
             hist[sym] = e; ok += 1
-        time.sleep(0.5)
-    print(f"  美股價格:{ok}/{len(us_comps)} 檔(其中 Yahoo 備援 {via_y} 檔)")
+        except Exception:
+            pass
+        time.sleep(0.6)
+    print(f"  美股價格(Stooq):{ok}/{len(us_comps)} 檔")
 
 def fetch_rev_mops_live():
     """MOPS 當月即時彙總:公司 1~10 日陸續申報,申報當天此頁就有(上市+上櫃)。"""
@@ -777,21 +734,11 @@ def fetch_tdcc_bulk():
         big = df[df[col_lv].astype(str).str.strip().isin(["12","13","14","15"])].copy()
         big[col_pc] = pd.to_numeric(big[col_pc], errors="coerce")
         out = big.groupby(big[col_id].str.strip())[col_pc].sum().round(2).to_dict()
-        holders = {}
-        try:                                             # 集保總戶數:各分級人數加總(散戶結構的另一半)
-            col_n = next((c2 for c2 in df.columns if "人數" in c2), None)
-            if col_n is not None:
-                dd = df.copy()
-                dd[col_n] = pd.to_numeric(dd[col_n], errors="coerce")
-                dd = dd[dd[col_lv].astype(str).str.strip() != "16"]      # 16=差異調整,不計
-                holders = dd.groupby(dd[col_id].str.strip())[col_n].sum().astype(int).to_dict()
-        except Exception as _e2:
-            print(f"  [warn] 集保戶數: {_e2}")
-        print(f"  TDCC 大戶:{len(out)} 檔(戶數 {len(holders)} 檔),資料日期 {date}")
-        return out, date, holders
+        print(f"  TDCC 大戶:{len(out)} 檔,資料日期 {date}")
+        return out, date
     except Exception as e:
         print(f"  [warn] TDCC: {e}")
-        return {}, "", {}
+        return {}, ""
 
 def prev_q(q):
     y, s = int(q[:4]), int(q[-1])
@@ -829,28 +776,18 @@ def fetch_margin_bulk():
 
 def fetch_margin_mops(year, season):
     """歷史季別營益彙總。GitHub 機房常被 MOPS 擋——依序輪試:
-    mopsov 舊ajax → mops 舊ajax → mops 新版 JSON API → 公共代理,任一成功即回。
-    2026-07 修:加單季 100 秒時間預算——先前失敗路線各掛 60 秒逾時,
-    8季×多路線可燒數小時,把 1 小時的 job 上限撐爆(每日更新一直被砍的元兇)。"""
+    mopsov 舊ajax → mops 舊ajax → mops 新版 JSON API,任一成功即回。"""
     out = {}
-    _mt0 = time.time()
-    _over = lambda: time.time() - _mt0 > 100
     y_roc, ss = str(year - 1911), f"{season:02d}"
     def _absorb_df(df):
         n0 = len(out)
-        def _cn(c):                                       # MultiIndex 攤平成字串
-            return " ".join(str(x) for x in c) if isinstance(c, tuple) else str(c)
-        cols = [(c, _cn(c).replace(" ", "").replace("\u3000", "")) for c in df.columns]
-        if not any("毛利率" in n for _, n in cols): return 0
-        pick = lambda *kws: next((c for c, n in cols if any(k in n for k in kws)), None)
-        c_id = pick("代號")
-        c_gm = pick("毛利率")
-        c_om = pick("營業利益率", "營益率")
-        c_nm = pick("稅後純益率", "稅後淨利率", "純益率", "淨利率")
-        c_rv = pick("營業收入", "營收")
-        if None in (c_id, c_gm, c_om, c_nm):
-            print(f"    [diag] 三率欄名不符,實際欄位: {[n for _, n in cols][:8]}")
-            return 0
+        cols = [str(c) for c in df.columns]
+        if not any("毛利率" in c for c in cols): return 0
+        c_id = next(c for c in df.columns if "代號" in str(c))
+        c_gm = next(c for c in df.columns if "毛利率" in str(c))
+        c_om = next(c for c in df.columns if "營業利益率" in str(c))
+        c_nm = next(c for c in df.columns if "稅後純益率" in str(c))
+        c_rv = next((c for c in df.columns if "營業收入" in str(c)), None)
         for _, row in df.iterrows():
             sid = str(row[c_id]).strip()
             if not (sid.isdigit() and len(sid) == 4): continue
@@ -859,17 +796,14 @@ def fetch_margin_mops(year, season):
             out[sid] = (gm, om, nm, numf(row[c_rv]) if c_rv is not None else None)
         return len(out) - n0
     for typek in ("sii", "otc"):
-        if _over():
-            print(f"    ⏱ {year}Q{season} 單季預算用盡,先收現有 {len(out)} 家")
-            break
         got = 0
         for host in ("mopsov.twse.com.tw", "mops.twse.com.tw"):   # 舊 ajax(HTML 表格)
-            if got or _over(): break
+            if got: break
             try:
                 r = requests.post(f"https://{host}/mops/web/ajax_t163sb06",
                     data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
                           "isQuery": "Y", "TYPEK": typek, "year": y_roc, "season": ss},
-                    headers={**UA, "Referer": f"https://{host}/mops/web/t163sb06"}, timeout=35)
+                    headers={**UA, "Referer": f"https://{host}/mops/web/t163sb06"}, timeout=60)
                 for df in pd.read_html(StringIO(r.text)):
                     got += _absorb_df(df)
             except Exception as e:
@@ -879,7 +813,7 @@ def fetch_margin_mops(year, season):
             try:
                 r = requests.post("https://mops.twse.com.tw/mops/api/t163sb06",
                     json={"year": y_roc, "season": ss, "TYPEK": typek},
-                    headers={**UA, "Accept": "application/json"}, timeout=30)
+                    headers={**UA, "Accept": "application/json"}, timeout=60)
                 j = r.json()
                 def _walk(o, depth=0):
                     nonlocal got
@@ -918,46 +852,21 @@ def fetch_margin_mops(year, season):
             except Exception:
                 pass
             _pxs += [lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe=""),
-                     lambda u: "https://api.allorigins.win/raw?url=" + _up.quote(u, safe=""),
                      lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")]
-            _form = {"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
-                     "isQuery": "Y", "TYPEK": typek, "year": y_roc, "season": ss}
-            _hdr = {**UA, "Referer": "https://mopsov.twse.com.tw/mops/web/t163sb06",
-                    "Content-Type": "application/x-www-form-urlencoded"}
-            # (a) GET 帶查詢字串優先——MOPS ajax 端點接受 GET,而 GET 走公共代理成功率遠高於 POST
-            for _tgt in ("https://mopsov.twse.com.tw/mops/web/ajax_t163sb06",
-                         "https://mops.twse.com.tw/mops/web/ajax_t163sb06"):
-                if got or _over(): break
-                _qs = _tgt + "?" + _up.urlencode(_form)
-                for mk_proxy in _pxs:
-                    if got or _over(): break
-                    try:
-                        r = requests.get(mk_proxy(_qs), headers=_hdr, timeout=20)
-                        if r.ok and "毛利率" in r.text:
-                            for df in pd.read_html(StringIO(r.text)):
-                                got += _absorb_df(df)
-                            if got: print(f"    {typek} {year}Q{season} ← 代理GET +{got}")
-                    except Exception:
-                        pass
-                    time.sleep(0.5)
-            # (b) POST 代理備援——與前端瀏覽器完全同款(corsproxy 是唯一支援 POST 轉發的公共代理)
-            if not got and not _over():
+            for mk_proxy in _pxs:
+                if got: break
                 try:
-                    _body = _up.urlencode(_form)
-                    r = requests.post("https://corsproxy.io/?url=" + _up.quote(target, safe=""),
-                                      data=_body,
-                                      headers={**UA, "Content-Type": "application/x-www-form-urlencoded",
-                                               "Accept": "text/html,*/*"},
-                                      timeout=45)
+                    r = requests.post(mk_proxy(target),
+                        data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
+                              "isQuery": "Y", "TYPEK": typek, "year": y_roc, "season": ss},
+                        headers=UA, timeout=60)
                     if r.ok and "毛利率" in r.text:
                         for df in pd.read_html(StringIO(r.text)):
                             got += _absorb_df(df)
-                        if got: print(f"    {typek} {year}Q{season} ← 代理POST +{got}")
-                    elif r.ok:
-                        print(f"    [diag] 代理POST 回應無三率表({typek} {year}Q{season},長度 {len(r.text)})")
+                        if got: print(f"    {typek} {year}Q{season} ← 代理路徑 +{got}")
                 except Exception as e:
-                    print(f"    [warn] 代理POST {typek} {year}Q{season}: {str(e)[:70]}")
-                time.sleep(1.0)
+                    print(f"    [warn] 代理 {typek} {year}Q{season}: {str(e)[:70]}")
+                time.sleep(1.5)
         time.sleep(1.5)
     return out
 
@@ -1004,128 +913,12 @@ def wayback_margins(want_qs):
             time.sleep(1)
     return {q: d for q, d in res.items() if d}
 
-def fetch_balance_mops(year, season):
-    """資產負債彙總(t163sb05):負債比與股東權益。走與三率相同的多路線(含公共代理GET),80秒預算。"""
-    out = {}
-    import urllib.parse as _up
-    _t0 = time.time()
-    y_roc, ss = str(year - 1911), f"{season:02d}"
-    for typek in ("sii", "otc"):
-        if time.time() - _t0 > 80: break
-        _form = {"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1",
-                 "isQuery": "Y", "TYPEK": typek, "year": y_roc, "season": ss}
-        got = 0
-        def _eat(html):
-            n0 = len(out)
-            try:
-                for df in pd.read_html(StringIO(html)):
-                    cols = [str(c) for c in df.columns]
-                    if not any("資產" in c for c in cols): continue
-                    c_id = next((c for c in df.columns if "代號" in str(c)), None)
-                    c_a  = next((c for c in df.columns if "資產" in str(c) and ("總" in str(c))), None)
-                    c_l  = next((c for c in df.columns if "負債" in str(c) and ("總" in str(c))), None)
-                    c_e  = next((c for c in df.columns if "權益" in str(c) and ("總" in str(c))), None)
-                    if None in (c_id, c_a, c_l): continue
-                    for _, row in df.iterrows():
-                        sid = str(row[c_id]).strip()
-                        if not (sid.isdigit() and len(sid) == 4): continue
-                        av, lv = numf(row[c_a]), numf(row[c_l])
-                        ev = numf(row[c_e]) if c_e is not None else (av - lv if None not in (av, lv) else None)
-                        if not av or lv is None: continue
-                        out[sid] = (round(lv / av * 100, 1), round((ev or 0) / 1e5, 1))   # 負債比%, 權益(億)
-            except Exception:
-                pass
-            return len(out) - n0
-        for host in ("mopsov.twse.com.tw", "mops.twse.com.tw"):
-            if got or time.time() - _t0 > 80: break
-            try:
-                r = requests.post(f"https://{host}/mops/web/ajax_t163sb05", data=_form,
-                    headers={**UA, "Referer": f"https://{host}/mops/web/t163sb05"}, timeout=30)
-                got += _eat(r.text)
-            except Exception:
-                pass
-            time.sleep(1)
-        if not got:
-            _qs = "https://mopsov.twse.com.tw/mops/web/ajax_t163sb05?" + _up.urlencode(_form)
-            for _px in (lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe=""),
-                        lambda u: "https://api.allorigins.win/raw?url=" + _up.quote(u, safe=""),
-                        lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")):
-                if got or time.time() - _t0 > 80: break
-                try:
-                    r = requests.get(_px(_qs), headers=UA, timeout=20)
-                    got += _eat(r.text)
-                except Exception:
-                    pass
-                time.sleep(0.5)
-        if got: print(f"    資產負債 {typek} {year}Q{season} +{got}")
-    return out
-
-def append_balance(chips, q_exp):
-    """把最新可得季的負債比/權益寫入 chips(e.bsq/debt/eqv);已覆蓋≥200檔則跳過。"""
-    try:
-        have = sum(1 for e2 in chips.values() if e2.get("bsq") == q_exp)
-        if have >= 200:
-            print(f"  資產負債 {q_exp}:已有 {have} 檔,跳過"); return
-        y0, s0 = int(q_exp[:4]), int(q_exp[-1])
-        bs = fetch_balance_mops(y0, s0)
-        for sid, (debt, eqv) in bs.items():
-            e2 = chips.setdefault(sid, {})
-            e2["bsq"], e2["debt"], e2["eqv"] = q_exp, debt, eqv
-        print(f"  資產負債 {q_exp}:寫入 {len(bs)} 檔(ROE/負債比資料源)")
-    except Exception as e:
-        print(f"  [warn] 資產負債: {e}")
-
-def _cur_q_avail():
-    """依申報期限推算「現在應該拿得到」的最新季:Q1→5/16、Q2→8/15、Q3→11/15、年報(Q4)→4/1。"""
-    t = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
-    y, m, d0 = t.year, t.month, t.day
-    if (m, d0) >= (11, 15): return f"{y}Q3"
-    if (m, d0) >= (8, 15):  return f"{y}Q2"
-    if (m, d0) >= (5, 16):  return f"{y}Q1"
-    if (m, d0) >= (4, 1):   return f"{y-1}Q4"
-    return f"{y-1}Q3"
-
 def append_margins(chips, cur):
     """把季度三率寫入籌碼歷史(fq/gm/om/nm/qr,保留8季)。
-    歷史深度不足 → 向 MOPS 逐季回補;深度足夠 → 例行檢查。
-    2026-07 修:OpenAPI 被海外 IP 封鎖時原本整條靜默停擺(卡在 2025Q3 的元兇)——
-    現在 OpenAPI 失效改走 MOPS 直抓,並依申報期限自動「前緣補季」(年報+新Q1 一次補齊)。"""
-    q_exp = _cur_q_avail()
-    if not cur:
-        print(f"  [warn] 營益分析 OpenAPI 無資料(海外IP常被擋)→ 改抓 MOPS {q_exp}")
-        y0, s0 = int(q_exp[:4]), int(q_exp[-1])
-        mp = fetch_margin_mops(y0, s0)
-        cur = {sid: (q_exp, gm, om, nm, rv) for sid, (gm, om, nm, rv) in mp.items()}
-        if not cur:
-            print("  [warn] MOPS 也無資料,季報三率本輪略過")
-            return
-        print(f"  營益分析 ← MOPS 備援 {q_exp}:{len(cur)} 家")
+    歷史深度不足(如剛上線只有最新一季)→ 向 MOPS 逐季回補八季(伺服器端直連,無CORS問題);
+    深度足夠 → 例行檢查上一季即可。回補為一次性成本(約2~4分鐘),補齊後不再觸發。"""
+    if not cur: return
     q_now = max(v[0] for v in cur.values())
-    _bt0 = time.time()
-    _bover = lambda: time.time() - _bt0 > 720            # ⏱ 整體 12 分鐘預算:跑不完的下一班續補,絕不撐爆 job 上限
-    # 🔧 前緣補季:官方最新季落後申報進度時,把中間缺的季(如 2025Q4 年報、2026Q1)逐季用 MOPS 補上
-    _fills, _q = [], q_exp
-    while _q > q_now and len(_fills) < 4:
-        _fills.append(_q)
-        _q = prev_q(_q)
-    for q_fill in reversed(_fills):
-        if _bover():
-            print("  ⏱ 季報回補時間預算用盡,其餘季度下一班自動續補")
-            break
-        have = sum(1 for sid in cur if q_fill in (chips.get(sid, {}).get("fq") or []))
-        if have >= 200:
-            print(f"  前緣補季 {q_fill}:已有 {have} 家,跳過")
-            continue
-        y0, s0 = int(q_fill[:4]), int(q_fill[-1])
-        mp = fetch_margin_mops(y0, s0)
-        print(f"  前緣補季 {q_fill}:MOPS {len(mp)} 家")
-        for sid, (gm, om, nm, rv) in mp.items():
-            _put_margin(chips.setdefault(sid, {}), q_fill, gm, om, nm, rv)
-        if mp:
-            for sid, (gm, om, nm, rv) in mp.items():   # 讓 q_now 前進,後續深度回補基準正確
-                cur[sid] = (q_fill, gm, om, nm, rv)
-            q_now = q_fill
-        time.sleep(2)
     depths = [len(chips.get(sid, {}).get("fq") or []) for sid in cur]
     med = sorted(depths)[len(depths) // 2] if depths else 0
     if med < 7:
@@ -1134,9 +927,6 @@ def append_margins(chips, cur):
             q = prev_q(q); qs.append(q)
         print(f"  季報三率深度不足(中位數 {med} 季),向 MOPS 回補 {qs[-1]} ~ {qs[0]} …")
         for pq in qs:
-            if _bover():
-                print("  ⏱ 季報回補時間預算用盡,其餘季度下一班自動續補(已補的會保留)")
-                break
             have = sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or []))
             if have >= 200:
                 print(f"    {pq}:已有 {have} 家,跳過"); continue
@@ -1149,7 +939,7 @@ def append_margins(chips, cur):
         # 仍缺的季 → Wayback 快照終極備援(一次掃描補全部缺季)
         missing = [pq for pq in qs
                    if sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or [])) < 200]
-        if missing and not _bover():
+        if missing:
             print(f"  MOPS 未補齊 {len(missing)} 季({','.join(missing)}),改走 Wayback 快照…")
             wb = wayback_margins(missing)
             for pq, data in wb.items():
@@ -1187,13 +977,11 @@ def _put_margin(e, q, gm, om, nm, rv):
 
 def _finmind_fut(day):
     """FinMind 期貨法人未平倉(TX 大台 + MTX 小台),一次取 90 天歷史。"""
+    start = (dt.datetime.now() - dt.timedelta(days=95)).strftime("%Y-%m-%d")
     for pid in ("TX", "MTX"):
-        start = (dt.datetime.now() - dt.timedelta(days=400 if pid == "TX" else 95)).strftime("%Y-%m-%d")  # TX 拉一年供分位數
         try:
-            _tok = os.environ.get("FINMIND_TOKEN", "")
             j = get_json("https://api.finmindtrade.com/api/v4/data"
-                         f"?dataset=TaiwanFuturesInstitutionalInvestors&data_id={pid}&start_date={start}"
-                         + (f"&token={_tok}" if _tok else ""),
+                         f"?dataset=TaiwanFuturesInstitutionalInvestors&data_id={pid}&start_date={start}",
                          timeout=40)
             rows = j.get("data") if isinstance(j, dict) else (j if isinstance(j, list) else None)
             if not rows:
@@ -1435,52 +1223,6 @@ def fetch_credit_stocks(stocks):
         print(f"  [warn] 借券賣出(TWT93U): {e}")
     # ── FinMind 備援:上櫃融資融券(MI_MARGN 僅涵蓋上市)+ 借券賣出(TWT93U 常封鎖海外IP)──
     miss_mg = [sid for sid, s in by_id.items() if (s.get("mg") or {}).get("f") is None]
-    if miss_mg:
-        # 官方源優先:櫃買中心 融資融券餘額(欄位以名稱模糊比對,版式不符自動跳過走 FinMind)
-        try:
-            _tp = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
-            _got = 0
-            for _back in range(0, 5):
-                _d = _tp - dt.timedelta(days=_back)
-                if _d.weekday() >= 5:
-                    continue
-                _roc = f"{_d.year-1911}/{_d.month:02d}/{_d.day:02d}"
-                jt = get_json(f"https://www.tpex.org.tw/www/zh-tw/margin/balance?date={_roc}&response=json",
-                              timeout=30)
-                tbs = (jt or {}).get("tables") or []
-                if not tbs or not (tbs[0].get("data") or []):
-                    continue
-                _fields = [str(x) for x in (tbs[0].get("fields") or [])]
-                def _col(*kw):   # 取「最後一個」符合的欄(前日餘額在前、今日餘額在後)
-                    idxs = [i for i, f in enumerate(_fields) if all(k in f for k in kw)]
-                    return idxs[-1] if idxs else None
-                _ci = _col("代號")
-                _cf = _col("資", "餘額")
-                _cs = _col("券", "餘額")
-                if _ci is None or _cf is None:
-                    print(f"  [warn] 櫃買融資API欄位不符:{_fields[:8]}")
-                    break
-                for row in tbs[0]["data"]:
-                    row = [str(x).replace(",", "") for x in row]
-                    sid = row[_ci].strip() if _ci < len(row) else ""
-                    st = by_id.get(sid)
-                    if not st or (st.get("mg") or {}).get("f") is not None:
-                        continue
-                    fv = numf(row[_cf]) if _cf < len(row) else None
-                    if fv is None:
-                        continue
-                    mg = st.setdefault("mg", {})
-                    mg["f"] = int(fv); _got += 1
-                    if _cs is not None and _cs < len(row):
-                        sv = numf(row[_cs])
-                        if sv is not None:
-                            mg["s"] = int(sv)
-                if _got:
-                    print(f"  櫃買融資融券(官方):補 {_got} 檔({_d.strftime('%Y-%m-%d')})")
-                break
-        except Exception as e:
-            print(f"  [warn] 櫃買融資官方源: {e}")
-    miss_mg = [sid for sid, s in by_id.items() if (s.get("mg") or {}).get("f") is None]
     if miss_mg or n2 == 0:
         def _fm(dataset, day):
             params = {"dataset": dataset, "start_date": day, "end_date": day}
@@ -1575,74 +1317,6 @@ def fetch_credit_macro(prev, stocks=None):
             except Exception: continue
             if "MarginPurchaseMoney" in nm: hist[d0] = round(bal / 1e8, 1)      # 融資金額 元→億
             elif "ShortSaleVolume" in nm:   hist_sv[d0] = round(bal / 1e4, 1)   # 融券張數 張→萬張
-        # 歷史續存:舊檔已有的值當底,新抓的覆蓋——FinMind 偶發限流時融資/融券序列不歸零
-        pv = (prev or {}).get("h") or {}
-        pd_, pf_, ps_ = list(pv.get("d") or []), list(pv.get("fin") or []), list(pv.get("sv") or [])
-        for i, d0 in enumerate(pd_):
-            if d0 not in hist and i < len(pf_) and pf_[i] is not None:
-                hist[d0] = pf_[i]
-            if d0 not in hist_sv and i < len(ps_) and ps_[i] is not None:
-                hist_sv[d0] = ps_[i]
-        # 官方補刀:證交所 MI_MARGN 信用交易統計(selectType=MS,輕量總表)——
-        # 融券總張數 FinMind 常缺漏(2026-07 實際發生),以官方值為正源覆蓋最新交易日
-        try:
-            _tp = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
-            for _back in range(0, 5):
-                _d = _tp - dt.timedelta(days=_back)
-                if _d.weekday() >= 5:
-                    continue
-                jm = get_json("https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN"
-                              f"?date={_d.strftime('%Y%m%d')}&selectType=MS&response=json",
-                              timeout=30)
-                tbs = (jm or {}).get("tables") or []
-                _hit = False
-                for tb in tbs:
-                    for row in (tb.get("data") or []):
-                        row = [str(x).replace(",", "") for x in row]
-                        if not row:
-                            continue
-                        _dkey = _d.strftime("%Y-%m-%d")
-                        if row[0].startswith("融券"):
-                            v = numf(row[-1])
-                            if v:
-                                hist_sv[_dkey] = round(v / 1e4, 1); _hit = True   # 張 → 萬張
-                        elif row[0].startswith("融資金額"):
-                            v = numf(row[-1])
-                            if v:
-                                hist[_dkey] = round(v / 1e5, 1); _hit = True      # 仟元 → 億
-                if _hit:
-                    print(f"  信用統計官方補刀:{_d.strftime('%Y-%m-%d')} 融券 {hist_sv.get(_d.strftime('%Y-%m-%d'))} 萬張")
-                    break
-            # 融券 60 日歷史回補(一次性):序列覆蓋不足 10 日時,逐日抓官方統計,融券線立刻整條成形
-            if sum(1 for v in hist_sv.values() if v is not None) < 10:
-                _bk, _d2, _n = 0, _tp, 0
-                while _n < 70 and _bk < 60:
-                    _n += 1
-                    _d2 -= dt.timedelta(days=1)
-                    if _d2.weekday() >= 5:
-                        continue
-                    _k = _d2.strftime("%Y-%m-%d")
-                    if _k in hist_sv:
-                        _bk += 1
-                        continue
-                    try:
-                        jm2 = get_json("https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN"
-                                       f"?date={_d2.strftime('%Y%m%d')}&selectType=MS&response=json",
-                                       timeout=25)
-                        for tb2 in (jm2 or {}).get("tables") or []:
-                            for row2 in (tb2.get("data") or []):
-                                row2 = [str(x).replace(",", "") for x in row2]
-                                if row2 and row2[0].startswith("融券"):
-                                    v2 = numf(row2[-1])
-                                    if v2:
-                                        hist_sv[_k] = round(v2 / 1e4, 1); _bk += 1
-                    except Exception:
-                        pass
-                    time.sleep(2.5)                     # 證交所限流嚴,慢慢來(一次性,之後靠逐日續存)
-                if _bk:
-                    print(f"  融券歷史回補:{_bk} 日(官方 MI_MARGN,融券線即刻成形)")
-        except Exception as e:
-            print(f"  [warn] MI_MARGN 信用統計: {e}")
         if hist:
             ds = sorted(hist)[-60:]
             h = {"d": ds, "fin": [hist[d] for d in ds],
@@ -1677,69 +1351,10 @@ def fetch_credit_macro(prev, stocks=None):
             elif (prev or {}).get("otc"):
                 out["otc"] = prev["otc"]
                 out["otcF"], out["otcS"] = prev.get("otcF"), prev.get("otcS")
-                print(f"  [warn] 上櫃信用合計:個股覆蓋僅 {n} 檔(<200)→沿用前值;FinMind 可能被限流,建議在 repo secrets 設 FINMIND_TOKEN")
-            else:
-                print(f"  [warn] 上櫃信用合計:個股覆蓋僅 {n} 檔(<200)且無前值——請設 FINMIND_TOKEN(免費註冊)讓備援穩定")
         elif (prev or {}).get("otc") and out is not None:
             out["otc"] = prev["otc"]; out["otcF"], out["otcS"] = prev.get("otcF"), prev.get("otcS")
     except Exception as e:
         print(f"  [warn] 上櫃信用合計: {e}")
-    # ── 櫃買信用歷史回補(一次性):歷史不足 10 日時,用官方逐日總和補近 60 個交易日,圖表立刻成線 ──
-    try:
-        if out is not None and len(((out.get("otc") or {}).get("d")) or []) < 10:
-            _tp = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
-            _days, _d = [], _tp
-            while len(_days) < 60:
-                if _d.weekday() < 5:
-                    _days.append(_d)
-                _d -= dt.timedelta(days=1)
-            od, of, os_ = [], [], []
-            for _d in reversed(_days):
-                _roc = f"{_d.year-1911}/{_d.month:02d}/{_d.day:02d}"
-                try:
-                    jt = get_json(f"https://www.tpex.org.tw/www/zh-tw/margin/balance?date={_roc}&response=json",
-                                  timeout=25)
-                    tbs = (jt or {}).get("tables") or []
-                    data0 = (tbs[0].get("data") if tbs else None) or []
-                    if not data0:
-                        continue
-                    _fields = [str(x) for x in (tbs[0].get("fields") or [])]
-                    _idx = lambda *kw: [i for i, f2 in enumerate(_fields) if all(k in f2 for k in kw)]
-                    _cf = (_idx("資", "餘額") or [None])[-1]
-                    _cs = (_idx("券", "餘額") or [None])[-1]
-                    if _cf is None:
-                        print(f"  [warn] 櫃買回補欄位不符:{_fields[:8]}")
-                        break
-                    fs = ss = n0 = 0
-                    for row in data0:
-                        row = [str(x).replace(",", "") for x in row]
-                        v = numf(row[_cf]) if _cf < len(row) else None
-                        if v is None:
-                            continue
-                        fs += int(v); n0 += 1
-                        if _cs is not None and _cs < len(row):
-                            v2 = numf(row[_cs])
-                            if v2 is not None:
-                                ss += int(v2)
-                    if n0 > 200:
-                        od.append(_d.strftime("%Y-%m-%d")); of.append(fs); os_.append(ss)
-                except Exception:
-                    pass
-                time.sleep(0.4)
-            if len(od) >= 10:
-                cur = (out.get("otc") or {})
-                m_f, m_s = dict(zip(od, of)), dict(zip(od, os_))
-                for i, d0 in enumerate(cur.get("d") or []):     # 既有累積優先,回補值墊底
-                    m_f[d0] = cur["f"][i]
-                    if i < len(cur.get("s") or []):
-                        m_s[d0] = cur["s"][i]
-                ds2 = sorted(m_f)[-130:]
-                out["otc"] = {"d": ds2, "f": [m_f[x] for x in ds2], "s": [m_s.get(x) for x in ds2]}
-                if out.get("otcF") is None:
-                    out["otcF"], out["otcS"] = of[-1], os_[-1]
-                print(f"  櫃買信用歷史回補:{len(od)} 日(官方逐日加總,圖表即刻成線)")
-    except Exception as e:
-        print(f"  [warn] 櫃買歷史回補: {e}")
     return out
 
 def fetch_pe_bulk():
@@ -1893,20 +1508,6 @@ def fetch_taifex(prev_fut=None):
                    if hist[last].get("b10") is not None else None),
            "ret": pair("rt")}
     print(f"  台指期籌碼:{last}(歷史 {len(ds)} 日/法人 {len(fut['inst'])} 項/十大 {'有' if fut['big'] else '無'})")
-    try:                                             # 外資 TX 淨OI 近一年分位數(fx 歷史來自 FinMind 400 日)
-        _fx = [e2.get("fx") for e2 in day.values() if isinstance(e2, dict) and e2.get("fx") is not None]
-        if len(_fx) >= 120 and fut.get("d"):
-            _cur = None
-            for _k in sorted(day)[::-1]:
-                if isinstance(day[_k], dict) and day[_k].get("fx") is not None:
-                    _cur = day[_k]["fx"]; break
-            if _cur is not None:
-                _pct = round(sum(1 for v in _fx if v <= _cur) / len(_fx) * 100)
-                fut["fxPct"] = {"v": _cur, "pct": _pct, "n": len(_fx),
-                                "hi": max(_fx), "lo": min(_fx)}
-                print(f"  外資TX淨OI {_cur:,} 口 → 近一年第 {_pct} 百分位(樣本 {len(_fx)} 日)")
-    except Exception as _e:
-        print(f"  [warn] 期貨分位數: {_e}")
     return fut
 
 def _act_delta(prev_hold, hold, etf_chg, chg_map, today_iso, px_map=None):
@@ -3126,55 +2727,13 @@ def main():
     rev_bulk = fetch_rev_bulk()
     chips, cmeta = load_chips()
     update_chip_hist(chips, cmeta)          # 法人逐日,累積至 65 個交易日
-    tdcc, tdcc_date, holders = fetch_tdcc_bulk()
-    try:                                                 # 集保總戶數逐週,保留 9 週
-        if holders and tdcc_date:
-            for _sid, _n in holders.items():
-                _e2 = chips.setdefault(_sid, {})
-                _h = [x for x in (_e2.get("hdn") or []) if x.get("d") != tdcc_date]
-                _h.append({"d": tdcc_date, "n": int(_n)})
-                _e2["hdn"] = _h[-9:]
-    except Exception as _e3:
-        print(f"  [warn] 戶數累積: {_e3}")
+    tdcc, tdcc_date = fetch_tdcc_bulk()
     append_tdcc(chips, tdcc, tdcc_date)     # 大戶逐週,保留 26 週
     append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
-    try: append_balance(chips, _cur_q_avail())   # 負債比/權益(財務體質:ROE 分母)
-    except Exception as _e4: print(f"  [warn] append_balance: {_e4}")
     inst = build_inst(chips)
     save_chips(chips, cmeta, comps)
 
-    dt_map = {}
-    try:                                                 # 當日沖銷統計(投機溫度):近4日內最新交易日
-        _tp5 = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
-        for _b5 in range(0, 5):
-            _d5 = _tp5 - dt.timedelta(days=_b5)
-            if _d5.weekday() >= 5: continue
-            rows5, f5s = [], []
-            for _sel in ("All", "ALL", "ALLBUT0999"):
-                j5 = get_json("https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U",
-                              {"date": _d5.strftime("%Y%m%d"), "selectType": _sel, "response": "json"},
-                              timeout=40)
-                for tb5 in (j5.get("tables") or ([j5] if j5.get("data") else [])):
-                    if tb5.get("data") and any("代號" in str(f5) for f5 in (tb5.get("fields") or [])):
-                        rows5 = tb5["data"]; f5s = [str(x) for x in tb5["fields"]]; break
-                if rows5: break
-                if _sel == "All":
-                    print(f"  [diag] 當沖 {_d5.strftime('%m-%d')} stat={j5.get('stat')} keys={list(j5)[:5]} "
-                          f"tables={[len((t.get('data') or [])) for t in (j5.get('tables') or [])]}")
-            if not rows5: continue
-            _ci5 = next((i for i, f5 in enumerate(f5s) if "代號" in f5), 0)
-            _cv5 = next((i for i, f5 in enumerate(f5s) if "股數" in f5 and "沖" in f5), None)
-            if _cv5 is None: continue
-            for r5 in rows5:
-                try:
-                    sid5 = str(r5[_ci5]).strip()
-                    dt_map[sid5] = int(str(r5[_cv5]).replace(",", "")) // 1000   # 股→張
-                except Exception: continue
-            if dt_map:
-                print(f"  當沖統計:{len(dt_map)} 檔({_d5.strftime('%Y-%m-%d')})"); break
-    except Exception as _e5:
-        print(f"  [warn] 當沖統計: {_e5}")
     print("④ 計算評分與訊號 ...")
     stocks, ok = [], 0
     for c in comps:
@@ -3184,12 +2743,6 @@ def main():
                 d = score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips)
                 if c["id"] in OFF_CHG:              # 官方當日漲跌%優先(K棒缺口時仍正確)
                     d["chg"] = OFF_CHG[c["id"]]
-                try:                                     # 當沖佔比% = 當沖張數 / 當日成交張數
-                    _v5 = bars["o"][-1][4] if bars["o"][-1] and len(bars["o"][-1]) > 4 else 0
-                    if c["id"] in dt_map and _v5:
-                        _p5 = round(dt_map[c["id"]] / _v5 * 100, 1)
-                        if 0 < _p5 <= 100: d["dtp"] = _p5
-                except Exception: pass
                 if c.get("etf"):                      # ETF 期間績效(價格報酬,%)
                     _cl=[x[3] for x in bars["o"]]; _ds=bars.get("d") or []
                     _last=_cl[-1]
@@ -3249,6 +2802,20 @@ def main():
     # ══ 第一階段:核心保底——評分/K線/總經先寫出,今日資料保證上線 ══
     _macro = fetch_macro()
     _news = fetch_news()
+    # r603 保底:今日掃價失敗的檔沿用前一日資料——股票永不因單日 Yahoo 限流而從股池消失
+    try:
+        prev_st = {x.get("id"): x for x in (prev_all.get("stocks") or []) if x.get("id")}
+        have = {x.get("id") for x in stocks}
+        carried = 0
+        for pid, px in prev_st.items():
+            if pid not in have:
+                px["stale"] = 1
+                stocks.append(px)
+                carried += 1
+        if carried:
+            print(f"  🛟 保底:{carried} 檔今日掃價失敗,沿用前一日資料(標記 stale)")
+    except Exception as e:
+        print(f"  [warn] 保底繼承: {e}")
     out = {"updated": taipei, "source": "live",
            "macro": _macro, "news": _news, "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
@@ -3284,98 +2851,6 @@ def main():
         _macro["credit"] = fetch_credit_macro((prev_all.get("macro") or {}).get("credit"), stocks)
     except Exception as e:
         print(f"  [warn] 大盤融資跳過: {e}")
-    # ── ⚖️ 台指選擇權 Put/Call 比(期交所官方;散戶情緒/避險溫度計)──
-    try:
-        _tpd = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
-        _s0 = (_tpd - dt.timedelta(days=95)).strftime("%Y/%m/%d")
-        _s1 = _tpd.strftime("%Y/%m/%d")
-        import urllib.parse as _up
-        _pcr_url = ("https://www.taifex.com.tw/cht/3/pcRatioDown"
-                    f"?queryStartDate={_up.quote(_s0,safe='')}&queryEndDate={_up.quote(_s1,safe='')}")
-        _raw = ""
-        try:
-            _raw = get_text(_pcr_url)
-        except Exception as _pe:
-            print(f"  [diag] P/C 直連失敗: {str(_pe)[:60]}")
-        if "," not in (_raw or "")[:200]:                 # 直連被擋 → 公共代理
-            for _mk in (lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe=""),
-                        lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")):
-                try:
-                    _raw = get_text(_mk(_pcr_url))
-                    if "," in (_raw or "")[:200]:
-                        print("  P/C ← 代理路"); break
-                except Exception:
-                    continue
-        if "," not in (_raw or "")[:200]:
-            print(f"  [diag] P/C 回應無CSV(長度 {len(_raw or '')}): {(_raw or '')[:80]!r}")
-        pd_, pv_, po_ = [], [], []
-        for ln in (_raw or "").splitlines()[1:]:
-            c2 = [x.strip().replace(",", "") for x in ln.split(",")]
-            if len(c2) < 7 or "/" not in c2[0]:
-                continue
-            try:
-                pd_.append(c2[0].replace("/", "-"))
-                pv_.append(float(c2[3]))          # 成交量比率%
-                po_.append(float(c2[6]))          # 未平倉比率%
-            except Exception:
-                continue
-        if len(po_) >= 20:
-            pd_, pv_, po_ = pd_[::-1][-60:], pv_[::-1][-60:], po_[::-1][-60:]   # 期交所新→舊,轉舊→新
-            _macro["pcr"] = {"d": pd_, "v": pv_, "oi": po_}
-            print(f"  台指選擇權 P/C:未平倉比 {po_[-1]}%({len(po_)} 日)")
-        elif (prev_all.get("macro") or {}).get("pcr"):
-            _macro["pcr"] = prev_all["macro"]["pcr"]
-            print("  台指選擇權 P/C:沿用前檔")
-    except Exception as e:
-        print(f"  [warn] 台指選擇權 P/C: {e}")
-    # ── 📐 市場廣度(日更):全市場站上月線/季線比例、20日新高新低家數——頭部判讀的內部結構證據 ──
-    try:
-        import glob as _g
-        a20 = a60 = nh = nl = tot = 0
-        for _fp in _g.glob("k/tw*.json"):
-            try:
-                with open(_fp, encoding="utf-8") as f:
-                    shard = json.load(f)
-            except Exception:
-                continue
-            for _sid, _e in shard.items():
-                try:
-                    bars = (_e or {}).get("o") or []
-                    if len(bars) < 60:
-                        continue
-                    cl = [b[3] for b in bars[-60:]]
-                    hi = [b[1] for b in bars[-21:-1]]
-                    lo = [b[2] for b in bars[-21:-1]]
-                    px = cl[-1]
-                    tot += 1
-                    if px > sum(cl[-20:]) / 20: a20 += 1
-                    if px > sum(cl) / 60: a60 += 1
-                    if hi and px > max(hi): nh += 1
-                    if lo and px < min(lo): nl += 1
-                except Exception:
-                    continue
-        if tot > 300:
-            _pb = (prev_all.get("macro") or {}).get("breadth") or {}
-            _bd = {k: list(_pb.get(k) or []) for k in ("d", "a20", "a60", "nh", "nl")}
-            _tpd = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
-            while _tpd.weekday() >= 5:                    # 週末手動跑 → 記到最近的週五
-                _tpd -= dt.timedelta(days=1)
-            _key = _tpd.strftime("%Y-%m-%d")
-            if True:
-                if _bd["d"] and _bd["d"][-1] == _key:
-                    for k in ("d", "a20", "a60", "nh", "nl"):
-                        _bd[k] = _bd[k][:-1]
-                _bd["d"].append(_key)
-                _bd["a20"].append(round(a20 / tot * 100, 1))
-                _bd["a60"].append(round(a60 / tot * 100, 1))
-                _bd["nh"].append(nh)
-                _bd["nl"].append(nl)
-                for k in _bd: _bd[k] = _bd[k][-90:]
-            _bd["n"] = tot
-            _macro["breadth"] = _bd
-            print(f"  市場廣度:{tot} 檔|站上月線 {round(a20/tot*100,1)}%、季線 {round(a60/tot*100,1)}%|20日新高 {nh}/新低 {nl}")
-    except Exception as e:
-        print(f"  [warn] 市場廣度: {e}")
     # ── 估值:本益比/股價淨值比/EPS/預估本益比/同產業中位數 ──
     _indpe = {}
     try:
