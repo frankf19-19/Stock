@@ -90,8 +90,18 @@ def numf(s):
     except ValueError:
         return None
 
-def get_json(url, params=None, timeout=30):
-    return requests.get(url, params=params, headers=UA, timeout=timeout).json()
+def get_json(url, params=None, timeout=30, tries=3):
+    """官方站(證交所/櫃買)對雲端 IP 常間歇回傳 HTML 錯誤頁,造成 json() 直接爆
+       'Expecting value: line 1 column 1' 而整批資料掉光 → 加重試與退避。"""
+    last = None
+    for i in range(tries):
+        try:
+            return requests.get(url, params=params, headers=UA, timeout=timeout).json()
+        except Exception as e:
+            last = e
+            if i < tries - 1:
+                time.sleep(1.5 * (i + 1))
+    raise last
 
 def _pick(fields, *needles):
     for i, f in enumerate(fields):
@@ -214,17 +224,28 @@ def add_us_etfs(out):
 def shard_name(s):
     return f"tw{s['id'][0]}.json" if s["market"] == "TW" else f"us_{s['id'][0].lower()}.json"
 
+BAD_SHARDS = set()   # 讀取失敗的 K 線分片:本輪一律不覆寫,避免整批歷史被歸零
+
 def load_hist():
     hist = {}
     for fp in glob.glob(os.path.join(K_DIR, "*.json")):
+        fn = os.path.basename(fp)
         try:
             with open(fp, encoding="utf-8") as f:
-                hist.update(json.load(f))
-        except Exception: pass
-    print(f"  既有 K 線:{len(hist)} 檔")
+                obj = json.load(f)
+            if not isinstance(obj, dict) or not obj:
+                raise ValueError("內容為空或格式不符")
+            hist.update(obj)
+        except Exception as e:
+            BAD_SHARDS.add(fn)
+            print(f"  [ERROR] K 線分片讀取失敗 {fn}: {e} → 本輪保留原檔,不覆寫")
+    print(f"  既有 K 線:{len(hist)} 檔"
+          + (f"(壞檔 {len(BAD_SHARDS)} 個:{sorted(BAD_SHARDS)})" if BAD_SHARDS else ""))
     return hist
 
 def save_hist(hist, comps):
+    """寫出分片前設兩道防線:①上輪讀壞的檔不覆寫 ②新檔 K 棒總數暴跌(<舊檔六成)判定異常保留舊檔。
+       兩者都是為了防止「歷史被歸零 → 全市場評分掉回 50 分」重演。"""
     os.makedirs(K_DIR, exist_ok=True)
     shards = {}
     by_id = {c["id"]: c for c in comps}
@@ -232,10 +253,28 @@ def save_hist(hist, comps):
         c = by_id.get(sid)
         if not c: continue
         shards.setdefault(shard_name(c), {})[sid] = v
+    wrote = kept = 0
     for fn, obj in shards.items():
-        with open(os.path.join(K_DIR, fn), "w", encoding="utf-8") as f:
+        fp = os.path.join(K_DIR, fn)
+        if fn in BAD_SHARDS:
+            print(f"  [守門] {fn}:本輪讀取失敗,保留原檔"); kept += 1; continue
+        new_bars = sum(len(v.get("d") or []) for v in obj.values())
+        old_bars = 0
+        if os.path.exists(fp):
+            try:
+                with open(fp, encoding="utf-8") as f: _o = json.load(f)
+                old_bars = sum(len(v.get("d") or []) for v in _o.values())
+            except Exception:
+                old_bars = 0
+        if old_bars and new_bars < old_bars * 0.6:
+            print(f"  [守門] {fn}:新資料僅 {new_bars} 根 K < 舊檔 {old_bars} 根的六成,判定異常,保留舊檔")
+            kept += 1; continue
+        tmp = fp + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"  K 線分片:寫出 {len(shards)} 個檔案")
+        os.replace(tmp, fp)          # 原子寫入:中途被中斷也不會留下半截檔
+        wrote += 1
+    print(f"  K 線分片:寫出 {wrote} 個檔案" + (f"(保留 {kept} 個)" if kept else ""))
 
 def append_bar(hist, sid, date, o, h, l, c, v):
     e = hist.setdefault(sid, {"d": [], "o": []})
@@ -444,9 +483,13 @@ def update_tw_prices(hist, tw_comps):
         fill_tw_daily_official(hist, tw_comps)
     except Exception as e:
         print(f"  [warn] 官方日行情: {e}")
+    try:
+        backfill_twse_bulk(hist, tw_comps)      # 主力:一天一次呼叫補「全上市」
+    except Exception as e:
+        print(f"  [warn] 批次回補: {e}")
     stale = [c for c in tw_comps
              if c.get("ex") == "tse"
-             and len((hist.get(c["id"]) or {}).get("d") or []) < 240][:60]
+             and len((hist.get(c["id"]) or {}).get("d") or []) < 40][:20]
     if stale:
         fixed = 0
         for c in stale:
@@ -456,8 +499,91 @@ def update_tw_prices(hist, tw_comps):
             except Exception:
                 pass
             time.sleep(0.4)
-        print(f"  歷史回補(證交所 STOCK_DAY):{fixed}/{len(stale)} 檔")
+        print(f"  漏網補強(逐檔 STOCK_DAY):{fixed}/{len(stale)} 檔")
     print(f"  台股價格:官方源續寫完成(零 Yahoo)")
+
+def _mi_index_day(dstr):
+    """證交所 MI_INDEX 全市場單日收盤行情(type=ALLBUT0999,含 ETF):
+       一次呼叫拿到「當天所有上市股」的 OHLCV → {代號:(開,高,低,收,張)};休市/失敗回 {}。"""
+    try:
+        j = get_json("https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
+                     f"?date={dstr}&type=ALLBUT0999&response=json", timeout=45)
+    except Exception:
+        return {}
+    if not isinstance(j, dict):
+        return {}
+    tabs = []
+    if isinstance(j.get("tables"), list):
+        for t in j["tables"]:
+            if isinstance(t, dict) and t.get("fields") and t.get("data"):
+                tabs.append((t["fields"], t["data"]))
+    for i in range(1, 10):                       # 舊版格式 fields1/data1 … 一併相容
+        f0, d0 = j.get(f"fields{i}"), j.get(f"data{i}")
+        if f0 and d0: tabs.append((f0, d0))
+    out = {}
+    for fields, data in tabs:
+        i_id = _pick(fields, "證券代號")
+        i_c  = _pick(fields, "收盤價")
+        if i_id is None or i_c is None: continue
+        i_o, i_h, i_l = _pick(fields, "開盤價"), _pick(fields, "最高價"), _pick(fields, "最低價")
+        i_v = _pick(fields, "成交股數")
+        for row in data:
+            try:
+                sid = str(row[i_id]).strip().upper()
+                c2 = numf(row[i_c])
+                if not sid or not c2 or c2 <= 0: continue
+                o2 = (numf(row[i_o]) if i_o is not None else None) or c2
+                h2 = (numf(row[i_h]) if i_h is not None else None) or max(o2, c2)
+                l2 = (numf(row[i_l]) if i_l is not None else None) or min(o2, c2)
+                v2 = (numf(row[i_v]) if i_v is not None else None) or 0
+                out[sid] = (round(o2, 2), round(h2, 2), round(l2, 2), round(c2, 2), int(v2 // 1000))
+            except Exception:
+                continue
+        if out: break
+    return out
+
+def backfill_twse_bulk(hist, tw_comps, max_days=60):
+    """上市 K 線史批次回補。
+       舊法:逐檔 STOCK_DAY(1 檔要 13 次呼叫)+ 每輪限 60 檔 → 765 檔缺史要跑 13 個交易日才補得完。
+       新法:MI_INDEX 全市場單日檔,1 次呼叫補「當天所有上市股」,每輪抓 60 個交易日,
+             且自動跳過「多數缺史股都已經有」的日期 → 每輪往回長 60 天,4 輪內補滿 260 根。"""
+    need = {c["id"] for c in tw_comps if c.get("ex") == "tse"
+            and len((hist.get(c["id"]) or {}).get("d") or []) < 240}
+    if not need:
+        print("  批次回補:上市 K 線史已完整,略過"); return
+    N = len(need)
+    have_cnt = {}
+    for sid in need:
+        for dd in (hist.get(sid) or {}).get("d") or []:
+            have_cnt[dd] = have_cnt.get(dd, 0) + 1
+    days, d = [], TODAY
+    while len(days) < max_days and (TODAY - d).days < 420:
+        if d.weekday() < 5 and have_cnt.get(d.isoformat(), 0) < N * 0.9:
+            days.append(d)
+        d -= dt.timedelta(days=1)
+    add, n_hit = {sid: {} for sid in need}, 0
+    for dd in days:
+        rows = _mi_index_day(dd.strftime("%Y%m%d"))
+        time.sleep(0.5)
+        if not rows: continue                     # 休市或當天無資料
+        n_hit += 1
+        iso = dd.isoformat()
+        for sid in need:
+            r = rows.get(sid)
+            if r: add[sid][iso] = list(r)
+    fixed = 0
+    for sid in need:
+        got = add.get(sid) or {}
+        if not got: continue
+        e = hist.get(sid) or {"d": [], "o": []}
+        merged = dict(zip(e.get("d") or [], e.get("o") or []))
+        merged.update(got)                        # 新舊合併後重排,舊資料也能往前補
+        ks = sorted(merged)[-KEEP_BARS:]
+        if len(ks) > len(e.get("d") or []):
+            hist[sid] = {"d": ks, "o": [merged[k] for k in ks]}
+            fixed += 1
+    print(f"  批次回補(MI_INDEX 全市場):掃 {len(days)} 日 / 有效 {n_hit} 日,"
+          f"修復 {fixed}/{N} 檔缺史上市股")
 
 def backfill_twse_history(hist, sid, months=13):
     """證交所 STOCK_DAY(個股月檔):回補近 N 個月日K,重建完整序列。"""
@@ -555,6 +681,18 @@ def fill_tw_daily_official(hist, comps):
             print(f"  [warn] 官方日行情({tag}): {e}")
     grab("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", "上市")
     grab("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", "上櫃")
+    # 保命線:openapi 被擋/回傳非 JSON 時,整批上市股會一天都補不到 K 棒 → 改走 MI_INDEX
+    if not any(sid in rows for sid in ("2330", "2317", "2454", "2412")):
+        for back in range(0, 6):
+            dd = TODAY - dt.timedelta(days=back)
+            if dd.weekday() >= 5: continue
+            mi = _mi_index_day(dd.strftime("%Y%m%d"))
+            if mi:
+                iso = dd.isoformat()
+                for sid, (o2, h2, l2, c2, v2) in mi.items():
+                    rows.setdefault(sid, (iso, o2, h2, l2, c2, v2))
+                print(f"  [備援] STOCK_DAY_ALL 無上市資料 → 改用 MI_INDEX {iso}:{len(mi)} 檔")
+                break
     if not rows: return
     # 官方資料日期(多數列相同,取眾數;缺日期欄則用今天/週五)
     from collections import Counter
