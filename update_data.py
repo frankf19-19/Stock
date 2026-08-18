@@ -287,31 +287,62 @@ def append_bar(hist, sid, date, o, h, l, c, v):
 # 每檔結構:{"d":[日期],"f":[外資張],"t":[投信張],"g":[自營張],
 #            "bd":[大戶週日期],"bp":[大戶持股%],
 #            "rm":[營收年月],"ry":[YoY%],"ra":[當月營收(千元)]}
+BAD_CHIPS = set()
+
 def load_chips():
     chips, meta = {}, {"dates": []}
     for fp in glob.glob(os.path.join(C_DIR, "*.json")):
+        fn = os.path.basename(fp)
         try:
             with open(fp, encoding="utf-8") as f:
                 obj = json.load(f)
-            if os.path.basename(fp) == "meta.json": meta = obj
+            if not isinstance(obj, dict) or not obj:
+                raise ValueError("內容為空或格式不符")
+            if fn == "meta.json": meta = obj
             else: chips.update(obj)
-        except Exception: pass
-    print(f"  既有籌碼歷史:{len(chips)} 檔、{len(meta.get('dates', []))} 個交易日")
+        except Exception as e:
+            if fn != "meta.json": BAD_CHIPS.add(fn)
+            print(f"  [ERROR] 籌碼分片讀取失敗 {fn}: {e} → 本輪保留原檔,不覆寫")
+    nd = sum(1 for v in chips.values() if v.get("d"))
+    print(f"  既有籌碼歷史:{len(chips)} 檔、meta 記錄 {len(meta.get('dates', []))} 個交易日"
+          f"(分片內有法人日資料者 {nd} 檔)"
+          + (f"、壞檔 {sorted(BAD_CHIPS)}" if BAD_CHIPS else ""))
     return chips, meta
 
 def save_chips(chips, meta, comps):
+    """與 K 線分片同樣的兩道防線,避免籌碼歷史再次被整批歸零。"""
     os.makedirs(C_DIR, exist_ok=True)
     tw_ids = {c["id"] for c in comps if c["market"] == "TW"}
     shards = {}
     for sid, v in chips.items():
         if sid not in tw_ids: continue
         shards.setdefault(f"tw{sid[0]}.json", {})[sid] = v
+    wrote = kept = 0
     for fn, obj in shards.items():
-        with open(os.path.join(C_DIR, fn), "w", encoding="utf-8") as f:
+        fp = os.path.join(C_DIR, fn)
+        if fn in BAD_CHIPS:
+            print(f"  [守門] {fn}:本輪讀取失敗,保留原檔"); kept += 1; continue
+        new_n = sum(len(v.get("d") or []) for v in obj.values())
+        old_n = 0
+        if os.path.exists(fp):
+            try:
+                with open(fp, encoding="utf-8") as f: _o = json.load(f)
+                old_n = sum(len(v.get("d") or []) for v in _o.values())
+            except Exception:
+                old_n = 0
+        if old_n and new_n < old_n * 0.6:
+            print(f"  [守門] {fn}:新資料僅 {new_n} 筆法人日 < 舊檔 {old_n} 的六成,判定異常,保留舊檔")
+            kept += 1; continue
+        tmp = fp + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
-    with open(os.path.join(C_DIR, "meta.json"), "w", encoding="utf-8") as f:
+        os.replace(tmp, fp)
+        wrote += 1
+    tmp = os.path.join(C_DIR, "meta.json.tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False)
-    print(f"  籌碼分片:寫出 {len(shards)} 個檔案")
+    os.replace(tmp, os.path.join(C_DIR, "meta.json"))
+    print(f"  籌碼分片:寫出 {wrote} 個檔案" + (f"(保留 {kept} 個)" if kept else ""))
 
 def fetch_inst_day(d):
     """抓單一交易日全市場三大法人買賣超(單位:張)。回傳 {sid:[外資,投信,自營]};非交易日回 None。"""
@@ -372,7 +403,21 @@ def fetch_mkt_day(d):
 
 def update_chip_hist(chips, meta):
     """回補/續抓法人逐日資料,累積至 CHIP_DAYS 個交易日。同步累積大盤法人買賣金額(meta['mkt'])。"""
-    have = set(meta.get("dates", []))
+    # ── 自我校正 ──────────────────────────────────────────────
+    # meta.json 與 c/tw*.json 是分開的兩份檔;分片被清空而 meta 還記著「已有 260 日」時,
+    # 舊寫法 have=meta['dates'] 會判定「不用抓」→ 籌碼歷史永遠回不來(死結)。
+    # 這裡改成以「分片裡實際存在的日期」為準:某日至少三成個股有資料才算真的有。
+    meta_dates = set(meta.get("dates", []))
+    cnt = {}
+    for e in chips.values():
+        for dd in e.get("d") or []:
+            cnt[dd] = cnt.get(dd, 0) + 1
+    n_all = max(len(chips), 1)
+    real = {dd for dd, c in cnt.items() if c >= n_all * 0.3}
+    have = meta_dates & real
+    if len(have) < len(meta_dates):
+        print(f"  [自我校正] meta 記錄 {len(meta_dates)} 個交易日,但分片實際只有 {len(have)} 日"
+              f" → 以分片實況為準,重新回補缺漏")
     want, d, walked = [], TODAY, 0
     while walked < 560 and len(want) < CHIP_BACKFILL and (len(have) + len(want)) < CHIP_DAYS + 4:
         if d.weekday() < 5 and d.isoformat() not in have:
@@ -440,6 +485,71 @@ def append_rev(chips, rev_bulk):
         if len(rm) > REV_MONTHS:
             e["rm"], e["ry"], e["ra"] = rm[-REV_MONTHS:], ry[-REV_MONTHS:], ra[-REV_MONTHS:]
 
+def _mops_rev_month(y, m):
+    """MOPS 單月全市場營收表(上市/上櫃 × 本國/KY 四頁)→ {sid:(YoY%, 'YYYY-MM', 當月營收千元)}。"""
+    roc, out = y - 1911, {}
+    for mk in ("sii", "otc"):
+        for sfx in ("0", "1"):
+            try:
+                u = f"https://mops.twse.com.tw/nas/t21/{mk}/t21sc03_{roc}_{m}_{sfx}.html"
+                r = requests.get(u, headers={**UA, "Referer": "https://mops.twse.com.tw/"}, timeout=25)
+                if r.status_code != 200 or len(r.content) < 2000: continue
+                html = r.content.decode("big5", errors="ignore")
+                for df in pd.read_html(StringIO(html)):
+                    cols = ["".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in df.columns]
+                    def ci(*pats):
+                        return next((i for i, c in enumerate(cols) if all(p in c for p in pats)), None)
+                    i_id, i_yoy, i_amt = ci("公司", "代號"), ci("去年同月", "增減"), ci("當月營收")
+                    if None in (i_id, i_yoy): continue
+                    for _, row in df.iterrows():
+                        sid = str(row.iloc[i_id]).strip()
+                        if not (sid.isdigit() and 4 <= len(sid) <= 6): continue
+                        yoy = numf(row.iloc[i_yoy])
+                        if yoy is None: continue
+                        out[sid] = (yoy, f"{y}-{m:02d}",
+                                    numf(row.iloc[i_amt]) if i_amt is not None else None)
+            except Exception:
+                pass
+            time.sleep(0.4)
+    return out
+
+def backfill_rev_months(chips, months=25):
+    """月營收逐月回補。分片被清空時 rm 只剩最新 1 個月 → 營收趨勢圖只有一根、
+       「動能連續性」與 YoY 走勢全判不出來。這裡把缺的月份一次補回(補齊後自動略過)。"""
+    cnt = {}
+    for e in chips.values():
+        for ym in e.get("rm") or []:
+            cnt[ym] = cnt.get(ym, 0) + 1
+    n_all = max(sum(1 for e in chips.values() if e.get("rm")), 1)
+    now = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+    y, m = (now.year, now.month - 1) if now.month > 1 else (now.year - 1, 12)
+    todo = []
+    for _ in range(months):
+        if cnt.get(f"{y}-{m:02d}", 0) < n_all * 0.3:
+            todo.append((y, m))
+        m -= 1
+        if m == 0: y, m = y - 1, 12
+    if not todo:
+        print("  月營收回補:歷史已完整,略過"); return
+    got = 0
+    for (yy, mm) in todo:
+        one = _mops_rev_month(yy, mm)
+        if not one: continue
+        got += 1
+        for sid, (yoy, ym, amt) in one.items():
+            e = chips.setdefault(sid, {})
+            rm, ry, ra = e.setdefault("rm", []), e.setdefault("ry", []), e.setdefault("ra", [])
+            while len(ra) < len(rm): ra.append(None)
+            mp = {rm[i]: (ry[i], ra[i]) for i in range(len(rm))}
+            mp[ym] = (yoy, amt)
+            ks = sorted(mp)[-REV_MONTHS:]
+            e["rm"] = ks
+            e["ry"] = [mp[k][0] for k in ks]
+            e["ra"] = [mp[k][1] for k in ks]
+    depths = sorted(len(e.get("rm") or []) for e in chips.values() if e.get("rm"))
+    print(f"  月營收回補:目標 {len(todo)} 個月、成功 {got} 個月,"
+          f"回補後月數中位數 {depths[len(depths)//2] if depths else 0}")
+
 def latest_rev(sid, rev_bulk, chips):
     """回傳該股「最新月份」的 (YoY, 年月, 金額):比較本次官方彙總與站內逐月歷史,
     一律取月份較新者。避免某次來源抓失敗時,基本面卡片倒退回舊月份、與營收趨勢圖不同步。"""
@@ -484,9 +594,13 @@ def update_tw_prices(hist, tw_comps):
     except Exception as e:
         print(f"  [warn] 官方日行情: {e}")
     try:
-        backfill_twse_bulk(hist, tw_comps)      # 主力:一天一次呼叫補「全上市」
+        backfill_twse_bulk(hist, tw_comps)      # 上市:MI_INDEX 全市場單日檔
     except Exception as e:
-        print(f"  [warn] 批次回補: {e}")
+        print(f"  [warn] 上市批次回補: {e}")
+    try:
+        backfill_tpex_bulk(hist, tw_comps)      # 上櫃:櫃買日收盤行情單日檔
+    except Exception as e:
+        print(f"  [warn] 上櫃批次回補: {e}")
     stale = [c for c in tw_comps
              if c.get("ex") == "tse"
              and len((hist.get(c["id"]) or {}).get("d") or []) < 40][:20]
@@ -542,29 +656,77 @@ def _mi_index_day(dstr):
         if out: break
     return out
 
-def backfill_twse_bulk(hist, tw_comps, max_days=60):
-    """上市 K 線史批次回補。
-       舊法:逐檔 STOCK_DAY(1 檔要 13 次呼叫)+ 每輪限 60 檔 → 765 檔缺史要跑 13 個交易日才補得完。
-       新法:MI_INDEX 全市場單日檔,1 次呼叫補「當天所有上市股」,每輪抓 60 個交易日,
-             且自動跳過「多數缺史股都已經有」的日期 → 每輪往回長 60 天,4 輪內補滿 260 根。"""
-    need = {c["id"] for c in tw_comps if c.get("ex") == "tse"
-            and len((hist.get(c["id"]) or {}).get("d") or []) < 240}
+def _tpex_quote_day(d):
+    """櫃買:單日全上櫃收盤行情 → {代號:(開,高,低,收,張)};非交易日/失敗回 {}。
+       新站 afterTrading/otc 走不通時自動退回舊站 stk_quote_result.php。"""
+    out = {}
+    try:
+        j = get_json("https://www.tpex.org.tw/www/zh-tw/afterTrading/otc",
+                     {"date": d.strftime("%Y/%m/%d"), "type": "EW", "response": "json"},
+                     timeout=45, tries=2)
+        for tb in (j.get("tables") or []):
+            flds = tb.get("fields") or []
+            i_id, i_c = _pick(flds, "代號"), _pick(flds, "收盤")
+            if i_id is None or i_c is None: continue
+            i_o, i_h, i_l = _pick(flds, "開盤"), _pick(flds, "最高"), _pick(flds, "最低")
+            i_v = _pick(flds, "成交股數")
+            for r in tb.get("data") or []:
+                try:
+                    sid = str(r[i_id]).strip().upper()
+                    c2 = numf(r[i_c])
+                    if not sid or not c2 or c2 <= 0: continue
+                    o2 = (numf(r[i_o]) if i_o is not None else None) or c2
+                    h2 = (numf(r[i_h]) if i_h is not None else None) or max(o2, c2)
+                    l2 = (numf(r[i_l]) if i_l is not None else None) or min(o2, c2)
+                    v2 = (numf(r[i_v]) if i_v is not None else None) or 0
+                    out[sid] = (round(o2, 2), round(h2, 2), round(l2, 2), round(c2, 2), int(v2 // 1000))
+                except Exception:
+                    continue
+            if out: break
+    except Exception:
+        pass
+    if out: return out
+    try:                                          # 舊站備援:aaData 固定欄位
+        j2 = get_json("https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php",
+                      {"l": "zh-tw", "d": f"{d.year-1911}/{d.month:02d}/{d.day:02d}", "o": "json"},
+                      timeout=45, tries=2)
+        for r in (j2.get("aaData") or []):
+            try:
+                sid = str(r[0]).strip().upper()
+                c2, o2, h2, l2 = numf(r[2]), numf(r[4]), numf(r[5]), numf(r[6])
+                v2 = numf(r[7]) or 0
+                if not sid or not c2 or c2 <= 0: continue
+                o2 = o2 or c2; h2 = h2 or max(o2, c2); l2 = l2 or min(o2, c2)
+                out[sid] = (round(o2, 2), round(h2, 2), round(l2, 2), round(c2, 2), int(v2 // 1000))
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return out
+
+def _bulk_backfill(hist, tw_comps, ex, fetcher, label, max_days, need_bars=240):
+    """K 線史批次回補共用引擎:一天一次呼叫補「當天全部個股」。
+       舊法逐檔 STOCK_DAY(1 檔 13 次呼叫、每輪限 60 檔)765 檔要 13 個交易日才補得完;
+       這裡一輪就把整個市場補到一年深度,且自動跳過「多數股票都已經有」的日期,
+       補滿之後下一輪 need 為空即整段略過,不浪費呼叫。"""
+    need = {c["id"] for c in tw_comps if c.get("ex") == ex
+            and len((hist.get(c["id"]) or {}).get("d") or []) < need_bars}
     if not need:
-        print("  批次回補:上市 K 線史已完整,略過"); return
+        print(f"  批次回補({label}):K 線史已達 {need_bars} 根以上,略過"); return
     N = len(need)
     have_cnt = {}
     for sid in need:
         for dd in (hist.get(sid) or {}).get("d") or []:
             have_cnt[dd] = have_cnt.get(dd, 0) + 1
     days, d = [], TODAY
-    while len(days) < max_days and (TODAY - d).days < 420:
+    while len(days) < max_days and (TODAY - d).days < 460:
         if d.weekday() < 5 and have_cnt.get(d.isoformat(), 0) < N * 0.9:
             days.append(d)
         d -= dt.timedelta(days=1)
     add, n_hit = {sid: {} for sid in need}, 0
     for dd in days:
-        rows = _mi_index_day(dd.strftime("%Y%m%d"))
-        time.sleep(0.5)
+        rows = fetcher(dd)
+        time.sleep(0.45)
         if not rows: continue                     # 休市或當天無資料
         n_hit += 1
         iso = dd.isoformat()
@@ -582,8 +744,19 @@ def backfill_twse_bulk(hist, tw_comps, max_days=60):
         if len(ks) > len(e.get("d") or []):
             hist[sid] = {"d": ks, "o": [merged[k] for k in ks]}
             fixed += 1
-    print(f"  批次回補(MI_INDEX 全市場):掃 {len(days)} 日 / 有效 {n_hit} 日,"
-          f"修復 {fixed}/{N} 檔缺史上市股")
+    deep = sorted(len((hist.get(s) or {}).get("d") or []) for s in need)
+    print(f"  批次回補({label}):掃 {len(days)} 日 / 有效 {n_hit} 日,修復 {fixed}/{N} 檔,"
+          f"回補後 K 棒中位數 {deep[len(deep)//2] if deep else 0} 根")
+
+def backfill_twse_bulk(hist, tw_comps, max_days=270):
+    """上市:證交所 MI_INDEX 全市場單日檔,一輪補滿一年(約 250 個交易日)。"""
+    _bulk_backfill(hist, tw_comps, "tse",
+                   lambda d: _mi_index_day(d.strftime("%Y%m%d")),
+                   "上市 MI_INDEX", max_days)
+
+def backfill_tpex_bulk(hist, tw_comps, max_days=270):
+    """上櫃:櫃買日收盤行情單日檔,補到與上市同樣的一年深度(原本只能逐日累積,長期只有 150 根)。"""
+    _bulk_backfill(hist, tw_comps, "otc", _tpex_quote_day, "上櫃 日收盤行情", max_days)
 
 def backfill_twse_history(hist, sid, months=13):
     """證交所 STOCK_DAY(個股月檔):回補近 N 個月日K,重建完整序列。"""
@@ -2868,6 +3041,7 @@ def main():
     tdcc, tdcc_date = fetch_tdcc_bulk()
     append_tdcc(chips, tdcc, tdcc_date)     # 大戶逐週,保留 26 週
     append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
+    backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
     inst = build_inst(chips)
     save_chips(chips, cmeta, comps)
