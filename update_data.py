@@ -514,6 +514,35 @@ def update_chip_hist(chips, meta):
     meta["dates"] = sorted(have)[-CHIP_DAYS:]
     print(f"  法人日資料:本次新增 {len(newdays)} 個交易日,累積 {len(meta['dates'])} 日(大盤金額 {len(mds)} 日)")
 
+def seed_tdcc_history(chips):
+    """tdcc.json(v2:每股每週 9 級距)本身就是完整的大戶週歷史,而且有獨立的
+       backfill_tdcc 工作流在維護——籌碼分片歸零時,bp/bd 不必等 52 週慢慢長回來,
+       直接從 tdcc.json 整段換算 400 張大戶%(前 4 個級距和)回灌即可。"""
+    try:
+        with open("tdcc.json", encoding="utf-8") as f:
+            J = json.load(f)
+        if J.get("v") != 2: return
+    except Exception:
+        return
+    dts = [str(x).replace("-", "")[:8] for x in (J.get("d") or [])]
+    fixed = 0
+    for sid, arr in (J.get("s") or {}).items():
+        m = {}
+        for i, g in enumerate(arr or []):
+            if i >= len(dts) or not g or len(g) < 4: continue
+            m[dts[i]] = round(sum(g[:4]), 2)          # L15+L14+L13+L12 = 400張以上
+        if not m: continue
+        e = chips.setdefault(sid, {})
+        bd, bp = e.get("bd") or [], e.get("bp") or []
+        for i, dd in enumerate(bd):
+            m.setdefault(str(dd), bp[i])              # 已有的週保留(同週以 tdcc.json 為準)
+        ks = sorted(m)[-BIG_WEEKS:]
+        if len(ks) > len(bd):
+            e["bd"], e["bp"] = ks, [m[k] for k in ks]
+            fixed += 1
+    if fixed:
+        print(f"  大戶週回灌:自 tdcc.json 補齊 {fixed} 檔({len(dts)} 週)")
+
 def append_tdcc(chips, tdcc, date):
     """400張大戶週資料:每次執行把最新一週附加進歷史(同週覆蓋)。"""
     if not tdcc or not date: return
@@ -569,9 +598,35 @@ def _mops_rev_month(y, m):
             time.sleep(0.4)
     return out
 
+_FM_REV_CACHE = {}
+
+def _fm_get(params):
+    tok = os.environ.get("FINMIND_TOKEN", "")
+    if tok: params["token"] = tok
+    return get_json("https://api.finmindtrade.com/api/v4/data", params=params, timeout=90)
+
+def fm_rev_month(y, m):
+    """FinMind 單月全市場營收(date-only 查詢,與現行「上月營收備援」同一條已實證可通的路)。"""
+    key = f"{y}-{m:02d}"
+    if key in _FM_REV_CACHE: return _FM_REV_CACHE[key]
+    d = {}
+    try:
+        j = _fm_get({"dataset": "TaiwanStockMonthRevenue",
+                     "start_date": f"{y}-{m:02d}-01", "end_date": f"{y}-{m:02d}-28"})
+        for r in (j.get("data") if isinstance(j, dict) else None) or []:
+            sid = str(r.get("stock_id", "")).strip()
+            rv = numf(r.get("revenue"))
+            if sid and rv: d[sid] = rv
+    except Exception as e:
+        print(f"    [warn] FinMind 營收 {key}: {str(e)[:70]}")
+    _FM_REV_CACHE[key] = d
+    time.sleep(1.0)
+    return d
+
 def backfill_rev_months(chips, months=25):
     """月營收逐月回補。分片被清空時 rm 只剩最新 1 個月 → 營收趨勢圖只有一根、
-       「動能連續性」與 YoY 走勢全判不出來。這裡把缺的月份一次補回(補齊後自動略過)。"""
+       「動能連續性」判不出來。順序:FinMind(date-only,自算 YoY;GH Actions 實證可通)
+       → MOPS 逐月頁(本機/未被擋環境用)。補齊後自動略過。"""
     cnt = {}
     for e in chips.values():
         for ym in e.get("rm") or []:
@@ -587,11 +642,21 @@ def backfill_rev_months(chips, months=25):
         if m == 0: y, m = y - 1, 12
     if not todo:
         print("  月營收回補:歷史已完整,略過"); return
-    got = 0
+    got_fm = got_mops = 0
     for (yy, mm) in todo:
-        one = _mops_rev_month(yy, mm)
+        one = {}
+        cur = fm_rev_month(yy, mm)
+        if cur:
+            prv = fm_rev_month(yy - 1, mm)
+            ym = f"{yy}-{mm:02d}"
+            for sid, rv in cur.items():
+                p = prv.get(sid)
+                if p: one[sid] = (round((rv / p - 1) * 100, 2), ym, rv / 1000.0)
+            if one: got_fm += 1
+        if not one:
+            one = _mops_rev_month(yy, mm)
+            if one: got_mops += 1
         if not one: continue
-        got += 1
         for sid, (yoy, ym, amt) in one.items():
             e = chips.setdefault(sid, {})
             rm, ry, ra = e.setdefault("rm", []), e.setdefault("ry", []), e.setdefault("ra", [])
@@ -603,7 +668,7 @@ def backfill_rev_months(chips, months=25):
             e["ry"] = [mp[k][0] for k in ks]
             e["ra"] = [mp[k][1] for k in ks]
     depths = sorted(len(e.get("rm") or []) for e in chips.values() if e.get("rm"))
-    print(f"  月營收回補:目標 {len(todo)} 個月、成功 {got} 個月,"
+    print(f"  月營收回補:目標 {len(todo)} 個月、FinMind 成功 {got_fm}、MOPS 成功 {got_mops},"
           f"回補後月數中位數 {depths[len(depths)//2] if depths else 0}")
 
 def latest_rev(sid, rev_bulk, chips):
@@ -1280,6 +1345,43 @@ def wayback_margins(want_qs):
             time.sleep(1)
     return {q: d for q, d in res.items() if d}
 
+def fm_margin_quarter(q):
+    """FinMind 綜合損益表(date-only,日期=季底)→ 自算三率。
+       GH Actions 直連 MOPS 被擋、Wayback 又無該季快照時,這是唯一實證可通的歷史季報來源。
+       欄位以候選清單模糊對應,方案不支援 date-only 時回空、安靜略過。"""
+    y, s = int(q[:4]), int(q[-1])
+    dstr = f"{y}-{[0,3,6,9,12][s]:02d}-{[0,31,30,30,31][s]}"
+    out = {}
+    try:
+        j = _fm_get({"dataset": "TaiwanStockFinancialStatements",
+                     "start_date": dstr, "end_date": dstr})
+        rows = (j.get("data") if isinstance(j, dict) else None) or []
+        agg = {}
+        for r in rows:
+            sid = str(r.get("stock_id", "")).strip()
+            t = str(r.get("type", ""))
+            v = numf(r.get("value"))
+            if sid and t and v is not None:
+                agg.setdefault(sid, {})[t] = v
+        def pick(m, *cands):
+            for c in cands:
+                if c in m: return m[c]
+            return None
+        for sid, m in agg.items():
+            rv = pick(m, "Revenue", "OperatingRevenue")
+            if not rv or rv <= 0: continue
+            gp = pick(m, "GrossProfit")
+            oi = pick(m, "OperatingIncome")
+            ni = pick(m, "IncomeAfterTaxes", "IncomeAfterTax", "NetIncome",
+                      "EquityAttributableToOwnersOfParent")
+            if None in (gp, oi, ni): continue
+            out[sid] = (round(gp / rv * 100, 2), round(oi / rv * 100, 2),
+                        round(ni / rv * 100, 2), round(rv / 1e6, 1))   # qr 對齊百萬元
+    except Exception as e:
+        print(f"    [warn] FinMind 財報 {q}: {str(e)[:70]}")
+    time.sleep(1.0)
+    return out
+
 def append_margins(chips, cur):
     """把季度三率寫入籌碼歷史(fq/gm/om/nm/qr,保留8季)。
     歷史深度不足(如剛上線只有最新一季)→ 向 MOPS 逐季回補八季(伺服器端直連,無CORS問題);
@@ -1292,14 +1394,19 @@ def append_margins(chips, cur):
         qs, q = [], q_now
         for _ in range(8):
             q = prev_q(q); qs.append(q)
-        print(f"  季報三率深度不足(中位數 {med} 季),向 MOPS 回補 {qs[-1]} ~ {qs[0]} …")
+        print(f"  季報三率深度不足(中位數 {med} 季),逐季回補 {qs[-1]} ~ {qs[0]}(FinMind→MOPS)…")
         for pq in qs:
             have = sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or []))
             if have >= 200:
                 print(f"    {pq}:已有 {have} 家,跳過"); continue
-            y, s_ = int(pq[:4]), int(pq[-1])
-            prev = fetch_margin_mops(y, s_)
-            print(f"    {pq}:MOPS 回補 {len(prev)} 家")
+            prev = fm_margin_quarter(pq)
+            if len(prev) >= 200:
+                print(f"    {pq}:FinMind 回補 {len(prev)} 家")
+            else:
+                y, s_ = int(pq[:4]), int(pq[-1])
+                mp2 = fetch_margin_mops(y, s_)
+                for sid, v in mp2.items(): prev.setdefault(sid, v)
+                print(f"    {pq}:FinMind {len(prev) - len(mp2) if len(prev) >= len(mp2) else 0} 家 + MOPS {len(mp2)} 家")
             for sid, (gm, om, nm, rv) in prev.items():
                 _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
             time.sleep(2)
@@ -1321,10 +1428,12 @@ def append_margins(chips, cur):
         pq = prev_q(q_now)
         have_prev = sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or []))
         if have_prev < 200:
-            y, s_ = int(pq[:4]), int(pq[-1])
-            print(f"  上一季三率資料不足({have_prev} 家),向 MOPS 回補 {pq} …")
-            prev = fetch_margin_mops(y, s_)
-            print(f"  MOPS 回補:{len(prev)} 家")
+            print(f"  上一季三率資料不足({have_prev} 家),回補 {pq}(FinMind→MOPS)…")
+            prev = fm_margin_quarter(pq)
+            if len(prev) < 200:
+                y, s_ = int(pq[:4]), int(pq[-1])
+                for sid, v in fetch_margin_mops(y, s_).items(): prev.setdefault(sid, v)
+            print(f"  回補結果:{len(prev)} 家")
             for sid, (gm, om, nm, rv) in prev.items():
                 _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
     for sid, (q, gm, om, nm, rv) in cur.items():
@@ -3096,6 +3205,7 @@ def main():
     update_chip_hist(chips, cmeta)          # 法人逐日,累積至 65 個交易日
     tdcc, tdcc_date = fetch_tdcc_bulk()
     append_tdcc(chips, tdcc, tdcc_date)     # 大戶逐週,保留 26 週
+    seed_tdcc_history(chips)                # 由 tdcc.json 整段回灌大戶週歷史(分片歸零後可立即恢復)
     append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
     backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
