@@ -52,7 +52,7 @@ jobs:
         run: |
           git config user.name  "bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data.json k c
+          git add -A data.json k c
           if [ -f tdcc.json ]; then git add tdcc.json; fi
           if [ -f etf_hold.json ]; then git add etf_hold.json; fi
           if [ -f spark.json ]; then git add spark.json; fi
