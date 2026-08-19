@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r605 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r606 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r605</span>');
+  diag.push('<span style="color:var(--dim)">build r606</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3936,10 +3936,7 @@ async function renderFwStock(s){
   if(!box||!s)return;
   try{
     const sh=shardOf(s);
-    if(!(sh in KCACHE)){
-      try{const r=await fT(sh+'?v='+kv(),15000);
-          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
-    }
+    await loadShard(KCACHE,sh);
     try{await fglDailyMerge(s);}catch(e){}                  // r509:富果官方日K校正尾端(含今日)
     const e=(KCACHE[sh]||{})[s.id];
     if(!e||!e.o||e.o.length<60){box.innerHTML='<div class="dim-note">日K資料不足(需60根以上),此檔暫無法判讀。</div>';return;}
@@ -4123,14 +4120,12 @@ async function scanHeadAll(){
   if(btn)btn.textContent='掃描中…載入日K 0/10';
   const res=[];
   const stocks=(DATA.stocks||[]).filter(x=>x.market==='TW'&&!x.etf);
-  for(let d=0;d<10;d++){
-    const sh=`k/tw${d}.json`;
-    if(!(sh in KCACHE)){
-      try{const r=await fT(sh+'?v='+kv(),20000);
-          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
-    }
-    if(btn)btn.textContent=`掃描中…載入日K ${d+1}/10`;
-    stocks.filter(x=>x.id[0]===String(d)).forEach(x=>{
+  const __ks=await shardList('k');let __i=0;
+  for(const sh of __ks){
+    const __k=sh.replace(/^k\/tw|\.json$/g,'');
+    await loadShard(KCACHE,sh);
+    if(btn)btn.textContent=`掃描中…載入日K ${++__i}/${__ks.length}`;
+    stocks.filter(x=>twShardKey(x.id)===__k).forEach(x=>{
       const e=(KCACHE[sh]||{})[x.id];
       if(!e||!e.o||e.o.length<50)return;
       try{
@@ -4245,10 +4240,7 @@ async function renderHeadStock(s){
   if(!box||!s)return;
   try{
     const sh=shardOf(s);
-    if(!(sh in KCACHE)){
-      try{const r=await fT(sh+'?v='+kv(),15000);
-          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
-    }
+    await loadShard(KCACHE,sh);
     const e=(KCACHE[sh]||{})[s.id];
     if(!e||!e.o||e.o.length<50){box.innerHTML='<div class="dim-note">日K資料不足(需50根以上),此檔暫無法判讀。</div>';return;}
     const K={o:e.o.map(x=>x[0]),h:e.o.map(x=>x[1]),l:e.o.map(x=>x[2]),c:e.o.map(x=>x[3])};
@@ -4335,16 +4327,13 @@ async function weeklyPicks(){
     const top=cand.slice(0,40);
     if(top.length<5){box.style.display='none';return;}
     // 第二階段:載入候選的日K,做技術確認與頭部排雷
-    const shards=[...new Set(top.map(c=>`k/tw${c.s.id[0]}.json`))];
+    const shards=[...new Set(top.map(c=>`k/tw${twShardKey(c.s.id)}.json`))];
     for(const sh of shards){
-      if(!(sh in KCACHE)){
-        try{const r=await fT(sh+'?v='+kv(),20000);
-            KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
-      }
+      await loadShard(KCACHE,sh);
     }
     const final=[];
     for(const c of top){
-      const e=(KCACHE[`k/tw${c.s.id[0]}.json`]||{})[c.s.id];
+      const e=(KCACHE[`k/tw${twShardKey(c.s.id)}.json`]||{})[c.s.id];
       if(!e||!e.o||e.o.length<50)continue;
       const cl=e.o.map(b=>b[3]),hi=e.o.map(b=>b[1]);
       const px=c.s.price,ma20=cl.slice(-20).reduce((a,b)=>a+b,0)/20;
@@ -4848,11 +4837,8 @@ async function rsCard(){
     const y=await yextData();
     const dd=y&&y.series&&y.series['^TWII']&&y.series['^TWII'].d;
     if(!dd||!dd.c||dd.c.length<40){box.style.display='none';return;}
-    const sh='k/tw2.json';
-    if(!(sh in KCACHE)){
-      try{const r=await fT(sh+'?v='+kv(),15000);
-          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
-    }
+    const sh='k/tw23.json';
+    await loadShard(KCACHE,sh);
     const e=(KCACHE[sh]||{})['2330'];
     if(!e||!e.o||e.o.length<40){box.style.display='none';return;}
     const n=Math.min(60,e.o.length,dd.c.length);
@@ -7254,16 +7240,13 @@ async function fgoSeed(force){
     const cand=(DATA.stocks||[]).filter(s=>s.market==='TW'&&!s.etf&&s.price>0&&futureOK(s));
     if(!cand.length){window.__FGO=[];return;}
     const out=[];
-    for(let d=0;d<10;d++){
-      const grp=cand.filter(s=>s.id[0]===String(d));
+    for(const sh of await shardList('c')){
+      const __k=sh.replace(/^c\/tw|\.json$/g,'');
+      const grp=cand.filter(s=>twShardKey(s.id)===__k);
       if(!grp.length)continue;
-      const sh=`c/tw${d}.json`;
-      if(!(sh in CCACHE)){
-        try{const r=await fT(sh+'?v='+kv(),12000);CCACHE[sh]=r.ok?await r.json():{};}
-        catch(e){CCACHE[sh]={};}
-      }
+      await loadShard(CCACHE,sh);
       grp.forEach(s=>{
-        const e=CCACHE[sh][s.id];
+        const e=(CCACHE[sh]||{})[s.id];
         if(!e||!Array.isArray(e.f)||e.f.length<5)return;
         // ① 外資連買
         let run=0;
@@ -7313,14 +7296,11 @@ async function alSeed(){
   if(!need.length){AL_SEEDED=true;return;}
   if(!marketOpen())return;   // 收盤不浪費流量,明天開盤再補
   AL_SEEDED=true;
-  for(let d=0;d<10;d++){
-    const sh=`k/tw${d}.json`;
-    if(!(sh in KCACHE)){
-      try{const r=await fT(sh+'?v='+kv(),15000);
-          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
-    }
-    need.filter(s=>s.id[0]===String(d)).forEach(s=>{
-      const e=KCACHE[sh][s.id];
+  for(const sh of await shardList('k')){
+    const __k=sh.replace(/^k\/tw|\.json$/g,'');
+    await loadShard(KCACHE,sh);
+    need.filter(s=>twShardKey(s.id)===__k).forEach(s=>{
+      const e=(KCACHE[sh]||{})[s.id];
       if(!e||!e.o||e.o.length<60)return;
       const o=e.o,closes=o.map(x=>x[3]),vols=o.map(x=>x[4]);
       const ma20=avg(closes.slice(-20)),ma60=avg(closes.slice(-60));
@@ -7424,12 +7404,9 @@ async function turtleSeed(){
   const out=[];
   const gems=[];
   const hot=(()=>{try{return zt8Hot();}catch(e){return new Set();}})();
-  for(let d=0;d<10;d++){
-    const sh=`k/tw${d}.json`;
-    if(!(sh in KCACHE)){
-      try{const r=await fT(sh+'?v='+kv(),15000);
-          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
-    }
+  for(const sh of await shardList('k')){
+    const __k=sh.replace(/^k\/tw|\.json$/g,'');
+    await loadShard(KCACHE,sh);
     Object.keys(KCACHE[sh]||{}).forEach(id=>{
       const s=byId[id];if(!s)return;
       const e=KCACHE[sh][id];
@@ -7546,12 +7523,9 @@ async function zt8Seed(){
   const ctx={cap,hot:zt8Hot()};
   const byId={};(DATA.stocks||[]).forEach(s=>{if(s.market==='TW'&&!s.etf&&s.price!=null)byId[s.id]=s;});
   const out=[];
-  for(let d=0;d<10;d++){
-    const sh=`k/tw${d}.json`;
-    if(!(sh in KCACHE)){
-      try{const r2=await fT(sh+'?v='+kv(),15000);
-          KCACHE[sh]=r2.ok?await r2.json():{};}catch(e){KCACHE[sh]={};}
-    }
+  for(const sh of await shardList('k')){
+    const __k=sh.replace(/^k\/tw|\.json$/g,'');
+    await loadShard(KCACHE,sh);
     Object.keys(KCACHE[sh]||{}).forEach(id=>{
       const s=byId[id];if(!s)return;
       const e=KCACHE[sh][id];if(!e||!Array.isArray(e.o))return;
@@ -7759,9 +7733,10 @@ async function ensureMiniShards(){            // 依畫面上的股票載入所�
     let n=0;
     for(const sh of need){
       if(n++>=2)break;
-      KCACHE[sh]='loading';
-      try{const r=await fT(sh+'?v='+kv(),20000);
-          KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
+      KCACHE[sh]='loading';                     // 佔位:避免同批重複發同一個請求
+      delete KCACHE[sh];
+      const _j=await loadShard(KCACHE,sh);
+      if(!KCACHE[sh])KCACHE[sh]=_j||{};          // 載入失敗也要清掉佔位,下次才會重試
     }
     if(n)paintAllMini();
   }catch(e){}
@@ -7999,10 +7974,7 @@ async function fundAlertUI(s){                             // r496:基本面/前
     const out=[];let oUp=0,oDn=0;
     try{                                                   // ① 市場半年投票:個股 vs 加權 120 交易日相對強弱(股價領先基本面約半年)
       const sh=shardOf(s);
-      if(!(sh in KCACHE)){
-        try{const r=await fT(sh+'?v='+kv(),15000);
-            KCACHE[sh]=r.ok?await r.json():{};}catch(x){KCACHE[sh]={};}
-      }
+      await loadShard(KCACHE,sh);
       const ke=(KCACHE[sh]||{})[s.id];
       if(ke&&ke.o&&ke.o.length>=130){
         const c=ke.o.map(x=>x[3]),n=c.length;
@@ -10849,7 +10821,29 @@ function kChart(ohlc){ // 後備用簡易 SVG(ECharts 載入失敗時)
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-label="近60個交易日K線圖">${out}</svg>`;
 }
 const KCACHE={};
-function shardOf(s){return s.market==='TW'?`k/tw${s.id[0]}.json`:`k/us_${s.id[0].toLowerCase()}.json`;}
+function twShardKey(id){const t=String(id);return t.slice(0,2)==='00'?t.slice(0,3):t.slice(0,2);}
+function shardOf(s){return s.market==='TW'?`k/tw${twShardKey(s.id)}.json`:`k/us_${s.id[0].toLowerCase()}.json`;}
+function chipShardOf(id){return `c/tw${twShardKey(id)}.json`;}
+const SHARD_FAIL={},SHARD_IDX={};
+async function shardList(dir){                       // r606:分片粒度改由後端 index.json 決定,前端不再寫死 0~9
+  if(SHARD_IDX[dir])return SHARD_IDX[dir];
+  try{const r=await fT(dir+'/index.json?v='+kv(),15000,{cache:'default'});
+      if(r.ok){const a=await r.json();
+        if(Array.isArray(a)&&a.length){SHARD_IDX[dir]=a.filter(x=>/^tw/.test(x)).map(x=>dir+'/'+x);return SHARD_IDX[dir];}}
+  }catch(e){}
+  SHARD_IDX[dir]=[0,1,2,3,4,5,6,7,8,9].map(d=>`${dir}/tw${d}.json`);   // 舊粒度相容(後端還沒跑新版時)
+  return SHARD_IDX[dir];
+}
+async function loadShard(cache,sh){                  // r606:失敗不再毒化快取,且吃瀏覽器快取(URL 已帶 ?v= 版本號)
+  if(cache[sh]&&cache[sh]!=='loading')return cache[sh];
+  if((SHARD_FAIL[sh]||0)>=3)return {};               // 連三次失敗才放棄,不像舊版一次逾時就整場報廢
+  try{
+    const r=await fT(sh+'?v='+kv(),45000,{cache:'default'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    cache[sh]=j;delete SHARD_FAIL[sh];return j;
+  }catch(e){SHARD_FAIL[sh]=(SHARD_FAIL[sh]||0)+1;return {};}
+}
 function usLastTradeDay(){   // 美東最近一個交易日(YYYY-MM-DD):盤前回前一日,跳過週末
   try{
     const ny=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
@@ -10861,15 +10855,11 @@ function usLastTradeDay(){   // 美東最近一個交易日(YYYY-MM-DD):盤前�
 async function loadK(s){
   if(DATA.source!=='live') return {ohlc:demoOHLC(s),dates:demoDates(120),demo:true};
   const sh=shardOf(s);
-  if(!(sh in KCACHE)){
-    try{const r=await fetch(sh+'?v='+kv());
-        KCACHE[sh]=r.ok?await r.json():{};}
-    catch(e){KCACHE[sh]={};}
-  }
+  await loadShard(KCACHE,sh);
   // r523:收盤後分片強制回源一次——?v=日期 整天不變,CDN 會鎖住早上的舊分片,
   //       導致官方當日K已入庫、前端卻整晚看不到 → 15:00 後若分片仍缺今日,直連 repo 重抓(每分片一次)
   if(s.market==='TW'){try{
-    const _e0=KCACHE[sh][s.id];
+    const _e0=(KCACHE[sh]||{})[s.id];
     const _tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
     const _hm=_tp.getHours()*60+_tp.getMinutes(), _wd=_tp.getDay();
     KCACHE.__re=KCACHE.__re||{};
@@ -11161,7 +11151,7 @@ async function showDetail(id){
   try{setTimeout(()=>{try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e2){}},950);}catch(e){}
   try{clearInterval(window.__segRelT);window.__segRelT=setInterval(()=>{
     if(!location.hash.startsWith('#stock/')){clearInterval(window.__segRelT);return;}   // r482:離開個股頁自動停止
-    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r605:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
+    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r606:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
   },2500);}catch(e){}
   try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
     const h=document.getElementById('dcfBody');
@@ -11936,13 +11926,9 @@ const CCACHE={};
 function disposeChipCharts(){chipCharts.forEach(c=>{try{c.dispose()}catch(e){}});chipCharts=[];}
 async function loadChips(s){
   if(s.market!=='TW'||DATA.source!=='live')return null;
-  const sh=`c/tw${s.id[0]}.json`;
-  if(!(sh in CCACHE)){
-    try{const r=await fT(sh+'?v='+kv(),9000);
-        CCACHE[sh]=r.ok?await r.json():{};}
-    catch(e){CCACHE[sh]={};}
-  }
-  return CCACHE[sh][s.id]||null;
+  const sh=chipShardOf(s.id);
+  await loadShard(CCACHE,sh);
+  return (CCACHE[sh]||{})[s.id]||null;
 }
 function fmtLot(v){return (v>0?'+':'')+Math.round(v).toLocaleString('zh-TW');}
 async function loadChipDetail(s){
@@ -15558,11 +15544,8 @@ async function portHeadRisk(){
   for(const id of hold){
     try{
       const st0=(DATA.stocks||[]).find(x=>x.id===id);
-      const sh=st0?shardOf(st0):`k/tw${String(id)[0]}.json`;
-      if(!(sh in KCACHE)){
-        try{const r=await fT(sh+'?v='+kv(),15000);
-            KCACHE[sh]=r.ok?await r.json():{};}catch(e){KCACHE[sh]={};}
-      }
+      const sh=st0?shardOf(st0):`k/tw${twShardKey(id)}.json`;
+      await loadShard(KCACHE,sh);
       const e=(KCACHE[sh]||{})[id];
       if(!e||!e.o||e.o.length<50)continue;
       const hp=headprints({o:e.o.map(b=>b[0]),h:e.o.map(b=>b[1]),l:e.o.map(b=>b[2]),c:e.o.map(b=>b[3])});
@@ -16659,7 +16642,7 @@ async function loadRevTrend(s){
   }else{
     /* 回退站內累積:curChips 結構是 {s,e};尚未載入時改讀分片快取 */
     let cc=(curChips&&curChips.e&&curChips.s&&curChips.s.id===s.id)?curChips.e:null;
-    if(!cc){try{cc=(CCACHE['c/tw'+s.id[0]+'.json']||{})[s.id]||null;}catch(e){}}
+    if(!cc){try{cc=(CCACHE[chipShardOf(s.id)]||{})[s.id]||null;}catch(e){}}
     if(cc&&Array.isArray(cc.rm)&&cc.rm.length){
       mm=cc.rm.map(x=>String(x).slice(2));
       rev=(cc.ra||[]).map(x=>x!=null?+(x/1e5).toFixed(2):null);

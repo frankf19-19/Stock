@@ -221,8 +221,35 @@ def add_us_etfs(out):
     print(f"  美股 ETF:{len(US_ETFS)} 檔")
     return out
 
+SKIP_SHARDS = {"index.json", "meta.json"}
+
+def tw_shard_key(sid):
+    """台股分片鍵:一般取代號前兩碼;00 開頭(ETF 大宗,331 檔)再細一碼,
+       避免單一分片膨脹到手機載不動(補滿一年 K 後,舊的單碼分片已達 2.4~4.5MB)。"""
+    return sid[:3] if sid[:2] == "00" else sid[:2]
+
 def shard_name(s):
-    return f"tw{s['id'][0]}.json" if s["market"] == "TW" else f"us_{s['id'][0].lower()}.json"
+    return (f"tw{tw_shard_key(s['id'])}.json" if s["market"] == "TW"
+            else f"us_{s['id'][0].lower()}.json")
+
+def _write_index(dirname, names):
+    """輸出分片索引,讓前端不必猜檔名(也才有辦法改變分片粒度而不寫死迴圈)。"""
+    tmp = os.path.join(dirname, "index.json.tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(sorted(names), f, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, os.path.join(dirname, "index.json"))
+
+def _sweep_orphans(dirname, keep):
+    """刪除已不再產生的舊分片(例如改粒度前的 tw0~tw9),否則前端會讀到過期資料。"""
+    gone = 0
+    for fp in glob.glob(os.path.join(dirname, "*.json")):
+        fn = os.path.basename(fp)
+        if fn in SKIP_SHARDS or fn in keep: continue
+        try:
+            os.remove(fp); gone += 1
+        except Exception:
+            pass
+    if gone: print(f"  清除舊分片:{dirname}/ 移除 {gone} 個過期檔")
 
 BAD_SHARDS = set()   # 讀取失敗的 K 線分片:本輪一律不覆寫,避免整批歷史被歸零
 
@@ -230,6 +257,7 @@ def load_hist():
     hist = {}
     for fp in glob.glob(os.path.join(K_DIR, "*.json")):
         fn = os.path.basename(fp)
+        if fn in SKIP_SHARDS: continue
         try:
             with open(fp, encoding="utf-8") as f:
                 obj = json.load(f)
@@ -274,7 +302,11 @@ def save_hist(hist, comps):
             json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
         os.replace(tmp, fp)          # 原子寫入:中途被中斷也不會留下半截檔
         wrote += 1
-    print(f"  K 線分片:寫出 {wrote} 個檔案" + (f"(保留 {kept} 個)" if kept else ""))
+    _sweep_orphans(K_DIR, set(shards) | BAD_SHARDS)
+    _write_index(K_DIR, list(shards))
+    big = max((os.path.getsize(os.path.join(K_DIR, fn)) for fn in shards), default=0)
+    print(f"  K 線分片:寫出 {wrote} 個檔案(最大 {big//1024} KB)"
+          + (f"(保留 {kept} 個)" if kept else ""))
 
 def append_bar(hist, sid, date, o, h, l, c, v):
     e = hist.setdefault(sid, {"d": [], "o": []})
@@ -293,6 +325,7 @@ def load_chips():
     chips, meta = {}, {"dates": []}
     for fp in glob.glob(os.path.join(C_DIR, "*.json")):
         fn = os.path.basename(fp)
+        if fn == "index.json": continue
         try:
             with open(fp, encoding="utf-8") as f:
                 obj = json.load(f)
@@ -309,14 +342,33 @@ def load_chips():
           + (f"、壞檔 {sorted(BAD_CHIPS)}" if BAD_CHIPS else ""))
     return chips, meta
 
+def compact_chips(chips):
+    """數值瘦身:YoY/三率原樣存會留下 16 位小數(例:59.590900789853706),
+       整個 c/ 分片因此無謂膨脹一成以上,手機端載入更容易逾時。"""
+    n = 0
+    for e in chips.values():
+        for k in ("ry", "gm", "om", "nm", "qr", "bp"):
+            a = e.get(k)
+            if isinstance(a, list):
+                for i, v in enumerate(a):
+                    if isinstance(v, float) and round(v, 2) != v:
+                        a[i] = round(v, 2); n += 1
+        a = e.get("ra")
+        if isinstance(a, list):
+            for i, v in enumerate(a):
+                if isinstance(v, float):
+                    a[i] = int(round(v)); n += 1
+    if n: print(f"  數值瘦身:壓縮 {n} 個高精度浮點數")
+
 def save_chips(chips, meta, comps):
     """與 K 線分片同樣的兩道防線,避免籌碼歷史再次被整批歸零。"""
+    compact_chips(chips)
     os.makedirs(C_DIR, exist_ok=True)
     tw_ids = {c["id"] for c in comps if c["market"] == "TW"}
     shards = {}
     for sid, v in chips.items():
         if sid not in tw_ids: continue
-        shards.setdefault(f"tw{sid[0]}.json", {})[sid] = v
+        shards.setdefault(f"tw{tw_shard_key(sid)}.json", {})[sid] = v
     wrote = kept = 0
     for fn, obj in shards.items():
         fp = os.path.join(C_DIR, fn)
@@ -342,7 +394,11 @@ def save_chips(chips, meta, comps):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False)
     os.replace(tmp, os.path.join(C_DIR, "meta.json"))
-    print(f"  籌碼分片:寫出 {wrote} 個檔案" + (f"(保留 {kept} 個)" if kept else ""))
+    _sweep_orphans(C_DIR, set(shards) | BAD_CHIPS)
+    _write_index(C_DIR, list(shards))
+    big = max((os.path.getsize(os.path.join(C_DIR, fn)) for fn in shards), default=0)
+    print(f"  籌碼分片:寫出 {wrote} 個檔案(最大 {big//1024} KB)"
+          + (f"(保留 {kept} 個)" if kept else ""))
 
 def fetch_inst_day(d):
     """抓單一交易日全市場三大法人買賣超(單位:張)。回傳 {sid:[外資,投信,自營]};非交易日回 None。"""
