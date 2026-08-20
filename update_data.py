@@ -761,6 +761,93 @@ def backfill_rev_months(chips, months=25):
     print(f"  月營收回補:目標 {len(todo)} 個月、FinMind 成功 {got_fm}、MOPS 成功 {got_mops},"
           f"回補後月數中位數 {depths[len(depths)//2] if depths else 0}")
 
+def fm_stock_rev(sid):
+    """FinMind「個股」月營收(data_id 查詢,免費層可用——被 Sponsor 擋的只有全市場批次)。
+       回 [(ym, yoy, 千元)] 由舊到新;失敗回 []。"""
+    try:
+        start = (dt.date.today() - dt.timedelta(days=40 * 30)).isoformat()
+        rows = _fm_raw({"dataset": "TaiwanStockMonthRevenue",
+                        "data_id": sid, "start_date": start}, f"個股營收 {sid}") or []
+        by = {}
+        for r in rows:
+            try:
+                by[f"{int(r['revenue_year'])}-{int(r['revenue_month']):02d}"] = float(r["revenue"])
+            except Exception:
+                continue
+        out = []
+        for ym in sorted(by)[-36:]:
+            py = f"{int(ym[:4]) - 1}{ym[4:]}"
+            yoy = round((by[ym] / by[py] - 1) * 100, 2) if by.get(py) else None
+            out.append((ym, yoy, round(by[ym] / 1000)))
+        return [x for x in out if x[1] is not None]
+    except Exception:
+        return []
+
+def fm_stock_margins(sid):
+    """FinMind「個股」綜合損益表(data_id 查詢)→ [(季, 毛利率, 營益率, 純益率, 營收百萬)]。"""
+    try:
+        start = (dt.date.today() - dt.timedelta(days=800)).isoformat()
+        rows = _fm_raw({"dataset": "TaiwanStockFinancialStatements",
+                        "data_id": sid, "start_date": start}, f"個股財報 {sid}") or []
+        agg = {}
+        for r in rows:
+            d0, t0 = str(r.get("date", ""))[:10], str(r.get("type", ""))
+            v0 = numf(r.get("value"))
+            if len(d0) == 10 and t0 and v0 is not None:
+                q = f"{d0[:4]}Q{(int(d0[5:7]) + 2) // 3}"
+                agg.setdefault(q, {})[t0] = v0
+        def pick(m, *cands):
+            for c in cands:
+                if c in m: return m[c]
+            return None
+        out = []
+        for q in sorted(agg):
+            m = agg[q]
+            rv = pick(m, "Revenue", "OperatingRevenue")
+            gp, oi = pick(m, "GrossProfit"), pick(m, "OperatingIncome")
+            ni = pick(m, "IncomeAfterTaxes", "IncomeAfterTax", "NetIncome")
+            if not rv or rv <= 0 or None in (gp, oi, ni): continue
+            out.append((q, round(gp / rv * 100, 2), round(oi / rv * 100, 2),
+                        round(ni / rv * 100, 2), round(rv / 1e6, 1)))
+        return out[-10:]
+    except Exception:
+        return []
+
+def backfill_perstock(chips, comps, rev_n=250, q_n=120):
+    """全市場逐檔磨補(FinMind 個股查詢,免費層實證可用——深度層圖表在瀏覽器端
+       走同一條路早就畫得出 36 個月)。每輪補 rev_n 檔營收 + q_n 檔季報,
+       依代號排序推進,一天多輪排程約 2~3 天磨完全市場;補齊後自動歸零成本。"""
+    tw = sorted(c["id"] for c in comps if c.get("market") == "TW" and not c.get("etf"))
+    need_r = [sid for sid in tw if len((chips.get(sid) or {}).get("rm") or []) < 13][:rev_n]
+    need_q = [sid for sid in tw if len((chips.get(sid) or {}).get("fq") or []) < 4][:q_n]
+    if not need_r and not need_q:
+        print("  個股磨補:營收/季報深度已達標,略過"); return
+    okr = okq = 0
+    for sid in need_r:
+        rows = fm_stock_rev(sid)
+        time.sleep(0.35)
+        if not rows: continue
+        e = chips.setdefault(sid, {})
+        rm, ry, ra = e.setdefault("rm", []), e.setdefault("ry", []), e.setdefault("ra", [])
+        while len(ra) < len(rm): ra.append(None)
+        mp = {rm[i]: (ry[i], ra[i]) for i in range(len(rm))}
+        for (ym, yoy, amt) in rows:
+            mp.setdefault(ym, (yoy, amt))                  # 官方已寫入的月份不覆蓋
+        ks = sorted(mp)[-REV_MONTHS:]
+        e["rm"], e["ry"], e["ra"] = ks, [mp[k][0] for k in ks], [mp[k][1] for k in ks]
+        okr += 1
+    for sid in need_q:
+        rows = fm_stock_margins(sid)
+        time.sleep(0.35)
+        if not rows: continue
+        for (q, gm, om, nm, rv) in rows:
+            e = chips.setdefault(sid, {})
+            if q in (e.get("fq") or []): continue          # 官方季不覆蓋
+            _put_margin(e, q, gm, om, nm, rv)
+        okq += 1
+    print(f"  個股磨補(FinMind data_id):營收 {okr}/{len(need_r)} 檔、季報 {okq}/{len(need_q)} 檔"
+          f"(待補存量:營收 {sum(1 for sid in tw if len((chips.get(sid) or {}).get('rm') or [])<13)} 檔)")
+
 def latest_rev(sid, rev_bulk, chips):
     """回傳該股「最新月份」的 (YoY, 年月, 金額):比較本次官方彙總與站內逐月歷史,
     一律取月份較新者。避免某次來源抓失敗時,基本面卡片倒退回舊月份、與營收趨勢圖不同步。"""
@@ -3297,6 +3384,7 @@ def main():
     seed_tdcc_history(chips)                # 由 tdcc.json 整段回灌大戶週歷史(分片歸零後可立即恢復)
     append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
     backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
+    backfill_perstock(chips, comps)         # FinMind 個股查詢逐檔磨補(免費層可用;每輪 250+120 檔,數天磨完全市場)
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
     inst = build_inst(chips)
     save_chips(chips, cmeta, comps)
