@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r614 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r615 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r614</span>');
+  diag.push('<span style="color:var(--dim)">build r615</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7921,7 +7921,7 @@ async function fundAlertUI(s){                             // r496:基本面/前
     let e=null;try{e=await loadChips(s);}catch(x){}
     if(location.hash!=='#stock/'+s.id)return;
     const F1=x=>(+x).toFixed(1);
-    const strong=[],weak=[],rows=[],scan=[];               // r614:改「綜合健診」計分板——rows=健診列、scan=財務掃雷異常項;判定門檻與舊版完全一致
+    const strong=[],weak=[],rows=[],scan=[];               // r615:改「綜合健診」計分板——rows=健診列、scan=財務掃雷異常項;判定門檻與舊版完全一致
     const pill=(t,c)=>`<span style="color:${c};border:1.5px solid ${c};border-radius:7px;padding:1px 9px;font-weight:900;font-size:12.5px;white-space:nowrap">${t}</span>`;
     let ryL=null,ryP=null,mom=null;
     if(e&&Array.isArray(e.ry)&&e.ry.length){               // A 營運成長(YoY 趨勢+月增)
@@ -8029,11 +8029,56 @@ async function fundAlertUI(s){                             // r496:基本面/前
         else if(d3<=-1.5){oDn++;out.push(`🏭 獲利外推:營益率季減 ${F1(d3)}pp——若下季未止穩,半年獲利預期需下修`);}
       }
     }catch(x){}
+    try{                                                   // ⑤ 法人資金前瞻:20日 vs 前20日(法人動向常領先財報一季)
+      if(e&&Array.isArray(e.f)&&e.f.length>=40){
+        const tot2=i=>Math.round((+e.f[i]||0)+((e.t&&+e.t[i])||0)+((e.g&&+e.g[i])||0));
+        let a2=0,b2=0;const n2=e.f.length;
+        for(let i=n2-20;i<n2;i++)a2+=tot2(i);
+        for(let i=n2-40;i<n2-20;i++)b2+=tot2(i);
+        if(a2>0&&a2>b2&&a2>=500){oUp++;out.push(`🏦 法人前瞻:近20日買超 +${a2.toLocaleString()} 張且加碼中(前20日 ${b2>=0?'+':''}${b2.toLocaleString()})——法人建倉通常領先財報表態一季`);}
+        else if(a2<0&&a2<b2&&a2<=-500){oDn++;out.push(`🏦 法人前瞻:近20日賣超 ${a2.toLocaleString()} 張且擴大(前20日 ${b2>=0?'+':''}${b2.toLocaleString()})——法人退場是前景轉淡的領先訊號`);}
+      }
+    }catch(x){}
+    try{                                                   // ⑥ 大戶籌碼前瞻:千張大戶週趨勢(大戶吸籌常先於利多發酵)
+      if(e&&Array.isArray(e.bp)&&e.bp.length>=3){
+        const dB=+e.bp[e.bp.length-1]-+e.bp[0];
+        if(dB>=1){oUp++;out.push(`💰 大戶前瞻:千張大戶近${e.bp.length}週 +${F1(dB)}pp 持續吸籌——大戶加碼常領先題材與財報發酵`);}
+        else if(dB<=-1){oDn++;out.push(`💰 大戶前瞻:千張大戶近${e.bp.length}週 ${F1(dB)}pp 持續減碼——留意大戶已在提前撤出`);}
+      }
+    }catch(x){}
+    try{                                                   // ⑦ 中期趨勢結構:價 vs 季線 + 季線斜率(季線方向≈市場對半年基本面的定價)
+      const sh3=shardOf(s);
+      await loadShard(KCACHE,sh3);
+      const ke3=(KCACHE[sh3]||{})[s.id];
+      if(ke3&&ke3.o&&ke3.o.length>=70){
+        const c3=ke3.o.map(x=>x[3]),n3=c3.length;
+        const ma60=k=>{let x=0;for(let i=n3-60-k;i<n3-k;i++)x+=c3[i];return x/60;};
+        const mNow=ma60(0),mPrev=ma60(5),px3=c3[n3-1];
+        if(px3>mNow&&mNow>mPrev){oUp++;out.push(`📐 中期結構:股價站上季線且季線上彎(${F1((mNow/mPrev-1)*100)}%/週)——中期趨勢對前景投贊成票`);}
+        else if(px3<mNow&&mNow<mPrev){oDn++;out.push(`📐 中期結構:股價位於季線下且季線下彎——市場定價已轉趨保守,反轉需先收復季線`);}
+      }
+    }catch(x){}
+    try{                                                   // ⑧ 分析師目標價空間(僅 32 檔研究覆蓋股有此資料)
+      if(s.tp&&+s.tp.m>0&&+s.price>0){
+        const up2=(+s.tp.m/+s.price-1)*100;
+        if(up2>=20){oUp++;out.push(`🎯 目標價空間:分析師平均目標 ${Math.round(+s.tp.m).toLocaleString()},距現價 +${F1(up2)}%——研究圈預期半年內有重估空間(目標價通常偏樂觀,打折看待)`);}
+        else if(up2<=0){oDn++;out.push(`🎯 目標價空間:現價已超過分析師平均目標 ${Math.round(+s.tp.m).toLocaleString()}(${F1(up2)}%)——超漲段,上檔想像空間需靠上修支撐`);}
+      }
+    }catch(x){}
+    // 資料缺口誠實揭露:判不了的講明缺什麼,而不是無聲消失
+    const gaps=[];
+    if(!(e&&Array.isArray(e.ry)&&e.ry.length>=2))gaps.push('動能連續性(需≥2個月營收)');
+    if(!(e&&Array.isArray(e.om)&&e.om.length>=2))gaps.push('獲利外推(需≥2季三率)');
+    if(gaps.length)out.push(`<span style="color:var(--dim)">⏳ 資料累積中:${gaps.join('、')}——歷史回補完成後自動納入判讀</span>`);
     let oTtl='',oCol='var(--dim)';
     if(out.length){
-      if(oUp>=2&&oDn===0){oTtl='未來半年前景:看升(前景未變、甚至更好)';oCol='var(--up)';}
+      if(oUp>=3&&oDn===0){oTtl='未來半年前景:明確看升(多面向同步支持)';oCol='var(--up)';}
+      else if(oUp>=2&&oDn===0){oTtl='未來半年前景:看升(前景未變、甚至更好)';oCol='var(--up)';}
+      else if(oDn>=3&&oUp===0){oTtl='未來半年前景:明確看降(多面向同步轉弱)';oCol='#C62828';}
       else if(oDn>=2&&oUp===0){oTtl='未來半年前景:看降(前景已出現變化,轉趨保守)';oCol='#C62828';}
-      else if(oUp>=1&&oDn>=1){oTtl='未來半年前景:訊號分歧(可能處於轉折點)';oCol='var(--amber)';}
+      else if(oUp>=1&&oDn>=1){oTtl=`未來半年前景:多空拉鋸(${oUp} 升 vs ${oDn} 降,轉折觀察)`;oCol='var(--amber)';}
+      else if(oUp===1){oTtl='未來半年前景:偏正向(單一訊號支持,待更多面向確認)';oCol='var(--up)';}
+      else if(oDn===1){oTtl='未來半年前景:偏保守(出現一項轉弱訊號)';oCol='var(--amber)';}
       else{oTtl='未來半年前景:大致持平(暫無明顯變化)';oCol='var(--amber)';}
     }
     // 技術趨勢列(短線=價 vs 月線+MA5/10 排列;中線=價 vs 季線)——用已載入的 K 分片,零額外請求
@@ -10875,7 +10920,7 @@ function twShardKey(id){const t=String(id);return t.slice(0,2)==='00'?t.slice(0,
 function shardOf(s){return s.market==='TW'?`k/tw${twShardKey(s.id)}.json`:`k/us_${s.id[0].toLowerCase()}.json`;}
 function chipShardOf(id){return `c/tw${twShardKey(id)}.json`;}
 const SHARD_FAIL={},SHARD_IDX={};
-async function shardList(dir){                       // r614:分片粒度改由後端 index.json 決定,前端不再寫死 0~9
+async function shardList(dir){                       // r615:分片粒度改由後端 index.json 決定,前端不再寫死 0~9
   if(SHARD_IDX[dir])return SHARD_IDX[dir];
   try{const r=await fT(dir+'/index.json?v='+kv(),15000,{cache:'default'});
       if(r.ok){const a=await r.json();
@@ -10884,7 +10929,7 @@ async function shardList(dir){                       // r614:分片粒度改由�
   SHARD_IDX[dir]=[0,1,2,3,4,5,6,7,8,9].map(d=>`${dir}/tw${d}.json`);   // 舊粒度相容(後端還沒跑新版時)
   return SHARD_IDX[dir];
 }
-async function loadShard(cache,sh){                  // r614:失敗不再毒化快取,且吃瀏覽器快取(URL 已帶 ?v= 版本號)
+async function loadShard(cache,sh){                  // r615:失敗不再毒化快取,且吃瀏覽器快取(URL 已帶 ?v= 版本號)
   if(cache[sh]&&cache[sh]!=='loading')return cache[sh];
   if((SHARD_FAIL[sh]||0)>=3)return {};               // 連三次失敗才放棄,不像舊版一次逾時就整場報廢
   try{
@@ -11142,7 +11187,7 @@ async function showDetail(id){
   try{wireDetailSecs();}catch(e){}
   setTimeout(()=>{try{loadSeason(s);}catch(e){}},350);   // 進頁自動載入季節性
   setTimeout(()=>{try{loadTdcc(s);}catch(e){}},600);      // 大戶持股趨勢
-  setTimeout(()=>{try{                                      // r614:大戶買賣比——展開該區塊才計算(惰性,不佔富果額度)
+  setTimeout(()=>{try{                                      // r615:大戶買賣比——展開該區塊才計算(惰性,不佔富果額度)
     const t=document.querySelector('[data-sec="stk_bs"]');
     if(!t)return;
     const kick=()=>{try{const b=document.getElementById('sb-stk_bs');
@@ -11212,7 +11257,7 @@ async function showDetail(id){
   try{setTimeout(()=>{try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e2){}},950);}catch(e){}
   try{clearInterval(window.__segRelT);window.__segRelT=setInterval(()=>{
     if(!location.hash.startsWith('#stock/')){clearInterval(window.__segRelT);return;}   // r482:離開個股頁自動停止
-    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r614:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
+    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r615:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
   },2500);}catch(e){}
   try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
     const h=document.getElementById('dcfBody');
@@ -16497,7 +16542,7 @@ function etfPerfBlock(s){
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-top:6px">${cells}</div>
     <div class="dim-note" style="margin-top:8px">以收盤價計算的<b>價格報酬,未含配息</b>——高配息 ETF 的實際含息報酬會更高;配息紀錄與殖利率見下方。想找「哪檔最強」,回 ETF 總覽可用近 1 月 / 近 3 月排序全部比較。</div></div>`;
 }
-/* 🗺️ 族群資金輪動地圖 —— r614
+/* 🗺️ 族群資金輪動地圖 —— r615
    兩種族群口徑:①熱門題材族群(XQ 式細分,站內自維護成分股,如圖卡的 AI 相關族群)
    ②官方產業別(證交所 34 類,每產業抽代表股)。逐檔抓富果逐筆算大單,聚合出族群層級
    「大戶買賣比 × 大戶差比」→ 四大區域散點圖 + 十大族群排行榜。限速 55 次/分,結果各自快取 15 分鐘。 */
@@ -16687,7 +16732,7 @@ function quadRender(rows,ts,fail,total,mode){
 }
 setTimeout(()=>{try{quadInit();}catch(e){}},5200);
 
-async function fglTradesRaw(sid){         // r614:富果逐筆共用抓取(直連→Worker 代發),回 {tr:[...]} 或 {err}
+async function fglTradesRaw(sid){         // r615:富果逐筆共用抓取(直連→Worker 代發),回 {tr:[...]} 或 {err}
   const api='https://api.fugle.tw/marketdata/v1.0/stock/intraday/trades/'+encodeURIComponent(sid)+'?limit=1000';
   const key=fglKey();
   let r=null,err='';
@@ -16705,7 +16750,7 @@ async function fglTradesRaw(sid){         // r614:富果逐筆共用抓取(直�
   return {tr:Array.isArray(tr)?tr:[]};
 }
 
-function bigTradeAgg(tr){                 // r614:大單彙總(≥100萬/≥500萬)+全部成交金額,個股與族群掃描同一口徑
+function bigTradeAgg(tr){                 // r615:大單彙總(≥100萬/≥500萬)+全部成交金額,個股與族群掃描同一口徑
   const TH=[1e6,5e6];
   const agg=TH.map(()=>({bA:0,sA:0,bN:0,sN:0}));
   let nAll=0,skip=0,allAmt=0,tMin=null,tMax=null;
@@ -16724,7 +16769,7 @@ function bigTradeAgg(tr){                 // r614:大單彙總(≥100萬/≥500�
   return {agg,nAll,skip,allAmt,tMin,tMax};
 }
 
-function quadOf(ratio,diff){              // r614:四大區域判定(X=買賣比70%、Y=差比20%)
+function quadOf(ratio,diff){              // r615:四大區域判定(X=買賣比70%、Y=差比20%)
   const hi=ratio>=70,st=diff>=20;
   return hi&&st?{k:'lead',n:'領先區',en:'Leading',c:'var(--up)',d:'主力參與度高且買超力道強——資金集中持續進場,最有機會成為市場主流'}
        :(!hi&&st)?{k:'imp',n:'改善區',en:'Improving',c:'#3B82D6',d:'主力參與度低但買超力道強——主力開始布局,有機會接棒上攻進入領先區'}
@@ -16732,7 +16777,7 @@ function quadOf(ratio,diff){              // r614:四大區域判定(X=買賣比
        :{k:'lag',n:'落後區',en:'Lagging',c:'var(--dim)',d:'主力參與度低、買超力道弱——資金尚未進駐,短期較難有表現'};
 }
 
-/* ⚖️ 大戶買賣比:富果逐筆成交,大單(單筆金額門檻)買方金額佔大單總金額比 —— r614
+/* ⚖️ 大戶買賣比:富果逐筆成交,大單(單筆金額門檻)買方金額佔大單總金額比 —— r615
    公式:買進大單金額 ÷(買進大單金額+賣出大單金額)×100%;≥70% 高、50~70% 中、<50% 低。
    方向判定用逐筆的 bid/ask:成交價≥ask=買方主動(外盤)、≤bid=賣方主動(內盤),介於其間不計。
    免費環境無分點資料,此為「盤中大單」口徑(近 1000 筆成交),與分點大戶不同,頁面上明講。 */

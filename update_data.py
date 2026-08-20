@@ -666,38 +666,42 @@ def _mops_rev_month(y, m):
                ("codetabs",  lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")),
                ("wayback",   lambda u: "https://web.archive.org/web/2026id_/" + u)]   # id_=原始位元組(big5 不被轉碼)
     roc, out = y - 1911, {}
+    # 診斷檔證實:mops.twse.com.tw/nas 回 404(非封鎖)——MOPS 2025 改版後舊版遷至 mopsov,
+    # 歷史靜態頁跟著搬;mopsov 優先、mops 保留備援。
+    hosts = ("https://mopsov.twse.com.tw", "https://mops.twse.com.tw")
     for mk in ("sii", "otc"):
         for sfx in ("0", "1"):
-            u = f"https://mops.twse.com.tw/nas/t21/{mk}/t21sc03_{roc}_{m}_{sfx}.html"
-            got0 = len(out)
-            for rname, mk_r in routes:
-                try:
-                    r = requests.get(mk_r(u), headers={**UA, "Referer": "https://mops.twse.com.tw/"},
-                                     timeout=(12 if rname == "direct" else 40))
-                    if r.status_code != 200 or len(r.content) < 2000:
-                        _diag("mops月營收/" + rname, u, r.status_code, 0, f"len={len(r.content)}")
-                        continue
-                    html = r.content.decode("big5", errors="ignore")
-                    n0 = len(out)
-                    for df in pd.read_html(StringIO(html)):
-                        cols = ["".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in df.columns]
-                        def ci(*pats):
-                            return next((i for i, c in enumerate(cols) if all(p in c for p in pats)), None)
-                        i_id, i_yoy, i_amt = ci("公司", "代號"), ci("去年同月", "增減"), ci("當月營收")
-                        if None in (i_id, i_yoy): continue
-                        for _, row in df.iterrows():
-                            sid = str(row.iloc[i_id]).strip()
-                            if not (sid.isdigit() and 4 <= len(sid) <= 6): continue
-                            yoy = numf(row.iloc[i_yoy])
-                            if yoy is None: continue
-                            out[sid] = (yoy, f"{y}-{m:02d}",
-                                        numf(row.iloc[i_amt]) if i_amt is not None else None)
-                    _diag("mops月營收/" + rname, u, r.status_code, len(out) - n0)
-                    if len(out) > n0: break            # 這一頁拿到了,換下一頁
-                except Exception as e:
-                    _diag("mops月營收/" + rname, u, -1, 0, e)
-            time.sleep(0.4)
-            _ = got0
+          for host in hosts:
+              u = f"{host}/nas/t21/{mk}/t21sc03_{roc}_{m}_{sfx}.html"
+              got0 = len(out)
+              for rname, mk_r in routes:
+                  try:
+                      r = requests.get(mk_r(u), headers={**UA, "Referer": "https://mops.twse.com.tw/"},
+                                       timeout=(12 if rname == "direct" else 40))
+                      if r.status_code != 200 or len(r.content) < 2000:
+                          _diag("mops月營收/" + rname, u, r.status_code, 0, f"len={len(r.content)}")
+                          continue
+                      html = r.content.decode("big5", errors="ignore")
+                      n0 = len(out)
+                      for df in pd.read_html(StringIO(html)):
+                          cols = ["".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in df.columns]
+                          def ci(*pats):
+                              return next((i for i, c in enumerate(cols) if all(p in c for p in pats)), None)
+                          i_id, i_yoy, i_amt = ci("公司", "代號"), ci("去年同月", "增減"), ci("當月營收")
+                          if None in (i_id, i_yoy): continue
+                          for _, row in df.iterrows():
+                              sid = str(row.iloc[i_id]).strip()
+                              if not (sid.isdigit() and 4 <= len(sid) <= 6): continue
+                              yoy = numf(row.iloc[i_yoy])
+                              if yoy is None: continue
+                              out[sid] = (yoy, f"{y}-{m:02d}",
+                                          numf(row.iloc[i_amt]) if i_amt is not None else None)
+                      _diag("mops月營收/" + rname, u, r.status_code, len(out) - n0)
+                      if len(out) > n0: break            # 這一頁拿到了,換下一頁
+                  except Exception as e:
+                      _diag("mops月營收/" + rname, u, -1, 0, e)
+              time.sleep(0.3)
+              if len(out) > got0: break        # 此頁已從這個主機取得,不再打第二主機
     if not out: _MOPS_REV_DEAD += 1
     else: _MOPS_REV_DEAD = 0
     return out
@@ -724,6 +728,9 @@ def backfill_rev_months(chips, months=25):
     fm = {}
     for yy in years:
         fm.update(fm_rev_year(yy))
+        if not _FM_REV_CACHE.get(f"Y{yy}"):     # 診斷已證實免費層擋全市場查詢(400 Sponsor)——首年就空則整批跳過
+            print("  [info] FinMind 全市場營收查詢遭方案層級拒絕(Sponsor 限定),改走 MOPS 靜態頁")
+            break
     got_fm = got_mops = 0
     for (yy, mm) in todo:
         ym = f"{yy}-{mm:02d}"
