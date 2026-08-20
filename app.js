@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r615 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r616 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r615</span>');
+  diag.push('<span style="color:var(--dim)">build r616</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7921,7 +7921,7 @@ async function fundAlertUI(s){                             // r496:基本面/前
     let e=null;try{e=await loadChips(s);}catch(x){}
     if(location.hash!=='#stock/'+s.id)return;
     const F1=x=>(+x).toFixed(1);
-    const strong=[],weak=[],rows=[],scan=[];               // r615:改「綜合健診」計分板——rows=健診列、scan=財務掃雷異常項;判定門檻與舊版完全一致
+    const strong=[],weak=[],rows=[],scan=[];               // r616:改「綜合健診」計分板——rows=健診列、scan=財務掃雷異常項;判定門檻與舊版完全一致
     const pill=(t,c)=>`<span style="color:${c};border:1.5px solid ${c};border-radius:7px;padding:1px 9px;font-weight:900;font-size:12.5px;white-space:nowrap">${t}</span>`;
     let ryL=null,ryP=null,mom=null;
     if(e&&Array.isArray(e.ry)&&e.ry.length){               // A 營運成長(YoY 趨勢+月增)
@@ -9428,7 +9428,7 @@ function kSanitize(dates,ohlc){   // 🧹 沒開盤的日子不准上K線:剔除
     return {dates:D,ohlc:O};
   }catch(e){return {dates,ohlc};}
 }
-let kView={rng:'6m',itv:'1d'},baseK=null,KHASH='';
+let kView={rng:'3m',itv:'1d'},baseK=null,KHASH='';
 const KVC={};  // 長天期K線快取(依 代號|範圍|週期)
 async function yextOHLC(s,range,interval){
   /* 站內K線庫沒有的符號(國際指數/美債殖利率/匯率)→ 後端 yext.json(FRED 官方日收盤)。
@@ -9475,11 +9475,27 @@ async function yOHLC(s,range,interval){
      日K = k/ 分片(近六個月);週K = 由日K現場合成(約26根);
      月K = m/{id}.json(後端月K庫,上市以來全歷史);
      指數/殖利率/匯率 = yext.json 合成(yextOHLC 備援)。 */
+  if(interval==='12mo'){                                     // r616:年K=月K庫依年度聚合(上市全歷史;區間鈕不裁切)
+    const m=await mK(s);
+    if(!m||!m.d||!m.d.length)return await yextOHLC(s,'max','1mo');
+    const dates=[],ohlc=[];
+    let yr=null,cur=null;
+    m.d.forEach((ds,i)=>{
+      const y2=String(ds).slice(0,4);
+      const [o,h,l,c,v]=m.k[i];
+      if(y2!==yr){
+        if(cur){dates.push(cur.ds);ohlc.push([cur.o,cur.h,cur.l,cur.c,cur.v]);}
+        yr=y2;cur={ds:y2,o,h,l,c,v:v||0};
+      }else{cur.h=Math.max(cur.h,h);cur.l=Math.min(cur.l,l);cur.c=c;cur.v+=(v||0);}
+    });
+    if(cur){dates.push(cur.ds);ohlc.push([cur.o,cur.h,cur.l,cur.c,cur.v]);}
+    return ohlc.length?{dates,ohlc}:null;
+  }
   if(interval==='1mo'){
     const m=await mK(s);
     if(!m||!m.d||!m.d.length)return await yextOHLC(s,range,interval);
     let d=m.d,k=m.k;
-    const take={'6mo':6,'1y':12}[range];
+    const take={'3mo':3,'6mo':6,'1y':12}[range];
     if(take&&d.length>take){d=d.slice(-take);k=k.slice(-take);}
     return {dates:d.slice(),ohlc:k.map(r=>r.slice())};
   }
@@ -9487,7 +9503,7 @@ async function yOHLC(s,range,interval){
   if(!base||base.demo||!base.ohlc||!base.ohlc.length)return await yextOHLC(s,range,interval);
   if(interval==='1d'){
     let d=base.dates.slice(),o=base.ohlc.map(r=>r.slice());
-    const takeD={'6mo':130,'1y':252}[range];
+    const takeD={'3mo':66,'6mo':130,'1y':252}[range];
     if(takeD&&d.length>takeD){d=d.slice(-takeD);o=o.slice(-takeD);}
     return {dates:d,ohlc:o};
   }
@@ -9505,7 +9521,7 @@ async function yOHLC(s,range,interval){
       }else{cur.h=Math.max(cur.h,h);cur.l=Math.min(cur.l,l);cur.c=c;cur.v+=v;}
     });
     if(cur){dates.push(cur.ds);ohlc.push([cur.o,cur.h,cur.l,cur.c,cur.v]);}
-    const takeW={'6mo':26,'1y':52}[range];
+    const takeW={'3mo':13,'6mo':26,'1y':52}[range];
     if(takeW&&dates.length>takeW){return {dates:dates.slice(-takeW),ohlc:ohlc.slice(-takeW)};}
     return ohlc.length>=2?{dates,ohlc}:null;
   }
@@ -9521,12 +9537,14 @@ async function mK(s){
   }catch(e){MCACHE[key]=null;}
   return MCACHE[key];
 }
-const ITV_ZH={'1d':'日K','1wk':'週K','1mo':'月K'};
+const ITV_ZH={'1d':'日K','1wk':'週K','1mo':'月K','12mo':'年K'};
 async function applyKView(s){
   const key=`${s.id}|${kView.rng}|${kView.itv}`;
   let data;
-  if(kView.rng==='6m'&&kView.itv==='1d'&&baseK){
-    data=baseK;   // 內建近半年K線,秒開零外部請求
+  if((kView.rng==='6m'||kView.rng==='3m')&&kView.itv==='1d'&&baseK){
+    data=kView.rng==='3m'
+      ?{dates:baseK.dates.slice(-66),ohlc:baseK.ohlc.slice(-66)}   // 3個月≈66根,直接切內建資料秒開
+      :baseK;   // 內建近半年K線,秒開零外部請求
   }
   else if(KVC[key])data=KVC[key];
   else{
@@ -9535,7 +9553,7 @@ async function applyKView(s){
       if(chartInst){try{chartInst.dispose();}catch(e){} chartInst=null;}
       box.innerHTML='<div class="dim-note" style="padding:48px;text-align:center">📚 站內資料庫載入中…</div>';
     }
-    const _yr=({'6m':'6mo'})[kView.rng]||kView.rng;
+    const _yr=({'3m':'3mo','6m':'6mo'})[kView.rng]||kView.rng;
     data=await yOHLC(s,_yr,kView.itv);
     for(let _t=0;_t<2&&!data;_t++){                 // 免費代理不穩:自動補打兩次
       await new Promise(r=>setTimeout(r,1100+_t*900));
@@ -10314,7 +10332,7 @@ function indReadTxt(mode,o,closes,itv){                    // r478/r505:MACD/KD/
   const _lv={MACD:itv==='1wk'?'週MACD 的零軸與交叉屬「波段級」訊號,一次方向常走數週~數月':
                  itv==='1mo'?'月MACD 是牛熊分界級訊號——零軸附近的金叉/死叉極少出現,一旦出現常定調一年以上的大方向':'',
              KD:itv==='1wk'?'週KD 屬波段級:金叉/死叉對應數週方向;週KD 高檔鈍化=主升段的典型特徵':
-                itv==='1mo'?'月KD 屬大級距:一次交叉常對應一年以上趨勢段,月KD 低檔金叉是長線底部最有名的訊號之一':'',
+                itv==='1mo'?'月KD 屬大級距:一次交叉常對應一年以上趨勢段,月KD 低檔金叉是長線底部最有名的訊號之一':itv==='12mo'?'年K 屬超長級距:一根K=一年,指標僅供世代級趨勢參考':'',
              RSI:itv==='1wk'?'週RSI 站上 70 常是主升段而非見頂;跌破 50 才是波段轉弱':
                  itv==='1mo'?'月RSI 極少觸及超買超賣——一旦到了,通常是歷史級別的過熱/恐慌':''};
   try{
@@ -10359,9 +10377,9 @@ function kChartBoxHTML(){
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
         <h3>K線圖 <span class="ds" id="kMeta">載入中…</span></h3>
         <div class="kseg-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
-          <div class="ind-seg" id="rngSeg">${[['6m','6個月'],['1y','1年'],['max','全部']].map(([v,n])=>
-            `<button data-r="${v}" class="${v==='6m'?'on':''}">${n}</button>`).join('')}</div>
-          <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
+          <div class="ind-seg" id="rngSeg">${[['3m','3個月'],['6m','6個月'],['1y','1年'],['max','全部']].map(([v,n])=>
+            `<button data-r="${v}" class="${v==='3m'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K'],['12mo','年K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
@@ -10374,7 +10392,7 @@ function kChartBoxHTML(){
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K=上市全歷史;日K/週K=每日累積加深至約一年) · MA5~MA240 全數預設顯示(點圖例可開關) · 滾輪/滑桿縮放 · 手機:上方工具列可左右滑動<span id="kBoxNote"></span></div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K/年K=上市全歷史;日K/週K=每日累積加深至約一年) · MA5~MA240 全數預設顯示(點圖例可開關) · 滾輪/滑桿縮放 · 手機:上方工具列可左右滑動<span id="kBoxNote"></span></div>
       <div id="kbox" style="height:560px"></div>
     </div>`;
 }
@@ -10610,14 +10628,16 @@ function drawKChart(){
     }
   }
   const _itv=(typeof kView!=='undefined'&&kView.itv)||'1d';   // r504:均線參數隨週期換算——週/月K不再「很多數據都沒有」
-  const maCfg=_itv==='1wk'
+  const maCfg=_itv==='12mo'
+    ?[['MA3(3年)',3,'#E8B44A'],['MA5(5年)',5,'#7FB4FF'],['MA10(10年)',10,'#C792EA']]
+    :_itv==='1wk'
     ?[['MA4(月線)',4,'#E8B44A'],['MA13(季線)',13,'#7FB4FF'],['MA26(半年線)',26,'#C792EA'],['MA52(年線)',52,CT.ma60]]
     :_itv==='1mo'
     ?[['MA3(季)',3,'#E8B44A'],['MA6(半年)',6,'#7FB4FF'],['MA12(年線)',12,'#C792EA'],['MA24(兩年)',24,CT.ma60],['MA60(五年)',60,'#FF8FB0']]
     :[['MA5',5,'#E8B44A'],['MA10',10,'#7FB4FF'],['MA20',20,'#C792EA'],['MA60',60,CT.ma60],
       ['MA120',120,'#FF8FB0'],['MA240',240,'#5BD9C0']];
   try{const kn=document.getElementById('kBoxNote');
-    if(kn)kn.textContent=_itv==='1wk'?' · 週K均線=4/13/26/52 週(月/季/半年/年線)':_itv==='1mo'?' · 月K均線=3/6/12/24/60 月(季~五年線)':'';
+    if(kn)kn.textContent=_itv==='1wk'?' · 週K均線=4/13/26/52 週(月/季/半年/年線)':_itv==='1mo'?' · 月K均線=3/6/12/24/60 月(季~五年線)':_itv==='12mo'?' · 年K=上市以來全歷史(區間鈕不影響)・均線=3/5/10 年':'';
   }catch(e){}
   const maSeries=maCfg.map(([nm,p,col])=>({name:nm,type:'line',xAxisIndex:0,yAxisIndex:0,
     data:closes.map((_,i)=>i<p-1?null:+avg(closes.slice(i-p+1,i+1)).toFixed(2)),
@@ -10920,7 +10940,7 @@ function twShardKey(id){const t=String(id);return t.slice(0,2)==='00'?t.slice(0,
 function shardOf(s){return s.market==='TW'?`k/tw${twShardKey(s.id)}.json`:`k/us_${s.id[0].toLowerCase()}.json`;}
 function chipShardOf(id){return `c/tw${twShardKey(id)}.json`;}
 const SHARD_FAIL={},SHARD_IDX={};
-async function shardList(dir){                       // r615:分片粒度改由後端 index.json 決定,前端不再寫死 0~9
+async function shardList(dir){                       // r616:分片粒度改由後端 index.json 決定,前端不再寫死 0~9
   if(SHARD_IDX[dir])return SHARD_IDX[dir];
   try{const r=await fT(dir+'/index.json?v='+kv(),15000,{cache:'default'});
       if(r.ok){const a=await r.json();
@@ -10929,7 +10949,7 @@ async function shardList(dir){                       // r615:分片粒度改由�
   SHARD_IDX[dir]=[0,1,2,3,4,5,6,7,8,9].map(d=>`${dir}/tw${d}.json`);   // 舊粒度相容(後端還沒跑新版時)
   return SHARD_IDX[dir];
 }
-async function loadShard(cache,sh){                  // r615:失敗不再毒化快取,且吃瀏覽器快取(URL 已帶 ?v= 版本號)
+async function loadShard(cache,sh){                  // r616:失敗不再毒化快取,且吃瀏覽器快取(URL 已帶 ?v= 版本號)
   if(cache[sh]&&cache[sh]!=='loading')return cache[sh];
   if((SHARD_FAIL[sh]||0)>=3)return {};               // 連三次失敗才放棄,不像舊版一次逾時就整場報廢
   try{
@@ -11187,7 +11207,7 @@ async function showDetail(id){
   try{wireDetailSecs();}catch(e){}
   setTimeout(()=>{try{loadSeason(s);}catch(e){}},350);   // 進頁自動載入季節性
   setTimeout(()=>{try{loadTdcc(s);}catch(e){}},600);      // 大戶持股趨勢
-  setTimeout(()=>{try{                                      // r615:大戶買賣比——展開該區塊才計算(惰性,不佔富果額度)
+  setTimeout(()=>{try{                                      // r616:大戶買賣比——展開該區塊才計算(惰性,不佔富果額度)
     const t=document.querySelector('[data-sec="stk_bs"]');
     if(!t)return;
     const kick=()=>{try{const b=document.getElementById('sb-stk_bs');
@@ -11257,7 +11277,7 @@ async function showDetail(id){
   try{setTimeout(()=>{try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e2){}},950);}catch(e){}
   try{clearInterval(window.__segRelT);window.__segRelT=setInterval(()=>{
     if(!location.hash.startsWith('#stock/')){clearInterval(window.__segRelT);return;}   // r482:離開個股頁自動停止
-    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r615:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
+    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r616:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
   },2500);}catch(e){}
   try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
     const h=document.getElementById('dcfBody');
@@ -11295,7 +11315,7 @@ async function showDetail(id){
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
-  kView={rng:'6m',itv:'1d'}; baseK=k;
+  kView={rng:'3m',itv:'1d'}; baseK=k;
   try{                                                     // 昨日量+20日均量(張):供盤中預估量比較
     const bars=(k&&k.ohlc||[]);
     const vs=bars.slice(-21,-1).map(b=>b[4]).filter(x=>x>0);
@@ -11362,9 +11382,9 @@ async function showDetail(id){
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
         <h3>K線圖 <span class="ds" id="kMeta">日K · ${k.ohlc.length} 根${k.demo?'(範例資料)':''}</span></h3>
         <div class="kseg-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
-          <div class="ind-seg" id="rngSeg">${[['6m','6個月'],['1y','1年'],['max','全部']].map(([v,n])=>
-            `<button data-r="${v}" class="${v==='6m'?'on':''}">${n}</button>`).join('')}</div>
-          <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K']].map(([v,n])=>
+          <div class="ind-seg" id="rngSeg">${[['3m','3個月'],['6m','6個月'],['1y','1年'],['max','全部']].map(([v,n])=>
+            `<button data-r="${v}" class="${v==='3m'?'on':''}">${n}</button>`).join('')}</div>
+          <div class="ind-seg" id="itvSeg">${[['1d','日K'],['1wk','週K'],['1mo','月K'],['12mo','年K']].map(([v,n])=>
             `<button data-v="${v}" class="${v==='1d'?'on':''}">${n}</button>`).join('')}</div>
           <div class="ind-seg" id="lvSeg"><button data-t="1">壓力支撐</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="tlSeg"><button data-t="1">趨勢線</button><button data-t="0">隱藏</button></div>
@@ -11377,7 +11397,7 @@ async function showDetail(id){
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K=上市全歷史;日K/週K=每日累積加深至約一年) · MA5~MA240 全數預設顯示(點圖例可開關;年線需背景載入約2秒) · 滾輪/滑桿縮放</div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K/年K=上市全歷史;日K/週K=每日累積加深至約一年) · MA5~MA240 全數預設顯示(點圖例可開關;年線需背景載入約2秒) · 滾輪/滑桿縮放</div>
       <div id="kbox" style="height:560px"></div>
     </div>
     <div class="dim-block" id="lvBox">
@@ -16542,7 +16562,7 @@ function etfPerfBlock(s){
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-top:6px">${cells}</div>
     <div class="dim-note" style="margin-top:8px">以收盤價計算的<b>價格報酬,未含配息</b>——高配息 ETF 的實際含息報酬會更高;配息紀錄與殖利率見下方。想找「哪檔最強」,回 ETF 總覽可用近 1 月 / 近 3 月排序全部比較。</div></div>`;
 }
-/* 🗺️ 族群資金輪動地圖 —— r615
+/* 🗺️ 族群資金輪動地圖 —— r616
    兩種族群口徑:①熱門題材族群(XQ 式細分,站內自維護成分股,如圖卡的 AI 相關族群)
    ②官方產業別(證交所 34 類,每產業抽代表股)。逐檔抓富果逐筆算大單,聚合出族群層級
    「大戶買賣比 × 大戶差比」→ 四大區域散點圖 + 十大族群排行榜。限速 55 次/分,結果各自快取 15 分鐘。 */
@@ -16732,7 +16752,7 @@ function quadRender(rows,ts,fail,total,mode){
 }
 setTimeout(()=>{try{quadInit();}catch(e){}},5200);
 
-async function fglTradesRaw(sid){         // r615:富果逐筆共用抓取(直連→Worker 代發),回 {tr:[...]} 或 {err}
+async function fglTradesRaw(sid){         // r616:富果逐筆共用抓取(直連→Worker 代發),回 {tr:[...]} 或 {err}
   const api='https://api.fugle.tw/marketdata/v1.0/stock/intraday/trades/'+encodeURIComponent(sid)+'?limit=1000';
   const key=fglKey();
   let r=null,err='';
@@ -16750,7 +16770,7 @@ async function fglTradesRaw(sid){         // r615:富果逐筆共用抓取(直�
   return {tr:Array.isArray(tr)?tr:[]};
 }
 
-function bigTradeAgg(tr){                 // r615:大單彙總(≥100萬/≥500萬)+全部成交金額,個股與族群掃描同一口徑
+function bigTradeAgg(tr){                 // r616:大單彙總(≥100萬/≥500萬)+全部成交金額,個股與族群掃描同一口徑
   const TH=[1e6,5e6];
   const agg=TH.map(()=>({bA:0,sA:0,bN:0,sN:0}));
   let nAll=0,skip=0,allAmt=0,tMin=null,tMax=null;
@@ -16769,7 +16789,7 @@ function bigTradeAgg(tr){                 // r615:大單彙總(≥100萬/≥500�
   return {agg,nAll,skip,allAmt,tMin,tMax};
 }
 
-function quadOf(ratio,diff){              // r615:四大區域判定(X=買賣比70%、Y=差比20%)
+function quadOf(ratio,diff){              // r616:四大區域判定(X=買賣比70%、Y=差比20%)
   const hi=ratio>=70,st=diff>=20;
   return hi&&st?{k:'lead',n:'領先區',en:'Leading',c:'var(--up)',d:'主力參與度高且買超力道強——資金集中持續進場,最有機會成為市場主流'}
        :(!hi&&st)?{k:'imp',n:'改善區',en:'Improving',c:'#3B82D6',d:'主力參與度低但買超力道強——主力開始布局,有機會接棒上攻進入領先區'}
@@ -16777,7 +16797,7 @@ function quadOf(ratio,diff){              // r615:四大區域判定(X=買賣比
        :{k:'lag',n:'落後區',en:'Lagging',c:'var(--dim)',d:'主力參與度低、買超力道弱——資金尚未進駐,短期較難有表現'};
 }
 
-/* ⚖️ 大戶買賣比:富果逐筆成交,大單(單筆金額門檻)買方金額佔大單總金額比 —— r615
+/* ⚖️ 大戶買賣比:富果逐筆成交,大單(單筆金額門檻)買方金額佔大單總金額比 —— r616
    公式:買進大單金額 ÷(買進大單金額+賣出大單金額)×100%;≥70% 高、50~70% 中、<50% 低。
    方向判定用逐筆的 bid/ask:成交價≥ask=買方主動(外盤)、≤bid=賣方主動(內盤),介於其間不計。
    免費環境無分點資料,此為「盤中大單」口徑(近 1000 筆成交),與分點大戶不同,頁面上明講。 */
@@ -17393,7 +17413,7 @@ async function showMacroDetail(key){
   </div>`;
   document.getElementById('backBtn').onclick=()=>{location.hash='';};
   // 完整 K 線(與個股同引擎:範圍/週期/均線/指標)
-  kView={rng:'6m',itv:'1d'}; baseK=null; curLevels=null; indMode='MACD';
+  kView={rng:'3m',itv:'1d'}; baseK=null; curLevels=null; indMode='MACD';
   KHASH='#macro/'+key;
   const _tv=(key!=='twii'&&key!=='otc'&&typeof TV_SYM!=='undefined')?TV_SYM[key]:null;
   const pseudo={id:def.sym,market:'US',syms:[def.sym,...(def.alt||[])]};
