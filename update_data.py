@@ -221,7 +221,7 @@ def add_us_etfs(out):
     print(f"  美股 ETF:{len(US_ETFS)} 檔")
     return out
 
-SKIP_SHARDS = {"index.json", "meta.json"}
+SKIP_SHARDS = {"index.json", "meta.json", "diag.json"}   # diag.json 曾被孤兒清除誤刪(寫入後 1 秒被 sweep 掃掉)
 
 def tw_shard_key(sid):
     """台股分片鍵:一般取代號前兩碼;00 開頭(ETF 大宗,331 檔)再細一碼,
@@ -663,7 +663,8 @@ def _mops_rev_month(y, m):
     except Exception:
         pass
     routes += [("corsproxy", lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe="")),
-               ("codetabs",  lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe=""))]
+               ("codetabs",  lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe="")),
+               ("wayback",   lambda u: "https://web.archive.org/web/2026id_/" + u)]   # id_=原始位元組(big5 不被轉碼)
     roc, out = y - 1911, {}
     for mk in ("sii", "otc"):
         for sfx in ("0", "1"):
@@ -3291,8 +3292,8 @@ def main():
     backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
     inst = build_inst(chips)
-    save_diag()                             # 回補嘗試全記錄 → c/diag.json(遠端驗屍用)
     save_chips(chips, cmeta, comps)
+    save_diag()                             # 回補嘗試全記錄 → c/diag.json;必須在 save_chips(內含孤兒清除)之後寫
 
     print("④ 計算評分與訊號 ...")
     stocks, ok = [], 0

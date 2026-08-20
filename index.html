@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r608">
+<link rel="stylesheet" href="app.css?v=r613">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 .gmkt-bar button[data-gm="TW"].on{background:#B3402F!important;color:#FFF7EF!important;box-shadow:0 3px 12px rgba(179,64,47,.35)!important}
 .gmkt-bar button[data-gm="TW"]:not(.on):hover{color:#B3402F!important}
@@ -155,6 +155,9 @@
     </div>
   <div class="sec-title tap" data-sec="mk_rot" style="margin-top:12px">🔁 類股資金輪動 <span style="font-weight:400;font-size:13px;letter-spacing:0">今日產業強弱・資金往哪跑</span></div><div class="sec-body" id="sb-mk_rot">
   <div class="idx-card" id="rotBoard" style="display:none;cursor:default"></div>
+  </div>
+  <div class="sec-title tap" data-sec="mk_quad" style="margin-top:12px">🗺️ 族群資金輪動地圖 <span style="font-weight:400;font-size:13px;letter-spacing:0">大戶買賣比×大戶差比・四大區域・富果逐筆掃描</span></div><div class="sec-body" id="sb-mk_quad">
+  <div class="idx-card" id="quadBox" style="cursor:default"><div class="dim-note">🗺️ 載入中…</div></div>
   </div>
   <div id="pickBox" style="display:none"></div>
 <div class="sec-title tap" data-sec="mk_earn" style="margin-top:14px">📡 財報雷達 <span style="font-weight:400;font-size:13px;letter-spacing:0">美股重磅・即將登場(未來14天)・台北時間與台鏈連動</span></div><div class="sec-body" id="sb-mk_earn">
@@ -316,6 +319,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r608"></script>
+<script src="app.js?v=r613"></script>
 </body>
 </html>

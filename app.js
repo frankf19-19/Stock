@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r608 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r613 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r608</span>');
+  diag.push('<span style="color:var(--dim)">build r613</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5698,7 +5698,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
     const root=first.parentNode;
     const GROUPS=[
       ['📈','技術與價格','現在怎麼走・在哪進出',['stk_k','stk_3','stk_s']],
-      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_h','stk_c']],
+      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_h','stk_bs','stk_c']],
       ['💰','基本面與價值','值不值得・前景如何',['stk_r','stk_v','stk_conf']],
       ['🧭','綜合研判與背景','AI 總結・市場觀點・公司背景',['stk_ai','stk_m','stk_p','stk_e']],
     ];
@@ -10828,7 +10828,7 @@ function twShardKey(id){const t=String(id);return t.slice(0,2)==='00'?t.slice(0,
 function shardOf(s){return s.market==='TW'?`k/tw${twShardKey(s.id)}.json`:`k/us_${s.id[0].toLowerCase()}.json`;}
 function chipShardOf(id){return `c/tw${twShardKey(id)}.json`;}
 const SHARD_FAIL={},SHARD_IDX={};
-async function shardList(dir){                       // r608:分片粒度改由後端 index.json 決定,前端不再寫死 0~9
+async function shardList(dir){                       // r613:分片粒度改由後端 index.json 決定,前端不再寫死 0~9
   if(SHARD_IDX[dir])return SHARD_IDX[dir];
   try{const r=await fT(dir+'/index.json?v='+kv(),15000,{cache:'default'});
       if(r.ok){const a=await r.json();
@@ -10837,7 +10837,7 @@ async function shardList(dir){                       // r608:分片粒度改由�
   SHARD_IDX[dir]=[0,1,2,3,4,5,6,7,8,9].map(d=>`${dir}/tw${d}.json`);   // 舊粒度相容(後端還沒跑新版時)
   return SHARD_IDX[dir];
 }
-async function loadShard(cache,sh){                  // r608:失敗不再毒化快取,且吃瀏覽器快取(URL 已帶 ?v= 版本號)
+async function loadShard(cache,sh){                  // r613:失敗不再毒化快取,且吃瀏覽器快取(URL 已帶 ?v= 版本號)
   if(cache[sh]&&cache[sh]!=='loading')return cache[sh];
   if((SHARD_FAIL[sh]||0)>=3)return {};               // 連三次失敗才放棄,不像舊版一次逾時就整場報廢
   try{
@@ -11027,6 +11027,9 @@ async function showDetail(id){
     <div class="sec-title" data-sec="stk_h">👑 大戶持股趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">集保週資料・千張大戶 vs 散戶</span></div><div class="sec-body" id="sb-stk_h">
     <div id="tdccBox" class="dim-block"><div class="dim-note">📡 集保股權資料載入中…</div></div>
     </div>
+    ${isTW&&!s.etf?`<div class="sec-title" data-sec="stk_bs">⚖️ 大戶買賣比・大戶差比 <span style="font-weight:400;font-size:13px;letter-spacing:0">盤中大單 買方佔比+淨買超強度・富果逐筆即算</span></div><div class="sec-body" id="sb-stk_bs">
+    <div id="bigTradeBox" class="dim-block"><div class="dim-note">📡 展開此區塊即以富果逐筆成交計算今日大單買賣比…</div></div>
+    </div>`:''}
     <div class="sec-title" data-sec="stk_3">${s.etf?'📊 籌碼與技術':'⚖️ 三力檢視'} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.etf?'法人動向・技術線型':'基本面・籌碼面・技術面評分'} · 💡 點名詞看白話解釋</span></div><div class="sec-body" id="sb-stk_3">
     ${s.etf?'':dimBlock('基本面(權重40%)',s.f)}
     ${s.t3&&!s.etf?`<div class="thesis" style="border-color:var(--down)"><b style="color:var(--down)">✅ 營收三率三升(${s.t3.q}):</b>毛利率 ${s.t3.gm[0]}→${s.t3.gm[1]}%、營益率 ${s.t3.om[0]}→${s.t3.om[1]}%、淨利率 ${s.t3.nm[0]}→${s.t3.nm[1]}%${s.t3.ry!=null?`,月營收年增 +${s.t3.ry}%`:''}——獲利品質與營收動能同步向上。</div>`:''}
@@ -11092,6 +11095,14 @@ async function showDetail(id){
   try{wireDetailSecs();}catch(e){}
   setTimeout(()=>{try{loadSeason(s);}catch(e){}},350);   // 進頁自動載入季節性
   setTimeout(()=>{try{loadTdcc(s);}catch(e){}},600);      // 大戶持股趨勢
+  setTimeout(()=>{try{                                      // r613:大戶買賣比——展開該區塊才計算(惰性,不佔富果額度)
+    const t=document.querySelector('[data-sec="stk_bs"]');
+    if(!t)return;
+    const kick=()=>{try{const b=document.getElementById('sb-stk_bs');
+      if(b&&!b.classList.contains('closed'))bigTradeCalc(s);}catch(e){}};
+    t.addEventListener('click',()=>setTimeout(kick,60));
+    kick();                                                 // 使用者偏好若記住展開,進頁即算
+  }catch(e){}},700);
   dv.querySelectorAll('[data-goto]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.goto;});
   const dFav=document.getElementById('dFav');
   if(dFav)dFav.onclick=()=>favToggle(s.id);
@@ -11154,7 +11165,7 @@ async function showDetail(id){
   try{setTimeout(()=>{try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e2){}},950);}catch(e){}
   try{clearInterval(window.__segRelT);window.__segRelT=setInterval(()=>{
     if(!location.hash.startsWith('#stock/')){clearInterval(window.__segRelT);return;}   // r482:離開個股頁自動停止
-    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r608:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
+    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r613:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
   },2500);}catch(e){}
   try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
     const h=document.getElementById('dcfBody');
@@ -16439,6 +16450,320 @@ function etfPerfBlock(s){
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-top:6px">${cells}</div>
     <div class="dim-note" style="margin-top:8px">以收盤價計算的<b>價格報酬,未含配息</b>——高配息 ETF 的實際含息報酬會更高;配息紀錄與殖利率見下方。想找「哪檔最強」,回 ETF 總覽可用近 1 月 / 近 3 月排序全部比較。</div></div>`;
 }
+/* 🗺️ 族群資金輪動地圖 —— r613
+   兩種族群口徑:①熱門題材族群(XQ 式細分,站內自維護成分股,如圖卡的 AI 相關族群)
+   ②官方產業別(證交所 34 類,每產業抽代表股)。逐檔抓富果逐筆算大單,聚合出族群層級
+   「大戶買賣比 × 大戶差比」→ 四大區域散點圖 + 十大族群排行榜。限速 55 次/分,結果各自快取 15 分鐘。 */
+const QUAD_THEMES=[
+ ['AI伺服器',['2317','2382','3231','2376']],
+ ['散熱',['3017','3324','2421']],
+ ['機殼',['2354','6117','8210']],
+ ['電源供應',['2308','6409','3015']],
+ ['PCB',['2368','2313','5469']],
+ ['銅箔基板/CCL',['2383','6274','6213']],
+ ['被動元件',['2327','2492','2375']],
+ ['矽光子/光通訊',['4979','3450','4977']],
+ ['重電',['1513','1519','1503']],
+ ['軍工/無人機',['2634','8033','4763']],
+ ['記憶體',['2408','3260','8299']],
+ ['IC設計',['2454','3661','3529']],
+ ['半導體設備/檢測',['3680','2360','6510']],
+ ['ABF載板',['8046','3189','3037']],
+ ['晶圓代工',['2330','2303','6770']],
+ ['網通',['2345','3704','5388']],
+];
+function quadCache(mode){
+  try{const c=JSON.parse(localStorage.getItem('quadScan_'+mode)||'null');
+    if(c&&c.rows&&Date.now()-c.t<15*60000)return c;}catch(e){}
+  return null;
+}
+function quadInit(){
+  const box=document.getElementById('quadBox');
+  if(!box)return;
+  const mode=window.__quadMode||(quadCache('sec')&&!quadCache('thm')?'sec':'thm');
+  window.__quadMode=mode;
+  const c=quadCache(mode);
+  if(c){quadRender(c.rows,c.t,c.fail,c.total,mode);return;}
+  box.innerHTML=quadTabs(mode)
+    +'<div style="font-size:13.5px;line-height:1.75;margin-top:8px">以'+(mode==='thm'?'<b>熱門題材族群</b>(AI 鏈細分,站內自維護成分股)':'<b>官方產業別</b>(每產業抽代表股,龍頭優先)')+'的代表股抓<b>富果逐筆成交</b>,聚合出族群層級的 <b>大戶買賣比</b>(X 軸,70% 門檻)與 <b>大戶差比</b>(Y 軸,20% 門檻),落點四大區域:<b style="color:var(--up)">領先(強勢主流)</b>・<b style="color:#3B82D6">改善(潛力啟動)</b>・<b style="color:#E07B39">弱化(資金退潮)</b>・<b style="color:var(--dim)">落後(弱勢觀望)</b>。最佳路徑:落後 → 改善 → 領先。</div>'
+    +'<div style="margin-top:10px"><button class="btn-ai" onclick="quadScan()">⚡ 掃描'+(mode==='thm'?'熱門題材族群(約 1 分鐘)':'官方產業(約 1~1.5 分鐘)')+'</button></div>'
+    +'<div class="dim-note" style="margin-top:8px">掃描用富果額度'+(mode==='thm'?'約 49':'約 60~72')+' 次呼叫(限速 55 次/分);結果保留 15 分鐘。盤中掃最有意義;盤後為當日全日(近1000筆)口徑。</div>';
+}
+function quadTabs(mode){
+  const t=(k,txt)=>'<button onclick="window.__quadMode=\''+k+'\';quadInit()" style="border:1.5px solid '+(mode===k?'var(--amber)':'var(--line)')+';color:'+(mode===k?'var(--amber)':'var(--mut)')+';background:transparent;border-radius:9px;padding:4px 12px;font-size:13px;font-weight:'+(mode===k?'900':'400')+';cursor:pointer">'+txt+'</button>';
+  return '<div style="display:flex;gap:8px">'+t('thm','🔥 熱門題材族群')+t('sec','🏭 官方產業別')+'</div>';
+}
+async function quadScan(){
+  const box=document.getElementById('quadBox');
+  if(!box||window.__quadBusy)return;
+  window.__quadBusy=1;
+  const mode=window.__quadMode||'thm';
+  try{
+    const byId={};(DATA.stocks||[]).forEach(x=>{if(x.market==='TW')byId[x.id]=x;});
+    let plan=[];
+    if(mode==='thm'){
+      plan=QUAD_THEMES.map(([g,ids])=>({sec:g,ids:ids.map(i=>byId[i]).filter(Boolean)}))
+        .filter(p=>p.ids.length>=2);
+    }else{
+      const by={};
+      (DATA.stocks||[]).forEach(x=>{
+        if(x.market!=='TW'||x.etf||!x.sector||!(+x.price>0))return;
+        (by[x.sector]=by[x.sector]||[]).push(x);
+      });
+      const secs=Object.keys(by).filter(k=>by[k].length>=5)
+        .sort((a,b)=>by[b].length-by[a].length);
+      const rank=x=>(x.lead?1e6:0)+((x.c&&+x.c.score)||0)*2+((x.t&&+x.t.score)||0)+((+x.price>30)?10:0);
+      secs.forEach(k=>{
+        const arr=by[k].slice().sort((a,b)=>rank(b)-rank(a));
+        plan.push({sec:k,ids:arr.slice(0,by[k].length>=80?3:2)});
+      });
+      while(plan.reduce((a,p)=>a+p.ids.length,0)>72){
+        const p=plan.slice().sort((a,b)=>b.ids.length-a.ids.length)[0];
+        if(p.ids.length<=2)break;
+        p.ids.pop();
+      }
+    }
+    const total=plan.reduce((a,p)=>a+p.ids.length,0);
+    let done=0,fail=0;
+    const res={};
+    box.innerHTML=quadTabs(mode)+'<div class="dim-note" id="quadProg" style="margin-top:10px">🗺️ 掃描中… 0/'+total+'</div>';
+    for(const p of plan){
+      for(const st of p.ids){
+        const t0=Date.now();
+        const got=await fglTradesRaw(st.id);
+        done++;
+        const pg=document.getElementById('quadProg');
+        if(pg)pg.textContent='🗺️ 掃描中… '+done+'/'+total+'('+p.sec+' '+st.name+')';
+        if(!got.err&&got.tr&&got.tr.length){
+          const g=bigTradeAgg(got.tr);
+          const r0=res[p.sec]=res[p.sec]||{bA:0,sA:0,allAmt:0,n:0,list:[]};
+          r0.bA+=g.agg[0].bA;r0.sA+=g.agg[0].sA;r0.allAmt+=g.allAmt;r0.n++;
+          const t2=g.agg[0].bA+g.agg[0].sA;
+          r0.list.push({id:st.id,name:st.name,
+            r:t2>0?+(g.agg[0].bA/t2*100).toFixed(1):null,
+            d:g.allAmt>0?+((g.agg[0].bA-g.agg[0].sA)/g.allAmt*100).toFixed(1):null});
+        }else fail++;
+        const wait=1100-(Date.now()-t0);           // 限速 ~55 次/分,富果免費 60/分內
+        if(wait>0)await new Promise(rs=>setTimeout(rs,wait));
+      }
+    }
+    const rows=[];
+    Object.keys(res).forEach(k=>{
+      const r0=res[k],t2=r0.bA+r0.sA;
+      if(t2<=0||r0.allAmt<=0)return;
+      rows.push({sec:k,ratio:+(r0.bA/t2*100).toFixed(2),
+        diff:+((r0.bA-r0.sA)/r0.allAmt*100).toFixed(2),n:r0.n,list:r0.list});
+    });
+    if(!rows.length){
+      box.innerHTML=quadTabs(mode)+'<div class="dim-note" style="margin-top:10px">⚠ 掃描完成但沒有任何族群取得大單樣本('+fail+'/'+total+' 檔抓取失敗)——盤前無成交或富果方案未含 trades 端點時會如此;開盤後再試。</div>'
+        +'<div style="margin-top:8px"><button class="btn-ai" onclick="quadScan()">↻ 重新掃描</button></div>';
+      window.__quadBusy=0;return;
+    }
+    const payload={t:Date.now(),rows,fail,total};
+    try{localStorage.setItem('quadScan_'+mode,JSON.stringify(payload));}catch(e){}
+    quadRender(rows,payload.t,fail,total,mode);
+  }catch(e){
+    box.innerHTML=quadTabs(mode)+'<div class="dim-note" style="margin-top:10px">⚠ 掃描失敗:'+String(e&&e.message||e).slice(0,80)+'</div>'
+      +'<div style="margin-top:8px"><button class="btn-ai" onclick="quadScan()">↻ 重新掃描</button></div>';
+  }
+  window.__quadBusy=0;
+}
+function quadRender(rows,ts,fail,total,mode){
+  const box=document.getElementById('quadBox');
+  if(!box)return;
+  mode=mode||window.__quadMode||'thm';
+  const t=new Date(ts||Date.now());
+  const hh=String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
+  box.innerHTML=quadTabs(mode)
+    +'<div id="quadChart" style="height:520px;margin-top:6px"></div>'
+    +'<div style="font-weight:900;font-size:15px;margin-top:12px">🏆 '+(mode==='thm'?'熱門題材族群':'產業')+'籌碼數據總覽('+hh+' 掃描・按象限與差比排序)</div>'
+    +'<div id="quadList" style="margin-top:6px;overflow-x:auto"></div>'
+    +'<div class="dim-note" style="margin-top:8px">每列=一個族群(代表股大單金額加總後計算)· 買賣比=買進大單÷(買+賣大單),70% 門檻 · 差比=(買進−賣出大單)÷全部成交金額,20% 門檻'+(fail?' · '+fail+'/'+total+' 檔抓取失敗未計入':'')+' · 免費來源以「單筆成交金額≥100萬」界定大單,與 XQ 分點口徑不同,分級邏輯相同 · <a href="javascript:void 0" onclick="quadScan()" style="color:var(--amber);font-weight:700">↻ 重新掃描</a></div>';
+  const light=(typeof CT!=='undefined'&&CT&&CT.ttBg==='#FFFFFF');
+  const ymax=Math.max(30,...rows.map(r=>Math.abs(r.diff)))+6;
+  const pts=rows.map(r=>{
+    const Q=quadOf(r.ratio,r.diff);
+    const col=Q.k==='lead'?'#C62828':Q.k==='imp'?'#3B82D6':Q.k==='weak'?'#E07B39':'#9A9A8F';
+    return {name:r.sec,value:[r.ratio,r.diff],itemStyle:{color:col},_r:r,_q:Q};
+  });
+  try{
+    const el=document.getElementById('quadChart');
+    const ch=echarts.init(el);
+    ch.setOption({
+      backgroundColor:'transparent',
+      grid:{left:52,right:24,top:34,bottom:44},
+      xAxis:{name:'大戶買賣比 %',min:0,max:100,splitLine:{show:false},
+        axisLabel:{formatter:'{value}%'}},
+      yAxis:{name:'大戶差比 %',min:-ymax,max:ymax,splitLine:{show:false},
+        axisLabel:{formatter:'{value}%'}},
+      tooltip:{confine:true,formatter:p=>{
+        const r=p.data._r,Q=p.data._q;
+        return '<b>'+r.sec+'</b> <span style="color:'+p.color+'">'+Q.n+'</span><br>買賣比 '+r.ratio+'% · 差比 '+(r.diff>0?'+':'')+r.diff+'%<br>'
+          +r.list.map(x=>x.name+' '+(x.r==null?'—':x.r+'%')+' / '+(x.d==null?'—':(x.d>0?'+':'')+x.d+'%')).join('<br>');
+      }},
+      series:[{type:'scatter',symbolSize:16,data:pts,
+        label:{show:true,position:'top',fontSize:11,color:light?'#4A463C':'#D8D4C8',
+          formatter:p=>p.data.name.replace(/業$/,'')},
+        markLine:{silent:true,symbol:'none',lineStyle:{type:'dashed',color:light?'#B9B4A6':'#5A574D'},
+          label:{color:light?'#7A7668':'#9A968A'},
+          data:[{xAxis:70,label:{formatter:'70%'}},{yAxis:20,label:{formatter:'+20%'}}]},
+        markArea:{silent:true,data:[
+          [{coord:[70,20],itemStyle:{color:'rgba(198,40,40,.07)'}},{coord:[100,ymax]}],
+          [{coord:[0,20],itemStyle:{color:'rgba(59,130,214,.07)'}},{coord:[70,ymax]}],
+          [{coord:[70,-ymax],itemStyle:{color:'rgba(224,123,57,.07)'}},{coord:[100,20]}],
+          [{coord:[0,-ymax],itemStyle:{color:'rgba(140,140,130,.06)'}},{coord:[70,20]}]]}
+      }]
+    });
+    el.__quadCh=ch;
+  }catch(e){}
+  const order={lead:0,imp:1,weak:2,lag:3};
+  const lb=document.getElementById('quadList');
+  if(lb){
+    const srt=rows.slice().sort((a,b)=>{
+      const qa=quadOf(a.ratio,a.diff),qb=quadOf(b.ratio,b.diff);
+      return (order[qa.k]-order[qb.k])||(b.diff-a.diff);
+    });
+    const pill=Q=>'<span style="color:'+Q.c+';border:1.5px solid '+Q.c+';border-radius:7px;padding:1px 8px;font-weight:900;font-size:12.5px;white-space:nowrap">'+Q.n+'</span>';
+    lb.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:13.5px;min-width:520px">'
+      +'<tr style="color:var(--mut);font-size:12.5px;text-align:left"><th style="padding:5px 6px">排名</th><th>族群名稱</th><th style="text-align:right">買賣比(%)<br><span style="font-weight:400">買方占比</span></th><th style="text-align:right">差比(%)<br><span style="font-weight:400">淨買超強度</span></th><th style="text-align:center">象限</th><th>樣本</th></tr>'
+      +srt.map((r,i)=>{
+        const Q=quadOf(r.ratio,r.diff);
+        return '<tr style="border-top:1px dashed var(--line)">'
+          +'<td style="padding:6px;font-weight:900">'+(i+1)+'</td>'
+          +'<td style="font-weight:700">'+r.sec+'</td>'
+          +'<td style="text-align:right;font-weight:700">'+r.ratio.toFixed(2)+'</td>'
+          +'<td style="text-align:right;font-weight:700;color:'+(r.diff>=20?'var(--up)':r.diff<=-20?'var(--down)':'var(--amber)')+'">'+(r.diff>0?'+':'')+r.diff.toFixed(2)+'</td>'
+          +'<td style="text-align:center">'+pill(Q)+'</td>'
+          +'<td style="color:var(--dim);font-size:12px">'+r.list.map(x=>x.name).join('・')+'</td></tr>';
+      }).join('')+'</table>';
+  }
+}
+setTimeout(()=>{try{quadInit();}catch(e){}},5200);
+
+async function fglTradesRaw(sid){         // r613:富果逐筆共用抓取(直連→Worker 代發),回 {tr:[...]} 或 {err}
+  const api='https://api.fugle.tw/marketdata/v1.0/stock/intraday/trades/'+encodeURIComponent(sid)+'?limit=1000';
+  const key=fglKey();
+  let r=null,err='';
+  if(key){try{r=await fglRawGet2(api,key,9000);}catch(e){r=null;err=String(e&&e.name||e).slice(0,18);}}
+  if(!r||!r.ok){
+    if(r&&!r.ok)err='HTTP'+r.status;
+    let host='https://muddy-cake-cb69.frankccc199.workers.dev';
+    try{const p=(typeof myProxy==='function'?myProxy():'');if(p)host=new URL(p).origin;}catch(e){}
+    try{r=await fT(host+'/fgl?u='+encodeURIComponent(api),9000);
+      if(r&&!r.ok)err+=(err?'/':'')+'代發HTTP'+r.status;}catch(e){r=null;err+=(err?'/':'')+'代發失敗';}
+  }
+  if(!r||!r.ok)return {err:err||'?'};
+  let j=null;try{j=await r.json();}catch(e){return {err:'JSON解析失敗'};}
+  const tr=(j&&(j.trades||(j.data&&j.data.trades)||j.data))||[];
+  return {tr:Array.isArray(tr)?tr:[]};
+}
+
+function bigTradeAgg(tr){                 // r613:大單彙總(≥100萬/≥500萬)+全部成交金額,個股與族群掃描同一口徑
+  const TH=[1e6,5e6];
+  const agg=TH.map(()=>({bA:0,sA:0,bN:0,sN:0}));
+  let nAll=0,skip=0,allAmt=0,tMin=null,tMax=null;
+  (tr||[]).forEach(t=>{
+    const px=+t.price,sz=+t.size;
+    if(!(px>0&&sz>0))return;
+    nAll++;
+    const amt=px*sz;
+    allAmt+=amt;
+    const bid=+t.bid,ask=+t.ask;
+    let dir=0;
+    if(ask>0&&px>=ask)dir=1;else if(bid>0&&px<=bid)dir=-1;else{skip++;return;}
+    const tt=+t.time||0;if(tt){if(tMin==null||tt<tMin)tMin=tt;if(tMax==null||tt>tMax)tMax=tt;}
+    agg.forEach((g,i)=>{if(amt>=TH[i]){if(dir>0){g.bA+=amt;g.bN++;}else{g.sA+=amt;g.sN++;}}});
+  });
+  return {agg,nAll,skip,allAmt,tMin,tMax};
+}
+
+function quadOf(ratio,diff){              // r613:四大區域判定(X=買賣比70%、Y=差比20%)
+  const hi=ratio>=70,st=diff>=20;
+  return hi&&st?{k:'lead',n:'領先區',en:'Leading',c:'var(--up)',d:'主力參與度高且買超力道強——資金集中持續進場,最有機會成為市場主流'}
+       :(!hi&&st)?{k:'imp',n:'改善區',en:'Improving',c:'#3B82D6',d:'主力參與度低但買超力道強——主力開始布局,有機會接棒上攻進入領先區'}
+       :(hi&&!st)?{k:'weak',n:'弱化區',en:'Weakening',c:'#E07B39',d:'主力參與度高但買超力道不足或轉賣超——資金開始退潮,留意轉為賣超風險'}
+       :{k:'lag',n:'落後區',en:'Lagging',c:'var(--dim)',d:'主力參與度低、買超力道弱——資金尚未進駐,短期較難有表現'};
+}
+
+/* ⚖️ 大戶買賣比:富果逐筆成交,大單(單筆金額門檻)買方金額佔大單總金額比 —— r613
+   公式:買進大單金額 ÷(買進大單金額+賣出大單金額)×100%;≥70% 高、50~70% 中、<50% 低。
+   方向判定用逐筆的 bid/ask:成交價≥ask=買方主動(外盤)、≤bid=賣方主動(內盤),介於其間不計。
+   免費環境無分點資料,此為「盤中大單」口徑(近 1000 筆成交),與分點大戶不同,頁面上明講。 */
+async function bigTradeCalc(s,force){
+  const box=document.getElementById('bigTradeBox');
+  if(!box)return;
+  if(box.dataset.busy)return;
+  if(!force&&box.dataset.done&&Date.now()-(+box.dataset.doneT||0)<60000)return;   // 1 分鐘內不重抓
+  box.dataset.busy='1';
+  box.innerHTML='<div class="dim-note">📡 抓取富果逐筆成交、計算大單買賣比中…</div>';
+  try{
+    const got=await fglTradesRaw(s.id);
+    if(got.err){
+      box.innerHTML='<div class="dim-note">⚠ 逐筆成交端點目前抓不到('+got.err+')——若為 HTTP403 代表目前富果方案未含 trades 端點;盤前/盤後亦可能無資料。</div>';
+      box.dataset.busy='';return;
+    }
+    const tr=got.tr;
+    if(!Array.isArray(tr)||!tr.length){
+      box.innerHTML='<div class="dim-note">今日尚無逐筆成交資料(盤前或暫停交易)。開盤後展開此區即會計算。</div>';
+      box.dataset.busy='';return;
+    }
+    const TH=[[1e6,'大單(≥100萬)'],[5e6,'特大單(≥500萬)']];
+    const {agg,nAll,skip,allAmt,tMin,tMax}=bigTradeAgg(tr);
+    const fmt=v=>v>=1e8?(v/1e8).toFixed(2)+' 億':v>=1e4?Math.round(v/1e4).toLocaleString()+' 萬':Math.round(v)+' 元';
+    const hhmm=us=>{if(!us)return '';const d=new Date(us/1000);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+    const main=agg[0];
+    const tot=main.bA+main.sA;
+    let html='';
+    if(!tot){
+      html='<div class="dim-note">目前取得的近 '+nAll+' 筆成交中,沒有單筆金額達 100 萬的大單——中小量成交為主,大戶買賣比暫無法計算。</div>';
+    }else{
+      const ratio=main.bA/tot*100;
+      const lv=ratio>=70?['高','var(--up)','主力高度參與,行情容易啟動或強勢延續']
+             :ratio>=50?['中','var(--amber)','有主力介入,觀察後續籌碼變化']
+             :['低','var(--down)','大單買方力量弱,賣方金額佔優'];
+      const bar=(bA,sA)=>{const t2=bA+sA;if(!t2)return '';const w=Math.round(bA/t2*100);
+        return '<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:6px 0 2px">'
+          +'<div style="width:'+w+'%;background:var(--up)"></div>'
+          +'<div style="flex:1;background:var(--down)"></div></div>'
+          +'<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--mut)">'
+          +'<span>買 '+fmt(bA)+'</span><span>賣 '+fmt(sA)+'</span></div>';};
+      const diff=allAmt>0?(main.bA-main.sA)/allAmt*100:0;
+      const lvD=diff>=20?['強勢','var(--up)','大戶積極買超——主力明顯進場,後勢偏多']
+              :diff<=-20?['弱勢','var(--down)','大戶積極賣超——主力出貨,後勢偏空']
+              :['中性','var(--amber)','買賣力道接近平衡——方向不明,等待突破'];
+      const card=(name,val,lvA,extra)=>'<div style="flex:1;min-width:230px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel)">'
+        +'<div style="font-size:13px;font-weight:700;color:var(--mut)">'+name+'</div>'
+        +'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:2px">'
+        +'<span style="font-size:32px;font-weight:900;color:'+lvA[1]+'">'+val+'</span>'
+        +'<span style="font-size:14px;font-weight:900;color:'+lvA[1]+';border:1.5px solid '+lvA[1]+';border-radius:8px;padding:1px 9px">'+lvA[0]+'</span></div>'
+        +'<div style="font-size:12.5px;color:var(--mut);margin-top:4px">'+lvA[2]+'</div>'+(extra||'')+'</div>';
+      html='<div style="display:flex;gap:12px;flex-wrap:wrap">'
+        +card('大戶買賣比(大單交易中買方佔比)',ratio.toFixed(1)+'%',lv,bar(main.bA,main.sA))
+        +card('大戶差比(淨買超 ÷ 全部成交金額)',(diff>0?'+':'')+diff.toFixed(1)+'%',lvD,
+          '<div style="font-size:12px;color:var(--mut);margin-top:6px">淨'+(main.bA>=main.sA?'買超 ':'賣超 ')+fmt(Math.abs(main.bA-main.sA))+' / 總成交 '+fmt(allAmt)+'</div>')
+        +'</div>'
+        +'<div style="font-size:13px;margin-top:10px"><b>'+TH[0][1]+'</b>:買方 '+main.bN+' 筆 / 賣方 '+main.sN+' 筆</div>';
+      const x=agg[1];
+      if(x.bA+x.sA>0){
+        const r2=x.bA/(x.bA+x.sA)*100;
+        const d2=allAmt>0?(x.bA-x.sA)/allAmt*100:0;
+        html+='<div style="font-size:13px;margin-top:8px"><b>'+TH[1][1]+'</b>:買賣比 <b style="color:'+(r2>=70?'var(--up)':r2>=50?'var(--amber)':'var(--down)')+'">'+r2.toFixed(1)+'%</b> · 差比 <b style="color:'+(d2>=20?'var(--up)':d2<=-20?'var(--down)':'var(--amber)')+'">'+(d2>0?'+':'')+d2.toFixed(1)+'%</b>(買 '+x.bN+' 筆 '+fmt(x.bA)+' / 賣 '+x.sN+' 筆 '+fmt(x.sA)+')'+bar(x.bA,x.sA)+'</div>';
+      }
+      const Q=quadOf(ratio,diff);
+      html+='<div style="margin-top:12px;border-left:4px solid '+Q.c+';background:var(--panel);border-radius:0 10px 10px 0;padding:10px 12px">'
+        +'<b style="color:'+Q.c+'">🗺️ 資金輪動地圖所在區域:'+Q.n+'('+Q.en+')</b>'
+        +'<div style="font-size:13px;color:var(--mut);margin-top:3px">'+Q.d+' · 最佳路徑:落後區 → 改善區 → 領先區 · 族群層級對照見大盤頁「族群資金輪動地圖」。</div></div>';
+    }
+    html+='<div class="dim-note" style="margin-top:12px">樣本:近 '+nAll+' 筆逐筆成交('+(tMin?hhmm(tMin)+'~'+hhmm(tMax):'')+')'+(skip?'、'+skip+' 筆價位介於買賣掛單間不計方向':'')+' · 買賣比 = 買進大單金額 ÷(買+賣大單金額),≥70% 高、50~70% 中、<50% 低 · 差比 =(買進大單−賣出大單)÷ 全部成交金額,≥+20% 強勢、±20% 中性、≤−20% 弱勢 · 免費來源無分點逐筆,以「單筆成交金額」界定大單,與券商分點大戶口徑不同 · <b>比值高不代表股價一定漲</b>,請與量能、均線、集保大戶週趨勢互相印證。'
+      +' <a href="javascript:void 0" onclick="try{bigTradeCalc(DATA.stocks.find(x=>x.id===\''+s.id+'\'),1)}catch(e){}" style="color:var(--amber);font-weight:700">↻ 重新計算</a></div>';
+    box.innerHTML=html;
+    box.dataset.done='1';box.dataset.doneT=String(Date.now());
+  }catch(e){
+    box.innerHTML='<div class="dim-note">⚠ 計算失敗:'+String(e&&e.message||e).slice(0,60)+'</div>';
+  }
+  box.dataset.busy='';
+}
+
 /* 👑 大戶持股趨勢:TDCC 股權分散(FinMind 免費歷史,週頻) */
 async function loadTdcc(s){
   const box=document.getElementById('tdccBox');
