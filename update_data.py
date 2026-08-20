@@ -570,63 +570,140 @@ def append_rev(chips, rev_bulk):
         if len(rm) > REV_MONTHS:
             e["rm"], e["ry"], e["ra"] = rm[-REV_MONTHS:], ry[-REV_MONTHS:], ra[-REV_MONTHS:]
 
-def _mops_rev_month(y, m):
-    """MOPS 單月全市場營收表(上市/上櫃 × 本國/KY 四頁)→ {sid:(YoY%, 'YYYY-MM', 當月營收千元)}。"""
-    roc, out = y - 1911, {}
-    for mk in ("sii", "otc"):
-        for sfx in ("0", "1"):
-            try:
-                u = f"https://mops.twse.com.tw/nas/t21/{mk}/t21sc03_{roc}_{m}_{sfx}.html"
-                r = requests.get(u, headers={**UA, "Referer": "https://mops.twse.com.tw/"}, timeout=25)
-                if r.status_code != 200 or len(r.content) < 2000: continue
-                html = r.content.decode("big5", errors="ignore")
-                for df in pd.read_html(StringIO(html)):
-                    cols = ["".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in df.columns]
-                    def ci(*pats):
-                        return next((i for i, c in enumerate(cols) if all(p in c for p in pats)), None)
-                    i_id, i_yoy, i_amt = ci("公司", "代號"), ci("去年同月", "增減"), ci("當月營收")
-                    if None in (i_id, i_yoy): continue
-                    for _, row in df.iterrows():
-                        sid = str(row.iloc[i_id]).strip()
-                        if not (sid.isdigit() and 4 <= len(sid) <= 6): continue
-                        yoy = numf(row.iloc[i_yoy])
-                        if yoy is None: continue
-                        out[sid] = (yoy, f"{y}-{m:02d}",
-                                    numf(row.iloc[i_amt]) if i_amt is not None else None)
-            except Exception:
-                pass
-            time.sleep(0.4)
-    return out
 
 _FM_REV_CACHE = {}
+DIAG = []          # 回補診斷:每一次來源嘗試(狀態碼/筆數/訊息)都記錄,收尾寫入 c/diag.json
+                   # → 之後不必翻 Actions log,直接抓 raw.githubusercontent.com/.../c/diag.json 就能驗屍
+
+def _diag(src, target, status, rows, msg=""):
+    DIAG.append({"src": src, "t": str(target)[:100], "st": status,
+                 "n": rows, "m": str(msg)[:140]})
+
+def save_diag():
+    try:
+        os.makedirs(C_DIR, exist_ok=True)
+        with open(os.path.join(C_DIR, "diag.json"), "w", encoding="utf-8") as f:
+            json.dump({"ts": dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).isoformat(),
+                       "log": DIAG[-400:]}, f, ensure_ascii=False)
+        print(f"  診斷檔:c/diag.json 寫入 {len(DIAG)} 筆嘗試記錄")
+    except Exception as e:
+        print(f"  [warn] 診斷檔寫入失敗: {e}")
+
+def _fm_raw(params, tag):
+    """FinMind 原始呼叫:回 rows 或 None,並把狀態碼與 msg 記進診斷檔。"""
+    tok = os.environ.get("FINMIND_TOKEN", "")
+    if tok: params["token"] = tok
+    try:
+        r = requests.get("https://api.finmindtrade.com/api/v4/data",
+                         params=params, headers=UA, timeout=120)
+        try:
+            j = r.json()
+        except Exception:
+            _diag("finmind", tag, r.status_code, 0, r.text[:140]); return None
+        rows = (j.get("data") if isinstance(j, dict) else None) or []
+        _diag("finmind", tag, r.status_code, len(rows),
+              (j.get("msg", "") if isinstance(j, dict) else ""))
+        return rows
+    except Exception as e:
+        _diag("finmind", tag, -1, 0, e)
+        return None
 
 def _fm_get(params):
     tok = os.environ.get("FINMIND_TOKEN", "")
     if tok: params["token"] = tok
     return get_json("https://api.finmindtrade.com/api/v4/data", params=params, timeout=90)
 
-def fm_rev_month(y, m):
-    """FinMind 單月全市場營收(date-only 查詢,與現行「上月營收備援」同一條已實證可通的路)。"""
-    key = f"{y}-{m:02d}"
+def fm_rev_year(y):
+    """FinMind 月營收「整年段」查詢:一年一次呼叫,直接用回傳列的 revenue_year /
+       revenue_month 欄位歸月——不再假設 date 欄位與營收月份的對應(FinMind 的 date
+       是「公告日」,比營收月份晚一個月,逐月窗口查詢會整批對錯月,這正是上一版
+       可能拿 0 或錯月的原因之一)。"""
+    key = f"Y{y}"
     if key in _FM_REV_CACHE: return _FM_REV_CACHE[key]
-    d = {}
+    out = {}
+    rows = _fm_raw({"dataset": "TaiwanStockMonthRevenue",
+                    "start_date": f"{y}-01-01", "end_date": f"{y + 1}-01-31"},
+                   f"rev年段 {y}")
+    for r in rows or []:
+        sid = str(r.get("stock_id", "")).strip()
+        rv = numf(r.get("revenue"))
+        ry_, rm_ = r.get("revenue_year"), r.get("revenue_month")
+        if not (sid and rv): continue
+        try:
+            ry_, rm_ = int(ry_), int(rm_)
+        except Exception:
+            try:                                   # 舊格式備援:date=公告月,營收月=前一月
+                d0 = str(r.get("date", ""))[:7]
+                yy0, mm0 = int(d0[:4]), int(d0[5:7]) - 1
+                if mm0 == 0: yy0, mm0 = yy0 - 1, 12
+                ry_, rm_ = yy0, mm0
+            except Exception:
+                continue
+        if ry_ == y:
+            out.setdefault(f"{ry_}-{rm_:02d}", {})[sid] = rv
+    _FM_REV_CACHE[key] = out
+    time.sleep(1.2)
+    return out
+
+_MOPS_REV_DEAD = 0   # 連續整月失敗計數:三個月所有路徑都掛 → 本輪放棄 MOPS,避免空等 40 分鐘
+
+def _mops_rev_month(y, m):
+    """MOPS 單月全市場營收表(上市/上櫃 × 本國/KY 四頁)。
+       GitHub 機房直連常被擋 → 逐路輪試:直連(短逾時速敗)→ 自家 Worker(proxy.json)
+       → 公共代理;每一路的結果都進診斷檔。"""
+    global _MOPS_REV_DEAD
+    if _MOPS_REV_DEAD >= 3: return {}
+    import urllib.parse as _up
+    routes = [("direct", lambda u: u)]
     try:
-        j = _fm_get({"dataset": "TaiwanStockMonthRevenue",
-                     "start_date": f"{y}-{m:02d}-01", "end_date": f"{y}-{m:02d}-28"})
-        for r in (j.get("data") if isinstance(j, dict) else None) or []:
-            sid = str(r.get("stock_id", "")).strip()
-            rv = numf(r.get("revenue"))
-            if sid and rv: d[sid] = rv
-    except Exception as e:
-        print(f"    [warn] FinMind 營收 {key}: {str(e)[:70]}")
-    _FM_REV_CACHE[key] = d
-    time.sleep(1.0)
-    return d
+        if os.path.exists("proxy.json"):
+            _pu = json.load(open("proxy.json", encoding="utf-8")).get("url", "").strip().rstrip("/")
+            if _pu.startswith("https://"):
+                routes.append(("worker", lambda u, _p=_pu: _p + "/?url=" + _up.quote(u, safe="")))
+    except Exception:
+        pass
+    routes += [("corsproxy", lambda u: "https://corsproxy.io/?url=" + _up.quote(u, safe="")),
+               ("codetabs",  lambda u: "https://api.codetabs.com/v1/proxy?quest=" + _up.quote(u, safe=""))]
+    roc, out = y - 1911, {}
+    for mk in ("sii", "otc"):
+        for sfx in ("0", "1"):
+            u = f"https://mops.twse.com.tw/nas/t21/{mk}/t21sc03_{roc}_{m}_{sfx}.html"
+            got0 = len(out)
+            for rname, mk_r in routes:
+                try:
+                    r = requests.get(mk_r(u), headers={**UA, "Referer": "https://mops.twse.com.tw/"},
+                                     timeout=(12 if rname == "direct" else 40))
+                    if r.status_code != 200 or len(r.content) < 2000:
+                        _diag("mops月營收/" + rname, u, r.status_code, 0, f"len={len(r.content)}")
+                        continue
+                    html = r.content.decode("big5", errors="ignore")
+                    n0 = len(out)
+                    for df in pd.read_html(StringIO(html)):
+                        cols = ["".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in df.columns]
+                        def ci(*pats):
+                            return next((i for i, c in enumerate(cols) if all(p in c for p in pats)), None)
+                        i_id, i_yoy, i_amt = ci("公司", "代號"), ci("去年同月", "增減"), ci("當月營收")
+                        if None in (i_id, i_yoy): continue
+                        for _, row in df.iterrows():
+                            sid = str(row.iloc[i_id]).strip()
+                            if not (sid.isdigit() and 4 <= len(sid) <= 6): continue
+                            yoy = numf(row.iloc[i_yoy])
+                            if yoy is None: continue
+                            out[sid] = (yoy, f"{y}-{m:02d}",
+                                        numf(row.iloc[i_amt]) if i_amt is not None else None)
+                    _diag("mops月營收/" + rname, u, r.status_code, len(out) - n0)
+                    if len(out) > n0: break            # 這一頁拿到了,換下一頁
+                except Exception as e:
+                    _diag("mops月營收/" + rname, u, -1, 0, e)
+            time.sleep(0.4)
+            _ = got0
+    if not out: _MOPS_REV_DEAD += 1
+    else: _MOPS_REV_DEAD = 0
+    return out
 
 def backfill_rev_months(chips, months=25):
-    """月營收逐月回補。分片被清空時 rm 只剩最新 1 個月 → 營收趨勢圖只有一根、
-       「動能連續性」判不出來。順序:FinMind(date-only,自算 YoY;GH Actions 實證可通)
-       → MOPS 逐月頁(本機/未被擋環境用)。補齊後自動略過。"""
+    """月營收逐月回補:FinMind 年段查詢(1 年 1 次呼叫)為主、MOPS 代理鏈為輔;
+       全部嘗試進 c/diag.json。補齊後自動略過。"""
     cnt = {}
     for e in chips.values():
         for ym in e.get("rm") or []:
@@ -642,27 +719,32 @@ def backfill_rev_months(chips, months=25):
         if m == 0: y, m = y - 1, 12
     if not todo:
         print("  月營收回補:歷史已完整,略過"); return
+    years = sorted({yy for (yy, _) in todo} | {yy - 1 for (yy, _) in todo})
+    fm = {}
+    for yy in years:
+        fm.update(fm_rev_year(yy))
     got_fm = got_mops = 0
     for (yy, mm) in todo:
+        ym = f"{yy}-{mm:02d}"
         one = {}
-        cur = fm_rev_month(yy, mm)
-        if cur:
-            prv = fm_rev_month(yy - 1, mm)
-            ym = f"{yy}-{mm:02d}"
+        cur, prv = fm.get(ym) or {}, fm.get(f"{yy - 1}-{mm:02d}") or {}
+        if cur and prv:
             for sid, rv in cur.items():
                 p = prv.get(sid)
                 if p: one[sid] = (round((rv / p - 1) * 100, 2), ym, rv / 1000.0)
-            if one: got_fm += 1
-        if not one:
-            one = _mops_rev_month(yy, mm)
-            if one: got_mops += 1
+            if len(one) >= 300: got_fm += 1
+        if len(one) < 300:
+            mo = _mops_rev_month(yy, mm)
+            if mo:
+                got_mops += 1
+                for sid, v in mo.items(): one.setdefault(sid, v)
         if not one: continue
-        for sid, (yoy, ym, amt) in one.items():
+        for sid, (yoy, ym2, amt) in one.items():
             e = chips.setdefault(sid, {})
             rm, ry, ra = e.setdefault("rm", []), e.setdefault("ry", []), e.setdefault("ra", [])
             while len(ra) < len(rm): ra.append(None)
             mp = {rm[i]: (ry[i], ra[i]) for i in range(len(rm))}
-            mp[ym] = (yoy, amt)
+            mp[ym2] = (yoy, amt)
             ks = sorted(mp)[-REV_MONTHS:]
             e["rm"] = ks
             e["ry"] = [mp[k][0] for k in ks]
@@ -1353,9 +1435,8 @@ def fm_margin_quarter(q):
     dstr = f"{y}-{[0,3,6,9,12][s]:02d}-{[0,31,30,30,31][s]}"
     out = {}
     try:
-        j = _fm_get({"dataset": "TaiwanStockFinancialStatements",
-                     "start_date": dstr, "end_date": dstr})
-        rows = (j.get("data") if isinstance(j, dict) else None) or []
+        rows = _fm_raw({"dataset": "TaiwanStockFinancialStatements",
+                        "start_date": dstr, "end_date": dstr}, f"財報 {q}") or []
         agg = {}
         for r in rows:
             sid = str(r.get("stock_id", "")).strip()
@@ -3210,6 +3291,7 @@ def main():
     backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
     inst = build_inst(chips)
+    save_diag()                             # 回補嘗試全記錄 → c/diag.json(遠端驗屍用)
     save_chips(chips, cmeta, comps)
 
     print("④ 計算評分與訊號 ...")

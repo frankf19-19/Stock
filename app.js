@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r607 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* 麻吉股研所 · build r608 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1559,7 +1559,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r607</span>');
+  diag.push('<span style="color:var(--dim)">build r608</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10828,7 +10828,7 @@ function twShardKey(id){const t=String(id);return t.slice(0,2)==='00'?t.slice(0,
 function shardOf(s){return s.market==='TW'?`k/tw${twShardKey(s.id)}.json`:`k/us_${s.id[0].toLowerCase()}.json`;}
 function chipShardOf(id){return `c/tw${twShardKey(id)}.json`;}
 const SHARD_FAIL={},SHARD_IDX={};
-async function shardList(dir){                       // r607:分片粒度改由後端 index.json 決定,前端不再寫死 0~9
+async function shardList(dir){                       // r608:分片粒度改由後端 index.json 決定,前端不再寫死 0~9
   if(SHARD_IDX[dir])return SHARD_IDX[dir];
   try{const r=await fT(dir+'/index.json?v='+kv(),15000,{cache:'default'});
       if(r.ok){const a=await r.json();
@@ -10837,7 +10837,7 @@ async function shardList(dir){                       // r607:分片粒度改由�
   SHARD_IDX[dir]=[0,1,2,3,4,5,6,7,8,9].map(d=>`${dir}/tw${d}.json`);   // 舊粒度相容(後端還沒跑新版時)
   return SHARD_IDX[dir];
 }
-async function loadShard(cache,sh){                  // r607:失敗不再毒化快取,且吃瀏覽器快取(URL 已帶 ?v= 版本號)
+async function loadShard(cache,sh){                  // r608:失敗不再毒化快取,且吃瀏覽器快取(URL 已帶 ?v= 版本號)
   if(cache[sh]&&cache[sh]!=='loading')return cache[sh];
   if((SHARD_FAIL[sh]||0)>=3)return {};               // 連三次失敗才放棄,不像舊版一次逾時就整場報廢
   try{
@@ -11154,7 +11154,7 @@ async function showDetail(id){
   try{setTimeout(()=>{try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e2){}},950);}catch(e){}
   try{clearInterval(window.__segRelT);window.__segRelT=setInterval(()=>{
     if(!location.hash.startsWith('#stock/')){clearInterval(window.__segRelT);return;}   // r482:離開個股頁自動停止
-    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r607:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
+    try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r608:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
   },2500);}catch(e){}
   try{yextData().then(()=>{                                 // 載入公債殖利率後重繪估值引力列
     const h=document.getElementById('dcfBody');
