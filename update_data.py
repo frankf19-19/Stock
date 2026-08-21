@@ -325,18 +325,19 @@ def load_chips():
     chips, meta = {}, {"dates": []}
     for fp in glob.glob(os.path.join(C_DIR, "*.json")):
         fn = os.path.basename(fp)
-        if fn == "index.json": continue
+        if fn in SKIP_SHARDS and fn != "meta.json": continue   # r619:diag.json/index.json 不是分片——r613 讓 diag 存活後,舊寫法把它吃進 chips 導致整輪崩潰
         try:
             with open(fp, encoding="utf-8") as f:
                 obj = json.load(f)
             if not isinstance(obj, dict) or not obj:
                 raise ValueError("內容為空或格式不符")
             if fn == "meta.json": meta = obj
-            else: chips.update(obj)
+            else: chips.update({k: v for k, v in obj.items()
+                                if isinstance(v, dict)})       # 硬防線:非 dict 的值一律不收,任何雜檔都毒不到 chips
         except Exception as e:
             if fn != "meta.json": BAD_CHIPS.add(fn)
             print(f"  [ERROR] 籌碼分片讀取失敗 {fn}: {e} → 本輪保留原檔,不覆寫")
-    nd = sum(1 for v in chips.values() if v.get("d"))
+    nd = sum(1 for v in chips.values() if isinstance(v, dict) and v.get("d"))
     print(f"  既有籌碼歷史:{len(chips)} 檔、meta 記錄 {len(meta.get('dates', []))} 個交易日"
           f"(分片內有法人日資料者 {nd} 檔)"
           + (f"、壞檔 {sorted(BAD_CHIPS)}" if BAD_CHIPS else ""))
