@@ -762,6 +762,17 @@ def backfill_rev_months(chips, months=25):
     print(f"  月營收回補:目標 {len(todo)} 個月、FinMind 成功 {got_fm}、MOPS 成功 {got_mops},"
           f"回補後月數中位數 {depths[len(depths)//2] if depths else 0}")
 
+def latest_due_quarter(today=None):
+    """依法定申報期限推算「現在應該已公布」的最新季別(一般業):
+       Q1→5/15、Q2→8/14、Q3→11/14、年報(Q4)→隔年 3/31。抓寬限幾天避免搶跑。"""
+    d = today or TODAY
+    y, md = d.year, (d.month, d.day)
+    if md >= (11, 16): return f"{y}Q3"
+    if md >= (8, 16):  return f"{y}Q2"
+    if md >= (5, 17):  return f"{y}Q1"
+    if md >= (4, 2):   return f"{y - 1}Q4"
+    return f"{y - 1}Q3"
+
 def fm_stock_rev(sid):
     """FinMind「個股」月營收(data_id 查詢,免費層可用——被 Sponsor 擋的只有全市場批次)。
        回 [(ym, yoy, 千元)] 由舊到新;失敗回 []。"""
@@ -820,7 +831,14 @@ def backfill_perstock(chips, comps, rev_n=250, q_n=120):
        依代號排序推進,一天多輪排程約 2~3 天磨完全市場;補齊後自動歸零成本。"""
     tw = sorted(c["id"] for c in comps if c.get("market") == "TW" and not c.get("etf"))
     need_r = [sid for sid in tw if len((chips.get(sid) or {}).get("rm") or []) < 13][:rev_n]
-    need_q = [sid for sid in tw if len((chips.get(sid) or {}).get("fq") or []) < 4][:q_n]
+    ldq = latest_due_quarter()
+    def _fq(sid): return (chips.get(sid) or {}).get("fq") or []
+    need_q_all = [sid for sid in tw if (ldq not in _fq(sid)) or len(_fq(sid)) < 6]
+    need_q_all.sort(key=lambda sid: (ldq in _fq(sid), sid))     # 缺「最新季」者最優先(這就是滿版「2026Q2 無資料」的來源)
+    q_budget = q_n + max(0, rev_n - len(need_r))                # 營收磨完後額度全數讓給季報
+    need_q = need_q_all[:q_budget]
+    n_have_ldq = sum(1 for sid in tw if ldq in _fq(sid))
+    print(f"  當季({ldq})季報已入庫 {n_have_ldq}/{len(tw)} 檔,本輪補 {len(need_q)} 檔(含缺最新季 {sum(1 for x in need_q if ldq not in _fq(x))} 檔)")
     if not need_r and not need_q:
         print("  個股磨補:營收/季報深度已達標,略過"); return
     okr = okq = 0
@@ -1379,8 +1397,10 @@ def fetch_margin_bulk():
                 s_ = int(numf(r.get(k_s)) or 0)
                 if not (y > 1900 and 1 <= s_ <= 4): continue
                 out[sid] = (f"{y}Q{s_}", gm, om, nm, numf(r.get(k_rev)))
+            _diag("營益分析openapi", url, 200, len(out))
         except Exception as e:
             print(f"  [warn] 營益分析: {e}")
+            _diag("營益分析openapi", url, -1, 0, e)
     print(f"  營益分析(三率):{len(out)} 家")
     return out
 
