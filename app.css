@@ -1,81 +1,39 @@
-/* 麻吉股研所 · build r624 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r625 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
-  /* 📜 研究紙本(預設・亮)——奶油紙 × 濃墨 × 陳年金,券商研究報告的紙感 */
-  --bg:#FAF8F3; --panel:#FFFFFF; --panel2:#F2EFE7; --line:#E2DDD0;
-  --up:#C13034; --down:#0E7A4E; --amber:#9C6B1F;
-  --txt:#1C1B19; --mut:#56534B; --dim:#6E6A60; --txt2:#2C2A26; --hdr:#F4F1E9;
+  /* 🖥 終端黑(預設・暗)——專業看盤軟體的深藍黑:面板分層靠色階,線條銳利 */
+  --bg:#131722; --panel:#1E222D; --panel2:#262B38; --line:#2A2E39;
+  --up:#F23645; --down:#0FA36B; --amber:#4C8DFF;
+  --txt:#E8EAF0; --mut:#9AA0B0; --dim:#6A7183; --txt2:#CCD1DC; --hdr:#0F131C;
+  --gold:#4C8DFF;
+  --shadow-1:0 1px 2px rgba(0,0,0,.35),0 8px 22px -14px rgba(0,0,0,.55);
+  --shadow-2:0 2px 5px rgba(0,0,0,.45),0 16px 38px -16px rgba(0,0,0,.65);
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
 }
-html[data-theme="black"]{
-  /* 🌆 琥珀夜盤(暗)——義式濃縮的暖黑 × 琥珀,夜間看盤不刺眼 */
-  --bg:#1B1612; --panel:#241E18; --panel2:#2E2620; --line:#453A2E;
-  --txt:#F2E8D8; --mut:#BCA484; --dim:#8E7A62; --txt2:#E0D0B6;
-  --amber:#E09A4A; --hdr:#161210;
-  --up:#E5484D; --down:#26A96C;
+html[data-theme="graphite"]{
+  /* 🌃 午夜琥珀(暗)——彭博式深夜藍黑 × 琥珀,長時間夜盤的暖 */
+  --bg:#10141B; --panel:#181E28; --panel2:#212936; --line:#2C3546;
+  --txt:#ECE6D9; --mut:#AC9F87; --dim:#7C7262; --txt2:#DBD2BF; --hdr:#0B0F15;
+  --amber:#F5A623; --gold:#F5A623;
+  --up:#FF5252; --down:#22B573;
 }
 html[data-theme="light"]{
-  /* 🏛 晨霧石灰(亮)——冷調石灰 × 鋼青,法人研究部的日盤色 */
-  --bg:#F5F6F8; --panel:#FFFFFF; --panel2:#ECEEF2; --line:#DADDE4;
-  --txt:#17202E; --mut:#4E5A6E; --dim:#71798A; --txt2:#2B3648;
-  --amber:#3D6BB3; --hdr:#EFF1F5;
-  --up:#C5303B; --down:#0E7F54;
-}
-html[data-theme="mocha"]{
-  /* 🎋 竹紙青瓷(亮)——竹紙綠灰 × 青銅,書院的靜 */
-  --bg:#F2F4EE; --panel:#FFFFFF; --panel2:#E8EDE1; --line:#D2DCC9;
-  --txt:#22301F; --mut:#52664B; --dim:#6F8168; --txt2:#38492F;
-  --amber:#8A7A2E; --hdr:#EDF1E7;
-  --up:#C3423F; --down:#1E7A4D;
-}
-html[data-theme="teal"]{
-  /* 🌊 深海墨青(暗)——深海青黑 × 黃銅,遠洋航儀的沉穩 */
-  --bg:#0F1A1C; --panel:#152225; --panel2:#1C2C30; --line:#2C4247;
-  --txt:#E4EEEE; --mut:#94ADB0; --dim:#6C8489; --txt2:#C4D6D7;
-  --amber:#C9A45C; --hdr:#0B1416;
-  --up:#E5484D; --down:#2FB380;
-}
-html[data-theme="sakura"]{
-  /* 🪷 胭脂宣紙(亮)——宣紙暖白 × 胭脂,含蓄的東方紅 */
-  --bg:#FAF6F5; --panel:#FFFFFF; --panel2:#F3E9E8; --line:#E5D4D2;
-  --txt:#2C2124; --mut:#6E5A60; --dim:#8A757B; --txt2:#4C3A41;
-  --amber:#A34D5D; --hdr:#F7F0EF;
-  --up:#C4333B; --down:#0F8A57;
-}
-html[data-theme="lucky"]{
-  /* 🌌 紫檀書齋(暗)——紫檀墨 × 舊金,夜讀的書房 */
-  --bg:#16141F; --panel:#1D1A29; --panel2:#262234; --line:#393350;
-  --txt:#E4E1F2; --mut:#9A94B8; --dim:#726C90; --txt2:#C9C4E0;
-  --amber:#CBA95C; --hdr:#110F1A;
-  --up:#E5484D; --down:#2BB673;
-}
-html[data-theme="rain"]{
-  /* 🏦 央行藏藍(亮)——藏青 × 石青,機構報告的制度感 */
-  --bg:#EEF1F6; --panel:#FFFFFF; --panel2:#E3E9F2; --line:#CBD6E4;
-  --txt:#1B2A44; --mut:#47597A; --dim:#6B7C99; --txt2:#2E4266;
-  --amber:#2F5AA8; --hdr:#E7ECF4;
-  --up:#C4333B; --down:#0F8A57;
-}
-html[data-theme="graphite"]{
-  /* 🖥 石墨終端(暗)——中性石墨 × 鋼金,終端機的純粹 */
-  --bg:#121417; --panel:#191C20; --panel2:#22262C; --line:#313640;
-  --txt:#E9EBEE; --mut:#99A0AC; --dim:#6C7480; --txt2:#C9CED6;
-  --amber:#D9B25F; --hdr:#0E1013;
-  --up:#E5484D; --down:#2BB673;
+  /* ☀️ 日盤白(亮)——純白 × 皇家藍,日間專業軟體的乾淨 */
+  --bg:#F0F3FA; --panel:#FFFFFF; --panel2:#E9EDF5; --line:#D6DCE8;
+  --txt:#131722; --mut:#4A5468; --dim:#707A8F; --txt2:#2A3244; --hdr:#E8ECF4;
+  --amber:#2962FF; --gold:#2962FF;
+  --up:#D0212F; --down:#0B8457;
+  --shadow-1:0 1px 2px rgba(19,23,34,.06),0 8px 22px -14px rgba(19,23,34,.12);
+  --shadow-2:0 2px 5px rgba(19,23,34,.08),0 16px 38px -16px rgba(19,23,34,.18);
 }
 html[data-theme="dawn"]{
-  /* 🍂 琥珀和紙(亮)——和紙暖褐 × 焙茶金,午後的暖 */
-  --bg:#F9F2E9; --panel:#FFFFFF; --panel2:#F2E6D6; --line:#E4D2BB;
-  --txt:#362A1D; --mut:#7A6650; --dim:#98836B; --txt2:#55432F;
-  --amber:#B5741F; --hdr:#F5EDE0;
-  --up:#C4333B; --down:#0F8A57;
-}
-html[data-theme="sepia"]{
-  /* 🧭 青瓷海圖(亮)——青瓷 × 靛章,老海圖的青 */
-  --bg:#EEF4F4; --panel:#FFFFFF; --panel2:#E2ECEC; --line:#C8DBDB;
-  --txt:#1B3A3C; --mut:#4C6E70; --dim:#6E8B8D; --txt2:#315659;
-  --amber:#1B7F86; --hdr:#E8F0F0;
-  --up:#C4333B; --down:#0F8A57;
+  /* 📜 紙本墨金(亮)——研究報告紙感 × 陳年金,系列裡唯一的暖紙簽名款 */
+  --bg:#FAF8F3; --panel:#FFFFFF; --panel2:#F2EFE7; --line:#E2DDD0;
+  --txt:#1C1B19; --mut:#56534B; --dim:#6E6A60; --txt2:#2C2A26; --hdr:#F4F1E9;
+  --amber:#9C6B1F; --gold:#9C6B1F;
+  --up:#C13034; --down:#0E7A4E;
+  --shadow-1:0 1px 2px rgba(24,18,8,.05),0 10px 28px -14px rgba(24,18,8,.10);
+  --shadow-2:0 2px 4px rgba(24,18,8,.07),0 18px 44px -16px rgba(24,18,8,.16);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 button,a,.tap,.chip,.idx-card,.earn-row{touch-action:manipulation}
@@ -749,20 +707,12 @@ a.earn-more{border-radius:22px;font-weight:700}
         數字全部等寬對齊;層次靠柔影不靠硬框。疊加式覆蓋,零破壞。
    ═══════════════════════════════════════════════════════════════ */
 :root{
-  --bg:#F6F6F3; --panel:#FFFFFF; --panel2:#EFEEE9; --line:#E4E2DA; --hdr:#F1F0EB;
-  --txt:#1B1C20; --txt2:#2B2D33; --mut:#4E5058; --dim:#6E7078;
-  --amber:#A9750D;                                   /* 品牌色:燒金——與漲跌紅綠徹底分離 */
+  /* r625:此層曾硬寫死整組亮色調色盤,把後面的主題全部蓋掉——調色盤已交還主題層,只留結構變數 */
   --serif:'Noto Serif TC',serif;
   --r1:10px; --r2:14px; --r3:18px;
   --ease:cubic-bezier(.22,.61,.36,1);
-  --sh1:0 1px 2px rgba(24,22,14,.04),0 4px 14px rgba(24,22,14,.05);
-  --sh2:0 2px 6px rgba(24,22,14,.06),0 12px 30px rgba(24,22,14,.10);
-  --sh3:0 8px 20px rgba(24,22,14,.12),0 28px 70px rgba(24,22,14,.18);
-}
-html[data-theme="black"],html[data-theme="teal"],html[data-theme="lucky"],html[data-theme="graphite"]{
-  --sh1:0 1px 2px rgba(0,0,0,.25),0 5px 16px rgba(0,0,0,.28);
-  --sh2:0 3px 8px rgba(0,0,0,.32),0 14px 34px rgba(0,0,0,.40);
-  --sh3:0 10px 26px rgba(0,0,0,.45),0 32px 80px rgba(0,0,0,.55);
+  --sh1:var(--shadow-1); --sh2:var(--shadow-2);
+  --sh3:0 8px 20px rgba(0,0,0,.18),0 28px 70px rgba(0,0,0,.26);
 }
 
 /* ── 字理:真字型 + 等寬數字 ── */
@@ -786,7 +736,7 @@ header{background:var(--hdr);border-bottom:1px solid var(--line)}
 
 /* ── 簽名元素:研究報告章節標(宋體 × 墨檻金記)── */
 .sec-title{font-family:var(--serif);font-size:19px;font-weight:900;letter-spacing:.07em;
-  background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--txt);
+  background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--gold);
   border-radius:0 var(--r1) var(--r1) 0;padding:10px 15px;margin:30px 0 14px;
   box-shadow:var(--sh1);position:relative}
 .sec-title::before{color:var(--amber)}
@@ -981,38 +931,24 @@ a{transition:color .12s}
    概念:台灣券商研究報告的紙感與用印文化 × 金融終端的數據紀律。
    本層置於檔尾,以覆蓋方式統一全站質感;所有主題共用元件升級。
    ═══════════════════════════════════════════════════════════════ */
-:root{
-  --gold:#9C6B1F;                    /* 陳年金:章節槓、焦點環(取代亮黃的裝飾感)*/
-  --radius:12px;
-  --shadow-1:0 1px 2px rgba(24,18,8,.05),0 10px 28px -14px rgba(24,18,8,.10);
-  --shadow-2:0 2px 4px rgba(24,18,8,.07),0 18px 44px -16px rgba(24,18,8,.16);
-}
-html[data-theme="black"],html[data-theme="teal"],html[data-theme="lucky"],html[data-theme="graphite"]{
-  --gold:#D8B364;
-  --shadow-1:0 1px 2px rgba(0,0,0,.35),0 10px 28px -14px rgba(0,0,0,.5);
-  --shadow-2:0 2px 4px rgba(0,0,0,.45),0 18px 44px -16px rgba(0,0,0,.6);
-}
 
 /* ── 數據紀律:全站等寬定位數字,任何表格金額自然對齊 ── */
 body{font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .mono,td,th{font-variant-numeric:tabular-nums}
 
-/* ── 報告扉頁:品牌區 ── */
-header{background:var(--hdr);border-bottom:none;position:relative}
-header::after{content:'';display:block;height:5px;
-  border-top:1px solid var(--line);
-  border-bottom:1px solid color-mix(in srgb,var(--gold) 55%,var(--line));
-  background:transparent}
-.head-in{padding:30px 20px 20px}
-h1{font-size:29px;letter-spacing:.06em;display:flex;align-items:center;gap:0}
-h1 .seal{margin-left:11px}
+/* ── 頂欄:專業軟體的命令列質感 ── */
+header{background:var(--hdr);border-bottom:1px solid var(--line);position:relative}
+header::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;
+  background:linear-gradient(90deg,var(--gold),color-mix(in srgb,var(--gold) 20%,transparent) 55%,transparent)}
+.head-in{padding:18px 20px 14px}
+h1{font-size:23px;letter-spacing:.05em;display:flex;align-items:center;gap:0}
 h1 .tri{color:var(--gold)}
-h1 .seal{display:inline-flex;align-items:center;justify-content:center;
-  width:34px;height:34px;border:2.5px solid var(--up);border-radius:7px;
-  color:var(--up);font-size:17px;font-weight:900;font-family:var(--serif);
+h1 .seal{display:inline-flex;align-items:center;justify-content:center;margin-left:10px;
+  width:28px;height:28px;border:2px solid var(--up);border-radius:6px;
+  color:var(--up);font-size:14px;font-weight:900;font-family:var(--serif);
   letter-spacing:0;transform:rotate(-4deg);opacity:.92;user-select:none;
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--up) 22%,transparent)}
-.sub{font-size:13.5px;letter-spacing:.03em;color:var(--mut);margin-top:7px;line-height:1.7}
+.sub{font-size:12.5px;letter-spacing:.03em;color:var(--mut);margin-top:5px;line-height:1.65}
 .sub b{color:var(--txt2);font-weight:700}
 .sub .sep{color:var(--dim);margin:0 6px;opacity:.7}
 
@@ -1022,21 +958,21 @@ h1 .seal{display:inline-flex;align-items:center;justify-content:center;
   border:1px solid var(--line)}
 @media(hover:hover){
   .idx-card:hover,.r-card:hover{transform:translateY(-1px);box-shadow:var(--shadow-2);
-    border-color:color-mix(in srgb,var(--gold) 30%,var(--line))}
+    border-color:color-mix(in srgb,var(--gold) 45%,var(--line))}
 }
 
-/* ── 章節標題:研究報告目次質感 ── */
-.sec-title{border-left:4px solid var(--gold);
-  background:linear-gradient(92deg,color-mix(in srgb,var(--gold) 9%,var(--panel2)),var(--panel2) 44%,transparent);
-  border-radius:0 11px 11px 0}
-.sec-title>span{font-family:var(--sans);letter-spacing:.02em}
+/* ── 章節標題:專業軟體的分區條 ── */
+.sec-title{border-left:4px solid var(--gold);background:var(--panel);
+  border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  border-radius:0 10px 10px 0;box-shadow:var(--shadow-1)}
+.sec-title>span{font-family:var(--sans);letter-spacing:.02em;color:var(--dim)}
 
 /* ── 控制元件:hairline 與確定的按下感 ── */
 .ind-seg{border:1px solid var(--line);border-radius:11px;background:var(--panel);
   box-shadow:inset 0 1px 2px rgba(24,18,8,.04);overflow:hidden}
 .ind-seg button{border:none;background:transparent;letter-spacing:.02em}
-.ind-seg button.on{background:color-mix(in srgb,var(--gold) 13%,var(--panel2));
-  color:var(--txt);font-weight:900;box-shadow:inset 0 -2px 0 var(--gold)}
+.ind-seg button.on{background:color-mix(in srgb,var(--gold) 14%,var(--panel2));
+  color:var(--gold);font-weight:900;box-shadow:inset 0 -2px 0 var(--gold)}
 .toolbar select,.toolbar button{border-radius:10px;border:1px solid var(--line);
   background:var(--panel);box-shadow:var(--shadow-1)}
 .badge{letter-spacing:.03em}
