@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r637 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r638 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🖥 終端黑(預設・暗)——中性炭黑單一色族,精煉金作唯一 accent;
@@ -1003,3 +1003,9 @@ table tr{transition:background .12s}
   h1 .seal{width:29px;height:29px;font-size:14.5px;border-width:2px}
   .sub{font-size:12.5px}
 }
+
+/* r638:跳轉列章節標籤(不可點的分組名)*/
+.mob-jump .jm-lab{display:inline-flex;align-items:center;color:var(--gold,var(--amber));
+  font-weight:900;font-size:12px;letter-spacing:.1em;padding:0 4px 0 10px;white-space:nowrap;
+  border-left:3px solid var(--gold,var(--amber));margin-left:6px;user-select:none}
+.mob-jump .jm-lab:first-child{margin-left:0}
