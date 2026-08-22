@@ -825,7 +825,34 @@ def fm_stock_margins(sid):
     except Exception:
         return []
 
-def backfill_perstock(chips, comps, rev_n=250, q_n=120):
+def fm_stock_ocf(sid):
+    """FinMind 個股現金流量表 → 近四季「營業活動現金流」合計(元);失敗回 None。"""
+    try:
+        start = (dt.date.today() - dt.timedelta(days=560)).isoformat()
+        rows = _fm_raw({"dataset": "TaiwanStockCashFlowsStatement",
+                        "data_id": sid, "start_date": start}, f"個股現金流 {sid}") or []
+        byq = {}
+        for r in rows:
+            t0 = str(r.get("type", ""))
+            if "CashFlowsFromOperatingActivities" not in t0 and "營業活動" not in t0: continue
+            d0 = str(r.get("date", ""))[:10]
+            v0 = numf(r.get("value"))
+            if len(d0) == 10 and v0 is not None:
+                byq[d0] = v0                                # 現金流量表為累計數:取各季底累計
+        if not byq: return None
+        ks = sorted(byq)
+        # 還原單季:同年度內「本季累計 − 上季累計」;跨年度第一季即累計本身
+        singles = {}
+        for i, k in enumerate(ks):
+            y0 = k[:4]
+            prevs = [x for x in ks[:i] if x[:4] == y0]
+            singles[k] = byq[k] - (byq[prevs[-1]] if prevs else 0)
+        last4 = [singles[k] for k in sorted(singles)[-4:]]
+        return sum(last4) if len(last4) >= 2 else None
+    except Exception:
+        return None
+
+def backfill_perstock(chips, comps, rev_n=250, q_n=120, cf_n=100):
     """全市場逐檔磨補(FinMind 個股查詢,免費層實證可用——深度層圖表在瀏覽器端
        走同一條路早就畫得出 36 個月)。每輪補 rev_n 檔營收 + q_n 檔季報,
        依代號排序推進,一天多輪排程約 2~3 天磨完全市場;補齊後自動歸零成本。"""
@@ -864,6 +891,26 @@ def backfill_perstock(chips, comps, rev_n=250, q_n=120):
             if q in (e.get("fq") or []): continue          # 官方季不覆蓋
             _put_margin(e, q, gm, om, nm, rv)
         okq += 1
+    ldq2 = latest_due_quarter()
+    need_c = [sid for sid in tw
+              if (chips.get(sid) or {}).get("ocfq") != ldq2
+              and len((chips.get(sid) or {}).get("fq") or []) >= 3][:cf_n]
+    okc = 0
+    for sid in need_c:                                     # ⑩ 盈餘品質:近四季 OCF ÷ 近四季淨利(qr×nm 回推)
+        ocf = fm_stock_ocf(sid)
+        time.sleep(0.35)
+        e = chips.setdefault(sid, {})
+        e["ocfq"] = ldq2                                   # 成敗都記季戳,失敗者下季再試,不佔每輪額度
+        if ocf is None: continue
+        try:
+            qr, nm = e.get("qr") or [], e.get("nm") or []
+            ni = sum((qr[i] or 0) * 1e6 * (nm[i] or 0) / 100 for i in range(max(0, len(qr) - 4), len(qr)))
+            if abs(ni) > 1e6:
+                e["ocfr"] = round(ocf / ni, 2)
+                okc += 1
+        except Exception:
+            pass
+    print(f"  盈餘品質(OCF/淨利):更新 {okc}/{len(need_c)} 檔")
     print(f"  個股磨補(FinMind data_id):營收 {okr}/{len(need_r)} 檔、季報 {okq}/{len(need_q)} 檔"
           f"(待補存量:營收 {sum(1 for sid in tw if len((chips.get(sid) or {}).get('rm') or [])<13)} 檔)")
 
@@ -1804,6 +1851,95 @@ def _taifex_csv_fallback():
         time.sleep(0.4)
     print(f"  [info] 傳統端點回填:法人 {ok1}/{len(dates)} 日、大額 {ok2}/{len(dates2)} 日")
     return day
+
+def fetch_dividends(stocks):
+    """年度股利分派(現金+配股)+ 以現價回算殖利率。來源:證交所/櫃買 openapi(免費)。
+       寫入 s["dv"] = {"c":現金股利, "s":配股, "y":現金殖利率%}。"""
+    by_id = {s["id"]: s for s in stocks if s.get("market") == "TW"}
+    got = 0
+    for url in ("https://openapi.twse.com.tw/v1/opendata/t187ap45_L",
+                "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap45_O"):
+        try:
+            arr = get_json(url, timeout=60)
+            if not (isinstance(arr, list) and arr): raise ValueError("空回應")
+            keys = list(arr[0].keys())
+            def pk(*pats):
+                for k in keys:
+                    if all(p in k for p in pats): return k
+                return None
+            k_id = pk("公司代號") or pk("代號")
+            k_c1 = pk("盈餘分配", "現金股利")
+            k_c2 = pk("法定盈餘公積", "現金")            # 公積配息
+            k_s1 = pk("盈餘轉增資", "股")
+            if not (k_id and k_c1):
+                print(f"  [debug] 股利欄位:{keys[:10]}"); continue
+            agg = {}
+            for r in arr:
+                sid = str(r.get(k_id, "")).strip()
+                if sid not in by_id: continue
+                c0 = (numf(r.get(k_c1)) or 0) + ((numf(r.get(k_c2)) or 0) if k_c2 else 0)
+                s0 = (numf(r.get(k_s1)) or 0) if k_s1 else 0
+                if c0 <= 0 and s0 <= 0: continue
+                a0 = agg.setdefault(sid, [0.0, 0.0])       # 同年多次配息(季配/半年配)加總
+                a0[0] += c0; a0[1] += s0
+            for sid, (c0, s0) in agg.items():
+                st = by_id[sid]
+                dv = {"c": round(c0, 2)}
+                if s0 > 0: dv["s"] = round(s0, 2)
+                px = st.get("price")
+                if px and px > 0 and c0 > 0:
+                    dv["y"] = round(c0 / px * 100, 2)
+                st["dv"] = dv
+                got += 1
+            _diag("股利分派openapi", url, 200, len(agg))
+        except Exception as e:
+            print(f"  [warn] 股利分派: {e}")
+            _diag("股利分派openapi", url, -1, 0, e)
+    print(f"  股利分派:{got} 檔")
+
+def fetch_pledge(stocks):
+    """董監事持股餘額明細(每月)→ 逐公司加總持股與設質,算質押比%。
+       來源:證交所/櫃買 openapi(t187ap11 系列);欄位名以模糊比對,抓不到就明講並記診斷。
+       寫入 s["plg"] = 質押比(0~100)。>50% 是經典地雷,進財務掃雷。"""
+    by_id = {s["id"]: s for s in stocks if s.get("market") == "TW"}
+    total = 0
+    for url in ("https://openapi.twse.com.tw/v1/opendata/t187ap11_L",
+                "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap11_O"):
+        try:
+            arr = get_json(url, timeout=60)
+            if not (isinstance(arr, list) and arr): raise ValueError("空回應")
+            keys = list(arr[0].keys())
+            def pk(*pats):
+                for k in keys:
+                    if all(p in k for p in pats): return k
+                return None
+            k_id = pk("公司代號") or pk("代號")
+            k_h  = pk("目前持股") or pk("持股數") or pk("選任時持股")
+            k_p  = pk("設質") or pk("質押")
+            if not (k_id and k_h and k_p):
+                print(f"  [debug] 董監質押欄位:{keys[:10]}")
+                _diag("董監質押openapi", url, 200, 0, "欄位不符:" + ",".join(keys[:8]))
+                continue
+            agg = {}
+            for r in arr:
+                sid = str(r.get(k_id, "")).strip()
+                if sid not in by_id: continue
+                h0, p0 = numf(r.get(k_h)), numf(r.get(k_p))
+                if h0 is None: continue
+                a0 = agg.setdefault(sid, [0.0, 0.0])
+                a0[0] += h0
+                a0[1] += (p0 or 0)
+            got = 0
+            for sid, (h0, p0) in agg.items():
+                if h0 > 0:
+                    by_id[sid]["plg"] = round(min(p0 / h0 * 100, 100), 1)
+                    got += 1
+            total += got
+            _diag("董監質押openapi", url, 200, got)
+        except Exception as e:
+            print(f"  [warn] 董監質押: {e}")
+            _diag("董監質押openapi", url, -1, 0, e)
+    print(f"  董監質押比:{total} 檔")
 
 def fetch_credit_stocks(stocks):
     """個股融資融券餘額(MI_MARGN,上市)+融券借券賣出餘額(TWT93U)。單位:張。"""
@@ -3413,8 +3549,21 @@ def main():
 
     print("④ 計算評分與訊號 ...")
     stocks, ok = [], 0
+    _br = {"n": 0, "ma20": 0, "ma60": 0, "h60": 0, "l60": 0}   # r621 市場寬度:站上月/季線、創60日新高/新低家數
     for c in comps:
         bars = hist.get(c["id"])
+        if (c.get("market") == "TW" and not c.get("etf")
+                and bars and len(bars.get("o", [])) >= 61):
+            try:
+                _cl = [x[3] for x in bars["o"]]
+                _px = _cl[-1]
+                _br["n"] += 1
+                if _px >= sum(_cl[-20:]) / 20: _br["ma20"] += 1
+                if _px >= sum(_cl[-60:]) / 60: _br["ma60"] += 1
+                if _px >= max(_cl[-60:]): _br["h60"] += 1
+                if _px <= min(_cl[-60:]): _br["l60"] += 1
+            except Exception:
+                pass
         if bars and len(bars.get("o", [])) >= 2:
             try:
                 d = score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips)
@@ -3507,7 +3656,7 @@ def main():
             print(f"  🛟 分數守門:{kept} 項評分沿用前一日(今日資料源失敗)")
     except Exception as e:
         print(f"  [warn] 保底繼承: {e}")
-    out = {"updated": taipei, "source": "live",
+    out = {"updated": taipei, "source": "live", "breadth": _br,
            "macro": _macro, "news": _news, "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
@@ -3534,6 +3683,8 @@ def main():
         print(f"  [warn] 期貨籌碼跳過: {e}")
     try:
         fetch_credit_stocks(stocks)
+        fetch_dividends(stocks)             # r621:年度股利+殖利率(健診「股利特徵」列)
+        fetch_pledge(stocks)                # r622:董監質押比(>50% 進財務掃雷)
         append_credit(chips, stocks)        # 信用交易逐日累積進 c/*.json(供歷史圖回退)
         save_chips(chips, cmeta, comps)     # 補寫一次分片,把 cd/mf/mv/sb 帶進去
     except Exception as e:
@@ -3631,7 +3782,7 @@ def main():
         _macro["futtab"] = build_fut_table()
     except Exception as e:
         print(f"  [warn] 期貨籌碼表跳過: {e}")
-    out = {"updated": taipei, "source": "live",
+    out = {"updated": taipei, "source": "live", "breadth": _br,
            "macro": _macro, "news": _news, "indpe": _indpe, "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
