@@ -1,21 +1,22 @@
-/* 麻吉股研所 · build r625 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r626 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
-  /* 🖥 終端黑(預設・暗)——專業看盤軟體的深藍黑:面板分層靠色階,線條銳利 */
-  --bg:#131722; --panel:#1E222D; --panel2:#262B38; --line:#2A2E39;
-  --up:#F23645; --down:#0FA36B; --amber:#4C8DFF;
-  --txt:#E8EAF0; --mut:#9AA0B0; --dim:#6A7183; --txt2:#CCD1DC; --hdr:#0F131C;
-  --gold:#4C8DFF;
+  /* 🖥 終端黑(預設・暗)——中性炭黑單一色族,精煉金作唯一 accent;
+     漲跌採深色系交易所實證配色,紅綠金三色互不打架 */
+  --bg:#16181D; --panel:#1E2126; --panel2:#262A31; --line:#30353D;
+  --up:#F6465D; --down:#2EBD85; --amber:#E2B24F;
+  --txt:#EAECEF; --mut:#9DA6B0; --dim:#707A85; --txt2:#D5DAE0; --hdr:#111318;
+  --gold:#E2B24F;
   --shadow-1:0 1px 2px rgba(0,0,0,.35),0 8px 22px -14px rgba(0,0,0,.55);
   --shadow-2:0 2px 5px rgba(0,0,0,.45),0 16px 38px -16px rgba(0,0,0,.65);
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
 }
 html[data-theme="graphite"]{
-  /* 🌃 午夜琥珀(暗)——彭博式深夜藍黑 × 琥珀,長時間夜盤的暖 */
-  --bg:#10141B; --panel:#181E28; --panel2:#212936; --line:#2C3546;
-  --txt:#ECE6D9; --mut:#AC9F87; --dim:#7C7262; --txt2:#DBD2BF; --hdr:#0B0F15;
-  --amber:#F5A623; --gold:#F5A623;
-  --up:#FF5252; --down:#22B573;
+  /* 🌃 午夜琥珀(暗)——暖炭黑單一色族 × 琥珀:整組同溫,長時間夜盤最不疲勞 */
+  --bg:#171412; --panel:#1F1B17; --panel2:#29241E; --line:#3C342A;
+  --txt:#F0E9DE; --mut:#B3A791; --dim:#857A67; --txt2:#DFD6C6; --hdr:#110F0D;
+  --amber:#E39A3B; --gold:#E39A3B;
+  --up:#FF5D5D; --down:#34C787;
 }
 html[data-theme="light"]{
   /* ☀️ 日盤白(亮)——純白 × 皇家藍,日間專業軟體的乾淨 */
