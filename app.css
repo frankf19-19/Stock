@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r471 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r623 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
@@ -963,3 +963,85 @@ button:active{transform:scale(.97)}
 .tabPane{animation:fadeUp .18s ease}
 @keyframes fadeUp{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
 a{transition:color .12s}
+
+/* ═══════════════════════════════════════════════════════════════
+   r623 專業精緻改版 —— 「精裝研究報告」設計層
+   概念:台灣券商研究報告的紙感與用印文化 × 金融終端的數據紀律。
+   本層置於檔尾,以覆蓋方式統一全站質感;所有主題共用元件升級。
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --gold:#A8842C;                    /* 陳年金:章節槓、焦點環(取代亮黃的裝飾感)*/
+  --radius:12px;
+  --shadow-1:0 1px 2px rgba(24,18,8,.05),0 10px 28px -14px rgba(24,18,8,.10);
+  --shadow-2:0 2px 4px rgba(24,18,8,.07),0 18px 44px -16px rgba(24,18,8,.16);
+}
+html[data-theme="black"],html[data-theme="teal"],html[data-theme="lucky"],html[data-theme="graphite"]{
+  --gold:#D8B364;
+  --shadow-1:0 1px 2px rgba(0,0,0,.35),0 10px 28px -14px rgba(0,0,0,.5);
+  --shadow-2:0 2px 4px rgba(0,0,0,.45),0 18px 44px -16px rgba(0,0,0,.6);
+}
+
+/* ── 數據紀律:全站等寬定位數字,任何表格金額自然對齊 ── */
+body{font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.mono,td,th{font-variant-numeric:tabular-nums}
+
+/* ── 報告扉頁:品牌區 ── */
+header{background:var(--hdr);border-bottom:none;position:relative}
+header::after{content:'';display:block;height:5px;
+  border-top:1px solid var(--line);
+  border-bottom:1px solid color-mix(in srgb,var(--gold) 55%,var(--line));
+  background:transparent}
+.head-in{padding:30px 20px 20px}
+h1{font-size:29px;letter-spacing:.06em;display:flex;align-items:center;gap:0}
+h1 .seal{margin-left:11px}
+h1 .tri{color:var(--gold)}
+h1 .seal{display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border:2.5px solid var(--up);border-radius:7px;
+  color:var(--up);font-size:17px;font-weight:900;font-family:var(--serif);
+  letter-spacing:0;transform:rotate(-4deg);opacity:.92;user-select:none;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--up) 22%,transparent)}
+.sub{font-size:13.5px;letter-spacing:.03em;color:var(--mut);margin-top:7px;line-height:1.7}
+.sub b{color:var(--txt2);font-weight:700}
+.sub .sep{color:var(--dim);margin:0 6px;opacity:.7}
+
+/* ── 卡片:紙上浮凸的層次 ── */
+.card,.r-card,.chart-box,.dim-block,.sector-panel,.sp-box,.idx-card{
+  border-radius:var(--radius);box-shadow:var(--shadow-1);
+  border:1px solid var(--line)}
+@media(hover:hover){
+  .idx-card:hover,.r-card:hover{transform:translateY(-1px);box-shadow:var(--shadow-2);
+    border-color:color-mix(in srgb,var(--gold) 30%,var(--line))}
+}
+
+/* ── 章節標題:研究報告目次質感 ── */
+.sec-title{border-left:4px solid var(--gold);
+  background:linear-gradient(92deg,color-mix(in srgb,var(--gold) 9%,var(--panel2)),var(--panel2) 44%,transparent);
+  border-radius:0 11px 11px 0}
+.sec-title>span{font-family:var(--sans);letter-spacing:.02em}
+
+/* ── 控制元件:hairline 與確定的按下感 ── */
+.ind-seg{border:1px solid var(--line);border-radius:11px;background:var(--panel);
+  box-shadow:inset 0 1px 2px rgba(24,18,8,.04);overflow:hidden}
+.ind-seg button{border:none;background:transparent;letter-spacing:.02em}
+.ind-seg button.on{background:color-mix(in srgb,var(--gold) 13%,var(--panel2));
+  color:var(--txt);font-weight:900;box-shadow:inset 0 -2px 0 var(--gold)}
+.toolbar select,.toolbar button{border-radius:10px;border:1px solid var(--line);
+  background:var(--panel);box-shadow:var(--shadow-1)}
+.badge{letter-spacing:.03em}
+
+/* ── 表格:細則線與呼吸感 ── */
+table th{font-weight:700;letter-spacing:.05em;color:var(--dim)}
+table tr{transition:background .12s}
+@media(hover:hover){tbody tr[data-goto]:hover,tr[data-goto]:hover{background:color-mix(in srgb,var(--gold) 6%,transparent)}}
+
+/* ── 可及性與收尾 ── */
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--dim) 38%,transparent);border-radius:5px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--dim) 60%,transparent)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(max-width:640px){
+  h1{font-size:24px}
+  h1 .seal{width:29px;height:29px;font-size:14.5px;border-width:2px}
+  .sub{font-size:12.5px}
+}
