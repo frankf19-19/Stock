@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r626 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r627 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🖥 終端黑(預設・暗)——中性炭黑單一色族,精煉金作唯一 accent;
@@ -10,6 +10,7 @@
   --shadow-1:0 1px 2px rgba(0,0,0,.35),0 8px 22px -14px rgba(0,0,0,.55);
   --shadow-2:0 2px 5px rgba(0,0,0,.45),0 16px 38px -16px rgba(0,0,0,.65);
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
+  --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C; --t-purple:#B39AF0; --t-grey:#98A0AA;
 }
 html[data-theme="graphite"]{
   /* 🌃 午夜琥珀(暗)——暖炭黑單一色族 × 琥珀:整組同溫,長時間夜盤最不疲勞 */
@@ -17,6 +18,7 @@ html[data-theme="graphite"]{
   --txt:#F0E9DE; --mut:#B3A791; --dim:#857A67; --txt2:#DFD6C6; --hdr:#110F0D;
   --amber:#E39A3B; --gold:#E39A3B;
   --up:#FF5D5D; --down:#34C787;
+  --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C; --t-purple:#B39AF0; --t-grey:#98A0AA;
 }
 html[data-theme="light"]{
   /* ☀️ 日盤白(亮)——純白 × 皇家藍,日間專業軟體的乾淨 */
@@ -26,6 +28,7 @@ html[data-theme="light"]{
   --up:#D0212F; --down:#0B8457;
   --shadow-1:0 1px 2px rgba(19,23,34,.06),0 8px 22px -14px rgba(19,23,34,.12);
   --shadow-2:0 2px 5px rgba(19,23,34,.08),0 16px 38px -16px rgba(19,23,34,.18);
+  --t-red:#B3282F; --t-green:#0B7A4B; --t-gold:#8A6608; --t-orange:#B25617; --t-purple:#6A4FB0; --t-grey:#6E7686;
 }
 html[data-theme="dawn"]{
   /* 📜 紙本墨金(亮)——研究報告紙感 × 陳年金,系列裡唯一的暖紙簽名款 */
@@ -35,6 +38,7 @@ html[data-theme="dawn"]{
   --up:#C13034; --down:#0E7A4E;
   --shadow-1:0 1px 2px rgba(24,18,8,.05),0 10px 28px -14px rgba(24,18,8,.10);
   --shadow-2:0 2px 4px rgba(24,18,8,.07),0 18px 44px -16px rgba(24,18,8,.16);
+  --t-red:#B3282F; --t-green:#0B7A4B; --t-gold:#8A6608; --t-orange:#B25617; --t-purple:#6A4FB0; --t-grey:#6E7686;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 button,a,.tap,.chip,.idx-card,.earn-row{touch-action:manipulation}
