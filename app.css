@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r629 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r631 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🖥 終端黑(預設・暗)——中性炭黑單一色族,精煉金作唯一 accent;
@@ -11,6 +11,7 @@
   --shadow-2:0 2px 5px rgba(0,0,0,.45),0 16px 38px -16px rgba(0,0,0,.65);
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
   --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C; --t-purple:#B39AF0; --t-grey:#98A0AA;
+  --on-accent:#1A1710;
 }
 html[data-theme="graphite"]{
   /* 🌃 午夜琥珀(暗)——暖炭黑單一色族 × 琥珀:整組同溫,長時間夜盤最不疲勞 */
@@ -19,6 +20,7 @@ html[data-theme="graphite"]{
   --amber:#E39A3B; --gold:#E39A3B;
   --up:#FF5D5D; --down:#34C787;
   --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C; --t-purple:#B39AF0; --t-grey:#98A0AA;
+  --on-accent:#1A1710;
 }
 html[data-theme="light"]{
   /* ☀️ 日盤白(亮)——純白 × 皇家藍,日間專業軟體的乾淨 */
@@ -29,6 +31,7 @@ html[data-theme="light"]{
   --shadow-1:0 1px 2px rgba(19,23,34,.06),0 8px 22px -14px rgba(19,23,34,.12);
   --shadow-2:0 2px 5px rgba(19,23,34,.08),0 16px 38px -16px rgba(19,23,34,.18);
   --t-red:#B3282F; --t-green:#0B7A4B; --t-gold:#8A6608; --t-orange:#B25617; --t-purple:#6A4FB0; --t-grey:#6E7686;
+  --on-accent:#FFFFFF;
 }
 html[data-theme="dawn"]{
   /* 📜 紙本墨金(亮)——研究報告紙感 × 陳年金,系列裡唯一的暖紙簽名款 */
@@ -39,6 +42,7 @@ html[data-theme="dawn"]{
   --shadow-1:0 1px 2px rgba(24,18,8,.05),0 10px 28px -14px rgba(24,18,8,.10);
   --shadow-2:0 2px 4px rgba(24,18,8,.07),0 18px 44px -16px rgba(24,18,8,.16);
   --t-red:#B3282F; --t-green:#0B7A4B; --t-gold:#8A6608; --t-orange:#B25617; --t-purple:#6A4FB0; --t-grey:#6E7686;
+  --on-accent:#FFFFFF;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 button,a,.tap,.chip,.idx-card,.earn-row{touch-action:manipulation}
@@ -81,7 +85,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
 .chip{background:var(--panel);border:1px solid var(--line);color:var(--mut);border-radius:20px;padding:6px 14px;font-size:14px;cursor:pointer;transition:all .15s}
 .chip:hover{color:var(--txt);border-color:var(--dim)}
-.chip.on{background:var(--amber);border-color:var(--amber);color:#1A1206;font-weight:700}
+.chip.on{background:var(--amber);border-color:var(--amber);color:var(--on-accent);font-weight:700}
 
 /* ── 產業分析面板 ── */
 .sector-panel{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;padding:20px 22px;margin-bottom:22px}
@@ -520,7 +524,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
   border-radius:7px;padding:7px 10px;font-family:var(--mono);font-size:14px}
 .ai-chk{flex-direction:row!important;align-items:center;gap:7px!important;color:var(--txt2)!important;font-size:14px!important}
 .ai-note{font-size:12.5px;color:var(--dim);line-height:1.55}
-.ai-save{background:var(--amber);color:#151515;border:none;border-radius:8px;padding:8px;font-weight:700;cursor:pointer;font-size:14px}
+.ai-save{background:var(--amber);color:var(--on-accent);border:none;border-radius:8px;padding:8px;font-weight:700;cursor:pointer;font-size:14px}
 .ai-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
 .ai-m{max-width:88%;padding:9px 13px;border-radius:12px;font-size:15px;line-height:1.65;word-break:break-word}
 .ai-m.user{align-self:flex-end;background:var(--panel2);border:1px solid var(--line)}
@@ -535,7 +539,7 @@ html[data-theme="light"] .entry-card.l .entry-side{color:#2563EB;border-color:rg
 .ai-inrow{display:flex;gap:8px;padding:11px 12px;border-top:1px solid var(--line);background:var(--hdr)}
 .ai-inrow textarea{flex:1;resize:none;background:var(--panel);border:1px solid var(--line);color:var(--txt);
   border-radius:10px;padding:9px 12px;font-family:var(--sans);font-size:15px;line-height:1.5;max-height:120px}
-.ai-inrow button{background:var(--amber);color:#151515;border:none;border-radius:10px;width:44px;
+.ai-inrow button{background:var(--amber);color:var(--on-accent);border:none;border-radius:10px;width:44px;
   font-size:17px;cursor:pointer;font-weight:700}
 .ai-inrow button:disabled{opacity:.45;cursor:default}
 @media(max-width:640px){
@@ -808,7 +812,7 @@ select:focus,input:focus,button:focus-visible,a:focus-visible{
 .gmkt-bar{display:flex;gap:10px;margin:14px 0 4px}
 .gmkt-bar button{flex:1;max-width:260px;padding:13px 10px;font-size:18px;font-weight:900;letter-spacing:.12em;font-family:var(--sans);background:var(--panel);color:var(--mut);border:1.5px solid var(--line);border-radius:12px;cursor:pointer;transition:all .15s}
 .gmkt-bar button:hover{color:var(--txt);border-color:var(--dim)}
-.gmkt-bar button.on{background:var(--amber);border-color:var(--amber);color:#1A1206;box-shadow:0 3px 14px rgba(176,141,68,.35)}
+.gmkt-bar button.on{background:var(--amber);border-color:var(--amber);color:var(--on-accent);box-shadow:0 3px 14px rgba(176,141,68,.35)}
 @media(max-width:640px){.gmkt-bar button{font-size:16.5px;padding:11px 8px;letter-spacing:.06em}}
 .gm-hide{display:none!important}
 
@@ -829,7 +833,7 @@ select:focus,input:focus,button:focus-visible,a:focus-visible{
 .gmkt-bar button{max-width:none;border:none;border-radius:10px;padding:12px 10px;letter-spacing:.14em;
   background:transparent;box-shadow:none}
 .gmkt-bar button:hover{color:var(--txt);border:none;background:var(--panel2)}
-.gmkt-bar button.on{background:var(--amber);color:#1A1206;box-shadow:0 3px 12px rgba(176,141,68,.35)}
+.gmkt-bar button.on{background:var(--amber);color:var(--on-accent);box-shadow:0 3px 12px rgba(176,141,68,.35)}
 /* 第 2 層:功能分頁——置中膠囊列,底線收束,與第 1 層拉開重量差 */
 .home-tabs{justify-content:center;margin:0 0 2px;border-bottom:1px solid var(--line);padding:8px 0 12px}
 .home-tabs button{max-width:150px;font-size:14.5px;padding:9px 0}
@@ -980,6 +984,7 @@ h1 .seal{display:inline-flex;align-items:center;justify-content:center;margin-le
   color:var(--gold);font-weight:900;box-shadow:inset 0 -2px 0 var(--gold)}
 .toolbar select,.toolbar button{border-radius:10px;border:1px solid var(--line);
   background:var(--panel);box-shadow:var(--shadow-1)}
+.toolbar .btn-upd,.btn-upd{background:var(--amber);border:none;color:var(--on-accent)}
 .badge{letter-spacing:.03em}
 
 /* ── 表格:細則線與呼吸感 ── */
