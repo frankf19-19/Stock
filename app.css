@@ -1,68 +1,80 @@
-/* 麻吉股研所 · build r623 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r624 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
-  --bg:#FCFBF9; --panel:#FFFFFF; --panel2:#F3F1EC; --line:#E1DDD4;
-  --up:#C62828; --down:#0B7A4B; --amber:#CE3A2A;
-  --txt:#17171A; --mut:#4A4A50; --dim:#63636B; --txt2:#26262C; --hdr:#F5F3EE;
+  /* 📜 研究紙本(預設・亮)——奶油紙 × 濃墨 × 陳年金,券商研究報告的紙感 */
+  --bg:#FAF8F3; --panel:#FFFFFF; --panel2:#F2EFE7; --line:#E2DDD0;
+  --up:#C13034; --down:#0E7A4E; --amber:#9C6B1F;
+  --txt:#1C1B19; --mut:#56534B; --dim:#6E6A60; --txt2:#2C2A26; --hdr:#F4F1E9;
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
 }
 html[data-theme="black"]{
-  --bg:#1F1915; --panel:#28211B; --panel2:#332A22; --line:#4A3D30;
-  --txt:#F5EADC; --mut:#C0A88E; --dim:#96826C; --txt2:#E3D2BC;
-  --amber:#FF9349; --hdr:#1A1511;
-  --up:#E5484D; --down:#21A466;
+  /* 🌆 琥珀夜盤(暗)——義式濃縮的暖黑 × 琥珀,夜間看盤不刺眼 */
+  --bg:#1B1612; --panel:#241E18; --panel2:#2E2620; --line:#453A2E;
+  --txt:#F2E8D8; --mut:#BCA484; --dim:#8E7A62; --txt2:#E0D0B6;
+  --amber:#E09A4A; --hdr:#161210;
+  --up:#E5484D; --down:#26A96C;
 }
 html[data-theme="light"]{
-  --bg:#F3F5F9; --panel:#FFFFFF; --panel2:#EDF0F6; --line:#D9DEE8;
-  --txt:#1B2233; --mut:#5A6478; --dim:#757C8B; --txt2:#3A4356;
-  --amber:#B07A18; --hdr:#E9EDF5;
-  --up:#D6323A; --down:#0F8A57;
+  /* 🏛 晨霧石灰(亮)——冷調石灰 × 鋼青,法人研究部的日盤色 */
+  --bg:#F5F6F8; --panel:#FFFFFF; --panel2:#ECEEF2; --line:#DADDE4;
+  --txt:#17202E; --mut:#4E5A6E; --dim:#71798A; --txt2:#2B3648;
+  --amber:#3D6BB3; --hdr:#EFF1F5;
+  --up:#C5303B; --down:#0E7F54;
 }
 html[data-theme="mocha"]{
-  --bg:#EEF3EA; --panel:#FFFFFF; --panel2:#E4EDDF; --line:#CEDCC8;
-  --txt:#25331F; --mut:#5C7052; --dim:#75866C; --txt2:#3D5134;
-  --amber:#5E8C4A; --hdr:#E8EFE3;
-  --up:#C3423F; --down:#1F7A4D;
+  /* 🎋 竹紙青瓷(亮)——竹紙綠灰 × 青銅,書院的靜 */
+  --bg:#F2F4EE; --panel:#FFFFFF; --panel2:#E8EDE1; --line:#D2DCC9;
+  --txt:#22301F; --mut:#52664B; --dim:#6F8168; --txt2:#38492F;
+  --amber:#8A7A2E; --hdr:#EDF1E7;
+  --up:#C3423F; --down:#1E7A4D;
 }
 html[data-theme="teal"]{
-  --bg:#282828; --panel:#32302F; --panel2:#3C3836; --line:#504945;
-  --txt:#EBDBB2; --mut:#A89984; --dim:#8A7F6F; --txt2:#D5C4A1;
-  --amber:#FABD2F; --hdr:#242220;
-  --up:#E5484D; --down:#21A466;
+  /* 🌊 深海墨青(暗)——深海青黑 × 黃銅,遠洋航儀的沉穩 */
+  --bg:#0F1A1C; --panel:#152225; --panel2:#1C2C30; --line:#2C4247;
+  --txt:#E4EEEE; --mut:#94ADB0; --dim:#6C8489; --txt2:#C4D6D7;
+  --amber:#C9A45C; --hdr:#0B1416;
+  --up:#E5484D; --down:#2FB380;
 }
 html[data-theme="sakura"]{
-  --bg:#FBF5F7; --panel:#FFFFFF; --panel2:#F7EBEF; --line:#EDD8DF;
-  --txt:#2E222A; --mut:#7F6571; --dim:#8C757E; --txt2:#54414C;
-  --amber:#B84D8A; --hdr:#F9F0F3;
+  /* 🪷 胭脂宣紙(亮)——宣紙暖白 × 胭脂,含蓄的東方紅 */
+  --bg:#FAF6F5; --panel:#FFFFFF; --panel2:#F3E9E8; --line:#E5D4D2;
+  --txt:#2C2124; --mut:#6E5A60; --dim:#8A757B; --txt2:#4C3A41;
+  --amber:#A34D5D; --hdr:#F7F0EF;
+  --up:#C4333B; --down:#0F8A57;
 }
 html[data-theme="lucky"]{
-  --bg:#191724; --panel:#1F1D2E; --panel2:#26233A; --line:#3B3654;
-  --txt:#E0DEF4; --mut:#908CAA; --dim:#6E6A86; --txt2:#C9C6E0;
-  --amber:#F6C177; --hdr:#15131F;
-  --up:#E5484D; --down:#21A466;
+  /* 🌌 紫檀書齋(暗)——紫檀墨 × 舊金,夜讀的書房 */
+  --bg:#16141F; --panel:#1D1A29; --panel2:#262234; --line:#393350;
+  --txt:#E4E1F2; --mut:#9A94B8; --dim:#726C90; --txt2:#C9C4E0;
+  --amber:#CBA95C; --hdr:#110F1A;
+  --up:#E5484D; --down:#2BB673;
 }
 html[data-theme="rain"]{
-  --bg:#E9EEF5; --panel:#FFFFFF; --panel2:#DDE6F0; --line:#C4D2E2;
-  --txt:#26344A; --mut:#5B7089; --dim:#77899F; --txt2:#3E5470;
-  --amber:#4A7BD0; --hdr:#E2E9F2;
+  /* 🏦 央行藏藍(亮)——藏青 × 石青,機構報告的制度感 */
+  --bg:#EEF1F6; --panel:#FFFFFF; --panel2:#E3E9F2; --line:#CBD6E4;
+  --txt:#1B2A44; --mut:#47597A; --dim:#6B7C99; --txt2:#2E4266;
+  --amber:#2F5AA8; --hdr:#E7ECF4;
   --up:#C4333B; --down:#0F8A57;
 }
 html[data-theme="graphite"]{
-  --bg:#141517; --panel:#1C1E21; --panel2:#26292E; --line:#34383F;
-  --txt:#ECEDEF; --mut:#9BA1AB; --dim:#6F737B; --txt2:#CDD1D7;
-  --amber:#D8B364; --hdr:#17181B;
-  --up:#E5484D; --down:#21A466;
+  /* 🖥 石墨終端(暗)——中性石墨 × 鋼金,終端機的純粹 */
+  --bg:#121417; --panel:#191C20; --panel2:#22262C; --line:#313640;
+  --txt:#E9EBEE; --mut:#99A0AC; --dim:#6C7480; --txt2:#C9CED6;
+  --amber:#D9B25F; --hdr:#0E1013;
+  --up:#E5484D; --down:#2BB673;
 }
 html[data-theme="dawn"]{
-  --bg:#FAF1EA; --panel:#FFFFFF; --panel2:#F5E5DA; --line:#E9D3C4;
-  --txt:#3B2A22; --mut:#8A6F5F; --dim:#A18876; --txt2:#5C4536;
-  --amber:#E2704A; --hdr:#F6EBE1;
+  /* 🍂 琥珀和紙(亮)——和紙暖褐 × 焙茶金,午後的暖 */
+  --bg:#F9F2E9; --panel:#FFFFFF; --panel2:#F2E6D6; --line:#E4D2BB;
+  --txt:#362A1D; --mut:#7A6650; --dim:#98836B; --txt2:#55432F;
+  --amber:#B5741F; --hdr:#F5EDE0;
   --up:#C4333B; --down:#0F8A57;
 }
 html[data-theme="sepia"]{
-  --bg:#EDF4F8; --panel:#FFFFFF; --panel2:#E0EBF2; --line:#C9DBE6;
-  --txt:#1E3944; --mut:#527282; --dim:#6F8B99; --txt2:#38596A;
-  --amber:#0E7C86; --hdr:#E6EFF5;
+  /* 🧭 青瓷海圖(亮)——青瓷 × 靛章,老海圖的青 */
+  --bg:#EEF4F4; --panel:#FFFFFF; --panel2:#E2ECEC; --line:#C8DBDB;
+  --txt:#1B3A3C; --mut:#4C6E70; --dim:#6E8B8D; --txt2:#315659;
+  --amber:#1B7F86; --hdr:#E8F0F0;
   --up:#C4333B; --down:#0F8A57;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -970,7 +982,7 @@ a{transition:color .12s}
    本層置於檔尾,以覆蓋方式統一全站質感;所有主題共用元件升級。
    ═══════════════════════════════════════════════════════════════ */
 :root{
-  --gold:#A8842C;                    /* 陳年金:章節槓、焦點環(取代亮黃的裝飾感)*/
+  --gold:#9C6B1F;                    /* 陳年金:章節槓、焦點環(取代亮黃的裝飾感)*/
   --radius:12px;
   --shadow-1:0 1px 2px rgba(24,18,8,.05),0 10px 28px -14px rgba(24,18,8,.10);
   --shadow-2:0 2px 4px rgba(24,18,8,.07),0 18px 44px -16px rgba(24,18,8,.16);
