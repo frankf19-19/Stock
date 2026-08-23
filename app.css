@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r649 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r651 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🤍 淨白(預設・亮)——r646 v2:墨色 chrome(骨架近乎單色)+ 朱紅只留品牌一族;紅綠數據自己當主角 */
@@ -1076,26 +1076,78 @@ h1 .tri{color:var(--brand,var(--gold))}
   .tabPane{animation:none}                                 /* 換頁交給 tab bar 指示條,不再淡入位移 */
 }
 
-/* ═══ r649 手機章節分頁:內容五面板,切換不滑動 ═══ */
-#chapTabs{display:none}
+/* ═══ r649→r651 章節分頁:全平台五面板——內容用「切」的,不是「滑」的 ═══ */
+#chapTabs{display:flex;gap:7px;position:sticky;top:0;z-index:40;margin:10px 0 12px;
+  padding:9px 2px;overflow-x:auto;scrollbar-width:none;
+  background:color-mix(in srgb,var(--bg) 86%,transparent);
+  backdrop-filter:blur(12px) saturate(1.5);-webkit-backdrop-filter:blur(12px) saturate(1.5);
+  border-bottom:1px solid var(--line)}
+#chapTabs::-webkit-scrollbar{display:none}
+#chapTabs button{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);
+  color:var(--mut);border-radius:99px;padding:8px 16px;font-size:13.5px;font-weight:800;
+  cursor:pointer;transition:transform .1s var(--ease,ease),background .13s,color .13s,border-color .13s;
+  box-shadow:var(--shadow-1)}
+#chapTabs button:active{transform:scale(.94)}
+@media(hover:hover){#chapTabs button:not(.on):hover{color:var(--txt);border-color:color-mix(in srgb,var(--txt) 30%,var(--line))}}
+#chapTabs button.on{background:var(--txt);border-color:var(--txt);color:var(--bg)}
+/* 面板切換:非當前章節一律隱藏(全平台)*/
+html[data-chap="ov"] #detailView [data-chap]:not([data-chap="ov"]),
+html[data-chap="0"]  #detailView [data-chap]:not([data-chap="0"]),
+html[data-chap="1"]  #detailView [data-chap]:not([data-chap="1"]),
+html[data-chap="2"]  #detailView [data-chap]:not([data-chap="2"]),
+html[data-chap="3"]  #detailView [data-chap]:not([data-chap="3"]){display:none!important}
+/* 分頁模式下,個股頁的「跳到」長條退場(tab 承擔導航)*/
+#detailView .mob-jump{display:none!important}
 @media(max-width:640px){
-  #chapTabs{display:flex;gap:6px;position:sticky;top:0;z-index:40;margin:8px -14px 10px;
-    padding:8px 14px calc(8px);overflow-x:auto;scrollbar-width:none;
-    background:color-mix(in srgb,var(--bg) 88%,transparent);
-    backdrop-filter:blur(12px) saturate(1.5);-webkit-backdrop-filter:blur(12px) saturate(1.5);
-    border-bottom:1px solid var(--line)}
-  #chapTabs::-webkit-scrollbar{display:none}
-  #chapTabs button{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);
-    color:var(--mut);border-radius:99px;padding:8px 14px;font-size:13px;font-weight:800;
-    transition:transform .1s var(--ease,ease)}
-  #chapTabs button:active{transform:scale(.94)}
-  #chapTabs button.on{background:var(--txt);border-color:var(--txt);color:var(--bg)}
-  /* 面板切換:非當前章節一律隱藏(桌機不在此 media 內,全部照常)*/
-  html[data-chap="ov"] #detailView [data-chap]:not([data-chap="ov"]),
-  html[data-chap="0"]  #detailView [data-chap]:not([data-chap="0"]),
-  html[data-chap="1"]  #detailView [data-chap]:not([data-chap="1"]),
-  html[data-chap="2"]  #detailView [data-chap]:not([data-chap="2"]),
-  html[data-chap="3"]  #detailView [data-chap]:not([data-chap="3"]){display:none!important}
-  /* 分頁模式下,跳到列與章節帶的編號讓位(tab 已承擔導航)*/
-  #detailView .mob-jump{display:none!important}
+  #chapTabs{margin:8px -14px 10px;padding:8px 14px}
+  #chapTabs button{padding:8px 14px;font-size:13px}
 }
+
+/* ═══════════════════════════════════════════════════════
+   r650 質感打磨層 —— 毫米級細節:立體邏輯/光線/節奏
+   ═══════════════════════════════════════════════════════ */
+/* ── 分段控制:iOS 語彙——凹槽軌道 + 浮起滑塊 ── */
+.ind-seg{background:var(--panel2);border:none;border-radius:11px;padding:3px;
+  box-shadow:inset 0 1px 3px rgba(16,24,40,.10)}
+.ind-seg button{border-radius:8px;padding:6px 13px;font-weight:700;color:var(--mut);
+  transition:color .14s var(--ease,ease)}
+.ind-seg button.on{background:var(--panel);color:var(--txt);font-weight:900;
+  box-shadow:0 1px 2px rgba(16,24,40,.14),0 2px 8px rgba(16,24,40,.10)}
+html[data-theme="navy"] .ind-seg,html[data-theme="graphite"] .ind-seg{box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}
+html[data-theme="navy"] .ind-seg button.on,html[data-theme="graphite"] .ind-seg button.on{
+  background:color-mix(in srgb,var(--txt) 14%,var(--panel));box-shadow:0 1px 2px rgba(0,0,0,.5)}
+
+/* ── 卡片:頂緣受光 + 呼吸過場 ── */
+.idx-card,.r-card,.card,.chart-box,.dim-block,.sector-panel{
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 65%,transparent),var(--shadow-1);
+  transition:box-shadow .18s var(--ease,ease),transform .18s var(--ease,ease),border-color .18s var(--ease,ease)}
+html[data-theme="navy"] .idx-card,html[data-theme="graphite"] .idx-card,
+html[data-theme="navy"] .r-card,html[data-theme="graphite"] .r-card,
+html[data-theme="navy"] .dim-block,html[data-theme="graphite"] .dim-block{
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 7%,transparent),var(--shadow-1)}
+
+/* ── 章節標題:懸浮章籤 ── */
+.sec-title{box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 60%,transparent),var(--shadow-1);
+  border-radius:0 12px 12px 0}
+
+/* ── 徽章/膠囊:hairline + 微染底 ── */
+.badge{border-radius:7px;padding:2.5px 8px;
+  background:color-mix(in srgb,currentColor 8%,transparent);
+  border:1px solid color-mix(in srgb,currentColor 28%,transparent)}
+
+/* ── 表格:斑馬紋極淡 + hover 呼吸 ── */
+tbody tr:nth-child(even),table tr:nth-child(even){background:color-mix(in srgb,var(--panel2) 42%,transparent)}
+table td,table th{transition:background .12s}
+
+/* ── 文字選取與焦點:全站同語彙 ── */
+::selection{background:color-mix(in srgb,var(--gold,var(--amber)) 22%,transparent)}
+:focus-visible{outline-width:2px;outline-offset:2px}
+
+/* ── 字距紀律:大數字更緊、小標更鬆 ── */
+.mono{letter-spacing:-.01em}
+.sec-title{letter-spacing:.02em}
+h1{letter-spacing:.005em}
+
+/* ── 連結與可點元素統一過場 ── */
+a,button,[data-goto]{transition:color .13s var(--ease,ease),background .13s var(--ease,ease),
+  border-color .13s var(--ease,ease),opacity .13s var(--ease,ease)}
