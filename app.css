@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r657 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r658 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🤍 淨白(預設・亮)——r657 v6:內容層安靜化——強調色=藏青墨(--amber),正藍(--gold)只給互動元件 */
@@ -6,7 +6,7 @@
   --up:#D6323C; --down:#0F8A62; --amber:#24364F;
   --txt:#1C2B44; --mut:#4A5B75; --dim:#6B7D97; --txt2:#24364F; --hdr:#20304A;
   --gold:#2E6BE6; --gold2:#1F53C4; --brand:#C5372C;
-  --t-red:#B42332; --t-green:#0A7B52; --t-gold:#946800; --t-orange:#B25617; --t-purple:#5F45C8; --t-grey:#6B7D97;
+  --t-red:#B42332; --t-green:#0A7B52; --t-gold:#946800; --t-orange:#B25617; --t-purple:#5F45C8; --t-grey:#6B7D97; --t-blue:#2E62C9;
   --on-accent:#FFFFFF;
   --shadow-1:0 1px 2px rgba(16,24,40,.05),0 8px 24px -12px rgba(16,24,40,.08);
   --shadow-2:0 2px 4px rgba(16,24,40,.06),0 16px 40px -14px rgba(16,24,40,.14);
@@ -18,7 +18,7 @@ html[data-theme="navy"]{
   --up:#F6465D; --down:#31C48D; --amber:#D9B26A;
   --txt:#EAECF2; --mut:#9CA6BA; --dim:#7D879C; --txt2:#D4DAE6; --hdr:#0F1219;
   --gold:#D9B26A;
-  --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C; --t-purple:#B39AF0; --t-grey:#98A0AA;
+  --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C; --t-purple:#B39AF0; --t-grey:#98A0AA; --t-blue:#7FB4FF;
   --on-accent:#1A1710;
   --shadow-1:0 1px 2px rgba(0,0,0,.35),0 8px 22px -14px rgba(0,0,0,.55);
   --shadow-2:0 2px 5px rgba(0,0,0,.45),0 16px 38px -16px rgba(0,0,0,.65);
@@ -29,7 +29,7 @@ html[data-theme="graphite"]{
   --txt:#F0E9DE; --mut:#B3A791; --dim:#93876F; --txt2:#DFD6C6; --hdr:#110F0D;
   --amber:#E39A3B; --gold:#E39A3B;
   --up:#FF5D5D; --down:#34C787;
-  --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C; --t-purple:#B39AF0; --t-grey:#98A0AA;
+  --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C; --t-purple:#B39AF0; --t-grey:#98A0AA; --t-blue:#7FB4FF;
   --on-accent:#1A1710;
 }
 html[data-theme="light"]{
@@ -51,7 +51,7 @@ html[data-theme="dawn"]{
   --up:#C13034; --down:#0E7A4E;
   --shadow-1:0 1px 2px rgba(24,18,8,.05),0 10px 28px -14px rgba(24,18,8,.10);
   --shadow-2:0 2px 4px rgba(24,18,8,.07),0 18px 44px -16px rgba(24,18,8,.16);
-  --t-red:#B3282F; --t-green:#0B7A4B; --t-gold:#8A6608; --t-orange:#B25617; --t-purple:#6A4FB0; --t-grey:#6E7686;
+  --t-red:#B3282F; --t-green:#0B7A4B; --t-gold:#8A6608; --t-orange:#B25617; --t-purple:#6A4FB0; --t-grey:#6E7686; --t-blue:#2E62C9;
   --on-accent:#FFFFFF;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -358,7 +358,7 @@ a.alert-pill:hover{transform:translateY(-1px)}
 .empty{color:var(--mut);text-align:center;padding:50px 0;grid-column:1/-1}
 /* ── 手機版重排(≤640px)── */
 .ticker{position:relative;overflow:hidden;border:1px solid var(--line);background:var(--panel);border-radius:10px;margin:16px 0 2px;display:flex;align-items:center}
-.ticker-label{flex:none;font-size:13px;font-weight:700;color:var(--amber);padding:9px 14px;border-right:1px solid var(--line);background:var(--hdr);z-index:2;white-space:nowrap}
+.ticker-label{flex:none;font-size:13px;font-weight:700;color:var(--txt2);padding:9px 14px;border-right:1px solid var(--line);background:var(--panel2);z-index:2;white-space:nowrap}   /* r658:原 amber×hdr 在淨白=藏青疊藏青隱形 */
 .ticker-track{display:inline-flex;gap:38px;white-space:nowrap;padding:9px 0 9px 20px;animation:tickmove 60s linear infinite;will-change:transform}
 .ticker:hover .ticker-track{animation-play-state:paused}
 .ticker-track a{color:var(--txt);text-decoration:none;font-size:14.5px;display:inline-flex;gap:8px;align-items:baseline}
@@ -1220,3 +1220,11 @@ html[data-theme="pearl"] .dim-note{line-height:1.75}
   /* 桌機左欄承擔導航,頂部分頁膠囊隱藏 */
   #detailView #chapTabs{display:none}
 }
+
+/* ═══ r658 市場切換鈕主題化(取代 index 行內舊寫死色)═══ */
+.gmkt-bar button[data-gm="TW"].on{background:var(--up)!important;color:var(--on-accent)!important;
+  box-shadow:0 3px 12px color-mix(in srgb,var(--up) 32%,transparent)!important;border-color:transparent!important}
+.gmkt-bar button[data-gm="TW"]:not(.on):hover{color:var(--up)!important}
+.gmkt-bar button[data-gm="US"].on{background:var(--gold)!important;color:var(--on-accent)!important;
+  box-shadow:0 3px 12px color-mix(in srgb,var(--gold) 32%,transparent)!important;border-color:transparent!important}
+.gmkt-bar button[data-gm="US"]:not(.on):hover{color:var(--gold)!important}
