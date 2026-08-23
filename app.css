@@ -1,11 +1,11 @@
-/* 麻吉股研所 · build r651 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r652 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
-  /* 🤍 淨白(預設・亮)——r646 v2:墨色 chrome(骨架近乎單色)+ 朱紅只留品牌一族;紅綠數據自己當主角 */
-  --bg:#F7F8FA; --panel:#FFFFFF; --panel2:#EEF1F5; --line:#E4E7EC;
-  --up:#D6293A; --down:#0B815A; --amber:#20242D;
-  --txt:#101828; --mut:#475467; --dim:#667085; --txt2:#1D2939; --hdr:#FFFFFF;
-  --gold:#20242D; --brand:#C5372C;
+  /* 🤍 淨白(預設・亮)——r652 v3:靛墨 chrome(遠看是黑、近看有藍的深度)+ 朱紅品牌 + 翡翠潤色紅綠 */
+  --bg:#F7F8FA; --panel:#FFFFFF; --panel2:#EEF1F7; --line:#E5E8EF;
+  --up:#D3303C; --down:#0F8A62; --amber:#24324E;
+  --txt:#111827; --mut:#48536A; --dim:#68738C; --txt2:#1E2A3E; --hdr:#FFFFFF;
+  --gold:#24324E; --brand:#C5372C;
   --t-red:#B42332; --t-green:#0A7B52; --t-gold:#946800; --t-orange:#B25617; --t-purple:#6444C4; --t-grey:#667085;
   --on-accent:#FFFFFF;
   --shadow-1:0 1px 2px rgba(16,24,40,.05),0 8px 24px -12px rgba(16,24,40,.08);
@@ -13,11 +13,11 @@
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
 }
 html[data-theme="navy"]{
-  /* 🖥 終端黑(暗)——r644 精修:面板分離度拉開、線條放柔、金色收斂 */
-  --bg:#14161B; --panel:#1F232A; --panel2:#2A2F38; --line:#343B46;
-  --up:#F6465D; --down:#2EBD85; --amber:#DCAE52;
-  --txt:#EAECEF; --mut:#9DA6B0; --dim:#7E8894; --txt2:#D5DAE0; --hdr:#0F1116;
-  --gold:#DCAE52;
+  /* 🖥 終端黑(暗)——r652:靛階單一色族(與淨白同一家人)+ 翡翠綠提亮 */
+  --bg:#14171F; --panel:#1E222C; --panel2:#293040; --line:#333B4C;
+  --up:#F6465D; --down:#31C48D; --amber:#D9B26A;
+  --txt:#EAECF2; --mut:#9CA6BA; --dim:#7D879C; --txt2:#D4DAE6; --hdr:#0F1219;
+  --gold:#D9B26A;
   --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C; --t-purple:#B39AF0; --t-grey:#98A0AA;
   --on-accent:#1A1710;
   --shadow-1:0 1px 2px rgba(0,0,0,.35),0 8px 22px -14px rgba(0,0,0,.55);
