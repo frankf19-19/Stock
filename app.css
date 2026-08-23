@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r648 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r649 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🤍 淨白(預設・亮)——r646 v2:墨色 chrome(骨架近乎單色)+ 朱紅只留品牌一族;紅綠數據自己當主角 */
@@ -1074,4 +1074,28 @@ h1 .tri{color:var(--brand,var(--gold))}
   .mob-jump button{min-height:33px;scroll-snap-align:start}
   .idx-card:active,.r-card:active{transform:scale(.985);transition:transform .08s}
   .tabPane{animation:none}                                 /* 換頁交給 tab bar 指示條,不再淡入位移 */
+}
+
+/* ═══ r649 手機章節分頁:內容五面板,切換不滑動 ═══ */
+#chapTabs{display:none}
+@media(max-width:640px){
+  #chapTabs{display:flex;gap:6px;position:sticky;top:0;z-index:40;margin:8px -14px 10px;
+    padding:8px 14px calc(8px);overflow-x:auto;scrollbar-width:none;
+    background:color-mix(in srgb,var(--bg) 88%,transparent);
+    backdrop-filter:blur(12px) saturate(1.5);-webkit-backdrop-filter:blur(12px) saturate(1.5);
+    border-bottom:1px solid var(--line)}
+  #chapTabs::-webkit-scrollbar{display:none}
+  #chapTabs button{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);
+    color:var(--mut);border-radius:99px;padding:8px 14px;font-size:13px;font-weight:800;
+    transition:transform .1s var(--ease,ease)}
+  #chapTabs button:active{transform:scale(.94)}
+  #chapTabs button.on{background:var(--txt);border-color:var(--txt);color:var(--bg)}
+  /* 面板切換:非當前章節一律隱藏(桌機不在此 media 內,全部照常)*/
+  html[data-chap="ov"] #detailView [data-chap]:not([data-chap="ov"]),
+  html[data-chap="0"]  #detailView [data-chap]:not([data-chap="0"]),
+  html[data-chap="1"]  #detailView [data-chap]:not([data-chap="1"]),
+  html[data-chap="2"]  #detailView [data-chap]:not([data-chap="2"]),
+  html[data-chap="3"]  #detailView [data-chap]:not([data-chap="3"]){display:none!important}
+  /* 分頁模式下,跳到列與章節帶的編號讓位(tab 已承擔導航)*/
+  #detailView .mob-jump{display:none!important}
 }
