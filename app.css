@@ -1,17 +1,27 @@
-/* 麻吉股研所 · build r643 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r645 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
-  /* 🖥 終端黑(預設・暗)——中性炭黑單一色族,精煉金作唯一 accent;
-     漲跌採深色系交易所實證配色,紅綠金三色互不打架 */
-  --bg:#16181D; --panel:#1E2126; --panel2:#262A31; --line:#30353D;
-  --up:#F6465D; --down:#2EBD85; --amber:#E2B24F;
-  --txt:#EAECEF; --mut:#9DA6B0; --dim:#7E8894; --txt2:#D5DAE0; --hdr:#111318;
-  --gold:#E2B24F;
-  --shadow-1:0 1px 2px rgba(0,0,0,.35),0 8px 22px -14px rgba(0,0,0,.55);
-  --shadow-2:0 2px 5px rgba(0,0,0,.45),0 16px 38px -16px rgba(0,0,0,.65);
+  /* 🤍 淨白(預設・亮)——現代金融 SaaS:冷調近白 × 藏藍 accent × 大數字,乾淨到只剩資訊 */
+  --bg:#F7F8FA; --panel:#FFFFFF; --panel2:#EEF1F5; --line:#E4E7EC;
+  --up:#D6293A; --down:#0B815A; --amber:#2B59D8;
+  --txt:#101828; --mut:#475467; --dim:#667085; --txt2:#1D2939; --hdr:#FFFFFF;
+  --gold:#2B59D8;
+  --t-red:#B42332; --t-green:#0A7B52; --t-gold:#946800; --t-orange:#B25617; --t-purple:#6444C4; --t-grey:#667085;
+  --on-accent:#FFFFFF;
+  --shadow-1:0 1px 2px rgba(16,24,40,.05),0 8px 24px -12px rgba(16,24,40,.08);
+  --shadow-2:0 2px 4px rgba(16,24,40,.06),0 16px 40px -14px rgba(16,24,40,.14);
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans TC',sans-serif;
+}
+html[data-theme="navy"]{
+  /* 🖥 終端黑(暗)——r644 精修:面板分離度拉開、線條放柔、金色收斂 */
+  --bg:#14161B; --panel:#1F232A; --panel2:#2A2F38; --line:#343B46;
+  --up:#F6465D; --down:#2EBD85; --amber:#DCAE52;
+  --txt:#EAECEF; --mut:#9DA6B0; --dim:#7E8894; --txt2:#D5DAE0; --hdr:#0F1116;
+  --gold:#DCAE52;
   --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C; --t-purple:#B39AF0; --t-grey:#98A0AA;
   --on-accent:#1A1710;
+  --shadow-1:0 1px 2px rgba(0,0,0,.35),0 8px 22px -14px rgba(0,0,0,.55);
+  --shadow-2:0 2px 5px rgba(0,0,0,.45),0 16px 38px -16px rgba(0,0,0,.65);
 }
 html[data-theme="graphite"]{
   /* 🌃 午夜琥珀(暗)——暖炭黑單一色族 × 琥珀:整組同溫,長時間夜盤最不疲勞 */
@@ -728,7 +738,7 @@ a.earn-more{border-radius:22px;font-weight:700}
 body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
   font-variant-numeric:tabular-nums;font-size:15.5px}
 h1,h2,h3,.sec-title{text-wrap:balance}
-h1{font-family:var(--serif);font-weight:900;letter-spacing:.02em}
+h1{font-family:var(--sans);font-weight:900;letter-spacing:.01em}
 .sub{letter-spacing:.14em;font-size:13px;text-transform:none}
 a{text-decoration-thickness:1px;text-underline-offset:3px}
 ::selection{background:color-mix(in srgb,var(--amber) 22%,transparent)}
@@ -744,7 +754,7 @@ header{background:var(--hdr);border-bottom:1px solid var(--line)}
 .overlay{background:rgba(18,17,12,.45);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
 
 /* ── 簽名元素:研究報告章節標(宋體 × 墨檻金記)── */
-.sec-title{font-family:var(--serif);font-size:19px;font-weight:900;letter-spacing:.07em;
+.sec-title{font-family:var(--sans);font-size:16.5px;font-weight:800;letter-spacing:.015em;
   background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--gold);
   border-radius:0 var(--r1) var(--r1) 0;padding:10px 15px;margin:30px 0 14px;
   box-shadow:var(--sh1);position:relative}
@@ -1009,3 +1019,13 @@ table tr{transition:background .12s}
   font-weight:900;font-size:12px;letter-spacing:.1em;padding:0 4px 0 10px;white-space:nowrap;
   border-left:3px solid var(--gold,var(--amber));margin-left:6px;user-select:none}
 .mob-jump .jm-lab:first-child{margin-left:0}
+
+/* ═══ r645 淨白現代層:去書卷氣,SaaS 級收斂 ═══ */
+h1{font-size:24px;font-family:var(--sans)}
+h1 .seal{font-family:var(--serif)}                        /* 印章保留襯線——全站唯一的舊時光 */
+header::after{background:none;height:0;border:none}
+header{border-bottom:1px solid var(--line)}
+.sec-title{font-family:var(--sans);font-size:16px;font-weight:800;letter-spacing:.015em;
+  background:var(--panel);border-left:4px solid var(--gold)}
+.grp-band [style*="serif"]{font-family:var(--sans)!important}
+.head-in{padding:16px 20px 13px}
