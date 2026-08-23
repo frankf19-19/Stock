@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r661 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r662 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🤍 淨白(預設・亮)——r657 v6:內容層安靜化——強調色=藏青墨(--amber),正藍(--gold)只給互動元件 */
@@ -1062,11 +1062,10 @@ h1 .tri{color:var(--brand,var(--gold))}
   h1{font-size:19px}
   h1 .seal{width:24px;height:24px;font-size:12px;border-width:2px;margin-left:8px}
   .sub{display:none}                                       /* 標語讓位——app 不解釋自己 */
-  .toolbar{flex-wrap:nowrap!important;overflow-x:auto;gap:7px;
-    scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
-  .toolbar::-webkit-scrollbar{display:none}
+  .toolbar{flex-wrap:wrap!important;overflow:visible;gap:6px;padding-bottom:2px}   /* r662:改回換行——橫捲會把按鈕切一半,使用者以為壞了 */
   .toolbar>*{flex:0 0 auto}
-  .qs-wrap{flex:1 1 150px!important;min-width:130px}
+  .toolbar button,.toolbar select{padding:7px 10px!important;font-size:12.5px!important}
+  .qs-wrap{flex:1 1 100%!important;min-width:0;order:-1}                          /* 搜尋框獨佔第一行 */
 
   /* ── 觸控目標與捲動手感 ── */
   .ind-seg button{min-height:38px;padding:0 13px}
@@ -1099,7 +1098,7 @@ html[data-chap="3"]  #detailView [data-chap]:not([data-chap="3"]){display:none!i
 /* 分頁模式下,個股頁的「跳到」長條退場(tab 承擔導航)*/
 #detailView .mob-jump{display:none!important}
 @media(max-width:640px){
-  #chapTabs{margin:8px -14px 10px;padding:8px 14px}
+  #chapTabs{margin:8px 0 10px;padding:8px 0}
   #chapTabs button{padding:8px 14px;font-size:13px}
 }
 
