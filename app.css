@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r658 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r659 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🤍 淨白(預設・亮)——r657 v6:內容層安靜化——強調色=藏青墨(--amber),正藍(--gold)只給互動元件 */
@@ -1228,3 +1228,17 @@ html[data-theme="pearl"] .dim-note{line-height:1.75}
 .gmkt-bar button[data-gm="US"].on{background:var(--gold)!important;color:var(--on-accent)!important;
   box-shadow:0 3px 12px color-mix(in srgb,var(--gold) 32%,transparent)!important;border-color:transparent!important}
 .gmkt-bar button[data-gm="US"]:not(.on):hover{color:var(--gold)!important}
+
+/* ═══ r659 M平方式圖表工藝層 ═══ */
+.chart-box{padding:14px 10px 8px;background:var(--panel)}
+html[data-theme="pearl"] .chart-box{border:1px solid var(--line);border-radius:14px}
+/* 圖表區塊右下:資料出處浮水印(M平方式簽名)*/
+.chart-box{position:relative}
+.chart-box::after{content:'麻吉股研所 MAJI RESEARCH';position:absolute;right:14px;bottom:8px;
+  font-size:10px;letter-spacing:.14em;color:var(--dim);opacity:.4;pointer-events:none;
+  font-family:var(--mono)}
+/* K線圖上方控制列在淨白下更輕 */
+html[data-theme="pearl"] .ind-seg{background:var(--panel2)}
+/* 圖下判讀區:M平方式引用卡 */
+html[data-theme="pearl"] #detailView .dim-block,
+html[data-theme="pearl"] .tabPane .dim-block{border-left:3px solid var(--gold);border-radius:0 12px 12px 0}
