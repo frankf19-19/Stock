@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r647 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r648 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🤍 淨白(預設・亮)——r646 v2:墨色 chrome(骨架近乎單色)+ 朱紅只留品牌一族;紅綠數據自己當主角 */
@@ -1032,3 +1032,46 @@ header{border-bottom:1px solid var(--line)}
 
 /* r646:品牌朱紅一族(僅淨白定義 --brand,其他主題退回 gold)*/
 h1 .tri{color:var(--brand,var(--gold))}
+
+/* ═══════════════════════════════════════════════════════
+   r648 手機 App 殼層 —— 讓行動版「摸起來」像原生 app
+   ═══════════════════════════════════════════════════════ */
+/* 主題化的頂部分頁選中態(取代 index 行內寫死色)*/
+.home-tabs button.on{background:var(--txt)!important;border-color:var(--txt)!important;
+  color:var(--bg)!important;box-shadow:0 4px 14px rgba(0,0,0,.18)!important}
+
+/* 觸控通用:去除點按灰塊、按壓回饋 */
+*{-webkit-tap-highlight-color:transparent}
+@media(max-width:640px){
+  /* ── 底部 tab bar:毛玻璃、指示條、按壓縮放 ── */
+  #mobNav{background:color-mix(in srgb,var(--panel) 86%,transparent);
+    backdrop-filter:blur(14px) saturate(1.6);-webkit-backdrop-filter:blur(14px) saturate(1.6);
+    border-top:1px solid var(--line);box-shadow:0 -8px 28px rgba(0,0,0,.10);
+    padding:7px 4px calc(7px + env(safe-area-inset-bottom))}
+  #mobNav button{position:relative;font-size:10.5px;gap:3px;padding:5px 0 3px;
+    transition:transform .1s var(--ease,ease);border-radius:12px}
+  #mobNav button:active{transform:scale(.9)}
+  #mobNav button .mi{font-size:21px;transition:transform .16s var(--ease,ease)}
+  #mobNav button.on{color:var(--gold,var(--amber));background:none}
+  #mobNav button.on::before{content:'';position:absolute;top:-7px;left:50%;transform:translateX(-50%);
+    width:26px;height:3px;border-radius:0 0 3px 3px;background:var(--gold,var(--amber))}
+  #mobNav button.on .mi{transform:translateY(-2px) scale(1.08)}
+
+  /* ── 頂部:App 式精簡 header ── */
+  .head-in{padding:10px 14px 8px}
+  h1{font-size:19px}
+  h1 .seal{width:24px;height:24px;font-size:12px;border-width:2px;margin-left:8px}
+  .sub{display:none}                                       /* 標語讓位——app 不解釋自己 */
+  .toolbar{flex-wrap:nowrap!important;overflow-x:auto;gap:7px;
+    scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
+  .toolbar::-webkit-scrollbar{display:none}
+  .toolbar>*{flex:0 0 auto}
+  .qs-wrap{flex:1 1 150px!important;min-width:130px}
+
+  /* ── 觸控目標與捲動手感 ── */
+  .ind-seg button{min-height:38px;padding:0 13px}
+  .mob-jump{overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding-bottom:4px}
+  .mob-jump button{min-height:33px;scroll-snap-align:start}
+  .idx-card:active,.r-card:active{transform:scale(.985);transition:transform .08s}
+  .tabPane{animation:none}                                 /* 換頁交給 tab bar 指示條,不再淡入位移 */
+}
