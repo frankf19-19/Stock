@@ -1,12 +1,12 @@
-/* 麻吉股研所 · build r652 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r655 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
-  /* 🤍 淨白(預設・亮)——r652 v3:靛墨 chrome(遠看是黑、近看有藍的深度)+ 朱紅品牌 + 翡翠潤色紅綠 */
-  --bg:#F7F8FA; --panel:#FFFFFF; --panel2:#EEF1F7; --line:#E5E8EF;
-  --up:#D3303C; --down:#0F8A62; --amber:#24324E;
-  --txt:#111827; --mut:#48536A; --dim:#68738C; --txt2:#1E2A3E; --hdr:#FFFFFF;
-  --gold:#24324E; --brand:#C5372C;
-  --t-red:#B42332; --t-green:#0A7B52; --t-gold:#946800; --t-orange:#B25617; --t-purple:#6444C4; --t-grey:#667085;
+  /* 🤍 淨白(預設・亮)——r654 v5「財報狗式」:深藏青墨 × 正藍 accent × 冷灰藍底 × 藏青頂欄 */
+  --bg:#F4F6FA; --panel:#FFFFFF; --panel2:#EDF1F7; --line:#E2E8F0;
+  --up:#D6323C; --down:#0F8A62; --amber:#2E6BE6;
+  --txt:#1C2B44; --mut:#4A5B75; --dim:#6B7D97; --txt2:#24364F; --hdr:#20304A;
+  --gold:#2E6BE6; --gold2:#1F53C4; --brand:#C5372C;
+  --t-red:#B42332; --t-green:#0A7B52; --t-gold:#946800; --t-orange:#B25617; --t-purple:#5F45C8; --t-grey:#6B7D97;
   --on-accent:#FFFFFF;
   --shadow-1:0 1px 2px rgba(16,24,40,.05),0 8px 24px -12px rgba(16,24,40,.08);
   --shadow-2:0 2px 4px rgba(16,24,40,.06),0 16px 40px -14px rgba(16,24,40,.14);
@@ -1151,3 +1151,45 @@ h1{letter-spacing:.005em}
 /* ── 連結與可點元素統一過場 ── */
 a,button,[data-goto]{transition:color .13s var(--ease,ease),background .13s var(--ease,ease),
   border-color .13s var(--ease,ease),opacity .13s var(--ease,ease)}
+
+/* ═══ r653 淨白 v4 樣式簽名:唯一漸層 + 頂部微光暈 ═══ */
+:root{--grad-a:linear-gradient(168deg,var(--gold) 0%,var(--gold2,var(--gold)) 100%)}
+body{position:relative}
+body::before{content:'';position:fixed;inset:0 0 auto 0;height:340px;pointer-events:none;z-index:-1;
+  background:radial-gradient(60% 100% at 50% 0%,color-mix(in srgb,var(--gold) 5%,transparent),transparent 70%)}
+#chapTabs button.on,.home-tabs button.on{background:var(--grad-a)!important;border-color:transparent!important;
+  color:#fff!important;box-shadow:0 2px 8px color-mix(in srgb,var(--gold) 35%,transparent),
+  inset 0 1px 0 color-mix(in srgb,#fff 25%,transparent)!important}
+.btn-upd{background:var(--grad-a)!important;color:#fff!important;
+  box-shadow:0 2px 8px color-mix(in srgb,var(--gold) 30%,transparent)}
+.ind-seg button.on{color:var(--gold)}
+@media(max-width:640px){#mobNav button.on::before{background:var(--grad-a)}}
+
+/* ═══ r654 淨白 v5:藏青頂欄(財報狗式)——僅 pearl 主題生效 ═══ */
+html[data-theme="pearl"] header{background:var(--hdr);border-bottom:none}
+html[data-theme="pearl"] h1{color:#FFFFFF}
+html[data-theme="pearl"] h1 .tri{color:#FFFFFF}
+html[data-theme="pearl"] h1 .seal{border-color:#E8564A;color:#FF8A7E;
+  box-shadow:inset 0 0 0 1px rgba(232,86,74,.3)}
+html[data-theme="pearl"] .sub{color:#9FB0C8}
+html[data-theme="pearl"] .sub b{color:#D7E1EF}
+html[data-theme="pearl"] .sub .sep{color:#5E7292}
+html[data-theme="pearl"] .toolbar select,html[data-theme="pearl"] .toolbar button{
+  border-color:#33455F;box-shadow:none}
+html[data-theme="pearl"] #qSearch{background:#2A3C58;border-color:#3A4E6C;color:#E8EEF7}
+html[data-theme="pearl"] #qSearch::placeholder{color:#8FA2BE}
+
+/* ═══ r655 財報狗式版式層:標題去箱化、留白呼吸、表格放鬆 ═══ */
+html[data-theme="pearl"] .sec-title{
+  background:none;border:none;box-shadow:none;border-left:none;border-radius:0;
+  padding:0 0 7px;margin-top:26px!important;position:relative;
+  font-size:17.5px;color:var(--txt)}
+html[data-theme="pearl"] .sec-title::after{content:'';position:absolute;left:0;bottom:0;
+  width:30px;height:3px;border-radius:2px;background:var(--gold)}
+html[data-theme="pearl"] .sec-title>span{color:var(--dim)}
+html[data-theme="pearl"] .grp-band{border:none!important;border-radius:14px!important;
+  box-shadow:var(--shadow-1)!important;border-top:3px solid var(--gold)!important}
+html[data-theme="pearl"] body,html[data-theme="pearl"] .wrap{line-height:1.72}
+html[data-theme="pearl"] table td,html[data-theme="pearl"] table th{padding-top:8px;padding-bottom:8px}
+html[data-theme="pearl"] .idx-card,html[data-theme="pearl"] .r-card,html[data-theme="pearl"] .dim-block{border-radius:14px}
+html[data-theme="pearl"] .dim-note{line-height:1.75}
