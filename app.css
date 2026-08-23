@@ -1,4 +1,4 @@
-/* 麻吉股研所 · build r655 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r656 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🤍 淨白(預設・亮)——r654 v5「財報狗式」:深藏青墨 × 正藍 accent × 冷灰藍底 × 藏青頂欄 */
@@ -1193,3 +1193,29 @@ html[data-theme="pearl"] body,html[data-theme="pearl"] .wrap{line-height:1.72}
 html[data-theme="pearl"] table td,html[data-theme="pearl"] table th{padding-top:8px;padding-bottom:8px}
 html[data-theme="pearl"] .idx-card,html[data-theme="pearl"] .r-card,html[data-theme="pearl"] .dim-block{border-radius:14px}
 html[data-theme="pearl"] .dim-note{line-height:1.75}
+
+/* ═══ r656 財報狗式桌機左欄:個股頁兩欄結構(≥1024px)═══ */
+#stkSide{display:none}
+@media(min-width:1024px){
+  #detailView:has(#stkSide){position:relative;padding-left:224px}   /* 只在左欄存在時讓位(ETF 等內頁共用此容器)*/
+  #detailView>*:not(#stkSide){min-width:0}
+  #stkSide{display:block;position:absolute;left:0;top:0;bottom:0;width:204px}
+  #stkSide .ss-in{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:10px 8px;box-shadow:var(--shadow-1);scrollbar-width:thin}
+  #stkSide button{display:block;width:100%;text-align:left;background:none;border:none;
+    cursor:pointer;color:var(--mut);font-size:13px;font-weight:600;
+    padding:7px 10px;border-radius:9px;line-height:1.4;
+    transition:background .12s,color .12s}
+  #stkSide button:hover{background:var(--panel2);color:var(--txt)}
+  #stkSide .ss-ov{font-weight:800;margin-bottom:2px}
+  #stkSide .ss-grp{color:var(--dim);font-size:11.5px;font-weight:800;letter-spacing:.06em;
+    padding:11px 10px 4px;cursor:pointer;user-select:none;border-top:1px solid var(--line);margin-top:7px}
+  #stkSide .ss-grp:hover{color:var(--gold)}
+  #stkSide button.on{background:color-mix(in srgb,var(--gold) 10%,transparent);
+    color:var(--gold);font-weight:800;position:relative}
+  #stkSide button.on::before{content:'';position:absolute;left:0;top:20%;bottom:20%;
+    width:3px;border-radius:2px;background:var(--gold)}
+  /* 桌機左欄承擔導航,頂部分頁膠囊隱藏 */
+  #detailView #chapTabs{display:none}
+}
