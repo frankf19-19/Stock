@@ -1,11 +1,11 @@
-/* 麻吉股研所 · build r645 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r646 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
-  /* 🤍 淨白(預設・亮)——現代金融 SaaS:冷調近白 × 藏藍 accent × 大數字,乾淨到只剩資訊 */
+  /* 🤍 淨白(預設・亮)——r646 v2:墨色 chrome(骨架近乎單色)+ 朱紅只留品牌一族;紅綠數據自己當主角 */
   --bg:#F7F8FA; --panel:#FFFFFF; --panel2:#EEF1F5; --line:#E4E7EC;
-  --up:#D6293A; --down:#0B815A; --amber:#2B59D8;
+  --up:#D6293A; --down:#0B815A; --amber:#20242D;
   --txt:#101828; --mut:#475467; --dim:#667085; --txt2:#1D2939; --hdr:#FFFFFF;
-  --gold:#2B59D8;
+  --gold:#20242D; --brand:#C5372C;
   --t-red:#B42332; --t-green:#0A7B52; --t-gold:#946800; --t-orange:#B25617; --t-purple:#6444C4; --t-grey:#667085;
   --on-accent:#FFFFFF;
   --shadow-1:0 1px 2px rgba(16,24,40,.05),0 8px 24px -12px rgba(16,24,40,.08);
@@ -1029,3 +1029,6 @@ header{border-bottom:1px solid var(--line)}
   background:var(--panel);border-left:4px solid var(--gold)}
 .grp-band [style*="serif"]{font-family:var(--sans)!important}
 .head-in{padding:16px 20px 13px}
+
+/* r646:品牌朱紅一族(僅淨白定義 --brand,其他主題退回 gold)*/
+h1 .tri{color:var(--brand,var(--gold))}
