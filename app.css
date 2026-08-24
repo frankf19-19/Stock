@@ -1,7 +1,7 @@
-/* 麻吉股研所 · build r673 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* 麻吉股研所 · build r675 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
-  /* 🤍 淨白(預設・亮)——r657 v6:內容層安靜化——強調色=藏青墨(--amber),正藍(--gold)只給互動元件 */
+  /* 🔷 青硯(預設・亮)——r674 定名:墨藍頂欄 × 冷灰藍底 × 正藍互動;內容藏青安靜 */
   --bg:#F4F5F9; --panel:#FFFFFF; --panel2:#EEF0F6; --line:#E4E7EF;
   --up:#D6323C; --down:#0F8A62; --amber:#26324B;
   --txt:#1B2540; --mut:#4A566E; --dim:#6C7890; --txt2:#232F4B; --hdr:#1A2032;
@@ -1174,7 +1174,12 @@ html[data-theme="pearl"] .sub{color:#98A4BE}
 html[data-theme="pearl"] .sub b{color:#D7E1EF}
 html[data-theme="pearl"] .sub .sep{color:#5E7292}
 html[data-theme="pearl"] .toolbar select,html[data-theme="pearl"] .toolbar button{
-  border-color:#333D59;box-shadow:none}
+  background:rgba(255,255,255,.065)!important;border:1px solid rgba(255,255,255,.13)!important;
+  color:#D9E1F0!important;box-shadow:none!important;backdrop-filter:blur(6px)}
+html[data-theme="pearl"] .toolbar select:hover,html[data-theme="pearl"] .toolbar button:hover{
+  background:rgba(255,255,255,.11)!important;border-color:rgba(255,255,255,.22)!important}
+html[data-theme="pearl"] .toolbar .btn-upd{background:var(--grad-a)!important;border-color:transparent!important;color:#fff!important}
+html[data-theme="pearl"] .toolbar select option{background:#1A2032;color:#D9E1F0}
 html[data-theme="pearl"] #qSearch{background:#242C44;border-color:#35405E;color:#EAEEF8}
 html[data-theme="pearl"] #qSearch::placeholder{color:#8FA2BE}
 
