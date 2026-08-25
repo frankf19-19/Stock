@@ -1,0 +1,13 @@
+{
+ "ts": "2026-08-25T13:16:32.963190",
+ "steps": [
+  {
+   "s": "menu",
+   "st": 200,
+   "captcha": true,
+   "vs": true,
+   "size": 14674
+  }
+ ],
+ "verdict": "CAPTCHA_BLOCKED"
+}
