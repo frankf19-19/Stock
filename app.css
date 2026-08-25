@@ -1,4 +1,4 @@
-/* K研所 · build r688 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* K研所 · build r690 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🔷 經典白(預設・亮)——r674 定名:墨藍頂欄 × 冷灰藍底 × 正藍互動;內容藏青安靜 */
@@ -1259,3 +1259,16 @@ h1 .tri{letter-spacing:.02em}
 html[data-theme="navy"] .fav-tg,html[data-theme="graphite"] .fav-tg{color:#5B6478}
 html[data-theme="navy"] .fav-tg.on,html[data-theme="graphite"] .fav-tg.on{color:#F2C14E;text-shadow:0 1px 4px rgba(242,193,78,.4)}
 html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{color:#F2C14E}
+
+/* ═══ r689 財報狗式大數字 KPI 卡 ═══ */
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:14px 0 4px}
+.kpi-c{background:var(--card);padding:12px 10px 11px;text-align:center;min-width:0}
+.kpi-lb{font-size:11.5px;color:var(--dim);font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi-big{font-size:23px;font-weight:900;color:var(--txt);line-height:1.25;margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi-sub{font-size:11px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:640px){
+  .kpi-strip{grid-template-columns:repeat(3,1fr)}
+  .kpi-c:nth-child(4),.kpi-c:nth-child(5){border-top:1px solid var(--line)}
+  .kpi-big{font-size:20px}
+}
