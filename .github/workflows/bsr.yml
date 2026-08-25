@@ -1,0 +1,23 @@
+name: bsr-poc
+on:
+  workflow_dispatch: {}          # 偵察版:先手動觸發,確認可行再排程
+  # schedule:
+  #   - cron: '40 10 * * 1-5'    # 平日 18:40 台北(盤後資料已生成)——PoC 通過後再打開
+permissions:
+  contents: write
+jobs:
+  bsr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Run BSR PoC
+        run: python fetch_bsr.py
+      - name: Commit results
+        run: |
+          git config user.name bsr-bot
+          git config user.email bsr@local
+          git add -A c/bsr bsr_diag.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "bsr poc $(date +%F)"
+          git push || true
