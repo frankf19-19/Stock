@@ -6,11 +6,11 @@
 <link rel="dns-prefetch" href="https://www.tpex.org.tw">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>羅盤投研|台美股選股儀表板</title>
-<meta name="description" content="羅盤投研|好友限定的私人量化研究室:全市場 1,800 檔台股每日自動健診——基本面、籌碼、技術三維評分,搭配白話判讀,把研究報告讀成一眼能懂。">
+<title>K研所|台美股選股儀表板</title>
+<meta name="description" content="K研所|好友限定的私人量化研究室:全市場 1,800 檔台股每日自動健診——基本面、籌碼、技術三維評分,搭配白話判讀,把研究報告讀成一眼能懂。">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="羅盤投研">
-<meta property="og:title" content="羅盤投研|台美股選股儀表板">
+<meta property="og:site_name" content="K研所">
+<meta property="og:title" content="K研所|台美股選股儀表板">
 <meta property="og:description" content="即時走勢・法人籌碼・月營收・估值評價,全部白話看得懂。">
 <meta property="og:image" content="https://frankf19-19.github.io/Stock/icon.png">
 <meta name="twitter:card" content="summary">
@@ -21,7 +21,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="羅盤投研">
+<meta name="apple-mobile-web-app-title" content="K研所">
 <meta name="theme-color" content="#0C111D" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r679">
+<link rel="stylesheet" href="app.css?v=r682">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -43,7 +43,7 @@
 <header>
   <div class="head-in">
     <div>
-      <h1><svg class="lgo" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke-width="1.7"/><path class="lgo-n" d="M12 3.2 L14.1 9.9 L20.8 12 L14.1 14.1 L12 20.8 L9.9 14.1 L3.2 12 L9.9 9.9 Z"/><circle class="lgo-c" cx="12" cy="12" r="1.6"/></svg><span class="tri">羅盤</span>投研</h1>
+      <h1><svg class="lgo" viewBox="0 0 24 24" aria-hidden="true"><line class="lgo-wk" x1="7" y1="2.6" x2="7" y2="21.4" stroke-width="1.6"/><rect class="lgo-cd" x="5.2" y="7.6" width="3.6" height="7.2" rx="1.1"/><path class="lgo-kk" d="M18.2 3.6 L9.4 12 L18.2 20.4" fill="none" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="tri">K</span>研所</h1>
       <div class="sub"><b>私人量化研究室</b><span class="sep">|</span>基本面・籌碼・技術三維評分<span class="sep">・</span>台股 <b>1,800</b> 檔+S&amp;P 500<span class="sep">・</span>每日自動更新</div>
     </div>
     <div class="meta">
@@ -53,16 +53,16 @@
           <div class="qs-drop" id="qsDrop" hidden></div>
         </div>
         <select id="themeSel" aria-label="介面主題">
-          <option value="pearl">羅盤白(預設)</option>
+          <option value="pearl">經典白(預設)</option>
           <option value="dawn">📜 紙本墨金</option>
           <option value="navy">🖥 終端黑</option>
           <option value="graphite">🌃 午夜琥珀</option>
         </select>
-        <button class="btn-ghost" id="alertBtn" title="盤中警示:好股下殺至買進區/帶量突破時通知">🔔</button>
-        <button class="btn-ghost" id="favBtn" title="我收藏的個股">⭐ 最愛</button>
-        <button class="btn-ghost" id="learnBtn" title="半導體/科技供應鏈白話教學">📚 小學堂</button>
-        <button id="pwaBtn" onclick="pwaInstall()" style="display:none;padding:8px 13px;border:1px solid var(--line);border-radius:9px;background:transparent;cursor:pointer;font-weight:700">📱 安裝 App</button>
-        <button class="btn-upd" id="updBtn">↻ 更新</button>
+        <button class="btn-ghost" id="alertBtn" title="盤中警示:好股下殺至買進區/帶量突破時通知">提醒</button>
+        <button class="btn-ghost" id="favBtn" title="我收藏的個股">最愛</button>
+        <button class="btn-ghost" id="learnBtn" title="半導體/科技供應鏈白話教學">小學堂</button>
+        <button id="pwaBtn" onclick="pwaInstall()" style="display:none;padding:8px 13px;border:1px solid var(--line);border-radius:9px;background:transparent;cursor:pointer;font-weight:700">安裝 App</button>
+        <button class="btn-upd" id="updBtn">更新</button>
       </div>
       <div class="statline">
         <span class="badge" id="updBadge">更新:—</span>
@@ -203,7 +203,7 @@
       <button data-m="ALL" class="on">全部</button>
       <button data-m="TW">台股</button>
       <button data-m="US">美股</button>
-      <button data-m="FAV">⭐ 最愛</button>
+      <button data-m="FAV">最愛</button>
     </div>
     <select id="sortSel" aria-label="排序方式">
       <option value="total">綜合評分 高→低</option>
@@ -307,6 +307,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r679"></script>
+<script src="app.js?v=r682"></script>
 </body>
 </html>
