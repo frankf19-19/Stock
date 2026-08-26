@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r690">
+<link rel="stylesheet" href="app.css?v=r691">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -58,6 +58,7 @@
           <option value="navy">🖥 終端黑</option>
           <option value="graphite">🌃 午夜琥珀</option>
         </select>
+        <button class="btn-ghost" id="authBtn" title="登入後最愛/持股/提醒跨裝置同步">登入</button>
         <button class="btn-ghost" id="alertBtn" title="盤中警示:好股下殺至買進區/帶量突破時通知">提醒</button>
         <button class="btn-ghost" id="favBtn" title="我收藏的個股">最愛</button>
         <button class="btn-ghost" id="learnBtn" title="半導體/科技供應鏈白話教學">小學堂</button>
@@ -307,6 +308,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r690"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="app.js?v=r691"></script>
 </body>
 </html>

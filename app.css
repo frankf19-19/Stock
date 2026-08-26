@@ -1,4 +1,4 @@
-/* K研所 · build r690 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* K研所 · build r691 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🔷 經典白(預設・亮)——r674 定名:墨藍頂欄 × 冷灰藍底 × 正藍互動;內容藏青安靜 */
@@ -1272,3 +1272,33 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
   .kpi-c:nth-child(4),.kpi-c:nth-child(5){border-top:1px solid var(--line)}
   .kpi-big{font-size:20px}
 }
+
+/* ═══ r691 帳號登入/雲端同步 ═══ */
+#authBtn.on{border-color:var(--up);color:var(--up);font-weight:800}
+.sb-mask{position:fixed;inset:0;background:rgba(10,14,25,.55);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center;z-index:9999;padding:18px}
+.sb-mask.on{display:flex}
+.sb-box{background:var(--card);border:1px solid var(--line);border-radius:16px;width:100%;max-width:360px;
+  padding:22px 20px 20px;position:relative;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.sb-x{position:absolute;top:10px;right:12px;background:none;border:0;font-size:22px;line-height:1;
+  color:var(--dim);cursor:pointer}
+.sb-tabs{display:flex;gap:6px;margin-bottom:14px}
+.sb-tab{flex:1;padding:9px 0;border:1px solid var(--line);border-radius:9px;background:transparent;
+  color:var(--dim);font-weight:700;cursor:pointer;font-size:14px}
+.sb-tab.on{background:var(--up);border-color:var(--up);color:#fff}
+.sb-note{font-size:12.5px;color:var(--dim);line-height:1.65;margin-bottom:12px}
+.sb-info{font-size:14px;color:var(--txt);line-height:1.7;margin-bottom:10px}
+.sb-in{width:100%;padding:11px 12px;margin-bottom:9px;border:1px solid var(--line);border-radius:9px;
+  background:var(--bg);color:var(--txt);font-size:15px;box-sizing:border-box}
+.sb-in:focus{outline:none;border-color:var(--up)}
+.sb-go{width:100%;padding:11px 0;border:0;border-radius:9px;background:var(--up);color:#fff;
+  font-weight:800;font-size:15px;cursor:pointer;margin-top:2px}
+.sb-alt{width:100%;padding:9px 0;margin-top:8px;border:1px solid var(--line);border-radius:9px;
+  background:transparent;color:var(--dim);font-size:13px;cursor:pointer}
+.sb-del{width:100%;padding:9px 0;margin-top:14px;border:1px solid var(--down);border-radius:9px;
+  background:transparent;color:var(--down);font-size:12.5px;cursor:pointer}
+.sb-msg{font-size:12.5px;line-height:1.6;margin-top:10px;min-height:16px}
+.sb-toast{position:fixed;left:50%;bottom:-60px;transform:translateX(-50%);padding:9px 18px;border-radius:20px;
+  color:#fff;font-size:13px;font-weight:700;z-index:10000;transition:bottom .3s;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.sb-toast.on{bottom:26px}
+@media(max-width:640px){.sb-box{max-width:100%}}
