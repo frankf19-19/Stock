@@ -1,4 +1,4 @@
-/* K研所 · build r700 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
+/* K研所 · build r701 · 由 index.html 抽出,與 app.js 平行下載+各自快取 */
 
 :root{
   /* 🔷 經典白(預設・亮)——r674 定名:墨藍頂欄 × 冷灰藍底 × 正藍互動;內容藏青安靜 */
@@ -1303,3 +1303,37 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
   color:#fff;font-size:13px;font-weight:700;z-index:10000;transition:bottom .3s;box-shadow:0 6px 20px rgba(0,0,0,.25)}
 .sb-toast.on{bottom:26px}
 @media(max-width:640px){.sb-box{max-width:100%}}
+
+/* ═══ r701 手機介面大調整:按鈕清晰化 + 統計依據摺疊段 ═══ */
+/* 分段鈕(技術線型 日K/週K/月K、指數切換、策略切換…):加大點擊面積、實底、選中態一眼可辨 */
+.ind-seg{gap:6px;flex-wrap:wrap}
+.ind-seg button,.seg button{
+  min-height:38px;padding:8px 15px;font-size:13.5px;font-weight:800;
+  border:1.5px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--txt);
+  line-height:1;cursor:pointer}
+.ind-seg button.on,.seg button.on{
+  background:var(--up);border-color:var(--up);color:#fff;
+  box-shadow:0 2px 8px color-mix(in srgb,var(--up) 35%,transparent)}
+.kseg-row{gap:6px;row-gap:8px}
+/* 頂欄幽靈鈕(登入/提醒/最愛/小學堂):補實底與粗字,不再和背景融在一起 */
+.btn-ghost{min-height:38px;padding:8px 14px;font-weight:800;font-size:13.5px;
+  background:var(--panel2);border:1.5px solid var(--line);border-radius:10px;color:var(--txt)}
+@media(max-width:640px){
+  .ind-seg button,.seg button{min-height:42px;padding:10px 14px;font-size:14px}
+  .btn-ghost{min-height:42px;padding:10px 13px;font-size:14px}
+  .kseg-row{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;padding-bottom:2px}
+  .kseg-row::-webkit-scrollbar{display:none}
+  .kseg-row button{flex:0 0 auto}
+}
+/* 統計依據摺疊段:預設收合,降低個股頁資訊密度 */
+.dna-evid{margin-top:8px}
+.dna-evid summary{
+  cursor:pointer;font-size:13px;font-weight:800;color:var(--txt2);
+  padding:9px 12px;border:1px dashed var(--line);border-radius:10px;
+  background:var(--panel2);list-style:none;user-select:none}
+.dna-evid summary::-webkit-details-marker{display:none}
+.dna-evid summary::after{content:'▾';float:right;transition:transform .2s}
+.dna-evid[open] summary::after{transform:rotate(180deg)}
+.dna-evid[open] summary{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.dna-evid>.dim-block{margin-top:0!important;border-top-left-radius:0;border-top-right-radius:0}

@@ -98,7 +98,7 @@ def main():
             for row in data:
                 sid = str(row[ci]).strip()
                 if not sid or not sid[0].isdigit() or len(sid) > 6: continue
-                if cb < len(row): out["s"].setdefault(sid, {})["b"] = num(row[cb])
+                if cb < len(row): out["s"].setdefault(sid, {})["b"] = num(row[cb]) // 1000   # v3:TWT93U 單位是「股」,換成張
                 done += 1
         log("twse_borrow", n=done)
     except Exception as e:
