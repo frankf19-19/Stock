@@ -1,0 +1,26 @@
+{
+ "ts": "2026-08-27T16:16:27.946289",
+ "steps": [
+  {
+   "s": "twse_margin",
+   "n": 0
+  },
+  {
+   "s": "twse_borrow",
+   "n": 0
+  },
+  {
+   "s": "twse_daytrade_fail",
+   "e": "Expecting value: line 1 column 1 (char 0)"
+  },
+  {
+   "s": "tpex_margin_ok",
+   "u": "www.tpex.org.tw/www/zh-tw/margin/balance",
+   "n": 920
+  }
+ ],
+ "verdict": [
+  "TWSE_MARGIN_EMPTY(可能假日或表頭改版)",
+  "TWSE_DT_FAIL"
+ ]
+}
