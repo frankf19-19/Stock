@@ -1,0 +1,24 @@
+name: 散戶槓桿(融資券/借券/當沖)
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '40 13 * * 1-5'      # 台北 21:40(當沖統計約 21:00 後才齊,一次抓齊三表)
+permissions:
+  contents: write
+jobs:
+  margin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Fetch margin data
+        run: python fetch_margin.py
+      - name: Commit
+        run: |
+          git config user.name margin-bot
+          git config user.email margin@local
+          git add margin.json margin_diag.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "margin $(date +%F) [CI Skip]"
+          git pull --rebase || true
+          git push || true
