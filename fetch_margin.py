@@ -52,19 +52,28 @@ def main():
         done = 0
         for t in tables:
             fields = t.get("fields") or []
+            data = t.get("data") or []
             ci = col(fields, "代號")
+            if ci < 0 or not data: continue
             cf = col(fields, "融資", "今日餘額")
             cq = col(fields, "融券", "今日餘額")
-            if ci < 0 or cf < 0: continue
-            for row in t.get("data") or []:
+            # v2 位置後備:MI_MARGN 個股表的「融資/融券」在欄群層不在欄名裡,欄名只剩 買進/賣出/今日餘額…
+            #             經典版式:代號,名稱,[融資]買進,賣出,現償,前餘,今餘,限額,[融券]買進,賣出,券償,前餘,今餘,限額,資券互抵,註記
+            if cf < 0 and len(fields) >= 14:
+                cf, cq = 6, 12
+                log("mi_margn_positional", fields=fields[:8])
+            if cf < 0: 
+                log("mi_margn_schema", fields=fields[:16]); continue
+            for row in data:
                 sid = str(row[ci]).strip()
-                if not sid or not sid[0].isdigit(): continue
+                if not sid or not sid[0].isdigit() or len(sid) > 6: continue
+                f = num(row[cf]) if cf < len(row) else 0
                 rec = out["s"].setdefault(sid, {})
-                rec["f"] = num(row[cf])
-                if cq >= 0: rec["q"] = num(row[cq])
+                rec["f"] = f
+                if 0 <= cq < len(row): rec["q"] = num(row[cq])
                 done += 1
         log("twse_margin", n=done)
-        if not done: DIAG["verdict"].append("TWSE_MARGIN_EMPTY(可能假日或表頭改版)")
+        if not done: DIAG["verdict"].append("TWSE_MARGIN_EMPTY(表頭已寫入 diag)")
     except Exception as e:
         log("twse_margin_fail", e=str(e)[:150]); DIAG["verdict"].append("TWSE_MARGIN_FAIL")
 
@@ -75,38 +84,73 @@ def main():
         done = 0
         for t in tables:
             fields = t.get("fields") or []
+            data = t.get("data") or []
             ci = col(fields, "代號")
+            if ci < 0 or not data: continue
             cb = col(fields, "借券", "餘額")
             if cb < 0: cb = col(fields, "借券賣出", "當日餘額")
-            if ci < 0 or cb < 0: continue
-            for row in t.get("data") or []:
+            # v2 位置後備:代號,名稱,[融券]前餘,賣出,買進,現券,今餘,限額,[借券賣出]前餘,當日賣出,當日還券,當日調整,當日餘額,限額,備註
+            if cb < 0 and len(fields) >= 13:
+                cb = 12
+                log("twt93u_positional", fields=fields[:8])
+            if cb < 0:
+                log("twt93u_schema", fields=fields[:16]); continue
+            for row in data:
                 sid = str(row[ci]).strip()
-                if not sid or not sid[0].isdigit(): continue
-                out["s"].setdefault(sid, {})["b"] = num(row[cb])
+                if not sid or not sid[0].isdigit() or len(sid) > 6: continue
+                if cb < len(row): out["s"].setdefault(sid, {})["b"] = num(row[cb])
                 done += 1
         log("twse_borrow", n=done)
     except Exception as e:
         log("twse_borrow_fail", e=str(e)[:150]); DIAG["verdict"].append("TWSE_BORROW_FAIL")
 
     # ── ③ 上市 當沖成交股數(TWTB4U)──
-    try:
-        j = get(f"https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U?date={ds}&selectType=All&response=json")
-        tables = j.get("tables") or ([j] if j.get("data") else [])
-        done = 0
-        for t in tables:
-            fields = t.get("fields") or []
-            ci = col(fields, "代號")
-            cd = col(fields, "當日沖銷", "成交股數")
-            if cd < 0: cd = col(fields, "當沖", "股數")
-            if ci < 0 or cd < 0: continue
-            for row in t.get("data") or []:
-                sid = str(row[ci]).strip()
-                if not sid or not sid[0].isdigit(): continue
-                out["s"].setdefault(sid, {})["dt"] = num(row[cd]) // 1000   # 股→張
-                done += 1
-        log("twse_daytrade", n=done)
-    except Exception as e:
-        log("twse_daytrade_fail", e=str(e)[:150]); DIAG["verdict"].append("TWSE_DT_FAIL")
+    dt_cands = [
+        ("rwd",  f"https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U?date={ds}&selectType=All&response=json"),
+        ("rwd2", f"https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U?date={ds}&response=json"),
+        ("oapi", "https://openapi.twse.com.tw/v1/exchangeReport/TWTB4U"),
+    ]
+    done = 0
+    for tag, u in dt_cands:
+        try:
+            j = get(u)
+            if isinstance(j, list):                          # openapi:字典陣列
+                if j and isinstance(j[0], dict) and not (j[0].get("Code") or j[0].get("證券代號")):
+                    log("twtb4u_oapi_keys", keys=list(j[0].keys())[:10])   # 鍵名對不上時把實際鍵名寫進 diag
+                for row in j:
+                    sid = str(row.get("Code") or row.get("證券代號") or "").strip()
+                    v = row.get("TradeVolume") or row.get("當日沖銷交易成交股數") or 0
+                    if not sid or not sid[0].isdigit(): continue
+                    out["s"].setdefault(sid, {})["dt"] = num(v) // 1000
+                    done += 1
+            else:                                            # rwd:tables 格式
+                tables = j.get("tables") or ([j] if j.get("data") else [])
+                for t in tables:
+                    fields = t.get("fields") or []
+                    data = t.get("data") or []
+                    ci = col(fields, "代號")
+                    cd = col(fields, "沖銷", "股數")
+                    if cd < 0: cd = col(fields, "當沖", "股數")
+                    if ci < 0 or cd < 0 or not data:
+                        if fields: log("twtb4u_schema", tag=tag, fields=fields[:12])
+                        continue
+                    for row in data:
+                        sid = str(row[ci]).strip()
+                        if not sid or not sid[0].isdigit() or len(sid) > 6: continue
+                        if cd < len(row): out["s"].setdefault(sid, {})["dt"] = num(row[cd]) // 1000
+                        done += 1
+            if done:
+                log("twse_daytrade_ok", tag=tag, n=done); break
+            log("twse_daytrade_empty", tag=tag)
+        except Exception as e:
+            # 把回應開頭抓回來看它到底吐了什麼(HTML 錯誤頁/空字串),下一輪不用猜
+            head = ""
+            try:
+                req = rq.Request(u, headers={"User-Agent": UA})
+                head = rq.urlopen(req, timeout=15).read(160).decode("utf-8", "ignore")
+            except Exception: pass
+            log("twse_daytrade_fail", tag=tag, e=str(e)[:100], head=head[:120])
+    if not done: DIAG["verdict"].append("TWSE_DT_FAIL(各候選回應開頭已寫入 diag)")
 
     # ── ④ 上櫃(TPEx):多候選端點探測 ──
     roc = f"{d.year-1911}/{d.month:02d}/{d.day:02d}"
