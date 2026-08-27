@@ -1,17 +1,56 @@
 {
- "ts": "2026-08-27T16:16:27.946289",
+ "ts": "2026-08-27T16:24:24.878223",
  "steps": [
   {
+   "s": "mi_margn_positional",
+   "fields": [
+    "代號",
+    "名稱",
+    "買進",
+    "賣出",
+    "現金償還",
+    "前日餘額",
+    "今日餘額",
+    "次一營業日限額"
+   ]
+  },
+  {
    "s": "twse_margin",
-   "n": 0
+   "n": 1295
+  },
+  {
+   "s": "twt93u_positional",
+   "fields": [
+    "代號",
+    "名稱",
+    "前日餘額",
+    "賣出",
+    "買進",
+    "現券",
+    "今日餘額",
+    "次一營業日限額"
+   ]
   },
   {
    "s": "twse_borrow",
-   "n": 0
+   "n": 1299
   },
   {
    "s": "twse_daytrade_fail",
-   "e": "Expecting value: line 1 column 1 (char 0)"
+   "tag": "rwd",
+   "e": "Expecting value: line 1 column 1 (char 0)",
+   "head": "<!DOCTYPE html>\n<html lang=\"zh-Hant-tw\">\n<head>\n\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-widt"
+  },
+  {
+   "s": "twse_daytrade_fail",
+   "tag": "rwd2",
+   "e": "Expecting value: line 1 column 1 (char 0)",
+   "head": "<!DOCTYPE html>\n<html lang=\"zh-Hant-tw\">\n<head>\n\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-widt"
+  },
+  {
+   "s": "twse_daytrade_ok",
+   "tag": "oapi",
+   "n": 1232
   },
   {
    "s": "tpex_margin_ok",
@@ -20,7 +59,6 @@
   }
  ],
  "verdict": [
-  "TWSE_MARGIN_EMPTY(可能假日或表頭改版)",
-  "TWSE_DT_FAIL"
+  "OK(2219 檔)"
  ]
 }
