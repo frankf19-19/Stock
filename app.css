@@ -1426,3 +1426,25 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 .fpl-sl{border-color:color-mix(in srgb,var(--down) 55%,var(--line))}.fpl-sl b{color:var(--down)}
 .fpl.hit{background:color-mix(in srgb,var(--amber) 18%,var(--panel));box-shadow:0 0 0 2px color-mix(in srgb,var(--amber) 35%,transparent);animation:aipPulse 1.6s ease-in-out infinite}
 .fpl-set{cursor:pointer;color:var(--txt2);font-family:var(--sans);border-style:dashed}.fpl-set:hover{border-color:var(--amber);color:var(--amber)}
+
+/* r703:🧠 AI 學習狀態 */
+.aip-learn{margin:0 0 12px;border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
+.aip-learn.open{border-color:color-mix(in srgb,#C792EA 60%,var(--line))}
+.aip-lh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;cursor:pointer;background:linear-gradient(90deg,color-mix(in srgb,#C792EA 12%,var(--panel)),var(--panel))}
+.aip-lh b{font-size:15px}
+.aip-lstage{font-size:12px;font-weight:900;color:#8E5BC7;border:1.5px solid color-mix(in srgb,#C792EA 60%,transparent);border-radius:7px;padding:2px 8px}
+.aip-lmeta{font-size:12.5px;color:var(--mut);flex:1 1 320px}
+.aip-lx{margin-left:auto;font-size:13px;font-weight:800;color:#8E5BC7}
+.aip-lb{padding:10px 14px 12px;border-top:1px dashed var(--line)}
+.aip-fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:4px 16px}
+.aip-fr{display:grid;grid-template-columns:110px 1fr 50px 58px;align-items:center;gap:6px;font-size:12.5px}
+.aip-fn{color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aip-fb{position:relative;height:9px;background:var(--panel2);border-radius:5px;overflow:hidden}
+.aip-fb::after{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}
+.aip-fb i{position:absolute;top:0;bottom:0;border-radius:5px;max-width:50%}
+.aip-fw{font-family:var(--mono);font-weight:800;text-align:right}
+.aip-fi{font-family:var(--mono);font-size:11px;color:var(--dim);text-align:right}
+.aip-llog{margin-top:8px;display:flex;flex-direction:column;gap:3px;max-height:220px;overflow:auto}
+.aip-ll{display:flex;gap:8px;font-size:12.5px;line-height:1.5;padding:4px 8px;border-radius:7px;background:var(--panel2)}
+.aip-lt{font-family:var(--mono);color:var(--dim);flex:none}
+@media(max-width:640px){.aip-fr{grid-template-columns:96px 1fr 44px 52px}}
