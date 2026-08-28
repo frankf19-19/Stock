@@ -1,5 +1,5 @@
 {
- "ts": "2026-08-27T16:24:24.878223",
+ "ts": "2026-08-28T23:11:29.828753",
  "steps": [
   {
    "s": "mi_margn_positional",
@@ -50,7 +50,7 @@
   {
    "s": "twse_daytrade_ok",
    "tag": "oapi",
-   "n": 1232
+   "n": 1233
   },
   {
    "s": "tpex_margin_ok",
