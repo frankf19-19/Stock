@@ -48,6 +48,11 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: python update_quotes.py || echo "報價快照失敗,不影響主資料"
 
+      - name: 🤖 AI Pick 週選模型與戰績結算(r702)
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python aipick.py || echo "AI Pick 失敗,不影響主資料"
+
       - name: 提交結果
         run: |
           git config user.name  "bot"
@@ -56,6 +61,7 @@ jobs:
           if [ -f tdcc.json ]; then git add tdcc.json; fi
           if [ -f etf_hold.json ]; then git add etf_hold.json; fi
           if [ -f spark.json ]; then git add spark.json; fi
+          if [ -f aipick.json ]; then git add aipick.json; fi
           if git diff --cached --quiet; then
             echo "沒有變更,略過提交"
             exit 0
