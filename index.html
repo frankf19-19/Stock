@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r701">
+<link rel="stylesheet" href="app.css?v=r702">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -81,6 +81,7 @@
 
   
   <div id="toasts"></div>
+  <div class="favAlertBar fal-bar" id="favAlertBar" hidden></div>
   <div class="ticker" id="tickerBar" hidden>
     <span class="ticker-label">📰 財經快訊</span>
     <div class="ticker-track" id="tickerTrack"></div>
@@ -186,6 +187,9 @@
 
 </div>
 <div class="tabPane" id="tp-stocks">
+    <div class="sec-title" data-sec="aipick">🤖 AI Pick|本週精選 <span style="font-weight:400;font-size:13px;letter-spacing:0">量化模型每週選出下週看漲 5 檔・建議買價/目標/停損・名單凍結自動追蹤準確率與漲跌幅</span></div><div class="sec-body" id="sb-aipick">
+  <div id="aipickBox"></div>
+  </div>
     <div class="sec-title" data-sec="radar">機會雷達|選股策略 <span style="font-weight:400;font-size:13px;letter-spacing:0">點策略切換,規則化每日更新+盤中即時</span></div><div class="sec-body" id="sb-radar">
     <div class="ind-seg" id="stratSeg" style="flex-wrap:wrap;margin-bottom:10px"></div>
   <div class="radar" id="radar"></div>
@@ -308,6 +312,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r701"></script>
+<script src="app.js?v=r702"></script>
 </body>
 </html>
