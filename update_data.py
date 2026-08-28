@@ -978,7 +978,56 @@ def update_tw_prices(hist, tw_comps):
                 pass
             time.sleep(0.4)
         print(f"  漏網補強(逐檔 STOCK_DAY):{fixed}/{len(stale)} 檔")
+    try:
+        topup_recent_days(hist, tw_comps)       # r704:每班自我補洞(近 10 日誰缺補誰)
+    except Exception as e:
+        print(f"  [warn] 補洞: {e}")
     print(f"  台股價格:官方源續寫完成(零 Yahoo)")
+
+def topup_recent_days(hist, tw_comps, back=10):
+    """r704 每班自我補洞:近 back 個日曆日內,哪個交易日的 K「多數股票都缺」,
+    就用 MI_INDEX(上市)/櫃買單日檔(上櫃)整天抓回來,**用合併排序插入**(能補中間缺口,
+    不像 append_bar 只能往後接)。解決:openapi 收盤檔常給前一日舊資料 → 當天那根被跳過、
+    排程被 GitHub 丟班 → 缺的日子變永久黑洞、K 線永遠慢一拍的問題。"""
+    now_tp = dt.datetime.utcnow() + dt.timedelta(hours=8)
+    ids = {"tse": [c["id"] for c in tw_comps if c.get("ex") == "tse"],
+           "otc": [c["id"] for c in tw_comps if c.get("ex") == "otc"]}
+    fetchers = {"tse": lambda d: _mi_index_day(d.strftime("%Y%m%d")), "otc": _tpex_quote_day}
+    holes = 0
+    for ex in ("tse", "otc"):
+        pool = ids[ex]
+        if not pool: continue
+        sample = pool if len(pool) <= 400 else pool[::max(1, len(pool)//400)]   # 覆蓋率抽樣即可,省記憶體時間
+        for k in range(back):
+            d = now_tp.date() - dt.timedelta(days=k)
+            if d.weekday() >= 5: continue
+            if d == now_tp.date() and now_tp.hour * 60 + now_tp.minute < 14 * 60 + 10:
+                continue                                    # 當天 14:10 前官方單日檔還沒生,不白打
+            iso = d.isoformat()
+            got = sum(1 for sid in sample if iso in ((hist.get(sid) or {}).get("d") or []))
+            if got >= len(sample) * 0.85:
+                continue                                    # 這天大多數股票已有 → 不是洞
+            rows = fetchers[ex](d)
+            time.sleep(0.4)
+            if not rows:
+                print(f"  補洞({ex} {iso}):官方尚無資料(可能休市/未產檔)")
+                continue
+            fixed = 0
+            for sid in pool:
+                r = rows.get(sid)
+                if not r: continue
+                e = hist.get(sid) or {"d": [], "o": []}
+                if iso in (e.get("d") or []): continue
+                merged = dict(zip(e.get("d") or [], e.get("o") or []))
+                merged[iso] = list(r)
+                ks = sorted(merged)[-KEEP_BARS:]
+                hist[sid] = {"d": ks, "o": [merged[kk] for kk in ks]}
+                fixed += 1
+            holes += 1
+            print(f"  補洞({ex} {iso}):插入 {fixed} 檔")
+    if not holes:
+        print("  補洞:近 %d 日 K 線完整,免補" % back)
+
 
 def _mi_index_day(dstr):
     """證交所 MI_INDEX 全市場單日收盤行情(type=ALLBUT0999,含 ETF):
@@ -1219,7 +1268,22 @@ def fill_tw_daily_official(hist, comps):
     grab("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", "上市")
     grab("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", "上櫃")
     # 保命線:openapi 被擋/回傳非 JSON 時,整批上市股會一天都補不到 K 棒 → 改走 MI_INDEX
-    if not any(sid in rows for sid in ("2330", "2317", "2454", "2412")):
+    stale = False
+    try:                                          # r704:openapi 常在收盤後仍回前一交易日 → 視同沒拿到,交給 MI_INDEX
+        from collections import Counter as _C
+        _ds = _C(d for d, *_ in rows.values() if d)
+        _md = _ds.most_common(1)[0][0] if _ds else None
+        _tp = dt.datetime.utcnow() + dt.timedelta(hours=8)
+        _exp = _tp.date()
+        while _exp.weekday() >= 5: _exp -= dt.timedelta(days=1)
+        if _tp.weekday() < 5 and _tp.hour * 60 + _tp.minute < 14 * 60 + 10:
+            _exp -= dt.timedelta(days=1)
+            while _exp.weekday() >= 5: _exp -= dt.timedelta(days=1)
+        stale = bool(_md and _md < _exp.isoformat())
+        if stale: print(f"  [note] openapi 收盤檔仍是 {_md}(應為 {_exp})→ 啟用 MI_INDEX 備援")
+    except Exception:
+        pass
+    if stale or not any(sid in rows for sid in ("2330", "2317", "2454", "2412")):
         for back in range(0, 6):
             dd = TODAY - dt.timedelta(days=back)
             if dd.weekday() >= 5: continue
