@@ -3699,6 +3699,162 @@ def fred_last2(series):
         return None
     return round(vals[-1], 2), round(pct(vals[-1], vals[-2]), 2)
 
+def _roc_iso(x):
+    t = "".join(ch for ch in str(x) if ch.isdigit())
+    if len(t) == 7: return f"{int(t[:3])+1911}-{t[3:5]}-{t[5:7]}"
+    if len(t) == 8: return f"{t[:4]}-{t[4:6]}-{t[6:8]}"
+    return None
+
+def fetch_div_calendar():
+    """r707 除權息行事曆(未來 60 天):證交所 TWT48U_ALL(預告)+ 櫃買 exright_prepost。
+    回傳 [{id,name,d,t('息'/'權'/'權息'),cash}] 依日期排序。"""
+    out = {}
+    def absorb(arr, tag):
+        n0 = len(out)
+        for r in (arr or []):
+            if not isinstance(r, dict): continue
+            norm = {"".join(str(k).lower().split()): k for k in r}
+            kid = norm.get("code") or norm.get("securitiescompanycode")
+            kdt = norm.get("date"); knm = norm.get("name") or norm.get("companyname")
+            ket = norm.get("exdividend") or norm.get("exrightsdiviend") or norm.get("exrightsdividend")
+            kcd = norm.get("cashdividend")
+            if not (kid and kdt): continue
+            sid = str(r.get(kid, "")).strip().upper()
+            d = _roc_iso(r.get(kdt))
+            if not sid or not d or not (2 <= len(sid) <= 6): continue
+            if d < TODAY.isoformat() or d > (TODAY + dt.timedelta(days=60)).isoformat(): continue
+            t = str(r.get(ket, "") or "").replace("除", "").strip() or "息"
+            cash = numf(r.get(kcd)) if kcd else None
+            key = (sid, d)
+            if key not in out or (cash and not out[key]["cash"]):
+                out[key] = {"id": sid, "name": str(r.get(knm, "") or "").strip(), "d": d,
+                            "t": t, "cash": round(cash, 3) if cash else None}
+        print(f"  除權息行事曆({tag}):累計 {len(out)} 筆(+{len(out)-n0})")
+    try:
+        absorb(get_json("https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL", timeout=50), "上市")
+    except Exception as e:
+        print(f"  [warn] 除權息 上市: {e}")
+    try:
+        absorb(get_json("https://www.tpex.org.tw/openapi/v1/tpex_exright_prepost", timeout=50), "上櫃")
+    except Exception as e:
+        print(f"  [warn] 除權息 上櫃: {e}")
+    return sorted(out.values(), key=lambda x: x["d"])
+
+def fetch_pcr():
+    """r707 選擇權 Put/Call 未平倉比(期交所開放資料 CSV,近 10 個交易日)。
+    回傳 {"v":最新, "chg":與前日差, "h":[[iso,ratio]...新到舊反轉為舊到新]} 或 None。"""
+    try:
+        r = requests.get("https://www.taifex.com.tw/data_gov/taifex_open_data.asp?data_name=PutCallRatio",
+                         headers=UA, timeout=30)
+        txt = r.content.decode("utf-8", errors="ignore")
+        rows = [x.split(",") for x in txt.strip().splitlines()[1:] if x.count(",") >= 6]
+        h = []
+        for c in rows:
+            d = _roc_iso(c[0]); v = numf(c[6])
+            if d and v is not None: h.append([d, v])
+        h = sorted(h)[-10:]
+        if len(h) < 2: return None
+        print(f"  P/C 未平倉比:{h[-1][1]}({h[-1][0]})")
+        return {"v": h[-1][1], "chg": round(h[-1][1] - h[-2][1], 2), "h": h}
+    except Exception as e:
+        print(f"  [warn] PCR: {e}")
+        return None
+
+def fetch_eps_bulk():
+    """r707 最新一季 EPS(基本每股盈餘,元):證交所/櫃買 openapi 綜合損益(一般業+金融業)。
+    回傳 {sid:(季別,eps)};逐季累積於 chips 的 qe_d/qe,供日後本益比河流圖。"""
+    out = {}
+    urls = ["https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci",
+            "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_basi",
+            "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap06_O_ci",
+            "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap06_O_basi"]
+    for url in urls:
+        try:
+            arr = get_json(url, timeout=60)
+            if not (isinstance(arr, list) and arr): continue
+            keys = list(arr[0].keys())
+            k_id = next((k for k in keys if "代號" in k), None)
+            k_y = next((k for k in keys if "年度" in k), None)
+            k_s = next((k for k in keys if k.strip() == "季別" or "季" in k), None)
+            k_e = next((k for k in keys if "每股盈餘" in k), None)
+            if None in (k_id, k_e): continue
+            n0 = len(out)
+            for r in arr:
+                sid = str(r.get(k_id, "")).strip()
+                e = numf(r.get(k_e))
+                if not sid or e is None: continue
+                y = int(numf(r.get(k_y)) or 0); y = y + 1911 if 0 < y < 1900 else y
+                q = int(numf(r.get(k_s)) or 0)
+                if not (y > 1900 and 1 <= q <= 4): continue
+                out[sid] = (f"{y}Q{q}", round(e, 2))
+            print(f"  季EPS:{url.rsplit('/',1)[-1]} +{len(out)-n0}")
+        except Exception as e:
+            print(f"  [warn] 季EPS {url.rsplit('/',1)[-1]}: {e}")
+    print(f"  季EPS 合計 {len(out)} 家")
+    return out
+
+def append_eps(chips, cur):
+    """把最新季 EPS append 進籌碼分片(qe_d 季別 / qe 值),同季覆蓋、保留 12 季。"""
+    n = 0
+    for sid, (q, e) in (cur or {}).items():
+        c = chips.setdefault(sid, {})
+        qd = c.get("qe_d") or []; qe = c.get("qe") or []
+        if qd and qd[-1] == q:
+            qe[-1] = e
+        else:
+            qd.append(q); qe.append(e); n += 1
+        c["qe_d"], c["qe"] = qd[-12:], qe[-12:]
+    if n: print(f"  季EPS 新增 {n} 家新一季")
+
+def build_health(hist, chips, comps, extra):
+    """r707 🩺 資料健康度:各資料源最後日期+覆蓋率+紅黃綠;寫進 data.json['health']。"""
+    now_tp = dt.datetime.utcnow() + dt.timedelta(hours=8)
+    def last_td(back=0):
+        d = now_tp.date()
+        if now_tp.hour < 15: d -= dt.timedelta(days=1)
+        while d.weekday() >= 5: d -= dt.timedelta(days=1)
+        for _ in range(back):
+            d -= dt.timedelta(days=1)
+            while d.weekday() >= 5: d -= dt.timedelta(days=1)
+        return d.isoformat()
+    exp0, exp2 = last_td(0), last_td(2)
+    items = []
+    def add(k, label, last, note, ok_if, warn_if):
+        st = "ok" if (last and last >= ok_if) else ("warn" if (last and last >= warn_if) else "bad")
+        items.append({"k": k, "label": label, "last": last or "—", "note": note, "st": st})
+    from collections import Counter
+    def mode_last(ids):
+        c = Counter(((hist.get(i) or {}).get("d") or [None])[-1] for i in ids)
+        c.pop(None, None)
+        return (c.most_common(1)[0] if c else (None, 0))
+    tw_ids = [c["id"] for c in comps if c["market"] == "TW"]
+    us_ids = [c["id"] for c in comps if c["market"] == "US"]
+    l, n = mode_last(tw_ids); add("ktw", "台股日K", l, f"{n}/{len(tw_ids)} 檔在最新日", exp0, exp2)
+    l, n = mode_last(us_ids)
+    exp_us = last_td(1)
+    add("kus", "美股日K", l, f"{n}/{len(us_ids)} 檔在最新日", exp_us, last_td(3))
+    tse = [c["id"] for c in comps if c.get("ex") == "tse" and not c.get("etf")]
+    otc = [c["id"] for c in comps if c.get("ex") == "otc" and not c.get("etf")]
+    def inst_stat(ids):
+        c = Counter(((chips.get(i) or {}).get("d") or [None])[-1] for i in ids)
+        have = sum(v for k2, v in c.items() if k2)
+        c.pop(None, None)
+        m = c.most_common(1)[0][0] if c else None
+        return m, have
+    l, n = inst_stat(tse); add("itse", "上市法人", l, f"{n}/{len(tse)} 檔有資料", exp0, exp2)
+    l, n = inst_stat(otc); add("iotc", "上櫃法人", l, f"{n}/{len(otc)} 檔有資料", exp0, exp2)
+    if n < len(otc) * 0.5 and items[-1]["st"] == "ok": items[-1]["st"] = "warn"
+    bd = max(( ((chips.get(i) or {}).get("bd") or ["0"])[-1] for i in tse[:200]), default=None)
+    bdi = _roc_iso(bd) if bd and bd != "0" else None
+    add("tdcc", "大戶週資料", bdi, "每週六更新", (now_tp.date() - dt.timedelta(days=8)).isoformat(), (now_tp.date() - dt.timedelta(days=16)).isoformat())
+    rm = max((((chips.get(i) or {}).get("rm") or ["0"])[-1] for i in tse[:200]), default=None)
+    exp_rm = (now_tp.date().replace(day=1) - dt.timedelta(days=1)).strftime("%Y-%m") if now_tp.day > 12 else (now_tp.date().replace(day=1) - dt.timedelta(days=32)).strftime("%Y-%m")
+    add("rev", "月營收", rm if rm != "0" else None, "每月 10 日後齊", exp_rm, "2000-01")
+    for k, lab, v in (("div", "除權息行事曆", extra.get("divcal")), ("pcr", "P/C 比", extra.get("pcr")), ("aip", "AI Pick", extra.get("aip"))):
+        items.append({"k": k, "label": lab, "last": (extra.get(k + "_last") or ("有" if v else "—")),
+                      "note": extra.get(k + "_note") or "", "st": "ok" if v else "warn"})
+    return {"t": now_tp.strftime("%Y-%m-%d %H:%M"), "items": items}
+
 def fetch_macro():
     idx = []
     # v2:Stooq 會擋 GitHub Actions 機房(fetch_yext 同款教訓),不再作為主源。
@@ -3753,6 +3909,26 @@ def fetch_macro():
         time.sleep(0.3)
     if not any(i["name"] == "S&P 500" for i in idx):
         print("  [warn] FRED 未取得美股指數(FRED_API_KEY 未設定或 API 異常)")
+    # r707:VIX 恐慌指數 + 美債 10Y-2Y 利差(FRED 官方;利差的 chg 為絕對變化)
+    try:
+        r2 = fred_last2("VIXCLS")
+        if r2: idx.append({"name": "VIX 恐慌指數", "val": r2[0], "chg": r2[1]}); print(f"  VIX ← FRED({r2[0]})")
+    except Exception as e:
+        print(f"  [warn] VIX: {e}")
+    try:
+        key = os.environ.get("FRED_API_KEY", "").strip()
+        if key:
+            j = get_json("https://api.stlouisfed.org/fred/series/observations",
+                         params={"series_id": "T10Y2Y", "api_key": key, "file_type": "json",
+                                 "observation_start": (TODAY - dt.timedelta(days=25)).isoformat(),
+                                 "observation_end": TODAY.isoformat()}, timeout=30)
+            vs = [numf(o.get("value")) for o in (j or {}).get("observations", [])]
+            vs = [v for v in vs if v is not None]
+            if len(vs) >= 2:
+                idx.append({"name": "美債10Y-2Y利差", "val": round(vs[-1], 2), "chg": round(vs[-1] - vs[-2], 2)})
+                print(f"  10Y-2Y ← FRED({vs[-1]})")
+    except Exception as e:
+        print(f"  [warn] 10Y-2Y: {e}")
     # 費城半導體:FRED 無此系列 → Stooq 盡力而為(機房常被擋,失敗即略過)
     try:
         r = stooq_index("^sox")
@@ -3822,6 +3998,10 @@ def main():
     backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
     backfill_perstock(chips, comps)         # FinMind 個股查詢逐檔磨補(免費層可用;每輪 250+120 檔,數天磨完全市場)
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
+    try:
+        append_eps(chips, fetch_eps_bulk())     # r707:季 EPS 逐季累積(qe_d/qe,供本益比河流圖)
+    except Exception as e:
+        print(f"  [warn] 季EPS: {e}")
     inst = build_inst(chips)
     save_chips(chips, cmeta, comps)
     save_diag()                             # 回補嘗試全記錄 → c/diag.json;必須在 save_chips(內含孤兒清除)之後寫
@@ -3907,6 +4087,10 @@ def main():
     # ══ 第一階段:核心保底——評分/K線/總經先寫出,今日資料保證上線 ══
     _macro = fetch_macro()
     _news = fetch_news()
+    try:
+        _divcal = fetch_div_calendar()          # r707:除權息行事曆(前端最愛提醒/關鍵價位列用)
+    except Exception as e:
+        print(f"  [warn] 除權息行事曆: {e}"); _divcal = []
     # r603 保底:今日掃價失敗的檔沿用前一日資料——股票永不因單日 Yahoo 限流而從股池消失
     try:
         prev_st = {x.get("id"): x for x in (prev_all.get("stocks") or []) if x.get("id")}
@@ -3936,7 +4120,9 @@ def main():
     except Exception as e:
         print(f"  [warn] 保底繼承: {e}")
     out = {"updated": taipei, "source": "live", "breadth": _br,
-           "macro": _macro, "news": _news, "stocks": stocks}
+           "macro": _macro, "news": _news, "divcal": _divcal,
+           "health": build_health(hist, chips, comps, {"divcal": _divcal, "pcr": None, "aip": True}),
+           "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     print(f"  ✅ 核心資料已寫出(第一階段保底):{len(stocks)} 檔")
@@ -3958,6 +4144,11 @@ def main():
     try:
         fut = fetch_taifex((prev_all.get("macro") or {}).get("fut"))
         if fut: _macro["fut"] = fut
+        try:
+            pcr = fetch_pcr()                   # r707:選擇權 P/C 未平倉比(官方開放資料)
+            if pcr and _macro.get("fut"): _macro["fut"]["pcr"] = pcr
+        except Exception as e:
+            print(f"  [warn] PCR 跳過: {e}")
     except Exception as e:
         print(f"  [warn] 期貨籌碼跳過: {e}")
     try:
@@ -4062,7 +4253,12 @@ def main():
     except Exception as e:
         print(f"  [warn] 期貨籌碼表跳過: {e}")
     out = {"updated": taipei, "source": "live", "breadth": _br,
-           "macro": _macro, "news": _news, "indpe": _indpe, "stocks": stocks}
+           "macro": _macro, "news": _news, "indpe": _indpe, "divcal": _divcal,
+           "health": build_health(hist, chips, comps,
+                                  {"divcal": _divcal, "pcr": (_macro.get("fut") or {}).get("pcr"),
+                                   "aip": True, "div_last": (_divcal[0]["d"] if _divcal else None),
+                                   "div_note": f"未來60天 {len(_divcal)} 筆"}),
+           "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     sz = os.path.getsize("data.json") // 1024

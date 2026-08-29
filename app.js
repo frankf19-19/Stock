@@ -1,4 +1,4 @@
-/* K研所 · build r706 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r707 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1087,6 +1087,10 @@ function renderFut(){
   const dl=(c)=>c==null?'':` <span class="${c>=0?'pos':'neg'}" style="font-size:12px">(${c>=0?'+':''}${Number(c).toLocaleString()})</span>`;
   const cards=[];
   (f.inst||[]).forEach(x=>cards.push(`<div class="idx-card" data-mk="fut"><div class="nm">${x[0]}期貨淨OI ›</div><div class="vl" style="font-size:17px">${oi(x[1])}${dl(x[2])}</div><div class="ch" style="color:var(--dim)">口(多正/空負)</div></div>`));
+  if(f.pcr){   // r707:選擇權 P/C 未平倉比(>100 = Put OI 較多,常視為偏多氛圍)
+    const p=f.pcr,tone=p.v>=110?'偏多':p.v<=90?'偏空':'中性';
+    cards.push(`<div class="idx-card" data-mk="fut"><div class="nm">選擇權 P/C 比 ›</div><div class="vl" style="font-size:17px">${p.v}%<span class="${p.chg>=0?'pos':'neg'}" style="font-size:12px"> (${p.chg>=0?'+':''}${p.chg})</span></div><div class="ch" style="color:var(--dim)">未平倉比・${tone}</div></div>`);
+  }
   if(f.big){
     cards.push(`<div class="idx-card" data-mk="fut"><div class="nm">十大交易人淨部位 ›</div><div class="vl" style="font-size:17px">${oi(f.big[0])}</div><div class="ch" style="color:var(--dim)">台指全月份</div></div>`);
     if(f.big[1]!=null)cards.push(`<div class="idx-card" data-mk="fut"><div class="nm">十大特定法人 ›</div><div class="vl" style="font-size:17px">${oi(f.big[1])}</div><div class="ch" style="color:var(--dim)">內含於十大</div></div>`);
@@ -1597,6 +1601,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
+  diag.push('<span id="hltChip" style="cursor:pointer;font-weight:800;color:var(--amber)" title="各資料源最後更新與覆蓋率">🩺 資料健康</span>');   // r707
   try{const g=window.__idxDiag||{};
       diag.push(`<span id="diagIdxMis"><span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}</span>`);}catch(e){}
   diag.push(`<span style="cursor:pointer;color:var(--amber);font-weight:800" onclick="try{dataDoctor()}catch(e){}" title="現場實測快照/報價/卡片對帳">🩺 健檢</span>`);
@@ -1610,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r706</span>');
+  diag.push('<span style="color:var(--dim)">build r707</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19599,3 +19604,55 @@ document.addEventListener('click',e=>{
   try{renderFav();}catch(x){}
 },true);
 try{if(Array.isArray(SYNC_KEYS)&&!SYNC_KEYS.includes(FAV_PLAN_KEY))SYNC_KEYS.push(FAV_PLAN_KEY);}catch(e){}
+
+/* ══ r707:🩺 資料健康度面板 + 📅 除權息行事曆(接最愛提醒) ══ */
+function hltPanel(){
+  const H=(DATA&&DATA.health)||null;
+  let ov=document.getElementById('hltOv');
+  if(ov){ov.remove();return;}
+  ov=document.createElement('div');ov.id='hltOv';ov.className='hlt-ov';
+  const dot=st=>`<span class="hlt-dot hlt-${st}"></span>`;
+  const rows=H?H.items.map(i=>`<div class="hlt-row">${dot(i.st)}<b>${i.label}</b><span class="hlt-last">${i.last}</span><span class="hlt-note">${i.note||''}</span></div>`).join(''):'<div class="dim-note">後端尚未產生 health 區塊(等下一班 Actions 跑完 r707)</div>';
+  const legend='<div class="hlt-note" style="margin-top:8px">🟢 最新 🟡 落後 1-2 個交易日 🔴 停更——紅燈代表該來源被封鎖或掛掉,回報我修。</div>';
+  ov.innerHTML=`<div class="hlt-box"><div class="hlt-h">🩺 資料健康度 <span class="dim" style="font-weight:400">${H?H.t:''}</span><span class="hlt-x">✕</span></div>${rows}${legend}
+    <div class="hlt-row" style="border:0;margin-top:4px">${dot('ok')}<b>AI Pick</b><span class="hlt-last">${(window.AIPK&&AIPK.updated)||'讀取中'}</span><span class="hlt-note">週選+學習</span></div></div>`;
+  ov.onclick=e=>{if(e.target===ov||e.target.classList.contains('hlt-x'))ov.remove();};
+  document.body.appendChild(ov);
+}
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='hltChip')hltPanel();});
+/* 📅 除權息 */
+function divOf(id){
+  const a=(DATA&&DATA.divcal)||[];
+  for(const x of a){if(x.id===id)return x;}
+  return null;
+}
+function divDays(d){const t=aipTpDate();t.setHours(0,0,0,0);return Math.round((new Date(d+'T00:00:00')-t)/86400e3);}
+function divChip(s){
+  const ev=divOf(s.id);if(!ev)return '';
+  const n=divDays(ev.d);if(n<0||n>45)return '';
+  const y=(ev.cash&&s.price>0)?(ev.cash/s.price*100).toFixed(1)+'%':'';
+  const when=n===0?'今天':n===1?'明天':`${n} 天後`;
+  return `<span class="fpl fpl-div${n<=3?' hit':''}"><em>除${ev.t}</em><b>${aipMD(ev.d)}(${when})</b>${ev.cash?`<i>${ev.cash} 元${y?'・'+y:''}</i>`:''}</span>`;
+}
+(function(){  // 掛進最愛關鍵價位列 + 最愛提醒訊號
+  const _fph=favPlanHtml;
+  window.favPlanHtml=function(s,o,dates){
+    let h=_fph(s,o,dates);
+    try{const c=divChip(s);if(c)h=h.replace('<span class="fpl fpl-set"',c+'<span class="fpl fpl-set"');}catch(e){}
+    return h;
+  };
+  const _fs=favSignals;
+  window.favSignals=function(s,P,last,vol){
+    const out=_fs(s,P,last,vol);
+    try{
+      const ev=divOf(s.id);
+      if(ev){const n=divDays(ev.d);
+        if(n>=0&&n<=5){
+          const y=(ev.cash&&last>0)?`,現價殖利率 ${(ev.cash/last*100).toFixed(1)}%`:'';
+          out.push({k:'div',title:`📅 除${ev.t}提醒・${n===0?'今天':n+' 天後'}(${aipMD(ev.d)})`,
+                    text:`${ev.cash?`配發 ${ev.cash} 元${y};`:''}要參與除${ev.t}需在前一交易日收盤前持有;若不想參與可留意棄權息賣壓`});
+        }}
+    }catch(e){}
+    return out;
+  };
+})();

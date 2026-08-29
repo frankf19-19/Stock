@@ -1448,3 +1448,19 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 .aip-ll{display:flex;gap:8px;font-size:12.5px;line-height:1.5;padding:4px 8px;border-radius:7px;background:var(--panel2)}
 .aip-lt{font-family:var(--mono);color:var(--dim);flex:none}
 @media(max-width:640px){.aip-fr{grid-template-columns:96px 1fr 44px 52px}}
+
+/* r707:🩺 資料健康度 + 📅 除權息 */
+.hlt-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;display:flex;align-items:center;justify-content:center;padding:16px}
+.hlt-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;max-width:520px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 18px 50px rgba(0,0,0,.3)}
+.hlt-h{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:900;margin-bottom:10px}
+.hlt-x{margin-left:auto;cursor:pointer;color:var(--dim);padding:2px 8px}
+.hlt-row{display:flex;align-items:center;gap:9px;padding:7px 2px;border-bottom:1px dashed var(--line);font-size:13.5px}
+.hlt-row b{min-width:86px}
+.hlt-last{font-family:var(--mono);font-weight:700}
+.hlt-note{margin-left:auto;color:var(--mut);font-size:12px;text-align:right}
+.hlt-dot{width:10px;height:10px;border-radius:50%;flex:none}
+.hlt-ok{background:#3BAD6C;box-shadow:0 0 0 3px color-mix(in srgb,#3BAD6C 25%,transparent)}
+.hlt-warn{background:#D9A62E;box-shadow:0 0 0 3px color-mix(in srgb,#D9A62E 25%,transparent)}
+.hlt-bad{background:#D6544A;box-shadow:0 0 0 3px color-mix(in srgb,#D6544A 25%,transparent);animation:aipPulse 1.4s infinite}
+.fpl-div{border-color:color-mix(in srgb,var(--amber) 60%,var(--line))}.fpl-div b{color:var(--amber)}
+.toast.fal-div{border-color:var(--amber)}.toast.fal-div .tt{color:var(--amber)}
