@@ -422,23 +422,66 @@ def fetch_inst_day(d):
     for r in j["data"]:
         day[str(r[i_id]).strip()] = [sh2lot(numf(r[i_f])), sh2lot(numf(r[i_t])),
                                      sh2lot(numf(r[i_g])) if i_g is not None else 0]
-    try:
-        j2 = get_json("https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade",
-                      {"type": "Daily", "sect": "EW",
-                       "date": d.strftime("%Y/%m/%d"), "response": "json"})
-        for tb in j2.get("tables", []):
-            flds2 = tb.get("fields", [])
-            i2_id = _pick(flds2, "代號")
-            i2_f  = _pick(flds2, "外資", "買賣超")
-            i2_t  = _pick(flds2, "投信", "買賣超")
-            i2_g  = _pick(flds2, "自營", "買賣超")
-            if None in (i2_id, i2_f, i2_t): continue
-            for r in tb.get("data", []):
-                day[str(r[i2_id]).strip()] = [sh2lot(numf(r[i2_f])), sh2lot(numf(r[i2_t])),
-                                              sh2lot(numf(r[i2_g])) if i2_g is not None else 0]
-    except Exception as e2:
-        print(f"  [warn] 櫃買法人 {ds}: {e2}")
+    otc = _tpex_inst_day(d)
+    if otc:
+        day.update(otc)
+    else:
+        print(f"  [warn] 櫃買法人 {ds}:三個來源都沒拿到(上櫃當日法人缺)")
     return day
+
+
+def _tpex_inst_day(d):
+    """r705 上櫃三大法人買賣超(張):新站 dailyTrade → 參數變體 → 舊站 3itrade_hedge(固定欄位+加總自我驗證)。
+    r704 稽核發現:上櫃 880 檔只有 2 檔有法人資料——新站來源長期靜默失敗,籌碼分整個櫃買都是中性,
+    外資連買掃描等策略等於漏掉上櫃。回傳 {sid:[外資,投信,自營]};全失敗回 {}。"""
+    def sh2lot(x): return int(round((x or 0) / 1000))
+    # 來源 A/B:新站 JSON(參數兩種變體都試)
+    for params in ({"type": "Daily", "sect": "EW", "date": d.strftime("%Y/%m/%d"), "response": "json"},
+                   {"type": "Daily", "sect": "AL", "date": d.strftime("%Y/%m/%d"), "response": "json"}):
+        try:
+            j2 = get_json("https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade", params, timeout=40)
+            out = {}
+            for tb in (j2.get("tables") or []) if isinstance(j2, dict) else []:
+                flds2 = tb.get("fields") or []
+                i2_id = _pick(flds2, "代號")
+                i2_f = _pick(flds2, "外資", "買賣超")
+                i2_t = _pick(flds2, "投信", "買賣超")
+                i2_g = _pick(flds2, "自營", "買賣超")
+                if None in (i2_id, i2_f, i2_t): continue
+                for r in tb.get("data", []):
+                    sid = str(r[i2_id]).strip().upper()
+                    if not (2 <= len(sid) <= 6): continue
+                    out[sid] = [sh2lot(numf(r[i2_f])), sh2lot(numf(r[i2_t])),
+                                sh2lot(numf(r[i2_g])) if i2_g is not None else 0]
+            if len(out) >= 100:
+                return out
+        except Exception:
+            pass
+    # 來源 C:舊站 3itrade_hedge(無欄位名 → 用固定欄位 + 「外資+投信+自營 ≈ 三大法人合計」抽樣驗證,對不上就放棄)
+    try:
+        roc = f"{d.year-1911}/{d.month:02d}/{d.day:02d}"
+        j3 = get_json("https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php",
+                      {"l": "zh-tw", "se": "EW", "t": "D", "d": roc, "o": "json"}, timeout=40)
+        rows = (j3.get("aaData") or j3.get("data") or []) if isinstance(j3, dict) else []
+        out = {}
+        ok_chk = bad_chk = 0
+        for r in rows:
+            if not isinstance(r, (list, tuple)) or len(r) < 24: continue
+            sid = str(r[0]).strip().upper()
+            if not (2 <= len(sid) <= 6): continue
+            f2, t2, g2, tot = numf(r[10]), numf(r[13]), numf(r[22]), numf(r[23])
+            if None in (f2, t2, g2): continue
+            if tot is not None:
+                (ok_chk, bad_chk) = (ok_chk + 1, bad_chk) if abs((f2 + t2 + g2) - tot) <= max(2000, abs(tot) * 0.02)                     else (ok_chk, bad_chk + 1)
+            out[sid] = [sh2lot(f2), sh2lot(t2), sh2lot(g2)]
+        if len(out) >= 100 and ok_chk >= bad_chk * 3:
+            print(f"  櫃買法人 {d:%Y%m%d}:舊站備援 {len(out)} 檔(驗證 {ok_chk}✓/{bad_chk}✗)")
+            return out
+        if out:
+            print(f"  [warn] 櫃買法人 {d:%Y%m%d}:舊站欄位驗證失敗({ok_chk}✓/{bad_chk}✗)→ 棄用")
+    except Exception:
+        pass
+    return {}
 
 def fetch_mkt_day(d):
     """大盤三大法人買賣超金額(億,集中市場 BFI82U)。回傳 [外資,投信,自營] 或 None。"""
@@ -457,6 +500,46 @@ def fetch_mkt_day(d):
     except Exception as e:
         print(f"  [warn] BFI82U {ds}: {e}")
         return None
+
+def backfill_otc_inst(chips, comps, per_run=10, depth=90):
+    """r705:上櫃法人史回補。update_chip_hist 的 have 以「全市場 3 成有資料」判定,
+    上市把日期都填成「已有」→ 上櫃整段缺漏永遠不會被重抓。這裡專看上櫃覆蓋率:
+    近 depth 個交易日中,上櫃覆蓋 <30% 的日子由新到舊每輪補 per_run 天,兩三天磨完 90 日。"""
+    otc_ids = [c["id"] for c in comps if c.get("ex") == "otc" and not c.get("etf")]
+    if not otc_ids: return
+    ref = None                                     # 交易日曆:拿一檔上市資料最深的當基準
+    for sid in ("2330", "2317", "2412", "2454"):
+        if (chips.get(sid) or {}).get("d"): ref = chips[sid]["d"]; break
+    if not ref: return
+    days = ref[-depth:]
+    cov = {}
+    sample = otc_ids if len(otc_ids) <= 300 else otc_ids[::max(1, len(otc_ids)//300)]
+    dset = {sid: set((chips.get(sid) or {}).get("d") or []) for sid in sample}
+    for dd in days:
+        cov[dd] = sum(1 for sid in sample if dd in dset[sid]) / len(sample)
+    want = [dd for dd in reversed(days) if cov[dd] < 0.3][:per_run]
+    if not want:
+        return
+    print(f"  上櫃法人回補:近 {depth} 日缺 {sum(1 for v in cov.values() if v < 0.3)} 天,本輪補 {len(want)} 天")
+    got = {}
+    for dd in want:
+        rows = _tpex_inst_day(dt.date.fromisoformat(dd))
+        time.sleep(1.0)
+        if rows: got[dd] = rows
+    if not got: return
+    n_fix = 0
+    for sid in otc_ids:
+        add = {dd: rows[sid] for dd, rows in got.items() if sid in rows}
+        if not add: continue
+        e = chips.setdefault(sid, {})
+        g_old = e.get("g") or [0] * len(e.get("d", []))
+        m = {dd: [e["f"][i], e["t"][i], g_old[i]] for i, dd in enumerate(e.get("d", []))}
+        m.update(add)
+        ks = sorted(m)[-CHIP_DAYS:]
+        e["d"] = ks; e["f"] = [m[k][0] for k in ks]; e["t"] = [m[k][1] for k in ks]; e["g"] = [m[k][2] for k in ks]
+        n_fix += 1
+    print(f"  上櫃法人回補:寫入 {len(got)} 天 × {n_fix} 檔")
+
 
 def update_chip_hist(chips, meta):
     """回補/續抓法人逐日資料,累積至 CHIP_DAYS 個交易日。同步累積大盤法人買賣金額(meta['mkt'])。"""
@@ -1319,29 +1402,99 @@ def fill_tw_daily_official(hist, comps):
     print(f"  官方日行情續寫:{fixed} 檔(交易日 {day}{f'、新開檔 {born}' if born else ''})")
 
 # ═══════════════ 美股價格(批次)═══════════════
+def _stooq_hist(sym, host):
+    """Stooq 日K CSV → {"d":[],"o":[]} 或 None。"""
+    d1 = (TODAY - dt.timedelta(days=380)).strftime("%Y%m%d")
+    df = pd.read_csv(StringIO(requests.get(
+        f"https://{host}/q/d/l/?s={sym.lower()}.us&d1={d1}&d2={TODAY:%Y%m%d}&i=d",
+        headers=UA, timeout=20).text))
+    if "Close" not in df.columns or len(df) < 15:
+        return None
+    e = {"d": [], "o": []}
+    for _, r in df.tail(KEEP_BARS).iterrows():
+        e["d"].append(str(r["Date"])[:10])
+        e["o"].append([round(float(r["Open"]), 2), round(float(r["High"]), 2),
+                       round(float(r["Low"]), 2), round(float(r["Close"]), 2),
+                       int(r.get("Volume") or 0)])
+    return e
+
+
+def _yahoo_chart_hist(sym):
+    """Yahoo v8 chart 日K(僅美股最後備援;台股維持零 Yahoo)→ {"d":[],"o":[]} 或 None。"""
+    j = get_json(f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}",
+                 {"range": "1y", "interval": "1d", "includeAdjustedClose": "false"}, timeout=25)
+    try:
+        r0 = j["chart"]["result"][0]
+        ts = r0.get("timestamp") or []
+        q = r0["indicators"]["quote"][0]
+        e = {"d": [], "o": []}
+        for i, t in enumerate(ts):
+            c2 = q["close"][i]
+            if c2 is None: continue
+            d2 = dt.datetime.utcfromtimestamp(t - 5 * 3600).date().isoformat()   # 收盤日以美東近似
+            o2 = q["open"][i] or c2; h2 = q["high"][i] or max(o2, c2); l2 = q["low"][i] or min(o2, c2)
+            e["d"].append(d2)
+            e["o"].append([round(float(o2), 2), round(float(h2), 2), round(float(l2), 2),
+                           round(float(c2), 2), int(q["volume"][i] or 0)])
+        return e if len(e["d"]) >= 15 else None
+    except Exception:
+        return None
+
+
 def update_us_prices(hist, us_comps):
-    """美股日K:Stooq(免金鑰 CSV),全面取代 Yahoo。"""
-    ok = 0
-    for c in us_comps:
+    """r705 美股日K:增量制(K 已到最近交易日的直接略過)+ 三段備援:
+    stooq.com → stooq.pl 鏡像 → Yahoo v8 chart(僅美股、預設由 US_YAHOO_FALLBACK 控制,台股維持零 Yahoo)。
+    r704 稽核發現:美股 537 檔全部停在 08-17——Stooq 封鎖 GitHub IP 後沒有任何備援,K 線悄悄停更八個交易日。
+    每輪最多處理 US_MAX_PER_RUN 檔(預設 250),其餘下一班接力;連續失敗會自動換源,不再整輪空轉。"""
+    yah_ok = os.environ.get("US_YAHOO_FALLBACK", "1") == "1"
+    cap = int(os.environ.get("US_MAX_PER_RUN", "250") or 250)
+    # 最近一個「應該要有」的美股交易日(美東,今天的 K 常要台北早上才齊,寬限 1 天)
+    exp = TODAY - dt.timedelta(days=1)
+    while exp.weekday() >= 5: exp -= dt.timedelta(days=1)
+    stale = [c for c in us_comps
+             if ((hist.get(c["id"]) or {}).get("d") or ["0000"])[-1] < exp.isoformat()]
+    fresh = len(us_comps) - len(stale)
+    if not stale:
+        print(f"  美股價格:{fresh} 檔皆為最新({exp}),免抓"); return
+    stale = stale[:cap]
+    hi = 0                                         # 0=stooq.com 起手;連續失敗 15 檔後永久切 stooq.pl
+    fails = 0
+    n1 = n2 = n3 = 0
+    for c in stale:
         sym = c["id"]
-        try:
-            d1 = (TODAY - dt.timedelta(days=230)).strftime("%Y%m%d")
-            df = pd.read_csv(StringIO(requests.get(
-                f"https://stooq.com/q/d/l/?s={sym.lower()}.us&d1={d1}&d2={TODAY:%Y%m%d}&i=d",
-                headers=UA, timeout=20).text))
-            if "Close" not in df.columns or len(df) < 20:
-                continue
-            e = {"d": [], "o": []}
-            for _, r in df.tail(KEEP_BARS).iterrows():
-                e["d"].append(str(r["Date"])[:10])
-                e["o"].append([round(float(r["Open"]),2), round(float(r["High"]),2),
-                               round(float(r["Low"]),2), round(float(r["Close"]),2),
-                               int(r.get("Volume") or 0)])
-            hist[sym] = e; ok += 1
-        except Exception:
-            pass
-        time.sleep(0.6)
-    print(f"  美股價格(Stooq):{ok}/{len(us_comps)} 檔")
+        e = None; src = None
+        for host in (["stooq.com", "stooq.pl"][hi:]):   # 每檔級聯:主源 →(還在主源時)鏡像
+            try:
+                e = _stooq_hist(sym, host)
+            except Exception:
+                e = None
+            if e is not None:
+                src = host; break
+        if e is None and yah_ok:
+            try:
+                e = _yahoo_chart_hist(sym)
+            except Exception:
+                e = None
+            if e is not None: src = "yahoo"
+        if src == "stooq.com":
+            n1 += 1; fails = 0
+        else:
+            fails += 1
+            if hi == 0 and fails >= 15:
+                hi = 1; print("  [note] stooq.com 連續 15 檔失敗 → 之後直接走 stooq.pl 鏡像")
+            if src == "stooq.pl": n2 += 1
+            elif src == "yahoo": n3 += 1
+        if e is not None:
+            old = hist.get(sym) or {"d": [], "o": []}
+            if not old["d"] or e["d"][-1] >= old["d"][-1]:
+                m = dict(zip(old["d"], old["o"])); m.update(dict(zip(e["d"], e["o"])))
+                ks = sorted(m)[-KEEP_BARS:]
+                hist[sym] = {"d": ks, "o": [m[k] for k in ks]}
+        time.sleep(0.35)
+    done = n1 + n2 + n3
+    print(f"  美股價格:更新 {done}/{len(stale)} 檔(stooq {n1}、鏡像 {n2}、Yahoo備援 {n3};最新免抓 {fresh};應到 {exp})")
+    if done == 0:
+        print("  [warn] 美股三個來源全數失敗——K 線將持續停更,請檢查來源封鎖狀況")
 
 def fetch_rev_mops_live():
     """MOPS 當月即時彙總:公司 1~10 日陸續申報,申報當天此頁就有(上市+上櫃)。"""
@@ -3600,6 +3753,10 @@ def main():
     rev_bulk = fetch_rev_bulk()
     chips, cmeta = load_chips()
     update_chip_hist(chips, cmeta)          # 法人逐日,累積至 65 個交易日
+    try:
+        backfill_otc_inst(chips, comps)     # r705:上櫃法人史專屬回補(來源修好後把過去 90 日磨回來)
+    except Exception as e:
+        print(f"  [warn] 上櫃法人回補: {e}")
     tdcc, tdcc_date = fetch_tdcc_bulk()
     append_tdcc(chips, tdcc, tdcc_date)     # 大戶逐週,保留 26 週
     seed_tdcc_history(chips)                # 由 tdcc.json 整段回灌大戶週歷史(分片歸零後可立即恢復)
