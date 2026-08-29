@@ -42,6 +42,7 @@ jobs:
           PYTHONUNBUFFERED: "1"                          # log 即時輸出,不再看起來像卡住
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}      # 美股指數官方源(fetch_macro)
           FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}    # 可選;未設定則走免token額度
+          US_YAHOO_FALLBACK: "1"                         # r705:美股日K最後備援(僅美股;設 0 可關,台股維持零 Yahoo)
         run: python update_data.py
 
       - name: 盤中報價與分時快照(spark)
