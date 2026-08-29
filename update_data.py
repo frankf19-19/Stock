@@ -430,11 +430,68 @@ def fetch_inst_day(d):
     return day
 
 
+def _finmind_inst_day(d):
+    """r706 FinMind 全市場單日法人(免費層 date-only 查詢;歷史回補的最後備援)。
+    回傳 {sid:[外資,投信,自營](張)};失敗回 {}。"""
+    try:
+        params = {"dataset": "TaiwanStockInstitutionalInvestorsBuySell",
+                  "start_date": d.isoformat(), "end_date": d.isoformat()}
+        tok = os.environ.get("FINMIND_TOKEN", "")
+        if tok: params["token"] = tok
+        j = get_json("https://api.finmindtrade.com/api/v4/data", params=params, timeout=60)
+        rows = j.get("data") if isinstance(j, dict) else None
+        if not rows: return {}
+        agg = {}
+        for r in rows:
+            sid = str(r.get("stock_id", "")).strip().upper()
+            if not (2 <= len(sid) <= 6): continue
+            nm = str(r.get("name", ""))
+            net = (r.get("buy") or 0) - (r.get("sell") or 0)
+            a = agg.setdefault(sid, [0.0, 0.0, 0.0])
+            if nm in ("Foreign_Investor", "Foreign_Dealer_Self"): a[0] += net
+            elif nm == "Investment_Trust": a[1] += net
+            elif nm in ("Dealer_self", "Dealer_Hedging"): a[2] += net
+        out = {sid: [int(round(v[0] / 1000)), int(round(v[1] / 1000)), int(round(v[2] / 1000))]
+               for sid, v in agg.items()}
+        if len(out) >= 100:
+            print(f"  法人 {d:%Y%m%d}:FinMind 備援 {len(out)} 檔(全市場)")
+            return out
+        return {}
+    except Exception:
+        return {}
+
+
 def _tpex_inst_day(d):
-    """r705 上櫃三大法人買賣超(張):新站 dailyTrade → 參數變體 → 舊站 3itrade_hedge(固定欄位+加總自我驗證)。
+    """r706 上櫃三大法人買賣超(張):openapi 3insti_daily_trading(僅最新交易日,以 Date 欄驗證)
+    → 新站 dailyTrade → 舊站 3itrade_hedge(固定欄位+加總自我驗證)→ FinMind(歷史回補備援)。
+    r705 稽核(#546 log)發現:tpex 的 www/web 網頁端點在 GitHub IP 全被擋,但 /openapi/v1/ 可通
+    (同一班「官方日行情(上櫃)」成功抓了 6100 檔)——所以當日資料改走 openapi,歷史用 FinMind。
     r704 稽核發現:上櫃 880 檔只有 2 檔有法人資料——新站來源長期靜默失敗,籌碼分整個櫃買都是中性,
     外資連買掃描等策略等於漏掉上櫃。回傳 {sid:[外資,投信,自營]};全失敗回 {}。"""
     def sh2lot(x): return int(round((x or 0) / 1000))
+    # 來源 0:openapi(只回最新交易日 → 以 Date(民國) 欄位驗證是不是要的那天,不是就跳過)
+    try:
+        roc_d = f"{d.year - 1911}{d.month:02d}{d.day:02d}"
+        arr = get_json("https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading", timeout=50)
+        if isinstance(arr, list) and arr:
+            norm = lambda k: "".join(str(k).lower().split())
+            k0 = {norm(k): k for k in arr[0].keys()}
+            kid = k0.get("securitiescompanycode"); kdt = k0.get("date")
+            kf = next((v for n, v in k0.items() if n.startswith("foreigninvestorsincludemainlandareainvestors-difference")), None)
+            kt = next((v for n, v in k0.items() if n.startswith("securitiesinvestmenttrustcompanies-difference")), None)
+            kg = next((v for n, v in k0.items() if n == "dealers-difference"), None)
+            if kid and kdt and kf and kt and str(arr[0].get(kdt, "")).strip() == roc_d:
+                out = {}
+                for r in arr:
+                    sid = str(r.get(kid, "")).strip().upper()
+                    if not (2 <= len(sid) <= 6): continue
+                    f2 = numf(r.get(kf)); t2 = numf(r.get(kt)); g2 = numf(r.get(kg)) if kg else None
+                    out[sid] = [sh2lot(f2 or 0), sh2lot(t2 or 0), sh2lot(g2 or 0)]
+                if len(out) >= 100:
+                    print(f"  櫃買法人 {d:%Y%m%d}:openapi {len(out)} 檔")
+                    return out
+    except Exception:
+        pass
     # 來源 A/B:新站 JSON(參數兩種變體都試)
     for params in ({"type": "Daily", "sect": "EW", "date": d.strftime("%Y/%m/%d"), "response": "json"},
                    {"type": "Daily", "sect": "AL", "date": d.strftime("%Y/%m/%d"), "response": "json"}):
@@ -481,7 +538,8 @@ def _tpex_inst_day(d):
             print(f"  [warn] 櫃買法人 {d:%Y%m%d}:舊站欄位驗證失敗({ok_chk}✓/{bad_chk}✗)→ 棄用")
     except Exception:
         pass
-    return {}
+    # 來源 D:FinMind(歷史日期唯一可靠的備援;openapi 只有最新一天)
+    return _finmind_inst_day(d)
 
 def fetch_mkt_day(d):
     """大盤三大法人買賣超金額(億,集中市場 BFI82U)。回傳 [外資,投信,自營] 或 None。"""
