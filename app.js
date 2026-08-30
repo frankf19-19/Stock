@@ -1,4 +1,4 @@
-/* K研所 · build r718 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r719 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1122,7 +1122,7 @@ async function refreshFutCards(){
   }
 }
 setTimeout(refreshFutCards,4000);
-setInterval(refreshFutCards,60000);
+setInterval(()=>{if(!uiBusy())refreshFutCards();},60000);   // r719:防跳動
 /* 美股大盤即時動態(直連 Yahoo,60秒;收盤時顯示最後收盤) */
 const US_LIVE=[['^GSPC','gspc','S&P 500'],['^IXIC','ixic','那斯達克'],['^SOX','sox','費城半導體'],['^DJI','dji','道瓊工業']];
 async function refreshUS(){
@@ -1142,7 +1142,7 @@ async function refreshUS(){
   }
 }
 setTimeout(refreshUS,6000);
-setInterval(refreshUS,60000);
+setInterval(()=>{if(!uiBusy())refreshUS();},60000);   // r719:防跳動
 /* 匯率即時化:Yahoo FX 直連(er-api 免費版一天一值,僅作開站底圖) */
 async function refreshFX(){
   if(!window.DATA||!DATA.macro){return;}   // 🛡️ DATA 尚未載入(boot 未完成)→ 跳過,避免 null.macro 爆掉中斷渲染
@@ -1167,7 +1167,7 @@ async function refreshFX(){
   if(!location.hash)renderMacro();
 }
 setTimeout(refreshFX,5000);
-setInterval(refreshFX,60000);
+setInterval(()=>{if(!uiBusy())refreshFX();},60000);   // r719:防跳動
 /* ⚡ 秒級即時層(選用):Finnhub 免費金鑰(finnhub.io,免綁卡)——API 原生 CORS,瀏覽器直連。
    以「真追蹤該指數的旗艦ETF」即時價換算指數點位:SPY→S&P500、ONEQ→那斯達克綜合、
    DIA→道瓊、SOXQ→費半(PHLX SOX)。金鑰只存本機 localStorage,絕不進 repo。 */
@@ -1311,7 +1311,7 @@ async function refreshCardPct(){
   });
 }
 setTimeout(()=>{try{refreshCardPct();}catch(e){}},2600);
-setInterval(()=>{try{refreshCardPct();}catch(e){}},60000);
+setInterval(()=>{try{if(!uiBusy())refreshCardPct();}catch(e){}},60000);   // r719:防跳動
 function ownCmdQuote(domId,ysym){       // 🧱 無免費 TV 嵌入源的商品(鋁):自家後端報價卡
   const box=document.getElementById(domId);
   if(!box)return;
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r718</span>');
+  diag.push('<span style="color:var(--dim)">build r719</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -9325,7 +9325,10 @@ function rtPx(m){
   return null;                         // 無成交:保留上一筆真實價,等下一次撮合
 }
 /* 捲動位置保持:資料重繪不打斷閱讀 */
+function uiBusy(){return Date.now()-(window.__lastAct||0)<3500;}   // r719:使用者互動中(滾動/觸控/按鍵 3.5 秒內)
+['scroll','wheel','touchstart','pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{window.__lastAct=Date.now();},{passive:true,capture:true}));
 function keepScroll(fn){
+  if(uiBusy()){clearTimeout(window.__ksT);window.__ksT=setTimeout(()=>keepScroll(fn),3600);return;}   // r719:互動中排隊延後,不在你眼前重繪
   if(window.__navScrollTs&&Date.now()-window.__navScrollTs<8000){try{fn();}catch(e){}return;}
   const y=window.scrollY,x=window.scrollX;
   try{fn();}finally{
@@ -19814,7 +19817,8 @@ function renderSecNav(){
     if(bar.dataset.falN!==String(n)){bar.dataset.falN=String(n);
       if(!open&&Number(bar.dataset.falSeenN||0)<n){bar.classList.add('fal-open');}
       bar.dataset.falSeenN=String(n);}
-    head.innerHTML=`<b>⭐ 最愛提醒 <span class="fal-n">${n}</span> 則</b><span class="fal-peek">${bar.classList.contains('fal-open')?'':firstTxt+'…'}</span><span class="fal-arr">${bar.classList.contains('fal-open')?'▴':'▾'}</span>`;
+    const __h=`<b>⭐ 最愛提醒 <span class="fal-n">${n}</span> 則</b><span class="fal-peek">${bar.classList.contains('fal-open')?'':firstTxt+'…'}</span><span class="fal-arr">${bar.classList.contains('fal-open')?'▴':'▾'}</span>`;
+    if(head.innerHTML!==__h)head.innerHTML=__h;   // r719:沒變就不動 DOM
   };
   const _r=window.renderFavAlertBarInto;
   if(typeof _r==='function'){window.renderFavAlertBarInto=function(bar){_r(bar);try{wrap();}catch(e){}};}
