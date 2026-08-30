@@ -1,4 +1,4 @@
-/* K研所 · build r730 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r731 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r730</span>');
+  diag.push('<span style="color:var(--dim)">build r731</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19784,10 +19784,10 @@ function renderHero(){
 }
 function renderSecNav(){
   const nav=document.getElementById('secNav');if(!nav)return;
-  const t0=[...document.querySelectorAll('.sec-title[data-sec]')].find(t=>t.offsetParent!==null);   // r730:直接用第一個可見標題的父容器,不再依賴 .tabPane 選擇器
-  const pane=t0?t0.parentElement:null;
-  if(!pane){nav.innerHTML='';return;}
-  const items=[...pane.querySelectorAll(':scope > .sec-title')].map(t=>{
+  const vis=[...document.querySelectorAll('.sec-title[data-sec]')].filter(t=>t.offsetParent!==null);   // r731:區塊標題散落在不同容器,改用「全部可見標題」為準
+  const pane=vis.length?vis[0].parentElement:null;
+  if(!vis.length){nav.innerHTML='';return;}
+  const items=vis.map(t=>{
     const label=(t.childNodes[0]&&t.childNodes[0].textContent||t.textContent).trim().slice(0,14);
     return {sec:t.dataset.sec,label};}).filter(x=>x.sec&&x.label);
   if(items.length<2){nav.innerHTML='';return;}
@@ -19808,7 +19808,8 @@ function renderSecNav(){
   const fold=nav.querySelector('#navFold');
   if(fold)fold.onclick=()=>{
     let sv={};try{sv=JSON.parse(localStorage.getItem('secState')||'{}');}catch(e){}
-    pane.querySelectorAll(':scope > .sec-title[data-sec]').forEach(t=>{
+    document.querySelectorAll('.sec-title[data-sec]').forEach(t=>{
+      if(t.offsetParent===null)return;
       const b=document.getElementById('sb-'+t.dataset.sec);
       if(b){b.style.display='none';t.classList.add('sec-closed');sv[t.dataset.sec]=true;}});
     try{localStorage.setItem('secState',JSON.stringify(sv));}catch(e){}
@@ -19906,23 +19907,24 @@ function secDragBind(pane,t){   // r729:滑鼠/觸控長按拖曳排序(pointer 
 }
 function toggleSortMode(pane,on){
   document.body.classList.toggle('sortmode',on);
-  pane.querySelectorAll(':scope > .sec-title[data-sec]').forEach(t=>{
+  [...document.querySelectorAll('.sec-title[data-sec]')].filter(t=>t.offsetParent!==null||!on).forEach(t=>{
+    const pn=t.parentElement;   // r731:各標題以自己的父容器為排序範圍
     let h=t.querySelector('.sec-mv');
     if(on&&!h){h=document.createElement('span');h.className='sec-mv';
       h.innerHTML='<b data-mv="up">↑</b><b data-mv="dn">↓</b>';
       h.onclick=e=>{e.stopPropagation();const d=e.target.dataset.mv;if(!d)return;
         const b=document.getElementById('sb-'+t.dataset.sec);
-        const sibs=[...pane.querySelectorAll(':scope > .sec-title[data-sec]')];
+        const sibs=[...pn.querySelectorAll(':scope > .sec-title[data-sec]')];
         const i=sibs.indexOf(t);const j=d==='up'?i-1:i+1;
         if(j<0||j>=sibs.length)return;
-        if(d==='up'){pane.insertBefore(t,sibs[j]);if(b)pane.insertBefore(b,t.nextSibling);}
+        if(d==='up'){pn.insertBefore(t,sibs[j]);if(b)pn.insertBefore(b,t.nextSibling);}
         else{const nb=document.getElementById('sb-'+sibs[j].dataset.sec);
-          pane.insertBefore(t,(nb||sibs[j]).nextSibling);if(b)pane.insertBefore(b,t.nextSibling);}
-        secOrderSet(paneKey(pane),curOrder(pane));
+          pn.insertBefore(t,(nb||sibs[j]).nextSibling);if(b)pn.insertBefore(b,t.nextSibling);}
+        secOrderSet(paneKey(pn),curOrder(pn));
         try{renderSecNav();}catch(x){}};
       t.appendChild(h);}
     else if(!on&&h)h.remove();
-    if(on)secDragBind(pane,t);});   // r729:綁定拖曳
+    if(on)secDragBind(pn,t);});   // r729:綁定拖曳
 }
 (function macroTopGate(){   // r722:一次到位揭示——頂部警訊/懶人包在資料穩定前完全零高度,穩定後(或 3 秒上限)一次全部顯示,只發生一次版面變化
   const ids=['macroAlerts','tldrBox'];
