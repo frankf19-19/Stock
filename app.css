@@ -1507,3 +1507,7 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 .fal-bar:not(.fal-open)>:not(.fal-head){display:none!important}
 .fal-bar:not(.fal-open){padding-bottom:2px}
 @media(max-width:640px){.hero-r{margin-left:0}.hero-q b{font-size:15px}}
+
+/* r712:熱力圖季節性小計 */
+.mkh-sumrow th{border-top:2px solid var(--line)!important;color:var(--amber)!important}
+.mkh-c.mkh-sum{border-top:2px solid var(--line);background:var(--panel2);font-size:12.5px}

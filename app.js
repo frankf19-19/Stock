@@ -1,4 +1,4 @@
-/* K研所 · build r710 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r712 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r710</span>');
+  diag.push('<span style="color:var(--dim)">build r712</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19732,7 +19732,20 @@ function mkhHeatHtml(){
       for(let m=1;m<=12;m++){const v=ret[y][m];if(v!=null){acc*=(1+v/100);anyv=true;}}
       const yv=anyv?(acc-1)*100:null;
       return `<tr><th>${y}</th>${Array.from({length:12},(_,i)=>cell(ret[y][i+1])).join('')}${yv==null?'<td class="mkh-c mkh-na"></td>':`<td class="mkh-c mkh-yr" style="color:${yv>=0?up:dn}">${yv>0?'+':''}${yv.toFixed(1)}</td>`}</tr>`;
-    }).join('')}</tbody></table></div>`;
+    }).join('')}</tbody><tfoot>${(()=>{   // r712:季節性小計——歷年平均漲跌% + 上漲機率
+      const avg=[],win=[];
+      for(let mm=1;mm<=12;mm++){
+        const vs=years.map(y=>ret[y][mm]).filter(v=>v!=null);
+        avg.push(vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null);
+        win.push(vs.length?[vs.filter(v=>v>0).length,vs.length]:null);
+      }
+      const ac=v=>v==null?'<td class="mkh-c mkh-na"></td>':`<td class="mkh-c mkh-sum" style="color:${v>=0?up:dn}">${v>0?'+':''}${v.toFixed(1)}</td>`;
+      const wc=w=>w==null?'<td class="mkh-c mkh-na"></td>':`<td class="mkh-c mkh-sum" style="color:${w[0]/w[1]>=0.5?up:dn}">${Math.round(w[0]/w[1]*100)}%</td>`;
+      const ya=years.map(y=>{let a=1,ok=false;for(let mm=1;mm<=12;mm++){const v=ret[y][mm];if(v!=null){a*=(1+v/100);ok=true;}}return ok?(a-1)*100:null;}).filter(v=>v!=null);
+      const yavg=ya.length?ya.reduce((a,b)=>a+b,0)/ya.length:null;
+      return `<tr class="mkh-sumrow"><th>平均</th>${avg.map(ac).join('')}${ac(yavg)}</tr>`+
+             `<tr class="mkh-sumrow"><th>上漲率</th>${win.map(wc).join('')}<td class="mkh-c mkh-na"></td></tr>`;
+    })()}</tfoot></table></div>`;
 }
 lazyRun('#mkHistBox',()=>{try{renderMkHist();}catch(e){}},10*60*1000);
 document.addEventListener('click',e=>{
