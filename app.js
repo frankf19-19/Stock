@@ -1,4 +1,4 @@
-/* K研所 · build r709 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r710 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r709</span>');
+  diag.push('<span style="color:var(--dim)">build r710</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19740,3 +19740,71 @@ document.addEventListener('click',e=>{
   if(t)setTimeout(()=>{try{if(MKH.chart)MKH.chart.resize();else renderMkHist();}catch(x){}},80);   // 收合展開後補 resize(ECharts 寬 0 問題)
 });
 window.addEventListener('resize',()=>{try{if(MKH.chart)MKH.chart.resize();}catch(e){}});
+
+/* ══ r710:首頁大整理——今日總覽 Hero + 提醒列收合 + 區塊快速導覽 ══ */
+function renderHero(){
+  const el=document.getElementById('heroStrip');if(!el)return;
+  const m=(window.DATA&&DATA.macro)||{};
+  const pick=n=>((m.idx||[]).find(i=>i.name===n));
+  const q=(n,short)=>{const i=pick(n);if(!i)return '';
+    const up=i.chg>=0;return `<span class="hero-q"><em>${short}</em><b class="${up?'pos':'neg'}">${Number(i.val).toLocaleString()}</b><i class="${up?'pos':'neg'}">${up?'▲':'▼'}${Math.abs(i.chg)}%</i></span>`;};
+  const wk=(window.AIPK&&AIPK.weeks)?AIPK.weeks.filter(w=>!w.bt).slice(-1)[0]:null;
+  const picks=wk?wk.picks.map(p=>`<span class="hero-pick" data-go-stock="${p.id}">${p.name}</span>`).join(''):'';
+  const H=(window.DATA&&DATA.health);
+  let hst='ok';if(H){if(H.items.some(i=>i.st==='bad'))hst='bad';else if(H.items.some(i=>i.st==='warn'))hst='warn';}
+  el.innerHTML=`<div class="hero-card">
+    <div class="hero-l">${q('加權指數','加權')}${q('櫃買指數','櫃買')}${q('S&P 500','S&P')}${q('VIX 恐慌指數','VIX')}</div>
+    <div class="hero-r">${wk?`<span class="hero-tag">🤖 本週 AI Pick</span>${picks}`:''}
+      <span class="hero-hlt" id="heroHlt" title="資料健康度"><span class="hlt-dot hlt-${hst}"></span>資料</span></div>
+  </div>`;
+  const hh=document.getElementById('heroHlt');if(hh)hh.onclick=()=>{try{hltPanel();}catch(e){}};
+  el.querySelectorAll('[data-go-stock]').forEach(x=>x.onclick=()=>{
+    const t=document.querySelector('.sec-title[data-sec="aipick"]');if(t)t.scrollIntoView({behavior:'smooth',block:'start'});});
+}
+function renderSecNav(){
+  const nav=document.getElementById('secNav');if(!nav)return;
+  const pane=[...document.querySelectorAll('.tabPane')].find(p=>p.offsetParent!==null&&p.querySelector('.sec-title'));
+  if(!pane){nav.innerHTML='';return;}
+  const items=[...pane.querySelectorAll(':scope > .sec-title')].map(t=>{
+    const label=(t.childNodes[0]&&t.childNodes[0].textContent||t.textContent).trim().slice(0,14);
+    return {sec:t.dataset.sec,label};}).filter(x=>x.sec&&x.label);
+  if(items.length<2){nav.innerHTML='';return;}
+  nav.innerHTML=items.map(x=>`<span data-nav="${x.sec}">${x.label}</span>`).join('');
+  nav.querySelectorAll('[data-nav]').forEach(el=>el.onclick=()=>{
+    const t=document.querySelector(`.sec-title[data-sec="${el.dataset.nav}"]`);
+    if(t){t.scrollIntoView({behavior:'smooth',block:'start'});
+      nav.querySelectorAll('span').forEach(s=>s.classList.toggle('on',s===el));}});
+}
+(function(){  // ⭐ 提醒列收合:預設一行摘要,展開狀態記憶;有「新」提醒自動展開一次
+  const KEY='falOpen';
+  const wrap=()=>{
+    const bar=document.getElementById('favAlertBar');if(!bar||bar.hidden)return;
+    const items=bar.querySelectorAll('.fal-item, .fal-card, :scope > div:not(.fal-head)');
+    if(!items.length)return;
+    let head=bar.querySelector('.fal-head');
+    const n=items.length;
+    const first=items[0];const firstTxt=(first.textContent||'').trim().replace(/\s+/g,' ').slice(0,42);
+    if(!head){
+      head=document.createElement('div');head.className='fal-head';
+      bar.prepend(head);
+      head.onclick=e=>{if(e.target.closest('.fal-x'))return;
+        const open=!bar.classList.contains('fal-open');
+        bar.classList.toggle('fal-open',open);localStorage.setItem(KEY,open?'1':'0');
+        head.querySelector('.fal-arr').textContent=open?'▴':'▾';};
+    }
+    const open=localStorage.getItem(KEY)==='1';
+    bar.classList.toggle('fal-open',open);
+    if(bar.dataset.falN!==String(n)){bar.dataset.falN=String(n);
+      if(!open&&Number(bar.dataset.falSeenN||0)<n){bar.classList.add('fal-open');}
+      bar.dataset.falSeenN=String(n);}
+    head.innerHTML=`<b>⭐ 最愛提醒 <span class="fal-n">${n}</span> 則</b><span class="fal-peek">${bar.classList.contains('fal-open')?'':firstTxt+'…'}</span><span class="fal-arr">${bar.classList.contains('fal-open')?'▴':'▾'}</span>`;
+  };
+  const _r=window.renderFavAlertBarInto;
+  if(typeof _r==='function'){window.renderFavAlertBarInto=function(bar){_r(bar);try{wrap();}catch(e){}};}
+  setInterval(()=>{try{wrap();}catch(e){}},4000);
+})();
+lazyRun('#heroStrip',()=>{try{renderHero();renderSecNav();}catch(e){}},60*1000);
+document.addEventListener('click',e=>{
+  if(e.target.closest&&(e.target.closest('#homeTabs button')||e.target.closest('#gmktBar button')))
+    setTimeout(()=>{try{renderSecNav();}catch(x){}},120);
+});
