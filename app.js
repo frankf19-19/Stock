@@ -1,4 +1,4 @@
-/* K研所 · build r732 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r733 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r732</span>');
+  diag.push('<span style="color:var(--dim)">build r733</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19797,7 +19797,7 @@ function renderSecNav(){
   if(srt)srt.onclick=()=>{
     const on=!document.body.classList.contains('sortmode');
     toggleSortMode(pane,on);
-    srt.textContent=on?'✓ 完成排序':'⇅ 排序';
+    srt.textContent=on?'✓ 完成排序(ESC)':'⇅ 排序';
     srt.classList.toggle('on',on);
     if(on&&!nav.querySelector('#navReset')){
       const r=document.createElement('span');r.className='nav-fold';r.id='navReset';r.textContent='↺ 還原';
@@ -19905,6 +19905,15 @@ function secDragBind(pane,t){   // r729:滑鼠/觸控長按拖曳排序(pointer 
   t.addEventListener('pointerup',end);
   t.addEventListener('pointercancel',end);
 }
+function exitSortMode(){   // r733:ESC / 點外部 離開排序模式
+  if(!document.body.classList.contains('sortmode'))return;
+  const t0=[...document.querySelectorAll('.sec-title[data-sec]')].find(t=>t.offsetParent!==null);
+  if(t0)toggleSortMode(t0.parentElement,false);
+  const b=document.getElementById('navSort');
+  if(b){b.textContent='⇅ 排序';b.classList.remove('on');}
+  const r=document.getElementById('navReset');if(r)r.remove();
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')exitSortMode();});
 function toggleSortMode(pane,on){
   document.body.classList.toggle('sortmode',on);
   [...document.querySelectorAll('.sec-title[data-sec]')].filter(t=>t.offsetParent!==null||!on).forEach(t=>{
