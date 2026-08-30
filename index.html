@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r724">
+<link rel="stylesheet" href="app.css?v=r725">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -104,6 +104,37 @@
   <div class="mob-jump" id="macroJump"></div>
   <div class="alert-strip" id="macroAlerts" style="display:none"></div>
   <div class="idx-card" id="tldrBox" style="display:none;margin:10px 0 2px;cursor:default;border-left:4px solid var(--amber)"></div>
+  <div class="sec-title tap" data-sec="mk_idx" style="margin-top:12px">📈 大盤走勢與近期大事 <span style="font-weight:400;font-size:13px;letter-spacing:0">加權/櫃買即時走勢・行事曆</span></div><div class="sec-body" id="sb-mk_idx">
+  <div class="macro-grid">
+    <div class="chart-box" style="margin:0">
+      <div class="ind-head">
+        <h3 id="idxTitle" style="cursor:pointer" title="點我看詳細(K線・防守線・白話解讀)">加權指數 即時走勢(1分線)<span style="font-weight:400;font-size:12.5px;color:var(--dim)"> · 點標題看詳細 ›</span></h3>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="ind-seg" id="idxSeg">
+            <button data-x="tw" class="on">加權</button><button data-x="otc">櫃買</button><button data-x="sp">標普</button><button data-x="nq">那指</button>
+          </div>
+          <span class="c-code" id="idxStat">載入中…</span>
+        </div>
+      </div>
+      <div id="idxChart" style="height:252px"></div>
+      <div id="idxDefense"></div>
+      <div id="idxFlow"></div>
+      <div id="idxAnalysis"></div>
+      <div class="mini-cap" style="margin-top:12px">期貨籌碼(台指・盤後)</div>
+      <div class="idx-row compact" id="futRow"><div class="idx-card" data-mk="fut"><div class="nm">台指期籌碼 ›</div><div class="vl" style="font-size:14px;color:var(--dim)">每日更新後顯示,點我看說明</div></div></div>
+    </div>
+    <div class="macro-side">
+      <div class="mini-cap">指數</div>
+      <div class="idx-row compact" id="idxRow"></div>
+      <div class="mini-cap">匯率</div>
+      <div class="idx-row compact" id="fxRow"></div>
+    </div>
+  </div>
+  <div class="cal-mini" id="calBar" data-jumpname="📅 近期大事" hidden>
+    <div class="cal-mini-head"><b class="cm-tg" id="cmTg">📅 近期大事|數據・法說・結算</b><a href="#events">完整行事曆 →</a></div>
+    <div id="calTrack"></div>
+  </div>
+    </div>
   <div class="sec-title tap" data-sec="mk_temp" style="margin-top:12px">🌡️ 市場溫度 <span style="font-weight:400;font-size:13px;letter-spacing:0">情緒・量能・龍頭強弱・融資風險</span></div><div class="sec-body" id="sb-mk_temp">
   <div id="tempGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:10px;margin:10px 0 2px">
     <div class="idx-card" id="twFng" style="display:none"></div>
@@ -138,38 +169,7 @@
   <div class="idx-card" id="quadBox" style="cursor:default"><div class="dim-note">🗺️ 載入中…</div></div>
   </div>
   <div id="pickBox" style="display:none"></div>
-<div class="sec-title tap" data-sec="mk_idx" style="margin-top:12px">📈 大盤走勢與近期大事 <span style="font-weight:400;font-size:13px;letter-spacing:0">加權/櫃買即時走勢・行事曆</span></div><div class="sec-body" id="sb-mk_idx">
-  <div class="macro-grid">
-    <div class="chart-box" style="margin:0">
-      <div class="ind-head">
-        <h3 id="idxTitle" style="cursor:pointer" title="點我看詳細(K線・防守線・白話解讀)">加權指數 即時走勢(1分線)<span style="font-weight:400;font-size:12.5px;color:var(--dim)"> · 點標題看詳細 ›</span></h3>
-        <div style="display:flex;gap:10px;align-items:center">
-          <div class="ind-seg" id="idxSeg">
-            <button data-x="tw" class="on">加權</button><button data-x="otc">櫃買</button><button data-x="sp">標普</button><button data-x="nq">那指</button>
-          </div>
-          <span class="c-code" id="idxStat">載入中…</span>
-        </div>
-      </div>
-      <div id="idxChart" style="height:252px"></div>
-      <div id="idxDefense"></div>
-      <div id="idxFlow"></div>
-      <div id="idxAnalysis"></div>
-      <div class="mini-cap" style="margin-top:12px">期貨籌碼(台指・盤後)</div>
-      <div class="idx-row compact" id="futRow"><div class="idx-card" data-mk="fut"><div class="nm">台指期籌碼 ›</div><div class="vl" style="font-size:14px;color:var(--dim)">每日更新後顯示,點我看說明</div></div></div>
-    </div>
-    <div class="macro-side">
-      <div class="mini-cap">指數</div>
-      <div class="idx-row compact" id="idxRow"></div>
-      <div class="mini-cap">匯率</div>
-      <div class="idx-row compact" id="fxRow"></div>
-    </div>
-  </div>
-  <div class="cal-mini" id="calBar" data-jumpname="📅 近期大事" hidden>
-    <div class="cal-mini-head"><b class="cm-tg" id="cmTg">📅 近期大事|數據・法說・結算</b><a href="#events">完整行事曆 →</a></div>
-    <div id="calTrack"></div>
-  </div>
-    </div>
-  <div class="sec-title tap" data-sec="mk_hist" style="margin-top:12px">🌊 大盤長河|台股 × 美股 <span style="font-weight:400;font-size:13px;letter-spacing:0">近 6 年月線走勢比較・月度漲跌熱力圖(紅漲綠跌)</span></div><div class="sec-body" id="sb-mk_hist">
+<div class="sec-title tap" data-sec="mk_hist" style="margin-top:12px">🌊 大盤長河|台股 × 美股 <span style="font-weight:400;font-size:13px;letter-spacing:0">近 6 年月線走勢比較・月度漲跌熱力圖(紅漲綠跌)</span></div><div class="sec-body" id="sb-mk_hist">
   <div id="mkHistBox"></div>
   </div>
   <div class="sec-title tap" data-sec="glb" style="margin-top:18px">🌍 國際供應鏈雷達 <span style="font-weight:400;font-size:13px;letter-spacing:0">缺貨・漲價・擴產第一手外電,自動標註對應台股族群</span></div><div class="sec-body" id="sb-glb">
@@ -317,6 +317,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r724"></script>
+<script src="app.js?v=r725"></script>
 </body>
 </html>
