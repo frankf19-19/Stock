@@ -1539,3 +1539,6 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 #sb-mk_risk .idx-card{border-radius:14px;padding:14px 16px;transition:transform .15s ease,box-shadow .15s ease}
 #sb-mk_risk .idx-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
 #sb-mk_risk .idx-card>div:first-child{font-size:12.5px;color:var(--mut);letter-spacing:.02em}
+
+/* r727:全部收合鈕 */
+.secnav .nav-fold{margin-left:auto;color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,var(--line));font-weight:800}

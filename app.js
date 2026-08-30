@@ -1,4 +1,4 @@
-/* K研所 · build r726 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r727 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r726</span>');
+  diag.push('<span style="color:var(--dim)">build r727</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13059,7 +13059,8 @@ function setupSections(){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
     // 全站預設收合(2026-07-19 定案):除「總經環境」外一律先收合成乾淨目錄;點開看細項且偏好會記住
-    const closed=(key in saved)?!!saved[key]:(key==='aipick'?false:(mob||(key!=='macro'&&key!=='mk_earn')));   // r702:AI Pick 預設展開
+    const OPEN0=['macro','mk_idx'];   // r727:桌機預設只展開「總經環境 + 即時走勢」(法說會改預設收合),版面回到乾淨目錄
+    const closed=(key in saved)?!!saved[key]:(key==='aipick'?false:(mob||OPEN0.indexOf(key)<0));
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
     t.onclick=()=>{
@@ -19789,7 +19790,16 @@ function renderSecNav(){
     const label=(t.childNodes[0]&&t.childNodes[0].textContent||t.textContent).trim().slice(0,14);
     return {sec:t.dataset.sec,label};}).filter(x=>x.sec&&x.label);
   if(items.length<2){nav.innerHTML='';return;}
-  nav.innerHTML=items.map(x=>`<span data-nav="${x.sec}">${x.label}</span>`).join('');
+  nav.innerHTML=items.map(x=>`<span data-nav="${x.sec}">${x.label}</span>`).join('')+'<span class="nav-fold" id="navFold">⇧ 全部收合</span>';   // r727
+  const fold=nav.querySelector('#navFold');
+  if(fold)fold.onclick=()=>{
+    let sv={};try{sv=JSON.parse(localStorage.getItem('secState')||'{}');}catch(e){}
+    pane.querySelectorAll(':scope > .sec-title[data-sec]').forEach(t=>{
+      const b=document.getElementById('sb-'+t.dataset.sec);
+      if(b){b.style.display='none';t.classList.add('sec-closed');sv[t.dataset.sec]=true;}});
+    try{localStorage.setItem('secState',JSON.stringify(sv));}catch(e){}
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
   nav.querySelectorAll('[data-nav]').forEach(el=>el.onclick=()=>{
     const t=document.querySelector(`.sec-title[data-sec="${el.dataset.nav}"]`);
     if(t){t.scrollIntoView({behavior:'smooth',block:'start'});
