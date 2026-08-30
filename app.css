@@ -1531,3 +1531,6 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 /* r721:頂部預留骨架 */
 .rsv-skel{background:var(--panel)!important;border:1px solid var(--line);border-radius:12px;animation:skelP 1.3s ease-in-out infinite alternate}
 #tldrBox,#macroAlerts{transition:none!important}
+
+/* r722:一次到位揭示 */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}

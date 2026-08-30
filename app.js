@@ -1,4 +1,4 @@
-/* K研所 · build r721 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r722 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r721</span>');
+  diag.push('<span style="color:var(--dim)">build r722</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19825,19 +19825,20 @@ function renderSecNav(){
   setInterval(()=>{try{wrap();}catch(e){}},4000);
 })();
 lazyRun('#heroStrip',()=>{try{renderHero();renderSecNav();}catch(e){}},60*1000);
-(function reserveMacroTop(){   // r721:警訊膠囊 + 懶人包——記住上次高度,開頁即預留,資料到了原地展開(不再把下方整頁推掉)
-  const KEY='topH';
+(function macroTopGate(){   // r722:一次到位揭示——頂部警訊/懶人包在資料穩定前完全零高度,穩定後(或 3 秒上限)一次全部顯示,只發生一次版面變化
   const ids=['macroAlerts','tldrBox'];
-  let saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}
-  ids.forEach(id=>{const el=document.getElementById(id);
-    if(el&&saved[id]>40){el.style.display='block';el.style.minHeight=saved[id]+'px';el.classList.add('rsv-skel');}});
-  const settle=()=>{const o={};let any=false;
-    ids.forEach(id=>{const el=document.getElementById(id);
-      if(!el)return;
-      if(el.style.display!=='none'&&el.textContent.trim()){el.classList.remove('rsv-skel');
-        const h=el.offsetHeight;if(h>40){o[id]=h;any=true;el.style.minHeight='';}}});
-    if(any)try{localStorage.setItem(KEY,JSON.stringify(Object.assign(saved,o)));}catch(e){}};
-  setTimeout(settle,4000);setInterval(settle,20000);
+  const els=()=>ids.map(i=>document.getElementById(i)).filter(Boolean);
+  const st=document.createElement('style');
+  st.textContent='#macroAlerts,#tldrBox{visibility:hidden!important;position:absolute!important;pointer-events:none}';
+  document.head.appendChild(st);            // 量得到高度但不佔版面、也看不見(避免半成品閃現)
+  let lastH=-1,stable=0;
+  const t0=Date.now();
+  const reveal=()=>{try{st.remove();els().forEach(e=>{e.style.animation='fadeIn .25s ease';});}catch(e){}};
+  const tick=setInterval(()=>{
+    const h=els().reduce((a,e)=>a+e.scrollHeight,0);
+    if(h===lastH&&h>0)stable++;else{stable=0;lastH=h;}
+    if(stable>=2||Date.now()-t0>3000){clearInterval(tick);reveal();}   // 連兩次(0.6 秒)高度不變 = 引擎跑完
+  },300);
 })();
 (function bootReserve(){   // r720:首載防跳——上次出現過的頂部元件,開頁即佔位(骨架),資料到了原地填入
   try{
