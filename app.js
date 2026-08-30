@@ -1,4 +1,4 @@
-/* K研所 · build r714 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r715 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r714</span>');
+  diag.push('<span style="color:var(--dim)">build r715</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19740,11 +19740,11 @@ function mkhHeatHtml(){
         win.push(vs.length?[vs.filter(v=>v>0).length,vs.length]:null);
       }
       const ac=v=>{if(v==null)return '<td class="mkh-c mkh-na mkh-sum"></td>';
-        const a=Math.min(1,Math.abs(v)/5),col=v>=0?up:dn;   // r714:統計列改「灰底+彩字+迷你長條」,與上方色塊區分層
-        return `<td class="mkh-c mkh-sum"><span style="color:${col}">${v>0?'+':''}${v.toFixed(1)}</span><i class="mkh-bar" style="width:${Math.max(10,Math.round(a*84))}%;background:${col}"></i></td>`;};
+        const col=v>=0?up:dn;   // r715:統計值改膠囊徽章(淡底+同色邊+彩字),乾淨且與色塊區分明
+        return `<td class="mkh-c mkh-sum"><span class="mkh-chip" style="background:color-mix(in srgb,${col} 12%,var(--panel));border-color:color-mix(in srgb,${col} 38%,var(--line));color:${col}">${v>0?'+':''}${v.toFixed(1)}</span></td>`;};
       const wc=w=>{if(w==null)return '<td class="mkh-c mkh-na mkh-sum"></td>';
-        const p2=w[0]/w[1]*100,col=p2>=50?up:dn;   // 長條=上漲率本身(50% 刻度線輔助)
-        return `<td class="mkh-c mkh-sum"><span style="color:${col}">${Math.round(p2)}%</span><i class="mkh-bar mkh-bar-t" style="width:${Math.round(p2*0.84)}%;background:${col}"></i></td>`;};
+        const p2=w[0]/w[1]*100,col=p2>=50?up:dn;
+        return `<td class="mkh-c mkh-sum"><span class="mkh-chip" style="background:color-mix(in srgb,${col} 12%,var(--panel));border-color:color-mix(in srgb,${col} 38%,var(--line));color:${col}">${Math.round(p2)}%</span></td>`;};
       const ya=years.map(y=>{let a=1,ok=false;for(let mm=1;mm<=12;mm++){const v=ret[y][mm];if(v!=null){a*=(1+v/100);ok=true;}}return ok?(a-1)*100:null;}).filter(v=>v!=null);
       const yavg=ya.length?ya.reduce((a,b)=>a+b,0)/ya.length:null;
       return `<tr class="mkh-sumrow"><th>平均</th>${avg.map(ac).join('')}${ac(yavg)}</tr>`+

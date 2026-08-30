@@ -1517,3 +1517,8 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 .mkh-c.mkh-sum .mkh-bar{position:absolute;left:50%;transform:translateX(-50%);bottom:4px;height:3.5px;border-radius:99px;opacity:.9}
 .mkh-c.mkh-sum .mkh-bar-t::after{content:'';position:absolute;left:59.5%;top:-2px;bottom:-2px;width:1px;background:var(--mut);opacity:.5}
 .mkh-sumrow th{background:var(--panel2)!important}
+
+/* r715:統計徽章 */
+.mkh-c.mkh-sum{padding:8px 3px!important}
+.mkh-c.mkh-sum .mkh-bar{display:none}
+.mkh-chip{display:inline-block;min-width:44px;padding:3px 7px;border:1px solid;border-radius:8px;font-weight:800;font-size:12.5px;line-height:1.2}
