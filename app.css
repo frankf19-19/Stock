@@ -1576,6 +1576,10 @@ body.sortmode .sortcard:active{cursor:grabbing}
   padding:8px 14px;font-size:12.5px;font-weight:700;color:var(--txt);line-height:1.65;
   box-shadow:0 8px 24px rgba(0,0,0,.28);max-width:92vw;text-align:center}
 #sortHint b{color:var(--amber)}
+/* r735:跨區塊拖曳時,標示可放置的容器 */
+body.carddrag .cardcont,body.carddrag .sec-body{outline:1px dashed color-mix(in srgb,var(--amber) 30%,transparent);outline-offset:2px}
+body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offset:2px;
+  background:color-mix(in srgb,var(--amber) 7%,transparent)}
 @media(max-width:640px){#sortHint{bottom:10px;font-size:11.5px;padding:7px 11px}
   .card-mv b{width:26px;height:26px;font-size:14px}}
 

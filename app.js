@@ -1,4 +1,4 @@
-/* K研所 · build r734 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r735 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r734</span>');
+  diag.push('<span style="color:var(--dim)">build r735</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19801,7 +19801,7 @@ function renderSecNav(){
     srt.classList.toggle('on',on);
     if(on&&!nav.querySelector('#navReset')){
       const r=document.createElement('span');r.className='nav-fold';r.id='navReset';r.textContent='↺ 還原';
-      r.onclick=()=>{secOrderSet(paneKey(pane),[]);try{localStorage.removeItem(CARD_KEY);}catch(x){}location.reload();};   // r734:還原連小卡片順序一起清
+      r.onclick=()=>{secOrderSet(paneKey(pane),[]);try{localStorage.removeItem(CARD_KEY);localStorage.removeItem(CARD_HOME);}catch(x){}location.reload();};   // r734:還原連小卡片順序一起清
       nav.appendChild(r);
     }else if(!on){const r=nav.querySelector('#navReset');if(r)r.remove();}
   };
@@ -19940,7 +19940,18 @@ function toggleSortMode(pane,on){
 }
 /* ══ r734:個別小卡片排序 —— 排序模式下,區塊內的小卡片可長按拖曳或點 ‹ › 移動,順序記在本機 ══ */
 const CARD_KEY='cardOrder';
+const CARD_HOME='cardHome';        // r735:卡片跨區塊歸屬 —— {卡片key:{c:容器key}}
 const CARD_SEL='.idx-card';
+function cardHomeAll(){try{return JSON.parse(localStorage.getItem(CARD_HOME)||'{}');}catch(e){return {};}}
+function cardHomeSet(o){try{localStorage.setItem(CARD_HOME,JSON.stringify(o));}catch(e){}}
+function resolveCont(key){          // 由容器key還原出元素(與 contKey 互為反函數)
+  if(!key)return null;
+  const i=key.indexOf('/'),idPart=i<0?key:key.slice(0,i),path=i<0?'':key.slice(i+1);
+  let el=(idPart==='body')?document.body:document.getElementById(idPart);
+  if(!el)return null;
+  if(path)for(const n of path.split('.')){el=el.children[+n];if(!el)return null;}
+  return el;
+}
 function cardOrdAll(){try{return JSON.parse(localStorage.getItem(CARD_KEY)||'{}');}catch(e){return {};}}
 function cardOrdSet(k,arr){const o=cardOrdAll();if(arr&&arr.length>1)o[k]=arr;else delete o[k];
   try{localStorage.setItem(CARD_KEY,JSON.stringify(o));}catch(e){}}
@@ -19988,6 +19999,25 @@ function applyCardOrder(p){
   map.forEach(c=>seq.push(c));                            // 沒記錄到的新卡片排在最後
   slots.forEach((m,i)=>{if(seq[i])p.insertBefore(seq[i],m);m.remove();});
 }
+function applyHomes(){          // r735:重繪後,把被搬家的卡片再搬過去;舊分身刪除,留下最新資料那張
+  const home=cardHomeAll(),keys=Object.keys(home);
+  if(!keys.length)return;
+  const byKey=new Map();
+  document.querySelectorAll(CARD_SEL).forEach(c=>{
+    const k=cardKey(c);if(!k||!home[k])return;
+    if(!byKey.has(k))byKey.set(k,[]);
+    byKey.get(k).push(c);
+  });
+  keys.forEach(k=>{
+    const list=byKey.get(k);if(!list||!list.length)return;
+    const tgt=resolveCont(home[k].c);if(!tgt)return;
+    if(tgt.classList.contains('cardsorting'))return;      // 拖曳中不插手
+    const keep=list.find(x=>!x.__reloc)||list[0];         // 沒被我們搬過的那張 = 剛重繪出來的新鮮資料
+    list.forEach(x=>{if(x!==keep)x.remove();});           // 其餘是過期分身
+    if(keep.parentElement!==tgt){tgt.appendChild(keep);registerCont(tgt);}
+    keep.__reloc=1;
+  });
+}
 function cardHandles(p,on){
   cardsOf(p).forEach(c=>{
     cardKey(c);                                           // 先鎖定 key,避免把 ‹ › 按鈕文字算進去
@@ -20016,36 +20046,70 @@ function cardHandles(p,on){
 }
 function cardDragBind(p,c){
   if(c.__cdrag)return;c.__cdrag=1;
-  let sx=0,sy=0,hold=null,drag=false;
+  let sx=0,sy=0,hold=null,drag=false,par=null,ly=0,scr=null;
   const end=()=>{
     if(hold){clearTimeout(hold);hold=null;}
+    if(scr){clearInterval(scr);scr=null;}
     if(!drag)return;drag=false;
     c.classList.remove('cdragging');c.style.transform='';
-    p.classList.remove('cardsorting');
-    cardOrdSet(contKey(p),curCardOrder(p));
+    document.body.classList.remove('carddrag');
+    document.querySelectorAll('.cardsorting').forEach(x=>x.classList.remove('cardsorting'));
+    const np=c.parentElement;
+    if(np){
+      const k=cardKey(c);
+      if(k){const h=cardHomeAll();h[k]={c:contKey(np)};cardHomeSet(h);c.__reloc=1;}   // r735:記住新家
+      registerCont(np);
+      cardOrdSet(contKey(np),curCardOrder(np));
+    }
+    if(par&&par!==np&&par.isConnected)cardOrdSet(contKey(par),curCardOrder(par));      // 舊容器順序也要更新
   };
   c.addEventListener('pointerdown',e=>{
     if(!document.body.classList.contains('sortmode'))return;
     if(e.target.closest&&e.target.closest('.card-mv'))return;
-    sx=e.clientX;sy=e.clientY;
+    sx=e.clientX;sy=e.clientY;ly=e.clientY;par=c.parentElement;
     try{c.setPointerCapture(e.pointerId);}catch(x){}
     hold=setTimeout(()=>{
-      drag=true;c.classList.add('cdragging');p.classList.add('cardsorting');
+      drag=true;c.classList.add('cdragging');document.body.classList.add('carddrag');
+      if(c.parentElement)c.parentElement.classList.add('cardsorting');
       try{navigator.vibrate&&navigator.vibrate(12);}catch(x){}
+      scr=setInterval(()=>{                                   // r735:拖到畫面上下緣自動捲動,才搬得到遠處區塊
+        if(!drag)return;
+        const H=window.innerHeight;
+        if(ly<100)window.scrollBy(0,-Math.max(6,(100-ly)/4));
+        else if(ly>H-100)window.scrollBy(0,Math.max(6,(ly-(H-100))/4));
+      },16);
     },200);                                               // 長按 0.2 秒才進入拖曳,避免誤觸
   });
   c.addEventListener('pointermove',e=>{
     if(!drag){
       if(hold&&(Math.abs(e.clientX-sx)>12||Math.abs(e.clientY-sy)>12)){clearTimeout(hold);hold=null;}
       return;}
-    e.preventDefault();
+    e.preventDefault();ly=e.clientY;
     c.style.transform='translate('+(e.clientX-sx)+'px,'+(e.clientY-sy)+'px)';
     const el=document.elementFromPoint(e.clientX,e.clientY);
-    const tgt=el&&el.closest?el.closest(CARD_SEL):null;
-    if(tgt&&tgt!==c&&tgt.parentElement===p){
-      const after=!!(c.compareDocumentPosition(tgt)&Node.DOCUMENT_POSITION_FOLLOWING);
-      if(after)p.insertBefore(c,tgt.nextSibling);else p.insertBefore(c,tgt);
-      sx=e.clientX;sy=e.clientY;c.style.transform='';     // 換位後重新歸零,避免位移累加
+    if(!el||!el.closest)return;
+    const rebase=()=>{sx=e.clientX;sy=e.clientY;c.style.transform='';};  // 換位後歸零,避免位移累加
+    const tgt=el.closest(CARD_SEL);
+    if(tgt&&tgt!==c&&!c.contains(tgt)){                    // r735:目標卡片可以在任何容器,不再限同一區塊
+      const tp=tgt.parentElement;if(!tp)return;
+      const r=tgt.getBoundingClientRect();
+      const gridish=/grid|flex/.test(getComputedStyle(tp).display);
+      const before=gridish?(e.clientX<r.left+r.width/2):(e.clientY<r.top+r.height/2);
+      const ref=before?tgt:tgt.nextSibling;
+      if(ref!==c&&!(before===false&&tgt.nextSibling===c)){
+        tp.insertBefore(c,ref);
+        document.querySelectorAll('.cardsorting').forEach(x=>x.classList.remove('cardsorting'));
+        tp.classList.add('cardsorting');
+        rebase();
+      }
+      return;
+    }
+    const box=el.closest('.cardcont,.sec-body,.idx-row,.drop-ok');   // r735:空白處也能放,直接丟進該區塊
+    if(box&&box!==c&&!c.contains(box)&&c.parentElement!==box){
+      box.appendChild(c);
+      document.querySelectorAll('.cardsorting').forEach(x=>x.classList.remove('cardsorting'));
+      box.classList.add('cardsorting');
+      rebase();
     }
   });
   c.addEventListener('pointerup',end);
@@ -20056,9 +20120,22 @@ function cardConts(){
   const seen=new Set(),out=[];
   document.querySelectorAll(CARD_SEL).forEach(c=>{
     const p=c.parentElement;if(!p||seen.has(p))return;seen.add(p);
-    if(cardsOf(p).length<2)return;
+    if(cardsOf(p).length<1)return;        // r735:單張卡片的容器也要納入,否則那張卡搬不走
     out.push(p);});
   return out;
+}
+function registerCont(p){                 // r735:掛上觀察器(重繪後自動還原歸屬與順序)
+  if(!p||p.__cardObs)return;
+  p.classList.add('cardcont');
+  p.__cardObs=new MutationObserver(()=>{
+    clearTimeout(p.__cardT);
+    p.__cardT=setTimeout(()=>{try{
+      applyHomes();
+      applyCardOrder(p);
+      if(document.body.classList.contains('sortmode'))cardHandles(p,true);
+    }catch(e){}},120);
+  });
+  p.__cardObs.observe(p,{childList:true});
 }
 function cardSortMode(on){
   cardConts().forEach(p=>cardHandles(p,on));
@@ -20069,18 +20146,10 @@ function cardSortMode(on){
   }
 }
 function scanCardConts(){
+  try{applyHomes();}catch(e){}                             // r735:先把搬過家的卡片歸位,再談順序
+  Object.values(cardHomeAll()).forEach(v=>{const t=resolveCont(v.c);if(t)registerCont(t);});
   cardConts().forEach(p=>{
-    if(!p.__cardObs){
-      p.classList.add('cardcont');
-      p.__cardObs=new MutationObserver(()=>{               // 卡片重繪後自動把順序套回去
-        clearTimeout(p.__cardT);
-        p.__cardT=setTimeout(()=>{try{
-          applyCardOrder(p);
-          if(document.body.classList.contains('sortmode'))cardHandles(p,true);
-        }catch(e){}},120);
-      });
-      p.__cardObs.observe(p,{childList:true});
-    }
+    registerCont(p);
     try{applyCardOrder(p);}catch(e){}
     if(document.body.classList.contains('sortmode'))cardHandles(p,true);
   });
@@ -20089,7 +20158,7 @@ function sortHint(on){
   let h=document.getElementById('sortHint');
   if(!on){if(h)h.remove();return;}
   if(!h){h=document.createElement('div');h.id='sortHint';document.body.appendChild(h);}
-  h.innerHTML='\u2699\ufe0f <b>\u6392\u5e8f\u6a21\u5f0f</b>\uff1a\u5340\u584a\u6a19\u984c\u7528 <b>\u2191\u2193</b> \u6216\u9577\u6309\u62d6\u66f3\uff1b\u5c0f\u5361\u7247\u7528 <b>\u2039 \u203a</b> \u6216\u9577\u6309\u62d6\u66f3\u3002\u6309 <b>ESC</b> \u6216\u518d\u9ede\u4e00\u6b21\u300c\u5b8c\u6210\u6392\u5e8f\u300d\u7d50\u675f\u3002';
+  h.innerHTML='\u2699\ufe0f <b>\u6392\u5e8f\u6a21\u5f0f</b>\uff1a\u5361\u7247\u9577\u6309\u62d6\u66f3\u53ef\u642c\u5230 <b>\u4efb\u4f55\u5340\u584a</b>\uff08\u62d6\u5230\u4e0a\u4e0b\u908a\u7de3\u6703\u81ea\u52d5\u6372\u52d5\uff09\uff1b<b>\u2039 \u203a</b> \u5728\u539f\u5340\u584a\u5167\u63db\u4f4d\uff1b\u5340\u584a\u6a19\u984c\u7528 <b>\u2191\u2193</b>\u3002\u6309 <b>ESC</b> \u7d50\u675f\u3002';
 }
 document.addEventListener('click',e=>{                     // 排序模式下,點卡片不觸發原本的跳轉
   if(!document.body.classList.contains('sortmode'))return;
