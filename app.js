@@ -1,4 +1,4 @@
-/* K研所 · build r716 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r717 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r716</span>');
+  diag.push('<span style="color:var(--dim)">build r717</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19690,14 +19690,14 @@ function renderMkHist(){
 function mkhDrawLine(S){
   const el=document.getElementById('mkhChart');if(!el||typeof echarts==='undefined')return;
   const n=MKH.rng;
-  const base=S.map(([k,t,h])=>h.d.length>n?h.d.length-n:0);
-  const cats=S[0][2].d.slice(base[0]);
-  const series=S.map(([k,t,h,col],i)=>{
-    const c=h.c.slice(h.c.length>n?h.c.length-n:0);
-    const b=c[0]||1;
-    return {name:t,type:'line',smooth:.25,symbol:'none',lineStyle:{width:k==='tw'?3:2,color:col},itemStyle:{color:col},
+  const cats=S[0][2].d.slice(S[0][2].d.length>n?S[0][2].d.length-n:0);   // r717:以台股月份為主軸,各系列按「月份」對位(缺月留 null),不再依序號硬排
+  const series=S.map(([k,t,h,col])=>{
+    const m={};h.d.forEach((dd,i)=>m[dd]=h.c[i]);
+    let b=null;
+    const data=cats.map(dd=>{const v=m[dd];if(v==null)return null;if(b==null)b=v;return +(v/b*100).toFixed(1);});
+    return {name:t,type:'line',smooth:.25,symbol:'none',connectNulls:true,lineStyle:{width:k==='tw'?3:2,color:col},itemStyle:{color:col},
       areaStyle:k==='tw'?{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:col+'33'},{offset:1,color:col+'00'}]}}:undefined,
-      data:c.map(v=>+(v/b*100).toFixed(1))};
+      data};
   });
   if(MKH.chart){try{MKH.chart.dispose();}catch(e){}}
   const ch=echarts.init(el);MKH.chart=ch;

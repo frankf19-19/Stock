@@ -3905,7 +3905,7 @@ def fetch_index_hist(prev):
     # r709:洞在「任何位置」都要補——首班被證交所限流漏掉的中段月份,由舊到新每班磨 6 個月;
     #       當月永遠重抓(月中收盤會變)。r708 舊邏輯只看最近 4 個月,中段 20 個月的洞永遠補不回來。
     if len(want) > 6 and len(m) >= 12:
-        old_first = [ym for ym in want if ym != this_ym][:15]   # r711 hotfix:一班磨完剩餘缺月
+        old_first = [ym for ym in want if ym != this_ym][:5]
         want = old_first + ([this_ym] if this_ym in want else [])
     got = 0
     for ym in want:
@@ -3918,6 +3918,22 @@ def fetch_index_hist(prev):
         if v is not None: m[ym] = v; got += 1
     ks = sorted(m)[-72:]
     out["tw"] = {"d": ks, "c": [m[k] for k in ks]}
+    # r717:櫃買指數月線維護——歷史由瀏覽器一次回補(r716);當月由 openapi tpex_index 續寫(GitHub IP 可通)
+    try:
+        oc = out.get("otc")
+        if isinstance(oc, dict) and oc.get("d"):
+            arr = get_json("https://www.tpex.org.tw/openapi/v1/tpex_index", timeout=40)
+            if isinstance(arr, list) and arr:
+                v = numf(arr[-1].get("Close")); dt8 = str(arr[-1].get("Date", "")).strip()
+                if v and len(dt8) == 8:
+                    ym2 = f"{dt8[:4]}-{dt8[4:6]}"
+                    m2 = {d2: c2 for d2, c2 in zip(oc["d"], oc["c"])}
+                    m2[ym2] = round(v, 2)
+                    ks2 = sorted(m2)[-72:]
+                    out["otc"] = {"d": ks2, "c": [m2[k2] for k2 in ks2]}
+                    print(f"  櫃買月線:{ym2}={v}(共 {len(ks2)} 月)")
+    except Exception as e:
+        print(f"  [warn] 櫃買月線: {e}")
     for name, sid in (("spx", "SP500"), ("ndx", "NASDAQCOM")):
         r = fred_monthly(sid)
         if r: out[name] = {"d": r["d"][-72:], "c": r["c"][-72:]}
