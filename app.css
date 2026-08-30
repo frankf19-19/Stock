@@ -1542,3 +1542,13 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 
 /* r727:全部收合鈕 */
 .secnav .nav-fold{margin-left:auto;color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,var(--line));font-weight:800}
+
+/* r728:自訂排序模式 */
+.sec-mv{margin-left:10px;display:inline-flex;gap:4px}
+.sec-mv b{cursor:pointer;font-size:13px;line-height:1;padding:3px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--amber)}
+.sec-mv b:hover{background:color-mix(in srgb,var(--amber) 16%,var(--panel))}
+body.sortmode .sec-title{outline:1px dashed color-mix(in srgb,var(--amber) 55%,transparent);outline-offset:3px}
+body.sortmode .sec-body{opacity:.5}
+.secnav .nav-fold.on{background:color-mix(in srgb,var(--amber) 20%,var(--panel))}
+#navSort{margin-left:auto}
+#navFold{margin-left:6px!important}
