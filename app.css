@@ -1527,3 +1527,7 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 #heroStrip{min-height:0}
 .hero-skel{min-height:46px;opacity:.45;background:var(--panel)!important;animation:skelP 1.2s ease-in-out infinite alternate}
 @keyframes skelP{from{opacity:.3}to{opacity:.55}}
+
+/* r721:頂部預留骨架 */
+.rsv-skel{background:var(--panel)!important;border:1px solid var(--line);border-radius:12px;animation:skelP 1.3s ease-in-out infinite alternate}
+#tldrBox,#macroAlerts{transition:none!important}
