@@ -1,4 +1,4 @@
-/* K研所 · build r729 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r730 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r729</span>');
+  diag.push('<span style="color:var(--dim)">build r730</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19784,7 +19784,8 @@ function renderHero(){
 }
 function renderSecNav(){
   const nav=document.getElementById('secNav');if(!nav)return;
-  const pane=[...document.querySelectorAll('.tabPane')].find(p=>p.offsetParent!==null&&p.querySelector('.sec-title'));
+  const t0=[...document.querySelectorAll('.sec-title[data-sec]')].find(t=>t.offsetParent!==null);   // r730:直接用第一個可見標題的父容器,不再依賴 .tabPane 選擇器
+  const pane=t0?t0.parentElement:null;
   if(!pane){nav.innerHTML='';return;}
   const items=[...pane.querySelectorAll(':scope > .sec-title')].map(t=>{
     const label=(t.childNodes[0]&&t.childNodes[0].textContent||t.textContent).trim().slice(0,14);
