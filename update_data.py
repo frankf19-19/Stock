@@ -3905,7 +3905,7 @@ def fetch_index_hist(prev):
     # r709:洞在「任何位置」都要補——首班被證交所限流漏掉的中段月份,由舊到新每班磨 6 個月;
     #       當月永遠重抓(月中收盤會變)。r708 舊邏輯只看最近 4 個月,中段 20 個月的洞永遠補不回來。
     if len(want) > 6 and len(m) >= 12:
-        old_first = [ym for ym in want if ym != this_ym][:5]
+        old_first = [ym for ym in want if ym != this_ym][:15]   # r711 hotfix:一班磨完剩餘缺月
         want = old_first + ([this_ym] if this_ym in want else [])
     got = 0
     for ym in want:
