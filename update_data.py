@@ -3855,6 +3855,69 @@ def build_health(hist, chips, comps, extra):
                       "note": extra.get(k + "_note") or "", "st": "ok" if v else "warn"})
     return {"t": now_tp.strftime("%Y-%m-%d %H:%M"), "items": items}
 
+def _twse_month_close(ym):
+    """該月(YYYYMM)加權指數月收盤(FMTQIK 最後一筆);失敗回 None。"""
+    try:
+        j = get_json(f"https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK?date={ym}01&response=json", timeout=40)
+        data = (j or {}).get("data") or []
+        fields = (j or {}).get("fields") or []
+        ti = _pick(fields, "發行量加權股價指數")
+        if ti is None: ti = 4
+        vals = [numf(r[ti]) for r in data if len(r) > ti and numf(r[ti]) is not None]
+        return round(vals[-1], 2) if vals else None
+    except Exception:
+        return None
+
+
+def fred_monthly(series, years=6):
+    """FRED 月頻(期末值)序列 → ({'d':['YYYY-MM'...],'c':[...]}) 或 None。"""
+    key = os.environ.get("FRED_API_KEY", "").strip()
+    if not key: return None
+    try:
+        j = get_json("https://api.stlouisfed.org/fred/series/observations",
+                     params={"series_id": series, "api_key": key, "file_type": "json",
+                             "frequency": "m", "aggregation_method": "eop",
+                             "observation_start": dt.date(TODAY.year - years, TODAY.month, 1).isoformat(),
+                             "observation_end": TODAY.isoformat()}, timeout=40)
+        d, c = [], []
+        for o in (j or {}).get("observations", []):
+            v = numf(o.get("value"))
+            if v is not None:
+                d.append(str(o.get("date", ""))[:7]); c.append(round(v, 2))
+        return {"d": d, "c": c} if len(d) >= 12 else None
+    except Exception:
+        return None
+
+
+def fetch_index_hist(prev):
+    """r708 大盤歷史月線(近 6 年):加權指數(TWSE FMTQIK 逐月,增量)+ S&P500/那斯達克(FRED 月頻)。
+    首次建檔一次抓 72 個月(約 40 秒),之後每班只補當月與缺月。"""
+    out = prev if isinstance(prev, dict) else {}
+    tw = out.get("tw") or {"d": [], "c": []}
+    m = {d: c for d, c in zip(tw.get("d") or [], tw.get("c") or [])}
+    start = dt.date(TODAY.year - 6, TODAY.month, 1)
+    cur = start; want = []
+    this_ym = f"{TODAY:%Y-%m}"
+    while cur <= TODAY.replace(day=1):
+        ym = f"{cur:%Y-%m}"
+        if ym not in m or ym == this_ym: want.append(ym)
+        cur = (cur.replace(day=28) + dt.timedelta(days=6)).replace(day=1)
+    if len(want) > 4 and len(m) >= 12: want = want[-4:]     # 已建檔:每班最多補 4 個月
+    got = 0
+    for ym in want:
+        v = _twse_month_close(ym.replace("-", ""))
+        time.sleep(0.45)
+        if v is not None: m[ym] = v; got += 1
+    ks = sorted(m)[-72:]
+    out["tw"] = {"d": ks, "c": [m[k] for k in ks]}
+    for name, sid in (("spx", "SP500"), ("ndx", "NASDAQCOM")):
+        r = fred_monthly(sid)
+        if r: out[name] = {"d": r["d"][-72:], "c": r["c"][-72:]}
+        time.sleep(0.3)
+    print(f"  大盤月線史:台股 {len(out['tw']['d'])} 個月(本班補 {got})・SPX {len((out.get('spx') or {}).get('d') or [])}・NDX {len((out.get('ndx') or {}).get('d') or [])}")
+    return out
+
+
 def fetch_macro():
     idx = []
     # v2:Stooq 會擋 GitHub Actions 機房(fetch_yext 同款教訓),不再作為主源。
@@ -4142,6 +4205,10 @@ def main():
     except Exception as e:
         print(f"  [warn] 繼承: {e}")
     try:
+        try:
+            _macro["hist"] = fetch_index_hist((prev_all.get("macro") or {}).get("hist"))   # r708:大盤 6 年月線史
+        except Exception as e:
+            print(f"  [warn] 大盤月線史: {e}")
         fut = fetch_taifex((prev_all.get("macro") or {}).get("fut"))
         if fut: _macro["fut"] = fut
         try:

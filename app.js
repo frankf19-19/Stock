@@ -1,4 +1,4 @@
-/* K研所 · build r707 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r708 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r707</span>');
+  diag.push('<span style="color:var(--dim)">build r708</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19656,3 +19656,84 @@ function divChip(s){
     return out;
   };
 })();
+
+/* ══ r708:🌊 大盤長河(6 年月線比較 + 月度漲跌熱力圖) ══ */
+let MKH={mode:'line',rng:72,hm:'tw',chart:null};
+function mkhCss(v,fb){try{return getComputedStyle(document.documentElement).getPropertyValue(v).trim()||fb;}catch(e){return fb;}}
+function mkhSeries(){
+  const h=(DATA.macro||{}).hist||{};
+  return [['tw','台股加權',h.tw,mkhCss('--up','#C25B4E')],['spx','S&P 500',h.spx,'#5A8CD6'],['ndx','那斯達克',h.ndx,'#8E5BC7']].filter(x=>x[2]&&x[2].d&&x[2].d.length>=12);
+}
+function renderMkHist(){
+  const box=document.getElementById('mkHistBox');if(!box)return;
+  const S=mkhSeries();
+  if(!S.length){box.innerHTML='<div class="dim-note">⏳ 月線史資料由後端建檔中(r708 首班會回補 6 年,約一班內完成)…</div>';return;}
+  const seg=(id,items,cur)=>`<div class="mkh-seg" id="${id}">${items.map(([k,t])=>`<span data-k="${k}" class="${k==cur?'on':''}">${t}</span>`).join('')}</div>`;
+  box.innerHTML=`
+    <div class="mkh-bar">
+      ${seg('mkhMode',[['line','📈 走勢比較'],['heat','🗓️ 月漲跌熱力']],MKH.mode)}
+      ${MKH.mode==='line'?seg('mkhRng',[[36,'3 年'],[72,'6 年']],MKH.rng):seg('mkhHm',S.map(x=>[x[0],x[1]]),MKH.hm)}
+    </div>
+    <div id="mkhBody">${MKH.mode==='line'?'<div id="mkhChart" class="mkh-chart"></div>':mkhHeatHtml()}</div>
+    <div class="dim-note" style="margin-top:6px">${MKH.mode==='line'
+      ?'三條線皆以區間起點 = 100 重定基,看的是<b>相對強弱</b>而非點位;台股用紅、美股用藍紫。資料:證交所 FMTQIK 月收盤、FRED 月末值。'
+      :'每格 = 該月漲跌%(紅漲綠跌,顏色越深幅度越大);最右欄為年度累計。用來看<b>季節性</b>與多空循環。'}</div>`;
+  box.querySelectorAll('.mkh-seg span').forEach(el=>el.onclick=()=>{
+    const pid=el.parentElement.id;
+    if(pid==='mkhMode')MKH.mode=el.dataset.k;
+    else if(pid==='mkhRng')MKH.rng=+el.dataset.k;
+    else MKH.hm=el.dataset.k;
+    renderMkHist();
+  });
+  if(MKH.mode==='line')mkhDrawLine(S);
+}
+function mkhDrawLine(S){
+  const el=document.getElementById('mkhChart');if(!el||typeof echarts==='undefined')return;
+  const n=MKH.rng;
+  const base=S.map(([k,t,h])=>h.d.length>n?h.d.length-n:0);
+  const cats=S[0][2].d.slice(base[0]);
+  const series=S.map(([k,t,h,col],i)=>{
+    const c=h.c.slice(h.c.length>n?h.c.length-n:0);
+    const b=c[0]||1;
+    return {name:t,type:'line',smooth:.25,symbol:'none',lineStyle:{width:k==='tw'?3:2,color:col},itemStyle:{color:col},
+      areaStyle:k==='tw'?{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:col+'33'},{offset:1,color:col+'00'}]}}:undefined,
+      data:c.map(v=>+(v/b*100).toFixed(1))};
+  });
+  if(MKH.chart){try{MKH.chart.dispose();}catch(e){}}
+  const ch=echarts.init(el);MKH.chart=ch;
+  ch.setOption({
+    grid:{left:44,right:14,top:34,bottom:26},
+    legend:{top:2,left:0,icon:'roundRect',itemWidth:14,itemHeight:4,textStyle:{color:CT.legend,fontSize:12}},
+    tooltip:{trigger:'axis',backgroundColor:CT.ttBg,borderColor:CT.border,textStyle:{color:CT.ttText,fontSize:12},
+      valueFormatter:v=>v+'(基期100)'},
+    xAxis:{type:'category',data:cats,axisLine:{lineStyle:{color:CT.border}},axisLabel:{color:CT.axis,fontSize:11,formatter:v=>v.endsWith('-01')?v.slice(0,4):''},axisTick:{show:false}},
+    yAxis:{type:'value',scale:true,splitLine:{lineStyle:{color:CT.split}},axisLabel:{color:CT.axis,fontSize:11}},
+    series});
+  setTimeout(()=>{try{ch.resize();}catch(e){}},60);
+}
+function mkhHeatHtml(){
+  const S=mkhSeries();const cur=S.find(x=>x[0]===MKH.hm)||S[0];if(!cur)return '';
+  const h=cur[2];const ret={};
+  for(let i=1;i<h.d.length;i++){const [y,m]=h.d[i].split('-');(ret[y]=ret[y]||{})[+m]=(h.c[i]/h.c[i-1]-1)*100;}
+  const up=mkhCss('--up','#C25B4E'),dn=mkhCss('--down','#3BAD6C');
+  const cell=v=>{
+    if(v==null)return '<td class="mkh-c mkh-na"></td>';
+    const a=Math.min(1,Math.abs(v)/8),col=v>=0?up:dn;
+    const fg=a>0.55?'#fff':'inherit';
+    return `<td class="mkh-c" style="background:color-mix(in srgb,${col} ${Math.round(a*88)}%,var(--panel2));color:${fg}">${v>0?'+':''}${v.toFixed(1)}</td>`;
+  };
+  const years=Object.keys(ret).sort().reverse();
+  return `<div class="mkh-heatwrap"><table class="mkh-heat"><thead><tr><th>${cur[1]}</th>${Array.from({length:12},(_,i)=>`<th>${i+1}月</th>`).join('')}<th class="mkh-yr">年度</th></tr></thead><tbody>${
+    years.map(y=>{
+      let acc=1,anyv=false;
+      for(let m=1;m<=12;m++){const v=ret[y][m];if(v!=null){acc*=(1+v/100);anyv=true;}}
+      const yv=anyv?(acc-1)*100:null;
+      return `<tr><th>${y}</th>${Array.from({length:12},(_,i)=>cell(ret[y][i+1])).join('')}${yv==null?'<td class="mkh-c mkh-na"></td>':`<td class="mkh-c mkh-yr" style="color:${yv>=0?up:dn}">${yv>0?'+':''}${yv.toFixed(1)}</td>`}</tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+lazyRun('#mkHistBox',()=>{try{renderMkHist();}catch(e){}},10*60*1000);
+document.addEventListener('click',e=>{
+  const t=e.target.closest&&e.target.closest('.sec-title[data-sec="mk_hist"]');
+  if(t)setTimeout(()=>{try{if(MKH.chart)MKH.chart.resize();else renderMkHist();}catch(x){}},80);   // 收合展開後補 resize(ECharts 寬 0 問題)
+});
+window.addEventListener('resize',()=>{try{if(MKH.chart)MKH.chart.resize();}catch(e){}});
