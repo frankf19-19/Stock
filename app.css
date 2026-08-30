@@ -1548,7 +1548,7 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 .sec-mv b{cursor:pointer;font-size:13px;line-height:1;padding:3px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--amber)}
 .sec-mv b:hover{background:color-mix(in srgb,var(--amber) 16%,var(--panel))}
 body.sortmode .sec-title{outline:1px dashed color-mix(in srgb,var(--amber) 55%,transparent);outline-offset:3px}
-body.sortmode .sec-body{opacity:.5}
+body.sortmode .sec-body{opacity:.97}   /* r734:卡片也要排序,內容不再變淡 */
 .secnav .nav-fold.on{background:color-mix(in srgb,var(--amber) 20%,var(--panel))}
 #navSort{margin-left:auto}
 #navFold{margin-left:6px!important}
@@ -1558,6 +1558,26 @@ body.sortmode .sec-title{touch-action:none;cursor:grab;user-select:none}
 body.sortmode .sec-title.dragging{cursor:grabbing;opacity:.9;box-shadow:0 10px 26px rgba(0,0,0,.18);background:var(--panel);border-radius:10px;position:relative;z-index:99}
 .sec-ph{border:2px dashed var(--amber);border-radius:10px;margin:6px 0;background:color-mix(in srgb,var(--amber) 8%,transparent)}
 body.sortmode .sec-title::before{content:'⠿';margin-right:8px;color:var(--amber);font-size:15px}
+
+/* ══ r734:個別小卡片排序 ══ */
+body.sortmode .sortcard{position:relative;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;
+  outline:1px dashed color-mix(in srgb,var(--amber) 62%,transparent);outline-offset:-3px}
+body.sortmode .sortcard:active{cursor:grabbing}
+.card-mv{position:absolute;top:5px;right:5px;display:flex;gap:3px;z-index:9}
+.card-mv b{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;
+  background:color-mix(in srgb,var(--amber) 15%,var(--panel));border:1px solid color-mix(in srgb,var(--amber) 48%,var(--line));
+  color:var(--amber);font-size:13px;line-height:1;font-weight:900;cursor:pointer}
+.card-mv b:hover{background:color-mix(in srgb,var(--amber) 32%,var(--panel))}
+.sortcard.cdragging{pointer-events:none;opacity:.92;z-index:99;border-color:var(--amber)!important;
+  box-shadow:0 10px 26px rgba(0,0,0,.28)}
+.cardcont.cardsorting>.idx-card:not(.cdragging){transition:transform .16s ease}
+#sortHint{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:9999;
+  background:var(--panel);border:1px solid color-mix(in srgb,var(--amber) 52%,var(--line));border-radius:12px;
+  padding:8px 14px;font-size:12.5px;font-weight:700;color:var(--txt);line-height:1.65;
+  box-shadow:0 8px 24px rgba(0,0,0,.28);max-width:92vw;text-align:center}
+#sortHint b{color:var(--amber)}
+@media(max-width:640px){#sortHint{bottom:10px;font-size:11.5px;padding:7px 11px}
+  .card-mv b{width:26px;height:26px;font-size:14px}}
 
 /* r732:導覽列瘦身——只剩工具鈕,靠右、不佔整行、不與「跳到:」列衝突 */
 .secnav{position:static!important;justify-content:flex-end;backdrop-filter:none;background:transparent;padding:4px 2px 0;overflow:visible}

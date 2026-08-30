@@ -1,4 +1,4 @@
-/* K研所 · build r733 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r734 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r733</span>');
+  diag.push('<span style="color:var(--dim)">build r734</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19801,7 +19801,7 @@ function renderSecNav(){
     srt.classList.toggle('on',on);
     if(on&&!nav.querySelector('#navReset')){
       const r=document.createElement('span');r.className='nav-fold';r.id='navReset';r.textContent='↺ 還原';
-      r.onclick=()=>{secOrderSet(paneKey(pane),[]);location.reload();};
+      r.onclick=()=>{secOrderSet(paneKey(pane),[]);try{localStorage.removeItem(CARD_KEY);}catch(x){}location.reload();};   // r734:還原連小卡片順序一起清
       nav.appendChild(r);
     }else if(!on){const r=nav.querySelector('#navReset');if(r)r.remove();}
   };
@@ -19912,6 +19912,7 @@ function exitSortMode(){   // r733:ESC / 點外部 離開排序模式
   const b=document.getElementById('navSort');
   if(b){b.textContent='⇅ 排序';b.classList.remove('on');}
   const r=document.getElementById('navReset');if(r)r.remove();
+  try{cardSortMode(false);sortHint(false);}catch(x){}   // r734
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')exitSortMode();});
 function toggleSortMode(pane,on){
@@ -19934,7 +19935,172 @@ function toggleSortMode(pane,on){
       t.appendChild(h);}
     else if(!on&&h)h.remove();
     if(on)secDragBind(pn,t);});   // r729:綁定拖曳
+  try{cardSortMode(on);}catch(x){}   // r734:連區塊裡的小卡片一起進入/離開排序
+  try{sortHint(on);}catch(x){}
 }
+/* ══ r734:個別小卡片排序 —— 排序模式下,區塊內的小卡片可長按拖曳或點 ‹ › 移動,順序記在本機 ══ */
+const CARD_KEY='cardOrder';
+const CARD_SEL='.idx-card';
+function cardOrdAll(){try{return JSON.parse(localStorage.getItem(CARD_KEY)||'{}');}catch(e){return {};}}
+function cardOrdSet(k,arr){const o=cardOrdAll();if(arr&&arr.length>1)o[k]=arr;else delete o[k];
+  try{localStorage.setItem(CARD_KEY,JSON.stringify(o));}catch(e){}}
+function cardKey(el){                       // 穩定識別:id > data-mk > 內部跳轉鍵 > 卡片標題文字
+  if(!el||el.nodeType!==1)return null;
+  if(el.dataset&&el.dataset.ckey)return el.dataset.ckey;
+  let k=null;
+  if(el.id)k='#'+el.id;
+  else if(el.dataset&&el.dataset.mk)k='@'+el.dataset.mk;
+  else{
+    const q=el.querySelector('[data-go],[data-fxgo],[data-mk]');
+    if(q)k='@'+(q.dataset.go||q.dataset.fxgo||q.dataset.mk);
+    else{const nm=el.querySelector('.nm');
+      const t=((nm?nm.textContent:el.textContent)||'').replace(/\s+/g,' ').trim().slice(0,20);
+      k=t?'~'+t:null;}
+  }
+  if(k&&el.dataset)el.dataset.ckey=k;
+  return k;
+}
+function contKey(p){                        // 容器識別:自身 id,或最近有 id 的祖先 + 子節點路徑
+  if(p.dataset.ck)return p.dataset.ck;
+  let a=p,path=[];
+  while(a&&!a.id&&a!==document.body){
+    const s=a.parentElement?[...a.parentElement.children]:[];
+    path.unshift(s.indexOf(a));a=a.parentElement;}
+  const k=((a&&a.id)?a.id:'body')+(path.length?'/'+path.join('.'):'');
+  p.dataset.ck=k;return k;
+}
+function cardsOf(p){return [...p.children].filter(c=>c.matches&&c.matches(CARD_SEL));}
+function curCardOrder(p){return cardsOf(p).map(cardKey).filter(Boolean);}
+function applyCardOrder(p){
+  if(p.classList.contains('cardsorting'))return;          // 拖曳中不插手
+  const ord=cardOrdAll()[contKey(p)];
+  if(!ord||ord.length<2)return;
+  const cards=cardsOf(p);if(cards.length<2)return;
+  const map=new Map();
+  cards.forEach(c=>{const k=cardKey(c);if(k&&!map.has(k))map.set(k,c);});
+  const want=ord.filter(k=>map.has(k));
+  if(want.length<2)return;
+  const cur=cards.map(cardKey).filter(k=>want.indexOf(k)>=0);
+  if(want.join('|')===cur.join('|'))return;               // 已是目標順序 → 不動 DOM(避免 iframe 重載與無限迴圈)
+  const slots=cards.map(c=>{const m=document.createComment('cs');p.insertBefore(m,c);return m;});
+  const seq=want.map(k=>map.get(k));
+  want.forEach(k=>map.delete(k));
+  map.forEach(c=>seq.push(c));                            // 沒記錄到的新卡片排在最後
+  slots.forEach((m,i)=>{if(seq[i])p.insertBefore(seq[i],m);m.remove();});
+}
+function cardHandles(p,on){
+  cardsOf(p).forEach(c=>{
+    cardKey(c);                                           // 先鎖定 key,避免把 ‹ › 按鈕文字算進去
+    let h=c.querySelector(':scope > .card-mv');
+    if(on){
+      c.classList.add('sortcard');
+      cardDragBind(p,c);
+      if(!h){
+        h=document.createElement('span');h.className='card-mv';
+        h.innerHTML='<b data-cmv="up">\u2039</b><b data-cmv="dn">\u203a</b>';
+        h.addEventListener('click',e=>{
+          e.stopPropagation();e.preventDefault();
+          const d=e.target.dataset&&e.target.dataset.cmv;if(!d)return;
+          const sibs=cardsOf(p),i=sibs.indexOf(c),j=(d==='up'?i-1:i+1);
+          if(i<0||j<0||j>=sibs.length)return;
+          if(d==='up')p.insertBefore(c,sibs[j]);else p.insertBefore(c,sibs[j].nextSibling);
+          cardOrdSet(contKey(p),curCardOrder(p));
+        },true);
+        c.appendChild(h);
+      }
+    }else{
+      c.classList.remove('sortcard');if(h)h.remove();
+    }
+  });
+  if(!on)p.classList.remove('cardsorting');
+}
+function cardDragBind(p,c){
+  if(c.__cdrag)return;c.__cdrag=1;
+  let sx=0,sy=0,hold=null,drag=false;
+  const end=()=>{
+    if(hold){clearTimeout(hold);hold=null;}
+    if(!drag)return;drag=false;
+    c.classList.remove('cdragging');c.style.transform='';
+    p.classList.remove('cardsorting');
+    cardOrdSet(contKey(p),curCardOrder(p));
+  };
+  c.addEventListener('pointerdown',e=>{
+    if(!document.body.classList.contains('sortmode'))return;
+    if(e.target.closest&&e.target.closest('.card-mv'))return;
+    sx=e.clientX;sy=e.clientY;
+    try{c.setPointerCapture(e.pointerId);}catch(x){}
+    hold=setTimeout(()=>{
+      drag=true;c.classList.add('cdragging');p.classList.add('cardsorting');
+      try{navigator.vibrate&&navigator.vibrate(12);}catch(x){}
+    },200);                                               // 長按 0.2 秒才進入拖曳,避免誤觸
+  });
+  c.addEventListener('pointermove',e=>{
+    if(!drag){
+      if(hold&&(Math.abs(e.clientX-sx)>12||Math.abs(e.clientY-sy)>12)){clearTimeout(hold);hold=null;}
+      return;}
+    e.preventDefault();
+    c.style.transform='translate('+(e.clientX-sx)+'px,'+(e.clientY-sy)+'px)';
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    const tgt=el&&el.closest?el.closest(CARD_SEL):null;
+    if(tgt&&tgt!==c&&tgt.parentElement===p){
+      const after=!!(c.compareDocumentPosition(tgt)&Node.DOCUMENT_POSITION_FOLLOWING);
+      if(after)p.insertBefore(c,tgt.nextSibling);else p.insertBefore(c,tgt);
+      sx=e.clientX;sy=e.clientY;c.style.transform='';     // 換位後重新歸零,避免位移累加
+    }
+  });
+  c.addEventListener('pointerup',end);
+  c.addEventListener('pointercancel',end);
+  c.addEventListener('lostpointercapture',end);
+}
+function cardConts(){
+  const seen=new Set(),out=[];
+  document.querySelectorAll(CARD_SEL).forEach(c=>{
+    const p=c.parentElement;if(!p||seen.has(p))return;seen.add(p);
+    if(cardsOf(p).length<2)return;
+    out.push(p);});
+  return out;
+}
+function cardSortMode(on){
+  cardConts().forEach(p=>cardHandles(p,on));
+  if(!on){
+    document.querySelectorAll('.card-mv').forEach(h=>h.remove());
+    document.querySelectorAll('.sortcard').forEach(c=>c.classList.remove('sortcard'));
+    document.querySelectorAll('.cardsorting').forEach(c=>c.classList.remove('cardsorting'));
+  }
+}
+function scanCardConts(){
+  cardConts().forEach(p=>{
+    if(!p.__cardObs){
+      p.classList.add('cardcont');
+      p.__cardObs=new MutationObserver(()=>{               // 卡片重繪後自動把順序套回去
+        clearTimeout(p.__cardT);
+        p.__cardT=setTimeout(()=>{try{
+          applyCardOrder(p);
+          if(document.body.classList.contains('sortmode'))cardHandles(p,true);
+        }catch(e){}},120);
+      });
+      p.__cardObs.observe(p,{childList:true});
+    }
+    try{applyCardOrder(p);}catch(e){}
+    if(document.body.classList.contains('sortmode'))cardHandles(p,true);
+  });
+}
+function sortHint(on){
+  let h=document.getElementById('sortHint');
+  if(!on){if(h)h.remove();return;}
+  if(!h){h=document.createElement('div');h.id='sortHint';document.body.appendChild(h);}
+  h.innerHTML='\u2699\ufe0f <b>\u6392\u5e8f\u6a21\u5f0f</b>\uff1a\u5340\u584a\u6a19\u984c\u7528 <b>\u2191\u2193</b> \u6216\u9577\u6309\u62d6\u66f3\uff1b\u5c0f\u5361\u7247\u7528 <b>\u2039 \u203a</b> \u6216\u9577\u6309\u62d6\u66f3\u3002\u6309 <b>ESC</b> \u6216\u518d\u9ede\u4e00\u6b21\u300c\u5b8c\u6210\u6392\u5e8f\u300d\u7d50\u675f\u3002';
+}
+document.addEventListener('click',e=>{                     // 排序模式下,點卡片不觸發原本的跳轉
+  if(!document.body.classList.contains('sortmode'))return;
+  if(!e.target.closest)return;
+  if(e.target.closest('.card-mv')||e.target.closest('.sec-mv'))return;
+  if(e.target.closest('.sortcard')){e.stopPropagation();e.preventDefault();}
+},true);
+setInterval(()=>{try{scanCardConts();}catch(e){}},2500);
+try{scanCardConts();}catch(e){}
+document.addEventListener('DOMContentLoaded',()=>{try{scanCardConts();}catch(e){}});
+
 (function macroTopGate(){   // r722:一次到位揭示——頂部警訊/懶人包在資料穩定前完全零高度,穩定後(或 3 秒上限)一次全部顯示,只發生一次版面變化
   const ids=['macroAlerts','tldrBox'];
   const els=()=>ids.map(i=>document.getElementById(i)).filter(Boolean);
