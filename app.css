@@ -1534,3 +1534,8 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 
 /* r722:一次到位揭示 */
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* r723:法人動向與風險指標——精緻化 */
+#sb-mk_risk .idx-card{border-radius:14px;padding:14px 16px;transition:transform .15s ease,box-shadow .15s ease}
+#sb-mk_risk .idx-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+#sb-mk_risk .idx-card>div:first-child{font-size:12.5px;color:var(--mut);letter-spacing:.02em}

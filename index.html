@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r722">
+<link rel="stylesheet" href="app.css?v=r723">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -104,6 +104,15 @@
   <div class="mob-jump" id="macroJump"></div>
   <div class="alert-strip" id="macroAlerts" style="display:none"></div>
   <div class="idx-card" id="tldrBox" style="display:none;margin:10px 0 2px;cursor:default;border-left:4px solid var(--amber)"></div>
+  <div class="sec-title tap" data-sec="mk_risk" style="margin-top:14px">⚖️ 法人動向與風險指標 <span style="font-weight:400;font-size:13px;letter-spacing:0">三大法人・VIX/殖利率・總經判讀</span></div><div class="sec-body" id="sb-mk_risk">
+  <div class="macro-band">
+    <div><div class="mini-cap">三大法人(盤後)</div><div class="idx-row band" id="instRow"></div></div>
+    <div><div class="mini-cap">風險溫度計</div><div class="idx-row band" id="riskRow"></div></div>
+  </div>
+  <div class="mini-cap" style="margin-top:12px">三大法人現貨買賣超 · 近 14 個交易日(億元)</div>
+  <div id="instTblBox" style="overflow-x:auto"><div class="dim-note">載入中…</div></div>
+  <div class="fx-note" id="macroNote">總經判讀載入中…</div>
+  </div>
   <div class="sec-title tap" data-sec="mk_hist" style="margin-top:12px">🌊 大盤長河|台股 × 美股 <span style="font-weight:400;font-size:13px;letter-spacing:0">近 6 年月線走勢比較・月度漲跌熱力圖(紅漲綠跌)</span></div><div class="sec-body" id="sb-mk_hist">
   <div id="mkHistBox"></div>
   </div>
@@ -168,15 +177,6 @@
   </div>
   <div class="sec-title tap" data-sec="mk_fut" style="margin-top:14px">📊 期貨籌碼先行指標 <span style="font-weight:400;font-size:13px;letter-spacing:0">近 14 個交易日完整表格</span></div><div class="sec-body" id="sb-mk_fut">
   <div id="futTab"></div>
-  </div>
-  <div class="sec-title tap" data-sec="mk_risk" style="margin-top:14px">⚖️ 法人動向與風險指標 <span style="font-weight:400;font-size:13px;letter-spacing:0">三大法人・VIX/殖利率・總經判讀</span></div><div class="sec-body" id="sb-mk_risk">
-  <div class="macro-band">
-    <div><div class="mini-cap">三大法人(盤後)</div><div class="idx-row band" id="instRow"></div></div>
-    <div><div class="mini-cap">風險溫度計</div><div class="idx-row band" id="riskRow"></div></div>
-  </div>
-  <div class="mini-cap" style="margin-top:12px">三大法人現貨買賣超 · 近 14 個交易日(億元)</div>
-  <div id="instTblBox" style="overflow-x:auto"><div class="dim-note">載入中…</div></div>
-  <div class="fx-note" id="macroNote">總經判讀載入中…</div>
   </div>
   <div class="sec-title tap" data-sec="mk_cmd" style="margin-top:14px">⛏️ 原物料行情 <span style="font-weight:400;font-size:13px;letter-spacing:0">金屬・能源 即時報價,點卡片看K線與白話解讀</span></div><div class="sec-body" id="sb-mk_cmd">
   <div id="cmdGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px"></div>
@@ -317,6 +317,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r722"></script>
+<script src="app.js?v=r723"></script>
 </body>
 </html>
