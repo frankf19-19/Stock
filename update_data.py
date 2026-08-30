@@ -3934,6 +3934,24 @@ def fetch_index_hist(prev):
                     print(f"  櫃買月線:{ym2}={v}(共 {len(ks2)} 月)")
     except Exception as e:
         print(f"  [warn] 櫃買月線: {e}")
+    # r718:費城半導體(^SOX)月線——FRED 無此系列;Yahoo chart 月頻直取 6 年(GitHub IP 可通,美股K備援同源)。
+    #       每班整段重抓覆蓋(1 支請求),失敗則保留前值。
+    try:
+        j = get_json("https://query1.finance.yahoo.com/v8/finance/chart/%5ESOX",
+                     params={"range": "6y", "interval": "1mo"}, timeout=50)
+        res = (((j or {}).get("chart") or {}).get("result") or [None])[0]
+        ts3 = (res or {}).get("timestamp") or []
+        cl3 = ((((res or {}).get("indicators") or {}).get("quote") or [{}])[0].get("close")) or []
+        m3 = {}
+        for t3, v3 in zip(ts3, cl3):
+            if v3:
+                m3[dt.datetime.utcfromtimestamp(t3).strftime("%Y-%m")] = round(v3, 2)
+        if len(m3) >= 12:
+            k3 = sorted(m3)[-72:]
+            out["sox"] = {"d": k3, "c": [m3[x3] for x3 in k3]}
+            print(f"  費半月線 ← Yahoo:{k3[-1]}={m3[k3[-1]]}(共 {len(k3)} 月)")
+    except Exception as e:
+        print(f"  [warn] 費半月線: {e}")
     for name, sid in (("spx", "SP500"), ("ndx", "NASDAQCOM")):
         r = fred_monthly(sid)
         if r: out[name] = {"d": r["d"][-72:], "c": r["c"][-72:]}
