@@ -3902,11 +3902,19 @@ def fetch_index_hist(prev):
         ym = f"{cur:%Y-%m}"
         if ym not in m or ym == this_ym: want.append(ym)
         cur = (cur.replace(day=28) + dt.timedelta(days=6)).replace(day=1)
-    if len(want) > 4 and len(m) >= 12: want = want[-4:]     # 已建檔:每班最多補 4 個月
+    # r709:洞在「任何位置」都要補——首班被證交所限流漏掉的中段月份,由舊到新每班磨 6 個月;
+    #       當月永遠重抓(月中收盤會變)。r708 舊邏輯只看最近 4 個月,中段 20 個月的洞永遠補不回來。
+    if len(want) > 6 and len(m) >= 12:
+        old_first = [ym for ym in want if ym != this_ym][:5]
+        want = old_first + ([this_ym] if this_ym in want else [])
     got = 0
     for ym in want:
         v = _twse_month_close(ym.replace("-", ""))
-        time.sleep(0.45)
+        time.sleep(0.7)
+        if v is None:                        # 疑似限流 → 退避後重試一次
+            time.sleep(2.0)
+            v = _twse_month_close(ym.replace("-", ""))
+            time.sleep(0.7)
         if v is not None: m[ym] = v; got += 1
     ks = sorted(m)[-72:]
     out["tw"] = {"d": ks, "c": [m[k] for k in ks]}
