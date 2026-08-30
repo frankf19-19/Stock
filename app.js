@@ -1,4 +1,4 @@
-/* K研所 · build r719 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r720 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r719</span>');
+  diag.push('<span style="color:var(--dim)">build r720</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19825,6 +19825,23 @@ function renderSecNav(){
   setInterval(()=>{try{wrap();}catch(e){}},4000);
 })();
 lazyRun('#heroStrip',()=>{try{renderHero();renderSecNav();}catch(e){}},60*1000);
+(function bootReserve(){   // r720:首載防跳——上次出現過的頂部元件,開頁即佔位(骨架),資料到了原地填入
+  try{
+    const seen=JSON.parse(localStorage.getItem('topSeen')||'{}');
+    const hero=document.getElementById('heroStrip');
+    if(hero&&seen.hero)hero.innerHTML='<div class="hero-card hero-skel">&nbsp;</div>';
+    const tk=document.getElementById('tickerBar');
+    if(tk&&seen.tk){tk.hidden=false;tk.style.minHeight='34px';}
+    const fb=document.getElementById('favAlertBar');
+    if(fb&&seen.fal){fb.hidden=false;fb.innerHTML='<div class="fal-head"><b>⭐ 最愛提醒 載入中…</b></div>';}
+    setInterval(()=>{try{
+      const st={hero:!!(hero&&hero.textContent.trim()&&!hero.querySelector('.hero-skel')),
+                tk:!!(tk&&!tk.hidden&&tk.textContent.trim()),
+                fal:!!(fb&&!fb.hidden&&fb.dataset.falN)};
+      if(st.hero||st.tk||st.fal)localStorage.setItem('topSeen',JSON.stringify(st));
+    }catch(e){}},15000);
+  }catch(e){}
+})();
 document.addEventListener('click',e=>{
   if(e.target.closest&&(e.target.closest('#homeTabs button')||e.target.closest('#gmktBar button')))
     setTimeout(()=>{try{renderSecNav();}catch(x){}},120);

@@ -1522,3 +1522,8 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 .mkh-c.mkh-sum{padding:8px 3px!important}
 .mkh-c.mkh-sum .mkh-bar{display:none}
 .mkh-chip{display:inline-block;min-width:44px;padding:3px 7px;border:1px solid;border-radius:8px;font-weight:800;font-size:12.5px;line-height:1.2}
+
+/* r720:首載佔位骨架 */
+#heroStrip{min-height:0}
+.hero-skel{min-height:46px;opacity:.45;background:var(--panel)!important;animation:skelP 1.2s ease-in-out infinite alternate}
+@keyframes skelP{from{opacity:.3}to{opacity:.55}}
