@@ -1,4 +1,4 @@
-/* K研所 · build r731 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r732 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r731</span>');
+  diag.push('<span style="color:var(--dim)">build r732</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19791,7 +19791,7 @@ function renderSecNav(){
     const label=(t.childNodes[0]&&t.childNodes[0].textContent||t.textContent).trim().slice(0,14);
     return {sec:t.dataset.sec,label};}).filter(x=>x.sec&&x.label);
   if(items.length<2){nav.innerHTML='';return;}
-  nav.innerHTML=items.map(x=>`<span data-nav="${x.sec}">${x.label}</span>`).join('')+'<span class="nav-fold" id="navSort">⇅ 排序</span><span class="nav-fold" id="navFold">⇧ 全部收合</span>';   // r727/r728
+  nav.innerHTML='<span class="nav-fold" id="navSort">⇅ 排序</span><span class="nav-fold" id="navFold">⇧ 全部收合</span>';   // r732:站上已有「跳到:」導覽,這裡不再重複列區塊名稱,只留兩顆工具鈕
   try{applySecOrder(pane);}catch(x){}   // r728:套用自訂順序
   const srt=nav.querySelector('#navSort');
   if(srt)srt.onclick=()=>{
