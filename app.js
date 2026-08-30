@@ -1,4 +1,4 @@
-/* K研所 · build r712 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r713 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r712</span>');
+  diag.push('<span style="color:var(--dim)">build r713</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19739,8 +19739,12 @@ function mkhHeatHtml(){
         avg.push(vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null);
         win.push(vs.length?[vs.filter(v=>v>0).length,vs.length]:null);
       }
-      const ac=v=>v==null?'<td class="mkh-c mkh-na"></td>':`<td class="mkh-c mkh-sum" style="color:${v>=0?up:dn}">${v>0?'+':''}${v.toFixed(1)}</td>`;
-      const wc=w=>w==null?'<td class="mkh-c mkh-na"></td>':`<td class="mkh-c mkh-sum" style="color:${w[0]/w[1]>=0.5?up:dn}">${Math.round(w[0]/w[1]*100)}%</td>`;
+      const ac=v=>{if(v==null)return '<td class="mkh-c mkh-na"></td>';
+        const a=Math.min(1,Math.abs(v)/5),col=v>=0?up:dn,fg=a>0.55?'#fff':col;   // r713:平均列同樣上底色,強度以 ±5% 滿格
+        return `<td class="mkh-c mkh-sum" style="background:color-mix(in srgb,${col} ${Math.round(a*82)}%,var(--panel2));color:${fg};font-weight:800">${v>0?'+':''}${v.toFixed(1)}</td>`;};
+      const wc=w=>{if(w==null)return '<td class="mkh-c mkh-na"></td>';
+        const p2=w[0]/w[1]*100,dev=Math.min(1,Math.abs(p2-50)/35),col=p2>=50?up:dn,fg=dev>0.55?'#fff':col;   // 離 50% 越遠底色越深
+        return `<td class="mkh-c mkh-sum" style="background:color-mix(in srgb,${col} ${Math.round(dev*82)}%,var(--panel2));color:${fg};font-weight:800">${Math.round(p2)}%</td>`;};
       const ya=years.map(y=>{let a=1,ok=false;for(let mm=1;mm<=12;mm++){const v=ret[y][mm];if(v!=null){a*=(1+v/100);ok=true;}}return ok?(a-1)*100:null;}).filter(v=>v!=null);
       const yavg=ya.length?ya.reduce((a,b)=>a+b,0)/ya.length:null;
       return `<tr class="mkh-sumrow"><th>平均</th>${avg.map(ac).join('')}${ac(yavg)}</tr>`+
