@@ -1552,3 +1552,9 @@ body.sortmode .sec-body{opacity:.5}
 .secnav .nav-fold.on{background:color-mix(in srgb,var(--amber) 20%,var(--panel))}
 #navSort{margin-left:auto}
 #navFold{margin-left:6px!important}
+
+/* r729:拖曳排序 */
+body.sortmode .sec-title{touch-action:none;cursor:grab;user-select:none}
+body.sortmode .sec-title.dragging{cursor:grabbing;opacity:.9;box-shadow:0 10px 26px rgba(0,0,0,.18);background:var(--panel);border-radius:10px;position:relative;z-index:99}
+.sec-ph{border:2px dashed var(--amber);border-radius:10px;margin:6px 0;background:color-mix(in srgb,var(--amber) 8%,transparent)}
+body.sortmode .sec-title::before{content:'⠿';margin-right:8px;color:var(--amber);font-size:15px}

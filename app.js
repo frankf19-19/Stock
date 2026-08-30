@@ -1,4 +1,4 @@
-/* K研所 · build r728 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r729 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r728</span>');
+  diag.push('<span style="color:var(--dim)">build r729</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19859,6 +19859,50 @@ function applySecOrder(pane){
     if(t){pane.appendChild(t);if(b)pane.appendChild(b);}});
 }
 function curOrder(pane){return [...pane.querySelectorAll(':scope > .sec-title[data-sec]')].map(t=>t.dataset.sec);}
+function secDragBind(pane,t){   // r729:滑鼠/觸控長按拖曳排序(pointer events,桌機手機通用)
+  if(t.__dragBound)return;t.__dragBound=true;
+  let sy=0,moved=false,hold=null,dragging=false,ph=null;
+  const body=()=>document.getElementById('sb-'+t.dataset.sec);
+  const start=()=>{
+    dragging=true;t.classList.add('dragging');
+    ph=document.createElement('div');ph.className='sec-ph';ph.style.height='10px';
+    pane.insertBefore(ph,t);
+    try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}
+  };
+  const overTitle=(x,y)=>{
+    const el=document.elementFromPoint(x,y);
+    return el&&el.closest?el.closest('.sec-title[data-sec]'):null;
+  };
+  t.addEventListener('pointerdown',e=>{
+    if(!document.body.classList.contains('sortmode'))return;
+    if(e.target.closest('.sec-mv'))return;
+    sy=e.clientY;moved=false;
+    t.setPointerCapture(e.pointerId);
+    hold=setTimeout(start,220);            // 長按 0.22 秒才進入拖曳,避免誤觸
+  });
+  t.addEventListener('pointermove',e=>{
+    if(!dragging){if(hold&&Math.abs(e.clientY-sy)>10){clearTimeout(hold);hold=null;}return;}
+    e.preventDefault();moved=true;
+    t.style.transform=`translateY(${e.clientY-sy}px)`;
+    const tgt=overTitle(e.clientX,e.clientY);
+    if(tgt&&tgt!==t&&tgt.parentElement===pane){
+      const r=tgt.getBoundingClientRect();
+      if(e.clientY<r.top+r.height/2)pane.insertBefore(ph,tgt);
+      else{const tb=document.getElementById('sb-'+tgt.dataset.sec);pane.insertBefore(ph,(tb||tgt).nextSibling);}
+    }
+  });
+  const end=()=>{
+    if(hold){clearTimeout(hold);hold=null;}
+    if(!dragging)return;
+    dragging=false;t.classList.remove('dragging');t.style.transform='';
+    const b=body();
+    if(ph){pane.insertBefore(t,ph);if(b)pane.insertBefore(b,t.nextSibling);ph.remove();ph=null;}
+    secOrderSet(paneKey(pane),curOrder(pane));
+    try{renderSecNav();}catch(x){}
+  };
+  t.addEventListener('pointerup',end);
+  t.addEventListener('pointercancel',end);
+}
 function toggleSortMode(pane,on){
   document.body.classList.toggle('sortmode',on);
   pane.querySelectorAll(':scope > .sec-title[data-sec]').forEach(t=>{
@@ -19876,7 +19920,8 @@ function toggleSortMode(pane,on){
         secOrderSet(paneKey(pane),curOrder(pane));
         try{renderSecNav();}catch(x){}};
       t.appendChild(h);}
-    else if(!on&&h)h.remove();});
+    else if(!on&&h)h.remove();
+    if(on)secDragBind(pane,t);});   // r729:綁定拖曳
 }
 (function macroTopGate(){   // r722:一次到位揭示——頂部警訊/懶人包在資料穩定前完全零高度,穩定後(或 3 秒上限)一次全部顯示,只發生一次版面變化
   const ids=['macroAlerts','tldrBox'];
