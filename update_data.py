@@ -2655,6 +2655,7 @@ def fetch_etf_holdings(stocks):
         s["hold"]["top"] = [[r[0], r[1], r[2]] for r in top]
         s["hold"]["d"] = hh.get("d")
         s["hold"]["sh"] = {r[0]: r[3] for r in top if len(r) > 3}   # 代號→股數
+        if hh.get("aum"): s["hold"]["aum"] = hh["aum"]              # r748:規模(舊版一直是 None,張數/市值算不出來)
         n_hold += 1
         # 調倉估算:今日 vs 昨日(需昨日有 top)
         try:
