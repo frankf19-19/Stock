@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════
-   K研所 · mobile.js · build r758
+   K研所 · mobile.js · build r759
    手機版 App 化行為層。只在 ≤640px 生效,不改 app.js 任何函式,
    全部用「渲染後加工 + MutationObserver」介入,桌機零影響。
    ══════════════════════════════════════════════════════════════════ */
@@ -214,13 +214,80 @@ function forceDark(){
   }catch(e){ document.documentElement.dataset.theme='kdark'; }
 }
 
+
+/* ── r759:底部導覽改線性圖示(取代 emoji) ───────────────────── */
+var NAV_ICON={
+  macro:'<path d="M4 19V10M10 19V5M16 19v-6M22 19H2"/>',
+  aipick:'<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M9 13h.01M15 13h.01M9.5 16.5h5"/>',
+  stocks:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  etf:'<path d="M5 9h14l-1.4 9.1a2 2 0 0 1-2 1.9H8.4a2 2 0 0 1-2-1.9L5 9z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/>',
+  gooaye:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  port:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 12h18"/>',
+  __fav:'<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>'
+};
+function polishNav(){
+  var nav=document.getElementById('mobNav'); if(!nav) return;
+  nav.querySelectorAll('button[data-mn]').forEach(function(b){
+    if(b.dataset.mobIcon==='1') return;
+    var d=NAV_ICON[b.dataset.mn]; if(!d) return;
+    var mi=b.querySelector('.mi'); if(!mi) return;
+    mi.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '+
+      'stroke-linecap="round" stroke-linejoin="round" width="22" height="22">'+d+'</svg>';
+    b.dataset.mobIcon='1';
+  });
+}
+
+/* ── r759:左側策略欄 —— 拆成 圖示/名稱/檔數 三段,高度統一 ──── */
+function polishRail(){
+  var seg=document.getElementById('stratSeg'); if(!seg) return;
+  seg.querySelectorAll('button[data-st]').forEach(function(b){
+    if(b.dataset.mobRail==='1') return;
+    var cntEl=b.querySelector('span'), cnt=cntEl?cntEl.textContent.trim():'';
+    if(cntEl) cntEl.remove();
+    var txt=(b.textContent||'').trim();
+    /* 開頭的圖示字元(emoji 或 ◀ ▶)切出來 */
+    var m=txt.match(/^([\uD800-\uDBFF][\uDC00-\uDFFF]\uFE0F?|[\u2190-\u27BF\uFE0F]+)\s*([\s\S]*)$/);
+    var icon=m?m[1]:'', name=m?m[2]:txt;
+    b.innerHTML='<span class="ri">'+icon+'</span><span class="rn">'+name+'</span>'+
+                (cnt?'<span class="rc">'+cnt+'</span>':'');
+    b.dataset.mobRail='1';
+  });
+}
+
+/* ── r759:機會雷達卡片 —— 標籤收進名稱列 ────────────────────── */
+function polishRadar(){
+  var box=document.getElementById('radar'); if(!box) return;
+  box.querySelectorAll('.r-card').forEach(function(c){
+    if(c.dataset.mobCard==='1') return;
+    c.dataset.mobCard='1';
+  });
+}
+
 function boot(){
   if(!isMob()) return;
   forceDark();
+  polishNav();
+  polishRail();
+  polishRadar();
   enhanceGrid();
   buildIdxBar();
 
   /* #grid 每次重畫(換排序/篩選/更多)就重新加工 */
+  /* 導覽列由 app.js 延遲建立,重試幾次 */
+  [300,900,2000].forEach(function(t){ setTimeout(polishNav,t); });
+
+  /* 策略欄 / 雷達每次重畫都要重新整形 */
+  var seg=document.getElementById('stratSeg');
+  if(seg && !seg.__mobObs){
+    seg.__mobObs=new MutationObserver(function(){ clearTimeout(seg.__t); seg.__t=setTimeout(polishRail,30); });
+    seg.__mobObs.observe(seg,{childList:true});
+  }
+  var rb=document.getElementById('radar');
+  if(rb && !rb.__mobObs){
+    rb.__mobObs=new MutationObserver(function(){ clearTimeout(rb.__t); rb.__t=setTimeout(polishRadar,30); });
+    rb.__mobObs.observe(rb,{childList:true});
+  }
+
   var g = document.getElementById('grid');
   if(g && !g.__mobObs){
     g.__mobObs = new MutationObserver(function(){
@@ -237,11 +304,11 @@ if(document.readyState === 'loading')
 else setTimeout(boot, 400);
 
 /* 資料較慢到位時補跑幾次 */
-[1200, 2500, 5000].forEach(function(t){ setTimeout(function(){ if(isMob()){ enhanceGrid(); buildIdxBar(); } }, t); });
+[1200, 2500, 5000].forEach(function(t){ setTimeout(function(){ if(isMob()){ enhanceGrid(); buildIdxBar(); polishNav(); polishRail(); polishRadar(); } }, t); });
 
 /* 轉向 / 視窗尺寸變化 */
 MQ.addEventListener ? MQ.addEventListener('change', function(){ setTimeout(boot, 200); })
                     : window.addEventListener('resize', function(){ setTimeout(boot, 200); });
 
-window.__mobRefresh = function(){ enhanceGrid(); buildIdxBar(); };
+window.__mobRefresh = function(){ enhanceGrid(); buildIdxBar(); polishNav(); polishRail(); polishRadar(); };
 })();

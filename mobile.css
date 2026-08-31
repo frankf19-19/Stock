@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════
-   K研所 · mobile.css · build r758
+   K研所 · mobile.css · build r759
    Part 1 —— 「籌碼黑」主題(全平台,含電腦版)
    Part 2 —— 手機 App 化版型(≤640px)
    選成 kdark 後,app.css 裡 23 條 html[data-theme="pearl"] 專屬規則
@@ -200,6 +200,9 @@ html .sec-title::after,html[data-theme] .sec-title::after{display:none!important
 .controls input[type=search],.controls select{background:var(--panel);border:1px solid var(--line);
   color:var(--txt);border-radius:8px;height:38px;font-size:14px}
 
+/* ── r759:分區跳轉列收斂 ── */
+.mob-jump button{font-size:14px!important;padding:10px 11px!important;letter-spacing:0}
+
 /* ── 機會雷達:左側直向策略欄 ── */
 #sb-radar{display:flex;flex-wrap:wrap;align-items:flex-start;gap:0;
   background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -211,14 +214,37 @@ html .sec-title::after,html[data-theme] .sec-title::after{display:none!important
 #sb-radar > #stratSeg button{
   width:100%;border:none!important;border-radius:0!important;
   border-bottom:1px solid var(--line)!important;
-  padding:12px 5px!important;font-size:12.5px!important;font-weight:800;line-height:1.28;
-  white-space:normal;color:var(--mut);background:transparent!important;min-height:52px}
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  padding:10px 4px!important;color:var(--mut);background:transparent!important;
+  height:62px;overflow:hidden}
+#sb-radar > #stratSeg button .ri{font-size:15px;line-height:1;opacity:.9}
+#sb-radar > #stratSeg button .rn{font-size:11.5px;font-weight:800;line-height:1.2;
+  text-align:center;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
+#sb-radar > #stratSeg button .rc{font-family:var(--mono);font-size:10px;font-weight:700;
+  line-height:1;padding:1px 5px;border-radius:999px;background:#22252C;color:var(--dim)}
 #sb-radar > #stratSeg button.on{background:var(--panel)!important;color:#fff!important;
   box-shadow:inset 3px 0 0 var(--amber)}
+#sb-radar > #stratSeg button.on .rn{color:#fff}
+#sb-radar > #stratSeg button.on .rc{background:rgba(232,180,74,.2);color:var(--amber)}
 #sb-radar > #radar{flex:1 1 0;min-width:0;grid-template-columns:1fr!important;gap:0!important;
   max-height:70vh;overflow-y:auto;padding:0}
 #sb-radar > #radar .r-card{border:none!important;border-bottom:1px solid var(--line)!important;
-  border-radius:0!important;box-shadow:none!important;transform:none!important;padding:11px 12px}
+  border-radius:0!important;box-shadow:none!important;transform:none!important;
+  padding:9px 11px;display:grid;grid-template-columns:auto minmax(0,1fr);
+  align-items:center;gap:3px 7px}
+#sb-radar > #radar .r-card:last-child{border-bottom:none!important}
+#sb-radar > #radar .r-tag{grid-column:1;align-self:center;margin:0;
+  font-size:10px!important;font-weight:800;padding:2px 6px!important;
+  border-radius:4px;letter-spacing:0;white-space:nowrap}
+#sb-radar > #radar .r-name{grid-column:2;font-size:14.5px;font-weight:800;color:#fff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#sb-radar > #radar .r-name .c-code{font-size:11.5px;color:var(--dim)}
+#sb-radar > #radar .r-name .rpx{font-size:13px}
+#sb-radar > #radar .mini-candle{width:9px;height:15px;margin:0 0 0 3px}
+#sb-radar > #radar .r-desc{grid-column:1/-1;font-size:11.5px!important;line-height:1.5!important;
+  color:var(--dim);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#sb-radar > #radar .r-empty{border:none;border-radius:0;font-size:13px;padding:14px 12px}
 #sb-radar > .radar-note{flex-basis:100%;padding:10px 12px;border-top:1px solid var(--line);
   margin-top:0;font-size:11.5px}
 #pulseStocks{grid-template-columns:1fr!important;gap:0!important;
@@ -246,7 +272,8 @@ html .sec-title::after,html[data-theme] .sec-title::after{display:none!important
   padding:4px 4px calc(4px + env(safe-area-inset-bottom))}
 #mobNav button{color:#7E858F;font-size:10.5px;font-weight:700;padding:6px 0 5px;
   border-radius:9px;gap:3px}
-#mobNav button .mi{font-size:20px}
+#mobNav button .mi{font-size:20px;display:flex;align-items:center;justify-content:center;height:22px}
+#mobNav button .mi svg{width:22px;height:22px;display:block}
 #mobNav button.on{color:#fff!important;background:#2A2E36!important}
 #mobNav button.on::before{display:none!important}
 #mobNav button.on .mi{transform:none!important}
