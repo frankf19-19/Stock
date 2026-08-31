@@ -1636,3 +1636,18 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 /* r742:外層收合列存在時,隱藏內層重複的標題列(避免展開後出現兩個標題) */
 .fal-bar .fal-head ~ .fal-h{display:none}
 .fal-bar .fal-head .fal-go{margin-left:0;flex:none}
+/* ══ r749:⚡ 今日操作 ══ */
+.aipt-h{font-weight:900;font-size:12.5px;color:var(--mut);letter-spacing:.04em;margin:8px 0 5px}
+.aipt-h:first-child{margin-top:0}
+.aipt-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:8px 10px;margin-bottom:6px;border-radius:10px;border:1px solid var(--line);border-left-width:4px;background:var(--panel);font-size:13.5px;cursor:pointer;transition:border-color .12s}
+.aipt-row:hover{border-color:var(--t-purple)}
+.aipt-row b{font-weight:800}
+.aipt-row .c-code{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.aipt-txt{color:var(--mut);flex:1;min-width:200px}
+.aipt-tag{font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);white-space:nowrap}
+.aipt-buy{border-left-color:var(--t-purple)}
+.aipt-tp{border-left-color:var(--up)}
+.aipt-sl{border-left-color:var(--down)}
+.aipt-exp{border-left-color:var(--amber)}
+.aipt-none{padding:14px 12px;border:1px dashed var(--line);border-radius:11px;background:var(--panel2);font-weight:800;font-size:14px}
+.aipt-none .dim{display:block;font-weight:400;font-size:12.5px;color:var(--dim);margin-top:4px}

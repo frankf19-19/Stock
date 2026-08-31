@@ -92,12 +92,24 @@ def shard(sid):
     return _SH[k]
 
 
+SETTLE_CUTOFF_H = 14        # 台北 14:00 前不採用當日 K 棒(13:30 收盤 + 緩衝)
+
 def bars_of(sid):
+    """r749:結算只用「已完成」的日 K。
+    盤中的當日棒還在變動,拿它算成交與停損會把盤中瞬間凍進紀錄——
+    2026-08-31 欣興跌停鎖死,當日棒塌成 o=h=l=c=999,結算就寫出「999 買進、同日 999 觸停損、0%」
+    這種既不存在又美化績效的交易。規則:日期 < 今天才算;今天的棒要過 14:00 且不是退化棒才採用。"""
     e = shard(sid).get(sid)
     if not e or not isinstance(e.get("d"), list) or not isinstance(e.get("o"), list): return [], []
     d, o = e["d"], e["o"]
     n = min(len(d), len(o))
-    return d[:n], o[:n]
+    d, o = d[:n], o[:n]
+    if n and d[-1] == TODAY.isoformat():
+        b = o[-1]
+        degenerate = len(b) >= 4 and b[0] == b[1] == b[2] == b[3]
+        if NOW.hour < SETTLE_CUTOFF_H or degenerate:
+            return d[:-1], o[:-1]
+    return d, o
 
 
 def load_json(p, default):

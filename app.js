@@ -1,4 +1,4 @@
-/* K研所 · build r747 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r749 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1648,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r747</span>');
+  diag.push('<span style="color:var(--dim)">build r749</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13093,7 +13093,7 @@ function setupSections(){
     }
     // 全站預設收合(2026-07-19 定案):除「總經環境」外一律先收合成乾淨目錄;點開看細項且偏好會記住
     const OPEN0=['macro','mk_idx'];   // r727:桌機預設只展開「總經環境 + 即時走勢」(法說會改預設收合),版面回到乾淨目錄
-    const closed=(key in saved)?!!saved[key]:((key==='aipick'||key==='aipstat')?false:(mob||OPEN0.indexOf(key)<0));   // r744:本週精選/實戰戰績預設展開,歷史紀錄預設收合
+    const closed=(key in saved)?!!saved[key]:((key==='aipick'||key==='aipstat'||key==='aiptoday')?false:(mob||OPEN0.indexOf(key)<0));   // r744:本週精選/實戰戰績預設展開,歷史紀錄預設收合
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
     t.onclick=()=>{
@@ -19379,6 +19379,47 @@ function aipRotPlan(w){
   });
   return out;
 }
+/* ⚡ r749:今日操作——上半是後端已記錄的成交/出場(事實),下半是現價已觸發的待辦(即時);沒有就顯示沒有 */
+function aipToday(){
+  if(!AIPK)return '<div class="dim-note">⏳ 讀取中…</div>';
+  const today=aipIso(aipTpDate());
+  const ws=(AIPK.weeks||[]).filter(w=>!w.bt);
+  const done=[],todo=[];
+  ws.forEach(w=>{
+    const bwEnd=aipAdd(w.buy_week,4),evEnd=w.eval_week?aipAdd(w.eval_week,4):null;
+    const rp=aipRotPlan(w);
+    (w.picks||[]).forEach((p,si)=>{
+      const legs=aipLegs(p);
+      legs.forEach((L,li)=>{
+        if(L.fill===today)done.push({k:'buy',id:L.id,name:L.name,
+          txt:`${li?`換股買進(第 ${li+1} 段,接替 ${legs[li-1]?legs[li-1].name:'—'})`:'買進'} @${L.entry}・目標 ${L.target} / 停損 ${L.stop}`});
+        if(L.xd===today)done.push({k:L.xw==='sl'?'sl':'tp',id:L.id,name:L.name,
+          txt:`${AIPXW[L.xw]||'賣出'} @${L.xp}・${aipMD(L.fill)} 買 ${L.entry},持有 ${L.hold||'—'} 天,實現 ${L.ret>0?'+':''}${L.ret}%`});
+      });
+      const cl=aipCurLeg(p);
+      if(cl&&cl.xd)return;
+      const st=(DATA.stocks||[]).find(x=>x.id===(cl?cl.id:p.id));
+      const px=st&&st.price>0?+st.price:0;if(!px)return;
+      if(!cl){
+        if(w.buy_week>today||today>bwEnd)return;
+        if(px<=p.buy)todo.push({k:'buy',id:p.id,name:p.name,txt:`🟢 <b>可買進</b>——現價 ${px} ≤ 建議買價 ${p.buy};目標 ${p.target} / 停損 ${p.stop}`});
+        else if(px<=p.buy_hi)todo.push({k:'buy',id:p.id,name:p.name,txt:`🟡 進入追價區——現價 ${px} 在上限 ${p.buy_hi} 內(建議買價 ${p.buy})`});
+      }else{
+        const r=(px/cl.entry-1)*100,rt=(r>0?'+':'')+r.toFixed(2)+'%';
+        const g=rp[si],nx=g?`;可換 <b>${g.c.name}</b>(${g.c.id})買 ${g.c.buy}`:'';
+        if(px>=cl.target)todo.push({k:'tp',id:cl.id,name:cl.name,txt:`🎯 <b>可賣出</b>——現價 ${px} ≥ 目標 ${cl.target},帳面 ${rt}${nx}`});
+        else if(px<=cl.stop)todo.push({k:'sl',id:cl.id,name:cl.name,txt:`🛑 <b>該停損</b>——現價 ${px} ≤ 停損 ${cl.stop},帳面 ${rt}${nx}`});
+        else if(evEnd&&today===evEnd)todo.push({k:'exp',id:cl.id,name:cl.name,txt:`⏰ <b>今日到期</b>——收盤結算,現價 ${px}(${rt})`});
+      }
+    });
+  });
+  const row=(x,tag)=>`<div class="aipt-row aipt-${x.k}" data-aip="${x.id}"><span class="aipt-tag">${tag}</span><b>${x.name}</b> <span class="c-code">${x.id}</span><span class="aipt-txt">${x.txt}</span></div>`;
+  if(!done.length&&!todo.length)
+    return `<div class="aipt-none">今天沒有操作。<span class="dim">名單裡沒有任何一檔到買價、到目標或觸停損,也沒有到期結算。</span></div>`;
+  return (done.length?`<div class="aipt-h">已記錄(${aipMD(today)})</div>`+done.map(x=>row(x,'已成交')).join(''):'')
+    +(todo.length?`<div class="aipt-h">現在可以做(即時現價)</div>`+todo.map(x=>row(x,'待辦')).join(''):'')
+    +`<div class="dim-note" style="margin-top:8px">「已記錄」是後端用<b>已收盤的日 K</b> 結算的事實;「現在可以做」是用即時報價判斷的待辦,收盤後才會變成紀錄。</div>`;
+}
 function aipTrade(p,w,si){
   const legs=aipLegs(p);
   if(!legs.length)return `<div class="aip-tr"><span class="aip-trn">${p.result==='nofill'?'整週沒回到買價 → 未成交(不計入統計)':'⏳ 尚未買進・等現價回到 '+p.buy}</span></div>`;
@@ -19564,10 +19605,12 @@ function renderAIPick(){
   h+=`<div class="dim-note" style="margin-top:10px">模型:日均成交值 ≥3,000 萬、非處置股,依 <b>趨勢結構</b>(月線上季線・月線翻揚)+ <b>動能</b>(20/60 日漲幅)+ <b>突破位置</b>(貼近或創 20 日高)+ <b>量能升溫</b> + <b>乖離健康</b> + <b>基本面/籌碼分</b> + <b>外資 5 日買超</b> 加權排序,剔除 5 日漲逾 15%/乖離 >15% 的已噴段,每產業至多 2 檔取前 5。<b>建議買價</b>:貼近 5 日線就以收盤價買,否則等回測到 5 日線附近;<b>目標</b> = 買價 + 2 ATR(4~12%)、<b>停損</b> = 買價 − 2 ATR(下限 −8%)。規則分再與學習模型(見上方 🧠)依 α 混合排序。名單選出即凍結,不事後修改;<b>買賣時間</b>:買進日=買進週第一次碰到買價那天(以買價或更低的開盤價成交);賣出日=之後第一次碰到目標價或停損價那天(同日都碰到採保守假設,算停損),都沒碰到就在評估週最後一個交易日收盤賣出;每檔都記錄買進/賣出時間、價格與實現損益。<b>換股輪動</b>:5 檔視為 5 個倉位,任一倉位到目標或觸停損賣出後,只要評估週還沒結束就從<b>候補名單</b>依序遞補下一檔(誰先出場誰先挑、同時持有同產業至多 2 檔),隔一個交易日以開盤價進場,目標/停損依實際進場價等比例重錨,次數不設限;倉位報酬 = 各段複利相乘,統計以實際出場為準。<b>準確率是「實際賣出價高於買進價」的比例,不是獲利保證,非投資建議</b>。</div>
   <div class="dim-note" style="margin-top:4px;font-size:12.5px">更新時間 ${AIPK.updated||'—'} · 點卡片進個股頁 · 名單裡的最愛股到買價/目標/停損時會跳提醒。</div>`;
   box.innerHTML=h;
+  const tBox=document.getElementById('aipTodayBox');
+  if(tBox){try{tBox.innerHTML=aipToday();}catch(e){tBox.innerHTML='';}}          // r749:今日操作
   const sBox=document.getElementById('aipStatBox');if(sBox)sBox.innerHTML=hs;                       // r744:戰績自成一區
   const hBox=document.getElementById('aipHistBox');
   if(hBox)hBox.innerHTML=hh||'<div class="dim-note">還沒有已結算的週次——第一週結算後就會出現。</div>';   // r744:歷史自成一區
-  [box,sBox,hBox].forEach(c=>{if(c)c.querySelectorAll('[data-aip]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.aip;});});
+  [box,sBox,hBox,tBox].forEach(c=>{if(c)c.querySelectorAll('[data-aip]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.aip;});});
   const lt=document.getElementById('aipLearnTg');if(lt)lt.onclick=e=>{e.stopPropagation();AIPK_LEARN_OPEN=!AIPK_LEARN_OPEN;renderAIPick();};
   const at=document.getElementById('aipAlTg');if(at)at.onclick=e=>{e.stopPropagation();
     const on=!aipAlertOn();try{localStorage.setItem('aipAlertOn',on?'1':'0');}catch(e2){}
