@@ -1,4 +1,4 @@
-/* K研所 · build r742 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r743 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1648,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r742</span>');
+  diag.push('<span style="color:var(--dim)">build r743</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13192,7 +13192,7 @@ function setupMobileNav(){
   if(!document.getElementById('mobNav')){
     const nav=document.createElement('div');
     nav.id='mobNav';
-    const items=[['macro','📊','大盤'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','股癌'],['port','💼','持股']];
+    const items=[['macro','📊','大盤'],['aipick','🤖','AI'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','股癌'],['port','💼','持股']];
     nav.innerHTML=items.map(([k,ic,lb])=>`<button data-mn="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('')
       +`<button data-mn="__fav"><span class="mi">⭐</span>最愛</button>`;
     document.body.appendChild(nav);
@@ -16147,13 +16147,14 @@ async function loadCreditTrend(s,e){
 }
 /* ══ 首頁分頁籤:大盤/個股/ETF ══ */
 function setHomeTab(t){
-  ['macro','stocks','etf','gooaye','port'].forEach(k=>{
+  ['macro','aipick','stocks','etf','gooaye','port'].forEach(k=>{
     const p=document.getElementById('tp-'+k);
     if(p)p.style.display=(k===t)?'':'none';
     const b=document.querySelector('#homeTabs [data-tab="'+k+'"]');
     if(b)b.classList.toggle('on',k===t);
   });
   try{localStorage.setItem('homeTab',t);}catch(e){}
+  if(t==='aipick'){try{aipLoad().then(()=>{try{renderAIPick();}catch(e){}});}catch(e){}try{setTimeout(aipSweep,600);}catch(e){}}   // r743:AI Pick 獨立分頁
   if(t==='etf'){try{renderEtf();}catch(e){}}
   if(t==='port'){try{renderPort();}catch(e){}try{setTimeout(portHeadRisk,500);}catch(e){}}
   if(t==='gooaye'){try{

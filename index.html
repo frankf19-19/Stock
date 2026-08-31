@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r742">
+<link rel="stylesheet" href="app.css?v=r743">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -94,6 +94,7 @@
 </div>
 <div class="home-tabs" id="homeTabs">
   <button data-tab="macro"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M3 16l5-6 4 3 6-8"/><path d="M3 21h18"/></svg>大盤</button>
+  <button data-tab="aipick">🤖 AI Pick</button>
   <button data-tab="stocks"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px;margin-right:4px"><line x1="7" y1="3" x2="7" y2="21"/><rect x="4.5" y="8" width="5" height="7" rx="1"/><line x1="17" y1="3" x2="17" y2="21"/><rect x="14.5" y="6" width="5" height="9" rx="1"/></svg>個股</button>
   <button data-tab="etf"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13.5l9 5 9-5"/><path d="M3 18l9 5 9-5" opacity=".45"/></svg>ETF</button>
   <button data-tab="gooaye">🎙️ 股癌</button>
@@ -179,6 +180,11 @@
   </div>
 
 </div>
+<div class="tabPane" id="tp-aipick" style="display:none">
+  <div class="sec-title" data-sec="aipick">🤖 AI Pick|本週精選 <span style="font-weight:400;font-size:13px;letter-spacing:0">量化模型每週選出下週看漲 5 檔・建議買價/目標/停損・記錄每檔買進/賣出時間與實現損益・停損後自動換股・到價即時提示</span></div><div class="sec-body" id="sb-aipick">
+  <div id="aipickBox"></div>
+  </div>
+</div>
 <div class="tabPane" id="tp-stocks">
     <div class="sec-title tap" data-sec="mk_cmd" style="margin-top:14px">⛏️ 原物料行情 <span style="font-weight:400;font-size:13px;letter-spacing:0">金屬・能源 即時報價,點卡片看K線與白話解讀</span></div><div class="sec-body" id="sb-mk_cmd">
   <div id="cmdGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px"></div>
@@ -189,9 +195,6 @@
   </div>
   <div class="sec-title tap" data-sec="mk_conf" id="confSecTitle" style="margin-top:14px;display:none">📣 重要法說快報 <span style="font-weight:400;font-size:13px;letter-spacing:0">近5天已開+未來7天將開・點列跳該股法說專區</span></div><div class="sec-body" id="sb-mk_conf">
   <div id="confHomeBox"></div>
-  </div>
-  <div class="sec-title" data-sec="aipick">🤖 AI Pick|本週精選 <span style="font-weight:400;font-size:13px;letter-spacing:0">量化模型每週選出下週看漲 5 檔・建議買價/目標/停損・記錄每檔買進/賣出時間與實現損益・停損後自動換股・到價即時提示</span></div><div class="sec-body" id="sb-aipick">
-  <div id="aipickBox"></div>
   </div>
     <div class="sec-title" data-sec="radar">機會雷達|選股策略 <span style="font-weight:400;font-size:13px;letter-spacing:0">點策略切換,規則化每日更新+盤中即時</span></div><div class="sec-body" id="sb-radar">
     <div class="ind-seg" id="stratSeg" style="flex-wrap:wrap;margin-bottom:10px"></div>
@@ -315,6 +318,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r742"></script>
+<script src="app.js?v=r743"></script>
 </body>
 </html>
