@@ -1609,3 +1609,22 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .aip-xsl{border-color:var(--down);color:var(--down);background:color-mix(in srgb,var(--down) 9%,var(--panel))}
 .aip-xexp{border-color:var(--line);color:var(--mut)}
 @media(max-width:520px){.aip-tr{gap:6px;font-size:12px}.aip-trr{margin-left:0}}
+/* ══ r739:換股輪動——段落標籤、候補名單、建議換股列 ══ */
+.aip-trx{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:8px;font-size:11.5px;font-weight:800;background:color-mix(in srgb,var(--amber) 14%,var(--panel));color:var(--amber);border:1px solid color-mix(in srgb,var(--amber) 40%,var(--line))}
+.aip-trx b{font-family:var(--mono);font-size:12px;color:var(--txt)}
+.aip-trnew{border-style:dashed;border-color:color-mix(in srgb,var(--amber) 55%,var(--line))}
+.aip-trs.x-new{border-color:var(--amber);border-style:dashed}
+.aip-trs.x-new i{color:var(--amber)}
+.aip-trsum{background:color-mix(in srgb,var(--amber) 7%,var(--panel2));border-color:color-mix(in srgb,var(--amber) 35%,var(--line))}
+.aip-rot{border-color:var(--amber);color:var(--amber);background:color-mix(in srgb,var(--amber) 10%,var(--panel))}
+.aip-rotnow{font-size:11.5px;font-weight:800;color:var(--amber);padding:1px 7px;border:1px solid color-mix(in srgb,var(--amber) 45%,var(--line));border-radius:999px;white-space:nowrap}
+.aip-bench{margin-top:10px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;background:var(--panel2)}
+.aip-bh{font-weight:900;font-size:13.5px;margin-bottom:7px}
+.aip-bh .dim{font-weight:400;font-size:12px;color:var(--dim)}
+.aip-bl{display:flex;flex-wrap:wrap;gap:6px}
+.aip-bk{display:inline-flex;align-items:baseline;gap:5px;padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:var(--panel);cursor:pointer;font-size:12.5px;transition:border-color .12s}
+.aip-bk:hover{border-color:var(--amber)}
+.aip-bk i{font-style:normal;font-weight:900;color:var(--dim);font-size:11px;min-width:14px;text-align:center}
+.aip-bk em{font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--mut)}
+.aip-hpk i{font-style:normal;font-size:11px;color:var(--amber);font-weight:800}
+@media(max-width:520px){.aip-bk em{display:none}.aip-rotnow{font-size:11px}}

@@ -13,7 +13,10 @@
   ・結算:評估週最後一根 K 收盤 vs 成交價;>0 命中(win)、<0 失誤(loss)、=0 平(flat)
   ・出場(r736):成交後逐日檢查,先碰到目標 → 以目標價賣出;先碰到停損 → 以停損價賣出;
               兩者同日觸及採保守假設(停損先);都沒碰到 → 評估週最後一根 K 收盤賣出(到期出場)
-  ・每檔都記錄「買進日/買進價 → 賣出日/賣出價/賣出原因/持有天數/實現損益」,統計以實際出場為準
+  ・換股(r738):5 檔改為「5 個倉位」,倉位出場後只要評估週還沒結束就從候補名單遞補下一檔,
+              誰先出場誰先挑;隔一個交易日以開盤價進場,目標/停損依實際進場價等比例重錨;
+              次數不設限,直到候補用完或評估週結束。倉位報酬 = 各段複利相乘
+  ・每段都記錄「買進日/買進價 → 賣出日/賣出價/賣出原因/持有天數/實現損益」,統計以實際出場為準
 """
 import json, os, sys, datetime as dt
 
@@ -22,8 +25,9 @@ NOW = dt.datetime.now(TZ)
 TODAY = NOW.date()
 OUT = "aipick.json"
 MODEL = "v2"
-XVER = 2                      # r736:出場結算版本(舊檔會自動重跑一次補上買賣時間/實現損益)
+XVER = 3                      # r738:結算版本(換股輪動;版本一變舊檔自動重跑)
 N_PICK = 5
+BENCH_N = 15                  # r738:候補名單長度——倉位出場後依序遞補,前端盤中可立刻提示換股
 MAX_PER_SECTOR = 2
 KEEP_WEEKS = 80
 
@@ -394,11 +398,21 @@ def gen_week(data, buy_week, learn=None):
                       "ret": None, "ret_c": None, "hit_tp": False, "hit_sl": False, "result": "pending",
                       "xd": None, "xp": None, "xw": None, "hold": None})
         if len(picks) >= N_PICK: break
+    # 🔄 r738:候補名單(名次接在正選之後)——倉位出場後依序遞補,產業上限在遞補當下才檢查
+    pid = {p["id"] for p in picks}
+    bench = []
+    for sc, s, why, meta in cands:
+        if s["id"] in pid: continue
+        bench.append({"id": s["id"], "name": s.get("name") or s["id"], "sector": s.get("sector") or "其他",
+                      "score": round(sc, 1), "why": why[:3], "kind": meta["kind"],
+                      "buy": meta["buy"], "target": meta["target"], "stop": meta["stop"],
+                      "ref_close": meta["ref_close"], "atr": meta["atr"]})
+        if len(bench) >= BENCH_N: break
     ref_day = max((p["ref_day"] for p in picks), default=cutoff)
     return {"buy_week": cutoff, "eval_week": iso(buy_week + dt.timedelta(days=7)),
             "made": NOW.strftime("%Y-%m-%d %H:%M"), "ref_day": ref_day,
             "model": (learn or {}).get("ver") or "v1", "alpha": alpha, "learn_n": int((learn or {}).get("n") or 0),
-            "status": "open", "picks": picks, "n_cand": len(cands)}
+            "status": "open", "picks": picks, "bench": bench, "n_cand": len(cands)}
 
 
 # ───────────────────────── 追蹤結算 ─────────────────────────
@@ -421,60 +435,135 @@ def exit_scan(p, held, entry):
     return None, None, None, len(held)
 
 
+def _leg(src, sid, name, sector, fill, entry, tgt, stp, score=None, kind=None):
+    return {"id": sid, "name": name, "sector": sector, "src": src, "score": score, "kind": kind,
+            "fill": fill, "entry": round(entry, 2), "target": tgt, "stop": stp,
+            "xd": None, "xp": None, "xw": None, "hold": None, "ret": None, "ret_c": None,
+            "last": None, "last_day": None}
+
+
+def _run_leg(leg, ew_end, eval_over):
+    """把一段部位從成交日跑到出場或視窗結束。回傳 True = 已出場。"""
+    d, o = bars_of(leg["id"])
+    held = [(d[i], o[i]) for i in range(len(d)) if leg["fill"] <= d[i] <= ew_end and len(o[i]) >= 4]
+    if not held: return False
+    lastc, lastd = held[-1][1][3], held[-1][0]
+    leg["last"], leg["last_day"] = lastc, lastd
+    leg["ret_c"] = round((lastc / leg["entry"] - 1) * 100, 2) if leg["entry"] else None
+    leg["hi"] = max(b[1] for _, b in held); leg["lo"] = min(b[2] for _, b in held)
+    xd, xp, xw, n = exit_scan(leg, held, leg["entry"])
+    if xd:
+        leg.update(xd=xd, xp=round(xp, 2), xw=xw, hold=n, ret=round((xp / leg["entry"] - 1) * 100, 2))
+        return True
+    if lastd >= ew_end or eval_over:                      # 到期:評估週最後一根 K 收盤賣出
+        leg.update(xd=lastd, xp=lastc, xw="exp", hold=len(held), ret=leg["ret_c"])
+        return True
+    leg["hold"] = len(held)
+    leg["ret"] = leg["ret_c"]
+    return False
+
+
+def _open_at(sid, after_day, ew_end):
+    """出場日之後的第一個交易日(以該股自己的 K 為準);回傳 (日期, 開盤價) 或 None。"""
+    d, o = bars_of(sid)
+    for i in range(len(d)):
+        if d[i] > after_day and d[i] <= ew_end and len(o[i]) >= 4 and o[i][0] and o[i][0] > 0:
+            return d[i], o[i][0]
+    return None
+
+
 def evaluate(week):
     bw = dt.date.fromisoformat(week["buy_week"]); ew = bw + dt.timedelta(days=7)
     bw_end = iso(bw + dt.timedelta(days=4)); ew_end = iso(ew + dt.timedelta(days=4))
     buy_week_over = TODAY > bw + dt.timedelta(days=6)
     eval_over = TODAY > ew + dt.timedelta(days=6)     # 評估週之後的週一起一定結算
-    all_done = True
-    for p in week["picks"]:
+    bench = list(week.get("bench") or [])
+    picks = week["picks"]
+
+    # ── 第一段:買進週限價成交 ──
+    for p in picks:
         d, o = bars_of(p["id"])
         bb = [(d[i], o[i]) for i in range(len(d)) if week["buy_week"] <= d[i] <= bw_end and len(o[i]) >= 4]
-        eb = [(d[i], o[i]) for i in range(len(d)) if week["eval_week"] <= d[i] <= ew_end and len(o[i]) >= 4]
-        # 成交判定(僅買進週)
-        fill, entry = p.get("fill"), p.get("entry")
+        fill = entry = None
+        for day, b in bb:
+            if b[0] <= p["buy"]: fill, entry = day, b[0]; break
+            if b[2] <= p["buy"]: fill, entry = day, p["buy"]; break
         if not fill:
             for day, b in bb:
-                op, hi, lo = b[0], b[1], b[2]
-                if op <= p["buy"]: fill, entry = day, op; break
-                if lo <= p["buy"]: fill, entry = day, p["buy"]; break
-            if not fill:
-                for day, b in bb:
-                    if b[2] <= p["buy_hi"]: fill, entry = day, min(max(b[0], p["buy"]), p["buy_hi"]); break
-        p["fill"], p["entry"] = fill, (round(entry, 2) if entry else None)
+                if b[2] <= p["buy_hi"]: fill, entry = day, min(max(b[0], p["buy"]), p["buy_hi"]); break
         if fill:
-            held = [(day, b) for day, b in (bb + eb) if day >= fill]
-            hi = max((b[1] for _, b in held), default=None)
-            lo = min((b[2] for _, b in held), default=None)
-            lastc = held[-1][1][3] if held else None
-            p["hi"], p["lo"], p["last"], p["last_day"] = hi, lo, lastc, (held[-1][0] if held else None)
-            p["hit_tp"] = bool(hi is not None and hi >= p["target"])
-            p["hit_sl"] = bool(lo is not None and lo <= p["stop"])
-            p["ret_c"] = round((lastc / entry - 1) * 100, 2) if (lastc and entry) else None
-            xd, xp, xw, nheld = exit_scan(p, held, entry)
-            done = bool(eb and (eb[-1][0] >= ew_end or eval_over))
-            if xd:                                                    # 到目標/觸停損:當天就賣出
-                p["xd"], p["xp"], p["xw"], p["hold"] = xd, round(xp, 2), xw, nheld
-                p["ret"] = round((xp / entry - 1) * 100, 2)
-                p["result"] = "win" if p["ret"] > 0 else ("loss" if p["ret"] < 0 else "flat")
-            elif done:                                                # 到期:評估週最後收盤賣出
-                p["xd"], p["xp"], p["xw"], p["hold"] = p["last_day"], lastc, "exp", len(held)
-                p["ret"] = p["ret_c"]
-                r = p["ret"] or 0
-                p["result"] = "win" if r > 0 else ("loss" if r < 0 else "flat")
-            else:                                                     # 持有中:ret 先用現有收盤浮動
-                p["xd"] = p["xp"] = p["xw"] = None
-                p["hold"] = len(held)
-                p["ret"] = p["ret_c"]
-                p["result"] = "pending"; all_done = False
+            p["legs"] = [_leg("pick", p["id"], p["name"], p.get("sector"), fill, entry,
+                              p["target"], p["stop"], p.get("score"), p.get("kind"))]
+            _run_leg(p["legs"][0], ew_end, eval_over)
         else:
-            p["xd"] = p["xp"] = p["xw"] = p["hold"] = None
-            if buy_week_over and (bb or TODAY > bw + dt.timedelta(days=9)):
-                p["result"] = "nofill"
-            else:
-                p["result"] = "pending"; all_done = False
+            p["legs"] = []
+        p["_nofill"] = bool(not fill and buy_week_over and (bb or TODAY > bw + dt.timedelta(days=9)))
+
+    # ── 🔄 換股輪動:誰先出場誰先挑候補,次數不設限 ──
+    used = {p["id"] for p in picks}
+    bi = 0
+    while bench:
+        pick_slot = None
+        for si, p in enumerate(picks):
+            lg = p["legs"][-1] if p["legs"] else None
+            if not lg or not lg["xd"] or lg["xw"] == "exp" or lg.get("_rot"): continue
+            key = (lg["xd"], si)
+            if pick_slot is None or key < pick_slot[0]: pick_slot = (key, p, lg)
+        if not pick_slot: break
+        _, p, lg = pick_slot
+        lg["_rot"] = 1                                    # 這一段已試過換股,不論成不成功都不再回頭
+        nxt = None
+        while bi < len(bench):
+            b = bench[bi]; bi += 1
+            if b["id"] in used: continue
+            openn = sum(1 for q in picks for L in q["legs"]                 # 同時持有的同產業檔數上限
+                        if L.get("sector") == b.get("sector") and L["fill"] <= lg["xd"] and (not L["xd"] or L["xd"] > lg["xd"]))
+            if openn >= MAX_PER_SECTOR: continue
+            nxt = b; break
+        if not nxt: break
+        nd = _open_at(nxt["id"], lg["xd"], ew_end)
+        if not nd: continue                               # 沒有下一個交易日了(視窗已到尾)
+        day, en = nd
+        rr = (nxt["target"] / nxt["buy"]) if nxt["buy"] else 1.0           # 目標/停損依實際進場價等比例重錨,維持原本風報比
+        rs = (nxt["stop"] / nxt["buy"]) if nxt["buy"] else 1.0
+        leg = _leg("bench", nxt["id"], nxt["name"], nxt.get("sector"), day, en,
+                   rtick(en * rr, "near"), rtick(en * rs, "near"), nxt.get("score"), nxt.get("kind"))
+        p["legs"].append(leg); used.add(nxt["id"])
+        _run_leg(leg, ew_end, eval_over)
+
+    # ── 倉位彙總:報酬 = 各段複利相乘 ──
+    all_done = True
+    for p in picks:
+        legs = p["legs"]
+        for L in legs: L.pop("_rot", None)
+        p["rot"] = max(0, len(legs) - 1)
+        if not legs:
+            p.update(fill=None, entry=None, hi=None, lo=None, last=None, last_day=None,
+                     ret=None, ret_c=None, hit_tp=False, hit_sl=False, xd=None, xp=None, xw=None, hold=None)
+            p["result"] = "nofill" if p.pop("_nofill", False) else "pending"
+            if p["result"] == "pending": all_done = False
+            continue
+        p.pop("_nofill", None)
+        f, z = legs[0], legs[-1]
+        p["fill"], p["entry"] = f["fill"], f["entry"]
+        p["xd"], p["xp"], p["xw"] = z["xd"], z["xp"], z["xw"]
+        p["last"], p["last_day"] = z["last"], z["last_day"]
+        p["hi"], p["lo"] = f.get("hi"), f.get("lo")
+        p["hold"] = sum(L["hold"] or 0 for L in legs)
+        eqm = 1.0
+        for L in legs: eqm *= 1 + (L["ret"] or 0) / 100.0
+        p["ret"] = round((eqm - 1) * 100, 2)
+        p["ret_c"] = p["ret"]
+        p["hit_tp"] = any(L["xw"] == "tp" for L in legs)
+        p["hit_sl"] = any(L["xw"] == "sl" for L in legs)
+        if z["xd"]:
+            p["result"] = "win" if p["ret"] > 0 else ("loss" if p["ret"] < 0 else "flat")
+        else:
+            p["result"] = "pending"; all_done = False
+
     week["xv"] = XVER
-    if all_done and week["picks"]:
+    week["rot"] = sum(p.get("rot") or 0 for p in picks)
+    if all_done and picks:
         week["status"] = "done"
     elif TODAY >= ew:
         week["status"] = "tracking"
@@ -502,10 +591,16 @@ def stats_of(weeks):
     retc = [p["ret_c"] for p in filled if isinstance(p.get("ret_c"), (int, float))]
     st["avg_hold"] = round(avg(hold), 1) if hold else None
     st["avg_ret_c"] = round(avg(retc), 2) if retc else None
+    legs = [L for p in filled for L in (p.get("legs") or [])]
     for k in ("tp", "sl", "exp"):
-        st["x_" + k] = len([p for p in filled if p.get("xw") == k])
-    xr = {k: [p["ret"] for p in filled if p.get("xw") == k and isinstance(p.get("ret"), (int, float))] for k in ("tp", "sl", "exp")}
+        st["x_" + k] = len([L for L in legs if L.get("xw") == k])
+    xr = {k: [L["ret"] for L in legs if L.get("xw") == k and isinstance(L.get("ret"), (int, float))] for k in ("tp", "sl", "exp")}
     st["x_ret"] = {k: (round(avg(v), 2) if v else None) for k, v in xr.items()}
+    st["legs"] = len(legs)
+    st["rot"] = sum(p.get("rot") or 0 for p in filled)
+    st["rot_rate"] = round(len([p for p in filled if (p.get("rot") or 0) > 0]) / len(filled) * 100, 1) if filled else None
+    lr = [L["ret"] for L in legs if isinstance(L.get("ret"), (int, float))]
+    st["avg_leg_ret"] = round(avg(lr), 2) if lr else None
     # 每週小結(勝/檔/平均)
     st["by_week"] = []
     eq = 100.0; curve = []

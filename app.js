@@ -1,4 +1,4 @@
-/* K研所 · build r738 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r739 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1648,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r738</span>');
+  diag.push('<span style="color:var(--dim)">build r739</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19340,36 +19340,83 @@ async function aipLoad(force){
   }catch(e){}
   return AIPK;
 }
-/* r736:出場原因字典 + 「買進 → 賣出」時間軸 */
+/* r736:出場原因字典 + r738:「買進 → 賣出 → 換股」多段時間軸 */
 const AIPXW={tp:'🎯 到目標賣出',sl:'🛑 觸停損賣出',exp:'⏰ 到期賣出'};
 function aipRetC(v){const c=v>0?'var(--up)':v<0?'var(--down)':'var(--mut)';return `style="color:${c}"`;}
-function aipTrade(p,w){
-  if(!p.entry)return `<div class="aip-tr"><span class="aip-trn">${p.result==='nofill'?'整週沒回到買價 → 未成交(不計入統計)':'⏳ 尚未買進・等現價回到 '+p.buy}</span></div>`;
-  const b=`<span class="aip-trb"><i>🟢 買進</i><b>${aipMD(p.fill)}</b><em>${p.entry}</em></span>`;
-  if(p.xd){
-    const r=p.ret;
-    return `<div class="aip-tr">${b}<span class="aip-tra">→</span>`
-      +`<span class="aip-trs x-${p.xw||'exp'}"><i>${AIPXW[p.xw]||'賣出'}</i><b>${aipMD(p.xd)}</b><em>${p.xp}</em></span>`
-      +`<span class="aip-trh">持有 ${p.hold||'—'} 個交易日</span>`
-      +`<span class="aip-trr" ${aipRetC(r)}>${r>0?'獲利 +':r<0?'虧損 ':'平手 '}${r}%</span></div>`;
-  }
-  const s=(DATA.stocks||[]).find(x=>x.id===p.id);
-  const px=s&&s.price>0?+s.price:null;
-  const fr=px?(px/p.entry-1)*100:(typeof p.ret==='number'?p.ret:null);
+/* 倉位的所有段落;舊檔(還沒跑過 r738 結算)自動包成單段,前端不會壞 */
+function aipLegs(p){
+  if(Array.isArray(p.legs))return p.legs;
+  if(!p.entry)return [];
+  return [{id:p.id,name:p.name,sector:p.sector,src:'pick',fill:p.fill,entry:p.entry,
+           target:p.target,stop:p.stop,xd:p.xd,xp:p.xp,xw:p.xw,hold:p.hold,ret:p.ret,
+           last:p.last,last_day:p.last_day}];
+}
+function aipCurLeg(p){const L=aipLegs(p);return L.length?L[L.length-1]:null;}
+/* 🔄 盤中即時換股:哪些倉位現價已觸目標/停損 → 依候補名單順位配發(與後端同一份 bench、同一個順序) */
+function aipRotPlan(w){
+  const out={};
+  if(!w||w.bt||!Array.isArray(w.bench)||!w.bench.length||!DATA||!DATA.stocks)return out;
+  const used=new Set((w.picks||[]).map(p=>p.id));
+  (w.picks||[]).forEach(p=>aipLegs(p).forEach(L=>used.add(L.id)));
+  const need=[];
+  (w.picks||[]).forEach((p,i)=>{
+    const L=aipCurLeg(p);
+    if(!L||L.xd)return;                                   // 沒進場,或後端已結算(已含換股)
+    const st=(DATA.stocks||[]).find(x=>x.id===L.id);
+    const px=st&&st.price>0?+st.price:0;if(!px)return;
+    if(px>=L.target)need.push({i,px,why:'tp',L});
+    else if(px<=L.stop)need.push({i,px,why:'sl',L});
+  });
+  let bi=0;
+  need.forEach(n=>{
+    while(bi<w.bench.length&&used.has(w.bench[bi].id))bi++;
+    if(bi>=w.bench.length)return;
+    const c=w.bench[bi++];used.add(c.id);
+    out[n.i]={c,px:n.px,why:n.why,from:n.L};
+  });
+  return out;
+}
+function aipTrade(p,w,si){
+  const legs=aipLegs(p);
+  if(!legs.length)return `<div class="aip-tr"><span class="aip-trn">${p.result==='nofill'?'整週沒回到買價 → 未成交(不計入統計)':'⏳ 尚未買進・等現價回到 '+p.buy}</span></div>`;
   const evEnd=w&&w.eval_week?aipAdd(w.eval_week,4):null;
-  return `<div class="aip-tr">${b}<span class="aip-tra">→</span>`
-    +`<span class="aip-trs x-hold"><i>📥 持有中</i><b>第 ${p.hold||1} 天</b><em>目標 ${p.target} / 停損 ${p.stop}</em></span>`
-    +(evEnd?`<span class="aip-trh">最晚 ${aipMD(evEnd)} 收盤賣出</span>`:'')
-    +(fr!=null?`<span class="aip-trr" ${aipRetC(fr)}>浮動 ${fr>0?'+':''}${fr.toFixed(2)}%</span>`:'')+`</div>`;
+  let h=legs.map((L,i)=>{
+    const tag=i?`<span class="aip-trx">🔄 第 ${i+1} 段 <b>${L.name}</b></span>`:'';
+    const b=`<span class="aip-trb"><i>🟢 買進</i><b>${aipMD(L.fill)}</b><em>${L.entry}</em></span>`;
+    if(L.xd)return `<div class="aip-tr">${tag}${b}<span class="aip-tra">→</span>`
+      +`<span class="aip-trs x-${L.xw||'exp'}"><i>${AIPXW[L.xw]||'賣出'}</i><b>${aipMD(L.xd)}</b><em>${L.xp}</em></span>`
+      +`<span class="aip-trh">持有 ${L.hold||'—'} 天</span>`
+      +`<span class="aip-trr" ${aipRetC(L.ret)}>${L.ret>0?'+':''}${L.ret}%</span></div>`;
+    const st=(DATA.stocks||[]).find(x=>x.id===L.id);
+    const px=st&&st.price>0?+st.price:null;
+    const fr=px?(px/L.entry-1)*100:(typeof L.ret==='number'?L.ret:null);
+    return `<div class="aip-tr">${tag}${b}<span class="aip-tra">→</span>`
+      +`<span class="aip-trs x-hold"><i>📥 持有中</i><b>第 ${L.hold||1} 天</b><em>目標 ${L.target} / 停損 ${L.stop}</em></span>`
+      +(evEnd?`<span class="aip-trh">最晚 ${aipMD(evEnd)} 收盤賣出</span>`:'')
+      +(fr!=null?`<span class="aip-trr" ${aipRetC(fr)}>浮動 ${fr>0?'+':''}${fr.toFixed(2)}%</span>`:'')+`</div>`;
+  }).join('');
+  const g=((w&&w.__rot)||{})[si];
+  if(g)h+=`<div class="aip-tr aip-trnew"><span class="aip-trx">🔄 建議換股</span>`
+    +`<span class="aip-trb"><i>${g.why==='sl'?'🛑 觸停損出場':'🎯 到目標出場'}</i><b>現價 ${g.px}</b></span>`
+    +`<span class="aip-tra">→</span>`
+    +`<span class="aip-trs x-new"><i>候補 ${g.c.name}</i><b>${g.c.id}</b><em>買 ${g.c.buy} · 目標 ${g.c.target} · 停損 ${g.c.stop}</em></span>`
+    +`<span class="aip-trh">依候補順位遞補;收盤後由後端以隔日開盤價記錄正式段</span></div>`;
+  if(legs.length>1&&typeof p.ret==='number')
+    h+=`<div class="aip-tr aip-trsum"><span class="aip-trx">🧮 本倉合計</span>`
+      +`<span class="aip-trh">${legs.length} 段・換股 ${legs.length-1} 次・持有 ${p.hold||'—'} 天(各段複利)</span>`
+      +`<span class="aip-trr" ${aipRetC(p.ret)}>${p.ret>0?'+':''}${p.ret}%</span></div>`;
+  return h;
 }
 /* 單檔即時狀態:買進週看「到價沒」,評估週看「持有損益」 */
 function aipLive(p,w){
-  const s=(DATA.stocks||[]).find(x=>x.id===p.id);
+  const cl=aipCurLeg(p);                                   // r738:報價與晶片都跟著「現在持有的那一段」
+  const s=(DATA.stocks||[]).find(x=>x.id===(cl?cl.id:p.id));
   const px=s&&s.price>0?+s.price:null;
-  const o={px,s};
-  const entry=p.entry||null;
+  const o={px,s,leg:cl,pid:cl?cl.id:p.id};
+  const entry=cl&&!cl.xd?cl.entry:null;
   if(p.result==='win'||p.result==='loss'||p.result==='flat'){
     o.chip=`<span class="aip-st ${p.result==='win'?'aip-win':p.result==='loss'?'aip-loss':'aip-wait'}">${p.result==='win'?'✅ 命中':p.result==='loss'?'❌ 失誤':'➖ 平盤'} ${p.ret>0?'+':''}${p.ret}%</span>`
+      +((p.rot||0)>0?`<span class="aip-st aip-rot">🔄 換股 ${p.rot} 次</span>`:'')
       +(p.xd?`<span class="aip-st aip-x${p.xw||'exp'}">${AIPXW[p.xw]||'賣出'} ${aipMD(p.xd)} @${p.xp}</span>`:'');
     o.ret=p.ret;return o;
   }
@@ -19377,9 +19424,9 @@ function aipLive(p,w){
   if(entry){
     const r=px?(px/entry-1)*100:p.ret;
     o.ret=r;
-    o.chip=`<span class="aip-st ${r>0?'aip-win':r<0?'aip-loss':'aip-wait'}">📌 ${aipMD(p.fill)} 買進 ${entry}・持有中 ${r!=null?(r>0?'+':'')+r.toFixed(2)+'%':''}</span>`
-      +(px&&px>=p.target?'<span class="aip-st aip-tp">🎯 現價到目標・可停利賣出</span>':'')
-      +(px&&px<=p.stop?'<span class="aip-st aip-sl">🛑 現價觸停損・宜出場</span>':'');
+    o.chip=`<span class="aip-st ${r>0?'aip-win':r<0?'aip-loss':'aip-wait'}">📌 ${aipMD(cl.fill)} 買進${cl.src==='bench'?' '+cl.name:''} ${entry}・持有中 ${r!=null?(r>0?'+':'')+r.toFixed(2)+'%':''}</span>`
+      +(px&&px>=cl.target?'<span class="aip-st aip-tp">🎯 現價到目標・可停利賣出</span>':'')
+      +(px&&px<=cl.stop?'<span class="aip-st aip-sl">🛑 現價觸停損・宜出場</span>':'');
     return o;
   }
   if(!px){o.chip='<span class="aip-st aip-wait">等待報價</span>';return o;}
@@ -19405,7 +19452,8 @@ function aipStatStrip(st,label,note){
       ${box('到目標 / 觸停損',`${st.tp_rate!=null?st.tp_rate+'%':'—'} / ${st.sl_rate!=null?st.sl_rate+'%':'—'}`)}
       ${box('最佳 / 最差',`<span style="color:var(--up)">${st.best!=null?'+'+st.best+'%':'—'}</span> / <span style="color:var(--down)">${st.worst!=null?st.worst+'%':'—'}</span>`)}
       ${box('平均持有',st.avg_hold!=null?st.avg_hold+' 天':'—')}
-      ${box('出場方式',`🎯${st.x_tp||0} · 🛑${st.x_sl||0} · ⏰${st.x_exp||0}`)}
+      ${box('出場方式(分段)',`🎯${st.x_tp||0} · 🛑${st.x_sl||0} · ⏰${st.x_exp||0}`)}
+      ${box('換股次數',`${st.rot||0} 次${st.rot_rate!=null?`(${st.rot_rate}% 倉位換過)`:''}`)}
     </div>${aipEquitySvg(st)}</div>`;
 }
 function aipEquitySvg(st){
@@ -19414,7 +19462,7 @@ function aipEquitySvg(st){
   const x=i=>pad+i*(W-2*pad)/(eq.length-1),y=v=>H-pad-(v-mn)/(mx-mn||1)*(H-2*pad);
   const pts=eq.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const last=eq[eq.length-1];
-  return `<div class="aip-eq"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${last>=100?'var(--up)':'var(--down)'}" stroke-width="2"/><line x1="${pad}" x2="${W-pad}" y1="${y(100).toFixed(1)}" y2="${y(100).toFixed(1)}" stroke="var(--line)" stroke-dasharray="3 3"/></svg><div class="aip-eql">每週 5 檔等權、以買進價進,先到目標/停損就當天賣、都沒到才評估週收盤賣(不含手續費) → 累積淨值 <b style="color:${last>=100?'var(--up)':'var(--down)'}">${last.toFixed(0)}</b>(起始 100)</div></div>`;
+  return `<div class="aip-eq"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${last>=100?'var(--up)':'var(--down)'}" stroke-width="2"/><line x1="${pad}" x2="${W-pad}" y1="${y(100).toFixed(1)}" y2="${y(100).toFixed(1)}" stroke="var(--line)" stroke-dasharray="3 3"/></svg><div class="aip-eql">每週 5 個倉位等權,先到目標/停損就當天賣、賣掉再從候補遞補下一檔(不含手續費) → 累積淨值 <b style="color:${last>=100?'var(--up)':'var(--down)'}">${last.toFixed(0)}</b>(起始 100)</div></div>`;
 }
 let AIPK_LEARN_OPEN=false;
 function aipLearnPanel(L){   // 🧠 學習狀態:模型怎麼進步、學到什麼、檢討了什麼
@@ -19449,25 +19497,30 @@ function aipWeekBlock(w,compact){
     return head+`<div class="aip-tbl"><table><thead><tr><th>股票</th><th>建議買價</th><th>買進時間/價</th><th>目標 / 停損</th><th>賣出時間/價</th><th>損益</th><th>現價</th><th>結果</th></tr></thead><tbody>${w.picks.map(p=>{
       const L=aipLive(p,w);
       const rr=(typeof p.ret==='number')?`<span ${aipRetC(p.ret)}>${p.ret>0?'+':''}${p.ret}%</span>`:'—';
-      return `<tr data-aip="${p.id}"><td><b>${p.name}</b> <span class="c-code">${p.id}</span></td><td class="mono">${p.buy}</td><td class="mono">${p.entry?`${aipMD(p.fill)}<br>${p.entry}`:'—'}</td><td class="mono"><span style="color:var(--up)">${p.target}</span> / <span style="color:var(--down)">${p.stop}</span></td><td class="mono">${p.xd?`${aipMD(p.xd)} ${p.xw==='tp'?'🎯':p.xw==='sl'?'🛑':'⏰'}<br>${p.xp}`:(p.entry?'<span class="dim">持有中</span>':'—')}</td><td class="mono">${rr}</td><td class="mono" data-ppx="${p.id}">${L.px!=null?L.px:'—'}</td><td>${L.chip}</td></tr>`;}).join('')}</tbody></table></div>`;
+      const lg=aipLegs(p),cl=L.leg;
+      return `<tr data-aip="${p.id}"><td><b>${p.name}</b> <span class="c-code">${p.id}</span>${lg.length>1?`<br><span class="dim" style="font-size:11.5px">🔄 現持 ${lg[lg.length-1].name}</span>`:''}</td><td class="mono">${p.buy}</td><td class="mono">${p.entry?`${aipMD(p.fill)}<br>${p.entry}`:'—'}</td><td class="mono">${cl?`<span style="color:var(--up)">${cl.target}</span> / <span style="color:var(--down)">${cl.stop}</span>`:`<span style="color:var(--up)">${p.target}</span> / <span style="color:var(--down)">${p.stop}</span>`}</td><td class="mono">${p.xd?`${aipMD(p.xd)} ${p.xw==='tp'?'🎯':p.xw==='sl'?'🛑':'⏰'}<br>${p.xp}`:(p.entry?'<span class="dim">持有中</span>':'—')}</td><td class="mono">${rr}</td><td class="mono" data-ppx="${L.pid}">${L.px!=null?L.px:'—'}</td><td>${L.chip}</td></tr>`;}).join('')}</tbody></table></div>`;
   }
   const kindTxt={break:'🚀 帶量突破',trend:'📈 順勢多頭',pullback:'🎯 拉回承接'};
+  w.__rot=aipRotPlan(w);
   return head+`<div class="aip-grid">${w.picks.map((p,i)=>{
-    const L=aipLive(p,w);
+    const L=aipLive(p,w),lg=aipLegs(p);
     const upT=((p.target/p.buy-1)*100).toFixed(1),dnT=((p.stop/p.buy-1)*100).toFixed(1);
     return `<div class="aip-card" data-aip="${p.id}">
       <div class="aip-c1"><span class="aip-no">${i+1}</span><b class="aip-nm">${p.name}</b><span class="c-code">${p.id}</span><span class="pick-sec">${p.sector}</span>
         <span class="aip-kind">${kindTxt[p.kind]||''}</span>
-        <span class="aip-px"><span data-ppx="${p.id}">${L.px!=null?(+L.px).toLocaleString():'—'}</span> <span data-pch="${p.id}">${L.s&&L.s.chg!=null?chgHtml(+L.s.chg):''}</span></span></div>
+        ${lg.length>1?`<span class="aip-rotnow">🔄 現持 ${lg[lg.length-1].name}</span>`:''}
+        <span class="aip-px"><span data-ppx="${L.pid}">${L.px!=null?(+L.px).toLocaleString():'—'}</span> <span data-pch="${L.pid}">${L.s&&L.s.chg!=null?chgHtml(+L.s.chg):''}</span></span></div>
       <div class="aip-lv">
         <div class="aip-lvb aip-lvbuy"><span>建議買價</span><b>${p.buy}</b><i>追價上限 ${p.buy_hi}</i></div>
         <div class="aip-lvb aip-lvtp"><span>目標價</span><b>${p.target}</b><i>+${upT}%</i></div>
         <div class="aip-lvb aip-lvsl"><span>停損價</span><b>${p.stop}</b><i>${dnT}%</i></div>
       </div>
-      ${aipTrade(p,w)}
+      ${aipTrade(p,w,i)}
       <div class="aip-c3">${L.chip}</div>
       <div class="aip-why">${(p.why||[]).map(x=>`<span class="pick-chip">${x}</span>`).join('')}<span class="pick-chip" style="opacity:.75">模型分 ${p.score}</span></div>
-    </div>`;}).join('')}</div>`;
+    </div>`;}).join('')}</div>`
+    +((w.bench||[]).length?`<div class="aip-bench"><div class="aip-bh">🔄 候補名單 <span class="dim">名次接在正選之後;任一倉位出場後依序遞補,同時持有同產業至多 2 檔</span></div>
+      <div class="aip-bl">${w.bench.map((b,j)=>`<span class="aip-bk" data-aip="${b.id}"><i>${j+1}</i><b>${b.name}</b> <span class="c-code">${b.id}</span><em>買 ${b.buy} · 目標 ${b.target} · 停損 ${b.stop}</em></span>`).join('')}</div></div>`:'');
 }
 function renderAIPick(){
   const box=document.getElementById('aipickBox');
@@ -19495,12 +19548,15 @@ function renderAIPick(){
         const rr=fw.map(p=>p.ret).filter(v=>typeof v==='number');
         const avg=rr.length?rr.reduce((a,b)=>a+b,0)/rr.length:null;
         h+=`<div class="aip-hrow"><div class="aip-hd"><span class="aip-wtag done">${w.bt?'回測':'實戰'}</span><b>${aipMD(w.buy_week)} 買進</b><span class="dim">→ ${aipMD(aipAdd(w.eval_week,4))} 結算</span><span class="aip-hs">命中 <b style="color:${wins>=fw.length/2&&fw.length?'var(--up)':'var(--down)'}">${wins}/${fw.length}</b>${w.picks.length-fw.length?` · 未成交 ${w.picks.length-fw.length}`:''} · 均績 ${aipPct(avg)}</span></div>
-          <div class="aip-hp">${w.picks.map(p=>`<span class="aip-hpk ${p.result}" data-aip="${p.id}"><b>${p.name}</b> ${p.result==='nofill'?'<i>未成交</i>':`${aipMD(p.fill)} 買 ${p.entry} → ${p.xd?aipMD(p.xd)+' 賣 '+p.xp:'—'} ${aipPct(p.ret,1)} ${p.xw==='tp'?'🎯':p.xw==='sl'?'🛑':'⏰'}`}</span>`).join('')}</div></div>`;
+          <div class="aip-hp">${w.picks.map(p=>{
+            const lg=aipLegs(p);
+            const chain=lg.map(L=>`${L.name} ${aipMD(L.fill)}買${L.entry}→${L.xd?aipMD(L.xd)+'賣'+L.xp:'—'}${L.xw==='tp'?'🎯':L.xw==='sl'?'🛑':L.xw==='exp'?'⏰':''}`).join(' 🔄 ');
+            return `<span class="aip-hpk ${p.result}" data-aip="${p.id}" title="${chain}"><b>${p.name}</b>${lg.length>1?`<i>🔄${lg.length-1}</i>`:''} ${p.result==='nofill'?'<i>未成交</i>':`${aipMD(p.fill)} 買 ${p.entry} → ${p.xd?aipMD(p.xd)+' 賣 '+p.xp:'—'} ${aipPct(p.ret,1)} ${p.xw==='tp'?'🎯':p.xw==='sl'?'🛑':'⏰'}`}</span>`;}).join('')}</div></div>`;
       });
       h+='</div>';
     }
   }
-  h+=`<div class="dim-note" style="margin-top:10px">模型:日均成交值 ≥3,000 萬、非處置股,依 <b>趨勢結構</b>(月線上季線・月線翻揚)+ <b>動能</b>(20/60 日漲幅)+ <b>突破位置</b>(貼近或創 20 日高)+ <b>量能升溫</b> + <b>乖離健康</b> + <b>基本面/籌碼分</b> + <b>外資 5 日買超</b> 加權排序,剔除 5 日漲逾 15%/乖離 >15% 的已噴段,每產業至多 2 檔取前 5。<b>建議買價</b>:貼近 5 日線就以收盤價買,否則等回測到 5 日線附近;<b>目標</b> = 買價 + 2 ATR(4~12%)、<b>停損</b> = 買價 − 2 ATR(下限 −8%)。規則分再與學習模型(見上方 🧠)依 α 混合排序。名單選出即凍結,不事後修改;<b>買賣時間</b>:買進日=買進週第一次碰到買價那天(以買價或更低的開盤價成交);賣出日=之後第一次碰到目標價或停損價那天(同日都碰到採保守假設,算停損),都沒碰到就在評估週最後一個交易日收盤賣出;每檔都記錄買進/賣出時間、價格與實現損益,統計以實際出場為準。<b>準確率是「實際賣出價高於買進價」的比例,不是獲利保證,非投資建議</b>。</div>
+  h+=`<div class="dim-note" style="margin-top:10px">模型:日均成交值 ≥3,000 萬、非處置股,依 <b>趨勢結構</b>(月線上季線・月線翻揚)+ <b>動能</b>(20/60 日漲幅)+ <b>突破位置</b>(貼近或創 20 日高)+ <b>量能升溫</b> + <b>乖離健康</b> + <b>基本面/籌碼分</b> + <b>外資 5 日買超</b> 加權排序,剔除 5 日漲逾 15%/乖離 >15% 的已噴段,每產業至多 2 檔取前 5。<b>建議買價</b>:貼近 5 日線就以收盤價買,否則等回測到 5 日線附近;<b>目標</b> = 買價 + 2 ATR(4~12%)、<b>停損</b> = 買價 − 2 ATR(下限 −8%)。規則分再與學習模型(見上方 🧠)依 α 混合排序。名單選出即凍結,不事後修改;<b>買賣時間</b>:買進日=買進週第一次碰到買價那天(以買價或更低的開盤價成交);賣出日=之後第一次碰到目標價或停損價那天(同日都碰到採保守假設,算停損),都沒碰到就在評估週最後一個交易日收盤賣出;每檔都記錄買進/賣出時間、價格與實現損益。<b>換股輪動</b>:5 檔視為 5 個倉位,任一倉位到目標或觸停損賣出後,只要評估週還沒結束就從<b>候補名單</b>依序遞補下一檔(誰先出場誰先挑、同時持有同產業至多 2 檔),隔一個交易日以開盤價進場,目標/停損依實際進場價等比例重錨,次數不設限;倉位報酬 = 各段複利相乘,統計以實際出場為準。<b>準確率是「實際賣出價高於買進價」的比例,不是獲利保證,非投資建議</b>。</div>
   <div class="dim-note" style="margin-top:4px;font-size:12.5px">更新時間 ${AIPK.updated||'—'} · 點卡片進個股頁 · 名單裡的最愛股到買價/目標/停損時會跳提醒。</div>`;
   box.innerHTML=h;
   box.querySelectorAll('[data-aip]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.aip;});
@@ -19652,22 +19708,27 @@ function aipSweep(){
     (AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='done').forEach(w=>{
       if(w.buy_week>tm)return;                                   // 買進週還沒開始
       const evEnd=aipAdd(w.eval_week,4),bwEnd=aipAdd(w.buy_week,4);
-      (w.picks||[]).forEach(p=>{
-        if(p.xd)return;                                          // 已經賣出
-        const s=(DATA.stocks||[]).find(x=>x.id===p.id);
+      const rp=aipRotPlan(w);
+      (w.picks||[]).forEach((p,si)=>{
+        const cl=aipCurLeg(p);
+        if(cl&&cl.xd)return;                                     // 這個倉位已收工(後端已結算完最後一段)
+        const tid=cl?cl.id:p.id, tnm=cl?cl.name:p.name;
+        const s=(DATA.stocks||[]).find(x=>x.id===tid);
         const px=s&&s.price>0?+s.price:0;if(!px)return;
         const sig=[];
-        if(!p.entry){
+        if(!cl){                                                 // 還沒進場
           if(today>bwEnd)return;                                 // 買進週已過,不再提示買進
           if(px<=p.buy)sig.push({k:'buy',title:'🤖 AI Pick・到買價可買進',text:`現價 ${px} ≤ 建議買價 ${p.buy};目標 ${p.target}(+${((p.target/p.buy-1)*100).toFixed(1)}%)、停損 ${p.stop}(${((p.stop/p.buy-1)*100).toFixed(1)}%);買進週 ${aipMD(w.buy_week)}~${aipMD(bwEnd)}`});
           else if(px<=p.buy_hi)sig.push({k:'buy',title:'🤖 AI Pick・進入追價區',text:`現價 ${px} 在追價上限 ${p.buy_hi} 內(建議買價 ${p.buy});可分批進場,守停損 ${p.stop}`});
         }else{
-          const r=(px/p.entry-1)*100,rt=(r>0?'+':'')+r.toFixed(2)+'%';
-          if(px>=p.target)sig.push({k:'tp',title:'🤖 AI Pick・到目標可賣出',text:`現價 ${px} ≥ 目標 ${p.target};${aipMD(p.fill)} 買進 ${p.entry},帳面獲利 ${rt},可分批停利`});
-          else if(px<=p.stop)sig.push({k:'sl',title:'🤖 AI Pick・觸停損宜賣出',text:`現價 ${px} ≤ 停損 ${p.stop};${aipMD(p.fill)} 買進 ${p.entry},帳面損益 ${rt},依紀律出場`});
-          else if(today===evEnd)sig.push({k:'sell',title:'🤖 AI Pick・今日到期結算',text:`今天是評估週最後一個交易日,${aipMD(p.fill)} 買進 ${p.entry} 的部位收盤賣出;現價 ${px}(${rt})`});
+          const r=(px/cl.entry-1)*100,rt=(r>0?'+':'')+r.toFixed(2)+'%';
+          const g=rp[si];
+          const nx=g?`;🔄 候補遞補 → ${g.c.name}(${g.c.id})買 ${g.c.buy}・目標 ${g.c.target}・停損 ${g.c.stop}`:'';
+          if(px>=cl.target)sig.push({k:'tp',title:'🤖 AI Pick・到目標可賣出'+(g?',並換股':''),text:`${tnm} 現價 ${px} ≥ 目標 ${cl.target};${aipMD(cl.fill)} 買進 ${cl.entry},帳面獲利 ${rt}${nx}`});
+          else if(px<=cl.stop)sig.push({k:'sl',title:'🤖 AI Pick・觸停損宜賣出'+(g?',並換股':''),text:`${tnm} 現價 ${px} ≤ 停損 ${cl.stop};${aipMD(cl.fill)} 買進 ${cl.entry},帳面損益 ${rt}${nx}`});
+          else if(today===evEnd)sig.push({k:'sell',title:'🤖 AI Pick・今日到期結算',text:`今天是評估週最後一個交易日,${tnm} ${aipMD(cl.fill)} 買進 ${cl.entry} 的部位收盤賣出;現價 ${px}(${rt})`});
         }
-        sig.forEach(g=>{try{favAlertFire({id:p.id,name:p.name},g);}catch(e){}});
+        sig.forEach(g2=>{try{favAlertFire({id:tid,name:tnm},g2);}catch(e){}});
       });
     });
   }catch(e){}
