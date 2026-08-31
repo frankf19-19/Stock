@@ -150,7 +150,11 @@ def main():
             if sp is None: raise Exception('skip')
             with open("spark.json", encoding="utf-8") as f0:
                 old_sp = json.load(f0)
-            if (old_sp.get("d") != sp.get("d")
+            # r741:原本寫「日期不同就保護」,但新交易日的第一輪必然只有 1 點、舊檔必然比較多點,
+            #       於是每一輪都被擋 → spark.json 從 2026-08-10 起就再也寫不進去。
+            #       真正要防的是「同一天(或更新的一天)被較少點數蓋回去」,跨到新的一天本來就該覆蓋。
+            #       非交易時段的誤覆蓋已由上面那道 09:00~14:00 的關卡擋掉,這裡不必再重複防。
+            if (old_sp.get("d") >= sp.get("d")
                     and len(old_sp.get("t") or []) > len(sp.get("t") or []) + 2):
                 print(f"  spark 保護:既有 {old_sp.get('d')}({len(old_sp.get('t') or [])}點) 較完整,略過覆蓋")
                 sp = None
@@ -159,7 +163,9 @@ def main():
         if sp is not None:
             with open("spark.json", "w", encoding="utf-8") as f:
                 json.dump(sp, f, ensure_ascii=False, separators=(",", ":"))
-        print(f"  spark.json:第 {L+1} 點({len(sp['s'])} 檔)")
+            print(f"  spark.json:第 {L+1} 點({len(sp['s'])} 檔)")   # r741:必須在 if 之內——
+        else:                                                       # 原本在外面,sp=None 時 TypeError 會炸掉整支 main(),
+            print("  spark.json:本輪略過寫入")                        # 連後面的 data.json 都寫不到,盤中報價整個停擺
 
     data["intraday"] = now.strftime("%H:%M")
 
