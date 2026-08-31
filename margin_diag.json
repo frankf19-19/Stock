@@ -1,39 +1,33 @@
 {
- "ts": "2026-08-28T23:11:29.828753",
+ "ts": "2026-08-31T09:21:11.797621",
  "steps": [
   {
-   "s": "mi_margn_positional",
-   "fields": [
-    "代號",
-    "名稱",
-    "買進",
-    "賣出",
-    "現金償還",
-    "前日餘額",
-    "今日餘額",
-    "次一營業日限額"
-   ]
-  },
-  {
    "s": "twse_margin",
-   "n": 1295
-  },
-  {
-   "s": "twt93u_positional",
-   "fields": [
-    "代號",
-    "名稱",
-    "前日餘額",
-    "賣出",
-    "買進",
-    "現券",
-    "今日餘額",
-    "次一營業日限額"
-   ]
+   "n": 0
   },
   {
    "s": "twse_borrow",
-   "n": 1299
+   "n": 0
+  },
+  {
+   "s": "twtb4u_keys",
+   "tag": "oapi",
+   "keys": [
+    "Date",
+    "Code",
+    "Name",
+    "Suspension"
+   ]
+  },
+  {
+   "s": "twtb4u_no_volkey",
+   "tag": "oapi",
+   "keys": [
+    "Date",
+    "Code",
+    "Name",
+    "Suspension"
+   ]
   },
   {
    "s": "twse_daytrade_fail",
@@ -42,23 +36,35 @@
    "head": "<!DOCTYPE html>\n<html lang=\"zh-Hant-tw\">\n<head>\n\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-widt"
   },
   {
-   "s": "twse_daytrade_fail",
-   "tag": "rwd2",
-   "e": "Expecting value: line 1 column 1 (char 0)",
-   "head": "<!DOCTYPE html>\n<html lang=\"zh-Hant-tw\">\n<head>\n\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-widt"
+   "s": "twtb4u_fields",
+   "tag": "legacy",
+   "fields": [
+    "證券代號",
+    "證券名稱",
+    "暫停現股賣出後\n現款買進當沖註記"
+   ]
   },
   {
-   "s": "twse_daytrade_ok",
-   "tag": "oapi",
-   "n": 1233
+   "s": "twse_daytrade_empty",
+   "tag": "legacy"
   },
   {
-   "s": "tpex_margin_ok",
-   "u": "www.tpex.org.tw/www/zh-tw/margin/balance",
-   "n": 920
+   "s": "tpex_probe_empty",
+   "u": "www.tpex.org.tw/www/zh-tw/margin/balance"
+  },
+  {
+   "s": "tpex_probe_empty",
+   "u": "ing/margin_balance/margin_bal_result.php"
+  },
+  {
+   "s": "tpex_probe_fail",
+   "u": "www.tpex.org.tw/openapi/v1/tpex_mgtq_bal",
+   "e": "Expecting value: line 1 column 1 (char 0)"
   }
  ],
  "verdict": [
-  "OK(2219 檔)"
+  "TWSE_MARGIN_EMPTY(表頭已寫入 diag)",
+  "TWSE_DT_FAIL(各候選鍵名/回應已寫入 diag)",
+  "TPEX_MARGIN_FAIL(候選端點全滅,貼 diag 給 Claude 修路徑)"
  ]
 }
