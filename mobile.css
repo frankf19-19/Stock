@@ -1,12 +1,62 @@
 /* ══════════════════════════════════════════════════════════════════
-   K研所 · mobile.css · build r757
-   手機版 App 化外觀層。全部包在 @media(max-width:640px) 內,
-   桌機完全不受影響;app.css / app.js 不動,零迴歸風險。
+   K研所 · mobile.css · build r758
+   Part 1 —— 「籌碼黑」主題(全平台,含電腦版)
+   Part 2 —— 手機 App 化版型(≤640px)
+   選成 kdark 後,app.css 裡 23 條 html[data-theme="pearl"] 專屬規則
+   (含兩處寫死的 #FFFFFF)自動失效,不必逐條打地鼠。
    ══════════════════════════════════════════════════════════════════ */
 
+/* ── Part 1:籌碼黑 —— 全平台 ─────────────────────────────────── */
+html[data-theme="kdark"]{
+  --bg:#0A0B0D; --panel:#16181D; --panel2:#22252C; --line:#282C34; --hdr:#000000;
+  --up:#FF4B55; --down:#2ECC71;
+  --txt:#FFFFFF; --txt2:#E8EAEE; --mut:#9BA1AC; --dim:#79808B;
+  --amber:#E8B44A; --gold:#E8B44A; --gold2:#D19F32; --brand:#E8B44A;
+  --t-red:#FF6B6B; --t-green:#3DCF8E; --t-gold:#E8C15A; --t-orange:#F59E5C;
+  --t-purple:#B39AF0; --t-grey:#98A0AA; --t-blue:#7FB4FF;
+  --on-accent:#12140F;
+  --shadow-1:0 1px 2px rgba(0,0,0,.5);
+  --shadow-2:0 4px 18px rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+html[data-theme="kdark"] body{background:var(--bg);color:var(--txt)}
+html[data-theme="kdark"] header{background:#000;border-bottom:1px solid var(--line)}
+html[data-theme="kdark"] header::after{background:none;height:0;border:none}
+html[data-theme="kdark"] .toolbar select,
+html[data-theme="kdark"] .toolbar button{
+  background:var(--panel2);border:1px solid var(--line);color:var(--txt2);box-shadow:none}
+html[data-theme="kdark"] .toolbar select:hover,
+html[data-theme="kdark"] .toolbar button:hover{border-color:var(--amber);color:#fff}
+html[data-theme="kdark"] #qSearch{background:var(--panel);border:1px solid var(--line);color:var(--txt)}
+html[data-theme="kdark"] #qSearch::placeholder{color:var(--dim)}
+
+/* 區塊標題:視覺層級要壓得住 */
+html[data-theme="kdark"] .sec-title{
+  background:var(--panel);border:none;border-left:4px solid var(--amber);
+  border-radius:0 8px 8px 0;padding:11px 14px;box-shadow:none;
+  font-size:17px;font-weight:900;letter-spacing:.03em;color:#fff}
+html[data-theme="kdark"] .sec-title::after{display:none}
+html[data-theme="kdark"] .sec-title>span{color:var(--mut)}
+
+/* 卡片與容器在深色下的收尾 */
+html[data-theme="kdark"] .card,html[data-theme="kdark"] .r-card,
+html[data-theme="kdark"] .chart-box,html[data-theme="kdark"] .idx-card,
+html[data-theme="kdark"] .pick-card,html[data-theme="kdark"] .em-card,
+html[data-theme="kdark"] .sp-box,html[data-theme="kdark"] .sector-panel,
+html[data-theme="kdark"] .modal{background:var(--panel);border-color:var(--line)}
+html[data-theme="kdark"] .dim-block{background:#101216;border-color:var(--line)}
+html[data-theme="kdark"] table th{color:var(--dim)}
+html[data-theme="kdark"] tbody tr:nth-child(even),
+html[data-theme="kdark"] table tr:nth-child(even){background:rgba(255,255,255,.022)}
+html[data-theme="kdark"] .ticker{background:var(--panel);border-color:var(--line)}
+html[data-theme="kdark"] .foot{color:var(--dim)}
+html[data-theme="kdark"] .overlay{background:rgba(0,0,0,.8)}
+
+
+/* ── Part 2:手機 App 化版型 ─────────────────────────────────── */
 @media (max-width:640px){
 
-/* ── 1. 強制深色(蓋掉任何 data-theme;本檔在 app.css 之後載入故勝出) ── */
+/* 手機一律深色:即使 localStorage 還存著亮色主題,首屏也不會白閃 */
 html, html[data-theme]{
   --bg:#0A0B0D; --panel:#16181D; --panel2:#22252C; --line:#282C34; --hdr:#000000;
   --up:#FF4B55; --down:#2ECC71;
@@ -19,51 +69,59 @@ html, html[data-theme]{
   --mob-nav-h:62px; --mob-idx-h:34px;
   color-scheme:dark;
 }
-body{background:var(--bg);color:var(--txt)}
-/* 底部要留:導覽列 + 黏著指數列 */
-body{padding-bottom:calc(var(--mob-nav-h) + var(--mob-idx-h) + env(safe-area-inset-bottom) + 6px)!important}
-/* 主題選單在手機沒有意義 */
-#themeSel{display:none!important}
+body{background:var(--bg);color:var(--txt);
+  padding-bottom:calc(var(--mob-nav-h) + var(--mob-idx-h) + env(safe-area-inset-bottom) + 6px)!important}
 
-/* ── 2. 頂欄:壓縮成 App 標題列 ── */
-header{background:var(--hdr);border-bottom:1px solid var(--line)}
+/* 頂欄。權重需 ≥ html[data-theme="pearl"] header 才蓋得掉寫死的白 */
+html header,html[data-theme] header{background:#000!important;border-bottom:1px solid var(--line)!important}
+html header::after,html[data-theme] header::after{background:none!important;height:0!important;border:none!important}
 header .sub{display:none}
 header h1{font-size:19px}
 .head-in{padding:8px 12px!important;gap:8px}
 .toolbar{gap:6px}
-.toolbar .btn-ghost{height:32px;padding:0 11px;font-size:13px;border-radius:8px;background:var(--panel2);border-color:transparent}
-.btn-upd{padding:7px 13px;font-size:13px;border-radius:8px}
+html .toolbar select,html .toolbar button,
+html[data-theme] .toolbar select,html[data-theme] .toolbar button{
+  background:var(--panel2)!important;border:1px solid transparent!important;
+  color:var(--txt2)!important;box-shadow:none!important;
+  height:32px;padding:0 11px;font-size:13px;border-radius:8px}
+html .toolbar .btn-upd,html[data-theme] .toolbar .btn-upd{
+  background:var(--amber)!important;color:#12140F!important;font-weight:900}
+#themeSel{display:none!important}
 .qs-wrap input{height:34px;font-size:14px}
 .statline{gap:6px;margin-top:5px}
 .statline .badge{font-size:11px}
 .wrap{padding-left:0!important;padding-right:0!important}
 .wrap > *{padding-left:10px;padding-right:10px}
 
-/* ── 3. 分段控制:膠囊 segmented control(即時/盤後/討論 的感覺) ── */
+/* 分段控制 */
 .gmkt-bar{display:flex;gap:0;background:var(--panel2);border-radius:9px;padding:3px;
   margin:8px 10px 6px;border:none}
 .gmkt-bar button{flex:1;border:none;background:none;border-radius:7px;padding:7px 0;
   font-size:14.5px;font-weight:800;color:var(--mut);letter-spacing:.02em}
 .gmkt-bar button.on{background:#3A3F49;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4)}
 
-/* 分區跳轉列:橫向捲動的次級分頁(像「台灣指數/產業即時/美股行情」) */
+/* 次級分頁 */
 .mob-jump{background:var(--bg);border-bottom:1px solid var(--line);
   padding:0 10px!important;margin:0 -10px 8px!important;gap:0!important}
 .mob-jump button{background:none!important;border:none!important;border-radius:0!important;
   padding:11px 13px!important;font-size:15px;font-weight:800;color:var(--mut);
   border-bottom:2.5px solid transparent!important}
-.mob-jump button.on,.mob-jump button:active{color:#fff!important;border-bottom-color:var(--amber)!important;
-  background:none!important}
+.mob-jump button.on,.mob-jump button:active{color:#fff!important;
+  border-bottom-color:var(--amber)!important;background:none!important}
 
-/* ── 4. 區塊標題:視覺層級要壓得住(專案硬規則) ── */
-.sec-title{font-size:16px!important;font-weight:900;letter-spacing:.03em;
-  color:#fff;background:var(--panel);border-left:4px solid var(--amber);
-  border-radius:0 8px 8px 0;padding:10px 12px!important;margin:16px 10px 8px!important}
+/* 區塊標題 */
+html .sec-title,html[data-theme] .sec-title{
+  font-size:16px!important;font-weight:900;letter-spacing:.03em;
+  color:#fff!important;background:var(--panel)!important;
+  border:none!important;border-left:4px solid var(--amber)!important;
+  border-radius:0 8px 8px 0!important;padding:10px 12px!important;
+  margin:16px 10px 8px!important;box-shadow:none!important}
+html .sec-title::after,html[data-theme] .sec-title::after{display:none!important}
 .sec-title span{display:none}
 .sec-body{padding:0 10px}
 .wrap > .sec-title,.tabPane > .sec-title{margin-left:0!important;margin-right:0!important}
 
-/* ── 5. 選股清單 → 籌碼K線式資料列 ────────────────────────────── */
+/* ── 選股清單 → 籌碼K線式資料列 ── */
 .grid{grid-template-columns:1fr!important;gap:0!important;
   background:var(--panel);border-radius:10px;overflow:hidden;border:1px solid var(--line)}
 .grid .card{
@@ -75,15 +133,12 @@ header h1{font-size:19px}
   column-gap:4px;transform:none!important;box-shadow:none!important}
 .grid .card:last-child{border-bottom:none}
 .grid .card:active{background:#1E2128}
-/* 展開 wrapper,讓內層元素直接落到 grid 格上 */
 .grid .card .c-top{display:contents}
 .grid .card .c-top > div:first-child{grid-area:nm;min-width:0}
 .grid .card .c-price{display:contents}
 .grid .card .c-price .px{grid-area:px;text-align:right;font-size:19px;font-weight:700;
   font-family:var(--mono);letter-spacing:-.4px;justify-self:end}
 .grid .card .c-price > span:not(.px){grid-area:chg;text-align:right;justify-self:end}
-
-/* 名稱區:名稱在上、代號在下 */
 .grid .card .c-name{font-size:17.5px;font-weight:800;line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
 .grid .card .c-name .c-code{display:block;font-size:13px;color:var(--dim);
@@ -92,19 +147,17 @@ header h1{font-size:19px}
 .grid .card .fav-tg.on{color:var(--amber)}
 .grid .card .c-full,.grid .card .c-sector,.grid .card .c-note{display:none}
 .grid .card .score-ring{display:none}
-/* 三力評分:縮成名稱下方的三段細條(保留本站差異化,不佔列高) */
 .grid .card .bars{display:flex;gap:3px;margin-top:5px;max-width:96px}
 .grid .card .bar-row{display:block;flex:1;margin:0}
 .grid .card .bar-row .lb,.grid .card .bar-row .vl{display:none}
 .grid .card .bar-track{height:3px;border-radius:2px;background:#31353E}
 .grid .card .bar-fill{background:var(--amber)}
-/* 綜合分數藥丸(由 mobile.js 塞入名稱列) */
 .mob-sc{display:inline-block;font-family:var(--mono);font-size:11.5px;font-weight:800;
   padding:1px 5px;border-radius:4px;margin-left:6px;vertical-align:2px;
   background:var(--panel2);color:var(--amber)}
 .mob-sc.hi{background:rgba(232,180,74,.18);color:#F2C766}
 
-/* 兩行漲跌:絕對值在上、百分比在下 */
+/* 兩行漲跌 */
 .mob-chg{display:block;text-align:right;line-height:1.18;font-family:var(--mono)}
 .mob-chg b{display:block;font-size:15.5px;font-weight:700}
 .mob-chg i{display:block;font-size:13.5px;font-style:normal;opacity:.92}
@@ -112,11 +165,11 @@ header h1{font-size:19px}
 .mob-chg.neg,.mob-chg.neg b,.mob-chg.neg i{color:var(--down)}
 .mob-chg.flat,.mob-chg.flat b,.mob-chg.flat i{color:var(--mut)}
 
-/* 漲跌停:股價套實心色塊(不是變字色) */
+/* 漲跌停色塊 */
 .grid .card .c-price .px.lim-u{background:var(--up);color:#fff;border-radius:4px;padding:2px 5px}
 .grid .card .c-price .px.lim-d{background:var(--down);color:#0A0B0D;border-radius:4px;padding:2px 5px}
 
-/* 主力動向:天氣圖示 + 大買/小買/中立/小賣/大賣 */
+/* 主力動向 */
 .mob-flow{grid-area:flow;display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1}
 .mob-flow .fi{font-size:19px}
 .mob-flow .fl{font-size:12.5px;font-weight:800;letter-spacing:.02em}
@@ -124,24 +177,22 @@ header h1{font-size:19px}
 .mob-flow.n0 .fl{color:var(--mut)}
 .mob-flow.s1 .fl{color:var(--down);opacity:.85} .mob-flow.s2 .fl{color:var(--down)}
 
-/* 產業龍頭 / 處置股 標籤:改成截圖的實心小牌 */
 .grid .card .tagL,.grid .card .tagW{font-size:10.5px;padding:0 4px;border-radius:3px;
   margin-left:4px;vertical-align:3px}
 
-/* 排序列表頭(由 mobile.js 產生) */
+/* 排序表頭 */
 .mob-thead{display:grid;grid-template-columns:minmax(0,1fr) 64px 62px 74px;
   column-gap:4px;align-items:center;padding:7px 10px;
   background:var(--panel2);border:1px solid var(--line);border-bottom:none;
   border-radius:10px 10px 0 0;font-size:12.5px;font-weight:800;color:var(--mut)}
 .mob-thead + .grid{border-radius:0 0 10px 10px;border-top:none}
-.mob-thead b{font-weight:800}
 .mob-thead .th-r{text-align:right}
 .mob-thead .th-c{text-align:center}
 .mob-thead [data-sk]{cursor:pointer}
 .mob-thead [data-sk].on{color:var(--amber)}
 .mob-thead .ar{font-size:9px;opacity:.65;margin-left:1px}
 
-/* 控制列收斂 */
+/* 控制列 */
 .controls{gap:6px;margin-bottom:8px}
 .controls .seg{background:var(--panel2);border-radius:8px;padding:3px;border:none;flex:1}
 .controls .seg button{border-radius:6px;font-size:13.5px;padding:6px 0}
@@ -149,17 +200,17 @@ header h1{font-size:19px}
 .controls input[type=search],.controls select{background:var(--panel);border:1px solid var(--line);
   color:var(--txt);border-radius:8px;height:38px;font-size:14px}
 
-/* ── 6. 機會雷達:左側直向策略欄 ─────────────────────────────── */
+/* ── 機會雷達:左側直向策略欄 ── */
 #sb-radar{display:flex;flex-wrap:wrap;align-items:flex-start;gap:0;
   background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 #sb-radar > #stratSeg{
   flex:0 0 84px;display:flex!important;flex-direction:column;flex-wrap:nowrap!important;
   align-self:stretch;max-height:70vh;overflow-y:auto;margin:0!important;
-  background:#101216;border-right:1px solid var(--line);
-  scrollbar-width:none}
+  background:#101216;border-right:1px solid var(--line);scrollbar-width:none}
 #sb-radar > #stratSeg::-webkit-scrollbar{display:none}
 #sb-radar > #stratSeg button{
-  width:100%;border:none!important;border-radius:0!important;border-bottom:1px solid var(--line)!important;
+  width:100%;border:none!important;border-radius:0!important;
+  border-bottom:1px solid var(--line)!important;
   padding:12px 5px!important;font-size:12.5px!important;font-weight:800;line-height:1.28;
   white-space:normal;color:var(--mut);background:transparent!important;min-height:52px}
 #sb-radar > #stratSeg button.on{background:var(--panel)!important;color:#fff!important;
@@ -170,13 +221,12 @@ header h1{font-size:19px}
   border-radius:0!important;box-shadow:none!important;transform:none!important;padding:11px 12px}
 #sb-radar > .radar-note{flex-basis:100%;padding:10px 12px;border-top:1px solid var(--line);
   margin-top:0;font-size:11.5px}
-/* 盤面脈動列表同樣改列式 */
 #pulseStocks{grid-template-columns:1fr!important;gap:0!important;
   background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 #pulseStocks .r-card{border:none!important;border-bottom:1px solid var(--line)!important;
   border-radius:0!important;box-shadow:none!important;transform:none!important}
 
-/* ── 7. 底部黏著指數列(加權 / 櫃買 / 台指期) ── */
+/* ── 底部黏著指數列 ── */
 #mobIdxBar{position:fixed;left:0;right:0;z-index:49;
   bottom:calc(var(--mob-nav-h) + env(safe-area-inset-bottom));
   height:var(--mob-idx-h);display:flex;align-items:center;gap:14px;
@@ -191,7 +241,7 @@ header h1{font-size:19px}
 #mobIdxBar .neg,#mobIdxBar .neg .mi-v{color:var(--down)}
 #mobIdxBar .flat,#mobIdxBar .flat .mi-v{color:var(--mut)}
 
-/* ── 8. 底部導覽:選中項為淺色方塊(截圖的處理) ── */
+/* ── 底部導覽 ── */
 #mobNav{background:#000;border-top:1px solid var(--line);box-shadow:none;
   padding:4px 4px calc(4px + env(safe-area-inset-bottom))}
 #mobNav button{color:#7E858F;font-size:10.5px;font-weight:700;padding:6px 0 5px;
@@ -200,14 +250,5 @@ header h1{font-size:19px}
 #mobNav button.on{color:#fff!important;background:#2A2E36!important}
 #mobNav button.on::before{display:none!important}
 #mobNav button.on .mi{transform:none!important}
-
-/* ── 9. 卡片/圖表容器在深色下的收尾 ── */
-.chart-box,.dim-block,.idx-card,.r-card,.pick-card,.em-card,.sp-box,.sector-panel{
-  background:var(--panel);border-color:var(--line)}
-.dim-block{background:#101216}
-table th{color:var(--dim)}
-tbody tr:nth-child(even),table tr:nth-child(even){background:rgba(255,255,255,.022)}
-.foot{color:var(--dim);font-size:11.5px}
-.ticker{background:var(--panel);border-color:var(--line)}
 
 }
