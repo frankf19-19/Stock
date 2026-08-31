@@ -1,4 +1,4 @@
-/* K研所 · build r744 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r745 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1648,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r744</span>');
+  diag.push('<span style="color:var(--dim)">build r745</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -16154,7 +16154,9 @@ function setHomeTab(t){
     if(b)b.classList.toggle('on',k===t);
   });
   try{localStorage.setItem('homeTab',t);}catch(e){}
-  if(t==='aipick'){try{aipLoad().then(()=>{try{renderAIPick();}catch(e){}});}catch(e){}try{setTimeout(aipSweep,600);}catch(e){}}   // r743:AI Pick 獨立分頁
+  if(t==='aipick'){setTimeout(()=>{   // r745:延到本輪腳本跑完再碰 AIPK(啟動時還原分頁會早於 AIPK 宣告 → TDZ)
+    try{aipLoad().then(()=>{try{renderAIPick();}catch(e){}});}catch(e){}
+    try{setTimeout(aipSweep,600);}catch(e){}},0);}
   if(t==='etf'){try{renderEtf();}catch(e){}}
   if(t==='port'){try{renderPort();}catch(e){}try{setTimeout(portHeadRisk,500);}catch(e){}}
   if(t==='gooaye'){try{
