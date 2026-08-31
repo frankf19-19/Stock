@@ -1,4 +1,4 @@
-/* K研所 · build r751 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r752 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1648,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r751</span>');
+  diag.push('<span style="color:var(--dim)">build r752</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5994,7 +5994,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
     const root=first.parentNode;
     const GROUPS=[
       ['📈','技術與價格','現在怎麼走・在哪進出',['stk_k','stk_dna','stk_3','stk_s']],
-      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_h','stk_bs','stk_c']],
+      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_ae','stk_h','stk_bs','stk_c']],
       ['💰','基本面與價值','值不值得・前景如何',['stk_r','stk_v','stk_peer','stk_conf']],
       ['🧭','綜合研判與背景','AI 總結・市場觀點・公司背景',['stk_ai','stk_m','stk_p','stk_e']],
     ];
@@ -12278,6 +12278,9 @@ async function showDetail(id){
     <div id="usFundBox"></div>
     <div id="usEarnBox"></div>
     </div>`:''}
+    ${!s.etf&&(s.aetf||[]).length?`<div class="sec-title" data-sec="stk_ae">🧺 主動式 ETF 持股 <span style="font-weight:400;font-size:13px;letter-spacing:0">哪些主動式 ETF 持有這一檔・每日申報持股與加減碼</span></div><div class="sec-body" id="sb-stk_ae">
+    ${aetfBlock(s)}
+    </div>`:''}
     <div class="sec-title" data-sec="stk_h">👑 大戶持股趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">集保週資料・千張大戶 vs 散戶</span></div><div class="sec-body" id="sb-stk_h">
     <div id="tdccBox" class="dim-block"><div class="dim-note">📡 集保股權資料載入中…</div></div>
     </div>
@@ -12288,7 +12291,6 @@ async function showDetail(id){
     ${s.etf?'':dimBlock('基本面(權重40%)',s.f)}
     ${s.t3&&!s.etf?`<div class="thesis" style="border-color:var(--down)"><b style="color:var(--down)">✅ 營收三率三升(${s.t3.q}):</b>毛利率 ${s.t3.gm[0]}→${s.t3.gm[1]}%、營益率 ${s.t3.om[0]}→${s.t3.om[1]}%、淨利率 ${s.t3.nm[0]}→${s.t3.nm[1]}%${s.t3.ry!=null?`,月營收年增 +${s.t3.ry}%`:''}——獲利品質與營收動能同步向上。</div>`:''}
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',cAug)}
-    ${!s.etf?aetfBlock(s):''}
     <div id="t3TechCard">${dimBlock('技術線型(權重25%)',t3Live(s))}</div>
     </div>
     <div class="sec-title" data-sec="stk_c">📊 籌碼圖表 <span style="font-weight:400;font-size:13px;letter-spacing:0">法人買賣超・大戶・信用交易(6個月)</span></div><div class="sec-body" id="sb-stk_c">
