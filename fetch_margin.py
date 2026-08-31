@@ -207,9 +207,16 @@ def main():
         if "f" in rec: h.append([iso, rec["f"]])
         out["hist"][sid] = h[-12:]
 
-    # ── 落地 ──
+    # ── 落地(v5:抓不到就別覆蓋)──
+    # 事故:8/31 17:20 手動觸發,當時收盤資料尚未發布(21:00 後才有),三段全空,
+    #       舊版照樣把空的 out 寫進 margin.json → 2,219 檔資料與累積的歷史全被清空。
+    #       新規:本次無任何個股資料時,保留舊檔不動,只更新 diag。
     n = len(out["s"])
-    json.dump(out, open("margin.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    if n == 0 and os.path.exists("margin.json"):
+        log("keep_old_file", reason="本次零筆,保留既有 margin.json 不覆蓋")
+        DIAG["verdict"].append("NO_DATA_KEEP_OLD(未覆蓋舊檔)")
+    else:
+        json.dump(out, open("margin.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     if not DIAG["verdict"]: DIAG["verdict"] = [f"OK({n} 檔)"]
     json.dump(DIAG, open("margin_diag.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print("VERDICT:", "; ".join(DIAG["verdict"]), f"共 {n} 檔")
