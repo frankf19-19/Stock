@@ -22,7 +22,7 @@ concurrency:
 jobs:
   quotes:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 350        # r741:單班要能從 08:08 撐到 13:45(≈5h37m),GitHub 單 job 上限 6 小時,350 分留安全邊際
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,11 +32,17 @@ jobs:
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
-          END=$(( $(date +%s) + 110*60 ))         # r740:單班最長 110 分鐘——點火被 GitHub 丟掉時,活著的這班要能自己撐完早盤
+          # r741 事故:8/31(一)整天「零班」被觸發——早盤 09:00~10:50 與尾盤 12:35~13:30 快照全空,
+          #      只有手動點的那班撐住中間 1h45m(單班 110 分鐘一到就收工,沒有下一班接手)。
+          #      調班距/調壽命都救不了「一次都沒點著」;正解是讓任何一班都能獨自撐完全場:
+          #      END 改為「今日 13:45 的絕對時間」,單班從早上點著就一路掃到收盤,一天只要成功點火一次即可。
+          END=$(TZ=Asia/Taipei date -d "today 13:45" +%s 2>/dev/null || echo 0)
+          [ "$END" = "0" ] && END=$(( $(date +%s) + 300*60 ))   # date -d 失敗時的保險:單班 300 分鐘
+          echo "本班預計掃到 $(TZ=Asia/Taipei date -d @$END '+%H:%M') 收工"
           while : ; do
             HM=$(TZ=Asia/Taipei date +%H%M); HM=$((10#$HM))
             [ $HM -gt 1345 ] && { echo "已過 13:45,本班收工"; break; }
-            [ $(date +%s) -ge $END ] && { echo "班時已滿,交棒下一班"; break; }
+            [ $(date +%s) -ge $END ] && { echo "已到 13:45 收盤,本班完成整場任務"; break; }
             if [ $HM -ge 855 ]; then
               git pull --rebase origin main || true      # 先同步,拿到別班/主更新最新的 spark 續寫
               python update_quotes.py || echo "本輪掃價失敗,5分鐘後再試"
