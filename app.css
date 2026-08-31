@@ -1651,3 +1651,8 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .aipt-exp{border-left-color:var(--amber)}
 .aipt-none{padding:14px 12px;border:1px dashed var(--line);border-radius:11px;background:var(--panel2);font-weight:800;font-size:14px}
 .aipt-none .dim{display:block;font-weight:400;font-size:12.5px;color:var(--dim);margin-top:4px}
+/* r751:個股頁「主動式 ETF 持股與調倉」摘要列 */
+.aetf-sum{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.aetf-sum span{display:flex;flex-direction:column;gap:1px;padding:6px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:88px}
+.aetf-sum i{font-style:normal;font-size:11px;color:var(--dim)}
+.aetf-sum b{font-family:var(--mono);font-size:14.5px;font-weight:900}

@@ -1,4 +1,4 @@
-/* K研所 · build r750 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r751 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1648,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r750</span>');
+  diag.push('<span style="color:var(--dim)">build r751</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -12288,6 +12288,7 @@ async function showDetail(id){
     ${s.etf?'':dimBlock('基本面(權重40%)',s.f)}
     ${s.t3&&!s.etf?`<div class="thesis" style="border-color:var(--down)"><b style="color:var(--down)">✅ 營收三率三升(${s.t3.q}):</b>毛利率 ${s.t3.gm[0]}→${s.t3.gm[1]}%、營益率 ${s.t3.om[0]}→${s.t3.om[1]}%、淨利率 ${s.t3.nm[0]}→${s.t3.nm[1]}%${s.t3.ry!=null?`,月營收年增 +${s.t3.ry}%`:''}——獲利品質與營收動能同步向上。</div>`:''}
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',cAug)}
+    ${!s.etf?aetfBlock(s):''}
     <div id="t3TechCard">${dimBlock('技術線型(權重25%)',t3Live(s))}</div>
     </div>
     <div class="sec-title" data-sec="stk_c">📊 籌碼圖表 <span style="font-weight:400;font-size:13px;letter-spacing:0">法人買賣超・大戶・信用交易(6個月)</span></div><div class="sec-body" id="sb-stk_c">
@@ -17721,6 +17722,50 @@ function renderEtf(){
   let t='stocks';try{t=localStorage.getItem('homeTab')||'stocks';}catch(e){}
   setHomeTab(t);
 })();
+/* 🧺 r751:個股反查——哪些主動式 ETF 持有這一檔、今天加碼還是減碼(每日快照相減,張數為真實申報值) */
+function aetfBlock(s){
+  const a=s.aetf||[];
+  if(!a.length)return '';
+  const lots=a.reduce((t,r)=>t+(r[3]||0),0);
+  const mv  =a.reduce((t,r)=>t+(r[6]||0),0);
+  const dlot=a.reduce((t,r)=>t+(r[5]||0),0);
+  const moved=a.filter(r=>r[5]!=null&&r[5]!==0);
+  const add=moved.filter(r=>r[5]>0).length, cut=moved.filter(r=>r[5]<0).length;
+  const nw=a.filter(r=>r[7]==='new').length, out=a.filter(r=>r[7]==='out').length;
+  const dd=(a.find(r=>r[8])||[])[8]||'';
+  const C=v=>v>0?'var(--up)':v<0?'var(--down)':'var(--mut)';
+  const sgn=(v,u)=>v==null?'<span style="color:var(--dim)">—</span>'
+    :`<span style="color:${C(v)};font-family:var(--mono);font-weight:800">${v>0?'+':''}${v.toLocaleString()}${u||''}</span>`;
+  const tag=k=>k==='new'?'<span class="aef-bdg" style="background:#FFB74A22;color:#B87A15;border:1px solid #FFB74A66">🆕 新進</span>'
+    :k==='out'?'<span class="aef-bdg" style="background:#9AA3B222;color:var(--mut);border:1px solid #9AA3B266">出清</span>':'';
+  const rows=a.map(r=>{
+    const [eid,nm,w,lot,dw,dsh,m,k]=r;
+    return `<tr data-aid="${eid}" style="cursor:pointer">
+      <td><b style="font-family:var(--mono);color:var(--t-purple)">${eid}</b><br><span style="font-size:12px">${nm}</span> ${tag(k)}</td>
+      <td class="mono">${w?w.toFixed(2)+'%':'—'}</td>
+      <td class="mono">${lot!=null?lot.toLocaleString():'—'}</td>
+      <td class="mono">${m!=null?m.toFixed(1)+' 億':'—'}</td>
+      <td class="mono">${sgn(dw,'pp')}</td>
+      <td class="mono">${sgn(dsh,' 張')}</td></tr>`;}).join('');
+  return `<div class="dim-block" style="border-left:4px solid var(--t-purple)">
+    <h3>🧺 主動式 ETF 持股與調倉${dd?`<span class="c-code" style="margin-left:6px">依 ${dd} 申報</span>`:''}</h3>
+    <div class="aetf-sum">
+      <span><i>持有檔數</i><b>${a.length}</b></span>
+      <span><i>合計持股</i><b>${lots.toLocaleString()} 張</b></span>
+      <span><i>合計市值</i><b>${mv.toFixed(1)} 億</b></span>
+      <span><i>當日淨增減</i><b style="color:${C(dlot)}">${dlot>0?'+':''}${dlot.toLocaleString()} 張</b></span>
+      <span><i>加/減碼</i><b>🔺${add} / 🔻${cut}${nw?` · 🆕${nw}`:''}${out?` · 出清${out}`:''}</b></span>
+    </div>
+    <div class="aip-tbl" style="margin-top:8px"><table><thead><tr>
+      <th>主動式 ETF</th><th>投資比率</th><th>持有張數</th><th>市值</th><th>比率增減</th><th>張數增減</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="dim-note" style="margin-top:8px">增減=<b>兩個申報日的持股相減</b>(張數為發行商申報的真實股數,非推估)。MoneyDJ 申報常延遲 1~3 個交易日;經理人主動調整才會反映在張數上,股價漲跌造成的權重變化不算加減碼。</div>
+  </div>`;
+}
+document.addEventListener('click',e=>{                       // r751:點 ETF 列進該檔 ETF 頁
+  const tr=e.target.closest&&e.target.closest('tr[data-aid]');
+  if(tr&&tr.dataset.aid)location.hash='#stock/'+tr.dataset.aid;
+},true);
 /* ETF 成分股共用工具:Yahoo 代號正規化(5536O/55360→5536)+ 中文名 */
 function etfSymFix(sym){
   let s=String(sym||'').toUpperCase().replace(/\.(TWO|TW)$/,'');

@@ -2642,6 +2642,7 @@ def fetch_etf_holdings(stocks):
     if not eh:
         print("  ETF 持股:etf_hold.json 空,略過"); return
     by_id = {s["id"]: s for s in stocks}
+    rev = {}                                   # r751:反查索引 個股 → 持有它的主動式 ETF
     chg_map = {s["id"]: s.get("chg") for s in stocks if s.get("chg") is not None}
     px_map = {s["id"]: s.get("price") for s in stocks if s.get("price")}
     n_hold = n_act = 0
@@ -2657,6 +2658,36 @@ def fetch_etf_holdings(stocks):
         s["hold"]["sh"] = {r[0]: r[3] for r in top if len(r) > 3}   # 代號→股數
         if hh.get("aum"): s["hold"]["aum"] = hh["aum"]              # r748:規模(舊版一直是 None,張數/市值算不出來)
         n_hold += 1
+        # ── r751:個股反查——哪些主動式 ETF 持有我、今天加減碼多少 ──
+        # MoneyDJ 現在有真實股數,增減直接相減即可,不必再用「權重×規模÷股價」推估。
+        try:
+            aum = hh.get("aum")
+            pv = {r[0]: r[2] for r in (prev_hold.get("top") or [])}       # 昨日權重
+            psh = prev_hold.get("sh") or {}                               # 昨日股數
+            fresh = bool(pv) and prev_hold.get("d") != hh.get("d")        # 資料日沒換 → 不算增減
+            lots = lambda x: int(round(x / 1000)) if x else None
+            cur = set()
+            for r in top:
+                sym, w1 = r[0], r[2]
+                if len(r) > 4 and r[4] == "f": continue                   # 期貨部位不進個股反查
+                cur.add(sym)
+                sh1 = r[3] if len(r) > 3 else None
+                dw = dsh = None; kind = "hold"
+                if fresh:
+                    if sym in pv:
+                        dw = round(w1 - pv[sym], 2)
+                        if sh1 is not None and psh.get(sym) is not None: dsh = lots(sh1 - psh[sym])
+                    else:
+                        kind = "new"; dw = w1; dsh = lots(sh1)
+                mv = round(w1 / 100 * aum / 1e8, 2) if aum else None
+                rev.setdefault(sym, []).append([eid, s["name"], w1, lots(sh1), dw, dsh, mv, kind, hh.get("d")])
+            if fresh:
+                for sym in pv:                                            # 昨天有、今天沒有 → 出清
+                    if sym in cur: continue
+                    rev.setdefault(sym, []).append([eid, s["name"], 0, 0, round(-pv[sym], 2),
+                                                   (-lots(psh[sym]) if psh.get(sym) else None), 0, "out", hh.get("d")])
+        except Exception:
+            pass
         # 調倉估算:今日 vs 昨日(需昨日有 top)
         try:
             if prev_hold.get("top"):
@@ -2666,7 +2697,14 @@ def fetch_etf_holdings(stocks):
                     s["act"] = delta; n_act += 1
         except Exception:
             pass
-    print(f"  ETF 持股:更新 {n_hold} 檔(主動式調倉估算 {n_act} 檔)")
+    n_rev = 0
+    for sym, arr in rev.items():
+        st = by_id.get(sym)
+        if not st: continue
+        arr.sort(key=lambda x: -(x[6] or 0))                              # 依市值大→小
+        st["aetf"] = arr[:12]
+        n_rev += 1
+    print(f"  ETF 持股:更新 {n_hold} 檔(主動式調倉估算 {n_act} 檔;個股反查 {n_rev} 檔)")
 
 def build_tdcc_trend(stocks):
     """集保股權分散 v2:每股每週存 9 組級距(可前端換算任意大戶/散戶門檻)。
