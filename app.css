@@ -1587,3 +1587,25 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .secnav{position:static!important;justify-content:flex-end;backdrop-filter:none;background:transparent;padding:4px 2px 0;overflow:visible}
 .secnav .nav-fold{margin-left:6px!important}
 #navSort{margin-left:0!important}
+/* ══ r736:AI Pick 買賣時間軸 + 買賣提示開關 ══ */
+.aip-albar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;border:1px dashed var(--line);border-radius:12px;background:var(--panel2)}
+.aip-albar .btn-ghost{padding:5px 12px;font-weight:800;white-space:nowrap}
+.aip-albar .dim-note{flex:1;min-width:200px;font-size:12.5px}
+.aip-tr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0;padding:6px 8px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-size:12.5px}
+.aip-tr .aip-trn{color:var(--dim)}
+.aip-trb,.aip-trs{display:inline-flex;align-items:baseline;gap:5px;padding:2px 8px;border-radius:8px;border:1.5px solid var(--line);background:var(--panel)}
+.aip-trb{border-color:color-mix(in srgb,var(--amber) 60%,var(--line))}
+.aip-trb i,.aip-trs i{font-style:normal;font-weight:800;font-size:12px}
+.aip-trb b,.aip-trs b{font-family:var(--mono);font-size:13px}
+.aip-trb em,.aip-trs em{font-style:normal;font-family:var(--mono);color:var(--mut);font-size:12px}
+.aip-trs.x-tp{border-color:var(--up)}.aip-trs.x-tp i{color:var(--up)}
+.aip-trs.x-sl{border-color:var(--down)}.aip-trs.x-sl i{color:var(--down)}
+.aip-trs.x-exp{border-color:color-mix(in srgb,var(--mut) 50%,var(--line))}
+.aip-trs.x-hold{border-color:color-mix(in srgb,var(--amber) 45%,var(--line));border-style:dashed}
+.aip-tra{color:var(--dim);font-weight:900}
+.aip-trh{color:var(--mut);font-size:12px}
+.aip-trr{margin-left:auto;font-family:var(--mono);font-weight:900;font-size:13.5px}
+.aip-xtp{border-color:var(--up);color:var(--up);background:color-mix(in srgb,var(--up) 9%,var(--panel))}
+.aip-xsl{border-color:var(--down);color:var(--down);background:color-mix(in srgb,var(--down) 9%,var(--panel))}
+.aip-xexp{border-color:var(--line);color:var(--mut)}
+@media(max-width:520px){.aip-tr{gap:6px;font-size:12px}.aip-trr{margin-left:0}}

@@ -11,7 +11,9 @@
   ・成交判定:買進週任一日 開盤≤買價 → 以開盤成交;最低≤買價 → 以買價成交;
               否則最低≤追價上限 → 以追價上限成交;全週都沒碰到 → 未成交(不計入勝率)
   ・結算:評估週最後一根 K 收盤 vs 成交價;>0 命中(win)、<0 失誤(loss)、=0 平(flat)
-  ・目標/停損:成交後(含成交日)任一日 最高≥目標 → 到目標;最低≤停損 → 觸停損(統計用,不改變結算)
+  ・出場(r736):成交後逐日檢查,先碰到目標 → 以目標價賣出;先碰到停損 → 以停損價賣出;
+              兩者同日觸及採保守假設(停損先);都沒碰到 → 評估週最後一根 K 收盤賣出(到期出場)
+  ・每檔都記錄「買進日/買進價 → 賣出日/賣出價/賣出原因/持有天數/實現損益」,統計以實際出場為準
 """
 import json, os, sys, datetime as dt
 
@@ -20,6 +22,7 @@ NOW = dt.datetime.now(TZ)
 TODAY = NOW.date()
 OUT = "aipick.json"
 MODEL = "v2"
+XVER = 2                      # r736:出場結算版本(舊檔會自動重跑一次補上買賣時間/實現損益)
 N_PICK = 5
 MAX_PER_SECTOR = 2
 KEEP_WEEKS = 80
@@ -388,7 +391,8 @@ def gen_week(data, buy_week, learn=None):
         picks.append({"id": s["id"], "name": s.get("name") or s["id"], "sector": sec,
                       "score": round(sc, 1), "why": why, **meta,
                       "fill": None, "entry": None, "hi": None, "lo": None, "last": None, "last_day": None,
-                      "ret": None, "hit_tp": False, "hit_sl": False, "result": "pending"})
+                      "ret": None, "ret_c": None, "hit_tp": False, "hit_sl": False, "result": "pending",
+                      "xd": None, "xp": None, "xw": None, "hold": None})
         if len(picks) >= N_PICK: break
     ref_day = max((p["ref_day"] for p in picks), default=cutoff)
     return {"buy_week": cutoff, "eval_week": iso(buy_week + dt.timedelta(days=7)),
@@ -398,6 +402,25 @@ def gen_week(data, buy_week, learn=None):
 
 
 # ───────────────────────── 追蹤結算 ─────────────────────────
+def exit_scan(p, held, entry):
+    """成交後逐日找「實際出場」:先到目標→目標價賣、先到停損→停損價賣,同日兩者皆觸及採保守(停損先)。
+    回傳 (出場日, 出場價, 原因 tp/sl, 持有天數);都沒碰到回傳 (None, None, None, 已持有天數)。"""
+    tg, sp = p["target"], p["stop"]
+    for i, (day, b) in enumerate(held):
+        op, hh, ll = b[0], b[1], b[2]
+        hit_sl = ll <= sp
+        hit_tp = hh >= tg
+        if hit_sl:                                          # 保守:同日都碰到,先算停損
+            if i == 0: px = sp if entry > sp else entry     # 成交日:進場價已含跳空,不能再用開盤價
+            else: px = op if op <= sp else sp
+            return day, px, "sl", i + 1
+        if hit_tp:
+            if i == 0: px = tg if entry < tg else entry
+            else: px = op if op >= tg else tg
+            return day, px, "tp", i + 1
+    return None, None, None, len(held)
+
+
 def evaluate(week):
     bw = dt.date.fromisoformat(week["buy_week"]); ew = bw + dt.timedelta(days=7)
     bw_end = iso(bw + dt.timedelta(days=4)); ew_end = iso(ew + dt.timedelta(days=4))
@@ -427,18 +450,30 @@ def evaluate(week):
             p["hi"], p["lo"], p["last"], p["last_day"] = hi, lo, lastc, (held[-1][0] if held else None)
             p["hit_tp"] = bool(hi is not None and hi >= p["target"])
             p["hit_sl"] = bool(lo is not None and lo <= p["stop"])
-            p["ret"] = round((lastc / entry - 1) * 100, 2) if (lastc and entry) else None
+            p["ret_c"] = round((lastc / entry - 1) * 100, 2) if (lastc and entry) else None
+            xd, xp, xw, nheld = exit_scan(p, held, entry)
             done = bool(eb and (eb[-1][0] >= ew_end or eval_over))
-            if done:
+            if xd:                                                    # 到目標/觸停損:當天就賣出
+                p["xd"], p["xp"], p["xw"], p["hold"] = xd, round(xp, 2), xw, nheld
+                p["ret"] = round((xp / entry - 1) * 100, 2)
+                p["result"] = "win" if p["ret"] > 0 else ("loss" if p["ret"] < 0 else "flat")
+            elif done:                                                # 到期:評估週最後收盤賣出
+                p["xd"], p["xp"], p["xw"], p["hold"] = p["last_day"], lastc, "exp", len(held)
+                p["ret"] = p["ret_c"]
                 r = p["ret"] or 0
                 p["result"] = "win" if r > 0 else ("loss" if r < 0 else "flat")
-            else:
+            else:                                                     # 持有中:ret 先用現有收盤浮動
+                p["xd"] = p["xp"] = p["xw"] = None
+                p["hold"] = len(held)
+                p["ret"] = p["ret_c"]
                 p["result"] = "pending"; all_done = False
         else:
+            p["xd"] = p["xp"] = p["xw"] = p["hold"] = None
             if buy_week_over and (bb or TODAY > bw + dt.timedelta(days=9)):
                 p["result"] = "nofill"
             else:
                 p["result"] = "pending"; all_done = False
+    week["xv"] = XVER
     if all_done and week["picks"]:
         week["status"] = "done"
     elif TODAY >= ew:
@@ -463,6 +498,14 @@ def stats_of(weeks):
           "tp_rate": round(len([p for p in filled if p.get("hit_tp")]) / len(filled) * 100, 1) if filled else None,
           "sl_rate": round(len([p for p in filled if p.get("hit_sl")]) / len(filled) * 100, 1) if filled else None,
           "sum_ret": round(sum(rets), 2) if rets else None}
+    hold = [p["hold"] for p in filled if isinstance(p.get("hold"), int)]
+    retc = [p["ret_c"] for p in filled if isinstance(p.get("ret_c"), (int, float))]
+    st["avg_hold"] = round(avg(hold), 1) if hold else None
+    st["avg_ret_c"] = round(avg(retc), 2) if retc else None
+    for k in ("tp", "sl", "exp"):
+        st["x_" + k] = len([p for p in filled if p.get("xw") == k])
+    xr = {k: [p["ret"] for p in filled if p.get("xw") == k and isinstance(p.get("ret"), (int, float))] for k in ("tp", "sl", "exp")}
+    st["x_ret"] = {k: (round(avg(v), 2) if v else None) for k, v in xr.items()}
     # 每週小結(勝/檔/平均)
     st["by_week"] = []
     eq = 100.0; curve = []
@@ -530,7 +573,7 @@ def main():
                 print("aipick:無符合標的,本週不選")
     # 逐週結算(已 done 的不再動,結果永久凍結)
     for w in weeks:
-        if w.get("status") != "done":
+        if w.get("status") != "done" or w.get("xv") != XVER:      # r736:舊檔(只有收盤結算)重跑一次,補買賣時間與實現損益
             try: evaluate(w)
             except Exception as e: print("aipick:evaluate 失敗", w.get("buy_week"), e)
     weeks.sort(key=lambda w: w["buy_week"])
