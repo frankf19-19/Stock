@@ -1,4 +1,4 @@
-/* K研所 · build r736 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r737 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1615,7 +1615,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r736</span>');
+  diag.push('<span style="color:var(--dim)">build r737</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2341,7 +2341,6 @@ async function renderEarnRadar(){
         <a class="earn-more" id="earnMore">顯示其餘 ${rest.length} 場 ▾</a>`:'');
   }
   html+=`<div class="dim-note" style="margin-top:8px">來源:Nasdaq 官方財報行事曆+日線收盤(每 20 分鐘同步);EPS 為市場共識與公司公布值,股價反應=財報後首個交易日收盤漲跌。美股盤後公布=台北隔日清晨才有結果,<b>隔天台股開盤前記得回來看戰報</b>。</div>`;
-  if(__other)html+=`<div class="dim-note" style="margin-top:8px">另有 ${__other} 檔${__gmUS?'台股':'美股'}持股——切換上方「${__gmUS?'🇹🇼 台股':'🇺🇸 美股'}」市場分頁查看。</div>`;
   box.innerHTML=html;
   const more=document.getElementById('earnMore');
   if(more)more.onclick=()=>{
@@ -5149,7 +5148,7 @@ async function renderIdxAnalysis(d){
   }
   // 量能與預估量
   let volTxt='';
-  if(s.market==='TW'){try{await loadSpark();d=sparkBase(s.id,d);}catch(e){}}   // 🌅 spark 回補 09:00 起底圖
+  // r737:移除誤貼自個股版的 spark 回補(此處無 s;且傳進來的 d 已在 drawIdxSel 經 sparkBase('t00'/'o00') 打底)
   const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
   const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
   const mins=(now.getHours()*60+now.getMinutes())-540;
@@ -17239,6 +17238,7 @@ function renderPort(){
         <span style="float:right;font-size:14px;font-family:var(--mono)">小計 ${fmt(mvT)} · <b style="color:${colT}">${pnlT>=0?'+':'-'}${fmt(Math.abs(pnlT))}(${pctT>=0?'+':''}${pctT.toFixed(1)}%)</b></span></div>
       ${cards}</div>`;
   }
+  if(__other)html+=`<div class="dim-note" style="margin-bottom:12px">另有 ${__other} 檔${__gmUS?'台股':'美股'}持股——切換上方「${__gmUS?'🇹🇼 台股':'🇺🇸 美股'}」市場分頁查看。</div>`;   // r737:歸位(原誤貼在財報雷達,那裡沒有 __other)
   // ── 健檢(動態狀態卡)──
   try{
     const D=portDiag(arr);
