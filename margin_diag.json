@@ -1,5 +1,5 @@
 {
- "ts": "2026-08-31T09:21:11.797621",
+ "ts": "2026-08-31T10:49:00.721662",
  "steps": [
   {
    "s": "twse_margin",
@@ -60,11 +60,16 @@
    "s": "tpex_probe_fail",
    "u": "www.tpex.org.tw/openapi/v1/tpex_mgtq_bal",
    "e": "Expecting value: line 1 column 1 (char 0)"
+  },
+  {
+   "s": "keep_old_file",
+   "reason": "本次零筆,保留既有 margin.json 不覆蓋"
   }
  ],
  "verdict": [
   "TWSE_MARGIN_EMPTY(表頭已寫入 diag)",
   "TWSE_DT_FAIL(各候選鍵名/回應已寫入 diag)",
-  "TPEX_MARGIN_FAIL(候選端點全滅,貼 diag 給 Claude 修路徑)"
+  "TPEX_MARGIN_FAIL(候選端點全滅,貼 diag 給 Claude 修路徑)",
+  "NO_DATA_KEEP_OLD(未覆蓋舊檔)"
  ]
 }
