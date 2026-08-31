@@ -1,4 +1,4 @@
-/* K研所 · build r741 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r742 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1648,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r741</span>');
+  diag.push('<span style="color:var(--dim)">build r742</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19978,31 +19978,39 @@ function renderSecNav(){
     if(t){t.scrollIntoView({behavior:'smooth',block:'start'});
       nav.querySelectorAll('span').forEach(s=>s.classList.toggle('on',s===el));}});
 }
-(function(){  // ⭐ 提醒列收合:預設一行摘要,展開狀態記憶;有「新」提醒自動展開一次
-  const KEY='falOpen';
-  const wrap=()=>{
-    const bar=document.getElementById('favAlertBar');if(!bar||bar.hidden)return;
-    const items=bar.querySelectorAll('.fal-item, .fal-card, :scope > div:not(.fal-head)');
+(function(){  // ⭐ 提醒列收合(r742:每一條提醒列各自處理——首頁與「我的最愛」頁共用同一份 CSS,只包首頁那條會讓另一條被永久收合)
+  const key=bar=>'falOpen:'+(bar.id||'x');
+  const wrapOne=bar=>{
+    if(!bar||bar.hidden)return;
+    const items=bar.querySelectorAll(':scope > .fal-it');      // 只數真正的提醒(舊版把內層標題列 .fal-h 也數進去,「N 則」多算 1)
     if(!items.length)return;
-    let head=bar.querySelector('.fal-head');
     const n=items.length;
-    const first=items[0];const firstTxt=(first.textContent||'').trim().replace(/\s+/g,' ').slice(0,42);
+    const firstTxt=(items[0].textContent||'').trim().replace(/\s+/g,' ').slice(0,42);
+    const hasAip=[...items].some(x=>(x.textContent||'').indexOf('🤖')>=0);
+    let head=bar.querySelector('.fal-head');
     if(!head){
       head=document.createElement('div');head.className='fal-head';
       bar.prepend(head);
-      head.onclick=e=>{if(e.target.closest('.fal-x'))return;
+      head.onclick=e=>{if(e.target.closest('.fal-x')||e.target.closest('a'))return;
         const open=!bar.classList.contains('fal-open');
-        bar.classList.toggle('fal-open',open);localStorage.setItem(KEY,open?'1':'0');
-        head.querySelector('.fal-arr').textContent=open?'▴':'▾';};
+        bar.classList.toggle('fal-open',open);
+        try{localStorage.setItem(key(bar),open?'1':'0');}catch(e2){}
+        const a=head.querySelector('.fal-arr');if(a)a.textContent=open?'▴':'▾';};
     }
-    const open=localStorage.getItem(KEY)==='1';
+    let st=null;try{st=localStorage.getItem(key(bar));}catch(e2){}
+    const open=(st===null)?(bar.id==='favAlertBar2'):(st==='1');   // 「我的最愛」頁本來就是來看提醒的 → 預設展開
     bar.classList.toggle('fal-open',open);
     if(bar.dataset.falN!==String(n)){bar.dataset.falN=String(n);
       if(!open&&Number(bar.dataset.falSeenN||0)<n){bar.classList.add('fal-open');}
       bar.dataset.falSeenN=String(n);}
-    const __h=`<b>${(bar.textContent||'').indexOf('🤖')>=0?'🤖⭐ 買賣提醒':'⭐ 最愛提醒'} <span class="fal-n">${n}</span> 則</b><span class="fal-peek">${bar.classList.contains('fal-open')?'':firstTxt+'…'}</span><span class="fal-arr">${bar.classList.contains('fal-open')?'▴':'▾'}</span>`;
+    const isOpen=bar.classList.contains('fal-open');
+    const __h=`<b>${hasAip?'🤖⭐ 買賣提醒':'⭐ 最愛提醒'} <span class="fal-n">${n}</span> 則</b>`
+      +`<span class="fal-peek">${isOpen?'今天的到價提醒・點一列進個股':firstTxt+'…'}</span>`
+      +`${bar.id==='favAlertBar'?'<a href="#fav" class="fal-go">我的最愛 ›</a>':''}`
+      +`<span class="fal-arr">${isOpen?'▴':'▾'}</span>`;
     if(head.innerHTML!==__h)head.innerHTML=__h;   // r719:沒變就不動 DOM
   };
+  const wrap=()=>{document.querySelectorAll('.favAlertBar').forEach(b=>{try{wrapOne(b);}catch(e){}});};
   const _r=window.renderFavAlertBarInto;
   if(typeof _r==='function'){window.renderFavAlertBarInto=function(bar){_r(bar);try{wrap();}catch(e){}};}
   setInterval(()=>{try{wrap();}catch(e){}},4000);

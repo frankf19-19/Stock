@@ -1628,3 +1628,6 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .aip-bk em{font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--mut)}
 .aip-hpk i{font-style:normal;font-size:11px;color:var(--amber);font-weight:800}
 @media(max-width:520px){.aip-bk em{display:none}.aip-rotnow{font-size:11px}}
+/* r742:外層收合列存在時,隱藏內層重複的標題列(避免展開後出現兩個標題) */
+.fal-bar .fal-head ~ .fal-h{display:none}
+.fal-bar .fal-head .fal-go{margin-left:0;flex:none}
