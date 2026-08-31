@@ -484,6 +484,17 @@ def _open_at(sid, after_day, ew_end):
     return None
 
 
+def _fill_px(b, p):
+    """單日的成交價;沒成交回 None。
+    r750:原本拆成「限價」與「追價」兩個迴圈,追價那圈用 max(開盤, 買價),
+    會把「整天都在買價之下」的跳空日硬拉到買價成交(2026-08-31 欣興跌停鎖死 999 卻算成 1145 進場)。
+    改成單一判定,三種情形互斥:"""
+    if b[0] <= p["buy"]: return b[0]                                  # 跳空開在買價之下 → 以開盤價成交
+    if b[2] <= p["buy"]: return p["buy"]                              # 盤中回到買價 → 限價成交
+    if b[2] <= p["buy_hi"]: return min(b[0], p["buy_hi"])             # 只進到追價區 → 追價上限內成交
+    return None
+
+
 def evaluate(week):
     bw = dt.date.fromisoformat(week["buy_week"]); ew = bw + dt.timedelta(days=7)
     bw_end = iso(bw + dt.timedelta(days=4)); ew_end = iso(ew + dt.timedelta(days=4))
@@ -498,11 +509,10 @@ def evaluate(week):
         bb = [(d[i], o[i]) for i in range(len(d)) if week["buy_week"] <= d[i] <= bw_end and len(o[i]) >= 4]
         fill = entry = None
         for day, b in bb:
-            if b[0] <= p["buy"]: fill, entry = day, b[0]; break
-            if b[2] <= p["buy"]: fill, entry = day, p["buy"]; break
-        if not fill:
-            for day, b in bb:
-                if b[2] <= p["buy_hi"]: fill, entry = day, min(max(b[0], p["buy"]), p["buy_hi"]); break
+            e = _fill_px(b, p)
+            if e is None: continue
+            if e <= p["stop"]: continue      # r750:進場價已在停損之下 → 訊號失效,這天不成交,繼續往後找
+            fill, entry = day, e; break
         if fill:
             p["legs"] = [_leg("pick", p["id"], p["name"], p.get("sector"), fill, entry,
                               p["target"], p["stop"], p.get("score"), p.get("kind"))]
