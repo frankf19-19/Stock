@@ -2,12 +2,13 @@ name: 每日資料更新(三力儀表板)
 
 on:
   schedule:
-    # GitHub 免費排程常大塞車(高峰延遲30-60分)——對策:班次開密,總有幾班跑到。
-    # 公開 repo 的 Actions 分鐘數免費無上限;workflow 有「沒變更就略過提交」防呆,多跑無害。
-    - cron: '3,13,23,33,43,53 1-5 * * 1-5'   # 台北 09:03 起每10分(冷門分鐘,整點班常被 GitHub 丟棄)|盤中報價/K棒/spark分時快照
+    # r740 班次分工——實測 #555 各步耗時:update_data.py 22m59s、ETF 32s、報價 35s、aipick 0s。
+    # 舊排程「盤中每10分一班」配 23 分鐘的重活,結構上就注定互相踩:歷史累積 74 次 Scheduled 被 Cancelled,
+    # 還有一筆 #406 從 8/19 卡在 Queued 12 天(cancel-in-progress: false 沒有自癒能力)。
+    # 新分工:盤中的輕活(報價/spark/AI Pick 結算)全部交給 intraday-quotes 的自迴圈,這裡只留重活、降到低頻。
+    - cron: '17 0 * * 1-6'                   # 台北 08:17|開盤前一班(補前一日缺的 K;週一到週六都跑,原本 2-6 讓週一早上沒班)
     - cron: '30 3 * * 1-5'                   # 台北 11:30|月營收上午公告即時入站
-    - cron: '7,27,47 7-14 * * 1-5'           # 台北 15:07 起每20分(冷門分鐘)|收盤K/期貨/法人/融資券/借券/ETF持股
-    - cron: '17 0 * * 2-6'                   # 台北 08:17|開盤前保底一班(把前一日缺的 K 補洞)
+    - cron: '7 7-14 * * 1-5'                 # 台北 15:07 起每小時|收盤K/期貨/法人/融資券/借券/ETF持股(單班 23~44 分,班距一小時才不會互砍)
     - cron: '30 10 * * 6,0'                  # 週末 18:30|月營收假日公告補抓
   workflow_dispatch:           # 也可以到 Actions 頁面手動觸發
 
@@ -16,7 +17,7 @@ permissions:
 
 concurrency:
   group: data-update
-  cancel-in-progress: false
+  cancel-in-progress: true     # r740:卡死自癒——新班直接接手,不再像 #406 那樣卡在 Queued 十幾天堵住整組
 
 jobs:
   update:
@@ -45,6 +46,7 @@ jobs:
           US_YAHOO_FALLBACK: "1"                         # r705:美股日K最後備援(僅美股;設 0 可關,台股維持零 Yahoo)
         run: python update_data.py
 
+      # 以下兩步是保底:盤中主力已交給 intraday-quotes 的自迴圈,這裡只在重班順手再跑一次
       - name: 盤中報價與分時快照(spark)
         env:
           PYTHONUNBUFFERED: "1"

@@ -1,12 +1,18 @@
 # 放到 repo 的 .github/workflows/update_quotes.yml
 # rev: 2026-08-06 r525 架構重造——排程只當「點火器」,掃價改為 job 內自迴圈
 #      舊架構賭「每5分鐘的獨立班次都活著」,GitHub 靜默停用/塞車就整天斷針(8/6 spark 只剩 1 點的事故根因)。
-#      新架構:每30分鐘點火一班,班內自己每5分鐘掃一輪+逐輪提交,掃到 13:45 為止;
+#      新架構:點火一班,班內自己每5分鐘掃一輪+逐輪提交,掃到 13:45 為止;
 #      新班啟動自動砍舊班(concurrency)=卡死自癒;一天只要任一班點著,盤中快照就連續。
+# rev: 2026-08-31 r740 班次分工
+#      事故:8/31(一)整個早盤 intraday-quotes 與 update_data 都沒被 GitHub 觸發(低頻的 workflow 同日全部正常),
+#            高頻排程被丟棄是 GitHub 已知行為,對策只能是「點火點更多 + 單班活更久」。
+#      1) 點火由每30分改為每15分——丟掉三班還有一班會點著,而且新班砍舊班本來就是無縫交棒。
+#      2) 單班壽命由 45 分拉到 110 分——萬一整個早上只點著一班,它自己也能撐完早盤。
+#      3) aipick.py(實測 <1 秒)併進迴圈:盤中每 5 分鐘結算一次 AI Pick,換股輪動才有辦法即時記錄。
 name: intraday-quotes
 on:
   schedule:
-    - cron: "20,50 0-5 * * 1-5"   # 台北 08:20 起每30分點火(班內迴圈才是真正的每5分鐘)
+    - cron: "8,23,38,53 0-5 * * 1-5"   # 台北 08:08 起每15分點火(班內迴圈才是真正的每5分鐘)
   workflow_dispatch: {}
 permissions:
   contents: write
@@ -16,17 +22,17 @@ concurrency:
 jobs:
   quotes:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
-      - run: pip install requests
-      - name: 盤中自迴圈掃價(每5分鐘一輪,逐輪提交)
+      - run: pip install requests numpy      # r740:aipick.py 的學習模型用 numpy;沒裝的話 fit_model 會靜默回傳 None,把 learn 降級成純規則版
+      - name: 盤中自迴圈掃價 + AI Pick 結算(每5分鐘一輪,逐輪提交)
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
-          END=$(( $(date +%s) + 45*60 ))          # 單班最長 45 分鐘(30分班距+緩衝,交棒無縫)
+          END=$(( $(date +%s) + 110*60 ))         # r740:單班最長 110 分鐘——點火被 GitHub 丟掉時,活著的這班要能自己撐完早盤
           while : ; do
             HM=$(TZ=Asia/Taipei date +%H%M); HM=$((10#$HM))
             [ $HM -gt 1345 ] && { echo "已過 13:45,本班收工"; break; }
@@ -34,8 +40,10 @@ jobs:
             if [ $HM -ge 855 ]; then
               git pull --rebase origin main || true      # 先同步,拿到別班/主更新最新的 spark 續寫
               python update_quotes.py || echo "本輪掃價失敗,5分鐘後再試"
+              AIPICK_LIGHT=1 timeout 240 python aipick.py || echo "AI Pick 本輪略過(逾時或失敗),不影響報價"   # r740:輕量班=只結算與換股輪動(選股/重訓留給 update_data 重班);實測 <1 秒,240 秒上限保護 5 分鐘輪迴
               git add data.json 2>/dev/null || true
               [ -f spark.json ] && git add spark.json
+              git add aipick.json 2>/dev/null || true          # 用 || true 而非 [ -f ] &&:GitHub 的 run 預設 bash -e,AND-list 回傳 1 會直接中斷整步
               if ! git diff --cached --quiet; then
                 git commit -m "quotes: $(TZ=Asia/Taipei date +%H:%M)"
                 if ! { git pull --rebase origin main && git push; }; then
