@@ -104,54 +104,71 @@ def main():
     except Exception as e:
         log("twse_borrow_fail", e=str(e)[:150]); DIAG["verdict"].append("TWSE_BORROW_FAIL")
 
-    # ── ③ 上市 當沖成交股數(TWTB4U)──
+    # ── ③ 上市 當沖(v4:不猜欄位名——自己掃鍵名 + 驗證值非全零)──
+    # v3 事故:openapi 回了 1,232 筆但 dt 全是 0(猜的 TradeVolume 鍵名不存在),
+    #          數量對、內容空,是典型假成功。v4 改為:①動態找鍵 ②抓完檢查非零筆數,
+    #          全零就當失敗換下一個候選 ③無論成敗都把實際鍵名寫進 diag。
     dt_cands = [
-        ("rwd",  f"https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U?date={ds}&selectType=All&response=json"),
-        ("rwd2", f"https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U?date={ds}&response=json"),
-        ("oapi", "https://openapi.twse.com.tw/v1/exchangeReport/TWTB4U"),
+        ("oapi",  "https://openapi.twse.com.tw/v1/exchangeReport/TWTB4U"),
+        ("rwd",   f"https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U?date={ds}&selectType=All&response=json"),
+        ("legacy",f"https://www.twse.com.tw/exchangeReport/TWTB4U?date={ds}&selectType=All&response=json"),
     ]
+    def pick_key(keys, must, avoid=()):
+        for k in keys:
+            ks = str(k)
+            if any(m in ks for m in must) and not any(av in ks for av in avoid):
+                return k
+        return None
     done = 0
     for tag, u in dt_cands:
+        got = {}
         try:
             j = get(u)
-            if isinstance(j, list):                          # openapi:字典陣列
-                if j and isinstance(j[0], dict) and not (j[0].get("Code") or j[0].get("證券代號")):
-                    log("twtb4u_oapi_keys", keys=list(j[0].keys())[:10])   # 鍵名對不上時把實際鍵名寫進 diag
+            if isinstance(j, list) and j and isinstance(j[0], dict):
+                keys = list(j[0].keys())
+                log("twtb4u_keys", tag=tag, keys=keys[:12])
+                ck = pick_key(keys, ("Code", "代號")) or keys[0]
+                vk = (pick_key(keys, ("沖銷",), avoid=("金額",))
+                      or pick_key(keys, ("DayTrad", "DayTrading"), avoid=("Amount", "Value"))
+                      or pick_key(keys, ("Volume", "股數"), avoid=("Amount", "Value", "金額")))
+                if not vk:
+                    log("twtb4u_no_volkey", tag=tag, keys=keys[:12]); continue
+                log("twtb4u_pick", tag=tag, code=str(ck), vol=str(vk))
                 for row in j:
-                    sid = str(row.get("Code") or row.get("證券代號") or "").strip()
-                    v = row.get("TradeVolume") or row.get("當日沖銷交易成交股數") or 0
-                    if not sid or not sid[0].isdigit(): continue
-                    out["s"].setdefault(sid, {})["dt"] = num(v) // 1000
-                    done += 1
-            else:                                            # rwd:tables 格式
+                    sid = str(row.get(ck, "")).strip()
+                    if not sid or not sid[0].isdigit() or len(sid) > 6: continue
+                    got[sid] = num(row.get(vk, 0)) // 1000
+            else:
                 tables = j.get("tables") or ([j] if j.get("data") else [])
                 for t in tables:
                     fields = t.get("fields") or []
                     data = t.get("data") or []
+                    if not fields or not data: continue
+                    log("twtb4u_fields", tag=tag, fields=[str(x) for x in fields][:12])
                     ci = col(fields, "代號")
                     cd = col(fields, "沖銷", "股數")
                     if cd < 0: cd = col(fields, "當沖", "股數")
-                    if ci < 0 or cd < 0 or not data:
-                        if fields: log("twtb4u_schema", tag=tag, fields=fields[:12])
-                        continue
+                    if ci < 0 or cd < 0: continue
                     for row in data:
                         sid = str(row[ci]).strip()
                         if not sid or not sid[0].isdigit() or len(sid) > 6: continue
-                        if cd < len(row): out["s"].setdefault(sid, {})["dt"] = num(row[cd]) // 1000
-                        done += 1
-            if done:
-                log("twse_daytrade_ok", tag=tag, n=done); break
+                        if cd < len(row): got[sid] = num(row[cd]) // 1000
+            nz = len([1 for v in got.values() if v > 0])
+            if got and nz == 0:
+                log("twtb4u_all_zero", tag=tag, n=len(got)); DIAG["verdict"].append(f"DT_ALL_ZERO({tag})"); continue
+            if nz:
+                for sid, v in got.items(): out["s"].setdefault(sid, {})["dt"] = v
+                done = nz
+                log("twse_daytrade_ok", tag=tag, n=len(got), nonzero=nz); break
             log("twse_daytrade_empty", tag=tag)
         except Exception as e:
-            # 把回應開頭抓回來看它到底吐了什麼(HTML 錯誤頁/空字串),下一輪不用猜
             head = ""
             try:
                 req = rq.Request(u, headers={"User-Agent": UA})
                 head = rq.urlopen(req, timeout=15).read(160).decode("utf-8", "ignore")
             except Exception: pass
             log("twse_daytrade_fail", tag=tag, e=str(e)[:100], head=head[:120])
-    if not done: DIAG["verdict"].append("TWSE_DT_FAIL(各候選回應開頭已寫入 diag)")
-
+    if not done: DIAG["verdict"].append("TWSE_DT_FAIL(各候選鍵名/回應已寫入 diag)")
     # ── ④ 上櫃(TPEx):多候選端點探測 ──
     roc = f"{d.year-1911}/{d.month:02d}/{d.day:02d}"
     tpex_margin_cands = [
