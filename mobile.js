@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════
-   K研所 · mobile.js · build r760
+   K研所 · mobile.js · build r761
    手機版 App 化行為層。只在 ≤640px 生效,不改 app.js 任何函式,
    全部用「渲染後加工 + MutationObserver」介入,桌機零影響。
    ══════════════════════════════════════════════════════════════════ */
@@ -209,7 +209,7 @@ function forceDark(){
     if(typeof applyTheme!=='function'){ document.documentElement.dataset.theme='kdark'; return; }
     var keep=null;
     try{ keep=localStorage.getItem('theme3l'); }catch(e){}
-    applyTheme('kdark',false);
+    applyTheme('kdark',true);   // r761:必須 redraw——TradingView 是 iframe,不重建就會停在亮色
     try{ keep===null ? localStorage.removeItem('theme3l') : localStorage.setItem('theme3l',keep); }catch(e){}
   }catch(e){ document.documentElement.dataset.theme='kdark'; }
 }
