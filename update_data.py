@@ -493,25 +493,36 @@ def _tpex_inst_day(d):
     except Exception:
         pass
     # 來源 A/B:新站 JSON(參數兩種變體都試)
+    # r753:原本用 _pick(fields,"外資","買賣超") 找欄位,但新站的 fields 根本沒有「外資/投信」字樣——
+    # 只有重複七組的「買進股數/賣出股數/買賣超股數」,分類寫在合併表頭。_pick 回 None → continue,
+    # 於是「請求成功但一筆都不產出」,靜默失敗,上櫃法人歷史因此整段空白(稽核:上櫃 878 檔只有 2 天)。
+    # 改為固定欄位(與舊站 3itrade_hedge 同一套版面),並用「外資+投信+自營 ≈ 三大法人合計」逐列自我驗證。
+    #   2 外資及陸資(不含外資自營) / 5 外資自營 / 8 外資合計 → 買賣超在 10
+    #   11 投信 → 13 ・ 14 自營自行 / 17 自營避險 / 20 自營合計 → 22 ・ 23 三大法人合計
     for params in ({"type": "Daily", "sect": "EW", "date": d.strftime("%Y/%m/%d"), "response": "json"},
                    {"type": "Daily", "sect": "AL", "date": d.strftime("%Y/%m/%d"), "response": "json"}):
         try:
             j2 = get_json("https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade", params, timeout=40)
-            out = {}
-            for tb in (j2.get("tables") or []) if isinstance(j2, dict) else []:
-                flds2 = tb.get("fields") or []
-                i2_id = _pick(flds2, "代號")
-                i2_f = _pick(flds2, "外資", "買賣超")
-                i2_t = _pick(flds2, "投信", "買賣超")
-                i2_g = _pick(flds2, "自營", "買賣超")
-                if None in (i2_id, i2_f, i2_t): continue
-                for r in tb.get("data", []):
-                    sid = str(r[i2_id]).strip().upper()
+            if not isinstance(j2, dict): continue
+            out, ok_chk, bad_chk = {}, 0, 0
+            for tb in (j2.get("tables") or []):
+                rows = tb.get("data") or []
+                if not rows or len(tb.get("fields") or []) < 24: continue
+                for r in rows:
+                    if not isinstance(r, (list, tuple)) or len(r) < 24: continue
+                    sid = str(r[0]).strip().upper()
                     if not (2 <= len(sid) <= 6): continue
-                    out[sid] = [sh2lot(numf(r[i2_f])), sh2lot(numf(r[i2_t])),
-                                sh2lot(numf(r[i2_g])) if i2_g is not None else 0]
-            if len(out) >= 100:
+                    f2, t2, g2, tot = numf(r[10]), numf(r[13]), numf(r[22]), numf(r[23])
+                    if None in (f2, t2, g2): continue
+                    if tot is not None:
+                        (ok_chk, bad_chk) = (ok_chk + 1, bad_chk) if abs((f2 + t2 + g2) - tot) <= max(2000, abs(tot) * 0.02) \
+                            else (ok_chk, bad_chk + 1)
+                    out[sid] = [sh2lot(f2), sh2lot(t2), sh2lot(g2)]
+            if len(out) >= 100 and ok_chk >= bad_chk * 3:
+                print(f"  櫃買法人 {d:%Y%m%d}:新站 {len(out)} 檔(驗證 {ok_chk}✓/{bad_chk}✗)")
                 return out
+            if out:
+                print(f"  [warn] 櫃買法人 {d:%Y%m%d}:新站欄位驗證失敗({ok_chk}✓/{bad_chk}✗)→ 棄用")
         except Exception:
             pass
     # 來源 C:舊站 3itrade_hedge(無欄位名 → 用固定欄位 + 「外資+投信+自營 ≈ 三大法人合計」抽樣驗證,對不上就放棄)
