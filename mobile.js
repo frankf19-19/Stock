@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════
-   K研所 · mobile.js · build r759
+   K研所 · mobile.js · build r760
    手機版 App 化行為層。只在 ≤640px 生效,不改 app.js 任何函式,
    全部用「渲染後加工 + MutationObserver」介入,桌機零影響。
    ══════════════════════════════════════════════════════════════════ */
@@ -263,12 +263,32 @@ function polishRadar(){
   });
 }
 
+
+/* ── r760:產業篩選 chip 補上檔數(比照 XQ 的「全部 22 / 加碼 8」) ── */
+function polishChips(){
+  var box=document.getElementById('chips'); if(!box) return;
+  var arr=(window.DATA&&DATA.stocks)||[]; if(!arr.length) return;
+  var gm=window.GMKT||'TW';
+  var pool=arr.filter(function(s){ return !s.etf && s.market===gm; });
+  box.querySelectorAll('.chip').forEach(function(b){
+    if(b.dataset.mobChip==='1') return;
+    var key=b.dataset.s, nm=(b.textContent||'').trim();
+    var n = key==='全部' ? pool.length
+          : pool.filter(function(x){ return x.sector===key; }).length;
+    b.innerHTML='<span class="cl"></span><span class="cn"></span>';
+    b.querySelector('.cl').textContent=nm;
+    b.querySelector('.cn').textContent=n;
+    b.dataset.mobChip='1';
+  });
+}
+
 function boot(){
   if(!isMob()) return;
   forceDark();
   polishNav();
   polishRail();
   polishRadar();
+  polishChips();
   enhanceGrid();
   buildIdxBar();
 
@@ -281,6 +301,11 @@ function boot(){
   if(seg && !seg.__mobObs){
     seg.__mobObs=new MutationObserver(function(){ clearTimeout(seg.__t); seg.__t=setTimeout(polishRail,30); });
     seg.__mobObs.observe(seg,{childList:true});
+  }
+  var cb=document.getElementById('chips');
+  if(cb && !cb.__mobObs){
+    cb.__mobObs=new MutationObserver(function(){ clearTimeout(cb.__t); cb.__t=setTimeout(polishChips,30); });
+    cb.__mobObs.observe(cb,{childList:true});
   }
   var rb=document.getElementById('radar');
   if(rb && !rb.__mobObs){
@@ -304,11 +329,11 @@ if(document.readyState === 'loading')
 else setTimeout(boot, 400);
 
 /* 資料較慢到位時補跑幾次 */
-[1200, 2500, 5000].forEach(function(t){ setTimeout(function(){ if(isMob()){ enhanceGrid(); buildIdxBar(); polishNav(); polishRail(); polishRadar(); } }, t); });
+[1200, 2500, 5000].forEach(function(t){ setTimeout(function(){ if(isMob()){ enhanceGrid(); buildIdxBar(); polishNav(); polishRail(); polishRadar(); polishChips(); } }, t); });
 
 /* 轉向 / 視窗尺寸變化 */
 MQ.addEventListener ? MQ.addEventListener('change', function(){ setTimeout(boot, 200); })
                     : window.addEventListener('resize', function(){ setTimeout(boot, 200); });
 
-window.__mobRefresh = function(){ enhanceGrid(); buildIdxBar(); polishNav(); polishRail(); polishRadar(); };
+window.__mobRefresh = function(){ enhanceGrid(); buildIdxBar(); polishNav(); polishRail(); polishRadar(); polishChips(); };
 })();
