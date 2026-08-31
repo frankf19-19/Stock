@@ -17,10 +17,13 @@ jobs:
         with: { python-version: '3.11' }
       - run: pip install requests
       - run: python fetch_etf.py
+      - name: 主動式 ETF 選股能力評估(事件研究)
+        run: python etf_edge.py || echo "etf_edge 失敗,不影響持股更新"
       - name: commit
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add etf_hold.json e/ || true                # r748:e/ 是每日持股快照歷史,漏加就永遠不會進版控
+          git add etf_hold.json e/ || true
+          if [ -f etf_edge.json ]; then git add etf_edge.json; fi                # r748:e/ 是每日持股快照歷史,漏加就永遠不會進版控
           git diff --cached --quiet || git commit -m "ETF 持股更新 [CI Skip]"
           git push || true
