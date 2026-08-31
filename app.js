@@ -1,4 +1,4 @@
-/* K研所 · build r737 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r738 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1047,7 +1047,39 @@ function renderFutTab(){
     <div class="dim-note" style="margin-top:8px">現貨買賣超單位:億元;期OI/留倉:口(正=淨多、負=淨空);<b>外(選)</b>=外資選擇權未平倉淨契約金額(千元,買方−賣方)——外資慣做選擇權賣方收權利金,此值常態為負,重點看「增減方向」:負值快速擴大=避險/壓空加重;<b>前五大/前十大留倉</b>=買方最大5/10家合計−賣方最大5/10家合計(全月份・全部交易人)——市場最大咖的淨方向,常比外資總部位更早轉向;<b>選PCR</b> >100 通常偏多氛圍;<b>韭菜%</b>=小台散戶淨多單佔總未平倉比例——散戶越樂觀(數字越高)行情反轉風險越常抬頭,慣用作反指標。期交所盤後 15:00~16:30 陸續公布,本站每日排程自動抓,★=最新;「—」=該欄當日尚未公布或該來源尚在累積(隔日排程會自動補)。</div>
   </div>`;
 }
+/* ══ r738:指數即時快照層 —— data.json 重載會把 DATA.macro.idx 覆蓋回昨收,
+      這層把最後一筆即時值記在 window 上,重畫前先蓋回去,畫面不再降級 ══ */
+window.RTIDX=window.RTIDX||{};
+function rtIdxSave(key,val,chg){
+  if(!key||val==null||!isFinite(val))return;
+  window.RTIDX[key]={val:+(+val).toFixed(2),chg:+chg,ts:Date.now()};
+}
+function rtIdxApply(){
+  const list=((DATA.macro||{}).idx)||[];
+  Object.keys(window.RTIDX).forEach(k=>{
+    const r=window.RTIDX[k];if(!r||r.val==null)return;
+    const it=list.find(x=>String(x.name||'').includes(k));
+    if(it){it.val=r.val;if(r.chg!=null&&isFinite(r.chg))it.chg=r.chg;}
+  });
+}
+function rtIdxStale(){          // 即時值超過 90 秒沒進來 → 卡片標出最後更新時刻
+  const row=document.getElementById('idxRow');if(!row)return;
+  const cards=[...row.querySelectorAll('.idx-card')];
+  Object.keys(window.RTIDX).forEach(k=>{
+    const r=window.RTIDX[k];if(!r||!r.ts)return;
+    const card=cards.find(c=>String((c.querySelector('.nm')||{}).textContent||'').includes(k));
+    if(!card)return;
+    let tag=card.querySelector('.rt-age');
+    if(Date.now()-r.ts>90000){
+      if(!tag){tag=document.createElement('div');tag.className='rt-age';
+        tag.style.cssText='font-size:10px;color:var(--dim);margin-top:2px;letter-spacing:.2px';
+        card.appendChild(tag);}
+      tag.textContent='\u23f1 '+new Date(r.ts).toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'}).slice(0,5)+' \u5f8c\u672a\u66f4\u65b0';
+    }else if(tag)tag.remove();
+  });
+}
 function renderMacro(){
+  try{rtIdxApply();}catch(e){}   // r738:先把即時值蓋回去,再重畫
   const m=DATA.macro||{};
   {                                                  // r701:跑馬燈等主執行緒閒下來再掛,首屏不跟它搶
     const go=()=>{try{tvTape();}catch(e){}};
@@ -1062,6 +1094,7 @@ function renderMacro(){
   document.getElementById('idxRow').innerHTML=_cards.length?_cards.join('')
     :'<div class="idx-card" id="idxEmpty"><div class="nm">台股指數載入中…</div></div>';
   try{ensureUsTvCards();}catch(e){}
+  try{rtIdxStale();}catch(e){}   // r738
   const fx=m.fx||{};
   const items=[["美元/台幣","usdtwd","FX_IDC:USDTWD"],["日圓/台幣","jpytwd","FX_IDC:JPYTWD"],["美元指數(DXY 即時)","dxy","CAPITALCOM:DXY"]];   // r488:三卡改 TV 迷你即時卡(價+%+走勢線);Fed廣義序列保留在 dxy 詳細頁
   document.getElementById('fxRow').innerHTML=items.map(([n,k])=>
@@ -1615,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r737</span>');
+  diag.push('<span style="color:var(--dim)">build r738</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -9399,6 +9432,7 @@ async function rtTick(){
       const key=m.c==='t00'?'tw':'otc';
       if(key==='otc')OTC_OK=true;
       const chg=+(((last-y)/y)*100).toFixed(2);
+      try{rtIdxSave(m.c==='t00'?'\u52a0\u6b0a':'\u6ac3\u8cb7',last,chg);}catch(e){}   // r738:即時值另存一份,不怕 data.json 重載
       if(m.c==='t00'){
         const idx=((DATA.macro||{}).idx||[]).find(x=>(x.name||'').includes('加權'));
         if(idx){idx.val=+last.toFixed(2);idx.chg=chg;}
