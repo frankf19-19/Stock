@@ -137,16 +137,21 @@ def save_hist(eid, rec):
         J = json.load(open(path, encoding="utf-8"))
         if J.get("id") != eid: raise ValueError
     except Exception:
-        J = {"id": eid, "d": [], "s": {}, "aum": [], "nm": {}}
+        J = {"id": eid, "d": [], "s": {}, "aum": [], "fd": [], "nm": {}}
     d = rec["d"]
     if d in J["d"]:                                   # 同一資料日重跑 → 覆蓋該格
         k = J["d"].index(d)
     else:
         J["d"].append(d); k = len(J["d"]) - 1
-        J["aum"].append(None)
+        J["aum"].append(None); J.setdefault("fd", []).append(None)
         for v in J["s"].values(): v.append(None)
     while len(J["aum"]) < len(J["d"]): J["aum"].append(None)
+    J.setdefault("fd", [])
+    while len(J["fd"]) < len(J["d"]): J["fd"].append(None)
     J["aum"][k] = rec.get("aum")
+    # r756:記下「我們實際抓到這筆的日期」。MoneyDJ 申報常延遲 1~3 個交易日,
+    # etf_edge.py 要用它當「看得到的那天」,否則從申報日起算報酬就是偷看未來。
+    if J["fd"][k] is None: J["fd"][k] = TODAY.isoformat()
     for sym, name, w, sh, kind in rec["top"]:
         if sym not in J["s"]: J["s"][sym] = [None] * len(J["d"])
         while len(J["s"][sym]) < len(J["d"]): J["s"][sym].append(None)
@@ -156,7 +161,7 @@ def save_hist(eid, rec):
         while len(v) < len(J["d"]): v.append(None)
     if len(J["d"]) > HIST_KEEP:                       # 只留最近 HIST_KEEP 天
         cut = len(J["d"]) - HIST_KEEP
-        J["d"] = J["d"][cut:]; J["aum"] = J["aum"][cut:]
+        J["d"] = J["d"][cut:]; J["aum"] = J["aum"][cut:]; J["fd"] = J["fd"][cut:]
         for sym in list(J["s"]):
             J["s"][sym] = J["s"][sym][cut:]
             if not any(x for x in J["s"][sym]):        # 期間內完全沒持有 → 移除
