@@ -1,4 +1,4 @@
-/* K研所 · build r752 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r753 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1648,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r752</span>');
+  diag.push('<span style="color:var(--dim)">build r753</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4368,7 +4368,7 @@ function foldSync(){                          // r582:摘要徽章即時重刷�
     try{
       const box=document.getElementById(id);
       const sum=box&&box.querySelector('.fold-sum');
-      if(sum){const t=sf();if(t&&sum.textContent!==t)sum.textContent=t;}
+      if(sum){const t=sf();if(t&&sum.innerHTML!==t)sum.innerHTML=t;}   // r753:摘要含 <b> 強調,textContent 會把標籤當文字印出來
     }catch(e){}
   });
 }
@@ -4414,7 +4414,7 @@ setInterval(()=>{                             // 摘要即時更新(機率/轉�
       const el=box.querySelector('.fold-sum');
       if(!el)return;
       const t=box.__foldSum();
-      if(t&&el.textContent!==t)el.textContent=t;
+      if(t&&el.innerHTML!==t)el.innerHTML=t;                          // r753:同上
     }catch(e){}
   });
 },2500);
