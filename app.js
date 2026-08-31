@@ -1,4 +1,4 @@
-/* K研所 · build r746 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r747 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1648,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r746</span>');
+  diag.push('<span style="color:var(--dim)">build r747</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19791,12 +19791,12 @@ setInterval(()=>{try{if(!document.hidden)aipSweep();}catch(e){}},25000);
 /* 最愛卡片:關鍵價位列 + 進場價設定 */
 function favPlanHtml(s,o,dates){
   const P=favPlanOf(s,o,dates);const px=+s.price||0;
-  const d=(lv)=>lv&&px?`<i>${((px/lv-1)*100>=0?'+':'')}${((px/lv-1)*100).toFixed(1)}%</i>`:'';
+  const d=(lv)=>{const n=+lv;if(!px||!isFinite(n)||!n)return '';const r=(px/n-1)*100;return `<i>${r>=0?'+':''}${r.toFixed(1)}%</i>`;};   // r747:區間值(如 2087~2190)不是數字,不再算出 NaN%
   const cell=(cls,lab,val,extra)=>`<span class="fpl ${cls}${val&&px&&extra&&extra(val)?' hit':''}"><em>${lab}</em>${val!=null?`<b>${val}</b>${d(val)}`:'<b>—</b>'}</span>`;
   return `<div class="fav-plan">
     ${cell('fpl-buy','買進區',P.bull&&P.z0?`${P.z0}~${P.z1}`:null)}
     ${cell('fpl-buy','突破',P.h20,v=>px>=v)}
-    ${P.pick&&P.pick.p?cell('fpl-buy','AI Pick 買價',P.pick.p.buy,v=>px<=P.pick.p.buy_hi):''}
+    ${P.pick&&P.pick.p?cell('fpl-aip','🤖 AI Pick 買價',P.pick.p.buy,v=>px<=P.pick.p.buy_hi):''}
     ${cell('fpl-sell','出場線',P.l10,v=>px<v)}
     ${P.entry?cell('fpl-tp','停利',P.tp,v=>px>=v)+cell('fpl-sl','停損',P.sl,v=>px<=v):''}
     <span class="fpl fpl-set" data-fset="${s.id}" title="設定進場價與停利/停損%">✎ ${P.entry?`進場 ${P.entry}(${P.entrySrc})`:'設進場價啟用停利/停損'}</span>

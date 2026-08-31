@@ -1424,6 +1424,11 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 .fpl-sell{border-color:color-mix(in srgb,#5A8CD6 55%,var(--line))}.fpl-sell b{color:#5A8CD6}
 .fpl-tp{border-color:color-mix(in srgb,var(--up) 55%,var(--line))}.fpl-tp b{color:var(--up)}
 .fpl-sl{border-color:color-mix(in srgb,var(--down) 55%,var(--line))}.fpl-sl b{color:var(--down)}
+/* r747:AI Pick 買價自成一色(紫)——跟買進區/突破的琥珀色分開,一眼看得出哪個是模型給的價 */
+.fpl-aip{border-color:var(--t-purple);border-width:1.5px;background:color-mix(in srgb,var(--t-purple) 12%,var(--panel));font-weight:800}
+.fpl-aip b{color:var(--t-purple)}
+.fpl-aip em{color:var(--t-purple);opacity:.85;font-weight:700}
+.fpl-aip.hit{background:color-mix(in srgb,var(--t-purple) 22%,var(--panel));box-shadow:0 0 0 2px color-mix(in srgb,var(--t-purple) 40%,transparent)}
 .fpl.hit{background:color-mix(in srgb,var(--amber) 18%,var(--panel));box-shadow:0 0 0 2px color-mix(in srgb,var(--amber) 35%,transparent);animation:aipPulse 1.6s ease-in-out infinite}
 .fpl-set{cursor:pointer;color:var(--txt2);font-family:var(--sans);border-style:dashed}.fpl-set:hover{border-color:var(--amber);color:var(--amber)}
 
