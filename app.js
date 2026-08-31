@@ -1,4 +1,4 @@
-/* K研所 · build r743 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r744 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1648,7 +1648,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r743</span>');
+  diag.push('<span style="color:var(--dim)">build r744</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13093,7 +13093,7 @@ function setupSections(){
     }
     // 全站預設收合(2026-07-19 定案):除「總經環境」外一律先收合成乾淨目錄;點開看細項且偏好會記住
     const OPEN0=['macro','mk_idx'];   // r727:桌機預設只展開「總經環境 + 即時走勢」(法說會改預設收合),版面回到乾淨目錄
-    const closed=(key in saved)?!!saved[key]:(key==='aipick'?false:(mob||OPEN0.indexOf(key)<0));
+    const closed=(key in saved)?!!saved[key]:((key==='aipick'||key==='aipstat')?false:(mob||OPEN0.indexOf(key)<0));   // r744:本週精選/實戰戰績預設展開,歷史紀錄預設收合
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);
     t.onclick=()=>{
@@ -19534,34 +19534,38 @@ function renderAIPick(){
   const st=AIPK.stats||{},sb=AIPK.stats_bt||{};
   let h='';
   h+=`<div class="aip-albar"><button class="btn-ghost" id="aipAlTg">${aipAlertOn()?'🔔 買賣提示:開':'🔕 買賣提示:關'}</button><span class="dim-note" style="margin:0">名單裡任何一檔到<b>建議買價</b>、<b>目標價</b>、<b>停損價</b>或<b>到期結算日</b>,都會跳出提示卡與瀏覽器通知(不必加入最愛)</span></div>`;
-  h+=st.weeks?aipStatStrip(st,'實戰戰績(凍結後追蹤)','每週名單一經選出即凍結,用實際 K 線核對;「準確率」= 評估週收盤高於成交價的比例')
+  let hs=st.weeks?aipStatStrip(st,'實戰戰績(凍結後追蹤)','每週名單一經選出即凍結,用實際 K 線核對;「準確率」= 實際賣出價高於買進價的比例')
      :aipStatStrip(sb,'回測戰績(walk-forward・首次建檔)','實戰週數累積到 1 週前,先以「當時只看得到的 K 線」逐週回測近半年;基本面/籌碼分數採現值,回測績效僅供參考');
-  h+=aipLearnPanel(AIPK.learn);
+  if(st.weeks&&sb.weeks)hs+=aipStatStrip(sb,'回測戰績(walk-forward・對照組)','以「當時只看得到的 K 線」逐週回測,與上方實戰對照');
+  hs+=aipLearnPanel(AIPK.learn);
   if(!cur.length)h+='<div class="dim-note" style="margin:10px 0">本週名單尚未產生——模型固定在每週五 14:30 後、週五 K 線入庫的第一班選股(週末/週一補跑),請稍後再看。</div>';
   cur.forEach((w,i)=>{h+=`<div class="aip-week ${w.status}">${aipWeekBlock(w,i>0)}</div>`;});
+  let hh='';
   if(done.length||bt.length){
-    h+=`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn-ghost" id="aipHistBtn" style="padding:6px 14px;font-weight:800">${AIPK_HIST?'▾ 收起歷史紀錄':'▸ 查看歷史紀錄'}(實戰 ${done.length} 週 · 回測 ${bt.length} 週)</button>${st.weeks&&sb.weeks?`<span class="dim" style="font-size:12.5px">回測:勝率 ${sb.win_rate}% · 平均 ${sb.avg_ret>0?'+':''}${sb.avg_ret}%</span>`:''}</div>`;
-    if(AIPK_HIST){
-      h+='<div class="aip-hist">';
+    hh+=`<div class="dim-note" style="margin:0 0 8px">實戰 ${done.length} 週 · 回測 ${bt.length} 週${st.weeks&&sb.weeks?` · 回測勝率 ${sb.win_rate}% · 平均 ${sb.avg_ret>0?'+':''}${sb.avg_ret}%`:''}——每列是一週的名單,🔄 代表該倉位中途換過股,滑過標籤可看完整換股鏈。</div>`;
+    {
+      hh+='<div class="aip-hist">';
       [...done,...bt].forEach(w=>{
         const fw=w.picks.filter(p=>['win','loss','flat'].includes(p.result));
         const wins=fw.filter(p=>p.result==='win').length;
         const rr=fw.map(p=>p.ret).filter(v=>typeof v==='number');
         const avg=rr.length?rr.reduce((a,b)=>a+b,0)/rr.length:null;
-        h+=`<div class="aip-hrow"><div class="aip-hd"><span class="aip-wtag done">${w.bt?'回測':'實戰'}</span><b>${aipMD(w.buy_week)} 買進</b><span class="dim">→ ${aipMD(aipAdd(w.eval_week,4))} 結算</span><span class="aip-hs">命中 <b style="color:${wins>=fw.length/2&&fw.length?'var(--up)':'var(--down)'}">${wins}/${fw.length}</b>${w.picks.length-fw.length?` · 未成交 ${w.picks.length-fw.length}`:''} · 均績 ${aipPct(avg)}</span></div>
+        hh+=`<div class="aip-hrow"><div class="aip-hd"><span class="aip-wtag done">${w.bt?'回測':'實戰'}</span><b>${aipMD(w.buy_week)} 買進</b><span class="dim">→ ${aipMD(aipAdd(w.eval_week,4))} 結算</span><span class="aip-hs">命中 <b style="color:${wins>=fw.length/2&&fw.length?'var(--up)':'var(--down)'}">${wins}/${fw.length}</b>${w.picks.length-fw.length?` · 未成交 ${w.picks.length-fw.length}`:''} · 均績 ${aipPct(avg)}</span></div>
           <div class="aip-hp">${w.picks.map(p=>{
             const lg=aipLegs(p);
             const chain=lg.map(L=>`${L.name} ${aipMD(L.fill)}買${L.entry}→${L.xd?aipMD(L.xd)+'賣'+L.xp:'—'}${L.xw==='tp'?'🎯':L.xw==='sl'?'🛑':L.xw==='exp'?'⏰':''}`).join(' 🔄 ');
             return `<span class="aip-hpk ${p.result}" data-aip="${p.id}" title="${chain}"><b>${p.name}</b>${lg.length>1?`<i>🔄${lg.length-1}</i>`:''} ${p.result==='nofill'?'<i>未成交</i>':`${aipMD(p.fill)} 買 ${p.entry} → ${p.xd?aipMD(p.xd)+' 賣 '+p.xp:'—'} ${aipPct(p.ret,1)} ${p.xw==='tp'?'🎯':p.xw==='sl'?'🛑':'⏰'}`}</span>`;}).join('')}</div></div>`;
       });
-      h+='</div>';
+      hh+='</div>';
     }
   }
   h+=`<div class="dim-note" style="margin-top:10px">模型:日均成交值 ≥3,000 萬、非處置股,依 <b>趨勢結構</b>(月線上季線・月線翻揚)+ <b>動能</b>(20/60 日漲幅)+ <b>突破位置</b>(貼近或創 20 日高)+ <b>量能升溫</b> + <b>乖離健康</b> + <b>基本面/籌碼分</b> + <b>外資 5 日買超</b> 加權排序,剔除 5 日漲逾 15%/乖離 >15% 的已噴段,每產業至多 2 檔取前 5。<b>建議買價</b>:貼近 5 日線就以收盤價買,否則等回測到 5 日線附近;<b>目標</b> = 買價 + 2 ATR(4~12%)、<b>停損</b> = 買價 − 2 ATR(下限 −8%)。規則分再與學習模型(見上方 🧠)依 α 混合排序。名單選出即凍結,不事後修改;<b>買賣時間</b>:買進日=買進週第一次碰到買價那天(以買價或更低的開盤價成交);賣出日=之後第一次碰到目標價或停損價那天(同日都碰到採保守假設,算停損),都沒碰到就在評估週最後一個交易日收盤賣出;每檔都記錄買進/賣出時間、價格與實現損益。<b>換股輪動</b>:5 檔視為 5 個倉位,任一倉位到目標或觸停損賣出後,只要評估週還沒結束就從<b>候補名單</b>依序遞補下一檔(誰先出場誰先挑、同時持有同產業至多 2 檔),隔一個交易日以開盤價進場,目標/停損依實際進場價等比例重錨,次數不設限;倉位報酬 = 各段複利相乘,統計以實際出場為準。<b>準確率是「實際賣出價高於買進價」的比例,不是獲利保證,非投資建議</b>。</div>
   <div class="dim-note" style="margin-top:4px;font-size:12.5px">更新時間 ${AIPK.updated||'—'} · 點卡片進個股頁 · 名單裡的最愛股到買價/目標/停損時會跳提醒。</div>`;
   box.innerHTML=h;
-  box.querySelectorAll('[data-aip]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.aip;});
-  const hb=document.getElementById('aipHistBtn');if(hb)hb.onclick=e=>{e.stopPropagation();AIPK_HIST=!AIPK_HIST;renderAIPick();};
+  const sBox=document.getElementById('aipStatBox');if(sBox)sBox.innerHTML=hs;                       // r744:戰績自成一區
+  const hBox=document.getElementById('aipHistBox');
+  if(hBox)hBox.innerHTML=hh||'<div class="dim-note">還沒有已結算的週次——第一週結算後就會出現。</div>';   // r744:歷史自成一區
+  [box,sBox,hBox].forEach(c=>{if(c)c.querySelectorAll('[data-aip]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.aip;});});
   const lt=document.getElementById('aipLearnTg');if(lt)lt.onclick=e=>{e.stopPropagation();AIPK_LEARN_OPEN=!AIPK_LEARN_OPEN;renderAIPick();};
   const at=document.getElementById('aipAlTg');if(at)at.onclick=e=>{e.stopPropagation();
     const on=!aipAlertOn();try{localStorage.setItem('aipAlertOn',on?'1':'0');}catch(e2){}
@@ -19572,7 +19576,9 @@ function aipTick(){   // 15 秒:現價/狀態晶片跟即時價走(不重抓檔�
   try{
     const box=document.getElementById('aipickBox');if(!box||!AIPK||document.hidden)return;
     if(!(marketOpen()||openish()))return;                                  // 盤外價不動,不重繪(避免打擾閱讀歷史)
-    const sb=box.closest('.sec-body');if(sb&&sb.classList.contains('closed'))return;
+    const sb=box.closest('.sec-body');
+    const s2=document.getElementById('aipStatBox'),sb2=s2?s2.closest('.sec-body'):null;
+    if(sb&&sb.classList.contains('closed')&&(!sb2||sb2.classList.contains('closed')))return;   // r744:三區都收合才停止更新
     const b=box.getBoundingClientRect();if(b.bottom<-200||b.top>innerHeight*1.5)return;
     renderAIPick();
   }catch(e){}

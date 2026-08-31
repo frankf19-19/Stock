@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r743">
+<link rel="stylesheet" href="app.css?v=r744">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -181,8 +181,14 @@
 
 </div>
 <div class="tabPane" id="tp-aipick" style="display:none">
-  <div class="sec-title" data-sec="aipick">🤖 AI Pick|本週精選 <span style="font-weight:400;font-size:13px;letter-spacing:0">量化模型每週選出下週看漲 5 檔・建議買價/目標/停損・記錄每檔買進/賣出時間與實現損益・停損後自動換股・到價即時提示</span></div><div class="sec-body" id="sb-aipick">
+  <div class="sec-title" data-sec="aipick">🤖 本週精選 <span style="font-weight:400;font-size:13px;letter-spacing:0">量化模型每週選出下週看漲 5 檔・建議買價/目標/停損・停損後自動從候補換股・到價即時提示</span></div><div class="sec-body" id="sb-aipick">
   <div id="aipickBox"></div>
+  </div>
+  <div class="sec-title" data-sec="aipstat">📊 實戰戰績 <span style="font-weight:400;font-size:13px;letter-spacing:0">名單凍結後用實際 K 線追蹤・勝率/平均報酬/持有天數/出場方式・學習模型權重</span></div><div class="sec-body" id="sb-aipstat">
+  <div id="aipStatBox"></div>
+  </div>
+  <div class="sec-title" data-sec="aiphist">🕘 歷史紀錄 <span style="font-weight:400;font-size:13px;letter-spacing:0">每一週的名單與實際買賣結果・含 walk-forward 回測週</span></div><div class="sec-body" id="sb-aiphist">
+  <div id="aipHistBox"></div>
   </div>
 </div>
 <div class="tabPane" id="tp-stocks">
@@ -318,6 +324,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r743"></script>
+<script src="app.js?v=r744"></script>
 </body>
 </html>
