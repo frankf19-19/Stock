@@ -1,4 +1,4 @@
-/* K研所 · build r761 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r762 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r761</span>');
+  diag.push('<span style="color:var(--dim)">build r762</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19220,6 +19220,12 @@ function sbMerge(cloud,local){                              // 合併策略:最�
   return out;
 }
 function sbApply(bundle){                                   // 寫回本機並讓 UI 重新反映
+  try{        // r762:雲端存的舊亮色主題也要一次性遷到籌碼黑,否則每次登入都被 sbApply 拉回 pearl
+    if(bundle&&bundle.theme3l==='pearl'&&localStorage.getItem('kdarkMigCloud')!=='1'){
+      bundle.theme3l='kdark';
+      try{localStorage.setItem('kdarkMigCloud','1');}catch(e){}
+    }
+  }catch(e){}
   let changed=false;
   SYNC_KEYS.forEach(k=>{
     try{ if(bundle[k]!=null&&localStorage.getItem(k)!==bundle[k]){localStorage.setItem(k,bundle[k]);changed=true;} }catch(e){}
