@@ -631,15 +631,19 @@ def main():
     else:
         buy_week = monday(TODAY)
     force = os.environ.get("AIPICK_FORCE") == "1"
+    # 🪶 r740:盤中輕量班(intraday-quotes 自迴圈每 5 分鐘呼叫一次)——只做結算與換股輪動,
+    #    不重訓、不選股、不回測。理由:重訓/選股要掃全市場,在 5 分鐘的輪迴裡會被 timeout 砍掉,
+    #    砍到一半又每輪重試,既拖垮報價又可能把 learn 寫成降級版本。選股交給 update_data 的重班。
+    LIGHT = os.environ.get("AIPICK_LIGHT") == "1"
     learn_prev = J.get("learn") or {}
-    rebuild_bt = os.environ.get("AIPICK_REBUILD_BT") == "1" or (weeks and not learn_prev)   # v1 檔升級 v2:回測重跑(含學習)
+    rebuild_bt = (not LIGHT) and (os.environ.get("AIPICK_REBUILD_BT") == "1" or (weeks and not learn_prev))   # v1 檔升級 v2:回測重跑(含學習)
     if rebuild_bt:
         weeks = [w for w in weeks if not w.get("bt")]
     amax = learn_prev.get("alpha_max") or ALPHA_MAX
     tune_rep = learn_prev.get("tune") or []
     live_done = len([w for w in weeks if w.get("status") == "done" and not w.get("bt")])
-    retune = rebuild_bt or (live_done and live_done % 4 == 0 and learn_prev.get("tuned_at_live") != live_done)   # 每累積 4 週實戰重調一次
-    if not [w for w in weeks if w.get("bt")] or retune:   # 首次建檔/升級/定期重調:逐週回測(walk-forward,每週先用更早的週訓練再選股)+ 自動調參
+    retune = rebuild_bt or ((not LIGHT) and live_done and live_done % 4 == 0 and learn_prev.get("tuned_at_live") != live_done)   # 每累積 4 週實戰重調一次
+    if (not LIGHT) and (not [w for w in weeks if w.get("bt")] or retune):   # 首次建檔/升級/定期重調:逐週回測(walk-forward,每週先用更早的週訓練再選股)+ 自動調參
         n_bt = int(os.environ.get("AIPICK_BACKFILL", "26") or 0)
         weeks = [w for w in weeks if not w.get("bt")]
         amax, bt_weeks, tune_rep = tune_alpha(data, n_bt)
@@ -651,7 +655,9 @@ def main():
     have = next((w for w in weeks if w["buy_week"] == iso(buy_week)), None)
     if force and have:
         weeks = [w for w in weeks if w is not have]; have = None; print("aipick:AIPICK_FORCE 重算本週")
-    if not have:
+    if not have and LIGHT:
+        print("aipick:輕量班不選股,等 update_data 重班產生本週名單")
+    if not have and not LIGHT:
         ok = True
         if wd == 4 and buy_week > monday(TODAY):   # 週五盤後:必須等到週五 K 入庫(以台積電為準)才選,否則留給下一班
             d, _ = bars_of("2330")
@@ -675,7 +681,7 @@ def main():
     weeks = weeks[-KEEP_WEEKS:]
     # 🧠 學習狀態:每班用「到今天已走完」的全部週重訓(下一次選股就用這組);記錄變化與檢討
     wk_key = iso(monday(TODAY))
-    if learn_prev.get("wk") == wk_key and learn_prev.get("w") and not learn_prev.get("force_train"):
+    if LIGHT or (learn_prev.get("wk") == wk_key and learn_prev.get("w") and not learn_prev.get("force_train")):
         learn = {k: v for k, v in learn_prev.items() if k not in ("force_train",)}   # 本週已訓練過:沿用(每班不重跑,省時)
     else:
         learn = build_learn(data, monday(TODAY) + dt.timedelta(days=14), amax=amax)   # 訓練集 = 評估週已走完的所有週
