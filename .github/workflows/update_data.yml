@@ -64,6 +64,7 @@ jobs:
           git add -A data.json k c
           if [ -f tdcc.json ]; then git add tdcc.json; fi
           if [ -f etf_hold.json ]; then git add etf_hold.json; fi
+          git add e/ 2>/dev/null || true                # r755:ETF 每日持股快照歷史(兩支 workflow 都會寫,漏加就丟失)
           if [ -f spark.json ]; then git add spark.json; fi
           if [ -f aipick.json ]; then git add aipick.json; fi
           if git diff --cached --quiet; then
