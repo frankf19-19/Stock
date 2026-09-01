@@ -1,4 +1,4 @@
-/* K研所 · build r763 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r764 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r763</span>');
+  diag.push('<span style="color:var(--dim)">build r764</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19482,11 +19482,19 @@ function aipToday(){
     });
   });
   const row=(x,tag)=>`<div class="aipt-row aipt-${x.k}" data-aip="${x.id}"><span class="aipt-tag">${tag}</span><b>${x.name}</b> <span class="c-code">${x.id}</span><span class="aipt-txt">${x.txt}</span></div>`;
-  if(!done.length&&!todo.length)
+  if(!done.length&&!todo.length&&!aipLogGet().some(r=>r.d===today))
     return `<div class="aipt-none">今天沒有操作。<span class="dim">名單裡沒有任何一檔到買價、到目標或觸停損,也沒有到期結算。</span></div>`;
+  const bk={};done.forEach(x=>{bk[x.id+'|'+x.k]=1;});
+  const lg=aipLogGet().filter(r=>r.d===today);
+  const lrow=r=>{
+    const hhmm=new Date(r.t).toTimeString().slice(0,5);
+    const ok=bk[r.id+'|'+r.k];
+    return `<div class="aipt-row aipt-${r.k}" data-aip="${r.id}"><span class="aipt-tag">即時 ${hhmm}</span><b>${r.name}</b> <span class="c-code">${r.id}</span><span class="aipt-txt">${AIPL_LBL[r.k]||''} @${r.px}・${r.txt}・${ok?'<b style="color:var(--t-green)">✓ 已與收盤結算對上</b>':'<span class="dim">待收盤對帳</span>'}</span><span data-aipl="${r.key}" title="刪掉這筆" style="cursor:pointer;opacity:.45;padding:0 6px">✕</span></div>`;
+  };
   return (done.length?`<div class="aipt-h">已記錄(${aipMD(today)})</div>`+done.map(x=>row(x,'已成交')).join(''):'')
+    +(lg.length?`<div class="aipt-h">即時觸發紀錄(盤中即時記,不必等收盤)</div>`+lg.map(lrow).join(''):'')
     +(todo.length?`<div class="aipt-h">現在可以做(即時現價)</div>`+todo.map(x=>row(x,'待辦')).join(''):'')
-    +`<div class="dim-note" style="margin-top:8px">「已記錄」是後端用<b>已收盤的日 K</b> 結算的事實;「現在可以做」是用即時報價判斷的待辦,收盤後才會變成紀錄。</div>`;
+    +`<div class="dim-note" style="margin-top:8px">「即時觸發紀錄」是盤中現價一碰到買價/目標/停損就<b>當下記一筆</b>(只在盤中記,每個部位每種訊號各記一次);「已記錄」是後端用<b>已收盤的日 K</b> 結算的事實,兩者收盤後會對帳。這是模型訊號的觸發軌跡,<b>不是你的真實成交</b>,也不會幫你下單。</div>`;
 }
 function aipTrade(p,w,si){
   const legs=aipLegs(p);
@@ -19821,6 +19829,52 @@ setTimeout(()=>{try{renderFavAlertBar();favAlertSweep();}catch(e){}},9000);
 setInterval(()=>{try{if(!document.hidden)favAlertSweep();}catch(e){}},20000);
 /* ══ r736:🤖 AI Pick 買賣提示 —— 名單裡任一檔到買價/目標/停損/到期結算日就提示(不必加入最愛) ══ */
 function aipAlertOn(){return localStorage.getItem('aipAlertOn')!=='0';}
+/* ══ r764:即時操作紀錄簿 —— 盤中一觸發就記一筆,不必等收盤日 K 結算 ══
+   刻意與提示開關脫鉤:關掉通知照樣記帳。只在盤中記,避免盤後停滯報價誤觸發。
+   這是「模型訊號的觸發紀錄」,不是你的真實成交;收盤後會跟後端結算對帳。 */
+const AIPL_KEY='aipLiveLog';
+const AIPL_LBL={buy:'🟢 觸買價',tp:'🎯 觸目標',sl:'🛑 觸停損',exp:'⏰ 到期結算'};
+function aipLogGet(){try{return JSON.parse(localStorage.getItem(AIPL_KEY)||'[]')||[];}catch(e){return [];}}
+function aipLogSet(a){try{localStorage.setItem(AIPL_KEY,JSON.stringify(a.slice(-300)));}catch(e){}}
+function aipLogDel(k){aipLogSet(aipLogGet().filter(r=>r.key!==k));try{const b=document.getElementById('aipTodayBox');if(b)b.innerHTML=aipToday();}catch(e){}}
+function aipLiveSweep(){
+  try{
+    if(!AIPK||!DATA||!DATA.stocks)return;
+    if(typeof marketOpen==='function'&&!marketOpen())return;      // 只在盤中記
+    const tpd=aipTpDate(),today=aipIso(tpd),tm=aipIso(aipMonday(tpd));
+    const log=aipLogGet(),have={};log.forEach(r=>{have[r.key]=1;});
+    let add=0;
+    (AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='done').forEach(w=>{
+      if(w.buy_week>tm)return;
+      const evEnd=w.eval_week?aipAdd(w.eval_week,4):'',bwEnd=aipAdd(w.buy_week,4);
+      (w.picks||[]).forEach((p,si)=>{
+        const cl=aipCurLeg(p);if(cl&&cl.xd)return;
+        const li=cl?Math.max(0,aipLegs(p).length-1):0;
+        const tid=cl?cl.id:p.id,tnm=cl?cl.name:p.name;
+        const st=(DATA.stocks||[]).find(x=>x.id===tid);
+        const px=st&&st.price>0?+st.price:0;if(!px)return;
+        const push=(k,txt)=>{
+          const key=w.buy_week+'|'+si+'|'+li+'|'+k;
+          if(have[key])return;have[key]=1;add++;
+          log.push({key:key,t:Date.now(),d:today,id:tid,name:tnm,k:k,px:px,txt:txt});
+        };
+        if(!cl){
+          if(today>bwEnd)return;
+          if(px<=p.buy)push('buy','建議買價 '+p.buy+'・目標 '+p.target+' / 停損 '+p.stop);
+        }else{
+          if(px>=cl.target)push('tp','目標 '+cl.target+'('+aipMD(cl.fill)+' 買 '+cl.entry+')');
+          else if(px<=cl.stop)push('sl','停損 '+cl.stop+'('+aipMD(cl.fill)+' 買 '+cl.entry+')');
+          else if(evEnd&&today===evEnd)push('exp','評估週最後交易日(買 '+cl.entry+')');
+        }
+      });
+    });
+    if(add){aipLogSet(log);try{const b=document.getElementById('aipTodayBox');if(b)b.innerHTML=aipToday();}catch(e){}}
+  }catch(e){}
+}
+document.addEventListener('click',e=>{
+  const x=e.target&&e.target.closest&&e.target.closest('[data-aipl]');
+  if(x){e.stopPropagation();aipLogDel(x.getAttribute('data-aipl'));}
+},true);
 function aipSweep(){
   try{
     if(!AIPK||!DATA||!DATA.stocks||!aipAlertOn()||!favAlertOn())return;
@@ -19896,9 +19950,9 @@ function aipFillSweep(){
     if(dirty){try{localStorage.setItem(AIPF_KEY,JSON.stringify(seen));}catch(e2){}}
   }catch(e){}
 }
-setTimeout(()=>{try{aipSweep();}catch(e){}},11000);
+setTimeout(()=>{try{aipSweep();}catch(e){}try{aipLiveSweep();}catch(e){}},11000);
 setTimeout(()=>{try{aipLoad().then(()=>{try{aipFillSweep();}catch(e){}});}catch(e){}},7000);   // 不必進 AI Pick 分頁也能收到對帳提示
-setInterval(()=>{try{if(!document.hidden)aipSweep();}catch(e){}},25000);
+setInterval(()=>{try{if(!document.hidden){aipSweep();aipLiveSweep();}}catch(e){}},25000);
 /* 最愛卡片:關鍵價位列 + 進場價設定 */
 function favPlanHtml(s,o,dates){
   const P=favPlanOf(s,o,dates);const px=+s.price||0;
