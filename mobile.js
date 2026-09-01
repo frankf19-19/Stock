@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════
-   K研所 · mobile.js · build r765
+   K研所 · mobile.js · build r766
    手機版 App 化行為層。只在 ≤640px 生效,不改 app.js 任何函式,
    全部用「渲染後加工 + MutationObserver」介入,桌機零影響。
    ══════════════════════════════════════════════════════════════════ */
@@ -246,7 +246,7 @@ function polishRail(){
     if(cntEl) cntEl.remove();
     var txt=(b.textContent||'').trim();
     /* 開頭的圖示字元(emoji 或 ◀ ▶)切出來 */
-    var m=txt.match(/^([\uD800-\uDBFF][\uDC00-\uDFFF]\uFE0F?|[\u2190-\u27BF\uFE0F]+)\s*([\s\S]*)$/);
+    var m=txt.match(/^([\uD800-\uDBFF][\uDC00-\uDFFF]\uFE0F?|[\u2190-\u2BFF\uFE0F]+)\s*([\s\S]*)$/);
     var icon=m?m[1]:'', name=m?m[2]:txt;
     b.innerHTML='<span class="ri">'+icon+'</span><span class="rn">'+name+'</span>'+
                 (cnt?'<span class="rc">'+cnt+'</span>':'');
