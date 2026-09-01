@@ -1,4 +1,4 @@
-/* K研所 · build r769 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r770 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1317,7 +1317,7 @@ function tvMiniQuoteNow(domId,tvsym){     // 卡片報價(TradingView 迷你走�
 /* 🏷️ 卡片漲跌%徽章:TradingView 部分資料源在嵌入版不給漲跌值 → 用自家 yext.json 疊上,保證每張卡都有 % */
 const CARD_PCT={copper:'HG=F',nickel:'NI=F',alum:'ALI=F',gold:'GC=F',silver:'SI=F',
   wti:'CL=F',brent:'BZ=F',natgas:'NG=F',
-  ixic:'^IXIC',dji:'^DJI',                                 // r490:TV 嵌入版這幾張不給漲跌% → 自家 yext 疊徽章
+  gspc:'^GSPC',ixic:'^IXIC',dji:'^DJI',sox:'^SOX',         // r770:原本只列 ixic/dji,gspc 與 sox 漏了 → 那兩張卡永遠沒有漲跌%
   usdtwd:'TWD=X',jpytwd:'JPYTWD=X',dxy:'DX-Y.NYB'};
 async function refreshCardPct(){
   if(!document.getElementById('usTvCards')&&!document.getElementById('cmdGrid')&&!document.getElementById('fxRow'))return;
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r769</span>');
+  diag.push('<span style="color:var(--dim)">build r770</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
