@@ -1,4 +1,4 @@
-/* K研所 · build r766 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r768 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r766</span>');
+  diag.push('<span style="color:var(--dim)">build r768</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19448,6 +19448,34 @@ function aipRotPlan(w){
   return out;
 }
 /* ⚡ r749:今日操作——上半是後端已記錄的成交/出場(事實),下半是現價已觸發的待辦(即時);沒有就顯示沒有 */
+/* r768:換股買進要交代「被接替的那一腳」是賺是賠——只寫「接替 XX」等於看不到結果 */
+function aipPrevTxt(legs,li){
+  const pv=legs[li-1];
+  if(!pv)return '接替 —';
+  if(!pv.xd)return `接替 ${pv.name}(尚未出場)`;
+  const r=(pv.ret>0?'+':'')+pv.ret+'%';
+  return `接替 ${pv.name}(${aipMD(pv.xd)} ${AIPXW[pv.xw]||'出場'} @${pv.xp}・實現 ${r})`;
+}
+/* r768:近期操作——換股橫跨兩天(前一天出場、隔天才買進),只看今天永遠湊不齊一買一賣 */
+function aipRecent(days){
+  if(!AIPK)return [];
+  const tpd=aipTpDate(),today=aipIso(tpd);
+  const d0=new Date(tpd.getTime()); d0.setDate(d0.getDate()-(days||9));
+  const from=aipIso(d0), out=[];
+  (AIPK.weeks||[]).filter(w=>!w.bt).forEach(w=>{
+    (w.picks||[]).forEach(p=>{
+      const legs=aipLegs(p);
+      legs.forEach((L,li)=>{
+        if(L.fill&&L.fill>=from&&L.fill<today)out.push({d:L.fill,k:'buy',id:L.id,name:L.name,
+          txt:`${li?`換股買進(第 ${li+1} 段,${aipPrevTxt(legs,li)})`:'買進'} @${L.entry}・目標 ${L.target} / 停損 ${L.stop}`});
+        if(L.xd&&L.xd>=from&&L.xd<today)out.push({d:L.xd,k:L.xw==='sl'?'sl':'tp',id:L.id,name:L.name,
+          txt:`${AIPXW[L.xw]||'賣出'} @${L.xp}・${aipMD(L.fill)} 買 ${L.entry},持有 ${L.hold||'—'} 天,實現 ${L.ret>0?'+':''}${L.ret}%`});
+      });
+    });
+  });
+  out.sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);
+  return out.slice(0,14);
+}
 function aipToday(){
   if(!AIPK)return '<div class="dim-note">⏳ 讀取中…</div>';
   const today=aipIso(aipTpDate());
@@ -19460,7 +19488,7 @@ function aipToday(){
       const legs=aipLegs(p);
       legs.forEach((L,li)=>{
         if(L.fill===today)done.push({k:'buy',id:L.id,name:L.name,
-          txt:`${li?`換股買進(第 ${li+1} 段,接替 ${legs[li-1]?legs[li-1].name:'—'})`:'買進'} @${L.entry}・目標 ${L.target} / 停損 ${L.stop}`});
+          txt:`${li?`換股買進(第 ${li+1} 段,${aipPrevTxt(legs,li)})`:'買進'} @${L.entry}・目標 ${L.target} / 停損 ${L.stop}`});
         if(L.xd===today)done.push({k:L.xw==='sl'?'sl':'tp',id:L.id,name:L.name,
           txt:`${AIPXW[L.xw]||'賣出'} @${L.xp}・${aipMD(L.fill)} 買 ${L.entry},持有 ${L.hold||'—'} 天,實現 ${L.ret>0?'+':''}${L.ret}%`});
       });
@@ -19482,7 +19510,7 @@ function aipToday(){
     });
   });
   const row=(x,tag)=>`<div class="aipt-row aipt-${x.k}" data-aip="${x.id}"><span class="aipt-tag">${tag}</span><b>${x.name}</b> <span class="c-code">${x.id}</span><span class="aipt-txt">${x.txt}</span></div>`;
-  if(!done.length&&!todo.length&&!aipLogGet().some(r=>r.d===today))
+  if(!done.length&&!todo.length&&!aipLogGet().some(r=>r.d===today)&&!aipRecent(9).length)
     return `<div class="aipt-none">今天沒有操作。<span class="dim">名單裡沒有任何一檔到買價、到目標或觸停損,也沒有到期結算。</span></div>`;
   const bk={};done.forEach(x=>{bk[x.id+'|'+x.k]=1;});
   const lg=aipLogGet().filter(r=>r.d===today);
@@ -19491,7 +19519,10 @@ function aipToday(){
     const ok=bk[r.id+'|'+r.k];
     return `<div class="aipt-row aipt-${r.k}" data-aip="${r.id}"><span class="aipt-tag">即時 ${hhmm}</span><b>${r.name}</b> <span class="c-code">${r.id}</span><span class="aipt-txt">${AIPL_LBL[r.k]||''} @${r.px}・${r.txt}・${ok?'<b style="color:var(--t-green)">✓ 已與收盤結算對上</b>':'<span class="dim">待收盤對帳</span>'}</span><span data-aipl="${r.key}" title="刪掉這筆" style="cursor:pointer;opacity:.45;padding:0 6px">✕</span></div>`;
   };
+  const rc=aipRecent(9);
+  const rcRow=x=>`<div class="aipt-row aipt-${x.k}" data-aip="${x.id}"><span class="aipt-tag">${aipMD(x.d)}</span><b>${x.name}</b> <span class="c-code">${x.id}</span><span class="aipt-txt">${x.txt}</span></div>`;
   return (done.length?`<div class="aipt-h">已記錄(${aipMD(today)})</div>`+done.map(x=>row(x,'已成交')).join(''):'')
+    +(rc.length?`<div class="aipt-h">近期操作(前 9 個日曆日,不含今日)</div>`+rc.map(rcRow).join(''):'')
     +(lg.length?`<div class="aipt-h">即時觸發紀錄(盤中即時記,不必等收盤)</div>`+lg.map(lrow).join(''):'')
     +(todo.length?`<div class="aipt-h">現在可以做(即時現價)</div>`+todo.map(x=>row(x,'待辦')).join(''):'')
     +`<div class="dim-note" style="margin-top:8px">「即時觸發紀錄」是盤中現價一碰到買價/目標/停損就<b>當下記一筆</b>(只在盤中記,每個部位每種訊號各記一次);「已記錄」是後端用<b>已收盤的日 K</b> 結算的事實,兩者收盤後會對帳。這是模型訊號的觸發軌跡,<b>不是你的真實成交</b>,也不會幫你下單。</div>`;
