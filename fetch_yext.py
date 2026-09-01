@@ -481,10 +481,26 @@ def main():
             j = json.loads(http_get("https://open.er-api.com/v6/latest/USD", timeout=20))
             r = j.get("rates") or {}
             now = int(time.time())
+            def _tpday(ts):                      # 台北日界線(與站上其他時間口徑一致)
+                return time.strftime("%Y-%m-%d", time.gmtime(ts + 8*3600))
             def put(sym, val, dg):
-                if val:
-                    series[sym] = {"d": {"t": [now-86400, now],
-                                         "c": [round(val, dg), round(val, dg)]}}
+                # r771:原本兩格填同一個值 → 前收==現價,漲跌幅永遠 0.00%。
+                #      改成保留「前一日快照」當基準:同一天沿用既有基準,跨日才把上一班的現值升格為前收。
+                #      (er-api 只給當前匯率、不給前收,只能自己累積。)
+                if not val:
+                    return
+                v = round(val, dg)
+                od = ((old_series.get(sym) or {}).get("d") or {})
+                oc = [x for x in (od.get("c") or []) if x is not None]
+                ot = od.get("t") or []
+                prev = v
+                if oc:
+                    old_prev = oc[0] if len(oc) >= 2 else oc[-1]
+                    old_last = oc[-1]
+                    same_day = bool(ot) and _tpday(ot[-1]) == _tpday(now)
+                    prev = old_prev if same_day else old_last
+                series[sym] = {"d": {"t": [now-86400, now],
+                                     "c": [round(prev, dg), v]}}
             twd, jpy, eur = r.get("TWD"), r.get("JPY"), r.get("EUR")
             put("TWD=X", twd, 3)
             if twd and jpy: put("JPYTWD=X", twd/jpy, 4)
