@@ -694,6 +694,21 @@ def main():
                       "、".join(f"{p['name']}@{p['buy']}" for p in w["picks"]))
             else:
                 print("aipick:無符合標的,本週不選")
+    # 🔁 r767:補產缺漏的候補名單——未成交的正選要能手動換股,前端得先有候補可挑。
+    #    只補未結案的週(done 的結果永久凍結不動);score_one 以該週 cutoff 計分,
+    #    所以補出來的排名與當初選股當下一致,不會用今天的資料回頭污染歷史。
+    if not LIGHT:
+        for w in weeks:
+            if w.get("bt") or w.get("status") == "done" or w.get("bench"): continue
+            try:
+                bw = dt.date.fromisoformat(w["buy_week"])
+                w2 = gen_week(data, bw, build_learn(data, bw, amax=amax))
+                used = {p["id"] for p in w.get("picks") or []}
+                used |= {L["id"] for p in (w.get("picks") or []) for L in (p.get("legs") or [])}
+                w["bench"] = [b for b in (w2.get("bench") or []) if b["id"] not in used][:BENCH_N]
+                print(f"aipick:補產候補 {w['buy_week']} 共 {len(w['bench'])} 檔")
+            except Exception as e:
+                print("aipick:補產候補失敗", w.get("buy_week"), e)
     # 逐週結算(已 done 的不再動,結果永久凍結)
     for w in weeks:
         if w.get("status") != "done" or w.get("xv") != XVER:      # r736:舊檔(只有收盤結算)重跑一次,補買賣時間與實現損益
