@@ -1,4 +1,4 @@
-/* K研所 · build r762 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r763 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -346,18 +346,18 @@ async function rtSetup(){
   ov.id='rtSetupOv';
   ov.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px';
   const cur=myProxy();
-  ov.innerHTML=`<div style="background:var(--card,#fff);border-radius:14px;max-width:520px;width:100%;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25)" onclick="event.stopPropagation()">
+  ov.innerHTML=`<div style="background:var(--panel,#fff);color:var(--txt,#111);border:1px solid var(--line,#ddd);border-radius:14px;max-width:520px;width:100%;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.45)" onclick="event.stopPropagation()">
     <div style="font-weight:800;font-size:17px;margin-bottom:6px">📡 即時報價連線</div>
     <div style="font-size:13px;opacity:.75;line-height:1.7;margin-bottom:10px">
       台股即時報價需經代理繞過瀏覽器限制。建議使用自己的 Cloudflare Worker(免費、穩定);
       未設定時走公共代理(時好時壞)。網址只存在這台裝置。
     </div>
     <input id="rtPxIn" value="${cur}" placeholder="https://xxx.你的帳號.workers.dev"
-      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--line,#ccc);border-radius:9px;font-size:14px">
+      style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--line,#ccc);border-radius:9px;font-size:14px;background:var(--panel2,#fff);color:var(--txt,#111)">
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
       <button onclick="rtSetupSave()" style="flex:1;min-width:100px;padding:9px 0;border:0;border-radius:9px;background:var(--accent,#b3382c);color:#fff;font-weight:700;cursor:pointer">儲存</button>
-      <button onclick="rtSetupTest(this)" style="flex:1;min-width:100px;padding:9px 0;border:1px solid var(--line,#ccc);border-radius:9px;background:transparent;cursor:pointer">🔌 測試連線</button>
-      <button onclick="document.getElementById('rtSetupOv').remove()" style="padding:9px 14px;border:1px solid var(--line,#ccc);border-radius:9px;background:transparent;cursor:pointer">關閉</button>
+      <button onclick="rtSetupTest(this)" style="flex:1;min-width:100px;padding:9px 0;border:1px solid var(--line,#ccc);border-radius:9px;background:transparent;color:var(--txt,#111);cursor:pointer">🔌 測試連線</button>
+      <button onclick="document.getElementById('rtSetupOv').remove()" style="padding:9px 14px;border:1px solid var(--line,#ccc);border-radius:9px;background:transparent;color:var(--txt,#111);cursor:pointer">關閉</button>
     </div>
     <div id="rtSetupMsg" style="font-size:13px;margin-top:10px;line-height:1.7"></div>
   </div>`;
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r762</span>');
+  diag.push('<span style="color:var(--dim)">build r763</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8233,7 +8233,7 @@ function renderL5(id,bids,asks,limUp,limDn){
       return `<div style="display:flex;align-items:center;gap:8px">
         <span style="width:26px;color:var(--dim)">${lab}${x.n}</span>
         <b style="width:72px;text-align:right">${(+x.p).toLocaleString(undefined,{maximumFractionDigits:2})}</b>
-        <span style="flex:1;position:relative;height:14px;background:var(--card2,rgba(0,0,0,.04));border-radius:3px;overflow:hidden">
+        <span style="flex:1;position:relative;height:14px;background:var(--panel2,rgba(0,0,0,.04));border-radius:3px;overflow:hidden">
           <i style="position:absolute;${side>0?'left':'right'}:0;top:0;bottom:0;width:${w}%;background:${col}"></i>
         </span>
         <span style="width:64px;text-align:right;color:var(--dim)">${Math.round(x.v||0).toLocaleString()} 張</span></div>`;
@@ -19941,7 +19941,7 @@ function hltPanel(){
   const rows=H?H.items.map(i=>`<div class="hlt-row">${dot(i.st)}<b>${i.label}</b><span class="hlt-last">${i.last}</span><span class="hlt-note">${i.note||''}</span></div>`).join(''):'<div class="dim-note">後端尚未產生 health 區塊(等下一班 Actions 跑完 r707)</div>';
   const legend='<div class="hlt-note" style="margin-top:8px">🟢 最新 🟡 落後 1-2 個交易日 🔴 停更——紅燈代表該來源被封鎖或掛掉,回報我修。</div>';
   ov.innerHTML=`<div class="hlt-box"><div class="hlt-h">🩺 資料健康度 <span class="dim" style="font-weight:400">${H?H.t:''}</span><span class="hlt-x">✕</span></div>${rows}${legend}
-    <div class="hlt-row" style="border:0;margin-top:4px">${dot('ok')}<b>AI Pick</b><span class="hlt-last">${(window.AIPK&&AIPK.updated)||'讀取中'}</span><span class="hlt-note">週選+學習</span></div></div>`;
+    <div class="hlt-row" style="border:0;margin-top:4px">${dot(AIPK&&AIPK.updated?'ok':'warn')}<b>AI Pick</b><span class="hlt-last">${(AIPK&&AIPK.updated)||'讀取中'}</span><span class="hlt-note">週選+學習</span></div></div>`;
   ov.onclick=e=>{if(e.target===ov||e.target.classList.contains('hlt-x'))ov.remove();};
   document.body.appendChild(ov);
 }
