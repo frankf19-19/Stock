@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════
-   K研所 · mobile.css · build r768
+   K研所 · mobile.css · build r769
    Part 1 —— 「籌碼黑」主題(全平台,含電腦版)
    Part 2 —— 手機 App 化版型(≤640px)
    選成 kdark 後,app.css 裡 23 條 html[data-theme="pearl"] 專屬規則
@@ -52,6 +52,35 @@ html[data-theme="kdark"] .ticker{background:var(--panel);border-color:var(--line
 html[data-theme="kdark"] .foot{color:var(--dim)}
 html[data-theme="kdark"] .overlay{background:rgba(0,0,0,.8)}
 
+
+
+/* ── r769:AI Pick 持股一覽(全平台) ─────────────────────────── */
+.aiph-sum{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;
+  padding:10px 12px;margin-bottom:10px;border-radius:10px;
+  background:var(--panel2);border:1px solid var(--line);font-size:13.5px}
+.aiph-sum b{font-family:var(--mono);font-size:16px}
+.aiph-card{border:1px solid var(--line);border-radius:11px;padding:11px 13px;
+  margin-bottom:9px;background:var(--panel)}
+.aiph-card.warn{border-color:var(--down)}
+.aiph-card.hot{border-color:var(--up)}
+.aiph-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:7px;margin-bottom:9px}
+.aiph-h b{font-size:16.5px;font-weight:800}
+.aiph-h .c-code{font-family:var(--mono);font-size:12.5px;color:var(--dim)}
+.aiph-seg{font-size:11px;font-weight:800;padding:1px 6px;border-radius:4px;
+  background:var(--panel2);color:var(--t-purple)}
+.aiph-ret{margin-left:auto;font-family:var(--mono);font-size:17px;font-weight:800}
+.aiph-g{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px 10px}
+.aiph-g > div{min-width:0}
+.aiph-g i{display:block;font-style:normal;font-size:11px;color:var(--dim);margin-bottom:2px}
+.aiph-g b{font-family:var(--mono);font-size:13.5px;font-weight:700;white-space:nowrap}
+.aiph-g small{font-size:11px;opacity:.8;margin-left:3px}
+.aiph-pend{font-size:12.5px;color:var(--dim);padding:8px 12px;border-radius:9px;
+  background:var(--panel2);border:1px dashed var(--line);margin-top:8px}
+@media (max-width:640px){
+  .aiph-g{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .aiph-h b{font-size:15.5px}
+  .aiph-ret{font-size:15.5px}
+}
 
 /* ── Part 2:手機 App 化版型 ─────────────────────────────────── */
 @media (max-width:640px){

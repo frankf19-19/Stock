@@ -1,4 +1,4 @@
-/* K研所 · build r768 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r769 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r768</span>');
+  diag.push('<span style="color:var(--dim)">build r769</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19476,6 +19476,61 @@ function aipRecent(days){
   out.sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);
   return out.slice(0,14);
 }
+/* ══ r769:AI Pick 持股一覽 —— 目前還在場內的每一筆 ══
+   交易員視角:先看風險。排序用帳面報酬由低到高,最該注意的排最前面。 */
+function aipHold(){
+  if(!AIPK)return '<div class="dim-note">⏳ 讀取中…</div>';
+  const today=aipIso(aipTpDate());
+  const dd=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5);
+  const rows=[],pend=[];
+  (AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='done').forEach(w=>{
+    const evEnd=w.eval_week?aipAdd(w.eval_week,4):'';
+    (w.picks||[]).forEach(p=>{
+      const legs=aipLegs(p),cl=aipCurLeg(p);
+      if(!cl){ if(w.buy_week<=today) pend.push(p.name+'('+p.id+') 買價 '+p.buy); return; }
+      if(cl.xd)return;
+      const st=(DATA.stocks||[]).find(x=>x.id===cl.id);
+      const px=st&&st.price>0?+st.price:0;
+      rows.push({w,p,cl,li:legs.length-1,prev:legs.length>1?legs[legs.length-2]:null,evEnd,px});
+    });
+  });
+  if(!rows.length&&!pend.length)
+    return '<div class="aipt-none">目前沒有持股。<span class="dim">名單裡沒有任何一檔還在場內。</span></div>';
+  rows.forEach(r=>{ r.ret=r.px?(r.px/r.cl.entry-1)*100:null; });
+  rows.sort((a,b)=>(a.ret==null?9e9:a.ret)-(b.ret==null?9e9:b.ret));
+  const n=rows.length, valid=rows.filter(r=>r.ret!=null);
+  const avg=valid.length?valid.reduce((s,r)=>s+r.ret,0)/valid.length:null;
+  const win=valid.filter(r=>r.ret>0).length;
+  const cls=v=>v==null?'flat':v>0?'pos':v<0?'neg':'flat';
+  const pc=v=>v==null?'—':(v>0?'+':'')+v.toFixed(2)+'%';
+  const near=valid.length?valid.map(r=>({r,d:(r.cl.stop/r.px-1)*100})).sort((a,b)=>b.d-a.d)[0]:null;
+  let h='<div class="aiph-sum">'+
+    '<span>持有 <b>'+n+'</b> 檔</span>'+
+    '<span>帳面均值 <b class="'+cls(avg)+'">'+pc(avg)+'</b></span>'+
+    '<span>獲利 <b class="pos">'+win+'</b> / 虧損 <b class="neg">'+(valid.length-win)+'</b></span>'+
+    (near?'<span>最貼近停損 <b>'+near.r.cl.name+'</b> <b class="neg">'+near.d.toFixed(1)+'%</b></span>':'')+
+    '</div>';
+  rows.forEach(r=>{
+    const L=r.cl, px=r.px;
+    const toT=px?(L.target/px-1)*100:null, toS=px?(L.stop/px-1)*100:null;
+    const hd=dd(L.fill,today), left=r.evEnd?dd(today,r.evEnd):null;
+    const k=(toS!=null&&toS>-3)?'warn':(toT!=null&&toT<3)?'hot':'';
+    h+='<div class="aiph-card '+k+'" data-aip="'+L.id+'">'+
+      '<div class="aiph-h"><b>'+L.name+'</b><span class="c-code">'+L.id+'</span>'+
+      (r.li?'<span class="aiph-seg">第 '+(r.li+1)+' 段・接替 '+(r.prev?r.prev.name:'—')+'</span>':'')+
+      '<span class="aiph-ret '+cls(r.ret)+'">'+pc(r.ret)+'</span></div>'+
+      '<div class="aiph-g">'+
+        '<div><i>進場</i><b>'+aipMD(L.fill)+' @'+L.entry+'</b></div>'+
+        '<div><i>現價</i><b>'+(px||'—')+'</b></div>'+
+        '<div><i>目標</i><b>'+L.target+'<small class="pos">'+(toT==null?'':pc(toT))+'</small></b></div>'+
+        '<div><i>停損</i><b>'+L.stop+'<small class="neg">'+(toS==null?'':pc(toS))+'</small></b></div>'+
+        '<div><i>持有</i><b>'+hd+' 天</b></div>'+
+        '<div><i>結算</i><b>'+(r.evEnd?aipMD(r.evEnd)+(left!=null?'<small>剩 '+left+' 天</small>':''):'—')+'</b></div>'+
+      '</div></div>';
+  });
+  if(pend.length)h+='<div class="aiph-pend">尚未成交('+pend.length+' 檔,等現價回到買價才進場):'+pend.join('・')+'</div>';
+  return h;
+}
 function aipToday(){
   if(!AIPK)return '<div class="dim-note">⏳ 讀取中…</div>';
   const today=aipIso(aipTpDate());
@@ -19713,7 +19768,8 @@ function renderAIPick(){
   <div class="dim-note" style="margin-top:4px;font-size:12.5px">更新時間 ${AIPK.updated||'—'} · 點卡片進個股頁 · 名單裡的最愛股到買價/目標/停損時會跳提醒。</div>`;
   box.innerHTML=h;
   const tBox=document.getElementById('aipTodayBox');
-  if(tBox){try{tBox.innerHTML=aipToday();}catch(e){tBox.innerHTML='';}}          // r749:今日操作
+  if(tBox){try{tBox.innerHTML=aipToday();}catch(e){tBox.innerHTML='';}}
+  {const hBox=document.getElementById('aipHoldBox');if(hBox){try{hBox.innerHTML=aipHold();}catch(e){hBox.innerHTML='';}}}   // r769:持股一覽          // r749:今日操作
   const sBox=document.getElementById('aipStatBox');if(sBox)sBox.innerHTML=hs;                       // r744:戰績自成一區
   const hBox=document.getElementById('aipHistBox');
   if(hBox)hBox.innerHTML=hh||'<div class="dim-note">還沒有已結算的週次——第一週結算後就會出現。</div>';   // r744:歷史自成一區
