@@ -1,4 +1,4 @@
-/* K研所 · build r772 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r773 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r772</span>');
+  diag.push('<span style="color:var(--dim)">build r773</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19181,7 +19181,13 @@ boot();
 const SB_URL='https://vvfvtrmpkvatfhlzwpou.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2ZnZ0cm1wa3ZhdGZobHp3cG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg4MTAsImV4cCI6MjA5ODc5NDgxMH0.DYB6_z7stNJcAPPoq5lsQEfW1QcdUX7LExq9uGPuyEU';
 const SYNC_KEYS=['fav_ids','port1','pxAlerts','theme3l'];   // 同步範圍:最愛/持股/到價提醒/主題
-let SB=null, SB_USER=null, sbPushT=null;
+let SB=null, SB_USER=null, sbPushT=null, SB_TOKEN=null, SB_APPLYING=false;
+/* r773:本機改動要「贏過」較舊的雲端 —— 之前 sbMerge 對 port1 等鍵一律以雲端為準,
+   手機上改完持股就切走/下拉刷新,1.5 秒的防抖推送來不及跑,重整後 sbPull 把舊雲端蓋回來,改動消失。
+   修法:每個同步鍵記「最後本機改動時間」;拉雲端時,本機比雲端 updated_at 新的鍵以本機為準;
+   推送成功才清除記號;離開頁面時用 keepalive 的 REST 直送把還沒推的資料衝出去。 */
+function sbDirtyGet(){try{return JSON.parse(localStorage.getItem('sbDirty')||'{}')||{};}catch(e){return {};}}
+function sbDirtySet(o){try{localStorage.setItem('sbDirty',JSON.stringify(o));}catch(e){}}
 
 function sbLoadSDK(){                                  // r701:Supabase SDK 改按需載入——先前每次開站都白載 54KB 並解析,
   if(window.__sbSDK)return window.__sbSDK;             //      但九成的造訪根本不會點登入
@@ -19207,8 +19213,12 @@ function sbLocalBundle(){                                   // 收集本機現�
   SYNC_KEYS.forEach(k=>{try{const v=localStorage.getItem(k);if(v!=null)o[k]=v;}catch(e){}});
   return o;
 }
-function sbMerge(cloud,local){                              // 合併策略:最愛取聯集(絕不因登入而弄丟),其餘以雲端為準
+function sbMerge(cloud,local,cloudAt){                      // 合併策略:最愛取聯集;其餘「誰比較新誰贏」(r773),沒記號才以雲端為準
   const out=Object.assign({},cloud||{});
+  try{
+    const dirty=sbDirtyGet(),cat=cloudAt?Date.parse(cloudAt):0;
+    SYNC_KEYS.forEach(k=>{ if(dirty[k]&&dirty[k]>cat&&(local||{})[k]!=null)out[k]=local[k]; });
+  }catch(e){}
   try{
     const cf=JSON.parse((cloud||{}).fav_ids||'[]'),lf=JSON.parse((local||{}).fav_ids||'[]');
     if(Array.isArray(cf)&&Array.isArray(lf)){
@@ -19227,9 +19237,11 @@ function sbApply(bundle){                                   // 寫回本機並�
     }
   }catch(e){}
   let changed=false;
+  SB_APPLYING=true;                                          // r773:套用雲端不算本機改動,也不要觸發回推
   SYNC_KEYS.forEach(k=>{
     try{ if(bundle[k]!=null&&localStorage.getItem(k)!==bundle[k]){localStorage.setItem(k,bundle[k]);changed=true;} }catch(e){}
   });
+  SB_APPLYING=false;
   if(changed){
     try{ if(typeof applyTheme==='function'&&bundle.theme3l)applyTheme(bundle.theme3l); }catch(e){}
     try{ if(typeof favPaint==='function')favPaint(); }catch(e){}
@@ -19239,25 +19251,41 @@ function sbApply(bundle){                                   // 寫回本機並�
 async function sbPull(){                                    // 登入後拉雲端 → 合併 → 回寫 → 推回合併結果
   const c=sbInit(); if(!c||!SB_USER)return;
   try{
-    const {data,error}=await c.from('user_data').select('data').eq('uid',SB_USER.id).maybeSingle();
+    const {data,error}=await c.from('user_data').select('data,updated_at').eq('uid',SB_USER.id).maybeSingle();
     if(error)throw error;
-    const merged=sbMerge(data&&data.data,sbLocalBundle());
+    const merged=sbMerge(data&&data.data,sbLocalBundle(),data&&data.updated_at);
     sbApply(merged);
     await sbPush(true);                                     // 把合併結果寫回雲端(首次登入=上傳本機最愛)
     sbToast('已同步');
   }catch(e){ sbToast('同步失敗,已用本機資料',1); }
 }
-async function sbPush(now){                                 // 推送(預設防抖 1.5 秒,避免連點狂寫)
+async function sbPush(now){                                 // 推送(預設防抖 0.6 秒;r773:成功才清除本機髒記號)
   const c=sbInit(); if(!c||!SB_USER)return;
   clearTimeout(sbPushT);
   const go=async()=>{
+    const snap=sbDirtyGet(),t0=Date.now();
     try{
-      await c.from('user_data').upsert({uid:SB_USER.id,data:sbLocalBundle(),updated_at:new Date().toISOString()},{onConflict:'uid'});
-    }catch(e){}
+      const {error}=await c.from('user_data').upsert({uid:SB_USER.id,data:sbLocalBundle(),updated_at:new Date().toISOString()},{onConflict:'uid'});
+      if(error)throw error;
+      const d=sbDirtyGet(); Object.keys(snap).forEach(k=>{ if(d[k]&&d[k]<=t0)delete d[k]; }); sbDirtySet(d);
+    }catch(e){ /* 留著髒記號,下次再推;離開頁面時 sbFlush 會再試 */ }
   };
   if(now)return go();
-  sbPushT=setTimeout(go,1500);
+  sbPushT=setTimeout(go,600);
 }
+function sbFlush(){                                          // r773:離開/切背景時把還沒推的資料用 keepalive 直送(防抖計時器在手機上常被凍結)
+  try{
+    if(!SB_USER||!SB_TOKEN)return;
+    if(!Object.keys(sbDirtyGet()).length)return;
+    clearTimeout(sbPushT);
+    const body=JSON.stringify({uid:SB_USER.id,data:sbLocalBundle(),updated_at:new Date().toISOString()});
+    fetch(SB_URL+'/rest/v1/user_data?on_conflict=uid',{method:'POST',keepalive:true,
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_TOKEN,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+      body}).then(r=>{ if(r.ok)sbDirtySet({}); }).catch(()=>{});
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden')sbFlush(); });
+window.addEventListener('pagehide',sbFlush);
 function sbToast(msg,warn){
   try{
     let t=document.getElementById('sbToast');
@@ -19270,7 +19298,12 @@ function sbHookStorage(){                                   // 攔 setItem:同�
   try{
     if(localStorage.__sbHooked)return;
     const orig=localStorage.setItem.bind(localStorage);
-    localStorage.setItem=function(k,v){ orig(k,v); if(SB_USER&&SYNC_KEYS.indexOf(k)>=0)sbPush(); };
+    localStorage.setItem=function(k,v){
+      orig(k,v);
+      if(SYNC_KEYS.indexOf(k)<0||SB_APPLYING)return;
+      const d=sbDirtyGet(); d[k]=Date.now(); sbDirtySet(d);           // r773:先記「本機改了」,不論有沒有登入(登入後合併時用)
+      if(SB_USER)sbPush();
+    };
     Object.defineProperty(localStorage,'__sbHooked',{value:true,enumerable:false});
   }catch(e){}
 }
@@ -19374,12 +19407,13 @@ async function sbBoot(){
   sbHookStorage();
   try{
     const {data}=await c.auth.getSession();
-    if(data&&data.session&&data.session.user){ SB_USER=data.session.user; sbBtnPaint(); sbPull(); }
+    if(data&&data.session&&data.session.user){ SB_USER=data.session.user; SB_TOKEN=data.session.access_token||null; sbBtnPaint(); sbPull(); }
   }catch(e){}
   try{ c.auth.onAuthStateChange((ev,s)=>{                  // 點驗證信回站時會走這條,自動接上
     const u=s&&s.user||null;
+    SB_TOKEN=(s&&s.access_token)||SB_TOKEN;
     if(u&&(!SB_USER||SB_USER.id!==u.id)){SB_USER=u;sbBtnPaint();sbPull();}
-    if(!u&&SB_USER){SB_USER=null;sbBtnPaint();}
+    if(!u&&SB_USER){SB_USER=null;SB_TOKEN=null;sbBtnPaint();}
   }); }catch(e){}
   sbBtnPaint();
 }
