@@ -593,6 +593,76 @@ def evaluate(week):
         week["status"] = "open"
 
 
+def week_benchmark(data, w):
+    """同一持有視窗(買進週第一個交易日收盤 → 評估週最後交易日收盤)全台股報酬的中位數。
+    站內沒有指數序列;用「隨便挑一檔的典型結果」當對照,比大盤更直接回答模型有沒有選股能力。"""
+    bw = w["buy_week"]; bw_end = iso(dt.date.fromisoformat(bw) + dt.timedelta(days=4))
+    ew_end = iso(dt.date.fromisoformat(w["eval_week"]) + dt.timedelta(days=4))
+    rets = []
+    for s in data.get("stocks", []):
+        if s.get("market") != "TW" or s.get("etf"): continue
+        d, o = bars_of(s["id"])
+        if len(d) < 30: continue
+        i0 = next((i for i, x in enumerate(d) if x >= bw), None)
+        if i0 is None or d[i0] > bw_end: continue
+        i1 = None
+        for i in range(len(d) - 1, i0, -1):
+            if d[i] <= ew_end: i1 = i; break
+        if i1 is None: continue
+        c0, c1 = (o[i0][3] if len(o[i0]) >= 4 else None), (o[i1][3] if len(o[i1]) >= 4 else None)
+        if c0 and c1: rets.append((c1 / c0 - 1) * 100)
+    if len(rets) < 50: return None
+    rets.sort()
+    return round(rets[len(rets) // 2], 2)
+
+
+# ───────────────────────── 🤖 入選/出場理由(Gemini,純敘述,不影響選股與結算)─────────────────────────
+_G = {"n": 0}
+GEMINI_KEY = os.environ.get("GEMINI_KEY", "").strip()
+GEMINI_MODEL = "gemini-2.5-flash"
+AI_BUDGET = 12                 # 每班最多幾次呼叫(免費層節流;沒用完留給下一班)
+
+def _gemini(prompt, max_tokens=220):
+    if not GEMINI_KEY or _G["n"] >= AI_BUDGET: return ""
+    import time as _t, requests
+    if _G["n"] > 0: _t.sleep(6)
+    _G["n"] += 1
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.4}}
+    for attempt in range(2):
+        try:
+            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}",
+                              json=body, timeout=60)
+            if r.status_code in (429, 500, 503): _t.sleep(20 * (attempt + 1)); continue
+            if not r.ok: return ""
+            ps = ((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+            txt = "".join(p.get("text", "") for p in ps).strip()
+            return txt.replace("\n", " ")[:240]
+        except Exception:
+            _t.sleep(10)
+    return ""
+
+_RULES = "用繁體中文寫,語氣像交易員筆記,只能引用我給的數字,不要加任何我沒給的資訊,不要說「建議買進」這類話,不要用驚嘆號。"
+
+def ai_reason_pick(p, w):
+    """入選理由:2 句,只用評分明細裡的數字。"""
+    why = "、".join(p.get("why") or [])
+    prompt = (f"{_RULES}\n這檔台股被量化模型選進下週名單。用兩句話說明為什麼是它,第一句講結構或動能,第二句講風險報酬設定。\n"
+              f"股票:{p['name']}({p['id']}),產業:{p.get('sector') or '—'}。模型分 {p.get('score')}(型態 {p.get('kind')})。\n"
+              f"命中的條件:{why or '無'}。近20日漲幅 {p.get('r20')}%,乖離月線 {p.get('bias20')}%,量比 {p.get('vr')}x。\n"
+              f"建議買價 {p['buy']}、目標 {p['target']}(+{(p['target']/p['buy']-1)*100:.1f}%)、停損 {p['stop']}({(p['stop']/p['buy']-1)*100:.1f}%),持有到 {w['eval_week']} 那週結束。")
+    return _gemini(prompt)
+
+def ai_reason_exit(L, p):
+    """出場理由:1 句,說明為什麼在那個價位/那一天出場。"""
+    why = {"tp": "碰到目標價", "sl": "跌破停損價", "exp": "評估週到期收盤"}.get(L.get("xw"), "出場")
+    prompt = (f"{_RULES}\n用一句話說明這筆交易的出場。\n"
+              f"{L['name']}({L['id']}):{L['fill']} 以 {L['entry']} 買進,{L['xd']} 以 {L['xp']} 賣出,原因是{why},"
+              f"持有 {L.get('hold')} 個交易日,實現損益 {L.get('ret'):+}%。目標價 {L['target']}、停損價 {L['stop']}。"
+              + ("這是換股遞補的部位。" if L.get("src") == "bench" else ""))
+    return _gemini(prompt, 120)
+
+
 def stats_of(weeks):
     done = [w for w in weeks if w.get("status") == "done"]
     picks = [p for w in done for p in w["picks"]]
@@ -634,6 +704,35 @@ def stats_of(weeks):
         st["by_week"].append({"buy_week": w["buy_week"], "n": len(w["picks"]), "filled": len(fw),
                               "wins": len([p for p in fw if p["result"] == "win"]), "avg": round(a, 2) if r else None})
     st["equity"] = curve
+    # ── r771:風險調整後績效(學 ProPicks 的戰績列:年化 / Sharpe / Sortino / 最大回撤)──
+    wk = [(b["avg"] or 0.0) for b in st["by_week"]]
+    n = len(wk)
+    if n >= 4:
+        m = avg(wk); sd = (avg([(x - m) ** 2 for x in wk]) * n / (n - 1)) ** 0.5
+        dn = [min(0.0, x) for x in wk]; dsd = (avg([x * x for x in dn]) * n / (n - 1)) ** 0.5
+        st["wk_std"] = round(sd, 2)
+        st["sharpe"] = round(m / sd * (52 ** 0.5), 2) if sd > 0 else None      # 週報酬年化(52 週),無風險利率視為 0
+        st["sortino"] = round(m / dsd * (52 ** 0.5), 2) if dsd > 0 else None
+        st["ann_ret"] = round(((curve[-1] / 100.0) ** (52.0 / n) - 1) * 100, 2) if curve else None
+    else:
+        st["wk_std"] = st["sharpe"] = st["sortino"] = st["ann_ret"] = None
+    peak, mdd, mdd_i = 100.0, 0.0, None
+    for i, v in enumerate(curve):
+        peak = max(peak, v)
+        dd = (v / peak - 1) * 100
+        if dd < mdd: mdd, mdd_i = dd, i
+    st["mdd"] = round(mdd, 2)
+    st["mdd_week"] = st["by_week"][mdd_i]["buy_week"] if mdd_i is not None else None
+    # 對照線:同一持有視窗「全台股報酬中位數」——回答「模型選的 5 檔,有沒有比隨便一檔好」
+    bq, bcurve, bms = 100.0, [], []
+    for w in done:
+        b = w.get("bm")
+        if isinstance(b, (int, float)): bms.append(b)
+        bq *= (1 + (b or 0.0) / 100); bcurve.append(round(bq, 2))
+    st["bm_equity"] = bcurve
+    st["bm_avg"] = round(avg(bms), 2) if bms else None
+    st["bm_n"] = len(bms)
+    st["alpha"] = round((st["avg_ret"] or 0) - st["bm_avg"], 2) if (bms and st["avg_ret"] is not None) else None
     return st
 
 
@@ -716,6 +815,30 @@ def main():
             except Exception as e: print("aipick:evaluate 失敗", w.get("buy_week"), e)
     weeks.sort(key=lambda w: w["buy_week"])
     weeks = weeks[-KEEP_WEEKS:]
+    if not LIGHT:
+        # 對照線:每個已結算的週補一次「全台股同視窗中位數」(算過就不再算,結果跟著週凍結)
+        nb = 0
+        for w in weeks:
+            if w.get("status") == "done" and "bm" not in w:
+                try: w["bm"] = week_benchmark(data, w); nb += 1
+                except Exception: w["bm"] = None
+        if nb: print(f"aipick:補算對照基準 {nb} 週")
+        # 🤖 入選/出場理由:純敘述,不影響選股與結算;沒金鑰或預算用完就跳過,下一班再補
+        if GEMINI_KEY:
+            na = nx = 0
+            for w in weeks:
+                if w.get("bt"): continue
+                for p in w.get("picks") or []:
+                    if not p.get("ai") and _G["n"] < AI_BUDGET and w.get("status") != "done":
+                        t = ai_reason_pick(p, w)
+                        if t: p["ai"] = t; na += 1
+                    for L in p.get("legs") or []:
+                        if L.get("xd") and not L.get("ai_x") and _G["n"] < AI_BUDGET:
+                            t = ai_reason_exit(L, p)
+                            if t: L["ai_x"] = t; nx += 1
+            print(f"aipick:Gemini 理由 入選 {na} 則、出場 {nx} 則(本班呼叫 {_G['n']}/{AI_BUDGET})")
+        else:
+            print("aipick:未設 GEMINI_KEY,跳過入選/出場理由")
     # 🧠 學習狀態:每班用「到今天已走完」的全部週重訓(下一次選股就用這組);記錄變化與檢討
     wk_key = iso(monday(TODAY))
     if LIGHT or (learn_prev.get("wk") == wk_key and learn_prev.get("w") and not learn_prev.get("force_train")):
