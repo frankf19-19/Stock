@@ -1,4 +1,4 @@
-/* K研所 · build r770 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r772 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r770</span>');
+  diag.push('<span style="color:var(--dim)">build r772</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19592,6 +19592,7 @@ function aipTrade(p,w,si){
     if(L.xd)return `<div class="aip-tr">${tag}${b}<span class="aip-tra">→</span>`
       +`<span class="aip-trs x-${L.xw||'exp'}"><i>${AIPXW[L.xw]||'賣出'}</i><b>${aipMD(L.xd)}</b><em>${L.xp}</em></span>`
       +`<span class="aip-trh">持有 ${L.hold||'—'} 天</span>`
+      +(L.ai_x?`<span class="aip-trai">${L.ai_x}</span>`:'')
       +`<span class="aip-trr" ${aipRetC(L.ret)}>${L.ret>0?'+':''}${L.ret}%</span></div>`;
     const st=(DATA.stocks||[]).find(x=>x.id===L.id);
     const px=st&&st.price>0?+st.price:null;
@@ -19660,15 +19661,23 @@ function aipStatStrip(st,label,note){
       ${box('平均持有',st.avg_hold!=null?st.avg_hold+' 天':'—')}
       ${box('出場方式(分段)',`🎯${st.x_tp||0} · 🛑${st.x_sl||0} · ⏰${st.x_exp||0}`)}
       ${box('換股次數',`${st.rot||0} 次${st.rot_rate!=null?`(${st.rot_rate}% 倉位換過)`:''}`)}
+      ${box('年化 / Sharpe',st.ann_ret!=null?`<span style="color:${st.ann_ret>=0?'var(--up)':'var(--down)'}">${st.ann_ret>0?'+':''}${st.ann_ret}%</span> / ${st.sharpe!=null?st.sharpe:'—'}`:'<span class="dim">不足 4 週</span>')}
+      ${box('最大回撤',st.mdd!=null?`<span style="color:var(--down)">${st.mdd}%</span>${st.mdd_week?`<span class="dim" style="font-size:10.5px;display:block">${aipMD(st.mdd_week)} 那週</span>`:''}`:'—')}
+      ${box('對照:隨便挑一檔',st.bm_avg!=null?`<span style="color:${st.bm_avg>=0?'var(--up)':'var(--down)'}">${st.bm_avg>0?'+':''}${st.bm_avg}%</span>`:'<span class="dim">結算後補算</span>')}
+      ${box('模型超額(α)',st.alpha!=null?`<b style="color:${st.alpha>=0?'var(--up)':'var(--down)'}">${st.alpha>0?'+':''}${st.alpha}%</b>`:'—',null)}
     </div>${aipEquitySvg(st)}</div>`;
 }
 function aipEquitySvg(st){
   const eq=st&&st.equity||[];if(eq.length<2)return '';
-  const W=560,H=64,pad=4,mx=Math.max(...eq),mn=Math.min(...eq,100);
+  const bm=(st.bm_equity||[]).slice(0,eq.length);                       // r772:對照線(全台股同視窗中位數)
+  const hasBm=bm.length===eq.length&&(st.bm_n||0)>0;
+  const all=hasBm?eq.concat(bm):eq;
+  const W=560,H=64,pad=4,mx=Math.max(...all),mn=Math.min(...all,100);
   const x=i=>pad+i*(W-2*pad)/(eq.length-1),y=v=>H-pad-(v-mn)/(mx-mn||1)*(H-2*pad);
   const pts=eq.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const last=eq[eq.length-1];
-  return `<div class="aip-eq"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${last>=100?'var(--up)':'var(--down)'}" stroke-width="2"/><line x1="${pad}" x2="${W-pad}" y1="${y(100).toFixed(1)}" y2="${y(100).toFixed(1)}" stroke="var(--line)" stroke-dasharray="3 3"/></svg><div class="aip-eql">每週 5 個倉位等權,先到目標/停損就當天賣、賣掉再從候補遞補下一檔(不含手續費) → 累積淨值 <b style="color:${last>=100?'var(--up)':'var(--down)'}">${last.toFixed(0)}</b>(起始 100)</div></div>`;
+  const bpts=hasBm?bm.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' '):'';
+  const last=eq[eq.length-1],blast=hasBm?bm[bm.length-1]:null;
+  return `<div class="aip-eq"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${hasBm?`<polyline points="${bpts}" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="4 3" opacity=".8"/>`:''}<polyline points="${pts}" fill="none" stroke="${last>=100?'var(--up)':'var(--down)'}" stroke-width="2"/><line x1="${pad}" x2="${W-pad}" y1="${y(100).toFixed(1)}" y2="${y(100).toFixed(1)}" stroke="var(--line)" stroke-dasharray="3 3"/></svg><div class="aip-eql">每週 5 個倉位等權,先到目標/停損就當天賣、賣掉再從候補遞補下一檔(不含手續費) → 累積淨值 <b style="color:${last>=100?'var(--up)':'var(--down)'}">${last.toFixed(0)}</b>(起始 100)${hasBm?` · <span style="color:var(--dim)">╌╌ 對照:同視窗隨便挑一檔的中位數 <b>${blast.toFixed(0)}</b></span>`:''}</div></div>`;
 }
 let AIPK_LEARN_OPEN=false;
 function aipLearnPanel(L){   // 🧠 學習狀態:模型怎麼進步、學到什麼、檢討了什麼
@@ -19721,6 +19730,7 @@ function aipWeekBlock(w,compact){
         <div class="aip-lvb aip-lvtp"><span>目標價</span><b>${p.target}</b><i>+${upT}%</i></div>
         <div class="aip-lvb aip-lvsl"><span>停損價</span><b>${p.stop}</b><i>${dnT}%</i></div>
       </div>
+      ${p.ai?`<div class="aip-ai">🤖 ${p.ai}</div>`:''}
       ${aipTrade(p,w,i)}
       <div class="aip-c3">${L.chip}</div>
       <div class="aip-why">${(p.why||[]).map(x=>`<span class="pick-chip">${x}</span>`).join('')}<span class="pick-chip" style="opacity:.75">模型分 ${p.score}</span></div>
