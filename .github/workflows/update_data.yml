@@ -55,6 +55,7 @@ jobs:
       - name: 🤖 AI Pick 週選模型與戰績結算(r702)
         env:
           PYTHONUNBUFFERED: "1"
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}     # r771:入選/出場理由(純敘述,沒金鑰就跳過)
         run: python aipick.py || echo "AI Pick 失敗,不影響主資料"
 
       - name: 提交結果
