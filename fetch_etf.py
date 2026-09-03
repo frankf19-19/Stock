@@ -25,6 +25,8 @@ import requests
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                     "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"}
 OUT = "etf_hold.json"
+REV = "etf_rev.json"           # r777:個股反查索引(個股 → 持有它的主動式 ETF + 當日增減),跟著本檔一起更新
+                               #      以前只有 update_data 重班會算,ETF 18:00 抓到新資料、個股頁卻要等下一班重班才更新
 HIST_DIR = "e"
 HIST_KEEP = 20                      # 保留最近 20 個資料日(足夠算 10 日視窗)
 TODAY = dt.date.today()
@@ -171,8 +173,56 @@ def save_hist(eid, rec):
     return len(J["d"])
 
 
+def build_rev(result, names):
+    """個股 → [[ETF代號, ETF名, 權重%, 張數, Δ權重pp, Δ張數, 市值億, 狀態, 申報日], ...]
+    增減用 e/ 快照歷史的「最近兩個不同申報日」相減——真實申報股數,不是推估。"""
+    rev = {}
+    lots = lambda x: int(round(x / 1000)) if x else None
+    for eid, hh in result.items():
+        top = hh.get("top") or []
+        if not top: continue
+        aum, d1 = hh.get("aum"), hh.get("d")
+        # 上一個申報日的快照(從 e/ 讀)
+        prev_w, prev_sh = {}, {}
+        try:
+            J = json.load(open(os.path.join(HIST_DIR, f"{eid}.json"), encoding="utf-8"))
+            ds = J.get("d") or []
+            if d1 in ds and ds.index(d1) > 0:
+                k0 = ds.index(d1) - 1
+                for sym, ser in (J.get("s") or {}).items():
+                    v = ser[k0] if k0 < len(ser) else None
+                    if v: prev_w[sym], prev_sh[sym] = v[0], v[1]
+        except Exception:
+            pass
+        fresh = bool(prev_w)
+        cur = set()
+        for r in top:
+            sym, w1 = r[0], r[2]
+            if len(r) > 4 and r[4] == "f": continue
+            cur.add(sym)
+            sh1 = r[3] if len(r) > 3 else None
+            dw = dsh = None; kind = "hold"
+            if fresh:
+                if sym in prev_w:
+                    dw = round(w1 - prev_w[sym], 2)
+                    if sh1 is not None and prev_sh.get(sym) is not None: dsh = lots(sh1 - prev_sh[sym])
+                else:
+                    kind = "new"; dw = w1; dsh = lots(sh1)
+            mv = round(w1 / 100 * aum / 1e8, 2) if aum else None
+            rev.setdefault(sym, []).append([eid, names.get(eid, eid), w1, lots(sh1), dw, dsh, mv, kind, d1])
+        if fresh:
+            for sym in prev_w:
+                if sym in cur: continue
+                rev.setdefault(sym, []).append([eid, names.get(eid, eid), 0, 0, round(-prev_w[sym], 2),
+                                               (-lots(prev_sh[sym]) if prev_sh.get(sym) else None), 0, "out", d1])
+    for sym in rev:
+        rev[sym].sort(key=lambda x: -(x[6] or 0)); rev[sym] = rev[sym][:12]
+    return rev
+
+
 def main():
     etfs = active_etfs()
+    names = dict(etfs)
     log(f"主動式 ETF:{len(etfs)} 檔")
     prev = {}
     if os.path.exists(OUT):
@@ -198,7 +248,10 @@ def main():
         sys.exit(1)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump({"u": TODAY.isoformat(), "h": result}, f, ensure_ascii=False, separators=(",", ":"))
-    log(f"✅ 寫出 {OUT}:本次 {ok} 檔更新,共 {len(result)} 檔;快照歷史寫入 {HIST_DIR}/")
+    rev = build_rev(result, names)
+    with open(REV, "w", encoding="utf-8") as f:
+        json.dump({"u": TODAY.isoformat(), "r": rev}, f, ensure_ascii=False, separators=(",", ":"))
+    log(f"✅ 寫出 {OUT}:本次 {ok} 檔更新,共 {len(result)} 檔;快照歷史寫入 {HIST_DIR}/;反查索引 {REV}:{len(rev)} 檔個股")
 
 
 if __name__ == "__main__":

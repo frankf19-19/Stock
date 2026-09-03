@@ -1,4 +1,4 @@
-/* K研所 · build r773 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r777 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r773</span>');
+  diag.push('<span style="color:var(--dim)">build r777</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -12193,6 +12193,7 @@ async function showDetail(id){
   const s=DATA.stocks.find(x=>x.id===id);
   const home=document.getElementById('homeView'), dv=document.getElementById('detailView');
   if(!s){location.hash=''; return;}
+  if(s.market!=='US'&&!s.etf){try{await etfRevLoad();}catch(e){}}     // r777:先拿最新的 ETF 反查索引再渲染
   disposeChipCharts(); curChips=null;
   home.style.display='none'; dv.style.display='block';
   const isTW=s.market!=='US';
@@ -12293,7 +12294,7 @@ async function showDetail(id){
     <div id="usFundBox"></div>
     <div id="usEarnBox"></div>
     </div>`:''}
-    ${!s.etf&&(s.aetf||[]).length?`<div class="sec-title" data-sec="stk_ae">🧺 主動式 ETF 持股 <span style="font-weight:400;font-size:13px;letter-spacing:0">哪些主動式 ETF 持有這一檔・每日申報持股與加減碼</span></div><div class="sec-body" id="sb-stk_ae">
+    ${!s.etf&&aetfOf(s).length?`<div class="sec-title" data-sec="stk_ae">🧺 主動式 ETF 持股 <span style="font-weight:400;font-size:13px;letter-spacing:0">哪些主動式 ETF 持有這一檔・每日申報持股與加減碼</span></div><div class="sec-body" id="sb-stk_ae">
     ${aetfBlock(s)}
     </div>`:''}
     <div class="sec-title" data-sec="stk_h">👑 大戶持股趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">集保週資料・千張大戶 vs 散戶</span></div><div class="sec-body" id="sb-stk_h">
@@ -17740,8 +17741,19 @@ function renderEtf(){
   setHomeTab(t);
 })();
 /* 🧺 r751:個股反查——哪些主動式 ETF 持有這一檔、今天加碼還是減碼(每日快照相減,張數為真實申報值) */
+let ETF_REV=null,ETF_REV_T=0;
+async function etfRevLoad(){                                  // r777:反查索引改由 etf.yml 17:35 那班直接產出,不必等重班
+  if(ETF_REV&&Date.now()-ETF_REV_T<10*60*1000)return ETF_REV;
+  try{const r=await fT('etf_rev.json?v='+kv(),15000,{cache:'no-store'});if(r&&r.ok){ETF_REV=await r.json();ETF_REV_T=Date.now();}}catch(e){}
+  return ETF_REV;
+}
+function aetfOf(s){                                           // 兩個來源取「申報日較新」的那份
+  const a=s.aetf||[], r=(ETF_REV&&ETF_REV.r&&ETF_REV.r[s.id])||[];
+  const da=(a[0]||[])[8]||'', dr=(r[0]||[])[8]||'';
+  return dr>=da&&r.length?r:a;
+}
 function aetfBlock(s){
-  const a=s.aetf||[];
+  const a=aetfOf(s);
   if(!a.length)return '';
   const lots=a.reduce((t,r)=>t+(r[3]||0),0);
   const mv  =a.reduce((t,r)=>t+(r[6]||0),0);
