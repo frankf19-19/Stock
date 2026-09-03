@@ -26,3 +26,28 @@ self.addEventListener('fetch', e => {
       .then(hit => hit || caches.match('./index.html')))
   );
 });
+
+/* ═══ r784:Web Push ═══
+   後端 notify.py 用 VAPID 推;這裡負責把 payload 變成系統通知、點了開對應頁面。
+   payload:{title, body, url, tag} */
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data ? e.data.text() : '' }; }
+  const title = d.title || 'K研所';
+  e.waitUntil(self.registration.showNotification(title, {
+    body: d.body || '',
+    icon: './icon192.png',
+    badge: './icon192.png',
+    tag: d.tag || 'kyansuo',
+    renotify: true,
+    data: { url: d.url || './' }
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    for (const c of cs) { if ('focus' in c) { c.navigate(url); return c.focus(); } }
+    return self.clients.openWindow(url);
+  }));
+});

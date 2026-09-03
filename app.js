@@ -1,4 +1,4 @@
-/* K研所 · build r783 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r784 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r783</span>');
+  diag.push('<span style="color:var(--dim)">build r784</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19338,7 +19338,7 @@ boot();
    離線或 Supabase 不通時,一律安靜退回 localStorage,不讓站台因同步失敗而不能用。      */
 const SB_URL='https://vvfvtrmpkvatfhlzwpou.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2ZnZ0cm1wa3ZhdGZobHp3cG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg4MTAsImV4cCI6MjA5ODc5NDgxMH0.DYB6_z7stNJcAPPoq5lsQEfW1QcdUX7LExq9uGPuyEU';
-const SYNC_KEYS=['fav_ids','port1','pxAlerts','theme3l','tgLink'];   // 同步範圍:最愛/持股/到價提醒/主題/Telegram 綁定碼
+const SYNC_KEYS=['fav_ids','port1','pxAlerts','theme3l','tgLink','pushSubs'];   // 同步範圍:最愛/持股/到價提醒/主題/Telegram 綁定碼/推播訂閱
 const SERVER_KEYS=['tgChat'];                                 // r782:後端寫入的欄位——瀏覽器只讀,推送時從雲端原樣帶回,不會蓋掉
 let SB=null, SB_USER=null, sbPushT=null, SB_TOKEN=null, SB_APPLYING=false;
 /* r773:本機改動要「贏過」較舊的雲端 —— 之前 sbMerge 對 port1 等鍵一律以雲端為準,
@@ -19482,6 +19482,66 @@ function sbBtnPaint(){
   if(SB_USER){ const n=(SB_USER.email||'').split('@')[0]; b.textContent=n.length>10?n.slice(0,10)+'…':n; b.title='已登入 '+SB_USER.email+'——點擊管理帳號'; b.classList.add('on'); }
   else { b.textContent='登入'; b.title='登入後最愛/持股/提醒跨裝置同步'; b.classList.remove('on'); }
 }
+/* ═══ r784:🔔 Web Push 推播 ═══
+   使用者按「開啟推播」→ 瀏覽器要權限 → Service Worker 訂閱(VAPID 公鑰)→ 訂閱資訊存進帳號(pushSubs)
+   → 後端 notify.py 對每個訂閱推。關掉網頁、甚至關掉瀏覽器(Android)都收得到。
+   iPhone:iOS 16.4+ 且必須先「加入主畫面」從主畫面開啟,Safari 分頁裡不支援——這是 Apple 的限制。 */
+const VAPID_PUBLIC='BFrDuw2hruCLJLNkaoBNC-pXPM8WZt8udHaoQ2mGzFNAqWojcqMgGiEMqaQgnjGy1u8FofvsBmpKS2IErmzA6U4';
+function b64ToU8(b){const p='='.repeat((4-b.length%4)%4);const s=(b+p).replace(/-/g,'+').replace(/_/g,'/');const r=atob(s);return Uint8Array.from(r,c=>c.charCodeAt(0));}
+function pushSubsGet(){try{return JSON.parse(localStorage.getItem('pushSubs')||'[]')||[];}catch(e){return [];}}
+function pushSubsSet(a){try{localStorage.setItem('pushSubs',JSON.stringify(a));}catch(e){}}
+function pushSupport(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))return 'none';
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  if(ios&&!standalone)return 'ios-tab';
+  return 'ok';
+}
+async function pushEnable(){
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted')throw new Error('沒有允許通知');
+  const reg=await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(VAPID_PUBLIC)});
+  const j=sub.toJSON();
+  const arr=pushSubsGet().filter(x=>x&&x.endpoint!==j.endpoint);
+  arr.push({endpoint:j.endpoint,keys:j.keys,ua:navigator.userAgent.slice(0,80),t:Date.now()});
+  pushSubsSet(arr.slice(-6));                                   // 每個帳號最多 6 台裝置
+  await sbPush(true);
+}
+async function pushDisable(){
+  try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
+    if(sub){const ep=sub.endpoint;await sub.unsubscribe();pushSubsSet(pushSubsGet().filter(x=>x&&x.endpoint!==ep));}
+  }catch(e){}
+  await sbPush(true);
+}
+async function pushThisDeviceOn(){
+  try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
+    return !!(sub&&pushSubsGet().some(x=>x&&x.endpoint===sub.endpoint));}catch(e){return false;}
+}
+async function sbPushPaint(){
+  const box=document.getElementById('sbPush'); if(!box||!SB_USER)return;
+  const sup=pushSupport();
+  const n=pushSubsGet().length;
+  if(sup==='none'){box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-no">此瀏覽器不支援</span></div><div class="sb-note">換 Chrome/Edge,或 iPhone 先「加入主畫面」再開。</div>`;return;}
+  if(sup==='ios-tab'){box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-wait">iPhone 要先加到主畫面</span></div><div class="sb-note">Safari 分頁不支援推播(Apple 限制)。做法:Safari 分享鈕 → <b>加入主畫面</b> → 從主畫面開啟 K研所,再回這裡按開啟。需 iOS 16.4 以上。</div>`;return;}
+  const on=await pushThisDeviceOn();
+  if(on){
+    box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-ok">✓ 此裝置已開啟</span>${n>1?`<span class="sb-tg-no">共 ${n} 台裝置</span>`:''}</div>
+      <div class="sb-note">AI Pick 成交/出場/換股/到價、最愛與持股訊號、主力進出——關掉網頁也會跳通知。</div>
+      <button class="sb-alt" id="sbPushOff">關閉此裝置推播</button>`;
+    document.getElementById('sbPushOff').onclick=async()=>{await pushDisable();sbPushPaint();};
+  }else{
+    box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-no">${n?`其他 ${n} 台裝置已開啟`:'未開啟'}</span></div>
+      <div class="sb-note">按一下、允許通知就好。關掉網頁也收得到,不用裝任何 App。</div>
+      <button class="sb-go" id="sbPushOn">開啟此裝置推播</button>`;
+    document.getElementById('sbPushOn').onclick=async()=>{
+      const b=document.getElementById('sbPushOn');b.disabled=true;b.textContent='設定中…';
+      try{await pushEnable();sbToast('推播已開啟',0);}catch(e){alert('開啟失敗:'+(e&&e.message||e)+(Notification.permission==='denied'?'\n\n你之前封鎖過這個網站的通知,要到瀏覽器的網站設定把通知改回「允許」。':''));}
+      sbPushPaint();
+    };
+  }
+}
 /* ═══ r782:📨 Telegram 通知綁定 ═══
    流程:按「連結 Telegram」→ 產生 6 碼綁定碼存進雲端(tgLink)→ 開 t.me/<bot>?start=<碼> → 使用者在 Telegram 按 Start
    → 後端 notify.py 每 5 分鐘讀 bot 的 getUpdates,看到 /start <碼> 就把 chat_id 寫進該帳號(tgChat)→ 這裡下次同步就顯示已綁定。
@@ -19555,12 +19615,13 @@ function sbModePaint(mode){
   if(SB_USER){
     b.innerHTML=`<div class="sb-info">已登入<br><b>${SB_USER.email||''}</b></div>
       <div class="sb-note">最愛・持股・到價提醒・主題會自動同步到雲端,換手機或電腦登入即還原。</div>
+      <div id="sbPush" class="sb-tg"></div>
       <div id="sbTg" class="sb-tg"></div>
       <button class="sb-go" id="sbSyncNow">立即同步</button>
       <button class="sb-alt" id="sbOut">登出</button>
       <button class="sb-del" id="sbDel">刪除帳號與雲端資料</button>`;
     document.getElementById('sbSyncNow').onclick=()=>sbPull();
-    sbTgPaint();
+    sbTgPaint(); sbPushPaint();
     document.getElementById('sbOut').onclick=async()=>{ const c=sbInit(); if(c)await c.auth.signOut();
       SB_USER=null; sbBtnPaint(); sbModePaint(); sbToast('已登出(本機資料保留)'); };
     document.getElementById('sbDel').onclick=async()=>{

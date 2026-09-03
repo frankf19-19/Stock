@@ -42,6 +42,8 @@ LINE_USER = os.environ.get("LINE_USER_ID", "").strip()
 SITE = "https://frankf19-19.github.io/Stock/"
 SB_URL = "https://vvfvtrmpkvatfhlzwpou.supabase.co"
 SB_SERVICE = os.environ.get("SB_SERVICE_KEY", "").strip()
+VAPID_PRIVATE = os.environ.get("VAPID_PRIVATE_KEY", "").strip()      # r784:Web Push(pywebpush)
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:frankccc199@hotmail.com").strip()
 SB_UID = os.environ.get("SB_UID", "").strip()
 FAV_TP, FAV_SL = 15.0, 7.0            # 最愛停利/停損預設(與前端一致;前端的自設值只在瀏覽器,後端讀不到)
 
@@ -73,7 +75,7 @@ def sb_patch_data(uid, data):
 def parse_ud(row):
     d = (row or {}).get("data") or {}
     out = {}
-    for k in ("fav_ids", "port1", "tgLink"):
+    for k in ("fav_ids", "port1", "tgLink", "pushSubs"):
         try: out[k] = json.loads(d.get(k)) if isinstance(d.get(k), str) else d.get(k)
         except Exception: out[k] = None
     out["tgChat"] = d.get("tgChat")
@@ -121,6 +123,30 @@ def tg_bind_sweep(st, users):
             send_tg_to(chat, "✅ 已綁定 K研所。AI Pick 成交/出場/換股/到價、你的最愛與持股訊號、主力進出,之後都會推到這裡。")
             log(f"  Telegram 綁定完成:{u['uid'][:8]}… ↔ chat …{str(chat)[-4:]}")
     return users
+
+def send_push_to(subs, title, body, url=SITE + "#aipick"):
+    """r784:Web Push。subs = [{endpoint, keys:{p256dh,auth}}, ...];回傳 (成功數, 失效的 endpoint 清單)。"""
+    if not VAPID_PRIVATE or not subs: return 0, []
+    try:
+        from pywebpush import webpush, WebPushException
+    except Exception:
+        log("  pywebpush 未安裝,跳過 Web Push"); return 0, []
+    payload = json.dumps({"title": title, "body": body[:900], "url": url, "tag": "kyansuo-" + TODAY}, ensure_ascii=False)
+    ok, dead = 0, []
+    for sb in subs:
+        if not isinstance(sb, dict) or not sb.get("endpoint") or not sb.get("keys"): continue
+        try:
+            webpush(subscription_info={"endpoint": sb["endpoint"], "keys": sb["keys"]}, data=payload,
+                    vapid_private_key=VAPID_PRIVATE, vapid_claims={"sub": VAPID_SUBJECT}, ttl=6 * 3600, timeout=15)
+            ok += 1
+        except WebPushException as e:
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            if code in (404, 410): dead.append(sb["endpoint"])              # 訂閱已失效(使用者關掉/瀏覽器重裝)
+            else: log(f"  Push 失敗 {code}: {str(e)[:100]}")
+        except Exception as e:
+            log(f"  Push 例外:{str(e)[:100]}")
+    return ok, dead
+
 
 def send_tg_to(chat, text):
     if not TG_TOKEN or not chat: return False
@@ -391,8 +417,8 @@ def send_line(text):
 
 
 def main():
-    if not TG_TOKEN and not (LINE_TOKEN and LINE_USER):
-        log("notify:未設 TG_TOKEN(或 LINE_TOKEN/LINE_USER_ID),跳過"); return
+    if not TG_TOKEN and not VAPID_PRIVATE and not (LINE_TOKEN and LINE_USER):
+        log("notify:未設 TG_TOKEN / VAPID_PRIVATE_KEY / LINE,跳過"); return
     aip = load("aipick.json", {})
     data = load("data.json", {})
     prices = {s["id"]: s.get("price") for s in data.get("stocks") or [] if s.get("price")}
@@ -408,7 +434,12 @@ def main():
     users = all_users()
     users = tg_bind_sweep(st, users)
     # 收件人:每個綁定 Telegram 的帳號各一份;沒任何人綁定時退回 secret 裡的 TG_CHAT_ID(站長自己)+ 可選 LINE
-    recips = [{"chat": parse_ud(u)["tgChat"], "ud": parse_ud(u), "key": "u:" + u["uid"][:12]} for u in users if parse_ud(u).get("tgChat")]
+    recips = []
+    for u in users:
+        d = parse_ud(u)
+        subs = [x for x in (d.get("pushSubs") or []) if isinstance(x, dict) and x.get("endpoint")]
+        if d.get("tgChat") or subs:
+            recips.append({"chat": d.get("tgChat"), "subs": subs, "ud": d, "key": "u:" + u["uid"][:12], "uid": u["uid"], "row": u})
     if not recips:
         recips = [{"chat": TG_CHAT or None, "ud": user_data(), "key": "secret", "line": True}]
         if not (SB_SERVICE and SB_UID): log("  未設 SB_SERVICE_KEY/SB_UID,最愛訊號不推(一、二級照推)")
@@ -426,15 +457,28 @@ def main():
         head = f"🤖 <b>K研所 AI Pick</b> {NOW.strftime('%m/%d %H:%M')}"
         text = f"{head}\n\n" + "\n\n".join(t for _, _, t in new) + f"\n\n{SITE}#aipick"
         ok_tg = send_tg_to(rc["chat"], text) if rc["chat"] else False
+        ok_push = False
+        if rc.get("subs"):
+            plain = re.sub(r"</?b>", "", "\n\n".join(t for _, _, t in new))
+            title = f"K研所 AI Pick・{len(new)} 則" if len(new) > 1 else "K研所 AI Pick"
+            n_ok, dead = send_push_to(rc["subs"], title, plain)
+            ok_push = n_ok > 0
+            if dead:                                                    # 清掉失效訂閱,免得每輪都撞牆
+                try:
+                    nd = dict(rc["row"].get("data") or {})
+                    keep = [x for x in rc["subs"] if x.get("endpoint") not in dead]
+                    nd["pushSubs"] = json.dumps(keep, ensure_ascii=False)
+                    sb_patch_data(rc["uid"], nd); log(f"  清掉 {len(dead)} 個失效推播訂閱")
+                except Exception: pass
         ok_line = False
         if rc.get("line") and LINE_TOKEN and LINE_USER:
             if month.get(YM, 0) < LINE_MONTHLY_MAX: ok_line = send_line(text)
-        if not (ok_tg or ok_line): continue
+        if not (ok_tg or ok_line or ok_push): continue
         for k, _, _ in new: sent_u[k] = TODAY
         daily[dk] = daily.get(dk, 0) + 1
         if ok_line: month[YM] = month.get(YM, 0) + 1
         pushed += 1
-        log(f"  → {rc['key']}:{len(new)} 筆事件 Telegram={'✓' if ok_tg else '✗'}")
+        log(f"  → {rc['key']}:{len(new)} 筆事件 Telegram={'✓' if ok_tg else '—'} Push={'✓' if ok_push else '—'}")
     # 清理:已推過的鍵只留 60 天、每日計數只留 30 天
     cutoff = (NOW.date() - dt.timedelta(days=60)).isoformat()
     for rk, sm in list(sent.items()):
