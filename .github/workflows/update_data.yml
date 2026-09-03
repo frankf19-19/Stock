@@ -6,24 +6,32 @@ on:
     # 舊排程「盤中每10分一班」配 23 分鐘的重活,結構上就注定互相踩:歷史累積 74 次 Scheduled 被 Cancelled,
     # 還有一筆 #406 從 8/19 卡在 Queued 12 天(cancel-in-progress: false 沒有自癒能力)。
     # 新分工:盤中的輕活(報價/spark/AI Pick 結算)全部交給 intraday-quotes 的自迴圈,這裡只留重活、降到低頻。
+    #
+    # r781 傍晚改自迴圈——9/3 稽核:cron 設 15:37 起每小時共 8 班,GitHub 實際只跑了 16:13、20:03 兩班,而且各晚 1~2 小時。
+    #      GitHub 對忙碌時段的排程會延遲、甚至整班丟掉,班距再密都沒用。解法跟盤中 r741 一樣:一天只要點著一次,
+    #      自己迴圈到收工。傍晚分兩段(單一 job 上限 6 小時):A 段 14:50 點火跑到 19:00,B 段 19:05 點火跑到 23:00,
+    #      各在每小時 :37 跑一輪(17:37 接 ETF 申報、21:37 接 TWSE 融資券)。各段另備一個晚 40 分鐘的備援觸發:
+    #      主觸發若被丟掉,備援接手;主觸發活著,備援會排隊到主段結束後啟動、發現已過 END 立刻收工,不重複做事。
     - cron: '17 0 * * 1-6'                   # 台北 08:17|開盤前一班(補前一日缺的 K;週一到週六都跑,原本 2-6 讓週一早上沒班)
     - cron: '30 3 * * 1-5'                   # 台北 11:30|月營收上午公告即時入站
-    - cron: '37 7-14 * * 1-5'                # 台北 15:37 起每小時|收盤K/期貨/法人/融資券/借券/ETF持股(單班 23~44 分,班距一小時才不會互砍)
-                                             # r777:整點 :07 → :37,讓 17:37 接得上 17:35 的 ETF 申報、21:37 接得上 TWSE 21:00 後公布的融資券
+    - cron: '50 6 * * 1-5'                   # 台北 14:50|傍晚 A 段點火 → 自迴圈到 19:00(15:37/16:37/17:37/18:37)
+    - cron: '30 7 * * 1-5'                   # 台北 15:30|A 段備援
+    - cron: '5 11 * * 1-5'                   # 台北 19:05|傍晚 B 段點火 → 自迴圈到 23:00(19:37/20:37/21:37/22:37)
+    - cron: '45 11 * * 1-5'                  # 台北 19:45|B 段備援
     - cron: '30 10 * * 6,0'                  # 週末 18:30|月營收假日公告補抓
-  workflow_dispatch:           # 也可以到 Actions 頁面手動觸發
+  workflow_dispatch:           # 也可以到 Actions 頁面手動觸發(單次,不迴圈)
 
 permissions:
   contents: write
 
 concurrency:
   group: data-update
-  cancel-in-progress: true     # r740:卡死自癒——新班直接接手,不再像 #406 那樣卡在 Queued 十幾天堵住整組
+  cancel-in-progress: false    # r781:迴圈班不能被備援觸發砍掉;卡死靠 END 絕對時間 + timeout-minutes 自癒(排隊班一啟動就會發現過期收工)
 
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 265                       # r781:一段最長 14:50→19:00 ≈ 4h10m,留餘裕;單次班遠小於此
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4
@@ -36,62 +44,77 @@ jobs:
       - name: 安裝套件
         run: pip install requests pandas lxml html5lib beautifulsoup4 pypdf
 
-      - name: 抓 ETF 持股(主動式,先跑好給主程式讀)
-        run: python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"
-
-      - name: 執行每日更新(價格/法人/大戶/營收/評分/法說)
+      - name: 每日更新(單次或傍晚自迴圈)
         env:
           PYTHONUNBUFFERED: "1"                          # log 即時輸出,不再看起來像卡住
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}      # 美股指數官方源(fetch_macro)
           FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}    # 可選;未設定則走免token額度
           US_YAHOO_FALLBACK: "1"                         # r705:美股日K最後備援(僅美股;設 0 可關,台股維持零 Yahoo)
-        run: python update_data.py
-
-      # 以下兩步是保底:盤中主力已交給 intraday-quotes 的自迴圈,這裡只在重班順手再跑一次
-      - name: 盤中報價與分時快照(spark)
-        env:
-          PYTHONUNBUFFERED: "1"
-        run: python update_quotes.py || echo "報價快照失敗,不影響主資料"
-
-      - name: 🤖 AI Pick 週選模型與戰績結算(r702)
-        env:
-          PYTHONUNBUFFERED: "1"
-          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}     # r771:入選/出場理由(純敘述,沒金鑰就跳過)
-        run: python aipick.py || echo "AI Pick 失敗,不影響主資料"
-
-      - name: 📨 重要訊息推播(Telegram / 選配 LINE)
-        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}          # r771:入選/出場理由(純敘述,沒金鑰就跳過)
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           LINE_TOKEN: ${{ secrets.LINE_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
           SB_SERVICE_KEY: ${{ secrets.SB_SERVICE_KEY }}   # r776:讀最愛名單/持股成本(三級訊號);只放這裡,不進前端
           SB_UID: ${{ secrets.SB_UID }}
-        run: python notify.py || echo "推播失敗,不影響主資料"
-
-      - name: 提交結果
+          FIRED_CRON: ${{ github.event.schedule }}       # 哪一條 cron 點的火(手動觸發為空)
         run: |
+          set +e
           git config user.name  "bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A data.json k c
-          if [ -f tdcc.json ]; then git add tdcc.json; fi
-          if [ -f etf_hold.json ]; then git add etf_hold.json; fi
-          if [ -f etf_rev.json ]; then git add etf_rev.json; fi
-          git add e/ 2>/dev/null || true                # r755:ETF 每日持股快照歷史(兩支 workflow 都會寫,漏加就丟失)
-          if [ -f spark.json ]; then git add spark.json; fi
-          if [ -f aipick.json ]; then git add aipick.json; fi
-          if [ -f notify_state.json ]; then git add notify_state.json; fi
-          if git diff --cached --quiet; then
-            echo "沒有變更,略過提交"
-            exit 0
+
+          # ── 哪一段?A 段(14:50/15:30)→ 19:00 收工;B 段(19:05/19:45)→ 23:00 收工;其餘單次 ──
+          END=0
+          case "$FIRED_CRON" in
+            "50 6 * * 1-5"|"30 7 * * 1-5")  END=$(TZ=Asia/Taipei date -d "today 19:00" +%s 2>/dev/null || echo 0) ;;
+            "5 11 * * 1-5"|"45 11 * * 1-5") END=$(TZ=Asia/Taipei date -d "today 23:00" +%s 2>/dev/null || echo 0) ;;
+          esac
+          if [ "$END" != "0" ]; then echo "傍晚自迴圈:每小時 :37 跑一輪,預計 $(TZ=Asia/Taipei date -d @$END '+%H:%M') 收工"; else echo "單次班"; fi
+
+          run_once() {
+            echo "══════ 開始一輪 $(TZ=Asia/Taipei date '+%m/%d %H:%M') ══════"
+            git pull --rebase --autostash -X theirs origin main || true     # 先同步別班的成果(ETF 17:35、盤中迴圈)
+            python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"
+            python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"
+            python update_quotes.py || echo "報價快照失敗,不影響主資料"
+            python aipick.py || echo "AI Pick 失敗,不影響主資料"
+            python notify.py || echo "推播失敗,不影響主資料"
+            # ── 提交 ──
+            git add -A data.json k c
+            [ -f tdcc.json ] && git add tdcc.json
+            [ -f etf_hold.json ] && git add etf_hold.json
+            [ -f etf_rev.json ] && git add etf_rev.json
+            git add e/ 2>/dev/null || true                # r755:ETF 每日持股快照歷史(兩支 workflow 都會寫,漏加就丟失)
+            [ -f spark.json ] && git add spark.json
+            [ -f aipick.json ] && git add aipick.json
+            [ -f notify_state.json ] && git add notify_state.json
+            if git diff --cached --quiet; then echo "沒有變更,略過提交"; return 0; fi
+            git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')"
+            for i in 1 2 3; do
+              git pull --rebase --autostash -X theirs origin main && git push && return 0   # -X theirs = 以本次新產資料為準
+              echo "推送撞車,10 秒後重試($i/3)…"
+              git rebase --abort 2>/dev/null || true
+              sleep 10
+            done
+            echo "::warning::推送重試 3 次仍失敗,本輪成果留在工作樹,下一輪一起再推"
+            return 1
+          }
+
+          if [ "$END" = "0" ]; then
+            run_once; exit 0
           fi
-          git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')"
-          # 與其他排程可能撞車:-X theirs = 以本次新產資料為準;失敗自動重試 3 次
-          for i in 1 2 3; do
-            git pull --rebase --autostash -X theirs origin main && git push && exit 0
-            echo "推送撞車,10 秒後重試($i/3)…"
-            git rebase --abort 2>/dev/null || true
-            sleep 10
+
+          # ── 傍晚自迴圈:第一輪立刻跑,之後每到 :37 跑一輪,過 END 收工 ──
+          run_once
+          while : ; do
+            NOW=$(date +%s)
+            [ $NOW -ge $END ] && { echo "已到 $(TZ=Asia/Taipei date -d @$END '+%H:%M'),本段收工"; break; }
+            # 下一個 :37(台北)
+            H=$(TZ=Asia/Taipei date +%H); M=$((10#$(TZ=Asia/Taipei date +%M)))
+            if [ $M -lt 37 ]; then NEXT=$(TZ=Asia/Taipei date -d "today $H:37" +%s); else NEXT=$(TZ=Asia/Taipei date -d "today $H:37 1 hour" +%s); fi
+            [ $NEXT -ge $END ] && { echo "下一輪 $(TZ=Asia/Taipei date -d @$NEXT '+%H:%M') 已過收工時間,本段結束"; break; }
+            WAIT=$((NEXT-NOW)); [ $WAIT -lt 0 ] && WAIT=0
+            echo "下一輪 $(TZ=Asia/Taipei date -d @$NEXT '+%H:%M'),等 $((WAIT/60)) 分鐘"
+            sleep $WAIT
+            run_once
           done
-          echo "::error::推送重試 3 次仍失敗"
-          exit 1
