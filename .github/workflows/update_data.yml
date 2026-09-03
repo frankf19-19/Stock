@@ -8,7 +8,8 @@ on:
     # 新分工:盤中的輕活(報價/spark/AI Pick 結算)全部交給 intraday-quotes 的自迴圈,這裡只留重活、降到低頻。
     - cron: '17 0 * * 1-6'                   # 台北 08:17|開盤前一班(補前一日缺的 K;週一到週六都跑,原本 2-6 讓週一早上沒班)
     - cron: '30 3 * * 1-5'                   # 台北 11:30|月營收上午公告即時入站
-    - cron: '7 7-14 * * 1-5'                 # 台北 15:07 起每小時|收盤K/期貨/法人/融資券/借券/ETF持股(單班 23~44 分,班距一小時才不會互砍)
+    - cron: '37 7-14 * * 1-5'                # 台北 15:37 起每小時|收盤K/期貨/法人/融資券/借券/ETF持股(單班 23~44 分,班距一小時才不會互砍)
+                                             # r777:整點 :07 → :37,讓 17:37 接得上 17:35 的 ETF 申報、21:37 接得上 TWSE 21:00 後公布的融資券
     - cron: '30 10 * * 6,0'                  # 週末 18:30|月營收假日公告補抓
   workflow_dispatch:           # 也可以到 Actions 頁面手動觸發
 
@@ -75,6 +76,7 @@ jobs:
           git add -A data.json k c
           if [ -f tdcc.json ]; then git add tdcc.json; fi
           if [ -f etf_hold.json ]; then git add etf_hold.json; fi
+          if [ -f etf_rev.json ]; then git add etf_rev.json; fi
           git add e/ 2>/dev/null || true                # r755:ETF 每日持股快照歷史(兩支 workflow 都會寫,漏加就丟失)
           if [ -f spark.json ]; then git add spark.json; fi
           if [ -f aipick.json ]; then git add aipick.json; fi
