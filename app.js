@@ -1,4 +1,4 @@
-/* K研所 · build r779 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r780 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r779</span>');
+  diag.push('<span style="color:var(--dim)">build r780</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8600,22 +8600,29 @@ function inertiaCalc(o,medRng){
   const pUp=un>=10?uu/un*100:null,pDn=dn>=10?dd/dn*100:null,base=r.filter(x=>x>0).length/r.length*100;
   const score=(vr5-1)*2+(vr20-1)+rho1*4;                   // >0 順勢、<0 回歸
   const kind=score>=0.25?'trend':score<=-0.25?'revert':'random';
-  // ── 週期:ZigZag ──
-  const thr=Math.max(3,(medRng||3)*1.5)/100;
-  const piv=[];let dir=0,hi=0,lo=0;                       // hi/lo 各自追蹤,方向未定時兩邊都追,定了就只追一邊
-  for(let i=1;i<n;i++){
-    if(dir===0){
-      if(H[i]>H[hi])hi=i; if(L[i]<L[lo])lo=i;
-      if(L[i]<=H[hi]*(1-thr)){piv.push({i:hi,t:'H',p:H[hi]});dir=-1;lo=i;}
-      else if(H[i]>=L[lo]*(1+thr)){piv.push({i:lo,t:'L',p:L[lo]});dir=1;hi=i;}
-    }else if(dir>0){
-      if(H[i]>H[hi])hi=i;
-      if(L[i]<=H[hi]*(1-thr)){piv.push({i:hi,t:'H',p:H[hi]});dir=-1;lo=i;}
-    }else{
-      if(L[i]<L[lo])lo=i;
-      if(H[i]>=L[lo]*(1+thr)){piv.push({i:lo,t:'L',p:L[lo]});dir=1;hi=i;}
+  // ── 週期:ZigZag,門檻自動校準 ──
+  // 固定 3% 在台積電切出 79 個轉折(3 天一個),是雜訊不是波段;聯發科要 12% 才像樣。
+  // 改成從 max(3%, 1.5×日常振幅) 起每次 +0.5%,直到一年約 ≤28 個轉折(平均兩週一個波段),每檔各自找到自己的尺度。
+  const zig=thr=>{
+    const piv=[];let dir=0,hi=0,lo=0;                     // hi/lo 各自追蹤,方向未定時兩邊都追,定了就只追一邊
+    for(let i=1;i<n;i++){
+      if(dir===0){
+        if(H[i]>H[hi])hi=i; if(L[i]<L[lo])lo=i;
+        if(L[i]<=H[hi]*(1-thr)){piv.push({i:hi,t:'H',p:H[hi]});dir=-1;lo=i;}
+        else if(H[i]>=L[lo]*(1+thr)){piv.push({i:lo,t:'L',p:L[lo]});dir=1;hi=i;}
+      }else if(dir>0){
+        if(H[i]>H[hi])hi=i;
+        if(L[i]<=H[hi]*(1-thr)){piv.push({i:hi,t:'H',p:H[hi]});dir=-1;lo=i;}
+      }else{
+        if(L[i]<L[lo])lo=i;
+        if(H[i]>=L[lo]*(1+thr)){piv.push({i:lo,t:'L',p:L[lo]});dir=1;hi=i;}
+      }
     }
-  }
+    return piv;
+  };
+  const target=Math.max(12,Math.round(n/250*28));        // 一年約 28 個轉折;樣本短就等比例縮
+  let thr=Math.max(3,(medRng||3)*1.5)/100,piv=zig(thr);
+  for(let it=0;it<60&&piv.length>target&&thr<0.40;it++){thr+=0.005;piv=zig(thr);}
   const ups=[],dns=[],cyc=[],upP=[],dnP=[];
   for(let k=1;k<piv.length;k++){
     const a=piv[k-1],b=piv[k],days=b.i-a.i,pct=(b.p/a.p-1)*100;
@@ -8636,7 +8643,7 @@ function inertiaCalc(o,medRng){
   const last=piv[piv.length-1];
   const cur=last?{dir:last.t==='L'?'up':'down',since:n-1-last.i,pct:(C[n-1]/last.p-1)*100}:null;
   return {rho1,rho5,vr5,vr20,pUp,pDn,base,kind,score,
-    thr:thr*100,nPiv:piv.length,
+    thr:thr*100,nPiv:piv.length,thrAuto:true,
     upMed:med(ups),upQ1:q(ups,.25),upQ3:q(ups,.75),dnMed:med(dns),dnQ1:q(dns,.25),dnQ3:q(dns,.75),
     cycMed:med(cyc),upPct:med(upP),dnPct:med(dnP),domLag,domAc,cur};
 }
@@ -8656,7 +8663,7 @@ function inertiaHTML(I){
     const pos=I.cur?(I.cur.dir==='up'?I.upMed:I.dnMed):null;
     const ratio=pos?I.cur.since/pos:null;
     const posTxt=I.cur?`目前在<b>${I.cur.dir==='up'?'上漲段':'下跌段'}第 ${I.cur.since} 天</b>(距上一個轉折 ${F1(I.cur.pct)}%),典型長度 ${pos} 天${ratio!=null?(ratio>=1.2?'——<b style="color:'+TONE.red+'">已超過典型長度,節奏上進入轉折窗口</b>':ratio>=0.8?'——接近典型長度,留意轉折':'——還在段落中段'):''}`:'';
-    cyc=`<div style="font-size:13px;color:var(--txt2);line-height:1.85;margin-top:6px">🔁 <b>它的週期</b>(轉折門檻 ${I.thr.toFixed(1)}%,近一年 ${I.nPiv} 個轉折):
+    cyc=`<div style="font-size:13px;color:var(--txt2);line-height:1.85;margin-top:6px">🔁 <b>它的週期</b>(轉折門檻 ${I.thr.toFixed(1)}% 自動校準到約兩週一個波段,近一年 ${I.nPiv} 個轉折):
       上漲段典型 <b>${I.upMed} 天</b>(${I.upQ1}~${I.upQ3})漲 <b style="color:var(--up)">${F1(I.upPct)}%</b>・下跌段典型 <b>${I.dnMed} 天</b>(${I.dnQ1}~${I.dnQ3})跌 <b style="color:var(--down)">${F1(I.dnPct)}%</b>${I.cycMed?`・完整循環(低→低)約 <b>${I.cycMed} 天</b>`:''}${I.domLag?`・價格自相關主週期約 <b>${I.domLag} 天</b>`:''}<br>${posTxt}</div>`;
   }
   return `<div style="border:1.5px solid ${kindTxt[2]};border-left-width:5px;border-radius:0 10px 10px 0;background:color-mix(in srgb,${kindTxt[2]} 6%,var(--panel));padding:9px 12px;margin:8px 0">
