@@ -1659,3 +1659,10 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 /* r772:AI Pick 入選/出場理由(Gemini,純敘述) */
 .aip-ai{margin:6px 0 4px;padding:8px 10px;border-left:3px solid var(--t-purple);background:color-mix(in srgb,var(--t-purple) 7%,var(--panel));border-radius:0 10px 10px 0;font-size:13px;line-height:1.55;color:var(--txt2)}
 .aip-trai{flex-basis:100%;font-size:12px;color:var(--mut);padding:2px 0 0 4px;border-top:1px dashed var(--line);margin-top:4px}
+/* r782:帳號面板 Telegram 綁定 */
+.sb-tg{margin:10px 0 6px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.sb-tg-h{font-weight:900;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sb-tg-ok{color:var(--down);font-size:12px;font-weight:800;border:1px solid var(--down);border-radius:999px;padding:0 8px}
+.sb-tg-no{color:var(--dim);font-size:12px;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:0 8px}
+.sb-tg-wait{color:var(--amber);font-size:12px;font-weight:800;border:1px solid var(--amber);border-radius:999px;padding:0 8px}
+.sb-tg .sb-go,.sb-tg .sb-alt{margin-top:6px}

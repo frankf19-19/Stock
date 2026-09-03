@@ -1,4 +1,4 @@
-/* K研所 · build r780 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r782 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r780</span>');
+  diag.push('<span style="color:var(--dim)">build r782</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19338,7 +19338,8 @@ boot();
    離線或 Supabase 不通時,一律安靜退回 localStorage,不讓站台因同步失敗而不能用。      */
 const SB_URL='https://vvfvtrmpkvatfhlzwpou.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2ZnZ0cm1wa3ZhdGZobHp3cG91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg4MTAsImV4cCI6MjA5ODc5NDgxMH0.DYB6_z7stNJcAPPoq5lsQEfW1QcdUX7LExq9uGPuyEU';
-const SYNC_KEYS=['fav_ids','port1','pxAlerts','theme3l'];   // 同步範圍:最愛/持股/到價提醒/主題
+const SYNC_KEYS=['fav_ids','port1','pxAlerts','theme3l','tgLink'];   // 同步範圍:最愛/持股/到價提醒/主題/Telegram 綁定碼
+const SERVER_KEYS=['tgChat'];                                 // r782:後端寫入的欄位——瀏覽器只讀,推送時從雲端原樣帶回,不會蓋掉
 let SB=null, SB_USER=null, sbPushT=null, SB_TOKEN=null, SB_APPLYING=false;
 /* r773:本機改動要「贏過」較舊的雲端 —— 之前 sbMerge 對 port1 等鍵一律以雲端為準,
    手機上改完持股就切走/下拉刷新,1.5 秒的防抖推送來不及跑,重整後 sbPull 把舊雲端蓋回來,改動消失。
@@ -19412,6 +19413,8 @@ async function sbPull(){                                    // 登入後拉雲�
     const {data,error}=await c.from('user_data').select('data,updated_at').eq('uid',SB_USER.id).maybeSingle();
     if(error)throw error;
     const merged=sbMerge(data&&data.data,sbLocalBundle(),data&&data.updated_at);
+    try{SERVER_KEYS.forEach(k=>{const v=data&&data.data&&data.data[k];if(v!=null)localStorage.setItem('srv_'+k,String(v));else localStorage.removeItem('srv_'+k);});}catch(e1){}
+    try{sbTgPaint();}catch(e2){}
     sbApply(merged);
     await sbPush(true);                                     // 把合併結果寫回雲端(首次登入=上傳本機最愛)
     sbToast('已同步');
@@ -19423,7 +19426,12 @@ async function sbPush(now){                                 // 推送(預設防�
   const go=async()=>{
     const snap=sbDirtyGet(),t0=Date.now();
     try{
-      const {error}=await c.from('user_data').upsert({uid:SB_USER.id,data:sbLocalBundle(),updated_at:new Date().toISOString()},{onConflict:'uid'});
+      const bundle=sbLocalBundle();
+      try{                                                  // r782:伺服器欄位(tgChat)原樣帶回,不然整份 data 覆寫會把後端寫的綁定清掉
+        const {data:cur}=await c.from('user_data').select('data').eq('uid',SB_USER.id).maybeSingle();
+        SERVER_KEYS.forEach(k=>{ if(cur&&cur.data&&cur.data[k]!=null)bundle[k]=cur.data[k]; });
+      }catch(e0){}
+      const {error}=await c.from('user_data').upsert({uid:SB_USER.id,data:bundle,updated_at:new Date().toISOString()},{onConflict:'uid'});
       if(error)throw error;
       const d=sbDirtyGet(); Object.keys(snap).forEach(k=>{ if(d[k]&&d[k]<=t0)delete d[k]; }); sbDirtySet(d);
     }catch(e){ /* 留著髒記號,下次再推;離開頁面時 sbFlush 會再試 */ }
@@ -19470,6 +19478,56 @@ function sbBtnPaint(){
   if(SB_USER){ const n=(SB_USER.email||'').split('@')[0]; b.textContent=n.length>10?n.slice(0,10)+'…':n; b.title='已登入 '+SB_USER.email+'——點擊管理帳號'; b.classList.add('on'); }
   else { b.textContent='登入'; b.title='登入後最愛/持股/提醒跨裝置同步'; b.classList.remove('on'); }
 }
+/* ═══ r782:📨 Telegram 通知綁定 ═══
+   流程:按「連結 Telegram」→ 產生 6 碼綁定碼存進雲端(tgLink)→ 開 t.me/<bot>?start=<碼> → 使用者在 Telegram 按 Start
+   → 後端 notify.py 每 5 分鐘讀 bot 的 getUpdates,看到 /start <碼> 就把 chat_id 寫進該帳號(tgChat)→ 這裡下次同步就顯示已綁定。
+   不用抄 chat id、不用手動輸入;bot 名稱由後端寫進 notify_state.json,前端讀。 */
+let TG_BOT=null;
+async function tgBotName(){
+  if(TG_BOT!==null)return TG_BOT;
+  try{const r=await fT('notify_state.json?v='+kv(),8000,{cache:'no-store'});const j=r&&r.ok?await r.json():null;TG_BOT=(j&&j.bot)||'';}catch(e){TG_BOT='';}
+  return TG_BOT;
+}
+function sbTgPaint(){
+  const box=document.getElementById('sbTg'); if(!box||!SB_USER)return;
+  let chat=null,link=null;
+  try{chat=localStorage.getItem('srv_tgChat');}catch(e){}
+  try{link=JSON.parse(localStorage.getItem('tgLink')||'null');}catch(e){}
+  const pending=link&&link.code&&Date.now()-(link.t||0)<30*60*1000;
+  const unbinding=link&&link.unbind&&Date.now()-(link.t||0)<15*60*1000;
+  if(unbinding){
+    box.innerHTML=`<div class="sb-tg-h">📨 Telegram 通知 <span class="sb-tg-wait">解除中…</span></div><div class="sb-note">後端 5 分鐘內清除綁定。</div>`;
+  }else if(chat){
+    box.innerHTML=`<div class="sb-tg-h">📨 Telegram 通知 <span class="sb-tg-ok">✓ 已綁定</span></div>
+      <div class="sb-note">AI Pick 成交/出場/換股/到價、最愛與持股的訊號、主力進出,都會推到你的 Telegram(chat …${String(chat).slice(-4)})。</div>
+      <button class="sb-alt" id="sbTgOff">解除綁定</button>`;
+    document.getElementById('sbTgOff').onclick=()=>{
+      try{localStorage.setItem('tgLink',JSON.stringify({unbind:1,t:Date.now()}));}catch(e){}   // 後端看到 unbind 就清 tgChat
+      try{localStorage.removeItem('srv_tgChat');}catch(e){}
+      sbPush(true); sbTgPaint();
+    };
+  }else if(pending){
+    box.innerHTML=`<div class="sb-tg-h">📨 Telegram 通知 <span class="sb-tg-wait">等待 Telegram 那邊按 Start…</span></div>
+      <div class="sb-note">綁定碼 <b class="mono">${link.code}</b>。若剛才沒開成 Telegram,<a href="#" id="sbTgAgain">再開一次</a>;按 Start 後最多 5 分鐘生效,這裡會自動變成「已綁定」。</div>
+      <button class="sb-alt" id="sbTgCancel">取消</button>`;
+    document.getElementById('sbTgAgain').onclick=async e=>{e.preventDefault();const b=await tgBotName();if(b)window.open(`https://t.me/${b}?start=${link.code}`,'_blank');else alert('後端尚未回報 bot 名稱,請稍後再試');};
+    document.getElementById('sbTgCancel').onclick=()=>{try{localStorage.removeItem('tgLink');}catch(e){}sbPush(true);sbTgPaint();};
+  }else{
+    box.innerHTML=`<div class="sb-tg-h">📨 Telegram 通知 <span class="sb-tg-no">未綁定</span></div>
+      <div class="sb-note">綁定後,重要訊息會直接推到你的 Telegram——沒開網站也收得到。</div>
+      <button class="sb-go" id="sbTgLink">連結 Telegram</button>`;
+    document.getElementById('sbTgLink').onclick=async()=>{
+      const b=await tgBotName();
+      if(!b){alert('後端還沒回報 Telegram bot 名稱(需 TG_TOKEN 已設定並跑過一班),請稍後再試');return;}
+      const code=Math.random().toString(36).slice(2,8).toUpperCase();
+      try{localStorage.setItem('tgLink',JSON.stringify({code,t:Date.now()}));}catch(e){}
+      await sbPush(true);                                   // 綁定碼先到雲端,後端才對得上
+      window.open(`https://t.me/${b}?start=${code}`,'_blank');
+      sbTgPaint();
+    };
+  }
+}
+setInterval(()=>{try{if(SB_USER&&!document.hidden){const l=JSON.parse(localStorage.getItem('tgLink')||'null');if(l&&l.code&&!localStorage.getItem('srv_tgChat'))sbPull();}}catch(e){}},60000);   // 等綁定時每分鐘拉一次
 function sbModal(){
   let m=document.getElementById('sbModal');
   if(m){m.classList.add('on');sbModePaint('login');return;}
@@ -19493,10 +19551,12 @@ function sbModePaint(mode){
   if(SB_USER){
     b.innerHTML=`<div class="sb-info">已登入<br><b>${SB_USER.email||''}</b></div>
       <div class="sb-note">最愛・持股・到價提醒・主題會自動同步到雲端,換手機或電腦登入即還原。</div>
+      <div id="sbTg" class="sb-tg"></div>
       <button class="sb-go" id="sbSyncNow">立即同步</button>
       <button class="sb-alt" id="sbOut">登出</button>
       <button class="sb-del" id="sbDel">刪除帳號與雲端資料</button>`;
     document.getElementById('sbSyncNow').onclick=()=>sbPull();
+    sbTgPaint();
     document.getElementById('sbOut').onclick=async()=>{ const c=sbInit(); if(c)await c.auth.signOut();
       SB_USER=null; sbBtnPaint(); sbModePaint(); sbToast('已登出(本機資料保留)'); };
     document.getElementById('sbDel').onclick=async()=>{

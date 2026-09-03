@@ -46,6 +46,93 @@ SB_UID = os.environ.get("SB_UID", "").strip()
 FAV_TP, FAV_SL = 15.0, 7.0            # 最愛停利/停損預設(與前端一致;前端的自設值只在瀏覽器,後端讀不到)
 
 
+# ═══ r782:多使用者 Telegram ═══
+# 每個帳號在 user_data.data 裡:tgLink={code,t}(瀏覽器寫,綁定碼)/ tgChat=chat_id(後端寫)。
+# 後端每輪讀 bot 的 getUpdates:看到 /start <碼> 就把 chat_id 寫進對應帳號;看到 tgLink.unbind 就清掉。
+# 推播時對每個有 tgChat 的帳號各自算一份(最愛/持股不同),各自去重。
+def sb_headers():
+    return {"apikey": SB_SERVICE, "Authorization": f"Bearer {SB_SERVICE}", "Content-Type": "application/json"}
+
+def all_users():
+    """[{uid, data}] 全部帳號列(service key 繞過 RLS)。"""
+    if not SB_SERVICE: return []
+    try:
+        r = requests.get(f"{SB_URL}/rest/v1/user_data", params={"select": "uid,data"}, headers=sb_headers(), timeout=15)
+        return r.json() if r.ok and isinstance(r.json(), list) else []
+    except Exception as e:
+        log(f"  讀全部帳號失敗:{e}"); return []
+
+def sb_patch_data(uid, data):
+    try:
+        r = requests.patch(f"{SB_URL}/rest/v1/user_data", params={"uid": f"eq.{uid}"}, headers={**sb_headers(), "Prefer": "return=minimal"},
+                           json={"data": data, "updated_at": dt.datetime.now(dt.timezone.utc).isoformat()}, timeout=15)
+        return r.ok
+    except Exception:
+        return False
+
+def parse_ud(row):
+    d = (row or {}).get("data") or {}
+    out = {}
+    for k in ("fav_ids", "port1", "tgLink"):
+        try: out[k] = json.loads(d.get(k)) if isinstance(d.get(k), str) else d.get(k)
+        except Exception: out[k] = None
+    out["tgChat"] = d.get("tgChat")
+    return out
+
+def tg_bind_sweep(st, users):
+    """處理綁定/解綁:getUpdates 找 /start <碼>;tgLink.unbind 清 tgChat。回傳更新後的 users。"""
+    if not TG_TOKEN: return users
+    # 1) bot 名稱寫進狀態檔給前端讀(一次)
+    if not st.get("bot"):
+        try:
+            r = requests.get(f"https://api.telegram.org/bot{TG_TOKEN}/getMe", timeout=15)
+            if r.ok: st["bot"] = (r.json().get("result") or {}).get("username") or ""
+        except Exception: pass
+    # 2) 解綁
+    for u in users:
+        d = parse_ud(u)
+        if isinstance(d.get("tgLink"), dict) and d["tgLink"].get("unbind") and d.get("tgChat"):
+            nd = dict(u.get("data") or {}); nd.pop("tgChat", None); nd["tgLink"] = None
+            if sb_patch_data(u["uid"], nd): u["data"] = nd; log(f"  Telegram 解除綁定:{u['uid'][:8]}…")
+    # 3) 綁定:掃最近的 /start <碼>
+    codes = {}
+    for u in users:
+        d = parse_ud(u)
+        l = d.get("tgLink")
+        if isinstance(l, dict) and l.get("code") and not d.get("tgChat"): codes[str(l["code"]).upper()] = u
+    try:
+        r = requests.get(f"https://api.telegram.org/bot{TG_TOKEN}/getUpdates", params={"offset": int(st.get("tg_offset") or 0), "timeout": 0}, timeout=20)
+        ups = (r.json().get("result") or []) if r.ok else []
+    except Exception:
+        ups = []
+    for up in ups:
+        st["tg_offset"] = max(int(st.get("tg_offset") or 0), int(up.get("update_id", 0)) + 1)
+        msg = up.get("message") or {}
+        txt = (msg.get("text") or "").strip()
+        chat = (msg.get("chat") or {}).get("id")
+        if not chat or not txt.startswith("/start"): continue
+        code = txt.split(maxsplit=1)[1].strip().upper() if " " in txt else ""
+        u = codes.get(code)
+        if not u:
+            send_tg_to(chat, "這個綁定碼對不上任何帳號,或已過期。請回到網站帳號面板重新按「連結 Telegram」。"); continue
+        nd = dict(u.get("data") or {}); nd["tgChat"] = str(chat); nd["tgLink"] = None
+        if sb_patch_data(u["uid"], nd):
+            u["data"] = nd; codes.pop(code, None)
+            send_tg_to(chat, "✅ 已綁定 K研所。AI Pick 成交/出場/換股/到價、你的最愛與持股訊號、主力進出,之後都會推到這裡。")
+            log(f"  Telegram 綁定完成:{u['uid'][:8]}… ↔ chat …{str(chat)[-4:]}")
+    return users
+
+def send_tg_to(chat, text):
+    if not TG_TOKEN or not chat: return False
+    try:
+        r = requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+                          json={"chat_id": chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}, timeout=20)
+        if not r.ok: log(f"  Telegram(…{str(chat)[-4:]})失敗 {r.status_code}: {r.text[:100]}")
+        return r.ok
+    except Exception as e:
+        log(f"  Telegram 例外:{e}"); return False
+
+
 def user_data():
     """讀你的帳號同步資料(fav_ids / port1)。service key 只放在 GitHub secret,不進前端。"""
     if not (SB_SERVICE and SB_UID): return {}
@@ -304,47 +391,59 @@ def send_line(text):
 
 
 def main():
-    if not (TG_TOKEN and TG_CHAT) and not (LINE_TOKEN and LINE_USER):
-        log("notify:未設 TG_TOKEN/TG_CHAT_ID(或 LINE_TOKEN/LINE_USER_ID),跳過"); return
+    if not TG_TOKEN and not (LINE_TOKEN and LINE_USER):
+        log("notify:未設 TG_TOKEN(或 LINE_TOKEN/LINE_USER_ID),跳過"); return
     aip = load("aipick.json", {})
     data = load("data.json", {})
     prices = {s["id"]: s.get("price") for s in data.get("stocks") or [] if s.get("price")}
     st = load(STATE, {"sent": {}, "daily": {}, "month": {}})
     sent = st.setdefault("sent", {}); daily = st.setdefault("daily", {}); month = st.setdefault("month", {})
+    # r782 遷移:舊格式 sent 是平的 {鍵:日期},搬到 "secret" 收件人底下,升級後不會重推一輪
+    flat = {k: v for k, v in sent.items() if isinstance(v, str)}
+    if flat:
+        sent.setdefault("secret", {}).update(flat)
+        for k in flat: del sent[k]
 
-    ud = user_data()
-    ev = collect_events(aip, prices) + collect_fav_events(data, aip, prices, ud)
-    if ud.get("fav_ids") is None and (SB_SERVICE and SB_UID): log("  帳號資料讀到了但沒有最愛名單")
-    elif not (SB_SERVICE and SB_UID): log("  未設 SB_SERVICE_KEY/SB_UID,最愛訊號不推(一、二級照推)")
-    new = [(k, lv, t) for k, lv, t in ev if k not in sent]
-    if not new:
-        log(f"notify:事件 {len(ev)} 筆,沒有新的,不推"); return
-    if daily.get(TODAY, 0) >= NOTIFY_DAILY_MAX:
-        log(f"notify:今日已達上限 {NOTIFY_DAILY_MAX} 則,{len(new)} 筆新事件延後"); return
-
-    new.sort(key=lambda x: x[1])                             # 事實在前、該行動在後
-    head = f"🤖 <b>K研所 AI Pick</b> {NOW.strftime('%m/%d %H:%M')}"
-    body = "\n\n".join(t for _, _, t in new)
-    text = f"{head}\n\n{body}\n\n{SITE}#aipick"
-
-    ok_tg = send_tg(text)
-    ok_line = False
-    if LINE_TOKEN and LINE_USER:
-        if month.get(YM, 0) < LINE_MONTHLY_MAX: ok_line = send_line(text)
-        else: log(f"  LINE 本月已達 {LINE_MONTHLY_MAX} 則,只走 Telegram")
-    if not (ok_tg or ok_line):
-        log("notify:兩個管道都失敗,事件保留下次再推"); return
-
-    for k, _, _ in new: sent[k] = TODAY
-    daily[TODAY] = daily.get(TODAY, 0) + 1
-    if ok_line: month[YM] = month.get(YM, 0) + 1
+    # ── r782:多使用者 ──
+    users = all_users()
+    users = tg_bind_sweep(st, users)
+    # 收件人:每個綁定 Telegram 的帳號各一份;沒任何人綁定時退回 secret 裡的 TG_CHAT_ID(站長自己)+ 可選 LINE
+    recips = [{"chat": parse_ud(u)["tgChat"], "ud": parse_ud(u), "key": "u:" + u["uid"][:12]} for u in users if parse_ud(u).get("tgChat")]
+    if not recips:
+        recips = [{"chat": TG_CHAT or None, "ud": user_data(), "key": "secret", "line": True}]
+        if not (SB_SERVICE and SB_UID): log("  未設 SB_SERVICE_KEY/SB_UID,最愛訊號不推(一、二級照推)")
+    base_ev = collect_events(aip, prices)                    # 一、二級對所有人相同,算一次
+    pushed = 0
+    for rc in recips:
+        ev = base_ev + collect_fav_events(data, aip, prices, rc["ud"] or {})
+        sent_u = sent.get(rc["key"])
+        if not isinstance(sent_u, dict): sent_u = sent[rc["key"]] = {}
+        new = [(k, lv, t) for k, lv, t in ev if k not in sent_u]
+        if not new: continue
+        dk = f"{TODAY}|{rc['key']}"
+        if daily.get(dk, 0) >= NOTIFY_DAILY_MAX: log(f"  {rc['key']} 今日已達上限"); continue
+        new.sort(key=lambda x: x[1])
+        head = f"🤖 <b>K研所 AI Pick</b> {NOW.strftime('%m/%d %H:%M')}"
+        text = f"{head}\n\n" + "\n\n".join(t for _, _, t in new) + f"\n\n{SITE}#aipick"
+        ok_tg = send_tg_to(rc["chat"], text) if rc["chat"] else False
+        ok_line = False
+        if rc.get("line") and LINE_TOKEN and LINE_USER:
+            if month.get(YM, 0) < LINE_MONTHLY_MAX: ok_line = send_line(text)
+        if not (ok_tg or ok_line): continue
+        for k, _, _ in new: sent_u[k] = TODAY
+        daily[dk] = daily.get(dk, 0) + 1
+        if ok_line: month[YM] = month.get(YM, 0) + 1
+        pushed += 1
+        log(f"  → {rc['key']}:{len(new)} 筆事件 Telegram={'✓' if ok_tg else '✗'}")
     # 清理:已推過的鍵只留 60 天、每日計數只留 30 天
     cutoff = (NOW.date() - dt.timedelta(days=60)).isoformat()
-    for k in [k for k, d in sent.items() if d < cutoff]: del sent[k]
+    for rk, sm in list(sent.items()):
+        if not isinstance(sm, dict): del sent[rk]; continue
+        for k in [k for k, d in sm.items() if isinstance(d, str) and d < cutoff]: del sm[k]
     for d in [d for d in daily if d < (NOW.date() - dt.timedelta(days=30)).isoformat()]: del daily[d]
     with open(STATE, "w", encoding="utf-8") as f:
         json.dump(st, f, ensure_ascii=False, separators=(",", ":"))
-    log(f"notify:推了 1 則(含 {len(new)} 筆事件)Telegram={'✓' if ok_tg else '✗'} LINE={'✓' if ok_line else '—'};今日 {daily[TODAY]}/{NOTIFY_DAILY_MAX}")
+    log(f"notify:推給 {pushed}/{len(recips)} 位收件人;bot={st.get('bot') or '—'}")
 
 
 if __name__ == "__main__":
