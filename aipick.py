@@ -622,22 +622,36 @@ GEMINI_KEY = os.environ.get("GEMINI_KEY", "").strip()
 GEMINI_MODEL = "gemini-2.5-flash"
 AI_BUDGET = 12                 # 每班最多幾次呼叫(免費層節流;沒用完留給下一班)
 
-def _gemini(prompt, max_tokens=220):
+def _ai_ok(txt):
+    """r774:理由必須是完整句子——被截斷的(「欣興(3037)被」)不能存,否則永遠不會重生。"""
+    t = (txt or "").strip()
+    return len(t) >= 20 and t[-1] in "。!?.)」)"
+
+def _gemini(prompt, max_tokens=400):
     if not GEMINI_KEY or _G["n"] >= AI_BUDGET: return ""
     import time as _t, requests
     if _G["n"] > 0: _t.sleep(6)
     _G["n"] += 1
+    # r774:2.5 Flash 預設會「思考」,thinking token 算在 maxOutputTokens 裡——220 被想掉大半,
+    #      剩幾個 token 只夠寫出股票名就斷。關掉思考(這種摘要不需要),配額拉到 400,並檢查 finishReason。
     body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.4}}
+            "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.4,
+                                 "thinkingConfig": {"thinkingBudget": 0}}}
     for attempt in range(2):
         try:
             r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}",
                               json=body, timeout=60)
             if r.status_code in (429, 500, 503): _t.sleep(20 * (attempt + 1)); continue
-            if not r.ok: return ""
-            ps = ((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
-            txt = "".join(p.get("text", "") for p in ps).strip()
-            return txt.replace("\n", " ")[:240]
+            if not r.ok:
+                if attempt == 0 and "thinkingConfig" in str(r.text):        # 舊模型不認 thinkingConfig → 拿掉再試
+                    body["generationConfig"].pop("thinkingConfig", None); continue
+                return ""
+            cand = (r.json().get("candidates") or [{}])[0]
+            ps = (cand.get("content") or {}).get("parts") or []
+            txt = "".join(p.get("text", "") for p in ps).strip().replace("\n", " ")
+            if cand.get("finishReason") == "MAX_TOKENS" and attempt == 0:  # 還是不夠 → 加倍再試一次
+                body["generationConfig"]["maxOutputTokens"] = max_tokens * 2; continue
+            return txt[:300] if _ai_ok(txt) else ""
         except Exception:
             _t.sleep(10)
     return ""
@@ -829,11 +843,11 @@ def main():
             for w in weeks:
                 if w.get("bt"): continue
                 for p in w.get("picks") or []:
-                    if not p.get("ai") and _G["n"] < AI_BUDGET and w.get("status") != "done":
+                    if not _ai_ok(p.get("ai")) and _G["n"] < AI_BUDGET and w.get("status") != "done":
                         t = ai_reason_pick(p, w)
                         if t: p["ai"] = t; na += 1
                     for L in p.get("legs") or []:
-                        if L.get("xd") and not L.get("ai_x") and _G["n"] < AI_BUDGET:
+                        if L.get("xd") and not _ai_ok(L.get("ai_x")) and _G["n"] < AI_BUDGET:
                             t = ai_reason_exit(L, p)
                             if t: L["ai_x"] = t; nx += 1
             print(f"aipick:Gemini 理由 入選 {na} 則、出場 {nx} 則(本班呼叫 {_G['n']}/{AI_BUDGET})")
