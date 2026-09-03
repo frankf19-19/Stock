@@ -58,6 +58,14 @@ jobs:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}     # r771:入選/出場理由(純敘述,沒金鑰就跳過)
         run: python aipick.py || echo "AI Pick 失敗,不影響主資料"
 
+      - name: 📨 重要訊息推播(Telegram / 選配 LINE)
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          LINE_TOKEN: ${{ secrets.LINE_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: python notify.py || echo "推播失敗,不影響主資料"
+
       - name: 提交結果
         run: |
           git config user.name  "bot"
@@ -68,6 +76,7 @@ jobs:
           git add e/ 2>/dev/null || true                # r755:ETF 每日持股快照歷史(兩支 workflow 都會寫,漏加就丟失)
           if [ -f spark.json ]; then git add spark.json; fi
           if [ -f aipick.json ]; then git add aipick.json; fi
+          if [ -f notify_state.json ]; then git add notify_state.json; fi
           if git diff --cached --quiet; then
             echo "沒有變更,略過提交"
             exit 0

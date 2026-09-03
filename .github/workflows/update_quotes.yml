@@ -29,6 +29,11 @@ jobs:
         with: { python-version: "3.11" }
       - run: pip install requests numpy      # r740:aipick.py 的學習模型用 numpy;沒裝的話 fit_model 會靜默回傳 None,把 learn 降級成純規則版
       - name: 盤中自迴圈掃價 + AI Pick 結算(每5分鐘一輪,逐輪提交)
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}           # r775:重要訊息推 Telegram(沒設就跳過)
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          LINE_TOKEN: ${{ secrets.LINE_TOKEN }}       # 選配:LINE Messaging API(每月 200 則免費)
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
@@ -47,7 +52,9 @@ jobs:
               git pull --rebase origin main || true      # 先同步,拿到別班/主更新最新的 spark 續寫
               python update_quotes.py || echo "本輪掃價失敗,5分鐘後再試"
               AIPICK_LIGHT=1 timeout 240 python aipick.py || echo "AI Pick 本輪略過(逾時或失敗),不影響報價"   # r740:輕量班=只結算與換股輪動(選股/重訓留給 update_data 重班);實測 <1 秒,240 秒上限保護 5 分鐘輪迴
+              timeout 60 python notify.py || echo "推播本輪略過"                                              # r775:成交/出場/換股/到價 → Telegram(去重、每日上限)
               git add data.json 2>/dev/null || true
+              git add notify_state.json 2>/dev/null || true
               [ -f spark.json ] && git add spark.json
               git add aipick.json 2>/dev/null || true          # 用 || true 而非 [ -f ] &&:GitHub 的 run 預設 bash -e,AND-list 回傳 1 會直接中斷整步
               if ! git diff --cached --quiet; then
