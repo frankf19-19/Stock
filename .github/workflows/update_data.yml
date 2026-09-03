@@ -42,7 +42,7 @@ jobs:
           python-version: '3.11'
 
       - name: 安裝套件
-        run: pip install requests pandas lxml html5lib beautifulsoup4 pypdf
+        run: pip install requests pandas lxml html5lib beautifulsoup4 pypdf pywebpush   # r784:Web Push
 
       - name: 每日更新(單次或傍晚自迴圈)
         env:
@@ -57,6 +57,7 @@ jobs:
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
           SB_SERVICE_KEY: ${{ secrets.SB_SERVICE_KEY }}   # r776:讀最愛名單/持股成本(三級訊號);只放這裡,不進前端
           SB_UID: ${{ secrets.SB_UID }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}   # r784:Web Push 私鑰(公鑰在 app.js)
           FIRED_CRON: ${{ github.event.schedule }}       # 哪一條 cron 點的火(手動觸發為空)
         run: |
           set +e

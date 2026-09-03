@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
-      - run: pip install requests numpy      # r740:aipick.py 的學習模型用 numpy;沒裝的話 fit_model 會靜默回傳 None,把 learn 降級成純規則版
+      - run: pip install requests numpy pywebpush      # r740:aipick.py 的學習模型用 numpy;沒裝的話 fit_model 會靜默回傳 None,把 learn 降級成純規則版
       - name: 盤中自迴圈掃價 + AI Pick 結算(每5分鐘一輪,逐輪提交)
         env:
           TG_TOKEN: ${{ secrets.TG_TOKEN }}           # r775:重要訊息推 Telegram(沒設就跳過)
@@ -36,6 +36,7 @@ jobs:
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
           SB_SERVICE_KEY: ${{ secrets.SB_SERVICE_KEY }}   # r776:讀最愛名單/持股成本(三級訊號);只放這裡,不進前端
           SB_UID: ${{ secrets.SB_UID }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}   # r784:Web Push
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
