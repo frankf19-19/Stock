@@ -1,4 +1,4 @@
-/* K研所 · build r777 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r778 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r777</span>');
+  diag.push('<span style="color:var(--dim)">build r778</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8495,10 +8495,50 @@ function earnWindow(){                                     // 法定申報期:�
   }
   return null;
 }
-function marginCard(s,volToday){
+/* r778:融資屬性判讀——融資是散戶在用,還是主力/大戶在用?
+   單看融資餘額分不出來;把「融資 5 日增減」跟三件事交叉:法人 5 日淨買賣超、千張大戶持股週變化(集保)、價量。
+   規則(每條都印出依據):
+     融資增 + 法人買 + 大戶%升            → 主力同步槓桿(多方一致,偏多)
+     融資增 + 大戶%升 + 量縮              → 鎖籌碼(大戶可能用融資吸籌,偏多但要看後續)
+     融資增 + 法人賣 + 價漲              → 散戶追價、法人倒貨(偏空)
+     融資增 + 法人賣 + 價跌              → 散戶套牢攤平(偏空,斷頭壓力)
+     融資減 + 價穩/漲                    → 籌碼洗清(健康)
+     融資減 + 價跌 + 法人賣              → 多殺多/斷頭(偏空但常見底部)
+   注意:集保是週資料、融資是日資料,對齊只能到「最近一週」。判讀是機率,不是身分證。 */
+function marginAttrib(s,M,e,o){
+  try{
+    const hist=(M.hist&&M.hist[s.id])||[]; if(hist.length<6)return null;
+    const f5=hist[hist.length-1][1]-hist[hist.length-6][1];               // 融資 5 日增減(張)
+    const fPct=hist[hist.length-6][1]>0?f5/hist[hist.length-6][1]*100:0;
+    let inst5=null; if(e&&Array.isArray(e.f)&&e.f.length>=5){inst5=0;for(let k=e.f.length-5;k<e.f.length;k++)inst5+=(+e.f[k]||0)+(+(e.t||[])[k]||0)+(+(e.g||[])[k]||0);}
+    let dbp=null; if(e&&Array.isArray(e.bp)&&e.bp.length>=2){dbp=e.bp[e.bp.length-1]-e.bp[e.bp.length-2];}
+    const n=o?o.length:0; if(n<25)return null;
+    const C=o.map(x=>x[3]),V=o.map(x=>x[4]||0);
+    const p5=(C[n-1]/C[n-6]-1)*100;
+    const v5=V.slice(n-5).reduce((a,b)=>a+b,0)/5,v20=V.slice(n-20).reduce((a,b)=>a+b,0)/20;
+    const vr=v20>0?v5/v20:1;
+    const fShare=v5>0?Math.abs(f5)/5/v5*100:null;                          // 融資日均增減佔日均量
+    const up=f5>0,dn=f5<0,big=Math.abs(fPct)>=3;
+    let who='neutral',title='融資變化平穩',tone=TONE.grey,why='5 日增減不到 3%,看不出方向';
+    if(up&&big){
+      if(inst5>0&&(dbp==null||dbp>=0)){who='big';title='主力同步槓桿';tone=TONE.red;why='融資增、法人同步買超'+(dbp!=null?'、千張大戶持股週增':'')+'——多方一致,這批融資比較像主力/大戶在用';}
+      else if(dbp!=null&&dbp>0&&vr<0.85){who='big';title='鎖籌碼';tone=TONE.orange;why='融資增、千張大戶持股週增、但成交量縮——籌碼在往大戶集中,融資可能是大戶吸籌的工具';}
+      else if(inst5<0&&p5>0){who='retail';title='散戶追價・法人倒貨';tone=TONE.green;why='融資增、法人淨賣、價卻漲——接盤的是槓桿散戶,高檔換手風險';}
+      else if(inst5<0&&p5<=0){who='retail';title='散戶套牢攤平';tone=TONE.green;why='融資增、法人賣、價跌——半山腰的槓桿盤還在加碼,斷頭壓力累積';}
+      else{who='retail';title='散戶追價';tone=TONE.orange;why='融資增但法人與大戶沒有同步——多半是散戶在用槓桿';}
+    }else if(dn&&big){
+      if(p5>=-1){who='clean';title='籌碼洗清';tone=TONE.gold;why='融資退潮但價格沒跌——槓桿散戶離場、籌碼變乾淨,底部整理常見';}
+      else if(inst5<0){who='clean';title='多殺多・斷頭';tone=TONE.green;why='融資減、價跌、法人也賣——槓桿被強制出清,殺完常是低點但過程很痛';}
+      else{who='clean';title='融資退潮';tone=TONE.grey;why='融資減、價跌但法人沒賣——散戶自行停損,籌碼在轉手';}
+    }
+    return {who,title,tone,why,f5,fPct,inst5,dbp,p5,vr,fShare};
+  }catch(x){return null;}
+}
+function marginCard(s,volToday,e,o){
   try{
     const M=window.__MGN; if(!M||!M.s)return '';
     const r=M.s[s.id]; if(!r)return '';
+    const A=marginAttrib(s,M,e,o);
     const N=x=>x==null?'—':(+x).toLocaleString();
     const hist=(M.hist&&M.hist[s.id])||[];
     let d5=null;
@@ -8528,10 +8568,101 @@ function marginCard(s,volToday){
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:6px 0 8px">
         ${cells.map(([k,v])=>`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px"><div style="font-size:11px;color:var(--dim)">${k}</div><div style="font-weight:800;font-size:14px">${v}</div></div>`).join('')}
       </div>
+      ${A&&A.who!=='neutral'?`<div style="border:1.5px solid ${A.tone};border-left-width:5px;border-radius:0 10px 10px 0;background:color-mix(in srgb,${A.tone} 6%,var(--panel));padding:8px 12px;margin:4px 0 8px">
+        <div style="font-weight:900;font-size:14px;color:${A.tone}">🔍 這批融資是誰在用:${A.title}</div>
+        <div style="font-size:13px;color:var(--txt2);line-height:1.8">${A.why}</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:3px">依據:融資 5 日 <b>${A.f5>=0?'+':''}${A.f5.toLocaleString()} 張</b>(${A.fPct>=0?'+':''}${A.fPct.toFixed(1)}%)${A.inst5!=null?`・三大法人 5 日淨 <b>${A.inst5>=0?'+':''}${Math.round(A.inst5).toLocaleString()} 張</b>`:''}${A.dbp!=null?`・千張大戶持股週變化 <b>${A.dbp>=0?'+':''}${A.dbp.toFixed(2)}pp</b>`:'・千張大戶:無週資料'}・價 5 日 <b>${A.p5>=0?'+':''}${A.p5.toFixed(1)}%</b>・量 5日/20日 <b>${A.vr.toFixed(2)}x</b>${A.fShare!=null?`・融資日均增減佔量 ${A.fShare.toFixed(1)}%`:''}</div>
+      </div>`:''}
       ${reads.length?reads.map(([ic,t])=>`<div style="font-size:13px;line-height:1.85">・${ic} ${t}</div>`).join(''):'<div class="dim-note">槓桿指標無異常訊號——融資變化平穩、空單與當沖都在常態範圍。</div>'}
-      <div class="dim-note" style="margin-top:6px">判讀規則:融資增+價跌=斷頭壓力未清;融資降+價穩=籌碼洗清;券資比≥30%=軋空條件;當沖比≥40%=投機盤主導。非投資建議。</div>
+      <div class="dim-note" style="margin-top:6px">判讀規則:融資增+價跌=斷頭壓力未清;融資降+價穩=籌碼洗清;券資比≥30%=軋空條件;當沖比≥40%=投機盤主導。<b>「誰在用融資」</b>是把融資增減跟法人買賣超、集保千張大戶週變化、價量交叉判讀——集保是週資料、融資是日資料,對齊只到最近一週;是機率不是身分證。非投資建議。</div>
     </div>`;
   }catch(e){return '';}
+}
+/* ═══ r778:個股慣性與週期 ═══
+   慣性:日報酬自相關(lag1/lag5)、變異數比 VR(5)/VR(20)、連漲兩天後的續漲率——判定「順勢型 / 均值回歸型 / 隨機型」。
+   週期:ZigZag 轉折(門檻 = max(3%, 1.5×日常振幅中位數))切出上漲段/下跌段,統計各段天數與幅度的中位數,
+         再用去趨勢收盤的自相關找主週期;最後標出現在走到第幾天。 */
+function inertiaCalc(o,medRng){
+  const n=o.length; if(n<120)return null;
+  const C=o.map(x=>x[3]),H=o.map(x=>x[1]),L=o.map(x=>x[2]);
+  const r=[];for(let i=1;i<n;i++)r.push(Math.log(C[i]/C[i-1]));
+  const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+  const m=mean(r),v=mean(r.map(x=>(x-m)*(x-m)));
+  const ac=k=>{let s=0;for(let i=k;i<r.length;i++)s+=(r[i]-m)*(r[i-k]-m);return v>0?s/((r.length-k)*v):0;};
+  const rho1=ac(1),rho5=ac(5);
+  const vr=q=>{const rq=[];for(let i=q;i<=r.length;i++)rq.push(r.slice(i-q,i).reduce((x,y)=>x+y,0));const mq=mean(rq);return v>0?mean(rq.map(x=>(x-mq)*(x-mq)))/(q*v):1;};
+  const vr5=vr(5),vr20=vr(20);
+  let uu=0,un=0,dd=0,dn=0;
+  for(let i=2;i<r.length;i++){
+    if(r[i-1]>0&&r[i-2]>0){un++;if(r[i]>0)uu++;}
+    if(r[i-1]<0&&r[i-2]<0){dn++;if(r[i]<0)dd++;}
+  }
+  const pUp=un>=10?uu/un*100:null,pDn=dn>=10?dd/dn*100:null,base=r.filter(x=>x>0).length/r.length*100;
+  const score=(vr5-1)*2+(vr20-1)+rho1*4;                   // >0 順勢、<0 回歸
+  const kind=score>=0.25?'trend':score<=-0.25?'revert':'random';
+  // ── 週期:ZigZag ──
+  const thr=Math.max(3,(medRng||3)*1.5)/100;
+  const piv=[];let dir=0,hi=0,lo=0;                       // hi/lo 各自追蹤,方向未定時兩邊都追,定了就只追一邊
+  for(let i=1;i<n;i++){
+    if(dir===0){
+      if(H[i]>H[hi])hi=i; if(L[i]<L[lo])lo=i;
+      if(L[i]<=H[hi]*(1-thr)){piv.push({i:hi,t:'H',p:H[hi]});dir=-1;lo=i;}
+      else if(H[i]>=L[lo]*(1+thr)){piv.push({i:lo,t:'L',p:L[lo]});dir=1;hi=i;}
+    }else if(dir>0){
+      if(H[i]>H[hi])hi=i;
+      if(L[i]<=H[hi]*(1-thr)){piv.push({i:hi,t:'H',p:H[hi]});dir=-1;lo=i;}
+    }else{
+      if(L[i]<L[lo])lo=i;
+      if(H[i]>=L[lo]*(1+thr)){piv.push({i:lo,t:'L',p:L[lo]});dir=1;hi=i;}
+    }
+  }
+  const ups=[],dns=[],cyc=[],upP=[],dnP=[];
+  for(let k=1;k<piv.length;k++){
+    const a=piv[k-1],b=piv[k],days=b.i-a.i,pct=(b.p/a.p-1)*100;
+    if(a.t==='L'&&b.t==='H'){ups.push(days);upP.push(pct);}
+    if(a.t==='H'&&b.t==='L'){dns.push(days);dnP.push(pct);}
+    if(k>=2&&piv[k-2].t===b.t&&b.t==='L')cyc.push(b.i-piv[k-2].i);
+  }
+  const med=a=>{if(!a.length)return null;const v=a.slice().sort((x,y)=>x-y);return v[v.length>>1];};
+  const q=(a,p)=>{if(!a.length)return null;const v=a.slice().sort((x,y)=>x-y);return v[Math.min(v.length-1,Math.floor(v.length*p))];};
+  // 主週期:去趨勢收盤(減 20 日均)的自相關在 lag 8~60 的最高峰
+  let domLag=null,domAc=0;
+  try{
+    const dt=[];for(let i=20;i<n;i++){let s=0;for(let j=i-19;j<=i;j++)s+=C[j];dt.push(C[i]-s/20);}
+    const dm=mean(dt),dv=mean(dt.map(x=>(x-dm)*(x-dm)));
+    for(let k=8;k<=Math.min(60,dt.length>>2);k++){let s=0;for(let i=k;i<dt.length;i++)s+=(dt[i]-dm)*(dt[i-k]-dm);const a=dv>0?s/((dt.length-k)*dv):0;if(a>domAc){domAc=a;domLag=k;}}
+    if(domAc<0.2)domLag=null;                             // 峰值太弱不當週期
+  }catch(x){}
+  const last=piv[piv.length-1];
+  const cur=last?{dir:last.t==='L'?'up':'down',since:n-1-last.i,pct:(C[n-1]/last.p-1)*100}:null;
+  return {rho1,rho5,vr5,vr20,pUp,pDn,base,kind,score,
+    thr:thr*100,nPiv:piv.length,
+    upMed:med(ups),upQ1:q(ups,.25),upQ3:q(ups,.75),dnMed:med(dns),dnQ1:q(dns,.25),dnQ3:q(dns,.75),
+    cycMed:med(cyc),upPct:med(upP),dnPct:med(dnP),domLag,domAc,cur};
+}
+function inertiaHTML(I){
+  if(!I)return '';
+  const F1=x=>x==null?'—':(x>=0?'+':'')+x.toFixed(1);
+  const kindTxt={trend:['順勢型','漲了容易再漲、跌了容易再跌——追突破、順勢加碼對它有效,逆勢接刀要小心',TONE.red],
+                 revert:['均值回歸型','漲多會拉回、跌深會反彈——它適合區間操作與逆勢承接,追高追低容易被甩',TONE.green],
+                 random:['隨機型','近一年報酬序列看不出明顯慣性——別把單一走勢當成規律,以價位與紀律為主',TONE.grey]}[I.kind];
+  const ev=[];
+  ev.push(`lag-1 自相關 <b>${I.rho1>=0?'+':''}${I.rho1.toFixed(2)}</b>`);
+  ev.push(`變異數比 VR(5) <b>${I.vr5.toFixed(2)}</b>・VR(20) <b>${I.vr20.toFixed(2)}</b><span style="color:var(--mut)">(>1 趨勢延續、<1 回歸)</span>`);
+  if(I.pUp!=null)ev.push(`連漲兩天後隔日續漲率 <b>${I.pUp.toFixed(0)}%</b>(基準 ${I.base.toFixed(0)}%)`);
+  if(I.pDn!=null)ev.push(`連跌兩天後隔日續跌率 <b>${I.pDn.toFixed(0)}%</b>`);
+  let cyc='';
+  if(I.upMed!=null&&I.dnMed!=null){
+    const pos=I.cur?(I.cur.dir==='up'?I.upMed:I.dnMed):null;
+    const ratio=pos?I.cur.since/pos:null;
+    const posTxt=I.cur?`目前在<b>${I.cur.dir==='up'?'上漲段':'下跌段'}第 ${I.cur.since} 天</b>(距上一個轉折 ${F1(I.cur.pct)}%),典型長度 ${pos} 天${ratio!=null?(ratio>=1.2?'——<b style="color:'+TONE.red+'">已超過典型長度,節奏上進入轉折窗口</b>':ratio>=0.8?'——接近典型長度,留意轉折':'——還在段落中段'):''}`:'';
+    cyc=`<div style="font-size:13px;color:var(--txt2);line-height:1.85;margin-top:6px">🔁 <b>它的週期</b>(轉折門檻 ${I.thr.toFixed(1)}%,近一年 ${I.nPiv} 個轉折):
+      上漲段典型 <b>${I.upMed} 天</b>(${I.upQ1}~${I.upQ3})漲 <b style="color:var(--up)">${F1(I.upPct)}%</b>・下跌段典型 <b>${I.dnMed} 天</b>(${I.dnQ1}~${I.dnQ3})跌 <b style="color:var(--down)">${F1(I.dnPct)}%</b>${I.cycMed?`・完整循環(低→低)約 <b>${I.cycMed} 天</b>`:''}${I.domLag?`・價格自相關主週期約 <b>${I.domLag} 天</b>`:''}<br>${posTxt}</div>`;
+  }
+  return `<div style="border:1.5px solid ${kindTxt[2]};border-left-width:5px;border-radius:0 10px 10px 0;background:color-mix(in srgb,${kindTxt[2]} 6%,var(--panel));padding:9px 12px;margin:8px 0">
+    <div style="font-weight:900;font-size:14px;color:${kindTxt[2]}">🧭 慣性:${kindTxt[0]}</div>
+    <div style="font-size:13px;color:var(--txt2);line-height:1.8">${kindTxt[1]}</div>
+    <div style="font-size:12.5px;color:var(--mut);margin-top:4px">${ev.join('・')}</div>${cyc}</div>`;
 }
 function dnaCalc(o,e){
   const n=o.length;
@@ -8703,7 +8834,7 @@ async function renderDNA(s){
     }catch(xp){}
     try{await marginLoad();
       const volT=ke.o.length?(ke.o[ke.o.length-1][4]||0):0;
-      pvHTML+=marginCard(s,volT);}catch(xm){}                           // r701:散戶槓桿卡
+      pvHTML+=marginCard(s,volT,e,ke.o);}catch(xm){}                    // r701:散戶槓桿卡(r778:帶入籌碼與 K 做融資屬性判讀)
     if(!d){box.innerHTML='<div class="dim-note">樣本不足。</div>';return;}
     const F1=x=>(x>=0?'+':'')+x.toFixed(1);
     const tags=[];
@@ -8764,6 +8895,7 @@ async function renderDNA(s){
       <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px">${tags.map(([t,tip,c])=>`<span title="${tip}" style="color:${c};border:1.5px solid ${c};border-radius:8px;padding:2px 10px;font-weight:900;font-size:12.5px">${t}</span>`).join('')}</div>
       <div style="font-size:13px;color:var(--txt2);line-height:1.8;margin-bottom:8px">
         📏 <b>它的呼吸節奏</b>:日常振幅中位數 <b>${d.med_rng!=null?d.med_rng.toFixed(1):'—'}%</b>・年化波動 <b>${d.vol_ann.toFixed(0)}%</b>・創高後 20 日內典型回檔 <b>${d.pull_med!=null?d.pull_med.toFixed(1):'—'}%</b><span style="color:var(--mut)">——回檔在這幅度內是「正常呼吸」,超過才需要警戒</span>・無條件基準:任意時點進場後 5 日勝率 <b>${d.base.win.toFixed(0)}%</b></div>
+      ${(()=>{try{return inertiaHTML(inertiaCalc(ke.o,d.med_rng));}catch(x){return '';}})()}
       <div style="font-weight:900;font-size:13.5px;color:var(--up);margin-top:4px">📈 什麼條件出現後,它歷史上容易漲</div>${upRows||'<div class="dim-note">樣本一年內沒有勝率明顯優於基準的看漲條件。</div>'}
       <div style="font-weight:900;font-size:13.5px;color:var(--down);margin-top:10px">📉 什麼條件出現後,它歷史上容易跌/勝率變差</div>${dnRows||'<div class="dim-note">樣本一年內沒有明顯的看跌條件。</div>'}
       <div class="dim-note" style="margin-top:9px">統計基礎:近 ${d.n} 個交易日;勝率與基準偏離 ≥8pp 且樣本 ≥8 次才下結論。<b>慣性不是保證</b>——基本面或市場結構改變時舊股性會失效;樣本僅一年,未涵蓋完整多空循環。非投資建議。</div>`;
