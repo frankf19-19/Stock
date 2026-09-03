@@ -1,4 +1,4 @@
-/* K研所 · build r782 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r783 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r782</span>');
+  diag.push('<span style="color:var(--dim)">build r783</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19462,7 +19462,11 @@ function sbToast(msg,warn){
 }
 function sbHookStorage(){                                   // 攔 setItem:同步鍵一有變動就自動推雲端
   try{
-    if(localStorage.__sbHooked)return;
+    // r783:守衛旗標不能放在 localStorage 物件上——Storage 會把屬性當成一筆資料「存進去」,重新載入後
+    //      守衛讀到存起來的 "true" 就跳過,攔截器只在第一次造訪裝過一次。之後所有持股/最愛改動都沒推雲端,
+    //      重整就被舊雲端蓋回。改用 window 旗標 + 直接檢查 setItem 是不是還是原生的。
+    try{localStorage.removeItem('__sbHooked');}catch(e0){}
+    if(window.__sbHooked||localStorage.setItem!==Storage.prototype.setItem)return;
     const orig=localStorage.setItem.bind(localStorage);
     localStorage.setItem=function(k,v){
       orig(k,v);
@@ -19470,7 +19474,7 @@ function sbHookStorage(){                                   // 攔 setItem:同�
       const d=sbDirtyGet(); d[k]=Date.now(); sbDirtySet(d);           // r773:先記「本機改了」,不論有沒有登入(登入後合併時用)
       if(SB_USER)sbPush();
     };
-    Object.defineProperty(localStorage,'__sbHooked',{value:true,enumerable:false});
+    window.__sbHooked=true;
   }catch(e){}
 }
 function sbBtnPaint(){
