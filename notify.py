@@ -90,6 +90,77 @@ def fav_levels(sid, px):
     return {"h20": h20, "l10": l10, "prevC": prev}
 
 
+_CH = {}
+def chips_of(sid):
+    k = shard_key(sid)
+    if k not in _CH:
+        try: _CH[k] = json.load(open(f"c/tw{k}.json", encoding="utf-8"))
+        except Exception: _CH[k] = {}
+    return _CH[k].get(sid)
+
+
+def lead_signal(sid, nm):
+    """r779:主力進出——鏡射前端 drvAnalyze + leadSignals。
+    主導法人 = 0.6·|當日相關| + 0.4·|隔日相關| 最高者;第一名是自營商就取第二名。
+    大買門檻 = 該法人在本檔近一年買超日前 20%;大賣門檻 = 賣超日前 20%。只看最新一個法人資料日。"""
+    e = chips_of(sid)
+    if not e or not isinstance(e.get("d"), list) or not isinstance(e.get("f"), list): return []
+    d, o = bars(sid)
+    if len(d) < 41: return []
+    kmap = {x: i for i, x in enumerate(d)}
+    F, T, G, R, R1 = [], [], [], [], []
+    for i, dd in enumerate(e["d"]):
+        j = kmap.get(dd)
+        if j is None or j == 0 or len(o[j]) < 4 or len(o[j - 1]) < 4: continue
+        c0, c1 = o[j - 1][3], o[j][3]
+        if not (c0 and c1): continue
+        R.append((c1 / c0 - 1) * 100)
+        R1.append((o[j + 1][3] / c1 - 1) * 100 if j + 1 < len(o) and len(o[j + 1]) >= 4 and o[j + 1][3] else None)
+        F.append(float((e["f"] or [0])[i] or 0)); T.append(float((e.get("t") or [0])[i] or 0)); G.append(float((e.get("g") or [0])[i] or 0))
+    n = len(R)
+    if n < 40: return []
+    def corr(xs, ys):
+        v = [(x, y) for x, y in zip(xs, ys) if y is not None]
+        m = len(v)
+        if m < 20: return 0.0
+        mx = sum(a for a, _ in v) / m; my = sum(b for _, b in v) / m
+        sx = (sum((a - mx) ** 2 for a, _ in v) / m) ** 0.5; sy = (sum((b - my) ** 2 for _, b in v) / m) ** 0.5
+        if not sx or not sy: return 0.0
+        return sum((a - mx) * (b - my) for a, b in v) / (m * sx * sy)
+    def stat(X):
+        c0, c1 = corr(X, R), corr(X, R1)
+        cut = max(3, round(n * 0.2))
+        idx = sorted(range(n), key=lambda i: -X[i])[:cut]
+        same = [R[i] for i in idx]; buy_same = sum(same) / len(same) if same else None
+        win = round(100 * sum(1 for x in same if x > 0) / len(same)) if same else None
+        sidx = sorted(range(n), key=lambda i: X[i])[:cut]; ss = [R[i] for i in sidx]; sell_same = sum(ss) / len(ss) if ss else None
+        pos = sorted(x for x in X if x > 0); neg = sorted(-x for x in X if x < 0)
+        q = lambda a, p: a[min(len(a) - 1, round((len(a) - 1) * p))] if a else None
+        s3 = []
+        for i in range(2, n - 5):
+            if X[i] > 0 and X[i - 1] > 0 and X[i - 2] > 0:
+                s3.append(sum(R[i + j] for j in range(1, 6)))
+        return {"score": abs(c0) * 0.6 + abs(c1) * 0.4, "buy_same": buy_same, "win": win, "sell_same": sell_same,
+                "p80": round(q(pos, .8)) if len(pos) >= 10 else None, "s80": round(q(neg, .8)) if len(neg) >= 10 else None,
+                "streak": (sum(s3) / len(s3)) if len(s3) >= 3 else None, "streak_n": len(s3)}
+    rank = sorted([("外資", "f", stat(F)), ("投信", "t", stat(T)), ("自營商", "g", stat(G))], key=lambda x: -x[2]["score"])
+    L = rank[1] if rank[0][0] == "自營商" and len(rank) > 1 else rank[0]
+    nmL, key, st = L
+    X = [float(x or 0) for x in (e.get(key) or [])]
+    if len(X) < 3 or st["p80"] is None: return []
+    dlast = e["d"][-1]; v, v1, v2 = X[-1], X[-2], X[-3]
+    tag = nmL + ("(自營跟價,取第二名)" if rank[0][0] == "自營商" else "")
+    fp = lambda x: ("—" if x is None else f"{x:+.2f}%")
+    out = []
+    if v >= st["p80"]:
+        out.append((f"lead_b|{dlast}|{sid}", 3, f"🎯 <b>主力大買 {nm}</b>({sid})・{nmL}\n{dlast[5:].replace('-','/')} {nmL}買超 {int(v):,} 張,達本檔大買門檻 {st['p80']:,} 張(前 20%);歷史大買日當天平均 {fp(st['buy_same'])}、勝率 {st['win'] if st['win'] is not None else '—'}%——主導法人:{tag}"))
+    elif v > 0 and v1 > 0 and v2 > 0 and v1 < st["p80"] and v2 < st["p80"]:
+        out.append((f"lead_s3|{dlast}|{sid}", 3, f"🎯 <b>主力開始連買 {nm}</b>({sid})・{nmL}\n{nmL}已連 3 日買超({int(v2)}/{int(v1)}/{int(v)} 張);本檔連買 3 日後 5 日平均 {fp(st['streak'])}(樣本 {st['streak_n']})——主導法人:{tag}"))
+    if st["s80"] is not None and v <= -st["s80"]:
+        out.append((f"lead_x|{dlast}|{sid}", 3, f"🎯 <b>主力大賣 {nm}</b>({sid})・{nmL}\n{dlast[5:].replace('-','/')} {nmL}賣超 {int(-v):,} 張,達本檔大賣門檻 {st['s80']:,} 張(前 20%);歷史大賣日當天平均 {fp(st['sell_same'])}——主導法人:{tag}"))
+    return out
+
+
 def collect_fav_events(data, aip, prices, ud):
     """三級:最愛的六種訊號 + 持股停利/停損。鏡射前端 favSignals 的門檻。"""
     ev = []
@@ -107,6 +178,8 @@ def collect_fav_events(data, aip, prices, ud):
         px = prices.get(sid)
         if not px: continue
         nm = s.get("name") or sid
+        try: ev.extend(lead_signal(sid, nm))                     # r779:主力進出(法人日資料)
+        except Exception: pass
         a = s.get("al") or {}
         lv = fav_levels(sid, px) or {}
         h20, l10, prev = lv.get("h20"), lv.get("l10"), lv.get("prevC")

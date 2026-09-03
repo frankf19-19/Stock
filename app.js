@@ -1,4 +1,4 @@
-/* K研所 · build r778 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r779 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r778</span>');
+  diag.push('<span style="color:var(--dim)">build r779</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -18219,7 +18219,7 @@ async function fglTradesRaw(sid){         // r701:富果逐筆共用抓取(直�
 
 function bigTradeAgg(tr){                 // r701:大單彙總(≥100萬/≥500萬)+全部成交金額,個股與族群掃描同一口徑
   const TH=[1e6,5e6];
-  const agg=TH.map(()=>({bA:0,sA:0,bN:0,sN:0}));
+  const agg=TH.map(()=>({bA:0,sA:0,bN:0,sN:0,bV:0,sV:0}));   // r778:加計股數,算「大戶買賣力」=大單外盤量−內盤量
   let nAll=0,skip=0,allAmt=0,tMin=null,tMax=null;
   (tr||[]).forEach(t=>{
     const px=+t.price,sz=+t.size;
@@ -18231,7 +18231,7 @@ function bigTradeAgg(tr){                 // r701:大單彙總(≥100萬/≥500�
     let dir=0;
     if(ask>0&&px>=ask)dir=1;else if(bid>0&&px<=bid)dir=-1;else{skip++;return;}
     const tt=+t.time||0;if(tt){if(tMin==null||tt<tMin)tMin=tt;if(tMax==null||tt>tMax)tMax=tt;}
-    agg.forEach((g,i)=>{if(amt>=TH[i]){if(dir>0){g.bA+=amt;g.bN++;}else{g.sA+=amt;g.sN++;}}});
+    agg.forEach((g,i)=>{if(amt>=TH[i]){if(dir>0){g.bA+=amt;g.bN++;g.bV+=sz;}else{g.sA+=amt;g.sN++;g.sV+=sz;}}});
   });
   return {agg,nAll,skip,allAmt,tMin,tMax};
 }
@@ -18296,7 +18296,14 @@ async function bigTradeCalc(s,force){
         +'<span style="font-size:32px;font-weight:900;color:'+lvA[1]+'">'+val+'</span>'
         +'<span style="font-size:14px;font-weight:900;color:'+lvA[1]+';border:1.5px solid '+lvA[1]+';border-radius:8px;padding:1px 9px">'+lvA[0]+'</span></div>'
         +'<div style="font-size:12.5px;color:var(--mut);margin-top:4px">'+lvA[2]+'</div>'+(extra||'')+'</div>';
+      // r778:大戶買賣力 =(特大單+大單)外盤成交量 −(特大單+大單)內盤成交量,>0 買方主導(XQ 定義;特大單已包含在 ≥100萬 的大單裡)
+      const force=(main.bV-main.sV)/1000, forceX=(agg[1].bV-agg[1].sV)/1000;
+      const lvF=force>0?['買方主導','var(--up)','大單外盤量 > 內盤量——主動買進的大戶力道佔上風']
+               :force<0?['賣方主導','var(--down)','大單內盤量 > 外盤量——大戶主動賣出佔上風']
+               :['平衡','var(--amber)','大單買賣量相抵'];
       html='<div style="display:flex;gap:12px;flex-wrap:wrap">'
+        +card('大戶買賣力(大單外盤量−內盤量)',(force>0?'+':'')+Math.round(force).toLocaleString()+' 張',lvF,
+          '<div style="font-size:12px;color:var(--mut);margin-top:6px">外盤 '+Math.round(main.bV/1000).toLocaleString()+' 張 / 內盤 '+Math.round(main.sV/1000).toLocaleString()+' 張'+(agg[1].bV+agg[1].sV>0?' · 其中特大單淨 <b style="color:'+(forceX>=0?'var(--up)':'var(--down)')+'">'+(forceX>0?'+':'')+Math.round(forceX).toLocaleString()+' 張</b>':'')+'</div>')
         +card('大戶買賣比(大單交易中買方佔比)',ratio.toFixed(1)+'%',lv,bar(main.bA,main.sA))
         +card('大戶差比(淨買超 ÷ 全部成交金額)',(diff>0?'+':'')+diff.toFixed(1)+'%',lvD,
           '<div style="font-size:12px;color:var(--mut);margin-top:6px">淨'+(main.bA>=main.sA?'買超 ':'賣超 ')+fmt(Math.abs(main.bA-main.sA))+' / 總成交 '+fmt(allAmt)+'</div>')
@@ -18313,7 +18320,7 @@ async function bigTradeCalc(s,force){
         +'<b style="color:'+Q.c+'">🗺️ 資金輪動地圖所在區域:'+Q.n+'('+Q.en+')</b>'
         +'<div style="font-size:13px;color:var(--mut);margin-top:3px">'+Q.d+' · 最佳路徑:落後區 → 改善區 → 領先區 · 族群層級對照見大盤頁「族群資金輪動地圖」。</div></div>';
     }
-    html+='<div class="dim-note" style="margin-top:12px">樣本:近 '+nAll+' 筆逐筆成交('+(tMin?hhmm(tMin)+'~'+hhmm(tMax):'')+')'+(skip?'、'+skip+' 筆價位介於買賣掛單間不計方向':'')+' · 買賣比 = 買進大單金額 ÷(買+賣大單金額),≥70% 高、50~70% 中、<50% 低 · 差比 =(買進大單−賣出大單)÷ 全部成交金額,≥+20% 強勢、±20% 中性、≤−20% 弱勢 · 免費來源無分點逐筆,以「單筆成交金額」界定大單,與券商分點大戶口徑不同 · <b>比值高不代表股價一定漲</b>,請與量能、均線、集保大戶週趨勢互相印證。'
+    html+='<div class="dim-note" style="margin-top:12px">樣本:近 '+nAll+' 筆逐筆成交('+(tMin?hhmm(tMin)+'~'+hhmm(tMax):'')+')'+(skip?'、'+skip+' 筆價位介於買賣掛單間不計方向':'')+' · 買賣力 =(特大單+大單)外盤量 −(特大單+大單)內盤量,>0 買方主導 · 買賣比 = 買進大單金額 ÷(買+賣大單金額),≥70% 高、50~70% 中、<50% 低 · 差比 =(買進大單−賣出大單)÷ 全部成交金額,≥+20% 強勢、±20% 中性、≤−20% 弱勢 · 免費來源無分點逐筆,以「單筆成交金額」界定大單,與券商分點大戶口徑不同 · <b>比值高不代表股價一定漲</b>,請與量能、均線、集保大戶週趨勢互相印證。'
       +' <a href="javascript:void 0" onclick="try{bigTradeCalc(DATA.stocks.find(x=>x.id===\''+s.id+'\'),1)}catch(e){}" style="color:var(--amber);font-weight:700">↻ 重新計算</a></div>';
     box.innerHTML=html;
     box.dataset.done='1';box.dataset.doneT=String(Date.now());
@@ -20081,6 +20088,29 @@ function renderFavAlertBarInto(bar){
   });
 }
 let FAV_K_LOADS=0;
+/* ═══ r779:🎯 主力進出提醒 —— 主力帶動力分析裡的「主導法人」當天大買/大賣、或開始連買 3 日,就提醒 ═══
+   主導法人 = 帶動力排名第一;若第一名是自營商(多為避險/造市,跟價不帶價)則取第二名(與頁面建議一致)。
+   大買門檻 = 該法人在這一檔近一年買超日的前 20%(每檔不同);大賣門檻同理取賣超日的前 20%。
+   法人資料是日資料(收盤後才有),同檔同日只提醒一次;跟到價提醒分開,不互相蓋。 */
+function leadSignals(s,e,k){
+  const out=[];
+  try{
+    const a=drvAnalyze(s,e,k); if(!a||!a.rank||!a.rank.length)return out;
+    let L=a.rank[0]; if(L[0]==='自營商'&&a.rank[1])L=a.rank[1];
+    const nm=L[0],st=L[1]; if(!st||!st.thr)return out;
+    const key=nm==='外資'?'f':nm==='投信'?'t':'g';
+    const X=e[key]||[]; const n=X.length; if(n<3)return out;
+    const d=e.d[n-1]; const v=+X[n-1]||0,v1=+X[n-2]||0,v2=+X[n-3]||0;
+    // 賣超門檻:負值的前 20%
+    const neg=X.map(x=>+x||0).filter(x=>x<0).map(x=>-x).sort((a,b)=>a-b);
+    const sThr=neg.length>=10?Math.round(neg[Math.min(neg.length-1,Math.round((neg.length-1)*0.8))]):null;
+    const tag=`${nm}${a.rank[0][0]==='自營商'?'(自營跟價,取第二名)':''}`;
+    if(v>=st.thr.p80)out.push({k:'buy',title:`🎯 主力大買・${nm}`,text:`${aipMD(d)} ${nm}買超 ${Math.round(v).toLocaleString()} 張,達本檔大買門檻 ${st.thr.p80.toLocaleString()} 張(前 20%);歷史大買日當天平均 ${st.buySame!=null?(st.buySame>0?'+':'')+st.buySame+'%':'—'}、勝率 ${st.buyWin!=null?st.buyWin+'%':'—'}——主導法人:${tag}`});
+    else if(v>0&&v1>0&&v2>0&&!(v1>=st.thr.p80)&&!(v2>=st.thr.p80))out.push({k:'buy',title:`🎯 主力開始連買・${nm}`,text:`${nm}已連 3 日買超(${Math.round(v2)}/${Math.round(v1)}/${Math.round(v)} 張);本檔連買 3 日後 5 日平均 ${st.streak!=null?(st.streak>0?'+':'')+st.streak+'%':'—'}(樣本 ${st.streakN})——主導法人:${tag}`});
+    if(sThr!=null&&v<=-sThr)out.push({k:'sell',title:`🎯 主力大賣・${nm}`,text:`${aipMD(d)} ${nm}賣超 ${Math.round(-v).toLocaleString()} 張,達本檔大賣門檻 ${sThr.toLocaleString()} 張(前 20%);歷史大賣日當天平均 ${st.sellSame!=null?(st.sellSame>0?'+':'')+st.sellSame+'%':'—'}——主導法人:${tag}`});
+  }catch(x){}
+  return out;
+}
 async function favAlertSweep(){
   try{
     if(!DATA||!DATA.stocks||!favAlertOn())return;
@@ -20097,6 +20127,12 @@ async function favAlertSweep(){
       const P=favPlanOf(s,o,dts);
       const sigs=favSignals(s,P,+s.price,0);
       sigs.forEach(g=>favAlertFire(s,g));
+      try{                                                   // r779:主力進出(法人日資料,每檔每日一次)——籌碼分片沒載過就載,一輪最多 2 片
+        const csh=chipShardOf(id);
+        let e=CCACHE[csh]&&CCACHE[csh]!=='loading'?CCACHE[csh][id]:null;
+        if(!e&&loads<2&&CCACHE[csh]!=='loading'){loads++;try{e=await loadChips(s);}catch(x3){}}
+        if(e&&o&&dts){leadSignals(s,e,{d:dts,o}).forEach(g=>favAlertFire(s,g));}
+      }catch(x2){}
     }
   }catch(e){}
 }
