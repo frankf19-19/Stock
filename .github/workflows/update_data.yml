@@ -64,6 +64,8 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           LINE_TOKEN: ${{ secrets.LINE_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          SB_SERVICE_KEY: ${{ secrets.SB_SERVICE_KEY }}   # r776:讀最愛名單/持股成本(三級訊號);只放這裡,不進前端
+          SB_UID: ${{ secrets.SB_UID }}
         run: python notify.py || echo "推播失敗,不影響主資料"
 
       - name: 提交結果
