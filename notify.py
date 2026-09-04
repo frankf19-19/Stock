@@ -388,6 +388,18 @@ def collect_events(aip, prices):
                     ev.append((f"sl|{today}|{sid}", 2, f"🛑 <b>觸停損・宜賣出 {nm}</b>({sid})\n現價 {px} ≤ 停損 {cur['stop']};{md(cur['fill'])} 買 {cur['entry']},帳面 {rt}"))
                 elif ew_end and today == ew_end:                                                  # r776:到期提醒
                     ev.append((f"exp|{today}|{sid}", 3, f"⏰ <b>今日到期結算 {nm}</b>({sid})\n評估週最後一個交易日,{md(cur['fill'])} 買 {cur['entry']} 的部位收盤賣出;現價 {px}({rt})"))
+    # ── r785:60 分 K 型態——已突破 / 回測成功(對所有人相同,一天一次)──
+    try:
+        hs = load("hourly_scan.json", {})
+        for x in hs.get("items") or []:
+            if x.get("state") not in ("已突破", "回測成功"): continue
+            ty = "+".join({"flat": "扁扁寬寬", "shadow": "長長尖尖"}[t] for t in x.get("type") or [])
+            ev.append((f"hs|{today}|{x['id']}|{x['state']}", 2,
+                       f"🧹 <b>{x['state']}・{ty} {x['name']}</b>({x['id']})\n整理 {x['bars']} 根小時 K、區間 {x['range_pct']}%({x['lo']}~{x['hi']})"
+                       + (f",下影線 {x['shadow']['depth']}%" if x.get("shadow") else "")
+                       + (f";突破 @{str(x.get('brk_at'))[5:16].replace('T',' ')}" if x.get("brk_at") else "") + f",現價 {x['last']}"))
+    except Exception:
+        pass
     return ev
 
 

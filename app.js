@@ -1,4 +1,4 @@
-/* K研所 · build r784 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r785 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r784</span>');
+  diag.push('<span style="color:var(--dim)">build r785</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20119,6 +20119,40 @@ function aipTick(){   // 15 秒:現價/狀態晶片跟即時價走(不重抓檔�
   }catch(e){}
 }
 lazyRun('#aipickBox',()=>{aipLoad().then(()=>renderAIPick());},10*60*1000);
+/* ═══ r785:🧹 長長尖尖・扁扁寬寬——60 分 K 型態掃描(後端 hourly_scan.py 每 30 分鐘一輪,前端只讀結果)═══ */
+let HSCAN=null;
+async function hscanLoad(){
+  try{const r=await fT('hourly_scan.json?v='+kv(),15000,{cache:'no-store'});if(r&&r.ok)HSCAN=await r.json();}catch(e){}
+  return HSCAN;
+}
+function renderHscan(){
+  const box=document.getElementById('hscanBox'); if(!box)return;
+  const J=HSCAN;
+  if(!J){box.innerHTML='<div class="dim-note">⏳ 讀取 60 分 K 掃描結果中…(盤中每 30 分鐘由後端更新;若一直空白,代表 hourly_scan.json 尚未由 GitHub Actions 產生)</div>';return;}
+  const items=J.items||[];
+  const T={flat:'扁扁寬寬',shadow:'長長尖尖'};
+  const badge=t=>t==='flat'?'<span class="hs-bd hs-flat">扁扁寬寬</span>':'<span class="hs-bd hs-shadow">長長尖尖</span>';
+  const stC={'回測成功':'var(--up)','已突破':'var(--up)','洗盤中':'var(--amber)','突破失敗':'var(--down)','洗盤失敗':'var(--down)'};
+  const card=x=>{
+    const both=x.type.length===2;
+    return `<div class="hs-card${both?' hs-both':''}" data-hs="${x.id}">
+      <div class="hs-h"><b>${x.name}</b> <span class="c-code">${x.id}</span> ${x.type.map(badge).join('')}${both?'<span class="hs-bd hs-bothbd">兩型同時</span>':''}
+        <span class="hs-st" style="color:${stC[x.state]||'var(--mut)'}">${x.state}</span></div>
+      <div class="hs-m">整理 <b>${x.bars}</b> 根小時 K・區間 <b>${x.range_pct}%</b>(${x.lo}~${x.hi})・量比 <b>${x.vol_ratio}x</b>${x.shadow?`・下影線 <b style="color:var(--t-purple)">${x.shadow.depth}%</b> @${(x.shadow.at||'').slice(5,16).replace('T',' ')}(量 ${x.shadow.vol_x}x)`:''}${x.brk_at?`・突破 @${x.brk_at.slice(5,16).replace('T',' ')}`:''}</div>
+      <div class="hs-m dim">現價 ${x.last}・日 K 區間 ${x.d_range}% 距底 ${x.d_near_low}%・20 日均量 ${x.vol20.toLocaleString()} 張・首次出現 ${x.first_seen}</div>
+    </div>`;};
+  const hot=items.filter(x=>x.state==='已突破'||x.state==='回測成功');
+  const wash=items.filter(x=>x.state==='洗盤中');
+  const dead=items.filter(x=>/失敗/.test(x.state));
+  box.innerHTML=`<div class="dim-note" style="margin-bottom:8px">更新 ${J.u}・日 K 預篩 ${J.cand} 檔 → 抓到 60 分 K ${J.scanned} 檔 → 命中 <b>${items.length}</b> 檔。<b>扁扁寬寬</b>=長時間小 K 棒窄幅整理、量縮(時間換籌碼);<b>長長尖尖</b>=整理段裡出現長下影線、快殺快拉、有量(空間震倉)。兩者的關鍵都是<b>突破整理區間要帶量</b>,突破後回測不破是最佳進場點。</div>
+    ${hot.length?`<h3 style="font-size:14px;margin:6px 0">🚀 已突破 / 回測成功(${hot.length})</h3><div class="hs-grid">${hot.map(card).join('')}</div>`:''}
+    ${wash.length?`<h3 style="font-size:14px;margin:12px 0 6px">🧹 洗盤中(${wash.length})<span class="dim" style="font-weight:400;font-size:12px"> ——觀察名單,還沒突破,別在區間內來回操作</span></h3><div class="hs-grid">${wash.map(card).join('')}</div>`:''}
+    ${dead.length?`<details style="margin-top:10px"><summary class="dim" style="cursor:pointer;font-size:12.5px">失敗的(${dead.length})</summary><div class="hs-grid" style="opacity:.7">${dead.map(card).join('')}</div></details>`:''}
+    ${!items.length?'<div class="dim-note">目前沒有符合的個股——市場波動大時整理型態本來就少,這是正常的。</div>':''}
+    <div class="dim-note" style="margin-top:8px">門檻:整理段 rolling 高低幅 ≤ ${(J.params||{}).range_max*100||8}%;扁扁寬寬需 ≥ ${(J.params||{}).flat_bars||25} 根、實體中位 ≤0.5%、全幅中位 ≤1.2%、量縮 ≤0.7x;長長尖尖下影線 ≥ 2×實體且 ≥ ${(J.params||{}).shadow_atr_x||1.2}×小時 ATR、收在上半、碰到段低、量 ≥1.5x;突破需收 >段高×1.005 且量 ≥${(J.params||{}).brk_vol_x||2}×段均量。資料:富果 60 分 K 近 30 日。非投資建議。</div>`;
+  box.querySelectorAll('[data-hs]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.hs;});
+}
+lazyRun('#hscanBox',()=>{hscanLoad().then(()=>renderHscan());},15*60*1000);
 setInterval(aipTick,15000);
 setInterval(()=>{try{if(!document.hidden&&(marketOpen()||openish()))aipLoad(true).then(()=>{try{aipFillSweep();}catch(e){}});}catch(e){}},10*60*1000);   // r746:重抓後對帳
 
