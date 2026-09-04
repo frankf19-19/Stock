@@ -55,9 +55,12 @@ jobs:
               git pull --rebase origin main || true      # 先同步,拿到別班/主更新最新的 spark 續寫
               python update_quotes.py || echo "本輪掃價失敗,5分鐘後再試"
               AIPICK_LIGHT=1 timeout 240 python aipick.py || echo "AI Pick 本輪略過(逾時或失敗),不影響報價"   # r740:輕量班=只結算與換股輪動(選股/重訓留給 update_data 重班);實測 <1 秒,240 秒上限保護 5 分鐘輪迴
+              M=$((10#$(TZ=Asia/Taipei date +%M)))                                                    # r785:每 30 分鐘掃一輪 60 分 K 型態(約 3~6 分鐘,走 Worker 代理不用新 key)
+              if [ $((M % 30)) -lt 5 ]; then timeout 1200 python hourly_scan.py || echo "60分K掃描本輪略過"; fi
               timeout 60 python notify.py || echo "推播本輪略過"                                              # r775:成交/出場/換股/到價 → Telegram(去重、每日上限)
               git add data.json 2>/dev/null || true
               git add notify_state.json 2>/dev/null || true
+              git add hourly_scan.json 2>/dev/null || true
               [ -f spark.json ] && git add spark.json
               git add aipick.json 2>/dev/null || true          # 用 || true 而非 [ -f ] &&:GitHub 的 run 預設 bash -e,AND-list 回傳 1 會直接中斷整步
               if ! git diff --cached --quiet; then
