@@ -1680,3 +1680,7 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .hs-st{margin-left:auto;font-weight:900;font-size:13px}
 .hs-m{font-size:12.5px;color:var(--txt2);margin-top:4px;line-height:1.6}
 .hs-m.dim{color:var(--dim);font-size:11.5px}
+/* r786:成交/出場時間 */
+.aipt-tag small{display:block;font-size:10px;font-weight:600;opacity:.8;letter-spacing:.3px}
+.aipt-time{font-family:var(--mono);color:var(--t-gold);margin-right:2px}
+.aip-trb b small,.aip-trs b small{display:block;font-size:9.5px;font-weight:600;opacity:.75;line-height:1}

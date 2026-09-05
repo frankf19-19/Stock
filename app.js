@@ -1,4 +1,4 @@
-/* K研所 · build r785 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r786 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r785</span>');
+  diag.push('<span style="color:var(--dim)">build r786</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19766,12 +19766,14 @@ function aipRotPlan(w){
 }
 /* ⚡ r749:今日操作——上半是後端已記錄的成交/出場(事實),下半是現價已觸發的待辦(即時);沒有就顯示沒有 */
 /* r768:換股買進要交代「被接替的那一腳」是賺是賠——只寫「接替 XX」等於看不到結果 */
+/* r786:成交/出場有「幾點幾分」(後端用富果 1 分 K 補的 ft/xt),對帳單才像交易員的 */
+function aipDT(d,t){return t?`${aipMD(d)} ${t}`:aipMD(d);}
 function aipPrevTxt(legs,li){
   const pv=legs[li-1];
   if(!pv)return '接替 —';
   if(!pv.xd)return `接替 ${pv.name}(尚未出場)`;
   const r=(pv.ret>0?'+':'')+pv.ret+'%';
-  return `接替 ${pv.name}(${aipMD(pv.xd)} ${AIPXW[pv.xw]||'出場'} @${pv.xp}・實現 ${r})`;
+  return `接替 ${pv.name}(${aipDT(pv.xd,pv.xt)} ${AIPXW[pv.xw]||'出場'} @${pv.xp}・實現 ${r})`;
 }
 /* r768:近期操作——換股橫跨兩天(前一天出場、隔天才買進),只看今天永遠湊不齊一買一賣 */
 function aipRecent(days){
@@ -19783,14 +19785,14 @@ function aipRecent(days){
     (w.picks||[]).forEach(p=>{
       const legs=aipLegs(p);
       legs.forEach((L,li)=>{
-        if(L.fill&&L.fill>=from&&L.fill<today)out.push({d:L.fill,k:'buy',id:L.id,name:L.name,
+        if(L.fill&&L.fill>=from&&L.fill<today)out.push({d:L.fill,t:L.ft||'',k:'buy',id:L.id,name:L.name,
           txt:`${li?`換股買進(第 ${li+1} 段,${aipPrevTxt(legs,li)})`:'買進'} @${L.entry}・目標 ${L.target} / 停損 ${L.stop}`});
-        if(L.xd&&L.xd>=from&&L.xd<today)out.push({d:L.xd,k:L.xw==='sl'?'sl':'tp',id:L.id,name:L.name,
-          txt:`${AIPXW[L.xw]||'賣出'} @${L.xp}・${aipMD(L.fill)} 買 ${L.entry},持有 ${L.hold||'—'} 天,實現 ${L.ret>0?'+':''}${L.ret}%`});
+        if(L.xd&&L.xd>=from&&L.xd<today)out.push({d:L.xd,t:L.xt||'',k:L.xw==='sl'?'sl':'tp',id:L.id,name:L.name,
+          txt:`${AIPXW[L.xw]||'賣出'} @${L.xp}・${aipDT(L.fill,L.ft)} 買 ${L.entry},持有 ${L.hold||'—'} 天,實現 ${L.ret>0?'+':''}${L.ret}%`});
       });
     });
   });
-  out.sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);
+  out.sort((a,b)=>{const ka=a.d+' '+(a.t||'99:99'),kb=b.d+' '+(b.t||'99:99');return ka<kb?1:ka>kb?-1:0;});   // r786:日期+時間降冪
   return out.slice(0,14);
 }
 /* ══ r769:AI Pick 持股一覽 —— 目前還在場內的每一筆 ══
@@ -19859,10 +19861,10 @@ function aipToday(){
     (w.picks||[]).forEach((p,si)=>{
       const legs=aipLegs(p);
       legs.forEach((L,li)=>{
-        if(L.fill===today)done.push({k:'buy',id:L.id,name:L.name,
-          txt:`${li?`換股買進(第 ${li+1} 段,${aipPrevTxt(legs,li)})`:'買進'} @${L.entry}・目標 ${L.target} / 停損 ${L.stop}`});
-        if(L.xd===today)done.push({k:L.xw==='sl'?'sl':'tp',id:L.id,name:L.name,
-          txt:`${AIPXW[L.xw]||'賣出'} @${L.xp}・${aipMD(L.fill)} 買 ${L.entry},持有 ${L.hold||'—'} 天,實現 ${L.ret>0?'+':''}${L.ret}%`});
+        if(L.fill===today)done.push({k:'buy',t:L.ft||'',id:L.id,name:L.name,
+          txt:`${L.ft?`<b class="aipt-time">${L.ft}</b> `:''}${li?`換股買進(第 ${li+1} 段,${aipPrevTxt(legs,li)})`:'買進'} @${L.entry}・目標 ${L.target} / 停損 ${L.stop}`});
+        if(L.xd===today)done.push({k:L.xw==='sl'?'sl':'tp',t:L.xt||'',id:L.id,name:L.name,
+          txt:`${L.xt?`<b class="aipt-time">${L.xt}</b> `:''}${AIPXW[L.xw]||'賣出'} @${L.xp}・${aipDT(L.fill,L.ft)} 買 ${L.entry},持有 ${L.hold||'—'} 天,實現 ${L.ret>0?'+':''}${L.ret}%`});
       });
       const cl=aipCurLeg(p);
       if(cl&&cl.xd)return;
@@ -19892,7 +19894,8 @@ function aipToday(){
     return `<div class="aipt-row aipt-${r.k}" data-aip="${r.id}"><span class="aipt-tag">即時 ${hhmm}</span><b>${r.name}</b> <span class="c-code">${r.id}</span><span class="aipt-txt">${AIPL_LBL[r.k]||''} @${r.px}・${r.txt}・${ok?'<b style="color:var(--t-green)">✓ 已與收盤結算對上</b>':'<span class="dim">待收盤對帳</span>'}</span><span data-aipl="${r.key}" title="刪掉這筆" style="cursor:pointer;opacity:.45;padding:0 6px">✕</span></div>`;
   };
   const rc=aipRecent(9);
-  const rcRow=x=>`<div class="aipt-row aipt-${x.k}" data-aip="${x.id}"><span class="aipt-tag">${aipMD(x.d)}</span><b>${x.name}</b> <span class="c-code">${x.id}</span><span class="aipt-txt">${x.txt}</span></div>`;
+  done.sort((a,b)=>(a.t||'99:99')<(b.t||'99:99')?-1:1);                                       // r786:今日紀錄依時間升冪(先賣後買)
+  const rcRow=x=>`<div class="aipt-row aipt-${x.k}" data-aip="${x.id}"><span class="aipt-tag">${aipMD(x.d)}${x.t?`<small>${x.t}</small>`:''}</span><b>${x.name}</b> <span class="c-code">${x.id}</span><span class="aipt-txt">${x.txt}</span></div>`;
   return (done.length?`<div class="aipt-h">已記錄(${aipMD(today)})</div>`+done.map(x=>row(x,'已成交')).join(''):'')
     +(rc.length?`<div class="aipt-h">近期操作(前 9 個日曆日,不含今日)</div>`+rc.map(rcRow).join(''):'')
     +(lg.length?`<div class="aipt-h">即時觸發紀錄(盤中即時記,不必等收盤)</div>`+lg.map(lrow).join(''):'')
@@ -19905,9 +19908,9 @@ function aipTrade(p,w,si){
   const evEnd=w&&w.eval_week?aipAdd(w.eval_week,4):null;
   let h=legs.map((L,i)=>{
     const tag=i?`<span class="aip-trx">🔄 第 ${i+1} 段 <b>${L.name}</b></span>`:'';
-    const b=`<span class="aip-trb"><i>🟢 買進</i><b>${aipMD(L.fill)}</b><em>${L.entry}</em></span>`;
+    const b=`<span class="aip-trb"><i>🟢 買進</i><b>${aipMD(L.fill)}${L.ft?`<small>${L.ft}</small>`:''}</b><em>${L.entry}</em></span>`;
     if(L.xd)return `<div class="aip-tr">${tag}${b}<span class="aip-tra">→</span>`
-      +`<span class="aip-trs x-${L.xw||'exp'}"><i>${AIPXW[L.xw]||'賣出'}</i><b>${aipMD(L.xd)}</b><em>${L.xp}</em></span>`
+      +`<span class="aip-trs x-${L.xw||'exp'}"><i>${AIPXW[L.xw]||'賣出'}</i><b>${aipMD(L.xd)}${L.xt?`<small>${L.xt}</small>`:''}</b><em>${L.xp}</em></span>`
       +`<span class="aip-trh">持有 ${L.hold||'—'} 天</span>`
       +(L.ai_x?`<span class="aip-trai">${L.ai_x}</span>`:'')
       +`<span class="aip-trr" ${aipRetC(L.ret)}>${L.ret>0?'+':''}${L.ret}%</span></div>`;

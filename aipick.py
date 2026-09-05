@@ -475,6 +475,82 @@ def _run_leg(leg, ew_end, eval_over):
     return False
 
 
+def _has_day_after(day, ew_end):
+    """day 之後、視窗內還有沒有交易日(以台積電日曆為準)。"""
+    d, _ = bars_of("2330")
+    return any(day < x <= ew_end for x in d)
+
+
+# ═══ r786:成交/出場的「幾點幾分」——像交易員的對帳單 ═══
+# 日 K 只能判定「這一天成交」;幾點成交要看 1 分 K。富果 1 分 K 走站上的 Worker 代理(共用 key),
+# 每筆成交/出場只查一次、結果存進 leg(ft/xt),之後不再查。到期出場固定 13:30。
+WORKER = "https://muddy-cake-cb69.frankccc199.workers.dev"
+_MIN_CACHE = {}
+def _minutes(sid, date):
+    """回傳當日 1 分 K [(HH:MM, o, h, l, c), ...] 升冪;抓不到回 []。"""
+    key = (sid, date)
+    if key in _MIN_CACHE: return _MIN_CACHE[key]
+    out = []
+    try:
+        import requests, time as _t
+        if date == iso(TODAY):
+            api = f"https://api.fugle.tw/marketdata/v1.0/stock/intraday/candles/{sid}?timeframe=1"
+        else:
+            api = f"https://api.fugle.tw/marketdata/v1.0/stock/historical/candles/{sid}?timeframe=1&fields=open,high,low,close&sort=asc"
+        r = requests.get(f"{WORKER}/fgl", params={"u": api}, timeout=20)
+        _t.sleep(1.1)
+        if r.ok:
+            for x in (r.json().get("data") or []):
+                ds = str(x.get("date") or "")
+                if not ds.startswith(date): continue
+                hm = ds[11:16]
+                try: out.append((hm, float(x["open"]), float(x["high"]), float(x["low"]), float(x["close"])))
+                except Exception: pass
+            out.sort()
+    except Exception:
+        out = []
+    _MIN_CACHE[key] = out
+    return out
+
+
+def stamp_times(weeks, budget=12):
+    """補上 ft(成交時間)/ xt(出場時間)。每班最多 budget 次查詢,沒補到的下一班再補。"""
+    n = 0
+    for w in weeks:
+        if w.get("bt"): continue
+        for p in w.get("picks") or []:
+            for L in p.get("legs") or []:
+                if L.get("fill") and not L.get("ft"):
+                    if n >= budget: return n
+                    ms = _minutes(L["id"], L["fill"]); n += 1
+                    if ms:
+                        if L.get("src") == "bench":
+                            L["ft"] = ms[0][0]                                   # 換股是隔日開盤市價進場
+                        elif ms[0][1] <= L["entry"] + 1e-9:
+                            L["ft"] = ms[0][0]                                   # 跳空開在買價下 → 開盤成交
+                        else:
+                            hit = next((m for m in ms if m[3] <= L["entry"] + 1e-9), None)
+                            L["ft"] = hit[0] if hit else ms[-1][0]
+                if L.get("xd") and not L.get("xt"):
+                    if L.get("xw") == "exp":
+                        L["xt"] = "13:30"; continue
+                    if n >= budget: return n
+                    ms = _minutes(L["id"], L["xd"]); n += 1
+                    if ms:
+                        lvl = L["target"] if L["xw"] == "tp" else L["stop"]
+                        same_day = (L["xd"] == L["fill"])
+                        pool = ms
+                        if same_day and L.get("ft"):
+                            pool = [m for m in ms if m[0] >= L["ft"]] or ms     # 成交之後才可能出場
+                        if L["xw"] == "tp": hit = next((m for m in pool if m[2] >= lvl - 1e-9), None)
+                        else: hit = next((m for m in pool if m[3] <= lvl + 1e-9), None)
+                        if pool and pool[0][1] and ((L["xw"] == "tp" and pool[0][1] >= lvl) or (L["xw"] == "sl" and pool[0][1] <= lvl)):
+                            L["xt"] = pool[0][0]                                # 跳空開在目標/停損外 → 開盤出場
+                        else:
+                            L["xt"] = hit[0] if hit else pool[-1][0]
+    return n
+
+
 def _open_at(sid, after_day, ew_end):
     """出場日之後的第一個交易日(以該股自己的 K 為準);回傳 (日期, 開盤價) 或 None。"""
     d, o = bars_of(sid)
@@ -546,6 +622,8 @@ def evaluate(week):
         nd = _open_at(nxt["id"], lg["xd"], ew_end)
         if not nd: continue                               # 沒有下一個交易日了(視窗已到尾)
         day, en = nd
+        if not _has_day_after(day, ew_end):               # r786:評估週最後一個交易日不再換股進場——買了當天收盤就得賣,不是交易員會做的事
+            continue
         rr = (nxt["target"] / nxt["buy"]) if nxt["buy"] else 1.0           # 目標/停損依實際進場價等比例重錨,維持原本風報比
         rs = (nxt["stop"] / nxt["buy"]) if nxt["buy"] else 1.0
         leg = _leg("bench", nxt["id"], nxt["name"], nxt.get("sector"), day, en,
@@ -829,6 +907,11 @@ def main():
             except Exception as e: print("aipick:evaluate 失敗", w.get("buy_week"), e)
     weeks.sort(key=lambda w: w["buy_week"])
     weeks = weeks[-KEEP_WEEKS:]
+    try:
+        nt = stamp_times(weeks, budget=6 if LIGHT else 20)
+        if nt: print(f"aipick:補成交/出場時間 {nt} 次查詢")
+    except Exception as e:
+        print(f"aipick:補時間失敗 {e}")
     if not LIGHT:
         # 對照線:每個已結算的週補一次「全台股同視窗中位數」(算過就不再算,結果跟著週凍結)
         nb = 0

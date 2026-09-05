@@ -333,6 +333,8 @@ def load(p, d):
 def md(iso):
     m = re.match(r"\d{4}-(\d{2})-(\d{2})", str(iso or ""))
     return f"{int(m.group(1))}/{int(m.group(2))}" if m else str(iso or "")
+def mdt(iso, t):                                       # r786:日期 + 幾點幾分
+    return f"{md(iso)} {t}" if t else md(iso)
 
 
 def pct(a, b):
@@ -356,18 +358,18 @@ def collect_events(aip, prices):
                     k = f"fill|{bw}|{si}|{li}|{L['id']}"
                     if li == 0:
                         ev.append((k, 1, f"🟢 <b>已買進 {L['name']}</b>({L['id']})\n"
-                                         f"{md(L['fill'])} 以 {L['entry']} 成交・目標 {L['target']}({pct(L['target'], L['entry'])})・停損 {L['stop']}({pct(L['stop'], L['entry'])})"))
+                                         f"{mdt(L['fill'], L.get('ft'))} 以 {L['entry']} 成交・目標 {L['target']}({pct(L['target'], L['entry'])})・停損 {L['stop']}({pct(L['stop'], L['entry'])})"))
                     else:
                         prev = legs[li - 1]
                         ev.append((k, 1, f"🔄 <b>換股買進 {L['name']}</b>({L['id']})第 {li + 1} 段,接替 {prev.get('name')}\n"
-                                         f"{md(L['fill'])} 以 {L['entry']} 成交・目標 {L['target']}・停損 {L['stop']}"))
+                                         f"{mdt(L['fill'], L.get('ft'))} 以 {L['entry']} 成交・目標 {L['target']}・停損 {L['stop']}"))
                 if L.get("xd"):
                     k = f"exit|{bw}|{si}|{li}|{L['id']}"
                     why = {"tp": "🎯 到目標賣出", "sl": "🛑 觸停損賣出", "exp": "⏰ 到期賣出"}.get(L.get("xw"), "賣出")
                     r = L.get("ret")
                     ev.append((k, 1, f"{why} <b>{L['name']}</b>({L['id']})\n"
-                                     f"{md(L['fill'])} 買 {L['entry']} → {md(L['xd'])} 賣 {L['xp']},持有 {L.get('hold') or '—'} 天,實現 <b>{r:+.2f}%</b>" if isinstance(r, (int, float)) else
-                                     f"{why} <b>{L['name']}</b>({L['id']}) {md(L['fill'])} 買 {L['entry']} → {md(L['xd'])} 賣 {L['xp']}"))
+                                     f"{mdt(L['fill'], L.get('ft'))} 買 {L['entry']} → {mdt(L['xd'], L.get('xt'))} 賣 {L['xp']},持有 {L.get('hold') or '—'} 天,實現 <b>{r:+.2f}%</b>" if isinstance(r, (int, float)) else
+                                     f"{why} <b>{L['name']}</b>({L['id']}) {mdt(L['fill'], L.get('ft'))} 買 {L['entry']} → {mdt(L['xd'], L.get('xt'))} 賣 {L['xp']}"))
             # ── 二級:即時報價觸發(該行動)──
             cur = legs[-1] if legs else None
             if cur and cur.get("xd"): continue                 # 這個倉位已收工
