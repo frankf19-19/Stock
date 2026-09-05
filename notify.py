@@ -55,9 +55,32 @@ FAV_TP, FAV_SL = 15.0, 7.0            # 最愛停利/停損預設(與前端一�
 def sb_headers():
     return {"apikey": SB_SERVICE, "Authorization": f"Bearer {SB_SERVICE}", "Content-Type": "application/json"}
 
+PUSH_HOST = "https://young-term-6fa3.frankccc199.workers.dev"
+GH_TOKEN_ACT = os.environ.get("GITHUB_TOKEN", "").strip()       # r788:Actions 內建 token,Worker 用它驗證後端身分
+
+def push_users():
+    """r788:從 Worker KV 拿訂閱與最愛/持股(不經 Supabase service key)。回傳 user_data 相同格式。"""
+    if not GH_TOKEN_ACT: return []
+    try:
+        r = requests.get(f"{PUSH_HOST}/push/all", headers={"Authorization": f"Bearer {GH_TOKEN_ACT}"}, timeout=20)
+        if not r.ok: log(f"  Worker /push/all {r.status_code}"); return []
+        out = []
+        for u in (r.json().get("users") or []):
+            out.append({"uid": u["uid"], "data": {"fav_ids": json.dumps(u.get("fav_ids") or []), "port1": json.dumps(u.get("port1") or []),
+                                               "pushSubs": json.dumps(u.get("subs") or []), "tgChat": (u.get("tg") or [None])[0] if u.get("tg") else None}})
+        return out
+    except Exception as e:
+        log(f"  Worker /push/all 失敗:{e}"); return []
+
+def push_report_dead(endpoints):
+    if not GH_TOKEN_ACT or not endpoints: return
+    try: requests.post(f"{PUSH_HOST}/push/dead", headers={"Authorization": f"Bearer {GH_TOKEN_ACT}", "Content-Type": "application/json"},
+                       json={"endpoints": endpoints}, timeout=20)
+    except Exception: pass
+
 def all_users():
-    """[{uid, data}] 全部帳號列(service key 繞過 RLS)。"""
-    if not SB_SERVICE: return []
+    """[{uid, data}] 全部帳號列(service key 繞過 RLS);沒有 service key 就改從 Worker KV 拿。"""
+    if not SB_SERVICE: return push_users()
     try:
         r = requests.get(f"{SB_URL}/rest/v1/user_data", params={"select": "uid,data"}, headers=sb_headers(), timeout=15)
         return r.json() if r.ok and isinstance(r.json(), list) else []
@@ -478,12 +501,16 @@ def main():
             n_ok, dead = send_push_to(rc["subs"], title, plain)
             ok_push = n_ok > 0
             if dead:                                                    # 清掉失效訂閱,免得每輪都撞牆
-                try:
-                    nd = dict(rc["row"].get("data") or {})
-                    keep = [x for x in rc["subs"] if x.get("endpoint") not in dead]
-                    nd["pushSubs"] = json.dumps(keep, ensure_ascii=False)
-                    sb_patch_data(rc["uid"], nd); log(f"  清掉 {len(dead)} 個失效推播訂閱")
-                except Exception: pass
+                if SB_SERVICE:
+                    try:
+                        nd = dict(rc["row"].get("data") or {})
+                        keep = [x for x in rc["subs"] if x.get("endpoint") not in dead]
+                        nd["pushSubs"] = json.dumps(keep, ensure_ascii=False)
+                        sb_patch_data(rc["uid"], nd)
+                    except Exception: pass
+                else:
+                    push_report_dead(dead)
+                log(f"  清掉 {len(dead)} 個失效推播訂閱")
         ok_line = False
         if rc.get("line") and LINE_TOKEN and LINE_USER:
             if month.get(YM, 0) < LINE_MONTHLY_MAX: ok_line = send_line(text)

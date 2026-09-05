@@ -1,4 +1,4 @@
-/* K研所 · build r787 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r788 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r787</span>');
+  diag.push('<span style="color:var(--dim)">build r788</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19473,6 +19473,7 @@ function sbHookStorage(){                                   // 攔 setItem:同�
       if(SYNC_KEYS.indexOf(k)<0||SB_APPLYING)return;
       const d=sbDirtyGet(); d[k]=Date.now(); sbDirtySet(d);           // r773:先記「本機改了」,不論有沒有登入(登入後合併時用)
       if(SB_USER)sbPush();
+      if(k==='fav_ids'||k==='port1')try{pushSyncProfile();}catch(e2){}   // r788
     };
     window.__sbHooked=true;
   }catch(e){}
@@ -19497,6 +19498,24 @@ function pushSupport(){
   if(ios&&!standalone)return 'ios-tab';
   return 'ok';
 }
+/* r788:訂閱資料存在 Worker KV(你自己的 Cloudflare 帳號),不經 Supabase service key。
+   身分用 Supabase 登入 token 讓 Worker 去驗,前端偽造不了 uid。 */
+const PUSH_HOST='https://young-term-6fa3.frankccc199.workers.dev';
+async function pushApi(path,body){
+  const c=sbInit(); if(!c||!SB_USER)throw new Error('未登入');
+  const {data:{session}}=await c.auth.getSession(); const tok=session&&session.access_token;
+  if(!tok)throw new Error('登入狀態失效,請重新登入');
+  const r=await fetch(PUSH_HOST+path,{method:'POST',headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j.ok)throw new Error(j.err||('HTTP '+r.status));
+  return j;
+}
+function pushProfile(){
+  let fav=[],port=[];
+  try{fav=JSON.parse(localStorage.getItem('fav_ids')||'[]')||[];}catch(e){}
+  try{port=(JSON.parse(localStorage.getItem('port1')||'[]')||[]).map(p=>({id:p.id,sh:p.sh,cost:p.cost}));}catch(e){}
+  return {fav_ids:fav,port1:port};
+}
 async function pushEnable(){
   const perm=await Notification.requestPermission();
   if(perm!=='granted')throw new Error('沒有允許通知');
@@ -19504,16 +19523,20 @@ async function pushEnable(){
   let sub=await reg.pushManager.getSubscription();
   if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(VAPID_PUBLIC)});
   const j=sub.toJSON();
+  await pushApi('/push/reg',{sub:{endpoint:j.endpoint,keys:j.keys},ua:navigator.userAgent.slice(0,80),...pushProfile()});
   const arr=pushSubsGet().filter(x=>x&&x.endpoint!==j.endpoint);
-  arr.push({endpoint:j.endpoint,keys:j.keys,ua:navigator.userAgent.slice(0,80),t:Date.now()});
-  pushSubsSet(arr.slice(-6));                                   // 每個帳號最多 6 台裝置
-  await sbPush(true);
+  arr.push({endpoint:j.endpoint,t:Date.now()});                 // 本機只記「這台開了」,做顯示用
+  pushSubsSet(arr.slice(-6));
 }
 async function pushDisable(){
   try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
-    if(sub){const ep=sub.endpoint;await sub.unsubscribe();pushSubsSet(pushSubsGet().filter(x=>x&&x.endpoint!==ep));}
+    if(sub){const ep=sub.endpoint;try{await pushApi('/push/unreg',{endpoint:ep});}catch(e){}await sub.unsubscribe();pushSubsSet(pushSubsGet().filter(x=>x&&x.endpoint!==ep));}
   }catch(e){}
-  await sbPush(true);
+}
+let __pushSyncT=null;
+function pushSyncProfile(){                                     // 最愛/持股改了 → 告訴 Worker(推播三級訊號要用);防抖 3 秒
+  if(!SB_USER||!pushSubsGet().length)return;
+  clearTimeout(__pushSyncT);__pushSyncT=setTimeout(()=>{pushApi('/push/sync',pushProfile()).catch(()=>{});},3000);
 }
 async function pushThisDeviceOn(){
   try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
