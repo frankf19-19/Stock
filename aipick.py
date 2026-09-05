@@ -513,6 +513,58 @@ def _minutes(sid, date):
     return out
 
 
+# ═══ r787:盤中「當下記」——交易員的對帳單不是收盤後回頭補的 ═══
+# 盤中 5 分鐘迴圈每輪拿 data.json 的即時價:第一次碰到買價/追價區/目標/停損,就把「日期・時間・價格」記進
+# p["iv"](intraday)。收盤後日 K 結算出同一天的成交/出場時,直接沿用這個時間;沒記到的(網站沒跑那輪)
+# 才退回查富果 1 分 K。這樣時間是「當下」的,結算價仍以日 K 為準(凍結不動)。
+def intraday_watch(weeks, prices, hhmm):
+    n = 0
+    today = iso(TODAY)
+    for w in weeks:
+        if w.get("bt") or w.get("status") == "done": continue
+        bw = w["buy_week"]; bw_end = iso(dt.date.fromisoformat(bw) + dt.timedelta(days=4))
+        for p in w.get("picks") or []:
+            iv = p.setdefault("iv", {})
+            legs = p.get("legs") or []
+            cur = legs[-1] if legs else None
+            if cur and cur.get("xd"): continue                          # 已收工
+            sid = cur["id"] if cur else p["id"]
+            px = prices.get(sid)
+            if not px: continue
+            if not cur:                                                 # 等買進:限價/追價第一次碰到
+                if not (bw <= today <= bw_end) or iv.get("fill"): continue
+                if px <= p["buy"]:
+                    iv["fill"] = {"d": today, "t": hhmm, "px": p["buy"], "how": "limit"}; n += 1
+                elif px <= p.get("buy_hi", p["buy"]):
+                    iv["fill"] = {"d": today, "t": hhmm, "px": px, "how": "chase"}; n += 1
+            else:                                                       # 持有中:目標/停損第一次碰到
+                if iv.get("exit") and iv["exit"].get("leg") == len(legs) - 1: continue
+                if px >= cur["target"]:
+                    iv["exit"] = {"d": today, "t": hhmm, "px": cur["target"], "w": "tp", "leg": len(legs) - 1, "id": sid}; n += 1
+                elif px <= cur["stop"]:
+                    iv["exit"] = {"d": today, "t": hhmm, "px": cur["stop"], "w": "sl", "leg": len(legs) - 1, "id": sid}; n += 1
+    return n
+
+
+def apply_intraday_times(weeks):
+    """結算出的 leg 若跟盤中記錄同一天,時間直接沿用(不必查富果)。"""
+    n = 0
+    for w in weeks:
+        if w.get("bt"): continue
+        for p in w.get("picks") or []:
+            iv = p.get("iv") or {}
+            legs = p.get("legs") or []
+            f = iv.get("fill")
+            if f and legs and legs[0].get("fill") == f["d"] and not legs[0].get("ft"):
+                legs[0]["ft"] = f["t"]; n += 1
+            x = iv.get("exit")
+            if x and legs:
+                li = x.get("leg", len(legs) - 1)
+                if li < len(legs) and legs[li].get("xd") == x["d"] and legs[li].get("xw") == x.get("w") and not legs[li].get("xt"):
+                    legs[li]["xt"] = x["t"]; n += 1
+    return n
+
+
 def stamp_times(weeks, budget=12):
     """補上 ft(成交時間)/ xt(出場時間)。每班最多 budget 次查詢,沒補到的下一班再補。"""
     n = 0
@@ -907,9 +959,19 @@ def main():
             except Exception as e: print("aipick:evaluate 失敗", w.get("buy_week"), e)
     weeks.sort(key=lambda w: w["buy_week"])
     weeks = weeks[-KEEP_WEEKS:]
+    # r787:盤中當下記(只在交易時段;時間用報價快照的時間)
     try:
+        if TODAY.weekday() < 5 and 9 * 60 <= hm <= 13 * 60 + 35:
+            prices = {s["id"]: float(s["price"]) for s in data.get("stocks") or [] if s.get("price")}
+            ni = intraday_watch(weeks, prices, data.get("intraday") or NOW.strftime("%H:%M"))
+            if ni: print(f"aipick:盤中記錄 {ni} 筆觸發(買價/目標/停損)")
+    except Exception as e:
+        print(f"aipick:盤中記錄失敗 {e}")
+    try:
+        na = apply_intraday_times(weeks)
+        if na: print(f"aipick:沿用盤中記錄的時間 {na} 筆")
         nt = stamp_times(weeks, budget=6 if LIGHT else 20)
-        if nt: print(f"aipick:補成交/出場時間 {nt} 次查詢")
+        if nt: print(f"aipick:補成交/出場時間 {nt} 次查詢(富果 1 分 K)")
     except Exception as e:
         print(f"aipick:補時間失敗 {e}")
     if not LIGHT:

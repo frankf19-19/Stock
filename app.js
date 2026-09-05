@@ -1,4 +1,4 @@
-/* K研所 · build r786 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r787 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r786</span>');
+  diag.push('<span style="color:var(--dim)">build r787</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19867,6 +19867,12 @@ function aipToday(){
           txt:`${L.xt?`<b class="aipt-time">${L.xt}</b> `:''}${AIPXW[L.xw]||'賣出'} @${L.xp}・${aipDT(L.fill,L.ft)} 買 ${L.entry},持有 ${L.hold||'—'} 天,實現 ${L.ret>0?'+':''}${L.ret}%`});
       });
       const cl=aipCurLeg(p);
+      // r787:後端盤中「當下記」的觸發(每 5 分鐘一輪,對所有人一致)——收盤結算前就先顯示
+      const iv=p.iv||{};
+      if(iv.fill&&iv.fill.d===today&&!legs.length)done.push({k:'buy',t:iv.fill.t,id:p.id,name:p.name,live:1,
+        txt:`<b class="aipt-time">${iv.fill.t}</b> 🟢 ${iv.fill.how==='chase'?'進入追價區':'到買價'} @${iv.fill.px}・目標 ${p.target} / 停損 ${p.stop} <span class="dim">(盤中記錄,收盤日 K 結算確認)</span>`});
+      if(iv.exit&&iv.exit.d===today&&cl&&!cl.xd&&iv.exit.leg===legs.length-1)done.push({k:iv.exit.w==='sl'?'sl':'tp',t:iv.exit.t,id:cl.id,name:cl.name,live:1,
+        txt:`<b class="aipt-time">${iv.exit.t}</b> ${iv.exit.w==='sl'?'🛑 觸停損':'🎯 到目標'} @${iv.exit.px}・${aipDT(cl.fill,cl.ft)} 買 ${cl.entry} <span class="dim">(盤中記錄,收盤日 K 結算確認)</span>`});
       if(cl&&cl.xd)return;
       const st=(DATA.stocks||[]).find(x=>x.id===(cl?cl.id:p.id));
       const px=st&&st.price>0?+st.price:0;if(!px)return;
@@ -19896,7 +19902,7 @@ function aipToday(){
   const rc=aipRecent(9);
   done.sort((a,b)=>(a.t||'99:99')<(b.t||'99:99')?-1:1);                                       // r786:今日紀錄依時間升冪(先賣後買)
   const rcRow=x=>`<div class="aipt-row aipt-${x.k}" data-aip="${x.id}"><span class="aipt-tag">${aipMD(x.d)}${x.t?`<small>${x.t}</small>`:''}</span><b>${x.name}</b> <span class="c-code">${x.id}</span><span class="aipt-txt">${x.txt}</span></div>`;
-  return (done.length?`<div class="aipt-h">已記錄(${aipMD(today)})</div>`+done.map(x=>row(x,'已成交')).join(''):'')
+  return (done.length?`<div class="aipt-h">已記錄(${aipMD(today)})</div>`+done.map(x=>row(x,x.live?'盤中觸發':'已成交')).join(''):'')
     +(rc.length?`<div class="aipt-h">近期操作(前 9 個日曆日,不含今日)</div>`+rc.map(rcRow).join(''):'')
     +(lg.length?`<div class="aipt-h">即時觸發紀錄(盤中即時記,不必等收盤)</div>`+lg.map(lrow).join(''):'')
     +(todo.length?`<div class="aipt-h">現在可以做(即時現價)</div>`+todo.map(x=>row(x,'待辦')).join(''):'')
