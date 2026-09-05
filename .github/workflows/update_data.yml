@@ -58,6 +58,7 @@ jobs:
           SB_SERVICE_KEY: ${{ secrets.SB_SERVICE_KEY }}   # r776:讀最愛名單/持股成本(三級訊號);只放這裡,不進前端
           SB_UID: ${{ secrets.SB_UID }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}   # r784:Web Push 私鑰(公鑰在 app.js)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}       # r788:Actions 內建,Worker 用它驗證後端(不用另設)
           FIRED_CRON: ${{ github.event.schedule }}       # 哪一條 cron 點的火(手動觸發為空)
         run: |
           set +e
