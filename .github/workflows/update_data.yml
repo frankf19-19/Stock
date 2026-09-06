@@ -80,6 +80,7 @@ jobs:
             python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"
             python update_quotes.py || echo "報價快照失敗,不影響主資料"
             timeout 1200 python hourly_scan.py || echo "60分K掃描失敗,不影響主資料"     # r785
+            timeout 300 python fetch_bias.py || echo "大盤週乖離失敗,不影響主資料"        # r789
             python aipick.py || echo "AI Pick 失敗,不影響主資料"
             python notify.py || echo "推播失敗,不影響主資料"
             # ── 提交 ──
@@ -92,6 +93,7 @@ jobs:
             [ -f aipick.json ] && git add aipick.json
             [ -f notify_state.json ] && git add notify_state.json
             [ -f hourly_scan.json ] && git add hourly_scan.json
+            [ -f bias.json ] && git add bias.json
             if git diff --cached --quiet; then echo "沒有變更,略過提交"; return 0; fi
             git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')"
             for i in 1 2 3; do
