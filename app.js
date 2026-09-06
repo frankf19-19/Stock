@@ -1,4 +1,4 @@
-/* K研所 · build r788 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r789 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r788</span>');
+  diag.push('<span style="color:var(--dim)">build r789</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20185,6 +20185,43 @@ function renderHscan(){
   box.querySelectorAll('[data-hs]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.hs;});
 }
 lazyRun('#hscanBox',()=>{hscanLoad().then(()=>renderHscan());},15*60*1000);
+/* ═══ r789:📉 大盤週乖離・入場時機(fetch_bias.py 每日產 bias.json;Yahoo 十年週線)═══ */
+let BIAS=null;
+async function biasLoad(){try{const r=await fT('bias.json?v='+kv(),15000,{cache:'no-store'});if(r&&r.ok)BIAS=await r.json();}catch(e){}return BIAS;}
+function biasSpark(sp,p10,p90){
+  const v=(sp||[]).filter(x=>x!=null); if(v.length<5)return '';
+  const W=220,H=44,pad=3,mx=Math.max(...v,p90||0),mn=Math.min(...v,p10||0);
+  const y=x=>H-pad-(x-mn)/(mx-mn||1)*(H-2*pad), xs=i=>pad+i*(W-2*pad)/(sp.length-1);
+  const pts=sp.map((x,i)=>x==null?null:`${xs(i).toFixed(1)},${y(x).toFixed(1)}`).filter(Boolean).join(' ');
+  const last=v[v.length-1];
+  return `<svg viewBox="0 0 ${W} ${H}" class="bias-sp"><rect x="${pad}" y="${y(p90).toFixed(1)}" width="${W-2*pad}" height="${Math.max(0,y(p10)-y(p90)).toFixed(1)}" fill="var(--line)" opacity=".35"/><line x1="${pad}" x2="${W-pad}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--dim)" stroke-dasharray="2 3"/><polyline points="${pts}" fill="none" stroke="${last<0?'var(--down)':'var(--up)'}" stroke-width="1.8"/></svg>`;
+}
+function renderBias(){
+  const box=document.getElementById('biasBox'); if(!box)return;
+  const J=BIAS; if(!J){box.innerHTML='<div class="dim-note">⏳ 讀取中…(bias.json 由每日重班產生;首次要等 fetch_bias.py 跑過一班)</div>';return;}
+  const zc={'低檔':'var(--up)','偏低':'var(--t-gold)','中性':'var(--mut)','偏高':'var(--amber)','高檔':'var(--down)'};
+  const zi={'低檔':'🟢 低檔區・歷史上的好買點','偏低':'🟡 偏低・分批區','中性':'⚪ 中性','偏高':'🟠 偏高・不追','高檔':'🔴 高檔區・過熱'};
+  const f1=x=>x==null?'—':(x>=0?'+':'')+x.toFixed(1)+'%';
+  const rows=(J.idx||[]).map(x=>{
+    const m=x.ma[String(J.main_ma||20)]||{}, bt=x.low_bt||{}, b8=bt['8'], b13=bt['13'], base8=(x.base||{})['8'];
+    const eps=(x.low_eps||[]).slice(-3).reverse();
+    return `<div class="bias-card" style="border-left-color:${zc[x.zone]||'var(--line)'}">
+      <div class="bias-h"><b>${x.name}</b><span class="c-code">${x.sym}</span><span class="bias-zone" style="color:${zc[x.zone]}">${zi[x.zone]||x.zone}</span></div>
+      <div class="bias-m">現價 <b>${x.last.toLocaleString()}</b>・20 週均 ${m.ma?m.ma.toLocaleString():'—'}・<b>週乖離 <span style="color:${m.bias<0?'var(--down)':'var(--up)'}">${f1(m.bias)}</span></b>・十年分位 <b>${m.pct}</b>
+        <span class="dim">(低檔線 ${f1(m.p10)}・高檔線 ${f1(m.p90)};極值 ${f1(m.min)}~${f1(m.max)})</span>
+        ${x.zone_since&&x.zone_since!==x.as_of?`・${x.zone}自 ${x.zone_since.slice(5).replace('-','/')}`:'・本週進入'}</div>
+      <div class="bias-row">${biasSpark(x.spark,m.p10,m.p90)}<div class="bias-side">
+        <div>10 週 ${f1((x.ma['10']||{}).bias)}(分位 ${(x.ma['10']||{}).pct??'—'})・52 週 ${f1((x.ma['52']||{}).bias)}(分位 ${(x.ma['52']||{}).pct??'—'})</div>
+        ${b8?`<div><b>低檔進場回測</b>(十年共 ${b8.n} 次進入低檔區):8 週後勝率 <b style="color:${b8.win>=60?'var(--up)':'var(--txt2)'}">${b8.win}%</b>・中位 <b>${f1(b8.med)}</b>・最差 ${f1(b8.worst)}${b13?`;13 週後勝率 ${b13.win}%・中位 ${f1(b13.med)}`:''}${base8?` <span class="dim">(任意時點 8 週基準:勝率 ${base8.win}%・中位 ${f1(base8.med)})</span>`:''}</div>`:'<div class="dim">回測樣本不足</div>'}
+        ${eps.length?`<div class="dim">最近進入低檔:${eps.map(e=>`${e.d.slice(2).replace(/-/g,'/')}(${f1(e.bias)}${e.fwd&&e.fwd['8']!=null?` → 8週 ${f1(e.fwd['8'])}`:''})`).join('・')}</div>`:''}
+      </div></div>
+    </div>`;}).join('');
+  const lows=(J.idx||[]).filter(x=>x.zone==='低檔'||x.zone==='偏低');
+  box.innerHTML=`<div class="dim-note" style="margin-bottom:8px">更新 ${J.u}。乖離 =(週收 − 20 週均)÷ 20 週均;<b>低檔/高檔不用固定 %</b>,而是每個指數放進它自己十年的乖離分佈:≤10 分位 = 低檔、≥90 = 高檔。灰帶 = 10~90 分位區間,線在灰帶下緣以下就是歷史上罕見的便宜。${lows.length?`<b style="color:var(--up)">現在在低檔/偏低區:${lows.map(x=>x.name).join('、')}</b>`:'現在沒有指數在低檔區。'}</div>
+    <div class="bias-grid">${rows}</div>
+    <div class="dim-note" style="margin-top:8px">「低檔進場回測」= 過去十年每次從上方跌進低檔區的那一週買進,8/13 週後的結果;跟「任意時點」基準比才知道低檔有沒有優勢。乖離低檔是<b>時機</b>不是保證——系統性事件(2020/03、2022)時可以更低。資料:Yahoo 週線。非投資建議。</div>`;
+}
+lazyRun('#biasBox',()=>{biasLoad().then(()=>renderBias());},30*60*1000);
 setInterval(aipTick,15000);
 setInterval(()=>{try{if(!document.hidden&&(marketOpen()||openish()))aipLoad(true).then(()=>{try{aipFillSweep();}catch(e){}});}catch(e){}},10*60*1000);   // r746:重抓後對帳
 

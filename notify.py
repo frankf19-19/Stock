@@ -413,6 +413,18 @@ def collect_events(aip, prices):
                     ev.append((f"sl|{today}|{sid}", 2, f"🛑 <b>觸停損・宜賣出 {nm}</b>({sid})\n現價 {px} ≤ 停損 {cur['stop']};{md(cur['fill'])} 買 {cur['entry']},帳面 {rt}"))
                 elif ew_end and today == ew_end:                                                  # r776:到期提醒
                     ev.append((f"exp|{today}|{sid}", 3, f"⏰ <b>今日到期結算 {nm}</b>({sid})\n評估週最後一個交易日,{md(cur['fill'])} 買 {cur['entry']} 的部位收盤賣出;現價 {px}({rt})"))
+    # ── r789:大盤週乖離進入低檔/高檔(對所有人相同;zone_since == as_of 代表本週剛進入)──
+    try:
+        bj = load("bias.json", {})
+        for x in bj.get("idx") or []:
+            z = x.get("zone"); m = (x.get("ma") or {}).get(str(bj.get("main_ma") or 20)) or {}
+            if z not in ("低檔", "高檔") or x.get("zone_since") != x.get("as_of"): continue
+            bt = ((x.get("low_bt") or {}).get("8") or {})
+            ev.append((f"bias|{x.get('as_of')}|{x['sym']}|{z}", 2,
+                       f"{'🟢' if z=='低檔' else '🔴'} <b>{x['name']} 週乖離進入{z}區</b>\n20 週乖離 {m.get('bias'):+.1f}%(十年分位 {m.get('pct')});"
+                       + (f"歷史上進入低檔後 8 週勝率 {bt.get('win')}%、中位 {bt.get('med'):+.1f}%" if z=='低檔' and bt else "過熱區,不追")))
+    except Exception:
+        pass
     # ── r785:60 分 K 型態——已突破 / 回測成功(對所有人相同,一天一次)──
     try:
         hs = load("hourly_scan.json", {})
