@@ -1,4 +1,4 @@
-/* K研所 · build r790 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r791 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r790</span>');
+  diag.push('<span style="color:var(--dim)">build r791</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3993,8 +3993,8 @@ function rptFullHTML(J,F,fromCache){
     <div class="dim-note" style="margin-top:8px">${fromCache?'今日快取・':''}Gemini + 即時搜尋,依站內 ${Object.keys(F).length} 組量化指標推論。目標價與進場價是 AI 依「TTM EPS × 本益比分佈」與技術/週期位置的<b>估算</b>,不是投顧目標價;請自行查證財報與新聞。非投資建議。</div>
   </div>`;
 }
-async function rptFullRun(s){
-  const box=document.getElementById('rptBox');if(!box)return;
+async function rptFullRun(s,boxId){
+  const box=document.getElementById(boxId||'rptBox');if(!box)return;
   box.innerHTML='<div class="dim-note">⏳ 彙整站內指標中…</div>';
   try{
     const d=await rptData(s);
@@ -4015,10 +4015,10 @@ async function rptFullRun(s){
     }
     const blk=document.getElementById('rptFullBlk');
     if(blk){blk.innerHTML='<h3>🧠 AI 完整分析 <span class="ds">'+(fromCache?'今日快取(不耗額度)・':'')+'趨勢・籌碼・產業・股性・週期・估值</span>'+(fromCache?' <a href="javascript:void 0" id="rptFullRegen" style="font-size:12px;color:var(--amber);font-weight:800">🔄 重新生成</a>':'')+'</h3>'+rptFullHTML(J,F,fromCache);
-      const rg=document.getElementById('rptFullRegen');if(rg)rg.onclick=()=>{window.__rptForce=true;rptFullRun(s);};}
+      const rg=document.getElementById('rptFullRegen');if(rg)rg.onclick=()=>{window.__rptForce=true;rptFullRun(s,boxId);};}
   }catch(err){
     box.innerHTML='<div class="dim-note">⚠ 完整分析失敗:'+String(err&&err.message||err).slice(0,140)+' <a href="javascript:void 0" id="rptFullRetry" style="color:var(--amber);font-weight:800">重試</a></div>';
-    const rb=document.getElementById('rptFullRetry');if(rb)rb.onclick=()=>rptFullRun(s);
+    const rb=document.getElementById('rptFullRetry');if(rb)rb.onclick=()=>rptFullRun(s,boxId);
   }
 }
 async function rptRun(s,mode){
@@ -12513,6 +12513,12 @@ async function showDetail(id){
       ${s.etf?`<div class="score-ring" style="--sc:${Math.min(100,Math.max(0,50+((s.perf||{}).q||0)*2))}"><div class="score-in"><b style="font-size:13.5px;white-space:nowrap;letter-spacing:0">${(s.perf&&s.perf.q!=null)?((s.perf.q>=0?"+":"")+(Math.abs(s.perf.q)>=10?s.perf.q.toFixed(0):s.perf.q.toFixed(1))+"%"):"—"}</b><span>近3月</span></div></div>`:`<div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>`}
     </div>
     ${kpiStrip(s)}
+    ${s.etf?'':`<button class="aifull-btn" id="rptFullTop" type="button">
+      <span class="aifull-ic"><svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true"><defs><linearGradient id="aifg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#f0c060"/></linearGradient></defs><path d="M24 4l3.2 8.6L36 16l-8.8 3.4L24 28l-3.2-8.6L12 16l8.8-3.4z" fill="url(#aifg)"/><path d="M36 26l1.8 4.6L42 32l-4.2 1.4L36 38l-1.8-4.6L30 32l4.2-1.4z" fill="url(#aifg)" opacity=".9"/><path d="M11 30l1.4 3.6L16 35l-3.6 1.4L11 40l-1.4-3.6L6 35l3.6-1.4z" fill="url(#aifg)" opacity=".8"/></svg></span>
+      <span class="aifull-t"><b>AI 一鍵完整分析</b><small>趨勢・籌碼・產業・股性・週期・目標價・長期進場價</small></span>
+      <span class="aifull-go">分析 ›</span>
+    </button>
+    <div id="rptFullTopBox"></div>`}
     <div class="alert-strip" id="stkAlerts" style="display:none"></div>
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
       <span class="ticker-label">📰 ${s.name} 新聞</span>
@@ -12712,6 +12718,7 @@ async function showDetail(id){
   try{usEarnBlock(s);}catch(e){}
   try{usFundBlock(s);}catch(e){}   // r530:美股財報速覽(SEC XBRL)
   try{const fb=document.getElementById('rptFull');if(fb)fb.onclick=()=>rptFullRun(s);}catch(e12){}   // r790:一鍵完整分析
+  try{const ft=document.getElementById('rptFullTop');if(ft)ft.onclick=()=>{ft.classList.add('busy');rptFullRun(s,'rptFullTopBox').finally(()=>ft.classList.remove('busy'));};}catch(e13){}   // r791:頭部大按鈕
   try{const q=document.getElementById('rptQuick'),a=document.getElementById('rptAI');   // r562:研究報告
     if(q)q.onclick=()=>rptRun(s,'quick');
     if(a)a.onclick=()=>rptRun(s,'ai');

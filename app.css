@@ -1719,3 +1719,21 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .rf-layers{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
 .rf-layers span{border:1px dashed var(--line);border-radius:8px;padding:3px 10px;font-size:12.5px}
 .rf-layers b{font-family:var(--mono);color:var(--up)}
+/* r791:AI 一鍵完整分析・頭部大按鈕 */
+.aifull-btn{display:flex;align-items:center;gap:14px;width:100%;margin:12px 0 4px;padding:14px 18px;border-radius:16px;cursor:pointer;text-align:left;
+  border:1.5px solid color-mix(in srgb,var(--t-purple) 55%,var(--line));
+  background:linear-gradient(135deg,color-mix(in srgb,var(--t-purple) 16%,var(--panel)),color-mix(in srgb,var(--t-gold) 10%,var(--panel)));
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--t-purple) 25%,transparent),0 8px 24px -12px color-mix(in srgb,var(--t-purple) 60%,transparent);
+  transition:transform .12s,box-shadow .12s,border-color .12s}
+.aifull-btn:hover{transform:translateY(-1px);border-color:var(--t-purple);box-shadow:0 0 0 1px var(--t-purple),0 12px 28px -12px color-mix(in srgb,var(--t-purple) 80%,transparent)}
+.aifull-btn:active{transform:translateY(0)}
+.aifull-btn.busy{opacity:.7;pointer-events:none}
+.aifull-btn.busy .aifull-ic svg{animation:aifull-spin 1.6s linear infinite}
+@keyframes aifull-spin{to{transform:rotate(360deg)}}
+.aifull-ic{flex:0 0 auto;width:46px;height:46px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--t-purple) 14%,var(--panel2));border:1px solid color-mix(in srgb,var(--t-purple) 40%,transparent)}
+.aifull-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.aifull-t b{font-size:18px;font-weight:900;letter-spacing:.5px;background:linear-gradient(90deg,var(--t-purple),var(--t-gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.aifull-t small{font-size:12.5px;color:var(--txt2);letter-spacing:.2px}
+.aifull-go{flex:0 0 auto;font-weight:900;font-size:14px;color:var(--t-purple);border:1.5px solid var(--t-purple);border-radius:999px;padding:6px 14px;white-space:nowrap}
+@media(max-width:640px){.aifull-btn{padding:12px 14px;gap:10px}.aifull-t b{font-size:16px}.aifull-t small{font-size:11.5px;white-space:normal}.aifull-go{padding:5px 10px;font-size:13px}}
+#rptFullTopBox:not(:empty){margin:8px 0 12px}
