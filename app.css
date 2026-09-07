@@ -1695,3 +1695,27 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .bias-row{display:flex;gap:12px;align-items:flex-start;margin-top:6px;flex-wrap:wrap}
 .bias-sp{width:220px;height:44px;flex:0 0 auto}
 .bias-side{font-size:12.5px;color:var(--txt2);line-height:1.7;flex:1;min-width:200px}
+/* r790:AI 完整分析 */
+.rf{font-size:13.5px;line-height:1.75}
+.rf-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 10px}
+.rf-verdict{font-size:17px;font-weight:900;flex:1;min-width:240px}
+.rf-score{font-size:13px;color:var(--txt2);border:1px solid var(--line);border-radius:999px;padding:3px 12px}
+.rf-score b{font-size:18px;color:var(--t-gold)}
+.rf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin:8px 0}
+.rf-grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:8px 0}
+.rf-card{border:1px solid var(--line);border-left-width:5px;border-radius:0 12px 12px 0;padding:10px 12px;background:var(--panel);margin:8px 0}
+.rf-grid .rf-card,.rf-grid3 .rf-card{margin:0}
+.rf-card h4{margin:0 0 6px;font-size:14px;font-weight:900}
+.rf-card h4 small{font-weight:600;font-size:11.5px;color:var(--dim);margin-left:6px}
+.rf-card ul{margin:4px 0 0 18px;padding:0}
+.rf-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+@media(max-width:640px){.rf-2col{grid-template-columns:1fr}}
+.rf-val{border-left-color:var(--t-gold)}
+.rf-tp{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;margin:4px 0 6px;font-size:14px}
+.rf-tp b{font-size:20px;font-family:var(--mono)}
+.rf-mid b{color:var(--t-gold);font-size:24px}
+.rf-mid small{margin-left:4px;font-size:12px;font-weight:800}
+.rf-entry{border-left-color:var(--up)}
+.rf-layers{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.rf-layers span{border:1px dashed var(--line);border-radius:8px;padding:3px 10px;font-size:12.5px}
+.rf-layers b{font-family:var(--mono);color:var(--up)}
