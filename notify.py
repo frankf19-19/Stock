@@ -34,6 +34,15 @@ TODAY = NOW.date().isoformat()
 YM = NOW.strftime("%Y-%m")
 STATE = "notify_state.json"
 NOTIFY_DAILY_MAX = 10
+LEAD_DAILY_MAX = 3          # r795:主力進出每人每日最多 3 則(最吵的一類)
+# r795:事件鍵前綴 → 類別(使用者可在帳號面板勾選要收哪些)
+CAT_OF = {"fill": "aip", "rot": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
+          "fz": "fav", "fh": "fav", "fl": "fav", "fb": "fav", "ftp": "port", "fsl": "port",
+          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "hs": "h60", "bias": "bias"}
+CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離"}
+def cat_of(key):
+    p = str(key).split("|")[0]
+    return CAT_OF.get(p) or ("lead" if p.startswith("lead") else "fav" if p.startswith("f") else "aip")
 LINE_MONTHLY_MAX = 180                 # 留 20 則緩衝
 TG_TOKEN = os.environ.get("TG_TOKEN", "").strip()
 TG_CHAT = os.environ.get("TG_CHAT_ID", "").strip()
@@ -67,7 +76,8 @@ def push_users():
         out = []
         for u in (r.json().get("users") or []):
             out.append({"uid": u["uid"], "data": {"fav_ids": json.dumps(u.get("fav_ids") or []), "port1": json.dumps(u.get("port1") or []),
-                                               "pushSubs": json.dumps(u.get("subs") or []), "tgChat": (u.get("tg") or [None])[0] if u.get("tg") else None}})
+                                               "pushSubs": json.dumps(u.get("subs") or []), "cats": json.dumps(u.get("cats")) if u.get("cats") is not None else None,
+                                               "tgChat": (u.get("tg") or [None])[0] if u.get("tg") else None}})
         return out
     except Exception as e:
         log(f"  Worker /push/all 失敗:{e}"); return []
@@ -98,7 +108,7 @@ def sb_patch_data(uid, data):
 def parse_ud(row):
     d = (row or {}).get("data") or {}
     out = {}
-    for k in ("fav_ids", "port1", "tgLink", "pushSubs"):
+    for k in ("fav_ids", "port1", "tgLink", "pushSubs", "cats"):
         try: out[k] = json.loads(d.get(k)) if isinstance(d.get(k), str) else d.get(k)
         except Exception: out[k] = None
     out["tgChat"] = d.get("tgChat")
@@ -146,6 +156,25 @@ def tg_bind_sweep(st, users):
             send_tg_to(chat, "✅ 已綁定 K研所。AI Pick 成交/出場/換股/到價、你的最愛與持股訊號、主力進出,之後都會推到這裡。")
             log(f"  Telegram 綁定完成:{u['uid'][:8]}… ↔ chat …{str(chat)[-4:]}")
     return users
+
+SIG_LOG = "signal_log.json"
+def log_signals(ev, prices):
+    """r795:每個事件第一次出現就記一筆:{k, cat, id, d, t, px, lv};重班 score_signals.py 補 f5/f20。"""
+    try: L = json.load(open(SIG_LOG, encoding="utf-8"))
+    except Exception: L = {"items": []}
+    have = set(x["k"] for x in L.get("items") or [])
+    n = 0
+    for k, lv, txt in ev:
+        if k in have: continue
+        parts = str(k).split("|")
+        sid = next((p for p in parts[1:] if re.match(r"^\d{4,6}[A-Z]?$", p)), None)
+        px = prices.get(sid) if sid else None
+        L["items"].append({"k": k, "cat": cat_of(k), "id": sid, "d": TODAY, "t": NOW.strftime("%H:%M"), "px": px, "lv": lv})
+        have.add(k); n += 1
+    L["items"] = L["items"][-6000:]
+    json.dump(L, open(SIG_LOG, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    if n: log(f"  訊號記錄:+{n} 筆(累積 {len(L['items'])})")
+
 
 def send_push_to(subs, title, body, url=SITE + "#aipick"):
     """r784:Web Push。subs = [{endpoint, keys:{p256dh,auth}}, ...];回傳 (成功數, 失效的 endpoint 清單)。"""
@@ -493,16 +522,41 @@ def main():
         recips = [{"chat": TG_CHAT or None, "ud": user_data(), "key": "secret", "line": True}]
         if not (SB_SERVICE and SB_UID): log("  未設 SB_SERVICE_KEY/SB_UID,最愛訊號不推(一、二級照推)")
     base_ev = collect_events(aip, prices)                    # 一、二級對所有人相同,算一次
+    # r795:訊號成績單——所有事件(不分收件人)記進 signal_log.json,重班回頭補 5/20 日報酬
+    try:
+        all_ev = list(base_ev)
+        seen_k = set(k for k, _, _ in all_ev)
+        for rc in recips:
+            for e in collect_fav_events(data, aip, prices, rc["ud"] or {}):
+                if e[0] not in seen_k: all_ev.append(e); seen_k.add(e[0])
+        log_signals(all_ev, prices)
+    except Exception as e:
+        log(f"  訊號記錄失敗:{e}")
     pushed = 0
     for rc in recips:
         ev = base_ev + collect_fav_events(data, aip, prices, rc["ud"] or {})
         sent_u = sent.get(rc["key"])
         if not isinstance(sent_u, dict): sent_u = sent[rc["key"]] = {}
+        cats = (rc.get("ud") or {}).get("cats")                 # r795:使用者類別過濾(沒設 = 全收)
+        if isinstance(cats, list) and cats:
+            ev = [e for e in ev if cat_of(e[0]) in cats]
+        lk = f"{TODAY}|{rc['key']}|lead"
         new = [(k, lv, t) for k, lv, t in ev if k not in sent_u]
         if not new: continue
+        n_lead = daily.get(lk, 0); kept = []
+        for e in new:                                            # r795:主力進出每日上限
+            if cat_of(e[0]) == "lead":
+                if n_lead >= LEAD_DAILY_MAX: continue
+                n_lead += 1
+            kept.append(e)
+        new = kept
+        if not new: continue
         dk = f"{TODAY}|{rc['key']}"
-        if daily.get(dk, 0) >= NOTIFY_DAILY_MAX: log(f"  {rc['key']} 今日已達上限"); continue
+        if daily.get(dk, 0) >= NOTIFY_DAILY_MAX:                 # r795:一級(事實)永遠推;二三級才受每日上限
+            new = [e for e in new if e[1] == 1]
+            if not new: log(f"  {rc['key']} 今日已達上限(一級仍會推)"); continue
         new.sort(key=lambda x: x[1])
+        daily[lk] = n_lead
         head = f"🤖 <b>K研所 AI Pick</b> {NOW.strftime('%m/%d %H:%M')}"
         text = f"{head}\n\n" + "\n\n".join(t for _, _, t in new) + f"\n\n{SITE}#aipick"
         ok_tg = send_tg_to(rc["chat"], text) if rc["chat"] else False

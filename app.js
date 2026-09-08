@@ -1,4 +1,4 @@
-/* K研所 · build r794 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r795 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r794</span>');
+  diag.push('<span style="color:var(--dim)">build r795</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3993,6 +3993,39 @@ function rptFullHTML(J,F,fromCache){
     ${(J.news||[]).length?`<div class="rf-card"><h4>📰 近期關鍵新聞(AI 搜尋)</h4><ul>${li(J.news)}</ul></div>`:''}
     <div class="dim-note" style="margin-top:8px">${fromCache?'今日快取・':''}${J._note||''}Gemini + 即時搜尋,依站內 ${Object.keys(F).length} 組量化指標推論。目標價與進場價是 AI 依「TTM EPS × 本益比分佈」與技術/週期位置的<b>估算</b>,不是投顧目標價;請自行查證財報與新聞。非投資建議。</div>
   </div>`;
+}
+/* ═══ r795:個股頁「今日重點」——不用 AI,把站上算好的東西濃縮成 5 行;沒資料的行就不出現 ═══ */
+async function stkBriefRun(s){
+  const box=document.getElementById('stkBrief');if(!box||s.etf)return;
+  try{
+    const d=await rptData(s);
+    for(let i=0;i<8&&!window.__sblR;i++)await new Promise(r=>setTimeout(r,800));          // 借券統計是非同步的,等一下
+    const F=rptFullFacts(s,d);
+    const L=[];const f1=x=>x==null?'—':(x>=0?'+':'')+x+'%';
+    const rg=F.regime_rule;const rc=rg==='多頭排列'?'var(--up)':rg==='空頭排列'?'var(--down)':'var(--amber)';
+    if(F.ma&&F.ma.ma20)L.push(`<b style="color:${rc}">${rg}</b>・20 日 ${f1(F.ret&&F.ret.d20)}・60 日 ${f1(F.ret&&F.ret.d60)}${F.range52?`・52 週位置 ${F.range52.pos}%`:''}`);
+    const ins=F.inst||{};const tdc=F.tdcc;const chip=[];
+    if(ins.f20!=null)chip.push(`外資 20 日 ${(ins.f20>=0?'+':'')+ins.f20.toLocaleString()} 張`);if(ins.t20!=null)chip.push(`投信 ${(ins.t20>=0?'+':'')+ins.t20.toLocaleString()}`);
+    if(tdc&&tdc.big_4w!=null)chip.push(`千張大戶 4 週 ${(tdc.big_4w>=0?'+':'')+tdc.big_4w}pp`);
+    if(F.leader)chip.push(`主導法人 ${F.leader.who}`);
+    if(chip.length)L.push(`籌碼:${chip.join('・')}`);
+    if(F.sbl){const v=F.sbl.verdict;L.push(`借券:${F.sbl.balance_lots.toLocaleString()} 張(一年 ${F.sbl.pct_1y} 分位)・${v==='pressure'?'<b style="color:var(--down)">壓力型</b>':v==='squeeze'?'<b style="color:var(--up)">軋空型</b>':'關係不明顯'}`);}
+    if(F.cycle&&F.cycle.now)L.push(`週期:${F.cycle.now}(典型上漲 ${F.cycle.up_days||'—'} 天 ${f1(F.cycle.up_pct)} / 下跌 ${F.cycle.dn_days||'—'} 天 ${f1(F.cycle.dn_pct)})・慣性 ${F.inertia?F.inertia.kind:'—'}`);
+    if(F.pe)L.push(`估值:本益比 ${F.pe.now}(近一年 ${F.pe.p10}~${F.pe.p90})${F.eps_ttm?`・TTM EPS ${F.eps_ttm}`:''}`);
+    if(F.h60)L.push(`60 分 K:${F.h60.state}(${F.h60.type.map(t=>t==='flat'?'扁扁寬寬':'長長尖尖').join('+')},整理 ${F.h60.bars} 根)`);
+    if(F.mkt)L.push(`大盤:${F.mkt.name} 週乖離 ${f1(F.mkt.bias20)}・${F.mkt.zone}`);
+    box.innerHTML=L.length?`<div class="stk-brief-h">⚡ 今日重點 <small class="dim">規則化摘要・按「AI 一鍵完整分析」看推論</small></div><ul>${L.map(x=>`<li>${x}</li>`).join('')}</ul>`:'';
+  }catch(e){box.innerHTML='';}
+}
+function stkFoldSetup(){
+  const root=document.getElementById('detail')||document;
+  const blocks=[...root.querySelectorAll('.dim-block')].filter(b=>b.querySelector('h3'));
+  const apply=(collapsed)=>{blocks.forEach(b=>{b.classList.toggle('dim-fold',collapsed);});try{localStorage.setItem('stkFold',collapsed?'1':'0');}catch(e){}};
+  blocks.forEach(b=>{const h=b.querySelector('h3');if(!h||h.dataset.fold)return;h.dataset.fold='1';h.style.cursor='pointer';h.title='點標題收合/展開';
+    h.addEventListener('click',ev=>{if(ev.target.closest('a,button,input,select'))return;b.classList.toggle('dim-fold');});});
+  const a=document.getElementById('stkFoldAll'),o=document.getElementById('stkOpenAll');
+  if(a)a.onclick=()=>apply(true);if(o)o.onclick=()=>apply(false);
+  try{if(localStorage.getItem('stkFold')==='1')apply(true);}catch(e){}
 }
 async function rptFullRun(s,boxId){
   const box=document.getElementById(boxId||'rptBox');if(!box)return;
@@ -12588,7 +12621,9 @@ async function showDetail(id){
       <span class="aifull-t"><b>AI 一鍵完整分析</b><small>趨勢・籌碼・產業・股性・週期・目標價・長期進場價</small></span>
       <span class="aifull-go">分析 ›</span>
     </button>
-    <div id="rptFullTopBox"></div>`}
+    <div id="rptFullTopBox"></div>
+    <div id="stkBrief" class="stk-brief"></div>
+    <div class="stk-fold"><button class="btn" id="stkFoldAll">⤒ 全部收合</button><button class="btn" id="stkOpenAll">⤓ 全部展開</button><span class="dim" style="font-size:12px">點各區塊標題也可收合</span></div>`}
     <div class="alert-strip" id="stkAlerts" style="display:none"></div>
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
       <span class="ticker-label">📰 ${s.name} 新聞</span>
@@ -12794,6 +12829,8 @@ async function showDetail(id){
     const kk=await loadK(s);const R=sblCalc(sb,kk&&(kk.ohlc||kk.o),kk&&(kk.dates||kk.d));
     box=document.getElementById('sblBox');if(R&&box){box.innerHTML=sblHTML(R,s.name);window.__sblR=R;}}catch(e14){}})();}   // r793:借券 vs 股價
   try{const ft=document.getElementById('rptFullTop');if(ft)ft.onclick=()=>{ft.classList.add('busy');rptFullRun(s,'rptFullTopBox').finally(()=>ft.classList.remove('busy'));};}catch(e13){}   // r791:頭部大按鈕
+  try{stkBriefRun(s);}catch(e15){}                                                                 // r795:今日重點(規則化)
+  try{stkFoldSetup();}catch(e16){}                                                                 // r795:區塊收合
   try{const q=document.getElementById('rptQuick'),a=document.getElementById('rptAI');   // r562:研究報告
     if(q)q.onclick=()=>rptRun(s,'quick');
     if(a)a.onclick=()=>rptRun(s,'ai');
@@ -19722,11 +19759,13 @@ async function pushApi(path,body){
   if(!r.ok||!j.ok)throw new Error(j.err||('HTTP '+r.status));
   return j;
 }
+const PUSH_CATS=[['aip','AI Pick 成交/出場/到價'],['fav','最愛訊號(均線帶/突破/跌破)'],['port','持股停利停損'],['lead','主力進出(每日最多 3 則)'],['h60','60 分 K 突破'],['bias','大盤週乖離低檔/高檔']];
+function pushCatsGet(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');return Array.isArray(a)?a:PUSH_CATS.map(x=>x[0]);}catch(e){return PUSH_CATS.map(x=>x[0]);}}
 function pushProfile(){
   let fav=[],port=[];
   try{fav=JSON.parse(localStorage.getItem('fav_ids')||'[]')||[];}catch(e){}
   try{port=(JSON.parse(localStorage.getItem('port1')||'[]')||[]).map(p=>({id:p.id,sh:p.sh,cost:p.cost}));}catch(e){}
-  return {fav_ids:fav,port1:port};
+  return {fav_ids:fav,port1:port,cats:pushCatsGet()};                                 // r795:通知類別一起送
 }
 async function pushEnable(){
   const perm=await Notification.requestPermission();
@@ -19764,7 +19803,9 @@ async function sbPushPaint(){
   if(on){
     box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-ok">✓ 此裝置已開啟</span>${n>1?`<span class="sb-tg-no">共 ${n} 台裝置</span>`:''}</div>
       <div class="sb-note">AI Pick 成交/出場/換股/到價、最愛與持股訊號、主力進出——關掉網頁也會跳通知。</div>
+      <div class="sb-cats">${PUSH_CATS.map(([k,n])=>`<label><input type="checkbox" data-cat="${k}" ${pushCatsGet().includes(k)?'checked':''}> ${n}</label>`).join('')}</div>
       <button class="sb-alt" id="sbPushOff">關閉此裝置推播</button>`;
+    box.querySelectorAll('input[data-cat]').forEach(cb=>cb.onchange=()=>{const sel=[...box.querySelectorAll('input[data-cat]:checked')].map(x=>x.dataset.cat);try{localStorage.setItem('pushCats',JSON.stringify(sel));}catch(e){}pushApi('/push/sync',pushProfile()).then(()=>sbToast('通知類別已更新',0)).catch(()=>{});});
     document.getElementById('sbPushOff').onclick=async()=>{await pushDisable();sbPushPaint();};
   }else{
     box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-no">${n?`其他 ${n} 台裝置已開啟`:'未開啟'}</span></div>
@@ -20434,6 +20475,47 @@ function renderBias(){
     <div class="dim-note" style="margin-top:8px">「低檔進場回測」= 過去十年每次從上方跌進低檔區的那一週買進,8/13 週後的結果;跟「任意時點」基準比才知道低檔有沒有優勢。乖離低檔是<b>時機</b>不是保證——系統性事件(2020/03、2022)時可以更低。資料:Yahoo 週線。非投資建議。</div>`;
 }
 lazyRun('#biasBox',()=>{biasLoad().then(()=>renderBias());},30*60*1000);
+/* ═══ r795:🧭 期貨籌碼(fetch_taifex.py 每日產 taifex.json)═══ */
+let TAIFEX=null   // r795:另一個 renderFut(macro 期貨列)已存在,這裡用 futx 避免撞名;
+async function futxLoad(){try{const r=await fT('taifex.json?v='+kv(),15000,{cache:'no-store'});if(r&&r.ok)TAIFEX=await r.json();}catch(e){}return TAIFEX;}
+function futSpark(arr,W,H){const v=(arr||[]).filter(x=>x!=null);if(v.length<5)return '';const mx=Math.max(...v),mn=Math.min(...v);const y=x=>H-3-(x-mn)/(mx-mn||1)*(H-6),xs=i=>3+i*(W-6)/(arr.length-1);
+  const pts=arr.map((x,i)=>x==null?null:`${xs(i).toFixed(1)},${y(x).toFixed(1)}`).filter(Boolean).join(' ');const z=mn<0&&mx>0?`<line x1="3" x2="${W-3}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--dim)" stroke-dasharray="2 3"/>`:'';
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px;height:${H}px">${z}<polyline points="${pts}" fill="none" stroke="${v[v.length-1]>=v[0]?'var(--up)':'var(--down)'}" stroke-width="1.8"/></svg>`;}
+function renderFutx(){
+  const box=document.getElementById('futBox');if(!box)return;const J=TAIFEX;
+  if(!J||!J.stat){box.innerHTML='<div class="dim-note">⏳ 讀取期交所籌碼中…(每日重班更新;首次要等 fetch_taifex.py 跑過一班)</div>';return;}
+  const S=J.stat,sp=J.spark||{};const f=x=>x==null?'—':x.toLocaleString();const sg=x=>x==null?'—':(x>0?'+':'')+x.toLocaleString();
+  const pc=p=>p==null?'':`<span class="fut-pct" style="color:${p>=90?'var(--down)':p<=10?'var(--up)':'var(--txt2)'}">一年 ${p} 分位</span>`;
+  const card=(t,v,sub,p,spark)=>`<div class="fut-card"><div class="fut-h">${t} ${pc(p)}</div><div class="fut-v">${v}</div><div class="fut-s">${sub}</div>${spark}</div>`;
+  box.innerHTML=`<div class="dim-note" style="margin-bottom:8px">更新 ${J.u}(資料日 ${S.as_of})。分位 = 放進它自己 ${S.days} 個交易日的分佈。<b>外資期貨淨部位</b>看方向與擁擠;<b>P/C 未平倉比</b>高 = 賣權多 = 市場偏多(反向指標:極高過熱、極低恐慌);<b>十大特定法人</b>近月淨部位 = 大戶真實籌碼。</div>
+    <div class="fut-grid">
+      ${card('外資臺指期未平倉淨額(口)',`<b style="color:${S.foreign>=0?'var(--up)':'var(--down)'}">${sg(S.foreign)}</b>`,`5 日 ${sg(S.foreign_d5)}・投信 ${sg(S.trust)}・自營 ${sg(S.dealer)}`,S.foreign_pct,futSpark(sp.foreign,240,44))}
+      ${card('選擇權 P/C 未平倉比(%)',`<b>${f(S.pc_oi)}</b>`,`成交量比 ${f(S.pc_vol)}`,S.pc_pct,futSpark(sp.pc_oi,240,44))}
+      ${card('十大特定法人近月淨部位(口)',`<b style="color:${S.top10_spec_net>=0?'var(--up)':'var(--down)'}">${sg(S.top10_spec_net)}</b>`,`5 日 ${sg(S.top10_d5)}`,S.top10_pct,futSpark(sp.top10,240,44))}
+    </div>
+    ${(S.tags||[]).length?`<div class="fut-tags">${S.tags.map(t=>`<div>⚑ ${t}</div>`).join('')}</div>`:'<div class="dim-note" style="margin-top:6px">目前沒有極端值。</div>'}
+    <div class="dim-note" style="margin-top:6px">資料:期交所三大法人期貨、P/C ratio、大額交易人未沖銷部位。非投資建議。</div>`;
+}
+lazyRun('#futBox',()=>{futxLoad().then(()=>renderFutx());},30*60*1000);
+/* ═══ r795:📊 訊號成績單(score_signals.py 每班產 signal_stats.json)═══ */
+let SIGSTAT=null;
+async function sigLoad(){try{const r=await fT('signal_stats.json?v='+kv(),15000,{cache:'no-store'});if(r&&r.ok)SIGSTAT=await r.json();}catch(e){}return SIGSTAT;}
+const SIG_NAME={fill:'AI Pick 已買進',exit:'AI Pick 出場',buy:'到買價',chase:'進入追價區',tp:'到目標',sl:'觸停損',exp:'到期結算',fz:'最愛・回檔到均線帶',fh:'最愛・突破 20 日高',fl:'最愛・跌破 10 日低',fb:'最愛・跌破均線帶',ftp:'持股・停利到價',fsl:'持股・停損到價',lead_b:'主力大買',lead_s3:'主力開始連買',lead_x:'主力大賣',hs:'60 分 K 突破/回測成功',bias:'大盤週乖離進入極端區'};
+const CAT_NAME_FE={aip:'AI Pick',fav:'最愛訊號',port:'持股',lead:'主力進出',h60:'60 分 K',bias:'大盤乖離'};
+function renderSig(){
+  const box=document.getElementById('sigstatBox');if(!box)return;const J=SIGSTAT;
+  if(!J||!J.kind){box.innerHTML='<div class="dim-note">⏳ 訊號成績單要累積:notify 每輪把所有訊號記進 signal_log.json,重班補 5/20 日報酬。至少 20 個交易日後才有第一批 f20。</div>';return;}
+  const f=x=>x==null?'—':(x>=0?'+':'')+x+'%';
+  const rows=Object.entries(J.kind).sort((a,b)=>(b[1].n||0)-(a[1].n||0)).map(([k,r])=>{
+    const c5=r.f5||{},c20=r.f20||{};const win=c20.win!=null?c20.win:c5.win;
+    const col=win==null?'var(--dim)':win>=60?'var(--up)':win<=40?'var(--down)':'var(--txt2)';
+    return `<tr><td>${SIG_NAME[k]||k}${c5.bear||c20.bear?' <small class="dim">(看空訊號,跌為勝)</small>':''}</td><td>${r.n}</td><td style="color:${col}">${c5.win!=null?c5.win+'%':'—'}</td><td>${f(c5.med)}</td><td style="color:${col}"><b>${c20.win!=null?c20.win+'%':'—'}</b></td><td><b>${f(c20.med)}</b></td><td class="dim">${f(c20.worst)}</td><td class="dim">${r.pending||0}</td></tr>`;}).join('');
+  const cats=Object.entries(J.cat||{}).map(([k,r])=>{const c=r.f20||{};return `<span class="sig-cat">${CAT_NAME_FE[k]||k} <b>${r.n}</b> 筆${c.win!=null?`・20 日勝率 <b style="color:${c.win>=60?'var(--up)':c.win<=40?'var(--down)':'inherit'}">${c.win}%</b>`:''}</span>`;}).join('');
+  box.innerHTML=`<div class="dim-note" style="margin-bottom:6px">更新 ${J.u}・自 ${J.since||'—'} 起共 ${J.total} 筆訊號。報酬 = 訊號後第 5 / 20 個交易日收盤 ÷ 訊號當下價 − 1。看空訊號(觸停損、主力大賣、跌破)以「之後真的跌」算勝;勝率 ≤40% 且樣本 ≥30 的訊號就該砍。</div>
+    <div class="sig-cats">${cats}</div>
+    <table class="sig-t"><tr><th>訊號</th><th>次數</th><th>5 日勝率</th><th>5 日中位</th><th>20 日勝率</th><th>20 日中位</th><th>20 日最差</th><th>待補</th></tr>${rows}</table>`;
+}
+lazyRun('#sigstatBox',()=>{sigLoad().then(()=>renderSig());},30*60*1000);
 setInterval(aipTick,15000);
 setInterval(()=>{try{if(!document.hidden&&(marketOpen()||openish()))aipLoad(true).then(()=>{try{aipFillSweep();}catch(e){}});}catch(e){}},10*60*1000);   // r746:重抓後對帳
 

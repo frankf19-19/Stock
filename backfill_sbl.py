@@ -92,7 +92,7 @@ def fetch_finmind_stock(sid, start):
 
 def fetch_twse(day):
     try:
-        u = f"https://www.twse.com.tw/rwd/zh/afterTrading/TWT93U?date={day.replace('-', '')}&response=json"
+        u = f"https://www.twse.com.tw/rwd/zh/marginTrading/TWT93U?date={day.replace('-', '')}&response=json"
         j = requests.get(u, headers=UA, timeout=30).json()
         if not (isinstance(j, dict) and j.get("stat") == "OK" and j.get("data")): return {}
         f = j.get("fields") or []

@@ -2271,7 +2271,7 @@ def fetch_credit_stocks(stocks):
         for back in range(6):
             qd = (d0 - dt.timedelta(days=back))
             if qd.weekday() >= 5: continue
-            u = f"https://www.twse.com.tw/rwd/zh/afterTrading/TWT93U?date={qd.strftime('%Y%m%d')}&response=json"
+            u = f"https://www.twse.com.tw/rwd/zh/marginTrading/TWT93U?date={qd.strftime('%Y%m%d')}&response=json"
             try:
                 j = get_json(u, timeout=30)
                 if isinstance(j, dict) and j.get("stat") == "OK" and j.get("data"):

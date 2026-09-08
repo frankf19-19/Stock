@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r794">
+<link rel="stylesheet" href="app.css?v=r795">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -138,6 +138,9 @@
     <div id="calTrack"></div>
   </div>
     </div>
+  <div class="sec-title tap" data-sec="mk_taifex" style="margin-top:12px">🧭 期貨籌碼分位 <span style="font-weight:400;font-size:13px;letter-spacing:0">外資期貨淨部位・選擇權 P/C・十大特定法人・放進一年分佈看極端</span></div><div class="sec-body" id="sb-mk_taifex">
+    <div id="futBox"></div>
+  </div>
   <div class="sec-title tap" data-sec="mk_bias" style="margin-top:12px">📉 大盤週乖離・入場時機 <span style="font-weight:400;font-size:13px;letter-spacing:0">加權・櫃買・S&P・那斯達克・道瓊・費半・十年週線・低檔進場回測</span></div><div class="sec-body" id="sb-mk_bias">
     <div id="biasBox"></div>
   </div>
@@ -213,6 +216,9 @@
   <div class="sec-title tap" data-sec="mk_conf" id="confSecTitle" style="margin-top:14px;display:none">📣 重要法說快報 <span style="font-weight:400;font-size:13px;letter-spacing:0">近5天已開+未來7天將開・點列跳該股法說專區</span></div><div class="sec-body" id="sb-mk_conf">
   <div id="confHomeBox"></div>
   </div>
+    <div class="sec-title" data-sec="sigstat">📊 訊號成績單 <span style="font-weight:400;font-size:13px;letter-spacing:0">站上每種訊號發出後 5 / 20 日的實際結果・沒用的就砍</span></div><div class="sec-body" id="sb-sigstat">
+    <div id="sigstatBox"></div>
+    </div>
     <div class="sec-title" data-sec="hscan">🧹 長長尖尖・扁扁寬寬 <span style="font-weight:400;font-size:13px;letter-spacing:0">60 分 K 型態掃描・整理→洗盤→突破・盤中每 30 分鐘更新</span></div><div class="sec-body" id="sb-hscan">
     <div id="hscanBox"></div>
     </div>
@@ -338,7 +344,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r794"></script>
+<script src="app.js?v=r795"></script>
 <script src="mobile.js?v=r770" defer></script>
 </body>
 </html>
