@@ -19,7 +19,12 @@ on:
     - cron: '5 11 * * 1-5'                   # 台北 19:05|傍晚 B 段點火 → 自迴圈到 23:00(19:37/20:37/21:37/22:37)
     - cron: '45 11 * * 1-5'                  # 台北 19:45|B 段備援
     - cron: '30 10 * * 6,0'                  # 週末 18:30|月營收假日公告補抓
-  workflow_dispatch:           # 也可以到 Actions 頁面手動觸發(單次,不迴圈)
+  workflow_dispatch:           # r798:手動/Worker 點火也照時段自迴圈;要單次就把 loop 設 no
+    inputs:
+      loop:
+        description: '自迴圈?auto=依現在時段(14:45~19:00 A 段、19:00~23:00 B 段)/ no=只跑一輪'
+        required: false
+        default: 'auto'
 
 permissions:
   contents: write
@@ -60,17 +65,24 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}   # r784:Web Push 私鑰(公鑰在 app.js)
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}       # r788:Actions 內建,Worker 用它驗證後端(不用另設)
           FIRED_CRON: ${{ github.event.schedule }}       # 哪一條 cron 點的火(手動觸發為空)
+          LOOP: ${{ github.event.inputs.loop || 'auto' }} # r798
         run: |
           set +e
           git config user.name  "bot"
           git config user.email "actions@users.noreply.github.com"
 
-          # ── 哪一段?A 段(14:50/15:30)→ 19:00 收工;B 段(19:05/19:45)→ 23:00 收工;其餘單次 ──
+          # ── 哪一段?r798:改看「現在幾點」,不看哪條 cron 點的火——
+          #    9/8 稽核:15:30 的 A 段備援被 GitHub 延到 20:14 才啟動,照 cron 字串判成 A 段、收工 19:00 已過,跑一輪就走;
+          #    Worker 準時 dispatch 的班沒有 cron 字串,判成單次班也各跑一輪就走。整晚沒有任何一班在迴圈,21:37 融資券那輪從沒跑。
+          #    現在:平日 14:45~19:00 啟動 → A 段(收工 19:00);19:00~23:00 啟動 → B 段(收工 23:00);其餘單次。loop=no 強制單次。
           END=0
-          case "$FIRED_CRON" in
-            "50 6 * * 1-5"|"30 7 * * 1-5")  END=$(TZ=Asia/Taipei date -d "today 19:00" +%s 2>/dev/null || echo 0) ;;
-            "5 11 * * 1-5"|"45 11 * * 1-5") END=$(TZ=Asia/Taipei date -d "today 23:00" +%s 2>/dev/null || echo 0) ;;
-          esac
+          HHMM=$((10#$(TZ=Asia/Taipei date +%H%M))); DOW=$(TZ=Asia/Taipei date +%u)
+          if [ "$LOOP" != "no" ] && [ "$DOW" -le 5 ]; then
+            if   [ $HHMM -ge 1445 ] && [ $HHMM -lt 1900 ]; then END=$(TZ=Asia/Taipei date -d "today 19:00" +%s 2>/dev/null || echo 0)
+            elif [ $HHMM -ge 1900 ] && [ $HHMM -lt 2300 ]; then END=$(TZ=Asia/Taipei date -d "today 23:00" +%s 2>/dev/null || echo 0)
+            fi
+          fi
+          echo "啟動 $(TZ=Asia/Taipei date '+%m/%d %H:%M')(cron='$FIRED_CRON' loop=$LOOP)"
           if [ "$END" != "0" ]; then echo "傍晚自迴圈:每小時 :37 跑一輪,預計 $(TZ=Asia/Taipei date -d @$END '+%H:%M') 收工"; else echo "單次班"; fi
 
           run_once() {
