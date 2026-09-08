@@ -1,4 +1,4 @@
-/* K研所 · build r799 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r800 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r799</span>');
+  diag.push('<span style="color:var(--dim)">build r800</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -12623,7 +12623,6 @@ async function showDetail(id){
       <span class="aifull-go">分析 ›</span>
     </button>
     <div id="rptFullTopBox"></div>
-    <div id="stkBrief" class="stk-brief"></div>
     <div class="stk-fold"><button class="btn" id="stkFoldAll">⤒ 全部收合</button><button class="btn" id="stkOpenAll">⤓ 全部展開</button><span class="dim" style="font-size:12px">點各區塊標題也可收合</span></div>`}
     <div class="alert-strip" id="stkAlerts" style="display:none"></div>
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
@@ -12830,7 +12829,6 @@ async function showDetail(id){
     const kk=await loadK(s);const R=sblCalc(sb,kk&&(kk.ohlc||kk.o),kk&&(kk.dates||kk.d));
     box=document.getElementById('sblBox');if(R&&box){box.innerHTML=sblHTML(R,s.name);window.__sblR=R;}}catch(e14){}})();}   // r793:借券 vs 股價
   try{const ft=document.getElementById('rptFullTop');if(ft)ft.onclick=()=>{ft.classList.add('busy');rptFullRun(s,'rptFullTopBox').finally(()=>ft.classList.remove('busy'));};}catch(e13){}   // r791:頭部大按鈕
-  try{stkBriefRun(s);}catch(e15){}                                                                 // r795:今日重點(規則化)
   try{stkFoldSetup();}catch(e16){}                                                                 // r795:區塊收合
   try{const q=document.getElementById('rptQuick'),a=document.getElementById('rptAI');   // r562:研究報告
     if(q)q.onclick=()=>rptRun(s,'quick');
