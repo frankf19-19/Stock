@@ -1,4 +1,4 @@
-/* K研所 · build r792 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r793 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r792</span>');
+  diag.push('<span style="color:var(--dim)">build r793</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3936,6 +3936,7 @@ function rptFullFacts(s,d){
   // 60 分 K 型態、大盤週乖離
   try{const H=HSCAN&&(HSCAN.items||[]).find(x=>x.id===s.id);if(H)F.h60={type:H.type,state:H.state,range:H.range_pct,bars:H.bars};}catch(x){}
   try{const B=BIAS&&(BIAS.idx||[]).find(x=>x.sym===(s.market==='US'?'^GSPC':'^TWII'));if(B){const mm=B.ma['20']||{};F.mkt={name:B.name,zone:B.zone,bias20:mm.bias,pct:mm.pct};}}catch(x){}
+  try{const R=window.__sblR;if(R&&R.cur!=null)F.sbl={balance_lots:R.cur,pct_1y:R.curPct,d5:R.d5,d20:R.d20,verdict:R.verdict,hi_bucket_fwd20_med:R.bk[4].med,hi_bucket_win:R.bk[4].win,lo_bucket_fwd20_med:R.bk[0].med,lo_bucket_win:R.bk[0].win,p80_lots:R.cuts[3],p20_lots:R.cuts[0]};}catch(x){}
   F.desc=(d.desc||'').slice(0,300);
   return F;
 }
@@ -3945,7 +3946,7 @@ function rptFullPrompt(F){
 站內資料:
 ${JSON.stringify(F)}
 
-欄位說明:ma=均線與斜率;regime_rule=規則判定的均線結構;inst=三大法人 5/20 日淨買賣(張);tdcc=集保千張大戶持股%與 1/4/8 週變化(pp);leader=主力帶動力分析的主導法人與其大買門檻;margin=融資屬性判讀;aetf=主動式 ETF 持有(檔數/張數/當日淨增減);dna=股性(日常振幅中位/年化波動/創高後典型回檔/任意時點 5 日勝率)與歷史條件勝率;inertia=慣性(順勢 trend/回歸 revert/隨機 random);cycle=ZigZag 週期(上漲段/下跌段典型天數與幅度、完整循環天數、now=目前在哪一段第幾天);pe=以 TTM EPS 回推的近一年本益比分佈;h60=60 分 K 型態;mkt=大盤 20 週乖離所在區位。
+欄位說明:ma=均線與斜率;regime_rule=規則判定的均線結構;inst=三大法人 5/20 日淨買賣(張);tdcc=集保千張大戶持股%與 1/4/8 週變化(pp);leader=主力帶動力分析的主導法人與其大買門檻;margin=融資屬性判讀;aetf=主動式 ETF 持有(檔數/張數/當日淨增減);dna=股性(日常振幅中位/年化波動/創高後典型回檔/任意時點 5 日勝率)與歷史條件勝率;inertia=慣性(順勢 trend/回歸 revert/隨機 random);cycle=ZigZag 週期(上漲段/下跌段典型天數與幅度、完整循環天數、now=目前在哪一段第幾天);pe=以 TTM EPS 回推的近一年本益比分佈;h60=60 分 K 型態;mkt=大盤 20 週乖離所在區位;sbl=借券賣出餘額(法人空方部位)與這檔自己的一年分位、高低分位桶之後 20 日中位報酬(verdict=pressure 借券高就漲不動 / squeeze 借券高反而漲)。
 
 只回傳一個 JSON 物件(不要 markdown、不要前後文字),結構:
 {
@@ -8808,6 +8809,65 @@ function inertiaHTML(I){
     <div style="font-size:13px;color:var(--txt2);line-height:1.8">${kindTxt[1]}</div>
     <div style="font-size:12.5px;color:var(--mut);margin-top:4px">${ev.join('・')}</div>${cyc}</div>`;
 }
+/* ═══ r793:🩳 借券賣出 vs 股價——每檔自己的「借券承受力」 ═══
+   借券賣出是法人/大戶的空方部位。統計:把近一年借券賣出餘額分成五等分(自身分位),各分位之後 20 日的中位報酬與勝率;
+   找出「借券到哪個水位之上股價就難漲(壓力區)」與「到哪個水位之下容易漲(低檔區)」。資料:sbl/tw*.json(backfill_sbl.py,上市)。 */
+let SBLCACHE={};
+async function sblLoad(sid){
+  const k=twShardKey(sid);
+  if(SBLCACHE[k]===undefined){SBLCACHE[k]=null;try{const r=await fT('sbl/tw'+k+'.json?v='+kv(),15000,{cache:'no-store'});if(r&&r.ok)SBLCACHE[k]=await r.json();}catch(e){}}
+  return (SBLCACHE[k]||{})[sid]||null;
+}
+function sblCalc(sb,o,dates){
+  if(!sb||!Array.isArray(sb.d)||sb.d.length<60||!o||!dates)return null;
+  const idx={};dates.forEach((d,i)=>idx[d]=i);
+  const C=o.map(x=>x[3]); const n=C.length;
+  const rows=[];                                             // [借券張, fwd20%]
+  for(let i=0;i<sb.d.length;i++){const j=idx[sb.d[i]];const v=sb.v[i];if(j==null||v==null)continue;if(j+20<n)rows.push([v,(C[j+20]/C[j]-1)*100]);}
+  if(rows.length<40)return null;
+  const vals=sb.v.filter(x=>x!=null).slice().sort((a,b)=>a-b);
+  const q=p=>vals[Math.min(vals.length-1,Math.floor(vals.length*p))];
+  const cuts=[q(.2),q(.4),q(.6),q(.8)];
+  const bucket=v=>v<=cuts[0]?0:v<=cuts[1]?1:v<=cuts[2]?2:v<=cuts[3]?3:4;
+  const B=[[],[],[],[],[]];rows.forEach(([v,r])=>B[bucket(v)].push(r));
+  const med=a=>{if(!a.length)return null;const s=a.slice().sort((x,y)=>x-y);return s[s.length>>1];};
+  const stat=a=>({n:a.length,med:a.length?+med(a).toFixed(2):null,win:a.length?Math.round(100*a.filter(x=>x>0).length/a.length):null});
+  const bk=B.map(stat);
+  const cur=sb.v[sb.v.length-1];const curPct=Math.round(100*vals.filter(x=>x<=cur).length/vals.length);
+  const curB=bucket(cur);
+  // 5 日 / 20 日增減
+  const L=sb.v.length;const d5=L>5&&sb.v[L-6]?+((cur/sb.v[L-6]-1)*100).toFixed(1):null,d20=L>20&&sb.v[L-21]?+((cur/sb.v[L-21]-1)*100).toFixed(1):null;
+  // 壓力區 / 低檔區:高分位桶 vs 低分位桶的差距要夠大且樣本夠才下結論
+  const hi=bk[4],lo=bk[0];
+  let verdict='none';
+  if(hi.n>=8&&lo.n>=8&&hi.med!=null&&lo.med!=null){
+    if(lo.med-hi.med>=3&&hi.med<=0.5)verdict='pressure';          // 借券高就漲不動、低就漲得動
+    else if(hi.med-lo.med>=3&&hi.med>0)verdict='squeeze';         // 借券高反而漲(軋空/大戶避險)
+    else verdict='weak';
+  }
+  // 借券急增(5 日 +20%)之後 20 日
+  const surge=[];for(let i=5;i<sb.d.length;i++){const v0=sb.v[i-5],v1=sb.v[i];const j=idx[sb.d[i]];if(!v0||!v1||j==null||j+20>=n)continue;if(v1/v0-1>=0.2)surge.push((C[j+20]/C[j]-1)*100);}
+  return {cur,curPct,curB,cuts,bk,d5,d20,verdict,surge:stat(surge),days:sb.d.length,from:sb.d[0],to:sb.d[sb.d.length-1],rows:rows.length};
+}
+function sblHTML(R,nm){
+  if(!R)return '';
+  const f=x=>x==null?'—':(x>=0?'+':'')+x+'%';
+  const L=['≤20 分位(借券最低)','20~40','40~60','60~80','≥80 分位(借券最高)'];
+  const col=R.verdict==='pressure'?'var(--down)':R.verdict==='squeeze'?'var(--up)':'var(--mut)';
+  const title=R.verdict==='pressure'?'借券越多越漲不動——壓力型':R.verdict==='squeeze'?'借券越多反而漲——軋空/避險型':R.verdict==='weak'?'借券高低與之後漲跌關係不明顯':'樣本不足';
+  const cutTxt=`${R.cuts[3].toLocaleString()}`,lowTxt=`${R.cuts[0].toLocaleString()}`;
+  const nowTxt=R.curB===4?`<b style="color:var(--down)">目前在 ≥80 分位(壓力區)</b>`:R.curB===0?`<b style="color:var(--up)">目前在 ≤20 分位(低檔區)</b>`:`目前在 ${L[R.curB]} 分位`;
+  return `<div style="border:1.5px solid ${col};border-left-width:5px;border-radius:0 10px 10px 0;background:color-mix(in srgb,${col} 6%,var(--panel));padding:9px 12px;margin:8px 0">
+    <div style="font-weight:900;font-size:14px;color:${col}">🩳 借券賣出 vs 股價:${title}</div>
+    <div style="font-size:13px;color:var(--txt2);line-height:1.8;margin-top:3px">借券賣出餘額 <b>${R.cur.toLocaleString()} 張</b>(自身一年 <b>${R.curPct}</b> 分位;5 日 ${f(R.d5)}、20 日 ${f(R.d20)})・${nowTxt}
+      ${R.verdict==='pressure'?`<br>歷史上借券 <b>≥ ${cutTxt} 張</b>(≥80 分位)時,後 20 日中位 <b style="color:var(--down)">${f(R.bk[4].med)}</b>、勝率 ${R.bk[4].win}%(${R.bk[4].n} 次)——<b>股價很難往上</b>;借券 <b>≤ ${lowTxt} 張</b>(≤20 分位)時中位 <b style="color:var(--up)">${f(R.bk[0].med)}</b>、勝率 ${R.bk[0].win}%(${R.bk[0].n} 次)——<b>比較容易漲</b>。`:
+        R.verdict==='squeeze'?`<br>這檔相反:借券 ≥ ${cutTxt} 張時後 20 日中位 <b style="color:var(--up)">${f(R.bk[4].med)}</b>、勝率 ${R.bk[4].win}%;借券低時反而 ${f(R.bk[0].med)}——空方部位高常是避險或軋空前兆,不能當壓力看。`:''}
+      ${R.surge.n>=5?`<br>借券 5 日急增 ≥20% 之後 20 日:中位 ${f(R.surge.med)}、勝率 ${R.surge.win}%(${R.surge.n} 次)`:''}</div>
+    <table class="sbl-t"><tr><th>借券分位</th><th>門檻(張)</th><th>後 20 日中位</th><th>勝率</th><th>樣本</th></tr>
+      ${R.bk.map((b,i)=>`<tr class="${i===R.curB?'cur':''}"><td>${L[i]}</td><td>${i===0?'≤ '+R.cuts[0].toLocaleString():i===4?'> '+R.cuts[3].toLocaleString():R.cuts[i-1].toLocaleString()+' ~ '+R.cuts[i].toLocaleString()}</td><td style="color:${b.med>0?'var(--up)':b.med<0?'var(--down)':'inherit'}"><b>${f(b.med)}</b></td><td>${b.win!=null?b.win+'%':'—'}</td><td class="dim">${b.n}</td></tr>`).join('')}</table>
+    <div class="dim" style="font-size:11.5px;margin-top:4px">資料 ${R.from}~${R.to}(${R.days} 個交易日,${R.rows} 個可評分樣本)。借券賣出 = 法人/大戶空方部位(散戶用融券);分位是這檔自己的一年分佈,每檔門檻不同。相關不等於因果,樣本一年未涵蓋完整循環。</div>
+  </div>`;
+}
 function dnaCalc(o,e){
   const n=o.length;
   if(n<120)return null;
@@ -9040,6 +9100,7 @@ async function renderDNA(s){
       <div style="font-size:13px;color:var(--txt2);line-height:1.8;margin-bottom:8px">
         📏 <b>它的呼吸節奏</b>:日常振幅中位數 <b>${d.med_rng!=null?d.med_rng.toFixed(1):'—'}%</b>・年化波動 <b>${d.vol_ann.toFixed(0)}%</b>・創高後 20 日內典型回檔 <b>${d.pull_med!=null?d.pull_med.toFixed(1):'—'}%</b><span style="color:var(--mut)">——回檔在這幅度內是「正常呼吸」,超過才需要警戒</span>・無條件基準:任意時點進場後 5 日勝率 <b>${d.base.win.toFixed(0)}%</b></div>
       ${(()=>{try{return inertiaHTML(inertiaCalc(ke.o,d.med_rng));}catch(x){return '';}})()}
+      <div id="sblBox"></div>
       <div style="font-weight:900;font-size:13.5px;color:var(--up);margin-top:4px">📈 什麼條件出現後,它歷史上容易漲</div>${upRows||'<div class="dim-note">樣本一年內沒有勝率明顯優於基準的看漲條件。</div>'}
       <div style="font-weight:900;font-size:13.5px;color:var(--down);margin-top:10px">📉 什麼條件出現後,它歷史上容易跌/勝率變差</div>${dnRows||'<div class="dim-note">樣本一年內沒有明顯的看跌條件。</div>'}
       <div class="dim-note" style="margin-top:9px">統計基礎:近 ${d.n} 個交易日;勝率與基準偏離 ≥8pp 且樣本 ≥8 次才下結論。<b>慣性不是保證</b>——基本面或市場結構改變時舊股性會失效;樣本僅一年,未涵蓋完整多空循環。非投資建議。</div>`;
@@ -12727,6 +12788,7 @@ async function showDetail(id){
   try{usEarnBlock(s);}catch(e){}
   try{usFundBlock(s);}catch(e){}   // r530:美股財報速覽(SEC XBRL)
   try{const fb=document.getElementById('rptFull');if(fb)fb.onclick=()=>rptFullRun(s);}catch(e12){}   // r790:一鍵完整分析
+  if(s.market!=='US'&&!s.etf){(async()=>{try{const sb=await sblLoad(s.id);const box=document.getElementById('sblBox');if(!box||!sb)return;const kk=await loadK(s);const R=sblCalc(sb,kk&&(kk.ohlc||kk.o),kk&&(kk.dates||kk.d));if(R){box.innerHTML=sblHTML(R,s.name);window.__sblR=R;}}catch(e14){}})();}   // r793:借券 vs 股價
   try{const ft=document.getElementById('rptFullTop');if(ft)ft.onclick=()=>{ft.classList.add('busy');rptFullRun(s,'rptFullTopBox').finally(()=>ft.classList.remove('busy'));};}catch(e13){}   // r791:頭部大按鈕
   try{const q=document.getElementById('rptQuick'),a=document.getElementById('rptAI');   // r562:研究報告
     if(q)q.onclick=()=>rptRun(s,'quick');
