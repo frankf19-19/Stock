@@ -98,6 +98,7 @@ jobs:
             timeout 300 python score_signals.py || echo "訊號成績單失敗,不影響主資料"        # r795
             timeout 3300 python fetch_broker.py || echo "分點失敗,不影響主資料"              # r802:FinMind Sponsor,每輪接著抓,同日抓完就跳過
             timeout 1500 python backfill_hist.py || echo "歷史回補失敗,不影響主資料"         # r802;r803:每 150 次落地
+            timeout 1650 python backfill_broker.py || echo "分點歷史失敗,不影響主資料"        # r804:每檔 90 日分點一次拉,補齊後自動跳過
             python aipick.py || echo "AI Pick 失敗,不影響主資料"
             python notify.py || echo "推播失敗,不影響主資料"
             # ── 提交 ──
