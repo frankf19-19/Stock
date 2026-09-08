@@ -567,8 +567,9 @@ def main():
         sent_u = sent.get(rc["key"])
         if not isinstance(sent_u, dict): sent_u = sent[rc["key"]] = {}
         cats = (rc.get("ud") or {}).get("cats")                 # r795:使用者類別過濾(沒設 = 全收)
-        if isinstance(cats, list) and cats:
-            ev = [e for e in ev if cat_of(e[0]) in cats]
+        if isinstance(cats, list) and cats:                     # r805:可細到「事件種類」(鍵前綴),也相容舊的大類名
+            sel = set(cats)
+            ev = [e for e in ev if (str(e[0]).split("|")[0] in sel) or (cat_of(e[0]) in sel)]
         lk = f"{TODAY}|{rc['key']}|lead"
         new = [(k, lv, t) for k, lv, t in ev if k not in sent_u]
         if not new: continue
