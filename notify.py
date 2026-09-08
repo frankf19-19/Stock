@@ -38,7 +38,7 @@ LEAD_DAILY_MAX = 3          # r795:主力進出每人每日最多 3 則(最吵�
 # r795:事件鍵前綴 → 類別(使用者可在帳號面板勾選要收哪些)
 CAT_OF = {"fill": "aip", "rot": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
           "fz": "fav", "fh": "fav", "fl": "fav", "fb": "fav", "ftp": "port", "fsl": "port",
-          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "hs": "h60", "bias": "bias"}
+          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "hs": "h60", "bias": "bias"}
 CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離"}
 def cat_of(key):
     p = str(key).split("|")[0]
@@ -469,6 +469,14 @@ def collect_events(aip, prices):
             r5 = sum(m) / v * 100
             st3 = all(x > 0 for x in m[-3:]); sx3 = all(x < 0 for x in m[-3:])
             nm = (by.get(sid) or {}).get("name") or sid
+            # r804:關鍵分點今天有動作(二級:比連買更強的證據)
+            kb = e.get("kb") or {}
+            tb = set(x[0] for x in (S[-1].get("b") or [])); ts = set(x[0] for x in (S[-1].get("s") or []))
+            hb = [x for x in (kb.get("b") or []) if x[7] and x[0] in tb]; hx = [x for x in (kb.get("s") or []) if x[7] and x[0] in ts]
+            if hb:
+                x = hb[0]; ev.append((f"kb_b|{today}|{sid}", 2, f"🎯 <b>關鍵分點進場 {nm}</b>({sid})\n{x[0]} 今日買超;它過去 {x[1]} 次進場後 10 日平均 {x[4]:+.1f}%、上漲機率 {x[5]}%" + (f"(還有 {len(hb)-1} 家)" if len(hb) > 1 else "")))
+            elif hx:
+                x = hx[0]; ev.append((f"kb_x|{today}|{sid}", 2, f"🎯 <b>關鍵分點出場 {nm}</b>({sid})\n{x[0]} 今日賣超;它過去 {x[1]} 次出場後 10 日平均 {x[4]:+.1f}%、下跌機率 {x[5]}%"))
             if st3 and r5 >= 5:
                 ev.append((f"bk_b|{today}|{sid}", 3, f"🏦 <b>主力分點連買 {nm}</b>({sid})\n前 15 大分點連 3 日淨買,5 日累計 {sum(m):+,} 張(佔成交 {r5:.1f}%);今日買超前五:{'、'.join(x[0] for x in (S[-1].get('b') or [])[:3])}"))
             elif sx3 and r5 <= -5:

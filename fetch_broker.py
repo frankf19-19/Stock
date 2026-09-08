@@ -63,8 +63,8 @@ def summarize(rows, prev):
     items.sort(key=lambda x: -x[1])
     vol = max(sum(x[4] for x in items), sum(x[5] for x in items)) / 1000
     top15 = sorted(items, key=lambda x: -abs(x[1]))[:15]
-    buys = [x for x in items if x[1] > 0][:5]
-    sells = [x for x in sorted(items, key=lambda x: x[1]) if x[1] < 0][:5]
+    buys = [x for x in items if x[1] > 0][:15]                          # r804:存前 15 大(關鍵分點分析要用;前端只顯示前五)
+    sells = [x for x in sorted(items, key=lambda x: x[1]) if x[1] < 0][:15]
     tb = sum(x[4] for x in items); ts = sum(x[5] for x in items)
     bp = sum(x[4] * x[2] for x in items) / tb if tb else None
     sp = sum(x[5] * x[3] for x in items) / ts if ts else None
@@ -77,6 +77,52 @@ def summarize(rows, prev):
             "nb": sum(1 for x in items if x[1] > 0), "ns": sum(1 for x in items if x[1] < 0),
             "m15": round(sum(x[1] for x in top15)), "conc": round(sum(abs(x[1]) for x in top15) / vol * 100, 1) if vol else None,
             "vol": round(vol), "dt": dtl, "bp": round(bp, 2) if bp else None, "sp": round(sp, 2) if sp else None}
+
+
+# ═══ r804:關鍵分點——這檔「誰買之後會漲、誰賣之後會跌」═══
+# 對每檔:每家券商出現在「當日淨買前 15」的日子 → 之後 5/10 日報酬;出現在「淨賣前 15」→ 之後 5/10 日報酬。
+# 進場次數 ≥ 3 才列;起漲分點 = 買後 10 日勝率 ≥ 60% 且平均 ≥ +2%;出貨分點 = 賣後 10 日平均 ≤ −2% 且「跌」的比率 ≥ 60%。
+_K = {}
+def closes_of(sid):
+    k = shard_key(sid)
+    if k not in _K:
+        try: _K[k] = json.load(open(f"k/tw{k}.json", encoding="utf-8"))
+        except Exception: _K[k] = {}
+    e = _K[k].get(sid) or {}
+    d, o = e.get("d") or [], e.get("o") or []
+    return {dd: i for i, dd in enumerate(d)}, [x[3] for x in o]
+
+
+def key_brokers(e, sid):
+    idx, C = closes_of(sid)
+    if not C or len(e.get("d") or []) < 15: return None
+    # 基準:這段期間任意一天之後 5/10 日的平均報酬(券商要贏過它才算關鍵,否則多頭股裡人人都是先知)
+    js = [idx[d] for d in e["d"] if d in idx]
+    b5 = [(C[j + 5] / C[j] - 1) * 100 for j in js if j + 5 < len(C)]; b10 = [(C[j + 10] / C[j] - 1) * 100 for j in js if j + 10 < len(C)]
+    base5 = sum(b5) / len(b5) if b5 else 0.0; base10 = sum(b10) / len(b10) if b10 else 0.0
+    stat = {}
+    for day, summ in zip(e["d"], e["s"]):
+        j = idx.get(day)
+        if j is None: continue
+        f5 = (C[j + 5] / C[j] - 1) * 100 if j + 5 < len(C) else None
+        f10 = (C[j + 10] / C[j] - 1) * 100 if j + 10 < len(C) else None
+        for side, rows in (("b", summ.get("b") or []), ("s", summ.get("s") or [])):
+            for name, net, px in rows:
+                st = stat.setdefault((side, name), {"n": 0, "s5": 0.0, "n5": 0, "w5": 0, "s10": 0.0, "n10": 0, "w10": 0, "last": day, "lots": 0})
+                st["n"] += 1; st["last"] = max(st["last"], day); st["lots"] += abs(net)
+                if f5 is not None: st["s5"] += f5; st["n5"] += 1; st["w5"] += 1 if (f5 > 0 if side == "b" else f5 < 0) else 0
+                if f10 is not None: st["s10"] += f10; st["n10"] += 1; st["w10"] += 1 if (f10 > 0 if side == "b" else f10 < 0) else 0
+    out = {"b": [], "s": []}
+    for (side, name), st in stat.items():
+        if st["n10"] < 3: continue
+        a5 = st["s5"] / st["n5"] if st["n5"] else None; a10 = st["s10"] / st["n10"]
+        w5 = round(100 * st["w5"] / st["n5"]) if st["n5"] else None; w10 = round(100 * st["w10"] / st["n10"])
+        key = (w10 >= 60 and a10 >= max(2.0, base10 + 1.5)) if side == "b" else (w10 >= 60 and a10 <= min(-2.0, base10 - 1.5))
+        out[side].append([name, st["n"], round(a5, 2) if a5 is not None else None, w5, round(a10, 2), w10, st["last"], 1 if key else 0, st["lots"]])
+    # 排序:關鍵優先,再依 10 日平均 × 勝率
+    out["b"].sort(key=lambda x: (-x[7], -(x[4] * x[5])))
+    out["s"].sort(key=lambda x: (-x[7], (x[4] * x[5])))
+    return {"b": out["b"][:8], "s": out["s"][:8], "days": len(e["d"]), "base5": round(base5, 2), "base10": round(base10, 2)}
 
 
 def load_shards():
@@ -160,8 +206,17 @@ def main():
         if n % 200 == 0:
             st["done"] = sorted(done); json.dump(st, open(st_p, "w"), ensure_ascii=False); save_shards(S)
             log(f"  進度 {n}/{len(todo)}({int(time.time()-t0)}s)")
-    st["done"] = sorted(done); json.dump(st, open(st_p, "w"), ensure_ascii=False); save_shards(S)
-    log(f"✅ 分點 {day}:本輪 {n} 檔(無資料 {empty}、失敗 {fail}),累計 {len(done)}/{len(ids)}")
+    st["done"] = sorted(done); json.dump(st, open(st_p, "w"), ensure_ascii=False)
+    # r804:關鍵分點(有 15 天以上才算)
+    nk = 0
+    for k, sh in S.items():
+        for sid, e in sh.items():
+            try:
+                kb = key_brokers(e, sid)
+                if kb: e["kb"] = kb; nk += 1
+            except Exception: pass
+    save_shards(S)
+    log(f"✅ 分點 {day}:本輪 {n} 檔(無資料 {empty}、失敗 {fail}),累計 {len(done)}/{len(ids)};關鍵分點已算 {nk} 檔")
 
 
 if __name__ == "__main__":
