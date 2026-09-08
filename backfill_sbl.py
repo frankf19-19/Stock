@@ -46,6 +46,7 @@ def have_dates(S):
     return ds
 
 
+_FM_MSG = {"n": 0}
 def fetch_finmind(day):
     """{sid: 張} 或 None"""
     if not FM_TOKEN: return None
@@ -55,7 +56,9 @@ def fetch_finmind(day):
                          timeout=60)
         j = r.json()
         rows = j.get("data") or []
-        if not rows: return {} if j.get("msg") == "success" else None
+        if not rows:
+            if j.get("msg") != "success" and _FM_MSG["n"] < 3: _FM_MSG["n"] += 1; log(f"  FinMind 按日查詢回應:{r.status_code} {str(j.get('msg'))[:80]}")
+            return {} if j.get("msg") == "success" else None
         k = next((c for c in rows[0].keys() if "SBL" in c and "CurrentDay" in c), None) or \
             next((c for c in rows[0].keys() if "SBL" in c and "Balance" in c and "Previous" not in c), None)
         if not k: log(f"  FinMind 欄位不認得:{list(rows[0].keys())[:8]}"); return None
@@ -66,6 +69,25 @@ def fetch_finmind(day):
         return out
     except Exception as e:
         log(f"  FinMind {day} 失敗:{e}"); return None
+
+
+def fetch_finmind_stock(sid, start):
+    """一檔一次抓一段:{日期: 張} 或 None。這個資料集『按日抓全市場』不通,但『按股抓區間』一次就回一年。"""
+    if not FM_TOKEN: return None
+    try:
+        r = requests.get("https://api.finmindtrade.com/api/v4/data",
+                         params={"dataset": "TaiwanDailyShortSaleBalances", "data_id": sid, "start_date": start, "token": FM_TOKEN}, timeout=60)
+        j = r.json()
+        if j.get("msg") != "success":
+            if _FM_MSG["n"] < 3: _FM_MSG["n"] += 1; log(f"  FinMind {sid} 回應:{r.status_code} {str(j.get('msg'))[:80]}")
+            return None
+        out = {}
+        for x in (j.get("data") or []):
+            try: out[str(x["date"])[:10]] = round(float(x["SBLShortSalesCurrentDayBalance"]) / 1000)
+            except Exception: pass
+        return out
+    except Exception as e:
+        log(f"  FinMind {sid} 失敗:{e}"); return None
 
 
 def fetch_twse(day):
@@ -103,14 +125,17 @@ def main():
     days.sort(reverse=True)                                    # 先補最近的,前端最快有感
     log(f"借券回補:已有 {len(had)} 個交易日,待補 {len(days)} 個,本班最多 {MAX_CALLS} 次")
     calls = n_ok = 0
-    for day in days:
+    # ── 第一段:按日抓全市場(便宜;這個資料集常不通,通了就賺到)──
+    byday_ok = None
+    for day in days[:3]:
         if calls >= MAX_CALLS: break
         calls += 1
         data = fetch_finmind(day)
         if data is None: data = fetch_twse(day)
-        if data is None: continue                               # 兩邊都失敗,下班再試
+        if data is None: byday_ok = False; break
+        byday_ok = True
         if not data:
-            if day != TODAY.isoformat(): skip.add(day)           # 放假日(今天例外:資料可能還沒出)
+            if day != TODAY.isoformat(): skip.add(day)
             continue
         for sid, v in data.items():
             k = shard_key(sid)
@@ -118,7 +143,52 @@ def main():
             if day in e["d"]: continue
             e["d"].append(day); e["v"].append(v)
         n_ok += 1
-        time.sleep(0.5 if FM_TOKEN else 3)
+        time.sleep(0.5)
+    if byday_ok:
+        for day in days[3:]:
+            if calls >= MAX_CALLS: break
+            calls += 1
+            data = fetch_finmind(day)
+            if data is None: data = fetch_twse(day)
+            if data is None: continue
+            if not data:
+                if day != TODAY.isoformat(): skip.add(day)
+                continue
+            for sid, v in data.items():
+                k = shard_key(sid)
+                e = S.setdefault(k, {}).setdefault(sid, {"d": [], "v": []})
+                if day in e["d"]: continue
+                e["d"].append(day); e["v"].append(v)
+            n_ok += 1
+            time.sleep(0.5)
+    else:
+        # ── 第二段:按股抓區間(一檔一次就回一年;上市約 1,000 檔,每班 MAX_CALLS 檔,缺得最多的先補)──
+        try: stocks = [x for x in json.load(open("data.json", encoding="utf-8")).get("stocks") or [] if x.get("market") == "TW" and not x.get("etf")]
+        except Exception: stocks = []
+        cutoff = (TODAY - dt.timedelta(days=DAYS)).isoformat()
+        def last_of(sid):
+            e = S.get(shard_key(sid), {}).get(sid); return (e["d"][-1] if e and e["d"] else "")
+        stocks.sort(key=lambda x: last_of(x["id"]))            # 完全沒有的排最前
+        log(f"  按日查詢不通 → 改按股抓區間:{len(stocks)} 檔,本班處理 {min(MAX_CALLS - calls, len(stocks))} 檔")
+        done = 0
+        for st in stocks:
+            if calls >= MAX_CALLS: break
+            sid = st["id"]; last = last_of(sid)
+            if last >= (TODAY - dt.timedelta(days=1)).isoformat(): continue     # 已是最新
+            start = cutoff if not last else (dt.date.fromisoformat(last) + dt.timedelta(days=1)).isoformat()
+            calls += 1
+            data = fetch_finmind_stock(sid, start)
+            if data is None:
+                if _FM_MSG["n"] >= 3 and done == 0 and calls >= 6: log("  FinMind 連續失敗,本班停止"); break
+                continue
+            e = S.setdefault(shard_key(sid), {}).setdefault(sid, {"d": [], "v": []})
+            have = set(e["d"])
+            for day, v in data.items():
+                if day in have: continue
+                e["d"].append(day); e["v"].append(v)
+            done += 1; n_ok += 1
+            time.sleep(0.35)
+        log(f"  按股補入 {done} 檔")
     # 排序 + 只留 DAYS 內
     cutoff = (TODAY - dt.timedelta(days=DAYS)).isoformat()
     for k, sh in S.items():
