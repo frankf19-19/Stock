@@ -1,4 +1,4 @@
-/* K研所 · build r797 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r799 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r797</span>');
+  diag.push('<span style="color:var(--dim)">build r799</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20390,18 +20390,34 @@ function aipWeekBlock(w,compact){
   }
   const kindTxt={break:'🚀 帶量突破',trend:'📈 順勢多頭',pullback:'🎯 拉回承接'};
   w.__rot=aipRotPlan(w);
+  // r799:已出場的倉位要顯示「已出場・等換股」,不能再掛著舊的買價/目標/停損;換股後卡片要以「現持的股票」為主
+  const nextBench=(()=>{const used=new Set();(w.picks||[]).forEach(q=>{used.add(q.id);aipLegs(q).forEach(x=>used.add(x.id));});const map={};let bi=0;
+    (w.picks||[]).forEach((q,qi)=>{const c=aipCurLeg(q);if(!c||!c.xd)return;while(bi<(w.bench||[]).length&&used.has(w.bench[bi].id))bi++;if(bi<(w.bench||[]).length){map[qi]={c:w.bench[bi],k:bi+1};used.add(w.bench[bi].id);bi++;}});return map;})();
   return head+`<div class="aip-grid">${w.picks.map((p,i)=>{
     const L=aipLive(p,w),lg=aipLegs(p);
-    const upT=((p.target/p.buy-1)*100).toFixed(1),dnT=((p.stop/p.buy-1)*100).toFixed(1);
-    return `<div class="aip-card" data-aip="${p.id}">
-      <div class="aip-c1"><span class="aip-no">${i+1}</span><b class="aip-nm">${p.name}</b><span class="c-code">${p.id}</span><span class="pick-sec">${p.sector}</span>
-        <span class="aip-kind">${kindTxt[p.kind]||''}</span>
-        ${lg.length>1?`<span class="aip-rotnow">🔄 現持 ${lg[lg.length-1].name}</span>`:''}
+    const cl=lg[lg.length-1];
+    const rotated=cl&&cl.id!==p.id;                                   // 已換股:以現持為主
+    const exited=cl&&!!cl.xd;                                         // 目前無部位(出場後等換股,或評估週結束)
+    const V=rotated?{name:cl.name,id:cl.id,sector:((DATA.stocks||[]).find(x=>x.id===cl.id)||{}).sector||p.sector,buy:cl.entry,buy_hi:cl.entry,target:cl.target,stop:cl.stop}:p;
+    const upT=((V.target/V.buy-1)*100).toFixed(1),dnT=((V.stop/V.buy-1)*100).toFixed(1);
+    if(exited){
+      const nb=nextBench[i];const rr=(typeof cl.ret==='number')?`<span ${aipRetC(cl.ret)}>${cl.ret>0?'+':''}${cl.ret}%</span>`:'';
+      return `<div class="aip-card aip-exited" data-aip="${cl.id}">
+        <div class="aip-c1"><span class="aip-no">${i+1}</span><b class="aip-nm">${cl.name}</b><span class="c-code">${cl.id}</span><span class="pick-sec">${V.sector}</span>
+          <span class="aip-exit-tag">${AIPXW[cl.xw]||'已出場'} ${aipDT(cl.xd,cl.xt)} @${cl.xp} ${rr}</span></div>
+        ${aipTrade(p,w,i)}
+        <div class="aip-rotnext">${nb?`🔄 <b>換股</b>:下一個交易日開盤買進候補 #${nb.k} <b data-aip="${nb.c.id}" style="cursor:pointer">${nb.c.name}</b> <span class="c-code">${nb.c.id}</span>(參考買 ${nb.c.buy}・目標 ${nb.c.target}・停損 ${nb.c.stop};實際以開盤價進場、目標/停損依進場價重算)<span class="dim">・評估週最後一個交易日不再換股</span>`:'此倉位已結束,本週沒有可遞補的候補。'}</div>
+        <div class="aip-why">${(p.why||[]).map(x=>`<span class="pick-chip" style="opacity:.6">${x}</span>`).join('')}</div>
+      </div>`;
+    }
+    return `<div class="aip-card${rotated?' aip-rotated':''}" data-aip="${V.id}">
+      <div class="aip-c1"><span class="aip-no">${i+1}</span><b class="aip-nm">${V.name}</b><span class="c-code">${V.id}</span><span class="pick-sec">${V.sector}</span>
+        <span class="aip-kind">${rotated?`🔄 第 ${lg.length} 段・接替 ${lg[lg.length-2].name}`:(kindTxt[p.kind]||'')}</span>
         <span class="aip-px"><span data-ppx="${L.pid}">${L.px!=null?(+L.px).toLocaleString():'—'}</span> <span data-pch="${L.pid}">${L.s&&L.s.chg!=null?chgHtml(+L.s.chg):''}</span></span></div>
       <div class="aip-lv">
-        <div class="aip-lvb aip-lvbuy"><span>建議買價</span><b>${p.buy}</b><i>追價上限 ${p.buy_hi}</i></div>
-        <div class="aip-lvb aip-lvtp"><span>目標價</span><b>${p.target}</b><i>+${upT}%</i></div>
-        <div class="aip-lvb aip-lvsl"><span>停損價</span><b>${p.stop}</b><i>${dnT}%</i></div>
+        <div class="aip-lvb aip-lvbuy"><span>${rotated?'進場價':'建議買價'}</span><b>${V.buy}</b><i>${rotated?`${aipDT(cl.fill,cl.ft)} 開盤市價`:`追價上限 ${V.buy_hi}`}</i></div>
+        <div class="aip-lvb aip-lvtp"><span>目標價</span><b>${V.target}</b><i>+${upT}%</i></div>
+        <div class="aip-lvb aip-lvsl"><span>停損價</span><b>${V.stop}</b><i>${dnT}%</i></div>
       </div>
       ${p.ai?`<div class="aip-ai">🤖 ${p.ai}</div>`:''}
       ${aipTrade(p,w,i)}
