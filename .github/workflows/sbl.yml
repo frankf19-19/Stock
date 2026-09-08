@@ -1,0 +1,42 @@
+name: 借券賣出回補(SBL)
+
+on:
+  schedule:
+    - cron: '50 13 * * 1-5'    # 台北 21:50 每交易日|TWSE/FinMind 借券資料收盤後公布
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sbl-backfill           # 獨立群組,不跟重班(data-update)排隊
+  cancel-in-progress: false
+
+jobs:
+  sbl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: 回補借券賣出餘額(每班最多 SBL_MAX_CALLS 次)
+        env:
+          PYTHONUNBUFFERED: "1"
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+          SBL_MAX_CALLS: "150"
+        run: python backfill_sbl.py
+      - name: 提交
+        run: |
+          git config user.name "bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add sbl/ 2>/dev/null || true
+          if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
+          git commit -m "sbl: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')"
+          for i in 1 2 3; do
+            git pull --rebase --autostash -X theirs origin main && git push && exit 0
+            git rebase --abort 2>/dev/null || true; sleep 10
+          done
+          echo "::warning::推送失敗"
