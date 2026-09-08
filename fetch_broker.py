@@ -16,8 +16,8 @@ NOW = dt.datetime.now(TZ)
 TOKEN = os.environ.get("FINMIND_TOKEN", "").strip()
 API = "https://api.finmindtrade.com/api/v4/data"
 DIR = "bk"; KEEP = 60
-BUDGET_SEC = int(os.environ.get("BK_BUDGET_SEC", "2700"))     # 一輪最多 45 分鐘
-SLEEP = 0.65                                                   # ≈ 5,500/小時,留餘裕
+BUDGET_SEC = int(os.environ.get("BK_BUDGET_SEC", "3000"))     # 一輪最多 50 分鐘(r803:45 分鐘只抓到 1,925/2,100)
+SLEEP = 0.55                                                   # 含往返約 1 秒/次 ≈ 3,600/小時,遠低於 6,000
 
 
 def log(*a): print(*a, flush=True)

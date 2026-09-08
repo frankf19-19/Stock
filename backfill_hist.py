@@ -13,7 +13,7 @@ TODAY = dt.datetime.now(TZ).date()
 TOKEN = os.environ.get("FINMIND_TOKEN", "").strip()
 API = "https://api.finmindtrade.com/api/v4/data"
 DIR = "hist"; DAYS = 3 * 365 + 30
-MAX_CALLS = int(os.environ.get("HIST_MAX_CALLS", "900"))
+MAX_CALLS = int(os.environ.get("HIST_MAX_CALLS", "450"))   # r803:一班約 8 分鐘;每 150 次落地一次,被砍也不會白跑
 SLEEP = 0.65
 
 
@@ -103,8 +103,14 @@ def main():
                 log(f"  {day} {ds} 失敗:{e}")
             time.sleep(SLEEP)
         done[day] = sorted(got)
+        if calls % 150 == 0: flush(S, st, skip, done); log(f"  已落地({calls} 次)")
         if calls >= MAX_CALLS: log("  本班額度用完"); break
-    # 排序寫回
+    flush(S, st, skip, done)
+    tot = len([d for d, v in done.items() if len(v) >= 3])
+    log(f"✅ 歷史:本班 {calls} 次,完整交易日 {tot},檔數 {sum(len(sh) for sh in S.values())}")
+
+
+def flush(S, st, skip, done):
     for k, sh in S.items():
         for sid, e in sh.items():
             order = sorted(range(len(e["d"])), key=lambda i: e["d"][i])
@@ -113,9 +119,7 @@ def main():
                 while len(arr) < len(e["d"]): arr.append(None)
                 e[kk] = [arr[i] for i in order]
         json.dump(sh, open(os.path.join(DIR, f"tw{k}.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    st["skip"] = sorted(skip); json.dump(st, open(st_p, "w", encoding="utf-8"))
-    tot = len([d for d, v in done.items() if len(v) >= 3])
-    log(f"✅ 歷史:本班 {calls} 次,完整交易日 {tot},檔數 {sum(len(sh) for sh in S.values())}")
+    st["skip"] = sorted(skip); st["done"] = done; json.dump(st, open(os.path.join(DIR, "_state.json"), "w", encoding="utf-8"))
 
 
 if __name__ == "__main__":
