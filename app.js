@@ -1,4 +1,4 @@
-/* K研所 · build r795 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r796 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r795</span>');
+  diag.push('<span style="color:var(--dim)">build r796</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -12943,6 +12943,7 @@ async function showDetail(id){
       <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K/年K=上市全歷史;日K/週K=回補引擎每日加深,目標約三年) · MA5~MA240 全數預設顯示(點圖例可開關;年線需背景載入約2秒) · 滾輪/滑桿縮放</div>
       <div id="kbox" style="height:560px"></div>
     </div>
+    ${(()=>{try{return gapHTML(gapCalc(curOhlc,curDates));}catch(x){return '';}})()}
     <div class="dim-block" id="lvBox">
       <h3>關鍵價位(規則化計算)<span class="ds">現價 <b id="lvPx">${s.price??'—'}</b></span></h3>
       <div class="kv">
@@ -16425,6 +16426,69 @@ function volSpikes(o){
   return s;
 }
 /* 跳空缺口(未回補色帶)+ 爆大量標記(量柱金色高亮+K棒下方金色小三角) */
+/* ═══ r796:🕳️ 跳空缺口與回補——不只畫,還要說明 ═══
+   偵測:向上 = 今低 > 昨高×1.003;向下 = 今高 < 昨低×0.997(小於 0.3% 的視為雜訊)。
+   回補:向上缺口被回補 = 之後任一日低點 ≤ 缺口下緣;向下 = 之後高點 ≥ 缺口上緣;部分回補 = 進入缺口但沒穿過。
+   型態(缺口理論,規則化近似):
+     突破缺口 = 跳空當天突破 20 日高/低且量 ≥ 均量 1.5 倍;延續缺口 = 已在趨勢中(20 日漲跌 ≥ 8%)且量普通;
+     竭盡候選 = 20 日已漲跌 ≥ 15% 後的跳空、或跳空後 5 天內就回補;其餘 = 普通缺口。
+   統計:近一年這檔的缺口 20 日內回補率、中位回補天數——這也是股性(有的股票缺口幾乎必補,有的不補)。 */
+function gapCalc(o,dates){
+  if(!o||o.length<30||!dates)return null;
+  const n=o.length,C=o.map(x=>x[3]),V=o.map(x=>x[4]||0);
+  const gaps=[];
+  for(let i=1;i<n;i++){
+    const ph=o[i-1][1],pl=o[i-1][2];let g=null;
+    if(o[i][2]>ph*1.003)g={i,up:1,top:o[i][2],bot:ph};
+    else if(o[i][1]<pl*0.997)g={i,up:0,top:pl,bot:o[i][1]};
+    if(!g)continue;
+    g.d=dates[i];g.size=+((g.top/g.bot-1)*100).toFixed(2);
+    const v20=i>=20?V.slice(i-20,i).reduce((a,b)=>a+b,0)/20:null;g.vol_x=v20?+(V[i]/v20).toFixed(1):null;
+    const h20=i>=20?Math.max(...o.slice(i-20,i).map(x=>x[1])):null,l20=i>=20?Math.min(...o.slice(i-20,i).map(x=>x[2])):null;
+    g.ret20=i>=20?+((C[i-1]/C[i-21]-1)*100).toFixed(1):null;
+    // 回補
+    g.filled=null;g.partial=null;
+    for(let j=i+1;j<n;j++){
+      const full=g.up?(o[j][2]<=g.bot):(o[j][1]>=g.top);
+      const part=g.up?(o[j][2]<g.top):(o[j][1]>g.bot);
+      if(part&&!g.partial)g.partial={d:dates[j],days:j-i};
+      if(full){g.filled={d:dates[j],days:j-i,px:g.up?o[j][2]:o[j][1]};
+        // 回補後 10 日:向上缺口回補後有沒有重新站回缺口上緣;向下缺口回補後有沒有再跌破下緣
+        const k=Math.min(n-1,j+10);g.after={ret10:+((C[k]/C[j]-1)*100).toFixed(1),reclaim:g.up?C[k]>g.top:C[k]<g.bot};break;}
+    }
+    // 型態
+    let type='普通缺口';
+    const brk=g.up?(h20!=null&&o[i][3]>h20):(l20!=null&&o[i][3]<l20);
+    if(g.filled&&g.filled.days<=5&&g.ret20!=null&&Math.abs(g.ret20)>=10)type='竭盡缺口(候選)';
+    else if(g.ret20!=null&&((g.up&&g.ret20>=15)||(!g.up&&g.ret20<=-15)))type='竭盡缺口(候選)';
+    else if(brk&&g.vol_x!=null&&g.vol_x>=1.5)type='突破缺口';
+    else if(g.ret20!=null&&((g.up&&g.ret20>=8)||(!g.up&&g.ret20<=-8)))type='延續缺口';
+    g.type=type;g.age=n-1-i;
+    gaps.push(g);
+  }
+  const px=C[n-1];
+  const unfilled=gaps.filter(g=>!g.filled).map(g=>({...g,dist:+(((g.up?g.top:g.bot)/px-1)*100).toFixed(1)}));
+  const yr=gaps.filter(g=>g.age<=250);
+  const st=(arr)=>{const f=arr.filter(g=>g.filled&&g.filled.days<=20).length,tot=arr.filter(g=>g.age>=20||g.filled).length;const ds=arr.filter(g=>g.filled).map(g=>g.filled.days).sort((a,b)=>a-b);
+    return {n:arr.length,fill20:tot?Math.round(100*f/tot):null,med:ds.length?ds[ds.length>>1]:null};};
+  return {gaps,unfilled,recentFilled:gaps.filter(g=>g.filled&&(n-1-dates.indexOf(g.filled.d))<=90).slice(-6).reverse(),
+    stat:{all:st(yr),up:st(yr.filter(g=>g.up)),dn:st(yr.filter(g=>!g.up))},px};
+}
+function gapHTML(R){
+  if(!R)return '';
+  const f1=x=>x==null?'—':(x>=0?'+':'')+x+'%';const md=d=>d?d.slice(5).replace('-','/'):'—';
+  const tcol=t=>t.startsWith('突破')?'var(--up)':t.startsWith('延續')?'var(--t-blue)':t.startsWith('竭盡')?'var(--down)':'var(--txt2)';
+  const one=g=>`<b style="color:${g.up?'var(--up)':'var(--down)'}">${g.up?'⬆ 向上':'⬇ 向下'}</b> ${md(g.d)} <span class="mono">${g.bot}~${g.top}</span>(${f1(g.size)}${g.vol_x?`,量 ${g.vol_x}x`:''})<span style="color:${tcol(g.type)};font-size:12px;margin-left:6px">${g.type}</span>`;
+  const un=R.unfilled.slice(-6).reverse().map(g=>`<li>${one(g)}・已 ${g.age} 天未補・距現價 ${f1(g.dist)}${g.partial?`<span class="dim">(${md(g.partial.d)} 曾部分回補)</span>`:''}<div class="dim" style="font-size:12px">${g.up?`缺口下緣 ${g.bot} 是支撐;跌回缺口內代表多方力道減弱,跌破 ${g.bot} 視為回補、原本的推升失效`:`缺口上緣 ${g.top} 是壓力;站回缺口內代表空方失守,站上 ${g.top} 視為回補、下跌壓力解除`}</div></li>`).join('');
+  const fl=R.recentFilled.map(g=>`<li>${one(g)} → <b>${md(g.filled.d)} 回補</b>(${g.filled.days} 個交易日)${g.after?`・回補後 10 日 ${f1(g.after.ret10)},${g.up?(g.after.reclaim?'<span style="color:var(--up)">已重新站回缺口上緣</span>':'<span style="color:var(--down)">未站回缺口上緣,上緣轉成壓力</span>'):(g.after.reclaim?'<span style="color:var(--down)">又跌破缺口下緣</span>':'<span style="color:var(--up)">守住缺口下緣,下緣轉成支撐</span>')}`:''}<div class="dim" style="font-size:12px">${g.up?'向上缺口被回補:跳空時的買盤被消化、追價者套牢;若是突破缺口被補通常代表假突破,若是普通缺口回補則是常態洗盤':'向下缺口被回補:恐慌賣壓已被承接、空方力道減弱;若是竭盡缺口回補常是反轉起點'}</div></li>`).join('');
+  const S=R.stat;const stTxt=S.all.n?`近一年 <b>${S.all.n}</b> 個缺口,20 日內回補率 <b>${S.all.fill20!=null?S.all.fill20+'%':'—'}</b>、中位 <b>${S.all.med!=null?S.all.med+' 天':'—'}</b>(向上 ${S.up.n} 個・回補率 ${S.up.fill20!=null?S.up.fill20+'%':'—'};向下 ${S.dn.n} 個・${S.dn.fill20!=null?S.dn.fill20+'%':'—'})。${S.all.fill20!=null?(S.all.fill20>=70?'這檔缺口幾乎必補——跳空追價風險高,等回補再進場勝率較好。':S.all.fill20<=35?'這檔缺口常常不補——跳空是真的動能,未補缺口是可靠的支撐/壓力。':'這檔缺口回補率中等,看型態判斷:突破缺口多半不補、普通缺口多半會補。'):''}`:'近一年沒有夠大的缺口。';
+  return `<div class="dim-block" id="gapBox"><h3>🕳️ 跳空缺口與回補<span class="ds">缺口 = 兩根 K 棒之間沒成交的價格帶;回補 = 價格重新走過那一帶</span></h3>
+    <div style="font-size:13px;line-height:1.7;color:var(--txt2);margin-bottom:6px">${stTxt}</div>
+    ${un?`<div style="font-weight:800;margin:6px 0 2px">未回補缺口(${R.unfilled.length})</div><ul class="gap-ul">${un}</ul>`:'<div class="dim" style="font-size:12.5px">目前沒有未回補的缺口。</div>'}
+    ${fl?`<div style="font-weight:800;margin:8px 0 2px">最近 90 天已回補</div><ul class="gap-ul">${fl}</ul>`:''}
+    <div class="dim" style="font-size:11.5px;margin-top:6px">型態是規則化近似(突破:跳空當天破 20 日高低且量 ≥1.5x;延續:已在 ≥8% 趨勢中;竭盡候選:20 日已走 ≥15% 或 5 天內就被回補)。缺口理論:突破缺口不該被補、竭盡缺口幾乎必補——被補的突破缺口就是假突破。</div>
+  </div>`;
+}
 function gapVolSeries(o,dates){
   if(localStorage.getItem('kGP')==='0'||!o||o.length<25||!dates)return[];
   const mob=innerWidth<640, mpts=[], areas=[];
@@ -16439,6 +16503,12 @@ function gapVolSeries(o,dates){
       if(g.up?(o[j][2]<=g.bot):(o[j][1]>=g.top))return false;          // 已回補
     return true;
   });
+  try{const R=gapCalc(o,dates);(R&&R.recentFilled||[]).slice(0,3).forEach(g=>{     // r796:已回補缺口淡色帶 + 標註
+    const col=g.up?TONE.purple:TONE.red;
+    areas.push([{name:`回補 ${g.filled.d.slice(5).replace('-','/')}`,xAxis:dates[g.i],yAxis:g.top,
+      itemStyle:{color:hexA(col,.07),borderColor:hexA(col,.35),borderWidth:1,borderType:'dotted'},
+      label:{show:true,position:mob?'insideLeft':'insideRight',fontSize:mob?8:9,color:hexA(col,.8)}},
+      {xAxis:g.filled.d,yAxis:g.bot}]);});}catch(e){}
   unfilled.slice(-6).forEach(g=>{
     const col=g.up?TONE.purple:TONE.red;
     areas.push([{name:(g.up?'⬆ 跳空缺口':'⬇ 跳空缺口'),xAxis:dates[g.i],yAxis:g.top,
