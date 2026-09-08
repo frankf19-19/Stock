@@ -38,7 +38,7 @@ LEAD_DAILY_MAX = 3          # r795:主力進出每人每日最多 3 則(最吵�
 # r795:事件鍵前綴 → 類別(使用者可在帳號面板勾選要收哪些)
 CAT_OF = {"fill": "aip", "rot": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
           "fz": "fav", "fh": "fav", "fl": "fav", "fb": "fav", "ftp": "port", "fsl": "port",
-          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "hs": "h60", "bias": "bias"}
+          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "hs": "h60", "bias": "bias"}
 CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離"}
 def cat_of(key):
     p = str(key).split("|")[0]
@@ -452,6 +452,27 @@ def collect_events(aip, prices):
             ev.append((f"bias|{x.get('as_of')}|{x['sym']}|{z}", 2,
                        f"{'🟢' if z=='低檔' else '🔴'} <b>{x['name']} 週乖離進入{z}區</b>\n20 週乖離 {m.get('bias'):+.1f}%(十年分位 {m.get('pct')});"
                        + (f"歷史上進入低檔後 8 週勝率 {bt.get('win')}%、中位 {bt.get('med'):+.1f}%" if z=='低檔' and bt else "過熱區,不追")))
+    except Exception:
+        pass
+    # ── r802:分點主力連買/連賣(全市場,但只推「站上最愛/持股」以外也值得看的:5 日佔成交 ≥5% 且連 3 天)──
+    try:
+        import glob as _g
+        bk = {}
+        for p in _g.glob("bk/tw*.json"):
+            try: bk.update(json.load(open(p, encoding="utf-8")))
+            except Exception: pass
+        by = {s["id"]: s for s in (load("data.json", {}).get("stocks") or [])}
+        for sid, e in bk.items():
+            S = e.get("s") or []; d = (e.get("d") or [])
+            if len(S) < 5 or not d or d[-1] != today: continue
+            m = [x.get("m15") or 0 for x in S[-5:]]; v = sum((x.get("vol") or 0) for x in S[-5:]) or 1
+            r5 = sum(m) / v * 100
+            st3 = all(x > 0 for x in m[-3:]); sx3 = all(x < 0 for x in m[-3:])
+            nm = (by.get(sid) or {}).get("name") or sid
+            if st3 and r5 >= 5:
+                ev.append((f"bk_b|{today}|{sid}", 3, f"🏦 <b>主力分點連買 {nm}</b>({sid})\n前 15 大分點連 3 日淨買,5 日累計 {sum(m):+,} 張(佔成交 {r5:.1f}%);今日買超前五:{'、'.join(x[0] for x in (S[-1].get('b') or [])[:3])}"))
+            elif sx3 and r5 <= -5:
+                ev.append((f"bk_x|{today}|{sid}", 3, f"🏦 <b>主力分點連賣 {nm}</b>({sid})\n前 15 大分點連 3 日淨賣,5 日累計 {sum(m):+,} 張(佔成交 {r5:.1f}%);今日賣超前五:{'、'.join(x[0] for x in (S[-1].get('s') or [])[:3])}"))
     except Exception:
         pass
     # ── r785:60 分 K 型態——已突破 / 回測成功(對所有人相同,一天一次)──
