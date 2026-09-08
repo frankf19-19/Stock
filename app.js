@@ -1,4 +1,4 @@
-/* K研所 · build r805 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r806 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r805</span>');
+  diag.push('<span style="color:var(--dim)">build r806</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6173,7 +6173,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
     const root=first.parentNode;
     const GROUPS=[
       ['📈','技術與價格','現在怎麼走・在哪進出',['stk_k','stk_dna','stk_3','stk_s']],
-      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_ae','stk_h','stk_bs','stk_c']],
+      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_ae','stk_h','stk_bk','stk_bs','stk_c']],   // r806:分點動向歸籌碼章
       ['💰','基本面與價值','值不值得・前景如何',['stk_r','stk_v','stk_peer','stk_conf']],
       ['🧭','綜合研判與背景','AI 總結・市場觀點・公司背景',['stk_ai','stk_m','stk_p','stk_e']],
     ];
