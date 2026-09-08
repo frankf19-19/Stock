@@ -1,4 +1,4 @@
-/* K研所 · build r806 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r807 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r806</span>');
+  diag.push('<span style="color:var(--dim)">build r807</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8205,7 +8205,9 @@ function gemBlock(s,g){
       <div style="border-top:1px solid rgba(140,150,170,.25);margin:4px 0"></div>
       ${row('dip','🎯 下殺至買進區','多頭好股回檔到月線~季線均線帶且未破停損(左側分批參考)',AL.dip,!AL.on)}
       ${row('brk','🚀 帶量突破','站上近月高且量能達同時段均量 115% 以上(右側突破參考)',AL.brk,!AL.on)}
-      <div style="font-size:12px;color:var(--dim,#8B95AB);margin-top:6px">僅台股盤中檢查「綜合 66 分以上或有投資論點」的個股;每檔同型通知一天只跳一次。設定即時生效並記住。</div>`;
+      <div style="font-size:12px;color:var(--dim,#8B95AB);margin-top:6px">僅台股盤中檢查「綜合 66 分以上或有投資論點」的個股;每檔同型通知一天只跳一次。設定即時生效並記住。</div>
+      <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);font-size:12.5px;line-height:1.6">📱 <b>關掉網頁也會收到的推播</b>(AI Pick、關鍵分點、主力、大盤乖離…22 種細項)在 <a href="javascript:void 0" id="alertGoPush" style="color:var(--t-gold);font-weight:800">帳號面板 → 推播通知</a> 設定。這裡的鈴鐺只管網頁開著時的頁內提醒。</div>`;
+    setTimeout(()=>{const a=document.getElementById('alertGoPush');if(a)a.onclick=()=>{try{sbModal();setTimeout(()=>{const el=document.getElementById('sbPushBox')||document.querySelector('.sb-cats-h');if(el)el.scrollIntoView({block:'start',behavior:'smooth'});},600);}catch(e){}};},0);
     panel.querySelectorAll('[data-k]').forEach(el=>el.onclick=ev=>{
       ev.stopPropagation();
       const k=el.dataset.k;
