@@ -96,8 +96,8 @@ jobs:
             timeout 600 python backfill_sbl.py || echo "借券回補失敗,不影響主資料"          # r793
             timeout 300 python fetch_taifex.py || echo "期交所籌碼失敗,不影響主資料"        # r795
             timeout 300 python score_signals.py || echo "訊號成績單失敗,不影響主資料"        # r795
-            timeout 3000 python fetch_broker.py || echo "分點失敗,不影響主資料"              # r802:FinMind Sponsor,每輪接著抓,同日抓完就跳過
-            timeout 900 python backfill_hist.py || echo "歷史回補失敗,不影響主資料"          # r802
+            timeout 3300 python fetch_broker.py || echo "分點失敗,不影響主資料"              # r802:FinMind Sponsor,每輪接著抓,同日抓完就跳過
+            timeout 1500 python backfill_hist.py || echo "歷史回補失敗,不影響主資料"         # r802;r803:每 150 次落地
             python aipick.py || echo "AI Pick 失敗,不影響主資料"
             python notify.py || echo "推播失敗,不影響主資料"
             # ── 提交 ──
