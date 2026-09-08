@@ -1,4 +1,4 @@
-/* K研所 · build r791 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r792 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r791</span>');
+  diag.push('<span style="color:var(--dim)">build r792</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3990,7 +3990,7 @@ function rptFullHTML(J,F,fromCache){
     <div class="rf-grid3"><div class="rf-card"><h4>短線</h4>${(J.plan||{}).short||''}</div><div class="rf-card"><h4>中線</h4>${(J.plan||{}).mid||''}</div><div class="rf-card"><h4>長線</h4>${(J.plan||{}).long||''}</div></div>
     <div class="rf-grid"><div class="rf-card"><h4 style="color:var(--down)">⚠ 風險</h4><ul>${li(J.risks)}</ul></div><div class="rf-card"><h4 style="color:var(--amber)">🧯 判斷失效條件</h4><ul>${li(J.invalidation)}</ul></div></div>
     ${(J.news||[]).length?`<div class="rf-card"><h4>📰 近期關鍵新聞(AI 搜尋)</h4><ul>${li(J.news)}</ul></div>`:''}
-    <div class="dim-note" style="margin-top:8px">${fromCache?'今日快取・':''}Gemini + 即時搜尋,依站內 ${Object.keys(F).length} 組量化指標推論。目標價與進場價是 AI 依「TTM EPS × 本益比分佈」與技術/週期位置的<b>估算</b>,不是投顧目標價;請自行查證財報與新聞。非投資建議。</div>
+    <div class="dim-note" style="margin-top:8px">${fromCache?'今日快取・':''}${J._note||''}Gemini + 即時搜尋,依站內 ${Object.keys(F).length} 組量化指標推論。目標價與進場價是 AI 依「TTM EPS × 本益比分佈」與技術/週期位置的<b>估算</b>,不是投顧目標價;請自行查證財報與新聞。非投資建議。</div>
   </div>`;
 }
 async function rptFullRun(s,boxId){
@@ -4008,9 +4008,18 @@ async function rptFullRun(s,boxId){
     if(!window.__rptForce){try{const c=JSON.parse(localStorage.getItem(ck)||'null');if(c&&c.d===today2&&c.j){J=c.j;fromCache=true;}}catch(e){}}
     window.__rptForce=false;
     if(!J){
-      const txt=await gaAiOnce(rptFullPrompt(F),null,false,6144);
+      // r792:額度降級——429 就換 Flash-Lite(免費額度 4 倍),再不行關掉即時搜尋(grounding 另有更小的額度)
+      const prompt=rptFullPrompt(F);
+      const tries=[[null,false],['gemini-2.5-flash-lite',false],['gemini-2.5-flash-lite',true],[null,true]];
+      let txt=null,lastErr=null,used=null;
+      for(const [mdl,noSearch] of tries){
+        try{txt=await gaAiOnce(prompt,null,noSearch,4096,mdl);used={mdl:mdl||'預設',noSearch};break;}
+        catch(e){lastErr=e;const msg=String(e&&e.message||e);if(!/^429|quota|RESOURCE_EXHAUSTED/i.test(msg))throw e;
+          const blk=document.getElementById('rptFullBlk');if(blk)blk.querySelector('.dim-note').textContent='⏳ 額度滿了,換 '+(mdl||'預設')+(noSearch?'(不搜尋)':'')+' 再試…';}
+      }
+      if(!txt){const msg=String(lastErr&&lastErr.message||'');throw new Error('今日共用 AI 額度已用完('+msg.slice(0,40)+')。明天會重置;或到 ⚙ 設定填入自己的 Gemini 金鑰(免費申請)就不受共用額度限制。');}
       const m=txt.match(/\{[\s\S]*\}/); if(!m)throw new Error('AI 沒有回傳 JSON');
-      J=JSON.parse(m[0]);
+      J=JSON.parse(m[0]); if(used&&(used.noSearch||used.mdl!=='預設'))J._note='(額度降級:'+used.mdl+(used.noSearch?'、未查新聞':'')+')';
       try{localStorage.setItem(ck,JSON.stringify({d:today2,j:J}));}catch(e){}
     }
     const blk=document.getElementById('rptFullBlk');
@@ -15290,12 +15299,12 @@ function gaAdStrip(d){                            // 股癌描述=第一段是�
   return (AD.test(paras[0])&&!first)?'':first.slice(0,200);
 }
 function gaKey(t){let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))>>>0;return 'ga_sum_'+h;}
-async function gaAiOnce(prompt,parts,noTools,maxTok){     // 單次生成(不開聊天面板);gemini/共用限定
+async function gaAiOnce(prompt,parts,noTools,maxTok,modelOverride){     // 單次生成(不開聊天面板);gemini/共用限定;r792:可指定模型(額度降級用)
   const prov=AI.prov==='shared'?'shared':'gemini';
   let key=null;
   if(prov==='shared'){try{key=await sharedUnlock(aiKey());}catch(e){throw new Error('通行碼未設定或不正確(⚙ 設定)');}}
   else{key=AI.keys.gemini;if(!key)throw new Error('需要 Gemini 金鑰或共用通行碼(⚙ 設定)');}
-  const model=prov==='shared'?AI.models.shared:AI.models.gemini;
+  const model=modelOverride||(prov==='shared'?AI.models.shared:AI.models.gemini);
   const body={contents:[{role:'user',parts:parts||[{text:prompt}]}],
     generationConfig:{maxOutputTokens:maxTok||2048}};
   if(/2\.5|2\.0/.test(model))body.generationConfig.thinkingConfig={thinkingBudget:0};  // 關思考:不然思考吃掉輸出額度會斷頭
