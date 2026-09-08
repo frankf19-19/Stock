@@ -1,4 +1,4 @@
-/* K研所 · build r796 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r797 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r796</span>');
+  diag.push('<span style="color:var(--dim)">build r797</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3924,7 +3924,7 @@ function rptFullFacts(s,d){
   try{const dn=dnaCalc(o,e);if(dn){F.dna={med_rng:dn.med_rng,vol_ann:dn.vol_ann,pull_med:dn.pull_med,base_win5:dn.base&&dn.base.win,tags:(dn.tags||[]).map(x=>x.t||x)};
     F.dna.conds=(dn.ev||[]).filter(x=>x&&x.n>=8).slice(0,6).map(x=>({cond:x.name||x.t,win5:x.win,avg5:x.avg,n:x.n}));}}catch(x){}
   try{const I=inertiaCalc(o,F.dna&&F.dna.med_rng);if(I){F.inertia={kind:I.kind,rho1:+I.rho1.toFixed(2),vr5:+I.vr5.toFixed(2),vr20:+I.vr20.toFixed(2)};
-    F.cycle={thr:+I.thr.toFixed(1),up_days:I.upMed,up_pct:I.upPct&&+I.upPct.toFixed(1),dn_days:I.dnMed,dn_pct:I.dnPct&&+I.dnPct.toFixed(1),cycle_days:I.cycMed,now:I.cur};}}catch(x){}
+    F.cycle={thr:+I.thr.toFixed(1),up_days:I.upMed,up_pct:I.upPct&&+I.upPct.toFixed(1),dn_days:I.dnMed,dn_pct:I.dnPct&&+I.dnPct.toFixed(1),cycle_days:I.cycMed,now:I.cur?{dir:I.cur.dir,since:I.cur.since,pct:+(+I.cur.pct).toFixed(1)}:null};}}catch(x){}
   // 估值
   try{const eps=rptEpsSeries(d);if(eps.length){F.eps_ttm=eps[eps.length-1].eps;F.eps_series=eps.slice(-6);}
     if(F.eps_ttm>0&&n>=60){const pe=[];for(let i=Math.max(0,n-250);i<n;i++)pe.push(C[i]/F.eps_ttm);pe.sort((a,b)=>a-b);
@@ -4010,7 +4010,8 @@ async function stkBriefRun(s){
     if(F.leader)chip.push(`主導法人 ${F.leader.who}`);
     if(chip.length)L.push(`籌碼:${chip.join('・')}`);
     if(F.sbl){const v=F.sbl.verdict;L.push(`借券:${F.sbl.balance_lots.toLocaleString()} 張(一年 ${F.sbl.pct_1y} 分位)・${v==='pressure'?'<b style="color:var(--down)">壓力型</b>':v==='squeeze'?'<b style="color:var(--up)">軋空型</b>':'關係不明顯'}`);}
-    if(F.cycle&&F.cycle.now)L.push(`週期:${F.cycle.now}(典型上漲 ${F.cycle.up_days||'—'} 天 ${f1(F.cycle.up_pct)} / 下跌 ${F.cycle.dn_days||'—'} 天 ${f1(F.cycle.dn_pct)})・慣性 ${F.inertia?F.inertia.kind:'—'}`);
+    if(F.cycle&&F.cycle.now){const cn=F.cycle.now;const nowTxt=typeof cn==='object'?`${cn.dir==='up'?'上漲段':'下跌段'}第 ${cn.since} 天(距上一轉折 ${f1(+(+cn.pct).toFixed(1))})`:String(cn);
+      L.push(`週期:${nowTxt}(典型上漲 ${F.cycle.up_days||'—'} 天 ${f1(F.cycle.up_pct)} / 下跌 ${F.cycle.dn_days||'—'} 天 ${f1(F.cycle.dn_pct)})・慣性 ${F.inertia?F.inertia.kind:'—'}`);}
     if(F.pe)L.push(`估值:本益比 ${F.pe.now}(近一年 ${F.pe.p10}~${F.pe.p90})${F.eps_ttm?`・TTM EPS ${F.eps_ttm}`:''}`);
     if(F.h60)L.push(`60 分 K:${F.h60.state}(${F.h60.type.map(t=>t==='flat'?'扁扁寬寬':'長長尖尖').join('+')},整理 ${F.h60.bars} 根)`);
     if(F.mkt)L.push(`大盤:${F.mkt.name} 週乖離 ${f1(F.mkt.bias20)}・${F.mkt.zone}`);
