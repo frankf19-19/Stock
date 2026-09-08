@@ -82,6 +82,8 @@ jobs:
             timeout 1200 python hourly_scan.py || echo "60分K掃描失敗,不影響主資料"     # r785
             timeout 300 python fetch_bias.py || echo "大盤週乖離失敗,不影響主資料"        # r789
             timeout 600 python backfill_sbl.py || echo "借券回補失敗,不影響主資料"          # r793
+            timeout 300 python fetch_taifex.py || echo "期交所籌碼失敗,不影響主資料"        # r795
+            timeout 300 python score_signals.py || echo "訊號成績單失敗,不影響主資料"        # r795
             python aipick.py || echo "AI Pick 失敗,不影響主資料"
             python notify.py || echo "推播失敗,不影響主資料"
             # ── 提交 ──
@@ -96,6 +98,7 @@ jobs:
             [ -f hourly_scan.json ] && git add hourly_scan.json
             [ -f bias.json ] && git add bias.json
             git add sbl/ 2>/dev/null || true
+            for f in taifex.json signal_log.json signal_stats.json; do [ -f $f ] && git add $f; done
             if git diff --cached --quiet; then echo "沒有變更,略過提交"; return 0; fi
             git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')"
             for i in 1 2 3; do

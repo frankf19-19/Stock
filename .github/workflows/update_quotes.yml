@@ -62,6 +62,7 @@ jobs:
               git add data.json 2>/dev/null || true
               git add notify_state.json 2>/dev/null || true
               git add hourly_scan.json 2>/dev/null || true
+              git add signal_log.json 2>/dev/null || true
               [ -f spark.json ] && git add spark.json
               git add aipick.json 2>/dev/null || true          # 用 || true 而非 [ -f ] &&:GitHub 的 run 預設 bash -e,AND-list 回傳 1 會直接中斷整步
               if ! git diff --cached --quiet; then
