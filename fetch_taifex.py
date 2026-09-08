@@ -93,6 +93,59 @@ def large_traders(d0, d1):
     return out
 
 
+def html_latest(path, want_name="臺股期貨"):
+    """CSV 下載被擋時的備援:GET 查詢頁(HTML 表格,最新一個交易日)。回傳 (date, rows)。"""
+    import re as _re
+    r = requests.get(BASE + path, headers=UA, timeout=40)
+    if not r.ok or "<table" not in r.text.lower(): raise RuntimeError(f"{path} HTML 無表格")
+    try:
+        import pandas as pd
+        tables = pd.read_html(io.StringIO(r.text))
+    except Exception as e:
+        raise RuntimeError(f"read_html 失敗 {e}")
+    m = _re.search(r"日期\s*(\d{4}/\d{2}/\d{2})", r.text)
+    day = m.group(1).replace("/", "-") if m else TODAY.isoformat()
+    return day, tables
+
+
+def fut_inst_html():
+    day, tables = html_latest("futContractsDate")
+    out = {}
+    for t in tables:
+        t = t.copy(); t.columns = [" ".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in t.columns]
+        if not any("身份別" in c or "身分別" in c for c in t.columns): continue
+        cn = next(c for c in t.columns if "商品" in c); cw = next(c for c in t.columns if "身份別" in c or "身分別" in c)
+        cols = [c for c in t.columns if "未平倉" in c and "淨" in c and "口數" in c]
+        if not cols: continue
+        for _, r in t.iterrows():
+            if "臺股期貨" not in str(r[cn]): continue
+            who = str(r[cw]); v = num(r[cols[0]])
+            k = "foreign" if "外資" in who else "trust" if "投信" in who else "dealer" if "自營" in who else None
+            if k and v is not None: out.setdefault(day, {})[k] = v
+        if out: break
+    if not out: raise RuntimeError("HTML 表格找不到臺股期貨列")
+    return out
+
+
+def large_html():
+    day, tables = html_latest("largeTraderFutQry")
+    out = {}
+    for t in tables:
+        t = t.copy(); t.columns = [" ".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in t.columns]
+        flat = t.astype(str)
+        for i, r in flat.iterrows():
+            row = list(r.values)
+            if not any("臺股期貨" in x for x in row): continue
+            # 找「前十大…特定法人」買方與賣方兩個欄位:取含 "十大" 的欄位,依序 買/賣
+            idx = [j for j, c in enumerate(t.columns) if "十大" in c and "特定" in c]
+            if len(idx) >= 2:
+                b = num(row[idx[0]]); s = num(row[idx[1]])
+                if b is not None and s is not None: out[day] = {"top10_spec_net": b - s}; break
+        if out: break
+    if not out: raise RuntimeError("HTML 表格找不到十大特定法人")
+    return out
+
+
 def pct_rank(xs, v):
     xs = [x for x in xs if x is not None]
     if not xs or v is None: return None
@@ -107,13 +160,20 @@ def main():
     d1 = TODAY.strftime("%Y/%m/%d")
     d0 = (TODAY - dt.timedelta(days=(400 if not have else 12))).strftime("%Y/%m/%d")   # 首次抓一年多,之後補近兩週
     got = 0
-    for name, fn in (("三大法人期貨", fut_institutional), ("P/C ratio", pc_ratio), ("大額交易人", large_traders)):
+    for name, fn, fb in (("三大法人期貨", fut_institutional, fut_inst_html), ("P/C ratio", pc_ratio, None), ("大額交易人", large_traders, large_html)):
         try:
             res = fn(d0, d1)
             for d, e in res.items(): days.setdefault(d, {}).update(e)
             got += len(res); log(f"  {name}:{len(res)} 天")
         except Exception as ex:
             log(f"  {name} 失敗:{ex}")
+            if fb:
+                try:
+                    res = fb()
+                    for d, e in res.items(): days.setdefault(d, {}).update(e)
+                    log(f"  {name}:HTML 備援補 {list(res)[0]}")
+                except Exception as ex2:
+                    log(f"  {name} HTML 備援也失敗:{ex2}")
     keys = sorted(days)[-KEEP:]
     days = {k: days[k] for k in keys}
     # 統計

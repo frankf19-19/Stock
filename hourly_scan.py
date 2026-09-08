@@ -79,7 +79,8 @@ def stage1(stocks):
 
 def fetch_h60(sid):
     try:
-        r = requests.get(f"{WORKER}/fgl", params={"u": FUGLE.format(sid=sid)}, timeout=20)
+        r = requests.get(f"{WORKER}/fgl", params={"u": FUGLE.format(sid=sid)}, timeout=20,
+                         headers={"Referer": "https://frankf19-19.github.io/Stock/", "Origin": "https://frankf19-19.github.io"})   # r808:Worker 只放行站的 Origin/Referer
         if not r.ok: return None
         j = r.json()
         rows = j.get("data") if isinstance(j, dict) else None

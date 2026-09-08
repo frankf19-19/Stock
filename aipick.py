@@ -497,7 +497,8 @@ def _minutes(sid, date):
             api = f"https://api.fugle.tw/marketdata/v1.0/stock/intraday/candles/{sid}?timeframe=1"
         else:
             api = f"https://api.fugle.tw/marketdata/v1.0/stock/historical/candles/{sid}?timeframe=1&fields=open,high,low,close&sort=asc"
-        r = requests.get(f"{WORKER}/fgl", params={"u": api}, timeout=20)
+        r = requests.get(f"{WORKER}/fgl", params={"u": api}, timeout=20,
+                         headers={"Referer": "https://frankf19-19.github.io/Stock/", "Origin": "https://frankf19-19.github.io"})   # r808
         _t.sleep(1.1)
         if r.ok:
             for x in (r.json().get("data") or []):
