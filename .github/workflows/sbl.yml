@@ -26,7 +26,7 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
           FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
-          SBL_MAX_CALLS: "150"
+          SBL_MAX_CALLS: "500"     # FinMind 有 token 每小時 600 次;按股抓區間一檔一次,兩班補齊上市
         run: python backfill_sbl.py
       - name: 提交
         run: |
