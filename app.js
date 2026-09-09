@@ -1,4 +1,4 @@
-/* K研所 · build r810 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r812 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r810</span>');
+  diag.push('<span style="color:var(--dim)">build r812</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20064,8 +20064,8 @@ function sbModePaint(mode){
     return;
   }
   const isUp=mode==='signup';
-  b.innerHTML=`<div class="sb-note">${isUp?'註冊後最愛、持股、到價提醒會存到雲端,換裝置登入就回來。':'登入以還原你的最愛與持股。'}</div>
-    <input class="sb-in" id="sbEmail" type="email" placeholder="電子信箱" autocomplete="email">
+  b.innerHTML=`<div class="sb-note">${isUp?'註冊後最愛、持股、到價提醒會存到雲端,換裝置登入就回來。':'登入以還原你的最愛與持股。登入後會一直保持,直到你按登出。'}</div>
+    <input class="sb-in" id="sbEmail" type="email" placeholder="電子信箱" autocomplete="email" value="${(localStorage.getItem('sb_lastEmail')||'').replace(/"/g,'&quot;')}">
     <input class="sb-in" id="sbPw" type="password" placeholder="密碼(至少 6 碼)" autocomplete="${isUp?'new-password':'current-password'}">
     <button class="sb-go" id="sbGo">${isUp?'註冊':'登入'}</button>
     ${isUp?'':'<button class="sb-alt" id="sbReset">忘記密碼</button>'}
@@ -20074,6 +20074,7 @@ function sbModePaint(mode){
   document.getElementById('sbGo').onclick=async()=>{
     const c=sbInit(); if(!c){msg('連線元件載入中,請稍候再試');return;}
     const em=(document.getElementById('sbEmail').value||'').trim();
+    try{if(em)localStorage.setItem('sb_lastEmail',em);}catch(e0){}   // r812:記住信箱
     const pw=document.getElementById('sbPw').value||'';
     if(!em||!pw){msg('請填信箱與密碼');return;}
     if(isUp&&pw.length<6){msg('密碼至少 6 碼');return;}
