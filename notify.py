@@ -550,6 +550,15 @@ def main():
     if not recips:
         recips = [{"chat": TG_CHAT or None, "ud": user_data(), "key": "secret", "line": True}]
         if not (SB_SERVICE and SB_UID): log("  未設 SB_SERVICE_KEY/SB_UID,最愛訊號不推(一、二級照推)")
+    # r811:把所有使用者的最愛/持股寫給分點歷史回補當「優先股」
+    try:
+        pri = set()
+        for rc in recips:
+            ud = rc.get("ud") or {}
+            for x in (ud.get("fav_ids") or []): pri.add(str(x))
+            for p in (ud.get("port1") or []): pri.add(str(p.get("id") if isinstance(p, dict) else p))
+        os.makedirs("bk", exist_ok=True); json.dump(sorted(pri), open("bk/_prio_users.json", "w"))
+    except Exception: pass
     base_ev = collect_events(aip, prices)                    # 一、二級對所有人相同,算一次
     # r795:訊號成績單——所有事件(不分收件人)記進 signal_log.json,重班回頭補 5/20 日報酬
     try:
