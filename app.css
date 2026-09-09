@@ -1789,3 +1789,5 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .fkb small{font-weight:500;font-size:11px;opacity:.85;margin-left:4px}
 .fkb-b{color:var(--up);border-color:var(--up);background:color-mix(in srgb,var(--up) 10%,var(--panel))}
 .fkb-s{color:var(--down);border-color:var(--down);background:color-mix(in srgb,var(--down) 10%,var(--panel))}
+/* r816 */
+.fkb em{font-style:normal;font-weight:700;font-size:12px;opacity:.95;margin-left:4px}
