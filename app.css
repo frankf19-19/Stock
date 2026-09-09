@@ -1781,3 +1781,11 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .sb-box{max-height:calc(100vh - 48px);overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 auto}
 .sb-box .sb-x{position:sticky;top:0;float:right;z-index:2}
 @media(max-width:640px){.sb-mask{padding:10px 8px}.sb-box{max-height:calc(100vh - 20px)}}
+/* r813:最愛卡片・關鍵分點提醒 */
+.fav-kb:empty{display:none}
+.fav-kb{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.fav-kb-d{font-size:11px;color:var(--dim)}
+.fkb{font-size:12.5px;font-weight:800;border-radius:8px;padding:4px 10px;border:1.5px solid}
+.fkb small{font-weight:500;font-size:11px;opacity:.85;margin-left:4px}
+.fkb-b{color:var(--up);border-color:var(--up);background:color-mix(in srgb,var(--up) 10%,var(--panel))}
+.fkb-s{color:var(--down);border-color:var(--down);background:color-mix(in srgb,var(--down) 10%,var(--panel))}
