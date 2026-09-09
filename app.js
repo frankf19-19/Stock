@@ -1,4 +1,4 @@
-/* K研所 · build r813 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r814 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -591,7 +591,7 @@ function renderFav(){
   });
   clearTimeout(window.__favStT);
   window.__favStT=setTimeout(()=>{try{favStateFill();}catch(e){}},800);
-  try{setTimeout(()=>favKbFill(document.getElementById('favGrid')||document),50);}catch(e9){}   // r813
+  try{setTimeout(()=>favKbFill(document),300);setTimeout(()=>favKbFill(document),3000);}catch(e9){}   // r813/r814:兩次,首輪分片還沒到就等第二次
 }
 function renderAll(){ renderPulse(); renderRadar(); renderT3(); renderFav(); renderMacro(); try{renderFutTab();}catch(e){} try{rotBoard();try{renderBreadth();}catch(e){}}catch(e){} renderNews(); renderChips(); render(); setTimeout(hydrateSparks,300);
   try{if(!window.__ptEdit){const p=document.getElementById('tp-port');if(p&&p.style.display!=='none')renderPort();}}catch(e){} }
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r813</span>');
+  diag.push('<span style="color:var(--dim)">build r814</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21003,10 +21003,10 @@ function favPlanHtml(s,o,dates){
 async function favKbFill(root){
   const els=[...(root||document).querySelectorAll('[data-favkb]')];if(!els.length)return;
   for(const el of els){
-    const id=el.dataset.favkb;if(el.dataset.done)continue;el.dataset.done='1';
+    const id=el.dataset.favkb;if(el.dataset.done)continue;
     try{
       const e=await bkLoad(id);if(!e||!e.d||!e.d.length)continue;
-      const R=bkCalc(e);if(!R)continue;
+      const R=bkCalc(e);if(!R)continue;el.dataset.done='1';
       const hit=R.hit||[];const parts=[];
       hit.filter(h=>h.side==='b').forEach(h=>parts.push(`<span class="fkb fkb-b">🎯 關鍵分點進場 <b>${h.name}</b> <small>過去 ${h.n} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・漲 ${h.w10}%</small></span>`));
       hit.filter(h=>h.side==='s').forEach(h=>parts.push(`<span class="fkb fkb-s">🎯 關鍵分點出場 <b>${h.name}</b> <small>過去 ${h.n} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・跌 ${h.w10}%</small></span>`));
