@@ -1,4 +1,4 @@
-/* K研所 · build r807 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r810 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1653,7 +1653,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r807</span>');
+  diag.push('<span style="color:var(--dim)">build r810</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8206,8 +8206,8 @@ function gemBlock(s,g){
       ${row('dip','🎯 下殺至買進區','多頭好股回檔到月線~季線均線帶且未破停損(左側分批參考)',AL.dip,!AL.on)}
       ${row('brk','🚀 帶量突破','站上近月高且量能達同時段均量 115% 以上(右側突破參考)',AL.brk,!AL.on)}
       <div style="font-size:12px;color:var(--dim,#8B95AB);margin-top:6px">僅台股盤中檢查「綜合 66 分以上或有投資論點」的個股;每檔同型通知一天只跳一次。設定即時生效並記住。</div>
-      <div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);font-size:12.5px;line-height:1.6">📱 <b>關掉網頁也會收到的推播</b>(AI Pick、關鍵分點、主力、大盤乖離…22 種細項)在 <a href="javascript:void 0" id="alertGoPush" style="color:var(--t-gold);font-weight:800">帳號面板 → 推播通知</a> 設定。這裡的鈴鐺只管網頁開著時的頁內提醒。</div>`;
-    setTimeout(()=>{const a=document.getElementById('alertGoPush');if(a)a.onclick=()=>{try{sbModal();setTimeout(()=>{const el=document.getElementById('sbPushBox')||document.querySelector('.sb-cats-h');if(el)el.scrollIntoView({block:'start',behavior:'smooth'});},600);}catch(e){}};},0);
+      <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)"><div id="bellPush" class="sb-tg" style="margin:0"><div class="sb-note">⏳</div></div></div>`;
+    setTimeout(()=>{try{sbPushPaint('bellPush');}catch(e){}},0);
     panel.querySelectorAll('[data-k]').forEach(el=>el.onclick=ev=>{
       ev.stopPropagation();
       const k=el.dataset.k;
@@ -8224,7 +8224,7 @@ function gemBlock(s,g){
     panel=document.createElement('div');
     const r=b.getBoundingClientRect();
     panel.style.cssText=`position:fixed;top:${Math.round(r.bottom+8)}px;right:${Math.max(8,Math.round(innerWidth-r.right))}px;z-index:999;`+
-      `background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;width:min(300px,86vw);box-shadow:0 8px 28px rgba(0,0,0,.25)`;
+      `background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;width:min(360px,92vw);max-height:calc(100vh - ${Math.round(r.bottom+16)}px);overflow-y:auto;box-shadow:0 8px 28px rgba(0,0,0,.25)`;
     document.body.appendChild(panel);
     render();
     setTimeout(()=>{document.addEventListener('click',function h(e2){
@@ -19938,8 +19938,14 @@ async function pushThisDeviceOn(){
   try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
     return !!(sub&&pushSubsGet().some(x=>x&&x.endpoint===sub.endpoint));}catch(e){return false;}
 }
-async function sbPushPaint(){
-  const box=document.getElementById('sbPush'); if(!box||!SB_USER)return;
+async function sbPushPaint(boxId,compact){                         // r810:細項設定住在 🔔 鈴鐺;帳號面板只留精簡狀態
+  const box=document.getElementById(boxId||'sbPush'); if(!box)return;
+  if(!SB_USER){box.innerHTML=`<div class="sb-tg-h">📱 推播通知 <span class="sb-tg-no">未登入</span></div><div class="sb-note">登入後可開啟「關掉網頁也會收到」的推播並勾選要收哪些。 <a href="javascript:void 0" id="bellLogin" style="color:var(--t-gold);font-weight:800">登入</a></div>`;
+    const a=document.getElementById('bellLogin');if(a)a.onclick=()=>{try{sbModal();}catch(e){}};return;}
+  if(compact){
+    const sup0=pushSupport();const on0=sup0==='ok'?await pushThisDeviceOn():false;const n0=pushSubsGet().length;
+    box.innerHTML=`<div class="sb-tg-h">📱 推播通知 ${on0?'<span class="sb-tg-ok">✓ 此裝置已開啟</span>':`<span class="sb-tg-no">${n0?`其他 ${n0} 台已開啟`:'未開啟'}</span>`}</div>
+      <div class="sb-note">開關與 22 種通知細項在右上 <b>🔔 鈴鐺</b> 裡設定。</div>`;return;}
   const sup=pushSupport();
   const n=pushSubsGet().length;
   if(sup==='none'){box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-no">此瀏覽器不支援</span></div><div class="sb-note">換 Chrome/Edge,或 iPhone 先「加入主畫面」再開。</div>`;return;}
@@ -19955,7 +19961,7 @@ async function sbPushPaint(){
     box.querySelectorAll('input[data-cat]').forEach(cb=>cb.onchange=saveCats);
     box.querySelectorAll('[data-catall]').forEach(a=>a.onclick=()=>{box.querySelectorAll('input[data-cat]').forEach(cb=>cb.checked=a.dataset.catall==='1');saveCats();});
     box.querySelectorAll('[data-catg]').forEach(a=>a.onclick=()=>{const g=PUSH_GROUPS.find(x=>x[0]===a.dataset.catg);if(!g)return;const ks=new Set(g[1].map(x=>x[0]));box.querySelectorAll('input[data-cat]').forEach(cb=>{if(ks.has(cb.dataset.cat))cb.checked=true;});saveCats();});
-    document.getElementById('sbPushOff').onclick=async()=>{await pushDisable();sbPushPaint();};
+    document.getElementById('sbPushOff').onclick=async()=>{await pushDisable();sbPushPaint(boxId);};
   }else{
     box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-no">${n?`其他 ${n} 台裝置已開啟`:'未開啟'}</span></div>
       <div class="sb-note">按一下、允許通知就好。關掉網頁也收得到,不用裝任何 App。</div>
@@ -19963,7 +19969,7 @@ async function sbPushPaint(){
     document.getElementById('sbPushOn').onclick=async()=>{
       const b=document.getElementById('sbPushOn');b.disabled=true;b.textContent='設定中…';
       try{await pushEnable();sbToast('推播已開啟',0);}catch(e){alert('開啟失敗:'+(e&&e.message||e)+(Notification.permission==='denied'?'\n\n你之前封鎖過這個網站的通知,要到瀏覽器的網站設定把通知改回「允許」。':''));}
-      sbPushPaint();
+      sbPushPaint(boxId);
     };
   }
 }
@@ -20046,7 +20052,7 @@ function sbModePaint(mode){
       <button class="sb-alt" id="sbOut">登出</button>
       <button class="sb-del" id="sbDel">刪除帳號與雲端資料</button>`;
     document.getElementById('sbSyncNow').onclick=()=>sbPull();
-    sbTgPaint(); sbPushPaint();
+    sbTgPaint(); sbPushPaint('sbPush',true);
     document.getElementById('sbOut').onclick=async()=>{ const c=sbInit(); if(c)await c.auth.signOut();
       SB_USER=null; sbBtnPaint(); sbModePaint(); sbToast('已登出(本機資料保留)'); };
     document.getElementById('sbDel').onclick=async()=>{
