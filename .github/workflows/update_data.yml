@@ -85,51 +85,74 @@ jobs:
           echo "啟動 $(TZ=Asia/Taipei date '+%m/%d %H:%M')(cron='$FIRED_CRON' loop=$LOOP)"
           if [ "$END" != "0" ]; then echo "傍晚自迴圈:每小時 :37 跑一輪,預計 $(TZ=Asia/Taipei date -d @$END '+%H:%M') 收工"; else echo "單次班"; fi
 
-          run_once() {
-            echo "══════ 開始一輪 $(TZ=Asia/Taipei date '+%m/%d %H:%M') ══════"
-            git pull --rebase --autostash -X theirs origin main || true     # 先同步別班的成果(ETF 17:35、盤中迴圈)
-            python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"
-            python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"
-            python update_quotes.py || echo "報價快照失敗,不影響主資料"
-            timeout 1200 python hourly_scan.py || echo "60分K掃描失敗,不影響主資料"     # r785
-            timeout 300 python fetch_bias.py || echo "大盤週乖離失敗,不影響主資料"        # r789
-            timeout 600 python backfill_sbl.py || echo "借券回補失敗,不影響主資料"          # r793
-            timeout 300 python fetch_taifex.py || echo "期交所籌碼失敗,不影響主資料"        # r795
-            timeout 300 python score_signals.py || echo "訊號成績單失敗,不影響主資料"        # r795
-            # r820:分點/歷史回補一天只需一次,只在「單次班」或「B 段第一輪」跑;其他輪 30 分鐘內結束,19:37/20:37/21:37 才不會擠成一團
-            if [ "${HEAVY_EXTRAS:-1}" = "1" ] && [ $HHMM -ge 1700 -o "$END" = "0" ]; then
-              timeout 2400 python fetch_broker.py || echo "分點失敗,不影響主資料"            # r802:FinMind Sponsor;r820:雙線程
-              timeout 1500 python backfill_hist.py || echo "歷史回補失敗,不影響主資料"       # r802;r803:每 150 次落地
-              timeout 1650 python backfill_broker.py || echo "分點歷史失敗,不影響主資料"      # r804/r811:一天一次全市場
-            else
-              echo "  (本輪略過分點/歷史回補:HEAVY_EXTRAS=${HEAVY_EXTRAS:-1}, HHMM=$HHMM)"
-            fi
-            python aipick.py || echo "AI Pick 失敗,不影響主資料"
-            python notify.py || echo "推播失敗,不影響主資料"
-            # ── 提交 ──
+          # r821:每一步計時 + 落地 run_log.json;重活跑完就先提交一次(存檔點),之後就算被砍掉分點/歷史也不會白跑
+          step() { local n="$1"; shift; local t0=$(date +%s); "$@"; local rc=$?; local sec=$(( $(date +%s) - t0 ))
+            echo "{\"n\":\"$n\",\"t\":\"$(TZ=Asia/Taipei date '+%m-%d %H:%M')\",\"sec\":$sec,\"rc\":$rc}" >> run_steps.jsonl
+            [ $rc -ne 0 ] && echo "  ⚠ $n 結束碼 $rc(${sec}s)"; return $rc; }
+          fold_log() { python - <<'PY'
+          import json,os
+          L=[]
+          try: L=json.load(open('run_log.json',encoding='utf-8')).get('rounds',[])
+          except Exception: L=[]
+          steps=[]
+          if os.path.exists('run_steps.jsonl'):
+              for ln in open('run_steps.jsonl',encoding='utf-8'):
+                  try: steps.append(json.loads(ln))
+                  except Exception: pass
+              os.remove('run_steps.jsonl')
+          if steps:
+              L.append({"start":steps[0]["t"],"end":steps[-1]["t"],"sec":sum(x["sec"] for x in steps),"steps":steps,"run":os.environ.get("GITHUB_RUN_NUMBER")})
+          json.dump({"rounds":L[-60:]},open('run_log.json','w',encoding='utf-8'),ensure_ascii=False,separators=(',',':'))
+          PY
+          }
+          commit_push() {
+            fold_log
             git add -A data.json k c
             [ -f tdcc.json ] && git add tdcc.json
             [ -f etf_hold.json ] && git add etf_hold.json
             [ -f etf_rev.json ] && git add etf_rev.json
-            git add e/ 2>/dev/null || true                # r755:ETF 每日持股快照歷史(兩支 workflow 都會寫,漏加就丟失)
+            git add e/ 2>/dev/null || true
             [ -f spark.json ] && git add spark.json
             [ -f aipick.json ] && git add aipick.json
             [ -f notify_state.json ] && git add notify_state.json
             [ -f hourly_scan.json ] && git add hourly_scan.json
             [ -f bias.json ] && git add bias.json
             git add sbl/ 2>/dev/null || true
-            for f in taifex.json signal_log.json signal_stats.json gov.json; do [ -f $f ] && git add $f; done
+            for f in taifex.json signal_log.json signal_stats.json gov.json run_log.json; do [ -f $f ] && git add $f; done
             git add bk/ hist/ 2>/dev/null || true
             if git diff --cached --quiet; then echo "沒有變更,略過提交"; return 0; fi
-            git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')"
+            git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')${1:+ ($1)}"
             for i in 1 2 3; do
-              git pull --rebase --autostash -X theirs origin main && git push && return 0   # -X theirs = 以本次新產資料為準
-              echo "推送撞車,10 秒後重試($i/3)…"
-              git rebase --abort 2>/dev/null || true
-              sleep 10
+              git pull --rebase --autostash -X theirs origin main && git push && return 0
+              echo "推送撞車,10 秒後重試($i/3)…"; git rebase --abort 2>/dev/null || true; sleep 10
             done
-            echo "::warning::推送重試 3 次仍失敗,本輪成果留在工作樹,下一輪一起再推"
-            return 1
+            echo "::warning::推送重試 3 次仍失敗,本輪成果留在工作樹,下一輪一起再推"; return 1
+          }
+
+          run_once() {
+            echo "══════ 開始一輪 $(TZ=Asia/Taipei date '+%m/%d %H:%M') ══════"
+            git pull --rebase --autostash -X theirs origin main || true     # 先同步別班的成果(ETF 17:35、盤中迴圈)
+            step 主資料 bash -c 'python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"; python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"'
+            step 報價快照 timeout 300 python update_quotes.py || echo "報價快照失敗,不影響主資料"
+            step 60分K掃描 timeout 1200 python hourly_scan.py || echo "60分K掃描失敗,不影響主資料"     # r785
+            step 大盤週乖離 timeout 300 python fetch_bias.py || echo "大盤週乖離失敗,不影響主資料"        # r789
+            step 借券 timeout 600 python backfill_sbl.py || echo "借券回補失敗,不影響主資料"          # r793
+            step 期交所 timeout 300 python fetch_taifex.py || echo "期交所籌碼失敗,不影響主資料"        # r795
+            step 訊號成績單 timeout 300 python score_signals.py || echo "訊號成績單失敗,不影響主資料"        # r795
+            commit_push 存檔點1 || true                                                    # r821:主資料先落地
+            # r820:分點/歷史回補一天只需一次,只在「單次班」或「B 段第一輪」跑;其他輪 30 分鐘內結束,19:37/20:37/21:37 才不會擠成一團
+            if [ "${HEAVY_EXTRAS:-1}" = "1" ] && [ $HHMM -ge 1700 -o "$END" = "0" ]; then
+              step 分點 timeout 2400 python fetch_broker.py || echo "分點失敗,不影響主資料"            # r802:FinMind Sponsor;r820:雙線程
+              commit_push 存檔點2 || true                                                 # r821:分點先落地
+              step 歷史回補 timeout 1500 python backfill_hist.py || echo "歷史回補失敗,不影響主資料"       # r802;r803:每 150 次落地
+              step 分點歷史 timeout 1650 python backfill_broker.py || echo "分點歷史失敗,不影響主資料"      # r804/r811:一天一次全市場
+              commit_push 存檔點3 || true
+            else
+              echo "  (本輪略過分點/歷史回補:HEAVY_EXTRAS=${HEAVY_EXTRAS:-1}, HHMM=$HHMM)"
+            fi
+            step AIPick timeout 900 python aipick.py || echo "AI Pick 失敗,不影響主資料"
+            step 推播 timeout 300 python notify.py || echo "推播失敗,不影響主資料"
+            commit_push                                                                    # 整輪提交
           }
 
           if [ "$END" = "0" ]; then
