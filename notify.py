@@ -515,9 +515,9 @@ def collect_events(aip, prices):
                 ev.append((f"bk_x|{today}|{sid}", 3, f"🏦 <b>主力分點連賣 {nm}</b>({sid})\n前 15 大分點連 3 日淨賣,5 日累計 {sum(m):+,} 張(佔成交 {r5:.1f}%);今日賣超前五:{'、'.join(x[0] for x in (S[-1].get('s') or [])[:3])}"))
     except Exception:
         pass
-    # ── r785:60 分 K 型態——已突破 / 回測成功(對所有人相同,一天一次)──
+    # ── r785:60 分 K 型態——r822 取消(區塊已下架),不再產生事件 ──
     try:
-        hs = load("hourly_scan.json", {})
+        hs = {}                                                 # r822:原 load("hourly_scan.json") 停用
         for x in hs.get("items") or []:
             if x.get("state") not in ("已突破", "回測成功"): continue
             ty = "+".join({"flat": "扁扁寬寬", "shadow": "長長尖尖"}[t] for t in x.get("type") or [])

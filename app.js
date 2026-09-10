@@ -1,4 +1,4 @@
-/* K研所 · build r821 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r822 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r821</span>');
+  diag.push('<span style="color:var(--dim)">build r822</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8224,8 +8224,10 @@ function gemBlock(s,g){
     if(panel){closePanel();return;}
     panel=document.createElement('div');
     const r=b.getBoundingClientRect();
-    panel.style.cssText=`position:fixed;top:${Math.round(r.bottom+8)}px;right:${Math.max(8,Math.round(innerWidth-r.right))}px;z-index:999;`+
-      `background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;width:min(360px,92vw);max-height:calc(100vh - ${Math.round(r.bottom+16)}px);overflow-y:auto;box-shadow:0 8px 28px rgba(0,0,0,.25)`;
+    const PW=Math.min(360,innerWidth-16);                                                   // r822:面板不能超出畫面左緣(手機上鈴鐺在左邊)
+    const rightPx=Math.min(Math.max(8,Math.round(innerWidth-r.right)),innerWidth-PW-8);
+    panel.style.cssText=`position:fixed;top:${Math.round(r.bottom+8)}px;right:${rightPx}px;z-index:999;`+
+      `background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;width:${PW}px;max-height:calc(100vh - ${Math.round(r.bottom+16)}px);overflow-y:auto;box-shadow:0 8px 28px rgba(0,0,0,.25)`;
     document.body.appendChild(panel);
     render();
     setTimeout(()=>{document.addEventListener('click',function h(e2){
@@ -19911,9 +19913,9 @@ const PUSH_GROUPS=[
   ['最愛',[['fz','回檔到均線帶'],['fh','突破 20 日高'],['fl','跌破 10 日低'],['fb','跌破均線帶']]],
   ['持股',[['ftp','停利到價'],['fsl','停損到價']]],
   ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_sb','🔁 關鍵分點連買 ≥3 日'],['kb_ss','🔁 關鍵分點連賣 ≥3 日'],['bk_sb','🔁 任一券商連買 ≥5 日'],['bk_ss','🔁 任一券商連賣 ≥5 日'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
-  ['市場',[['hs','60 分 K 突破 / 回測成功'],['bias','大盤週乖離進入低檔 / 高檔']]]];
+  ['市場',[['bias','大盤週乖離進入低檔 / 高檔']]]];
 const PUSH_KINDS=PUSH_GROUPS.flatMap(g=>g[1].map(x=>x[0]));
-const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:['hs'],bias:['bias']};
+const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:[],bias:['bias']};
 /* r817:舊帳號存的細項名單裡沒有新種類 → 預設補上(新種類預設開) */
 (function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(Array.isArray(a)&&!a.includes('lead')){let ch=false;['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss'].forEach(k=>{if(!a.includes(k)){a.push(k);ch=true;}});if(ch)localStorage.setItem('pushCats',JSON.stringify(a));}}catch(e){}})();
 function pushCatsGet(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(!Array.isArray(a))return PUSH_KINDS.slice();
@@ -20632,7 +20634,7 @@ function renderHscan(){
     <div class="dim-note" style="margin-top:8px">門檻:整理段 rolling 高低幅 ≤ ${(J.params||{}).range_max*100||8}%;扁扁寬寬需 ≥ ${(J.params||{}).flat_bars||25} 根、實體中位 ≤0.5%、全幅中位 ≤1.2%、量縮 ≤0.7x;長長尖尖下影線 ≥ 2×實體且 ≥ ${(J.params||{}).shadow_atr_x||1.2}×小時 ATR、收在上半、碰到段低、量 ≥1.5x;突破需收 >段高×1.005 且量 ≥${(J.params||{}).brk_vol_x||2}×段均量。資料:富果 60 分 K 近 30 日。非投資建議。</div>`;
   box.querySelectorAll('[data-hs]').forEach(el=>el.onclick=()=>{location.hash='#stock/'+el.dataset.hs;});
 }
-lazyRun('#hscanBox',()=>{hscanLoad().then(()=>renderHscan());},15*60*1000);
+// r822:60 分 K 型態區塊已取消(hscan 程式保留,不掛載)
 /* ═══ r789:📉 大盤週乖離・入場時機(fetch_bias.py 每日產 bias.json;Yahoo 十年週線)═══ */
 let BIAS=null;
 async function biasLoad(){try{const r=await fT('bias.json?v='+kv(),15000,{cache:'no-store'});if(r&&r.ok)BIAS=await r.json();}catch(e){}return BIAS;}
