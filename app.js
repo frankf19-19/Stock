@@ -1,4 +1,4 @@
-/* K研所 · build r819 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r821 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r819</span>');
+  diag.push('<span style="color:var(--dim)">build r821</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21078,6 +21078,12 @@ function hltPanel(){
     <div class="hlt-row" style="border:0;margin-top:4px">${dot(AIPK&&AIPK.updated?'ok':'warn')}<b>AI Pick</b><span class="hlt-last">${(AIPK&&AIPK.updated)||'讀取中'}</span><span class="hlt-note">週選+學習</span></div></div>`;
   ov.onclick=e=>{if(e.target===ov||e.target.classList.contains('hlt-x'))ov.remove();};
   document.body.appendChild(ov);
+  // r821:最近幾輪後端執行紀錄(run_log.json:每一步花多久、有沒有失敗)——被砍掉也看得到跑到哪
+  (async()=>{try{const r=await fT('run_log.json?v='+kv(),8000,{cache:'no-store'});if(!r||!r.ok)return;const J=await r.json();const R=(J.rounds||[]).slice(-5).reverse();if(!R.length)return;
+    const box=ov.querySelector('.hlt-box');if(!box)return;const el=document.createElement('div');
+    const mm=s=>s>=60?`${Math.round(s/60)}m`:`${s}s`;
+    el.innerHTML=`<div class="hlt-h" style="margin-top:10px;font-size:13px">🧾 後端最近幾輪 <span class="dim" style="font-weight:400">每一步耗時;紅 = 該步失敗或逾時</span></div>`+R.map(x=>`<div class="hlt-row" style="display:block;font-size:12px;line-height:1.7"><b>${x.start}</b> → ${x.end}・共 ${mm(x.sec)}${x.run?`・#${x.run}`:''}<br><span style="color:var(--txt2)">${(x.steps||[]).map(t=>`<span style="${t.rc?'color:var(--down);font-weight:800':''}">${t.n} ${mm(t.sec)}</span>`).join(' · ')}</span></div>`).join('');
+    box.appendChild(el);}catch(e){}})();
 }
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='hltChip')hltPanel();});
 /* 📅 除權息 */
