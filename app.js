@@ -1,4 +1,4 @@
-/* K研所 · build r817 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r818 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r817</span>');
+  diag.push('<span style="color:var(--dim)">build r818</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3938,7 +3938,7 @@ function rptFullFacts(s,d){
   try{const H=HSCAN&&(HSCAN.items||[]).find(x=>x.id===s.id);if(H)F.h60={type:H.type,state:H.state,range:H.range_pct,bars:H.bars};}catch(x){}
   try{const B=BIAS&&(BIAS.idx||[]).find(x=>x.sym===(s.market==='US'?'^GSPC':'^TWII'));if(B){const mm=B.ma['20']||{};F.mkt={name:B.name,zone:B.zone,bias20:mm.bias,pct:mm.pct};}}catch(x){}
   try{const R=window.__bkR;if(R)F.broker={date:R.d,verdict:R.verdict,m15_today:R.last.m15,c5:R.c5,c20:R.c20,r5_pct:+R.r5.toFixed(1),pos_days_5:R.pos5,streak_buy:R.streak,streak_sell:R.streakS,conc:R.last.conc,nb:R.last.nb,ns:R.last.ns,top_buy:(R.last.b||[]).slice(0,3),top_sell:(R.last.s||[]).slice(0,3),day_trade_brokers:R.dt,
-    key_buy_brokers:(R.kb&&R.kb.b||[]).filter(x=>x[7]).map(x=>({name:x[0],n:x[1],avg10:x[4],win10:x[5],last:x[6]})),key_sell_brokers:(R.kb&&R.kb.s||[]).filter(x=>x[7]).map(x=>({name:x[0],n:x[1],avg10:x[4],win10:x[5],last:x[6]})),key_broker_active_today:R.hit};}catch(x){}
+    key_buy_brokers:(R.kb&&R.kb.b||[]).filter(x=>x[7]).map(x=>({name:x[0],n:x[1],avg10:x[4],win10:x[5],last:x[6]})),key_sell_brokers:(R.kb&&R.kb.s||[]).filter(x=>x[7]).map(x=>({name:x[0],n:x[1],avg10:x[4],win10:x[5],last:x[6]})),key_broker_active_today:R.hit,broker_buy_streaks:(R.runB||[]).slice(0,3),broker_sell_streaks:(R.runS||[]).slice(0,3)};}catch(x){}
   try{const R=window.__sblR;if(R&&R.cur!=null)F.sbl={balance_lots:R.cur,pct_1y:R.curPct,d5:R.d5,d20:R.d20,verdict:R.verdict,hi_bucket_fwd20_med:R.bk[4].med,hi_bucket_win:R.bk[4].win,lo_bucket_fwd20_med:R.bk[0].med,lo_bucket_win:R.bk[0].win,p80_lots:R.cuts[3],p20_lots:R.cuts[0]};}catch(x){}
   F.desc=(d.desc||'').slice(0,300);
   return F;
@@ -8877,7 +8877,14 @@ function bkCalc(e){
     // r816:帶上這次進出的日期、張數、均價,以及上一次進出的日期(x[6] 是最近一次,若等於今天就看不到更早的,標「首次/連續」)
     (kb.b||[]).filter(x=>x[7]).forEach(x=>{const t=tb.get(x[0]);if(t)hit.push({side:'b',name:x[0],n:x[1],a10:x[4],w10:x[5],d:e.d[n-1],lots:t[1],px:t[2],last:x[6]});});
     (kb.s||[]).filter(x=>x[7]).forEach(x=>{const t=ts.get(x[0]);if(t)hit.push({side:'s',name:x[0],n:x[1],a10:x[4],w10:x[5],d:e.d[n-1],lots:t[1],px:t[2],last:x[6]});});}
-  return {last,d:e.d[n-1],c5,c20,r5,r20,pos5,streak,streakS,verdict,col,why,cum,days:n,dt:last.dt||[],nd:(last.nb||0)-(last.ns||0),kb,hit};
+  // r818:券商連買/連賣——同一家連續幾天出現在買超(賣超)前 15;★ 關鍵券商 ≥3 日、任何券商 ≥5 日
+  const keyB=new Set((kb&&kb.b||[]).filter(x=>x[7]).map(x=>x[0])),keyS=new Set((kb&&kb.s||[]).filter(x=>x[7]).map(x=>x[0]));
+  const runs=(side)=>{const out=[];const names=new Set((last[side]||[]).map(x=>x[0]));
+    names.forEach(nm=>{let k=0,lots=0;for(let i=n-1;i>=0;i--){const r=(S[i][side]||[]).find(x=>x[0]===nm);if(!r)break;k++;lots+=r[1];}
+      const key=(side==='b'?keyB:keyS).has(nm);if((key&&k>=3)||k>=5)out.push({name:nm,days:k,lots,key});});
+    return out.sort((a,b)=>(b.key-a.key)||(b.days-a.days));};
+  const runB=runs('b'),runS=runs('s');
+  return {last,d:e.d[n-1],c5,c20,r5,r20,pos5,streak,streakS,verdict,col,why,cum,days:n,dt:last.dt||[],nd:(last.nb||0)-(last.ns||0),kb,hit,runB,runS};
 }
 function bkHTML(R,s){
   if(!R)return `<h3>🏦 分點動向</h3><div class="dim-note">尚無分點資料(每日收盤後由後端抓取,首日要等跑過一班)。</div>`;
@@ -8897,6 +8904,7 @@ function bkHTML(R,s){
       <div><dt>20 日主力累計走勢</dt><dd>${spark}</dd></div>
     </div>
     ${R.hit.length?`<div style="border:1.5px solid var(--t-gold);border-radius:10px;padding:8px 12px;margin:6px 0;background:color-mix(in srgb,var(--t-gold) 8%,var(--panel));font-size:13px;line-height:1.7"><b style="color:var(--t-gold)">🎯 ${R.d.slice(5).replace('-','/')} 關鍵分點有動作</b>:${R.hit.map(h=>`<b>${h.name}</b> ${h.side==='b'?'買超':'賣超'} ${Math.abs(h.lots).toLocaleString()} 張 @${h.px}——它過去 ${h.n} 次${h.side==='b'?'進場':'出場'}後 10 日平均 <b style="color:${h.side==='b'?'var(--up)':'var(--down)'}">${(h.a10>=0?'+':'')+h.a10}%</b>、${h.side==='b'?'上漲':'下跌'}機率 ${h.w10}%`).join(';')}</div>`:''}
+    ${(R.runB&&R.runB.length)||(R.runS&&R.runS.length)?`<div style="margin:6px 0;font-size:13px;line-height:1.8">${(R.runB||[]).map(x=>`<span class="fkb ${x.key?'fkb-b':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連買 ${x.days} 日 <small>累計 ${(x.lots>=0?'+':'')+x.lots.toLocaleString()} 張</small></span>`).join(' ')} ${(R.runS||[]).map(x=>`<span class="fkb ${x.key?'fkb-s':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連賣 ${x.days} 日 <small>累計 ${x.lots.toLocaleString()} 張</small></span>`).join(' ')}</div>`:''}
     ${R.kb?`<div style="margin:8px 0 2px;font-weight:800;font-size:13px">🎯 關鍵分點<small class="dim" style="font-weight:400;margin-left:6px">近 ${R.kb.days} 個交易日;這檔任意時點 10 日平均 ${(R.kb.base10>=0?'+':'')+R.kb.base10}%——券商要贏過它才算關鍵(★)</small></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div><div style="font-size:12.5px;color:var(--up);font-weight:800">買了之後會漲的</div><table class="sig-t"><tr><th style="text-align:left">券商</th><th>進場次</th><th>後 5 日</th><th>後 10 日</th><th>漲機率</th><th>最近</th></tr>${(R.kb.b||[]).map(x=>`<tr${x[7]?' style="font-weight:800"':''}><td>${x[7]?'★ ':''}${x[0]}</td><td>${x[1]}</td><td style="color:${x[2]>0?'var(--up)':'var(--down)'}">${x[2]==null?'—':(x[2]>=0?'+':'')+x[2]+'%'}</td><td style="color:${x[4]>0?'var(--up)':'var(--down)'}"><b>${(x[4]>=0?'+':'')+x[4]}%</b></td><td>${x[5]}%</td><td class="dim">${x[6].slice(5).replace('-','/')}</td></tr>`).join('')||'<tr><td colspan=6 class="dim">樣本不足</td></tr>'}</table></div>
@@ -19902,12 +19910,12 @@ const PUSH_GROUPS=[
   ['AI Pick',[['fill','已買進 / 換股買進(事實)'],['exit','已出場:到目標 / 停損 / 到期(事實)'],['buy','到買價・可買進'],['chase','進入追價區'],['tp','盤中到目標'],['sl','盤中觸停損'],['exp','今日到期結算提醒']]],
   ['最愛',[['fz','回檔到均線帶'],['fh','突破 20 日高'],['fl','跌破 10 日低'],['fb','跌破均線帶']]],
   ['持股',[['ftp','停利到價'],['fsl','停損到價']]],
-  ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
+  ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_sb','🔁 關鍵分點連買 ≥3 日'],['kb_ss','🔁 關鍵分點連賣 ≥3 日'],['bk_sb','🔁 任一券商連買 ≥5 日'],['bk_ss','🔁 任一券商連賣 ≥5 日'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
   ['市場',[['hs','60 分 K 突破 / 回測成功'],['bias','大盤週乖離進入低檔 / 高檔']]]];
 const PUSH_KINDS=PUSH_GROUPS.flatMap(g=>g[1].map(x=>x[0]));
-const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:['hs'],bias:['bias']};
+const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:['hs'],bias:['bias']};
 /* r817:舊帳號存的細項名單裡沒有新種類 → 預設補上(新種類預設開) */
-(function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(Array.isArray(a)&&!a.includes('kb_b2')&&!a.includes('lead')){a.push('kb_b2','kb_x2');localStorage.setItem('pushCats',JSON.stringify(a));}}catch(e){}})();
+(function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(Array.isArray(a)&&!a.includes('lead')){let ch=false;['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss'].forEach(k=>{if(!a.includes(k)){a.push(k);ch=true;}});if(ch)localStorage.setItem('pushCats',JSON.stringify(a));}}catch(e){}})();
 function pushCatsGet(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(!Array.isArray(a))return PUSH_KINDS.slice();
   const out=new Set();a.forEach(x=>{if(PUSH_CAT_KINDS[x])PUSH_CAT_KINDS[x].forEach(k=>out.add(k));else out.add(x);});return [...out];}catch(e){return PUSH_KINDS.slice();}}
 function pushProfile(){
@@ -21019,6 +21027,8 @@ async function favKbFill(root){
       if(ns>=2)parts.push(`<span class="fkb fkb-hot fkb-hot-s">🔥 ${ns} 家關鍵分點同日出場</span>`);
       hit.filter(h=>h.side==='b').forEach(h=>parts.push(`<span class="fkb fkb-b">🎯 關鍵分點進場 <b>${h.name}</b> <em>${md(h.d)} 買超 ${(h.lots>=0?'+':'')+h.lots.toLocaleString()} 張 @${h.px}</em> <small>過去 ${h.n} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・漲 ${h.w10}%</small></span>`));
       hit.filter(h=>h.side==='s').forEach(h=>parts.push(`<span class="fkb fkb-s">🎯 關鍵分點出場 <b>${h.name}</b> <em>${md(h.d)} 賣超 ${h.lots.toLocaleString()} 張 @${h.px}</em> <small>過去 ${h.n} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・跌 ${h.w10}%</small></span>`));
+      (R.runB||[]).filter(x=>x.key||x.days>=5).slice(0,2).forEach(x=>parts.push(`<span class="fkb ${x.key?'fkb-b':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連買 ${x.days} 日 <small>累計 ${(x.lots>=0?'+':'')+x.lots.toLocaleString()} 張</small></span>`));
+      (R.runS||[]).filter(x=>x.key||x.days>=5).slice(0,2).forEach(x=>parts.push(`<span class="fkb ${x.key?'fkb-s':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連賣 ${x.days} 日 <small>累計 ${x.lots.toLocaleString()} 張</small></span>`));
       if(!parts.length&&(R.verdict==='主力吃貨'||R.verdict==='主力出貨'))parts.push(`<span class="fkb ${R.verdict==='主力吃貨'?'fkb-b':'fkb-s'}" style="opacity:.85">🏦 分點:${R.verdict} <small>5 日前 15 大 ${(R.c5>=0?'+':'')+R.c5.toLocaleString()} 張</small></span>`);
       FAVKB_HTML[id]=parts.length?`<div class="fav-kb-d">${R.d.slice(5).replace('-','/')} 分點</div>${parts.join('')}`:'';
       if(FAVKB_HTML[id])el.innerHTML=FAVKB_HTML[id];

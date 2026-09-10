@@ -38,7 +38,7 @@ LEAD_DAILY_MAX = 3          # r795:主力進出每人每日最多 3 則(最吵�
 # r795:事件鍵前綴 → 類別(使用者可在帳號面板勾選要收哪些)
 CAT_OF = {"fill": "aip", "rot": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
           "fz": "fav", "fh": "fav", "fl": "fav", "fb": "fav", "ftp": "port", "fsl": "port",
-          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "hs": "h60", "bias": "bias"}
+          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "bk_sb": "lead", "bk_ss": "lead", "hs": "h60", "bias": "bias"}
 CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離"}
 def cat_of(key):
     p = str(key).split("|")[0]
@@ -483,6 +483,24 @@ def collect_events(aip, prices):
                 ev.append((f"kb_x2|{today}|{sid}", 2, f"🔥🎯 <b>{len(hx)} 家關鍵分點同日出場 {nm}</b>({sid})\n{lines}\n多家「賣了會跌」的券商同一天賣超"))
             elif hx and not hb:
                 x = hx[0]; ev.append((f"kb_x|{today}|{sid}", 2, f"🎯 <b>關鍵分點出場 {nm}</b>({sid})\n{x[0]} 今日賣超;它過去 {x[1]} 次出場後 10 日平均 {x[4]:+.1f}%、下跌機率 {x[5]}%"))
+            # r818:連買/連賣——同一券商連續出現在買超(賣超)前 15;★ 關鍵 ≥3 日二級、任何券商 ≥5 日三級
+            keyB = set(x[0] for x in (kb.get("b") or []) if x[7]); keyS = set(x[0] for x in (kb.get("s") or []) if x[7])
+            for side, keyset, kind_k, kind_a, word in (("b", keyB, "kb_sb", "bk_sb", "連買"), ("s", keyS, "kb_ss", "bk_ss", "連賣")):
+                best = None
+                for nm0, net0, px0 in (S[-1].get(side) or []):
+                    k = 0; lots = 0
+                    for i in range(len(S) - 1, -1, -1):
+                        r = next((x for x in (S[i].get(side) or []) if x[0] == nm0), None)
+                        if not r: break
+                        k += 1; lots += r[1]
+                    isk = nm0 in keyset
+                    if (isk and k >= 3) or k >= 5:
+                        cand = (isk, k, nm0, lots)
+                        if best is None or cand[:2] > best[:2]: best = cand
+                if best:
+                    isk, k, nm0, lots = best
+                    ev.append((f"{kind_k if isk else kind_a}|{today}|{sid}", 2 if isk else 3,
+                               f"🔁 <b>{'關鍵分點' if isk else '券商'}{word} {k} 日 {nm}</b>({sid})\n{nm0} 連續 {k} 天{'買超' if side=='b' else '賣超'},累計 {lots:+,} 張{'(★ 買了會漲的關鍵券商)' if isk and side=='b' else '(★ 賣了會跌的關鍵券商)' if isk else ''}"))
             if st3 and r5 >= 5:
                 ev.append((f"bk_b|{today}|{sid}", 3, f"🏦 <b>主力分點連買 {nm}</b>({sid})\n前 15 大分點連 3 日淨買,5 日累計 {sum(m):+,} 張(佔成交 {r5:.1f}%);今日買超前五:{'、'.join(x[0] for x in (S[-1].get('b') or [])[:3])}"))
             elif sx3 and r5 <= -5:
