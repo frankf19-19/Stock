@@ -96,9 +96,14 @@ jobs:
             timeout 600 python backfill_sbl.py || echo "借券回補失敗,不影響主資料"          # r793
             timeout 300 python fetch_taifex.py || echo "期交所籌碼失敗,不影響主資料"        # r795
             timeout 300 python score_signals.py || echo "訊號成績單失敗,不影響主資料"        # r795
-            timeout 3300 python fetch_broker.py || echo "分點失敗,不影響主資料"              # r802:FinMind Sponsor,每輪接著抓,同日抓完就跳過
-            timeout 1500 python backfill_hist.py || echo "歷史回補失敗,不影響主資料"         # r802;r803:每 150 次落地
-            timeout 1650 python backfill_broker.py || echo "分點歷史失敗,不影響主資料"        # r804:每檔 90 日分點一次拉,補齊後自動跳過
+            # r820:分點/歷史回補一天只需一次,只在「單次班」或「B 段第一輪」跑;其他輪 30 分鐘內結束,19:37/20:37/21:37 才不會擠成一團
+            if [ "${HEAVY_EXTRAS:-1}" = "1" ] && [ $HHMM -ge 1700 -o "$END" = "0" ]; then
+              timeout 2400 python fetch_broker.py || echo "分點失敗,不影響主資料"            # r802:FinMind Sponsor;r820:雙線程
+              timeout 1500 python backfill_hist.py || echo "歷史回補失敗,不影響主資料"       # r802;r803:每 150 次落地
+              timeout 1650 python backfill_broker.py || echo "分點歷史失敗,不影響主資料"      # r804/r811:一天一次全市場
+            else
+              echo "  (本輪略過分點/歷史回補:HEAVY_EXTRAS=${HEAVY_EXTRAS:-1}, HHMM=$HHMM)"
+            fi
             python aipick.py || echo "AI Pick 失敗,不影響主資料"
             python notify.py || echo "推播失敗,不影響主資料"
             # ── 提交 ──
@@ -133,6 +138,7 @@ jobs:
 
           # ── 傍晚自迴圈:第一輪立刻跑,之後每到 :37 跑一輪,過 END 收工 ──
           run_once
+          export HEAVY_EXTRAS=0                       # r820:第二輪起不再跑分點/歷史回補
           while : ; do
             NOW=$(date +%s)
             [ $NOW -ge $END ] && { echo "已到 $(TZ=Asia/Taipei date -d @$END '+%H:%M'),本段收工"; break; }
