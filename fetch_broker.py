@@ -17,7 +17,8 @@ TOKEN = os.environ.get("FINMIND_TOKEN", "").strip()
 API = "https://api.finmindtrade.com/api/v4/data"
 DIR = "bk"; KEEP = 60
 BUDGET_SEC = int(os.environ.get("BK_BUDGET_SEC", "3000"))     # 一輪最多 50 分鐘(r803:45 分鐘只抓到 1,925/2,100)
-SLEEP = 0.55                                                   # 含往返約 1 秒/次 ≈ 3,600/小時,遠低於 6,000
+SLEEP = 1.1                                                    # r820:雙線程,每線程 1.1s ≈ 合計 5,000/小時以內
+THREADS = 2
 
 
 def log(*a): print(*a, flush=True)
@@ -181,17 +182,28 @@ def main():
             st["gov"] = True; log(f"  八大行庫 {day}:{len(g)} 檔,全市場淨 {sum(g.values()):+,} 張")
         except Exception as e:
             log(f"  八大行庫失敗:{e}")
-    log(f"分點 {day}:待抓 {len(todo)}/{len(ids)} 檔(本輪上限 {BUDGET_SEC//60} 分鐘)")
-    for sid in todo:
-        if time.time() - t0 > BUDGET_SEC: log("  時間到,下一輪接著抓"); break
+    log(f"分點 {day}:待抓 {len(todo)}/{len(ids)} 檔(本輪上限 {BUDGET_SEC//60} 分鐘,{THREADS} 線程)")
+    from concurrent.futures import ThreadPoolExecutor
+    def one(sid):
         try:
-            rows = fm("TaiwanStockTradingDailyReport", data_id=sid, start_date=day, end_date=day)
+            r = fm("TaiwanStockTradingDailyReport", data_id=sid, start_date=day, end_date=day); time.sleep(SLEEP); return sid, r, None
         except Exception as e:
+            time.sleep(2); return sid, None, e
+    ex = ThreadPoolExecutor(max_workers=THREADS)
+    pending = []; it = iter(todo)
+    def submit_next():
+        try: pending.append(ex.submit(one, next(it))); return True
+        except StopIteration: return False
+    for _ in range(THREADS): submit_next()
+    while pending:
+        f = pending.pop(0); sid, rows, err = f.result()
+        if time.time() - t0 <= BUDGET_SEC: submit_next()
+        elif not pending: log("  時間到,下一輪接著抓")
+        if err is not None:
             fail += 1
-            if fail <= 3: log(f"  {sid} 失敗:{e}")
+            if fail <= 3: log(f"  {sid} 失敗:{err}")
             if fail >= 20: log("  連續失敗太多,停"); break
-            time.sleep(2); continue
-        time.sleep(SLEEP)
+            continue
         k = shard_key(sid); e = S.setdefault(k, {}).setdefault(sid, {"d": [], "s": []})
         prev = e["s"][-1] if e["d"] and e["d"][-1] < day else None
         summ = summarize(rows, prev)
@@ -206,6 +218,7 @@ def main():
         if n % 200 == 0:
             st["done"] = sorted(done); json.dump(st, open(st_p, "w"), ensure_ascii=False); save_shards(S)
             log(f"  進度 {n}/{len(todo)}({int(time.time()-t0)}s)")
+    ex.shutdown(wait=False)
     st["done"] = sorted(done); json.dump(st, open(st_p, "w"), ensure_ascii=False)
     # r804:關鍵分點(有 15 天以上才算)
     nk = 0
