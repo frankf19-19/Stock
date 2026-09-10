@@ -1,4 +1,4 @@
-/* K研所 · build r816 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r817 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r816</span>');
+  diag.push('<span style="color:var(--dim)">build r817</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19902,10 +19902,12 @@ const PUSH_GROUPS=[
   ['AI Pick',[['fill','已買進 / 換股買進(事實)'],['exit','已出場:到目標 / 停損 / 到期(事實)'],['buy','到買價・可買進'],['chase','進入追價區'],['tp','盤中到目標'],['sl','盤中觸停損'],['exp','今日到期結算提醒']]],
   ['最愛',[['fz','回檔到均線帶'],['fh','突破 20 日高'],['fl','跌破 10 日低'],['fb','跌破均線帶']]],
   ['持股',[['ftp','停利到價'],['fsl','停損到價']]],
-  ['主力與分點',[['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
+  ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
   ['市場',[['hs','60 分 K 突破 / 回測成功'],['bias','大盤週乖離進入低檔 / 高檔']]]];
 const PUSH_KINDS=PUSH_GROUPS.flatMap(g=>g[1].map(x=>x[0]));
-const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:['hs'],bias:['bias']};
+const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:['hs'],bias:['bias']};
+/* r817:舊帳號存的細項名單裡沒有新種類 → 預設補上(新種類預設開) */
+(function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(Array.isArray(a)&&!a.includes('kb_b2')&&!a.includes('lead')){a.push('kb_b2','kb_x2');localStorage.setItem('pushCats',JSON.stringify(a));}}catch(e){}})();
 function pushCatsGet(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(!Array.isArray(a))return PUSH_KINDS.slice();
   const out=new Set();a.forEach(x=>{if(PUSH_CAT_KINDS[x])PUSH_CAT_KINDS[x].forEach(k=>out.add(k));else out.add(x);});return [...out];}catch(e){return PUSH_KINDS.slice();}}
 function pushProfile(){
@@ -21012,6 +21014,9 @@ async function favKbFill(root){
       const R=bkCalc(e);if(!R){FAVKB_HTML[id]='';continue;}
       const hit=R.hit||[];const parts=[];
       const md=d=>d?d.slice(5).replace('-','/'):'';
+      const nb=hit.filter(h=>h.side==='b').length,ns=hit.filter(h=>h.side==='s').length;
+      if(nb>=2)parts.push(`<span class="fkb fkb-hot">🔥 ${nb} 家關鍵分點同日進場</span>`);
+      if(ns>=2)parts.push(`<span class="fkb fkb-hot fkb-hot-s">🔥 ${ns} 家關鍵分點同日出場</span>`);
       hit.filter(h=>h.side==='b').forEach(h=>parts.push(`<span class="fkb fkb-b">🎯 關鍵分點進場 <b>${h.name}</b> <em>${md(h.d)} 買超 ${(h.lots>=0?'+':'')+h.lots.toLocaleString()} 張 @${h.px}</em> <small>過去 ${h.n} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・漲 ${h.w10}%</small></span>`));
       hit.filter(h=>h.side==='s').forEach(h=>parts.push(`<span class="fkb fkb-s">🎯 關鍵分點出場 <b>${h.name}</b> <em>${md(h.d)} 賣超 ${h.lots.toLocaleString()} 張 @${h.px}</em> <small>過去 ${h.n} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・跌 ${h.w10}%</small></span>`));
       if(!parts.length&&(R.verdict==='主力吃貨'||R.verdict==='主力出貨'))parts.push(`<span class="fkb ${R.verdict==='主力吃貨'?'fkb-b':'fkb-s'}" style="opacity:.85">🏦 分點:${R.verdict} <small>5 日前 15 大 ${(R.c5>=0?'+':'')+R.c5.toLocaleString()} 張</small></span>`);
