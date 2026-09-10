@@ -77,6 +77,7 @@ def push_users():
         for u in (r.json().get("users") or []):
             out.append({"uid": u["uid"], "data": {"fav_ids": json.dumps(u.get("fav_ids") or []), "port1": json.dumps(u.get("port1") or []),
                                                "pushSubs": json.dumps(u.get("subs") or []), "cats": json.dumps(u.get("cats")) if u.get("cats") is not None else None,
+                                               "tgLink": json.dumps(u.get("tgLink")) if u.get("tgLink") else None,           # r819:綁定碼/解綁旗標也從 Worker 來
                                                "tgChat": (u.get("tg") or [None])[0] if u.get("tg") else None}})
         return out
     except Exception as e:
@@ -98,6 +99,13 @@ def all_users():
         log(f"  讀全部帳號失敗:{e}"); return []
 
 def sb_patch_data(uid, data):
+    if not SB_SERVICE:                                          # r819:沒有 service key → Telegram 綁定結果寫回 Worker KV
+        try:
+            r = requests.post(f"{PUSH_HOST}/push/tg", headers={"Authorization": f"Bearer {GH_TOKEN_ACT}", "Content-Type": "application/json"},
+                              json={"uid": uid, "tgChat": data.get("tgChat"), "tgLink": data.get("tgLink")}, timeout=20)
+            return r.ok
+        except Exception:
+            return False
     try:
         r = requests.patch(f"{SB_URL}/rest/v1/user_data", params={"uid": f"eq.{uid}"}, headers={**sb_headers(), "Prefer": "return=minimal"},
                            json={"data": data, "updated_at": dt.datetime.now(dt.timezone.utc).isoformat()}, timeout=15)

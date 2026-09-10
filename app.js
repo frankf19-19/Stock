@@ -1,4 +1,4 @@
-/* K研所 · build r818 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r819 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r818</span>');
+  diag.push('<span style="color:var(--dim)">build r819</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19922,7 +19922,8 @@ function pushProfile(){
   let fav=[],port=[];
   try{fav=JSON.parse(localStorage.getItem('fav_ids')||'[]')||[];}catch(e){}
   try{port=(JSON.parse(localStorage.getItem('port1')||'[]')||[]).map(p=>({id:p.id,sh:p.sh,cost:p.cost}));}catch(e){}
-  return {fav_ids:fav,port1:port,cats:pushCatsGet()};                                 // r795:通知類別一起送
+  let tgl=null;try{tgl=JSON.parse(localStorage.getItem('tgLink')||'null');}catch(e){}
+  return {fav_ids:fav,port1:port,cats:pushCatsGet(),tgLink:tgl};                       // r795:通知類別一起送;r819:Telegram 綁定碼
 }
 async function pushEnable(){
   const perm=await Notification.requestPermission();
@@ -19943,9 +19944,19 @@ async function pushDisable(){
 }
 let __pushSyncT=null;
 function pushSyncProfile(){                                     // 最愛/持股改了 → 告訴 Worker(推播三級訊號要用);防抖 3 秒
-  if(!SB_USER||!pushSubsGet().length)return;
+  if(!SB_USER)return;
   clearTimeout(__pushSyncT);__pushSyncT=setTimeout(()=>{pushApi('/push/sync',pushProfile()).catch(()=>{});},3000);
 }
+/* r819:Telegram 綁定走 Worker KV(不經 Supabase service key):tgLink 隨 profile 同步上去,綁定結果用 /push/me 讀回 */
+async function tgStateRefresh(){
+  if(!SB_USER)return;
+  try{const j=await pushApi('/push/me',{});
+    if(j&&j.tg&&j.tg.length){localStorage.setItem('srv_tgChat',String(j.tg[0]));if(!(j.tgLink&&j.tgLink.unbind))localStorage.removeItem('tgLink');}
+    else{localStorage.removeItem('srv_tgChat');}
+    sbTgPaint();
+  }catch(e){}
+}
+setInterval(()=>{try{if(SB_USER&&document.getElementById('sbTg'))tgStateRefresh();}catch(e){}},60*1000);
 async function pushThisDeviceOn(){
   try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
     return !!(sub&&pushSubsGet().some(x=>x&&x.endpoint===sub.endpoint));}catch(e){return false;}
@@ -20011,14 +20022,14 @@ function sbTgPaint(){
     document.getElementById('sbTgOff').onclick=()=>{
       try{localStorage.setItem('tgLink',JSON.stringify({unbind:1,t:Date.now()}));}catch(e){}   // 後端看到 unbind 就清 tgChat
       try{localStorage.removeItem('srv_tgChat');}catch(e){}
-      sbPush(true); sbTgPaint();
+      sbPush(true); pushApi('/push/sync',pushProfile()).catch(()=>{}); sbTgPaint();
     };
   }else if(pending){
     box.innerHTML=`<div class="sb-tg-h">📨 Telegram 通知 <span class="sb-tg-wait">等待 Telegram 那邊按 Start…</span></div>
       <div class="sb-note">綁定碼 <b class="mono">${link.code}</b>。若剛才沒開成 Telegram,<a href="#" id="sbTgAgain">再開一次</a>;按 Start 後最多 5 分鐘生效,這裡會自動變成「已綁定」。</div>
       <button class="sb-alt" id="sbTgCancel">取消</button>`;
     document.getElementById('sbTgAgain').onclick=async e=>{e.preventDefault();const b=await tgBotName();if(b)window.open(`https://t.me/${b}?start=${link.code}`,'_blank');else alert('後端尚未回報 bot 名稱,請稍後再試');};
-    document.getElementById('sbTgCancel').onclick=()=>{try{localStorage.removeItem('tgLink');}catch(e){}sbPush(true);sbTgPaint();};
+    document.getElementById('sbTgCancel').onclick=()=>{try{localStorage.removeItem('tgLink');}catch(e){}sbPush(true);pushApi('/push/sync',{...pushProfile(),tgLink:null}).catch(()=>{});sbTgPaint();};
   }else{
     box.innerHTML=`<div class="sb-tg-h">📨 Telegram 通知 <span class="sb-tg-no">未綁定</span></div>
       <div class="sb-note">綁定後,重要訊息會直接推到你的 Telegram——沒開網站也收得到。</div>
@@ -20028,7 +20039,7 @@ function sbTgPaint(){
       if(!b){alert('後端還沒回報 Telegram bot 名稱(需 TG_TOKEN 已設定並跑過一班),請稍後再試');return;}
       const code=Math.random().toString(36).slice(2,8).toUpperCase();
       try{localStorage.setItem('tgLink',JSON.stringify({code,t:Date.now()}));}catch(e){}
-      await sbPush(true);                                   // 綁定碼先到雲端,後端才對得上
+      await sbPush(true); try{await pushApi('/push/sync',pushProfile());}catch(e){}                                   // 綁定碼先到雲端,後端才對得上
       window.open(`https://t.me/${b}?start=${code}`,'_blank');
       sbTgPaint();
     };
