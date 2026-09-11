@@ -4127,17 +4127,26 @@ def fetch_news(n=10):
     return items
 
 # ═══════════════ 主流程 ═══════════════
+UD_FULL = os.environ.get("UD_FULL", "1") != "0"     # r823:輕量輪(每段第 2 輪起)略過一天做一次就夠的重活
+import time as _time
+_T0 = [_time.time()]
+def _lap(tag):
+    now = _time.time(); print(f"  ⏱ {tag} {now - _T0[0]:.0f}s", flush=True); _T0[0] = now
+
+
 def main():
-    print("① 讀取名單與既有 K 線 ...")
+    print("① 讀取名單與既有 K 線 ..." + ("" if UD_FULL else "(輕量輪)"))
     comps = fetch_tw_companies() + add_us_etfs(fetch_us_companies())
     hist = load_hist()
     prev = load_prev()
 
+    _lap("①名單/K線")
     print("② 更新價格(台股逐日累積 / 美股批次)...")
     update_tw_prices(hist, [c for c in comps if c["market"] == "TW"])
     update_us_prices(hist, [c for c in comps if c["market"] == "US"])
     save_hist(hist, comps)
 
+    _lap("②價格")
     print("③ 官方彙總:營收 / 法人 / 大戶(台灣官方站可能封鎖海外IP,抓不到則以中性計分)...")
     rev_bulk = fetch_rev_bulk()
     chips, cmeta = load_chips()
@@ -4151,7 +4160,7 @@ def main():
     seed_tdcc_history(chips)                # 由 tdcc.json 整段回灌大戶週歷史(分片歸零後可立即恢復)
     append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
     backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
-    backfill_perstock(chips, comps)         # FinMind 個股查詢逐檔磨補(免費層可用;每輪 250+120 檔,數天磨完全市場)
+    if UD_FULL: backfill_perstock(chips, comps)   # FinMind 個股查詢逐檔磨補(每輪 250+120 檔)——r823:只在全套輪
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
     try:
         append_eps(chips, fetch_eps_bulk())     # r707:季 EPS 逐季累積(qe_d/qe,供本益比河流圖)
@@ -4161,6 +4170,7 @@ def main():
     save_chips(chips, cmeta, comps)
     save_diag()                             # 回補嘗試全記錄 → c/diag.json;必須在 save_chips(內含孤兒清除)之後寫
 
+    _lap("③籌碼/營收")
     print("④ 計算評分與訊號 ...")
     stocks, ok = [], 0
     _br = {"n": 0, "ma20": 0, "ma60": 0, "h60": 0, "l60": 0}   # r621 市場寬度:站上月/季線、創60日新高/新低家數
@@ -4225,11 +4235,14 @@ def main():
         if c["id"] in THESIS: d["thesis"] = THESIS[c["id"]]
         stocks.append(d)
 
+    _lap("④評分")
     print("⑤ 個股新聞(訊號股與評分前段班)...")
     try:
-        fetch_stock_news(stocks)
+        if UD_FULL: fetch_stock_news(stocks)
+        else: print("  輕量輪:沿用上一輪個股新聞")
     except Exception as e:
         print(f"  [warn] 個股新聞: {e}")
+    _lap("⑤個股新聞")
 
     print("⑥ 市場總覽與新聞 ...")
     taipei = (dt.datetime.utcnow() + dt.timedelta(hours=8)).strftime("%Y-%m-%d")
@@ -4240,8 +4253,13 @@ def main():
     except Exception:
         pass
     # ══ 第一階段:核心保底——評分/K線/總經先寫出,今日資料保證上線 ══
-    _macro = fetch_macro()
-    _news = fetch_news()
+    if UD_FULL:
+        _macro = fetch_macro()
+        _news = fetch_news()
+    else:                                                     # r823:輕量輪沿用上一輪的總經與新聞
+        _macro = prev_all.get("macro") or fetch_macro()
+        _news = prev_all.get("news") or fetch_news()
+    _lap("⑥總經/新聞")
     try:
         _divcal = fetch_div_calendar()          # r707:除權息行事曆(前端最愛提醒/關鍵價位列用)
     except Exception as e:
@@ -4387,18 +4405,22 @@ def main():
         print(f"  法說續存:自前檔沿用 {_nres} 檔(前檔共 {len(_oldc)} 檔)")
     except Exception as e:
         print(f"  [warn] 法說續存跳過: {e}")
-    try:
-        fetch_conf_calendar(stocks)
-    except Exception as e:
-        print(f"  [warn] 法說行事曆跳過: {e}")
-    try:
-        fetch_conf(stocks)
-    except Exception as e:
-        print(f"  [warn] 法說會跳過: {e}")
-    try:
-        conf_enrich(stocks)
-    except Exception as e:
-        print(f"  [warn] 法說簡報跳過: {e}")
+    if UD_FULL:                                                 # r823:法說三件(行事曆/場次/簡報 PDF)只在全套輪抓,輕量輪沿用上一輪 conf
+        try:
+            fetch_conf_calendar(stocks)
+        except Exception as e:
+            print(f"  [warn] 法說行事曆跳過: {e}")
+        try:
+            fetch_conf(stocks)
+        except Exception as e:
+            print(f"  [warn] 法說會跳過: {e}")
+        try:
+            conf_enrich(stocks)
+        except Exception as e:
+            print(f"  [warn] 法說簡報跳過: {e}")
+        _lap("⑥法說會")
+    else:
+        print("  輕量輪:法說會沿用上一輪")
     try:
         mark_leaders(stocks)
     except Exception as e:
@@ -4420,6 +4442,7 @@ def main():
            "stocks": stocks}
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    _lap("⑥寫出 data.json")
     sz = os.path.getsize("data.json") // 1024
     print(f"完成:{len(stocks)} 檔({ok} 檔有完整數據),data.json {sz}KB")
 
