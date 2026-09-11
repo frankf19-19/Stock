@@ -1,4 +1,4 @@
-/* K研所 · build r822 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r824 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r822</span>');
+  diag.push('<span style="color:var(--dim)">build r824</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21021,7 +21021,7 @@ function favPlanHtml(s,o,dates){
     ${cell('fpl-sell','出場線',P.l10,v=>px<v)}
     ${P.entry?cell('fpl-tp','停利',P.tp,v=>px>=v)+cell('fpl-sl','停損',P.sl,v=>px<=v):''}
     <span class="fpl fpl-set" data-fset="${s.id}" title="設定進場價與停利/停損%">✎ ${P.entry?`進場 ${P.entry}(${P.entrySrc})`:'設進場價啟用停利/停損'}</span>
-  </div><div class="fav-kb" data-favkb="${s.id}"></div>`;
+  </div><div class="fav-kb" data-favkb="${s.id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[s.id])||''}</div>`;
 }
 /* ═══ r813:最愛卡片顯示「關鍵分點今日進出」——分點資料收盤後才有,非同步填 ═══ */
 const FAVKB_HTML={};                                            // r815:結果快取——卡片會被即時報價重繪,重繪後直接從快取回填
@@ -21048,7 +21048,7 @@ async function favKbFill(root){
     }catch(e){}
   }
 }
-if(!window.__favKbTimer)window.__favKbTimer=setInterval(()=>{try{if(document.querySelector('[data-favkb]'))favKbFill(document);}catch(e){}},4000);
+// r824:原本每 4 秒回填會讓手機版面一直跳,改成建卡片時直接內嵌快取(上面 fav-kb),只在 renderFav 後補一次
 document.addEventListener('click',e=>{
   const b=e.target.closest&&e.target.closest('[data-fset]');
   if(!b)return;
