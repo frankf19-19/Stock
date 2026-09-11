@@ -132,7 +132,12 @@ jobs:
           run_once() {
             echo "══════ 開始一輪 $(TZ=Asia/Taipei date '+%m/%d %H:%M') ══════"
             git pull --rebase --autostash -X theirs origin main || true     # 先同步別班的成果(ETF 17:35、盤中迴圈)
-            step 主資料 bash -c 'python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"; python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"'
+            # r823:輕量輪——每段第 2 輪起 ETF 持股不重抓、update_data.py 略過逐檔磨補/個股新聞/總經新聞/法說會(沿用上一輪)
+            if [ "${HEAVY_EXTRAS:-1}" = "1" ]; then
+              step 主資料 bash -c 'python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"; python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"'
+            else
+              step 主資料輕量 bash -c 'UD_FULL=0 python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"'
+            fi
             step 報價快照 timeout 300 python update_quotes.py || echo "報價快照失敗,不影響主資料"
             step 大盤週乖離 timeout 300 python fetch_bias.py || echo "大盤週乖離失敗,不影響主資料"        # r789
             step 借券 timeout 600 python backfill_sbl.py || echo "借券回補失敗,不影響主資料"          # r793
