@@ -107,10 +107,13 @@ def key_brokers(e, sid):
         if j is None: continue
         f5 = (C[j + 5] / C[j] - 1) * 100 if j + 5 < len(C) else None
         f10 = (C[j + 10] / C[j] - 1) * 100 if j + 10 < len(C) else None
+        vol = summ.get("vol") or 0
         for side, rows in (("b", summ.get("b") or []), ("s", summ.get("s") or [])):
             for name, net, px in rows:
-                st = stat.setdefault((side, name), {"n": 0, "s5": 0.0, "n5": 0, "w5": 0, "s10": 0.0, "n10": 0, "w10": 0, "last": day, "lots": 0})
+                st = stat.setdefault((side, name), {"n": 0, "s5": 0.0, "n5": 0, "w5": 0, "s10": 0.0, "n10": 0, "w10": 0, "last": day, "lots": 0, "ev": []})
                 st["n"] += 1; st["last"] = max(st["last"], day); st["lots"] += abs(net)
+                share = (abs(net) / vol * 100) if vol else 0.0                      # r826:這次佔當日成交的 %(量大小)
+                st["ev"].append((share, f10))
                 if f5 is not None: st["s5"] += f5; st["n5"] += 1; st["w5"] += 1 if (f5 > 0 if side == "b" else f5 < 0) else 0
                 if f10 is not None: st["s10"] += f10; st["n10"] += 1; st["w10"] += 1 if (f10 > 0 if side == "b" else f10 < 0) else 0
     out = {"b": [], "s": []}
@@ -118,8 +121,17 @@ def key_brokers(e, sid):
         if st["n10"] < 3: continue
         a5 = st["s5"] / st["n5"] if st["n5"] else None; a10 = st["s10"] / st["n10"]
         w5 = round(100 * st["w5"] / st["n5"]) if st["n5"] else None; w10 = round(100 * st["w10"] / st["n10"])
-        key = (w10 >= 60 and a10 >= max(2.0, base10 + 1.5)) if side == "b" else (w10 >= 60 and a10 <= min(-2.0, base10 - 1.5))
-        out[side].append([name, st["n"], round(a5, 2) if a5 is not None else None, w5, round(a10, 2), w10, st["last"], 1 if key else 0, st["lots"]])
+        # r826:量的維度——典型佔比(中位)、大買/大賣(≥ 自己中位且 ≥2%)的 10 日成績
+        shares = sorted(x[0] for x in st["ev"]); med_share = shares[len(shares) // 2] if shares else 0.0
+        thr = max(2.0, med_share)
+        big = [f for sh, f in st["ev"] if sh >= thr and f is not None]
+        n_big = len(big); a10_big = (sum(big) / n_big) if n_big else None
+        w10_big = round(100 * sum(1 for f in big if (f > 0 if side == "b" else f < 0)) / n_big) if n_big else None
+        # 關鍵判定:大買樣本 ≥3 用大買成績,否則用全部
+        ua, uw = (a10_big, w10_big) if n_big >= 3 else (a10, w10)
+        key = (uw >= 60 and ua >= max(2.0, base10 + 1.5)) if side == "b" else (uw >= 60 and ua <= min(-2.0, base10 - 1.5))
+        out[side].append([name, st["n"], round(a5, 2) if a5 is not None else None, w5, round(a10, 2), w10, st["last"], 1 if key else 0, st["lots"],
+                          round(med_share, 2), n_big, round(a10_big, 2) if a10_big is not None else None, w10_big, round(thr, 2)])
     # 排序:關鍵優先,再依 10 日平均 × 勝率
     out["b"].sort(key=lambda x: (-x[7], -(x[4] * x[5])))
     out["s"].sort(key=lambda x: (-x[7], (x[4] * x[5])))

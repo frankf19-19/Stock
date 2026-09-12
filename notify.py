@@ -479,18 +479,27 @@ def collect_events(aip, prices):
             nm = (by.get(sid) or {}).get("name") or sid
             # r804:關鍵分點今天有動作(二級:比連買更強的證據)
             kb = e.get("kb") or {}
-            tb = set(x[0] for x in (S[-1].get("b") or [])); ts = set(x[0] for x in (S[-1].get("s") or []))
-            hb = [x for x in (kb.get("b") or []) if x[7] and x[0] in tb]; hx = [x for x in (kb.get("s") or []) if x[7] and x[0] in ts]
+            # r826:只有「大買/大賣」(這次佔成交 ≥ 它的典型量且 ≥2%)才觸發
+            vol0 = S[-1].get("vol") or 0
+            tbm = {x[0]: x for x in (S[-1].get("b") or [])}; tsm = {x[0]: x for x in (S[-1].get("s") or [])}
+            def _big(x, t):
+                sh = (abs(t[1]) / vol0 * 100) if vol0 else 0.0; thr = x[13] if len(x) > 13 and x[13] is not None else 2.0
+                return sh >= thr
+            hb = [x for x in (kb.get("b") or []) if x[7] and x[0] in tbm and _big(x, tbm[x[0]])]
+            hx = [x for x in (kb.get("s") or []) if x[7] and x[0] in tsm and _big(x, tsm[x[0]])]
+            def _sz(x, t):
+                sh = (abs(t[1]) / vol0 * 100) if vol0 else 0.0
+                return f"{abs(t[1]):,} 張(佔成交 {sh:.1f}%,它平常 {x[9] if len(x) > 9 else '—'}%)"
             if len(hb) >= 2:                                        # r817:兩家以上關鍵分點同日進場——加強版(獨立事件、獨立可勾選)
                 lines = "、".join(f"{x[0]}(過去 {x[1]} 次後 10 日 {x[4]:+.1f}%、漲 {x[5]}%)" for x in hb[:4])
                 ev.append((f"kb_b2|{today}|{sid}", 2, f"🔥🎯 <b>{len(hb)} 家關鍵分點同日進場 {nm}</b>({sid})\n{lines}\n多家「買了會漲」的券商同一天買超——比單家強的訊號"))
             elif hb:
-                x = hb[0]; ev.append((f"kb_b|{today}|{sid}", 2, f"🎯 <b>關鍵分點進場 {nm}</b>({sid})\n{x[0]} 今日買超;它過去 {x[1]} 次進場後 10 日平均 {x[4]:+.1f}%、上漲機率 {x[5]}%"))
+                x = hb[0]; ev.append((f"kb_b|{today}|{sid}", 2, f"🎯 <b>關鍵分點大買 {nm}</b>({sid})\n{x[0]} 今日買超 {_sz(x, tbm[x[0]])};它過去 {x[1]} 次進場後 10 日平均 {x[4]:+.1f}%、上漲機率 {x[5]}%"))
             if len(hx) >= 2:
                 lines = "、".join(f"{x[0]}(過去 {x[1]} 次後 10 日 {x[4]:+.1f}%、跌 {x[5]}%)" for x in hx[:4])
                 ev.append((f"kb_x2|{today}|{sid}", 2, f"🔥🎯 <b>{len(hx)} 家關鍵分點同日出場 {nm}</b>({sid})\n{lines}\n多家「賣了會跌」的券商同一天賣超"))
             elif hx and not hb:
-                x = hx[0]; ev.append((f"kb_x|{today}|{sid}", 2, f"🎯 <b>關鍵分點出場 {nm}</b>({sid})\n{x[0]} 今日賣超;它過去 {x[1]} 次出場後 10 日平均 {x[4]:+.1f}%、下跌機率 {x[5]}%"))
+                x = hx[0]; ev.append((f"kb_x|{today}|{sid}", 2, f"🎯 <b>關鍵分點大賣 {nm}</b>({sid})\n{x[0]} 今日賣超 {_sz(x, tsm[x[0]])};它過去 {x[1]} 次出場後 10 日平均 {x[4]:+.1f}%、下跌機率 {x[5]}%"))
             # r818:連買/連賣——同一券商連續出現在買超(賣超)前 15;★ 關鍵 ≥3 日二級、任何券商 ≥5 日三級
             keyB = set(x[0] for x in (kb.get("b") or []) if x[7]); keyS = set(x[0] for x in (kb.get("s") or []) if x[7])
             for side, keyset, kind_k, kind_a, word in (("b", keyB, "kb_sb", "bk_sb", "連買"), ("s", keyS, "kb_ss", "bk_ss", "連賣")):
