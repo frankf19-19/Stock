@@ -1,0 +1,48 @@
+name: 週末回補(三年歷史 + 全市場分點歷史)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: weekend-backfill
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+      TZ: Asia/Taipei
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+      - name: 設定 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 安裝套件
+        run: pip install requests pandas lxml
+      - name: 回補(一班最多 5 小時,每一段落地一次)
+        run: |
+          git config user.name "kyansuo-bot"; git config user.email "bot@kyansuo"
+          commit_push() {
+            git add hist/ bk/ 2>/dev/null || true
+            if git diff --cached --quiet; then echo "沒有變更"; return 0; fi
+            git commit -m "backfill: $(date +'%m-%d %H:%M') $1" -q
+            for i in 1 2 3; do git pull --rebase --autostash -X theirs origin main -q && git push -q && return 0; echo "推送撞車,重試 $i"; git rebase --abort 2>/dev/null || true; sleep 15; done
+            echo "::warning::推送失敗"; return 1
+          }
+          T0=$(date +%s); DEADLINE=$((T0 + 5*3600))
+          while [ $(date +%s) -lt $DEADLINE ]; do
+            echo "══════ 段落 $(date '+%m/%d %H:%M') ══════"
+            H=$(HIST_MAX_CALLS=450 timeout 1500 python backfill_hist.py 2>&1 | tee /dev/stderr | tail -1)
+            B=$(BKH_ALL=1 BKH_BUDGET_SEC=1500 timeout 1650 python backfill_broker.py 2>&1 | tee /dev/stderr | tail -1)
+            commit_push "存檔點" || true
+            if echo "$H" | grep -q "完整交易日 8[0-9][0-9]" && echo "$B" | grep -q "全部補齊"; then echo "✅ 全部補齊,收工"; break; fi
+            if echo "$B" | grep -q "全部補齊" && echo "$H" | grep -q "本班 0 次"; then echo "✅ 全部補齊,收工"; break; fi
+          done
+          echo "本班結束 $(date '+%m/%d %H:%M')"
