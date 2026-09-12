@@ -1803,3 +1803,13 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 @media(max-width:640px){.kbr{grid-template-columns:1fr 1fr;font-size:12px}.kbr-n{grid-column:1/-1}}
 /* r829:關鍵券商門檻與時間 */
 .kbr-x{grid-column:1/-1;font-size:11.5px;line-height:1.7;color:var(--txt2);padding:2px 0 2px 6px;border-left:2px solid var(--line)}
+/* r836:關鍵分點精簡版 */
+.kbr2{display:grid;grid-template-columns:110px 1fr 220px;gap:4px 12px;align-items:start;padding:7px 8px;border-bottom:1px dashed var(--line);font-size:12.5px;line-height:1.6}
+.kbr2-today{background:color-mix(in srgb,var(--t-gold) 8%,transparent);border-radius:6px}
+.kbr2-n{font-weight:800;white-space:nowrap}
+.kbr2-l{text-align:right;font-size:12px}
+.kbr-det{display:inline-block;margin-left:6px}
+.kbr-det summary{cursor:pointer;color:var(--t-blue);font-size:11.5px;list-style:none}
+.kbr-det summary::-webkit-details-marker{display:none}
+.kbr-det[open]{display:block;text-align:left;margin-top:4px}
+@media(max-width:640px){.kbr2{grid-template-columns:1fr}.kbr2-l{text-align:left}}
