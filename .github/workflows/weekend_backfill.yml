@@ -37,6 +37,12 @@ jobs:
             echo "::warning::推送失敗"; return 1
           }
           T0=$(date +%s); DEADLINE=$((T0 + 5*3600))
+          # r831:週末重活——逐檔磨補(季報/現金流)、法說整年行事曆、除權息行事曆;做一次就好(狀態檔記在 data.json,跑第二班會很快)
+          if [ ! -f .weekend_ud_done ] || [ "$(cat .weekend_ud_done)" != "$(date +%Y-%W)" ]; then
+            UD_WEEKEND=1 timeout 3000 python update_data.py || echo "::warning::週末 update_data 失敗"
+            git add -A data.json c k 2>/dev/null || true; echo "$(date +%Y-%W)" > .weekend_ud_done; git add .weekend_ud_done
+            git commit -m "backfill: 週末重活 $(date +'%m-%d %H:%M')" -q || true; git pull --rebase --autostash -X theirs origin main -q && git push -q || true
+          fi
           while [ $(date +%s) -lt $DEADLINE ]; do
             echo "══════ 段落 $(date '+%m/%d %H:%M') ══════"
             H=$(HIST_MAX_CALLS=450 timeout 1500 python backfill_hist.py 2>&1 | tee /dev/stderr | tail -1)
