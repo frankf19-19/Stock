@@ -26,11 +26,18 @@ jobs:
           python-version: "3.11"
       - name: 安裝套件
         run: pip install requests pandas lxml
+      - name: 還原分點原始資料快取(bkraw,250 日,不進 repo)
+        uses: actions/cache/restore@v4
+        with:
+          path: bkraw
+          key: bkraw-${{ github.run_id }}
+          restore-keys: |
+            bkraw-
       - name: 回補(一班最多 5 小時,每一段落地一次)
         run: |
           git config user.name "kyansuo-bot"; git config user.email "bot@kyansuo"
           commit_push() {
-            git add hist/ bk/ 2>/dev/null || true
+            git add hist/ bk/ 2>/dev/null || true; [ -f broker_tags.json ] && git add broker_tags.json
             if git diff --cached --quiet; then echo "沒有變更"; return 0; fi
             git commit -m "backfill: $(date +'%m-%d %H:%M') $1" -q
             for i in 1 2 3; do git pull --rebase --autostash -X theirs origin main -q && git push -q && return 0; echo "推送撞車,重試 $i"; git rebase --abort 2>/dev/null || true; sleep 15; done
@@ -52,3 +59,9 @@ jobs:
             if echo "$B" | grep -q "全部補齊" && echo "$H" | grep -q "本班 0 次"; then echo "✅ 全部補齊,收工"; break; fi
           done
           echo "本班結束 $(date '+%m/%d %H:%M')"
+      - name: 保存分點原始資料快取
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: bkraw
+          key: bkraw-${{ github.run_id }}

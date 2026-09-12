@@ -49,6 +49,13 @@ jobs:
       - name: 安裝套件
         run: pip install requests pandas lxml html5lib beautifulsoup4 pypdf pywebpush   # r784:Web Push
 
+      - name: 還原分點原始資料快取(bkraw,250 日,不進 repo)
+        uses: actions/cache/restore@v4
+        with:
+          path: bkraw
+          key: bkraw-${{ github.run_id }}
+          restore-keys: |
+            bkraw-
       - name: 每日更新(單次或傍晚自迴圈)
         env:
           PYTHONUNBUFFERED: "1"                          # log 即時輸出,不再看起來像卡住
@@ -118,7 +125,7 @@ jobs:
             [ -f hourly_scan.json ] && git add hourly_scan.json
             [ -f bias.json ] && git add bias.json
             git add sbl/ 2>/dev/null || true
-            for f in taifex.json signal_log.json signal_stats.json gov.json run_log.json kb_today.json; do [ -f $f ] && git add $f; done
+            for f in taifex.json signal_log.json signal_stats.json gov.json run_log.json kb_today.json broker_tags.json; do [ -f $f ] && git add $f; done
             git add bk/ hist/ 2>/dev/null || true
             if git diff --cached --quiet; then echo "沒有變更,略過提交"; return 0; fi
             git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')${1:+ ($1)}"
@@ -178,3 +185,9 @@ jobs:
             sleep $WAIT
             run_once
           done
+      - name: 保存分點原始資料快取
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: bkraw
+          key: bkraw-${{ github.run_id }}
