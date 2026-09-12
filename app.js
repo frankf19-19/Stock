@@ -1,4 +1,4 @@
-/* K研所 · build r843 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r844 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r843</span>');
+  diag.push('<span style="color:var(--dim)">build r844</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8855,6 +8855,16 @@ function inertiaHTML(I){
 /* ═══ r802:🏦 分點動向(fetch_broker.py 每日摘要 → bk/tw*.json)═══
    每天每檔:前五大買/賣分點(淨張、均價)、淨買家數/淨賣家數、前 15 大淨額(主力淨額)、集中度、隔日沖券商。
    判讀:5 日主力累計 + 連續天數 + 集中度 → 主力吃貨 / 主力出貨 / 換手;買賣家數差 = 散戶 vs 大戶方向。 */
+/* r844:達標時程一句話(卡片與膠囊共用)。回 {txt,lv} 或 null */
+function kbSchedText(R,brief){
+  const S=(R&&R.sched||[]).filter(x=>x.ago<=25);if(!S.length)return null;
+  const x=S[0];const md=d=>d.slice(5).replace('-','/');const up=x.side==='b';const w1=up?'發動':'開始跌',w2=up?'到高點':'到低點';
+  const parts=[];if(x.dStart)parts.push(x.ago>=x.dStart?`第 ${x.dStart} 天${w1}(已過)`:`預期第 ${x.dStart} 天${w1}(還 ${x.dStart-x.ago} 天)`);
+  if(x.dPeak)parts.push(x.ago>=x.dPeak?`第 ${x.dPeak} 天${w2}(已過)`:`預期第 ${x.dPeak} 天${w2}(還 ${x.dPeak-x.ago} 天)`);
+  const today=(x.dStart&&x.ago===x.dStart)?`<b>今天是預期${w1}日</b>`:(x.dPeak&&x.ago===x.dPeak)?`<b>今天是預期${w2}日</b>`:'';
+  const txt=`${up?'🎯':'💣'} ${x.name} ${md(x.d)} ${up?'買':'賣'} ${Math.abs(x.lots).toLocaleString()} 張達標(今天第 ${x.ago} 天)・${today||parts.join('、')}${brief?'':(S.length>1?`・另 ${S.length-1} 家`:'')}`;
+  return {txt,lv:today?(up?'ok':'red'):(up?'ok':'amb'),x};
+}
 let BKCACHE={};
 /* r838:券商屬性標籤(broker_tags.json,由全市場 250 日分點推算:外資/隔日沖/短線/波段/一般) */
 let BROKER_TAGS=null;
@@ -8894,8 +8904,12 @@ function bkCalc(e){
     // r836:上次達標(≥ 有效門檻)是哪天;最近 20 日內的達標紀錄
     const scan=(side,name,thr)=>{const out=[];for(let i=n-1;i>=0;i--){const r=(S[i][side]||[]).find(x=>x[0]===name);if(r&&Math.abs(r[1])>=thr)out.push({d:e.d[i],lots:r[1],px:r[2],ago:n-1-i});if(out.length>=3)break;}return out;};
     const mkList=(side)=>(kb[side]||[]).filter(x=>x[7]).map(x=>{const xc=kb.x&&kb.x[side+':'+x[0]];const eff=xc&&xc.eff;const thr=eff?eff.lots:null;return {name:x[0],eff,thr,hits:thr?scan(side,x[0],thr):[],xc,x};});
-    var keyList={b:mkList('b'),s:mkList('s')};}
-  else var keyList={b:[],s:[]};
+    var keyList={b:mkList('b'),s:mkList('s')};
+    // r844:達標時程——每個 ★ 券商最近一次達標 + 依慣性的預期發動日/高低點日,今天是第幾天
+    var sched=[];['b','s'].forEach(side=>keyList[side].forEach(k=>{const h=k.hits[0];if(!h||!k.xc)return;const ds=k.xc.d_start,dp=k.xc.d_peak;if(!ds&&!dp)return;
+      sched.push({name:k.name,side,d:h.d,lots:h.lots,ago:h.ago,dStart:ds,dPeak:dp,eff:k.eff,phase:dp&&h.ago>=dp?'done':(ds&&h.ago>=ds?'run':'wait')});}));
+    sched.sort((a,b)=>a.ago-b.ago);}
+  else{var keyList={b:[],s:[]},sched=[];}
   // r818:券商連買/連賣——同一家連續幾天出現在買超(賣超)前 15;★ 關鍵券商 ≥3 日、任何券商 ≥5 日
   const keyB=new Set((kb&&kb.b||[]).filter(x=>x[7]).map(x=>x[0])),keyS=new Set((kb&&kb.s||[]).filter(x=>x[7]).map(x=>x[0]));
   const runs=(side)=>{const out=[];const names=new Set((last[side]||[]).map(x=>x[0]));
@@ -8903,7 +8917,7 @@ function bkCalc(e){
       const key=(side==='b'?keyB:keyS).has(nm);if((key&&k>=3)||k>=5)out.push({name:nm,days:k,lots,key});});
     return out.sort((a,b)=>(b.key-a.key)||(b.days-a.days));};
   const runB=runs('b'),runS=runs('s');
-  return {last,d:e.d[n-1],c5,c20,r5,r20,pos5,streak,streakS,verdict,col,why,cum,days:n,dt:last.dt||[],nd:(last.nb||0)-(last.ns||0),kb,hit,runB,runS,keyList};
+  return {last,d:e.d[n-1],c5,c20,r5,r20,pos5,streak,streakS,verdict,col,why,cum,days:n,dt:last.dt||[],nd:(last.nb||0)-(last.ns||0),kb,hit,runB,runS,keyList,sched};
 }
 function bkHTML(R,s){
   if(!R)return `<h3>🏦 分點動向</h3><div class="dim-note">尚無分點資料(每日收盤後由後端抓取,首日要等跑過一班)。</div>`;
@@ -13064,6 +13078,7 @@ async function showDetail(id){
   window.__costR=null;
   if(s.market!=='US'&&!s.etf){(async()=>{try{window.__bkR=null;await brokerTagsLoad();const e=await bkLoad(s.id);let box=null;for(let i=0;i<30&&!box;i++){box=document.getElementById('bkBox');if(!box)await new Promise(r=>setTimeout(r,700));}
     if(!box)return;const R=bkCalc(e);box.innerHTML=bkHTML(R,s);window.__bkR=R;
+    try{const st=kbSchedText(R,false);const strip=document.getElementById('stkAlerts');if(st&&strip&&location.hash==='#stock/'+s.id){document.getElementById('kbPill')?.remove();const sp=document.createElement('span');sp.id='kbPill';sp.className='alert-pill alert-'+st.lv;sp.innerHTML=`<span class="ico">⏰</span><span>${st.txt}</span>`;sp.style.cursor='pointer';sp.onclick=()=>{const h=document.querySelector('[data-sec="stk_bk"]');if(h){h.scrollIntoView({behavior:'smooth',block:'start'});}};strip.prepend(sp);strip.style.display='';}}catch(e20){}   // r844:達標時程膠囊
     try{const h=await histLoad(s.id);const cb=document.getElementById('costBox');if(cb){const RC=costCalc(h,e,s.price);cb.innerHTML=costHTML(RC,s);window.__costR=RC;try{if(RC&&typeof drawKChart==='function'&&window.curOhlc)drawKChart();}catch(e19){}}
       const rb=document.getElementById('rhythmBox');if(rb){let dv=[];try{dv=((DATA.divcal||[]).filter(x=>String(x.id)===String(s.id)).map(x=>x.d||x.date)).filter(Boolean);}catch(e0){}const RR=rhythmCalc(h,e,dv);rb.innerHTML=rhythmHTML(RR,s);window.__rhythmR=RR;}}catch(e18){}   // r833:成本;r834:節奏
   }catch(e17){}})();}   // r802:分點動向
@@ -21230,6 +21245,7 @@ async function favKbFill(root){
       const hit=R.hit||[];const parts=[];
       const md=d=>d?d.slice(5).replace('-','/'):'';
       const nb=hit.filter(h=>h.side==='b'&&h.big).length,ns=hit.filter(h=>h.side==='s'&&h.big).length;
+      try{const st=kbSchedText(R,true);if(st)parts.push(`<span class="fkb ${st.x.side==='b'?'fkb-b':'fkb-s'}" style="border-style:dashed">⏰ ${st.txt}</span>`);}catch(e0){}
       if(nb>=2)parts.push(`<span class="fkb fkb-hot">🔥 ${nb} 家關鍵分點同日進場</span>`);
       if(ns>=2)parts.push(`<span class="fkb fkb-hot fkb-hot-s">🔥 ${ns} 家關鍵分點同日出場</span>`);
       const szTxt=h=>h.effLots!=null?`${Math.abs(h.lots)>=h.effLots?'≥':'<'} 門檻 ${h.effLots.toLocaleString()} 張`:`佔成交 ${h.share}%${h.med!=null?`(平常 ${h.med}%)`:''}`;
