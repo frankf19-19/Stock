@@ -1,4 +1,4 @@
-/* K研所 · build r844 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r845 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r844</span>');
+  diag.push('<span style="color:var(--dim)">build r845</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8901,12 +8901,22 @@ function bkCalc(e){
     (kb.b||[]).filter(x=>x[7]).forEach(x=>{const t=tb.get(x[0]);if(t)hit.push(mk('b',x,t));});
     (kb.s||[]).filter(x=>x[7]).forEach(x=>{const t=ts.get(x[0]);if(t)hit.push(mk('s',x,t));});
     hit.sort((a,b)=>(b.big-a.big)||(b.share-a.share));
+    hit.forEach(h=>{const p=(kb.p||{})[h.name];if(p&&((p.hold!=null&&p.hold<=3)||p.dt>=35))h.flip=true;});
     // r836:上次達標(≥ 有效門檻)是哪天;最近 20 日內的達標紀錄
     const scan=(side,name,thr)=>{const out=[];for(let i=n-1;i>=0;i--){const r=(S[i][side]||[]).find(x=>x[0]===name);if(r&&Math.abs(r[1])>=thr)out.push({d:e.d[i],lots:r[1],px:r[2],ago:n-1-i});if(out.length>=3)break;}return out;};
-    const mkList=(side)=>(kb[side]||[]).filter(x=>x[7]).map(x=>{const xc=kb.x&&kb.x[side+':'+x[0]];const eff=xc&&xc.eff;const thr=eff?eff.lots:null;return {name:x[0],eff,thr,hits:thr?scan(side,x[0],thr):[],xc,x};});
+    const closedAfter=(side,name,hit)=>{                       // r845:達標後 5 個交易日內被反向出掉 ≥50% → 沖掉
+      const opp=side==='b'?'s':'b';const i0=n-1-hit.ago;let out=0,dd=null;
+      for(let i=i0+1;i<Math.min(n,i0+6);i++){const r=(S[i][opp]||[]).find(x=>x[0]===name);if(r){out+=Math.abs(r[1]);dd=dd||e.d[i];}}
+      return out>=Math.abs(hit.lots)*0.5?{d:dd,lots:out}:null;};
+    const prof=kb.p||{};
+    const mkList=(side)=>(kb[side]||[]).filter(x=>x[7]).map(x=>{const xc=kb.x&&kb.x[side+':'+x[0]];const eff=xc&&xc.eff;const thr=eff?eff.lots:null;const hits=thr?scan(side,x[0],thr):[];
+      hits.forEach(h=>{h.closed=closedAfter(side,x[0],h);});
+      const p=prof[x[0]];const both=(kb.b||[]).some(y=>y[0]===x[0]&&y[7])&&(kb.s||[]).some(y=>y[0]===x[0]&&y[7]);
+      const flip=!!((p&&((p.hold!=null&&p.hold<=3)||p.dt>=35))||(both&&hits.some(h=>h.closed)));
+      return {name:x[0],eff,thr,hits,xc,x,both,flip};});
     var keyList={b:mkList('b'),s:mkList('s')};
     // r844:達標時程——每個 ★ 券商最近一次達標 + 依慣性的預期發動日/高低點日,今天是第幾天
-    var sched=[];['b','s'].forEach(side=>keyList[side].forEach(k=>{const h=k.hits[0];if(!h||!k.xc)return;const ds=k.xc.d_start,dp=k.xc.d_peak;if(!ds&&!dp)return;
+    var sched=[];['b','s'].forEach(side=>keyList[side].forEach(k=>{const h=k.hits[0];if(!h||!k.xc||h.closed||k.flip)return;const ds=k.xc.d_start,dp=k.xc.d_peak;if(!ds&&!dp)return;
       sched.push({name:k.name,side,d:h.d,lots:h.lots,ago:h.ago,dStart:ds,dPeak:dp,eff:k.eff,phase:dp&&h.ago>=dp?'done':(ds&&h.ago>=ds?'run':'wait')});}));
     sched.sort((a,b)=>a.ago-b.ago);}
   else{var keyList={b:[],s:[]},sched=[];}
@@ -8936,7 +8946,7 @@ function bkHTML(R,s){
       <div><dt>買方均價 / 賣方均價</dt><dd class="mono">${L.bp??'—'} / ${L.sp??'—'}</dd></div>
       <div><dt>20 日主力累計走勢</dt><dd>${spark}</dd></div>
     </div>
-    ${R.hit.filter(h=>h.big).length?`<div style="border:1.5px solid var(--t-gold);border-radius:10px;padding:8px 12px;margin:6px 0;background:color-mix(in srgb,var(--t-gold) 8%,var(--panel));font-size:13px;line-height:1.7"><b style="color:var(--t-gold)">🎯 ${R.d.slice(5).replace('-','/')} 關鍵分點達標動作</b>:${R.hit.filter(h=>h.big).map(h=>`<b>${h.name}</b> ${h.big?(h.side==='b'?'<b style="color:var(--up)">大買</b>':'<b style="color:var(--down)">大賣</b>'):(h.side==='b'?'小量買':'小量賣')} ${Math.abs(h.lots).toLocaleString()} 張 @${h.px}(佔成交 ${h.share}%${h.med!=null?`,它平常 ${h.med}%`:''})——它過去 ${h.big?h.nb+' 次大'+(h.side==='b'?'買':'賣'):h.n+' 次'}後 10 日平均 <b style="color:${h.side==='b'?'var(--up)':'var(--down)'}">${(h.a10>=0?'+':'')+h.a10}%</b>、${h.side==='b'?'上漲':'下跌'}機率 ${h.w10}%`).join(';')}</div>`:''}
+    ${R.hit.filter(h=>h.big&&!h.flip).length?`<div style="border:1.5px solid var(--t-gold);border-radius:10px;padding:8px 12px;margin:6px 0;background:color-mix(in srgb,var(--t-gold) 8%,var(--panel));font-size:13px;line-height:1.7"><b style="color:var(--t-gold)">🎯 ${R.d.slice(5).replace('-','/')} 關鍵分點達標動作</b>:${R.hit.filter(h=>h.big&&!h.flip).map(h=>`<b>${h.name}</b> ${h.big?(h.side==='b'?'<b style="color:var(--up)">大買</b>':'<b style="color:var(--down)">大賣</b>'):(h.side==='b'?'小量買':'小量賣')} ${Math.abs(h.lots).toLocaleString()} 張 @${h.px}(佔成交 ${h.share}%${h.med!=null?`,它平常 ${h.med}%`:''})——它過去 ${h.big?h.nb+' 次大'+(h.side==='b'?'買':'賣'):h.n+' 次'}後 10 日平均 <b style="color:${h.side==='b'?'var(--up)':'var(--down)'}">${(h.a10>=0?'+':'')+h.a10}%</b>、${h.side==='b'?'上漲':'下跌'}機率 ${h.w10}%`).join(';')}</div>`:''}
     ${R.kb&&R.kb.p&&Object.keys(R.kb.p).length?(()=>{const P=R.kb.p;const ROLE={'拉抬主力':['🎯','var(--up)'],'出貨主力':['💣','var(--down)'],'隔日沖':['⚡','var(--amber)'],'短線':['','var(--txt2)'],'波段':['','var(--t-blue)'],'長線':['🏦','var(--up)'],'外資':['🌐','var(--t-blue)'],'一般':['','var(--dim)']};
       const f=v=>v==null?'—':(v>=0?'+':'')+v+'%';const rows=Object.entries(P).map(([nm,p])=>{const [ic,col]=ROLE[p.role]||['','var(--dim)'];
         return `<tr><td style="text-align:left;white-space:nowrap"><b>${nm}</b></td><td style="color:${col};font-weight:800;white-space:nowrap">${ic} ${p.role}</td><td>${p.hold!=null?`${p.hold} 天`:(p.still>0?`<span class="dim">未賣・持 ${p.still.toLocaleString()} 張</span>`:'—')}</td><td>${p.dt}%</td><td>${p.spec!=null?p.spec+'%':'—'}</td><td style="color:${p.net>0?'var(--up)':p.net<0?'var(--down)':'inherit'};font-family:var(--mono)">${(p.net>=0?'+':'')+p.net.toLocaleString()}</td><td style="color:${p.a10b>0?'var(--up)':p.a10b<0?'var(--down)':'inherit'}">${p.a10b!=null?`${f(p.a10b)}<small class="dim">(${p.w10b}%)</small>`:'—'}</td><td style="color:${p.a10s<0?'var(--down)':p.a10s>0?'var(--up)':'inherit'}">${p.a10s!=null?`${f(p.a10s)}<small class="dim">(${p.w10s}%)</small>`:'—'}</td></tr>`;}).join('');
@@ -8951,14 +8961,17 @@ function bkHTML(R,s){
         const last=k.hits[0];const recent=k.hits.filter(h=>h.ago<=20);
         const main=eff?`<b style="color:${up?'var(--up)':'var(--down)'}">${up?'買':'賣'} ≥ ${eff.lots.toLocaleString()} 張才有影響</b> → 10 日 <b style="color:${c(eff.a10)}">${f(eff.a10)}</b>(${word} ${eff.w10}%,${eff.n} 次)`:`<span class="dim">找不到穩定的張數門檻——這家買多買少跟後面漲跌無關,別當訊號</span>`;
         const tm=xc&&xc.d_peak?`第 ${xc.d_start??'—'} 天發動、第 ${xc.d_peak} 天到${up?'高':'低'}點`:'';
-        const lastTxt=last?`<span style="${last.ago===0?'color:var(--t-gold);font-weight:800':''}">上次達標 ${md(last.d)}${last.ago===0?'(今天)':`(${last.ago} 個交易日前)`} ${Math.abs(last.lots).toLocaleString()} 張</span>`:(eff?'<span class="dim">近 60 日沒達標過</span>':'');
+        const lastTxt=last?`<span style="${last.ago===0&&!last.closed?'color:var(--t-gold);font-weight:800':''}">上次達標 ${md(last.d)}${last.ago===0?'(今天)':`(${last.ago} 個交易日前)`} ${Math.abs(last.lots).toLocaleString()} 張</span>${last.closed?`<br><span style="color:var(--amber);font-weight:700">↳ ${md(last.closed.d)} 已反向出 ${last.closed.lots.toLocaleString()} 張——沖掉,訊號作廢</span>`:''}`:(eff?'<span class="dim">近 60 日沒達標過</span>':'');
         const det=xc?`<details class="kbr-det"><summary>詳細</summary><div class="kbr-x">${xc.tiers?`<span class="dim">分量:</span>${xc.tiers.map((t,i)=>`${['小','中','大'][i]} ${t[0].toLocaleString()}~${t[1].toLocaleString()} 張:${f(t[3])}(${word} ${t[4]}%)`).join('・')}<br>`:''}${xc.hz?`<span class="dim">天期:</span>${['1','3','5','10','20'].filter(h=>xc.hz[h]).map(h=>`${h}日 ${f(xc.hz[h][0])}`).join(' / ')}<br>`:''}<span class="dim">全部進出 ${x[1]} 次,不分量後 10 日 ${f(x[4])}(${word} ${x[5]}%)・典型量佔成交 ${x[9]??'—'}%</span>${recent.length>1?`<br><span class="dim">近 20 日達標:</span>${recent.map(h=>`${md(h.d)} ${Math.abs(h.lots).toLocaleString()} 張`).join('、')}`:''}</div></details>`:'';
         const pr=R.kb.p&&R.kb.p[k.name];const roleTag=pr?`<span class="bktag" style="color:${pr.role==='拉抬主力'||pr.role==='長線'?'var(--up)':pr.role==='出貨主力'?'var(--down)':pr.role==='隔日沖'?'var(--amber)':'var(--txt2)'};border-color:currentColor" title="持有 ${pr.hold??'—'} 天・隔日沖 ${pr.dt}%・專門度 ${pr.spec??'—'}%">${pr.role}</span>`:bkTag(k.name);
-        return `<div class="kbr2${last&&last.ago===0?' kbr2-today':''}"><div class="kbr2-n">★ ${k.name}${roleTag}</div><div class="kbr2-m">${main}${tm?`<span class="dim">・${tm}</span>`:''}</div><div class="kbr2-l">${lastTxt}${det}</div></div>`;};
+        const flipTag=k.flip?`<span class="bktag" style="color:var(--amber);border-color:var(--amber)" title="兩邊都出現且快進快出——買賣訊號都別當真">短沖客</span>`:'';
+        return `<div class="kbr2${last&&last.ago===0&&!last.closed?' kbr2-today':''}${k.flip?' kbr2-flip':''}"><div class="kbr2-n">${k.flip?'☆':'★'} ${k.name}${flipTag}${k.flip?'':roleTag}</div><div class="kbr2-m">${main}${tm?`<span class="dim">・${tm}</span>`:''}</div><div class="kbr2-l">${lastTxt}${det}</div></div>`;};
       const B=(R.keyList&&R.keyList.b)||[],S2=(R.keyList&&R.keyList.s)||[];
-      const sortK=a=>[...a].sort((p,q)=>((q.hits[0]?q.hits[0].ago===0:0)-(p.hits[0]?p.hits[0].ago===0:0))||((q.eff?1:0)-(p.eff?1:0))||((p.hits[0]?p.hits[0].ago:999)-(q.hits[0]?q.hits[0].ago:999)));
-      const todayB=B.filter(k=>k.hits[0]&&k.hits[0].ago===0),todayS=S2.filter(k=>k.hits[0]&&k.hits[0].ago===0);
+      const sortK=a=>[...a].sort((p,q)=>((p.flip?1:0)-(q.flip?1:0))||((q.hits[0]?q.hits[0].ago===0:0)-(p.hits[0]?p.hits[0].ago===0:0))||((q.eff?1:0)-(p.eff?1:0))||((p.hits[0]?p.hits[0].ago:999)-(q.hits[0]?q.hits[0].ago:999)));
+      const todayB=B.filter(k=>k.hits[0]&&k.hits[0].ago===0&&!k.flip),todayS=S2.filter(k=>k.hits[0]&&k.hits[0].ago===0&&!k.flip);
+      const flips=[...new Set([...B,...S2].filter(k=>k.flip).map(k=>k.name))];
       return `${(todayB.length||todayS.length)?`<div style="font-size:13px;margin:4px 0 6px;padding:6px 10px;border-radius:8px;background:color-mix(in srgb,var(--t-gold) 10%,var(--panel));border:1px solid var(--t-gold)">📌 <b>${R.d.slice(5).replace('-','/')} 達標</b>:${todayB.map(k=>`<b style="color:var(--up)">${k.name}</b> 買 ${Math.abs(k.hits[0].lots).toLocaleString()} 張(門檻 ${k.thr})`).concat(todayS.map(k=>`<b style="color:var(--down)">${k.name}</b> 賣 ${Math.abs(k.hits[0].lots).toLocaleString()} 張(門檻 ${k.thr})`)).join('、')}</div>`:`<div class="dim" style="font-size:12px;margin:2px 0 6px">${R.d.slice(5).replace('-','/')} 沒有關鍵券商達到影響力門檻。</div>`}
+        ${flips.length?`<div style="font-size:12.5px;margin:2px 0 8px;padding:6px 10px;border-radius:8px;border:1px solid var(--amber);color:var(--amber)">⚠ <b>短沖客</b>:${flips.join('、')}——同時出現在買賣兩邊、快進快出(或達標後隔天就沖掉),它們的買賣訊號都不列入提醒,看它只當「今天有人在沖」。</div>`:''}
         <div class="kbr-h" style="color:var(--up)">買了之後會漲的(${B.length} 家)</div>${B.length?sortK(B).map(k=>row(k,1)).join(''):'<div class="dim" style="font-size:12px;padding:4px 0">樣本不足</div>'}
         <div class="kbr-h" style="color:var(--down);margin-top:8px">賣了之後會跌的(${S2.length} 家)</div>${S2.length?sortK(S2).map(k=>row(k,0)).join(''):'<div class="dim" style="font-size:12px;padding:4px 0">樣本不足</div>'}
         <div class="dim" style="font-size:11.5px;margin-top:6px">「≥ N 張才有影響」= 這家在這檔歷史上,達到這個張數以上的進出,之後 10 日勝率 ≥60% 且贏過這檔基準;沒達標的小單不算訊號。點「詳細」看分量與天期。</div>`;})()}`:'<div class="dim" style="font-size:12px;margin:6px 0">關鍵分點要累積 15 個交易日以上的分點紀錄才算(回補中)。</div>'}
@@ -21244,15 +21257,15 @@ async function favKbFill(root){
       const R=bkCalc(e);if(!R){FAVKB_HTML[id]='';continue;}
       const hit=R.hit||[];const parts=[];
       const md=d=>d?d.slice(5).replace('-','/'):'';
-      const nb=hit.filter(h=>h.side==='b'&&h.big).length,ns=hit.filter(h=>h.side==='s'&&h.big).length;
+      const nb=hit.filter(h=>h.side==='b'&&h.big&&!h.flip).length,ns=hit.filter(h=>h.side==='s'&&h.big&&!h.flip).length;
       try{const st=kbSchedText(R,true);if(st)parts.push(`<span class="fkb ${st.x.side==='b'?'fkb-b':'fkb-s'}" style="border-style:dashed">⏰ ${st.txt}</span>`);}catch(e0){}
       if(nb>=2)parts.push(`<span class="fkb fkb-hot">🔥 ${nb} 家關鍵分點同日進場</span>`);
       if(ns>=2)parts.push(`<span class="fkb fkb-hot fkb-hot-s">🔥 ${ns} 家關鍵分點同日出場</span>`);
       const szTxt=h=>h.effLots!=null?`${Math.abs(h.lots)>=h.effLots?'≥':'<'} 門檻 ${h.effLots.toLocaleString()} 張`:`佔成交 ${h.share}%${h.med!=null?`(平常 ${h.med}%)`:''}`;
       const tmTxt=h=>h.dPeak?`・通常第 ${h.dStart??'—'} 天發動、第 ${h.dPeak} 天到${h.side==='b'?'高':'低'}點`:'';
-      hit.filter(h=>h.side==='b').forEach(h=>parts.push(h.big?`<span class="fkb fkb-b">🎯 關鍵分點大買 <b>${h.name}</b>${bkTag(h.name)} <em>${md(h.d)} +${h.lots.toLocaleString()} 張 @${h.px}・${szTxt(h)}</em> <small>門檻以上 ${h.nb} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・漲 ${h.w10}%${tmTxt(h)}</small></span>`
+      hit.filter(h=>h.side==='b'&&!h.flip).forEach(h=>parts.push(h.big?`<span class="fkb fkb-b">🎯 關鍵分點大買 <b>${h.name}</b>${bkTag(h.name)} <em>${md(h.d)} +${h.lots.toLocaleString()} 張 @${h.px}・${szTxt(h)}</em> <small>門檻以上 ${h.nb} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・漲 ${h.w10}%${tmTxt(h)}</small></span>`
         :`<span class="fkb" style="color:var(--txt2);border-color:var(--line);opacity:.8">關鍵分點小量買 <b>${h.name}</b> <em>+${h.lots.toLocaleString()} 張・${szTxt(h)}</em><small>量不到它平常水準,參考就好</small></span>`));
-      hit.filter(h=>h.side==='s').forEach(h=>parts.push(h.big?`<span class="fkb fkb-s">🎯 關鍵分點大賣 <b>${h.name}</b>${bkTag(h.name)} <em>${md(h.d)} ${h.lots.toLocaleString()} 張 @${h.px}・${szTxt(h)}</em> <small>門檻以上 ${h.nb} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・跌 ${h.w10}%${tmTxt(h)}</small></span>`
+      hit.filter(h=>h.side==='s'&&!h.flip).forEach(h=>parts.push(h.big?`<span class="fkb fkb-s">🎯 關鍵分點大賣 <b>${h.name}</b>${bkTag(h.name)} <em>${md(h.d)} ${h.lots.toLocaleString()} 張 @${h.px}・${szTxt(h)}</em> <small>門檻以上 ${h.nb} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・跌 ${h.w10}%${tmTxt(h)}</small></span>`
         :`<span class="fkb" style="color:var(--txt2);border-color:var(--line);opacity:.8">關鍵分點小量賣 <b>${h.name}</b> <em>${h.lots.toLocaleString()} 張・${szTxt(h)}</em></span>`));
       (R.runB||[]).filter(x=>x.key||x.days>=5).slice(0,2).forEach(x=>parts.push(`<span class="fkb ${x.key?'fkb-b':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連買 ${x.days} 日 <small>累計 ${(x.lots>=0?'+':'')+x.lots.toLocaleString()} 張</small></span>`));
       (R.runS||[]).filter(x=>x.key||x.days>=5).slice(0,2).forEach(x=>parts.push(`<span class="fkb ${x.key?'fkb-s':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連賣 ${x.days} 日 <small>累計 ${x.lots.toLocaleString()} 張</small></span>`));

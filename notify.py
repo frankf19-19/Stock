@@ -488,8 +488,12 @@ def collect_events(aip, prices):
                 if eff and eff.get("lots"): return abs(t[1]) >= eff["lots"]           # r843:和畫面一致——有效張數門檻
                 sh = (abs(t[1]) / vol0 * 100) if vol0 else 0.0; thr = x[13] if len(x) > 13 and x[13] is not None else 2.0
                 return sh >= thr
-            hb = [x for x in (kb.get("b") or []) if x[7] and x[0] in tbm and _big(x, tbm[x[0]])]
-            hx = [x for x in (kb.get("s") or []) if x[7] and x[0] in tsm and _big(x, tsm[x[0]], "s")]
+            prof = kb.get("p") or {}
+            def _flip(nm0):                                        # r845:短沖客(持有 ≤3 天或隔日沖率 ≥35%)不當訊號
+                p = prof.get(nm0) or {}
+                return (p.get("hold") is not None and p["hold"] <= 3) or (p.get("dt") or 0) >= 35
+            hb = [x for x in (kb.get("b") or []) if x[7] and x[0] in tbm and _big(x, tbm[x[0]]) and not _flip(x[0])]
+            hx = [x for x in (kb.get("s") or []) if x[7] and x[0] in tsm and _big(x, tsm[x[0]], "s") and not _flip(x[0])]
             def _sz(x, t):
                 sh = (abs(t[1]) / vol0 * 100) if vol0 else 0.0
                 return f"{abs(t[1]):,} 張(佔成交 {sh:.1f}%,它平常 {x[9] if len(x) > 9 else '—'}%)"
@@ -518,7 +522,14 @@ def collect_events(aip, prices):
                         for i in range(len(S) - 2, max(-1, len(S) - 60), -1):
                             r = next((z for z in (S[i].get(side) or []) if z[0] == x[0]), None)
                             if r and abs(r[1]) >= eff["lots"]: hit_i = i; break
-                        if hit_i is None: continue
+                        if hit_i is None or _flip(x[0]): continue
+                        # r845:達標後 5 日內被反向出掉 ≥50% → 沖掉,不再提醒
+                        opp = "s" if side == "b" else "b"; outl = 0
+                        for i in range(hit_i + 1, min(len(S), hit_i + 6)):
+                            r2 = next((z for z in (S[i].get(opp) or []) if z[0] == x[0]), None)
+                            if r2: outl += abs(r2[1])
+                        r0 = next((z for z in (S[hit_i].get(side) or []) if z[0] == x[0]), None)
+                        if r0 and outl >= abs(r0[1]) * 0.5: continue
                         k = (len(S) - 1) - hit_i                     # 今天是達標後第 k 個交易日
                         for tag, dd, word in (("t1", xc.get("d_start"), word_a), ("t2", xc.get("d_peak"), word_b)):
                             if dd and k == dd:

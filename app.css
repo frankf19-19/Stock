@@ -1822,3 +1822,5 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .rh-det summary::-webkit-details-marker{display:none}
 /* r838:券商屬性標籤 */
 .bktag{display:inline-block;font-size:10px;font-weight:700;border:1px solid;border-radius:4px;padding:0 4px;margin-left:4px;line-height:1.5;vertical-align:1px;opacity:.9}
+/* r845:短沖客列 */
+.kbr2-flip{opacity:.6}
