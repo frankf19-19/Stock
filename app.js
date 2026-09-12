@@ -1,4 +1,4 @@
-/* K研所 · build r845 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r848 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r845</span>');
+  diag.push('<span style="color:var(--dim)">build r848</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20203,12 +20203,15 @@ async function sbPushPaint(boxId,compact){                         // r810:細�
       <div class="sb-note">AI Pick 成交/出場/換股/到價、最愛與持股訊號、主力進出——關掉網頁也會跳通知。</div>
       <div class="sb-cats-h">要收哪些通知 <a href="javascript:void 0" data-catall="1">全選</a>・<a href="javascript:void 0" data-catall="0">全不選</a></div>
       ${PUSH_GROUPS.map(([g,ks])=>`<div class="sb-catg"><div class="sb-catg-h">${g} <a href="javascript:void 0" data-catg="${g}">全選</a></div><div class="sb-cats">${ks.map(([k,n])=>`<label><input type="checkbox" data-cat="${k}" ${pushCatsGet().includes(k)?'checked':''}> ${n}</label>`).join('')}</div></div>`).join('')}
+      <div class="sb-note" style="margin-top:8px">⚡ <b>AI Pick 即時哨兵</b>:盤中每分鐘由 Cloudflare 直接盯即時價,成交/追價/停利/停損/接近目標/逼近停損 1 分鐘內推到手機(不經 GitHub)。</div>
+      <button class="sb-alt" id="sbPushTest">🔔 測試即時推播</button>
       <button class="sb-alt" id="sbPushOff">關閉此裝置推播</button>`;
     const saveCats=()=>{const sel=[...box.querySelectorAll('input[data-cat]:checked')].map(x=>x.dataset.cat);try{localStorage.setItem('pushCats',JSON.stringify(sel));}catch(e){}pushApi('/push/sync',pushProfile()).then(()=>sbToast('通知設定已更新',0)).catch(()=>{});};
     box.querySelectorAll('input[data-cat]').forEach(cb=>cb.onchange=saveCats);
     box.querySelectorAll('[data-catall]').forEach(a=>a.onclick=()=>{box.querySelectorAll('input[data-cat]').forEach(cb=>cb.checked=a.dataset.catall==='1');saveCats();});
     box.querySelectorAll('[data-catg]').forEach(a=>a.onclick=()=>{const g=PUSH_GROUPS.find(x=>x[0]===a.dataset.catg);if(!g)return;const ks=new Set(g[1].map(x=>x[0]));box.querySelectorAll('input[data-cat]').forEach(cb=>{if(ks.has(cb.dataset.cat))cb.checked=true;});saveCats();});
     document.getElementById('sbPushOff').onclick=async()=>{await pushDisable();sbPushPaint(boxId);};
+    document.getElementById('sbPushTest').onclick=async()=>{const b=document.getElementById('sbPushTest');b.disabled=true;b.textContent='送出中…';try{const j=await pushApi('/push/test',{});sbToast(j&&j.ok?`已送 ${j.sent}/${j.subs} 台,幾秒內會收到`:('失敗:'+(j&&j.err||'')),j&&j.ok?0:1);}catch(e){sbToast('失敗:'+e,1);}b.disabled=false;b.textContent='🔔 測試即時推播';};   // r848
   }else{
     box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-no">${n?`其他 ${n} 台裝置已開啟`:'未開啟'}</span></div>
       <div class="sb-note">按一下、允許通知就好。關掉網頁也收得到,不用裝任何 App。</div>
