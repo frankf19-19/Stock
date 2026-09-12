@@ -1813,3 +1813,10 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .kbr-det summary::-webkit-details-marker{display:none}
 .kbr-det[open]{display:block;text-align:left;margin-top:4px}
 @media(max-width:640px){.kbr2{grid-template-columns:1fr}.kbr2-l{text-align:left}}
+/* r837:主力節奏精簡 */
+.rh-h{font-weight:800;font-size:13px;margin:8px 0 4px}
+.rh-t td,.rh-t th{padding:5px 8px;font-size:12.5px}
+.rh-t td:first-child{color:var(--txt2)}
+.rh-det{margin:4px 0}
+.rh-det summary{cursor:pointer;color:var(--t-blue);font-size:12px;list-style:none}
+.rh-det summary::-webkit-details-marker{display:none}

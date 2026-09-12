@@ -1,4 +1,4 @@
-/* K研所 · build r836 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r837 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r836</span>');
+  diag.push('<span style="color:var(--dim)">build r837</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -9033,23 +9033,28 @@ function rhythmCalc(h,bk,divDates){
 }
 function rhythmHTML(R,s){
   if(!R)return `<h3>🥁 主力節奏與時間規律</h3><div class="dim-note">分點需 ≥30 個交易日、季節性需 ≥120 個交易日(週末回補中)。</div>`;
-  const f=v=>v==null?'—':(v>=0?'+':'')+v+'%';let out=`<h3>🥁 主力節奏與時間規律 <span class="ds">這檔自己的規律:何時吃、何時拉、何時倒;哪些時段容易漲跌</span></h3>`;
-  if(R.acc){const A=R.acc;
-    out+=`<div style="font-weight:800;font-size:13px;margin:6px 0 2px">① 主力累積 → 拉抬(前 15 大分點,${A.n} 段累積)</div>
-    <div style="font-size:13px;line-height:1.8">・累積段通常 <b>${A.len??'—'}</b> 天(大量累積 ≥ 成交 3%:<b>${A.lenBig??'—'}</b> 天,${A.nBig} 段)<br>
-    ・累積結束後 20 日最大漲幅中位 <b>${f(A.mx)}</b>;大量累積後 <b>${f(A.mxBig)}</b>,漲逾 5% 的機率 <b>${A.hit5Big??A.hit5??'—'}%</b>,通常第 <b>${A.dTo5??'—'}</b> 天到 +5%<br>
-    ・拉高後主力通常第 <b>${A.dist??'—'}</b> 天開始出貨(3 日淨賣 ≥ 累積量 30%)<br>
-    ${A.cur?`・<b style="color:var(--up)">現在:主力已連續淨買 ${A.cur} 天</b>,累計 ${A.curLots.toLocaleString()} 張(佔成交 ${A.curShare}%)${A.lenBig&&A.cur>=A.lenBig?'——已達它過去的典型累積長度,依慣性進入可能發動的區間':A.lenBig?`——距典型累積長度還差 ${A.lenBig-A.cur} 天`:''}`:A.curS?`・<b style="color:var(--down)">現在:主力已連續淨賣 ${A.curS} 天</b>——出貨段,等它轉買再看`:'・現在主力今日淨賣/中性,不在累積段'}</div>
-    ${A.last.length?`<div class="dim" style="font-size:11.5px;margin-top:2px">最近幾段:${A.last.map(r=>`${r.start.slice(5).replace('-','/')} 累積 ${r.len} 天 ${r.lots.toLocaleString()} 張(${r.share}%)→ 20 日最高 ${f(r.mx)}${r.dist?`,第 ${r.dist} 天出貨`:''}`).join(';')}</div>`:''}`;}
-  if(R.season){const S2=R.season;
-    const row=(r,c)=>`<span class="fkb" style="color:${c};border-color:${c};font-weight:700">${r.nm} <small>日均 ${f(r.avg)}(基準 ${f(S2.base)})・勝率 ${r.win}%・${r.n} 天${r.t?`・投信日均 ${r.t>=0?'+':''}${r.t} 張`:''}${r.f?`・外資 ${r.f>=0?'+':''}${r.f} 張`:''}</small></span>`;
-    const mb=S2.months.length?`<div style="display:flex;gap:3px;align-items:flex-end;height:46px;margin:4px 0">${S2.months.map(r=>{const hgt=Math.min(40,Math.abs(r.cum)*4+4);return `<div title="${r.nm} 三年平均累計 ${f(r.cum)}・勝率 ${r.win}%" style="flex:1;display:flex;flex-direction:column;align-items:center;font-size:9px;color:var(--dim)"><div style="width:100%;height:${hgt}px;background:${r.cum>=0?'var(--up)':'var(--down)'};opacity:.75;border-radius:2px 2px 0 0"></div>${r.k.slice(1)}</div>`;}).join('')}</div>`:'';
-    out+=`<div style="font-weight:800;font-size:13px;margin:10px 0 2px">② 時間規律(近 ${S2.years} 年,日報酬相對這檔自己的基準)</div>
-    ${mb?`<div class="dim" style="font-size:11px">各月份三年平均累計漲跌(紅漲綠跌)</div>${mb}`:''}
-    ${S2.good.length?`<div style="font-size:12.5px;margin:4px 0"><b style="color:var(--up)">容易漲的時段</b>:${S2.good.map(r=>row(r,'var(--up)')).join(' ')}</div>`:''}
-    ${S2.bad.length?`<div style="font-size:12.5px;margin:4px 0"><b style="color:var(--down)">容易跌的時段</b>:${S2.bad.map(r=>row(r,'var(--down)')).join(' ')}</div>`:''}
-    ${S2.now.length?`<div style="font-size:12.5px;margin:6px 0;padding:6px 10px;border:1px dashed var(--t-gold);border-radius:8px">📍 <b>現在落在</b>:${S2.now.map(r=>`${r.nm}(日均 ${f(r.avg)}・勝率 ${r.win}%${r.edge>0.05?' ↑':r.edge<-0.05?' ↓':''})`).join('、')}</div>`:''}`;}
-  out+=`<div class="dim" style="font-size:11.5px;margin-top:6px">累積段 = 前 15 大分點連續淨買的日子;拉抬看累積結束後 20 日最高;出貨 = 之後 3 日淨賣達累積量三成。時間規律用三年每日報酬按月份/月內/週幾/季底/月營收公布/除息分桶,列出比這檔自己平均明顯好或差的時段(樣本 ≥8 天)。這是統計傾向,不是行程表;搭配「關鍵分點」和「成本」一起看。非投資建議。</div>`;
+  const f=v=>v==null?'—':(v>=0?'+':'')+v+'%';const A=R.acc,S2=R.season;
+  // ── 一句話結論 ──
+  const lines=[];
+  if(A){const fire=A.mxBig??A.mx;if(A.nBig>=3&&(A.hit5Big??A.hit5??0)>=60)lines.push(`這檔<b>主力累積約 ${A.lenBig??A.len} 天後會發動</b>,通常第 ${A.dTo5??'—'} 天到 +5%、第 ${A.dist??'—'} 天開始出貨`);
+    else if(A.n>=3)lines.push(`這檔<b>主力累積和後續漲幅關係不明顯</b>(累積後 20 日最高中位 ${f(fire)}),別用分點節奏操作`);
+    if(A.cur)lines.push(`<b style="color:var(--up)">現在主力已連買 ${A.cur} 天</b>${A.lenBig&&A.cur>=A.lenBig?',已到典型累積長度,進入可能發動區':A.lenBig?`,距典型長度還差 ${A.lenBig-A.cur} 天`:''}`);
+    else if(A.curS)lines.push(`<b style="color:var(--down)">現在主力已連賣 ${A.curS} 天</b>,出貨段`);}
+  if(S2){if(S2.good.length)lines.push(`歷史上<b style="color:var(--up)">最強時段</b>:${S2.good.slice(0,2).map(r=>r.nm).join('、')}`);if(S2.bad.length)lines.push(`<b style="color:var(--down)">最弱時段</b>:${S2.bad.slice(0,2).map(r=>r.nm).join('、')}`);
+    const nowG=S2.now.filter(r=>r.edge>0.05),nowB=S2.now.filter(r=>r.edge<-0.05);if(nowG.length||nowB.length)lines.push(`現在落在 ${nowG.map(r=>`<span style="color:var(--up)">${r.nm}(偏強)</span>`).concat(nowB.map(r=>`<span style="color:var(--down)">${r.nm}(偏弱)</span>`)).join('、')}`);}
+  let out=`<h3>🥁 主力節奏與時間規律 <span class="ds">這檔自己的規律</span></h3>
+  <div style="border-left:4px solid var(--t-gold);padding:6px 12px;margin:4px 0 10px;font-size:13.5px;line-height:1.8;background:color-mix(in srgb,var(--t-gold) 6%,var(--panel))">${lines.map(x=>'・'+x).join('<br>')||'樣本不足,先看下面的數字。'}</div>`;
+  if(A){out+=`<div class="rh-h">① 主力累積 → 拉抬 <small class="dim">前 15 大分點・${A.n} 段累積</small></div>
+    <table class="sig-t rh-t"><tr><td>累積段長度</td><td><b>${A.lenBig??A.len??'—'}</b> 天</td><td>累積後 20 日最高(中位)</td><td><b style="color:${(A.mxBig??A.mx)>=5?'var(--up)':'inherit'}">${f(A.mxBig??A.mx)}</b></td></tr>
+    <tr><td>漲逾 5% 機率</td><td><b>${A.hit5Big??A.hit5??'—'}%</b></td><td>通常第幾天到 +5%</td><td><b>${A.dTo5??'—'}</b> 天</td></tr>
+    <tr><td>拉高後開始出貨</td><td>第 <b>${A.dist??'—'}</b> 天</td><td>現在</td><td>${A.cur?`<span style="color:var(--up)">連買 ${A.cur} 天・${A.curLots.toLocaleString()} 張(${A.curShare}%)</span>`:A.curS?`<span style="color:var(--down)">連賣 ${A.curS} 天</span>`:'中性'}</td></tr></table>
+    ${A.last.length?`<details class="rh-det"><summary>最近幾段累積的實際結果</summary><div class="dim" style="font-size:12px;line-height:1.7">${A.last.map(r=>`${r.start.slice(5).replace('-','/')} 累積 ${r.len} 天、${r.lots.toLocaleString()} 張(佔成交 ${r.share}%)→ 20 日最高 ${f(r.mx)}${r.dist?`,第 ${r.dist} 天出貨`:''}`).join('<br>')}</div></details>`:''}`;}
+  if(S2){const mb=S2.months.length?`<div style="display:flex;gap:3px;align-items:flex-end;height:60px;margin:6px 0 2px">${S2.months.map(r=>{const hgt=Math.min(44,Math.abs(r.cum)*4+4);return `<div title="${r.nm} 平均累計 ${f(r.cum)}・勝率 ${r.win}%" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;font-size:9.5px;color:var(--dim);height:100%"><span style="font-size:9px;color:${r.cum>=0?'var(--up)':'var(--down)'}">${f(r.cum)}</span><div style="width:100%;height:${hgt}px;background:${r.cum>=0?'var(--up)':'var(--down)'};opacity:.7;border-radius:2px 2px 0 0"></div>${r.k.slice(1)}月</div>`;}).join('')}</div>`:'';
+    const tbl=(rows,col,title)=>rows.length?`<div class="rh-h" style="color:${col}">${title}</div><table class="sig-t rh-t"><tr><th style="text-align:left">時段</th><th>日均(這檔基準 ${f(S2.base)})</th><th>勝率</th><th>樣本</th><th>投信/外資 日均</th></tr>${rows.map(r=>`<tr><td style="text-align:left;font-weight:700">${r.nm}</td><td style="color:${col};font-weight:800">${f(r.avg)}</td><td>${r.win}%</td><td class="dim">${r.n} 天</td><td class="dim">${r.t?`${r.t>=0?'+':''}${r.t}`:'—'} / ${r.f?`${r.f>=0?'+':''}${r.f}`:'—'} 張</td></tr>`).join('')}</table>`:'';
+    out+=`<div class="rh-h" style="margin-top:12px">② 時間規律 <small class="dim">近 ${S2.years} 年・各月份平均累計漲跌</small></div>${mb}
+    ${tbl(S2.good,'var(--up)','容易漲的時段')}${tbl(S2.bad,'var(--down)','容易跌的時段')}
+    ${S2.now.length?`<div style="font-size:12.5px;margin:8px 0;padding:6px 10px;border:1px dashed var(--t-gold);border-radius:8px">📍 現在落在:${S2.now.map(r=>`${r.nm} ${f(r.avg)}${r.edge>0.05?' <span style="color:var(--up)">偏強</span>':r.edge<-0.05?' <span style="color:var(--down)">偏弱</span>':''}`).join('・')}</div>`:''}`;}
+  out+=`<div class="dim" style="font-size:11.5px;margin-top:6px">累積段 = 前 15 大分點連續淨買;拉抬看累積結束後 20 日最高;出貨 = 之後 3 日淨賣達累積量三成。時間規律按月份/月內/週幾/季底/營收公布/除息分桶,列出比這檔自己平均明顯好或差的(樣本 ≥8 天)。統計傾向,非行程表。非投資建議。</div>`;
   return out;
 }
 /* ═══ r793:🩳 借券賣出 vs 股價——每檔自己的「借券承受力」 ═══
