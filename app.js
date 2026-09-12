@@ -1,4 +1,4 @@
-/* K研所 · build r834 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r835 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r834</span>');
+  diag.push('<span style="color:var(--dim)">build r835</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6176,7 +6176,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
     const root=first.parentNode;
     const GROUPS=[
       ['📈','技術與價格','現在怎麼走・在哪進出',['stk_k','stk_dna','stk_3','stk_s']],
-      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_ae','stk_h','stk_bk','stk_bs','stk_c']],   // r806:分點動向歸籌碼章
+      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_ae','stk_h','stk_bk','stk_cost','stk_rhythm','stk_bs','stk_c']],   // r806:分點動向歸籌碼章;r835:成本、節奏獨立成節
       ['💰','基本面與價值','值不值得・前景如何',['stk_r','stk_v','stk_peer','stk_conf']],
       ['🧭','綜合研判與背景','AI 總結・市場觀點・公司背景',['stk_ai','stk_m','stk_p','stk_e']],
     ];
@@ -12884,7 +12884,11 @@ async function showDetail(id){
     </div>
     ${isTW&&!s.etf?`<div class="sec-title" data-sec="stk_bk">🏦 分點動向 <span style="font-weight:400;font-size:13px;letter-spacing:0">券商分點買賣・主力淨額・買賣家數差・隔日沖・每日收盤後更新(資料來源:FinMind)</span></div><div class="sec-body" id="sb-stk_bk">
     <div id="bkBox" class="dim-block"><div class="dim-note">⏳ 讀取分點資料…</div></div>
+    </div>
+    <div class="sec-title" data-sec="stk_cost">💰 主力 / 法人成本 <span style="font-weight:400;font-size:13px;letter-spacing:0">外資・投信・自營・主力分點的買進均價與持倉成本・誰套牢誰獲利</span></div><div class="sec-body" id="sb-stk_cost">
     <div id="costBox" class="dim-block"><div class="dim-note">⏳ 計算主力與法人成本…</div></div>
+    </div>
+    <div class="sec-title" data-sec="stk_rhythm">🥁 主力節奏・時間規律 <span style="font-weight:400;font-size:13px;letter-spacing:0">累積幾天後發動、拉高後何時出貨・哪些月份/時段容易漲跌</span></div><div class="sec-body" id="sb-stk_rhythm">
     <div id="rhythmBox" class="dim-block"><div class="dim-note">⏳ 分析主力節奏與時間規律…</div></div>
     </div>`:''}
     ${isTW&&!s.etf?`<div class="sec-title" data-sec="stk_bs">⚖️ 大戶買賣比・大戶差比 <span style="font-weight:400;font-size:13px;letter-spacing:0">盤中大單 買方佔比+淨買超強度・富果逐筆即算</span></div><div class="sec-body" id="sb-stk_bs">
