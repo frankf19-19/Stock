@@ -404,7 +404,8 @@ def broker_tags(R):
                 if run: st[nm]["runs"].append(run)
     FOREIGN = ("美商", "港商", "港麥", "瑞銀", "摩根", "美林", "花旗", "法銀", "德意志", "野村", "大和", "台灣摩根", "高盛", "巴克萊", "麥格理", "匯豐", "瑞士信貸", "法國巴黎", "新加坡")
     out = {}
-    ndays = max((len(e.get("d") or []) for sh in R.values() for e in sh.values()), default=0)
+    _dl = sorted(len(e.get("d") or []) for sh in R.values() for e in sh.values())
+    ndays = _dl[len(_dl) // 2] if _dl else 0                    # r846:用全市場中位數,不被少數有 60 天的優先股帶高
     for nm, t in st.items():
         if t["app"] < 20: continue
         dtr = t["dt"] / t["app"]; avg_run = (sum(t["runs"]) / len(t["runs"])) if t["runs"] else 1
