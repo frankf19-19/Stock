@@ -107,6 +107,11 @@ def key_brokers(e, sid):
         if j is None: continue
         f5 = (C[j + 5] / C[j] - 1) * 100 if j + 5 < len(C) else None
         f10 = (C[j + 10] / C[j] - 1) * 100 if j + 10 < len(C) else None
+        # r829:時間軸——之後 1/3/5/10/20 日報酬、幾天到高點/低點、第幾天開始漲/跌
+        fw = {h: ((C[j + h] / C[j] - 1) * 100 if j + h < len(C) else None) for h in (1, 3, 5, 10, 20)}
+        path = [(C[j + k] / C[j] - 1) * 100 for k in range(1, 21) if j + k < len(C)]
+        dpk = (path.index(max(path)) + 1) if path else None; dtr = (path.index(min(path)) + 1) if path else None
+        d_up = next((k + 1 for k, v in enumerate(path) if v > 0), None); d_dn = next((k + 1 for k, v in enumerate(path) if v < 0), None)
         vol = summ.get("vol") or 0
         for side, rows in (("b", summ.get("b") or []), ("s", summ.get("s") or [])):
             for name, net, px in rows:
@@ -114,11 +119,43 @@ def key_brokers(e, sid):
                 st["n"] += 1; st["last"] = max(st["last"], day); st["lots"] += abs(net)
                 share = (abs(net) / vol * 100) if vol else 0.0                      # r826:這次佔當日成交的 %(量大小)
                 st["ev"].append((share, f10))
+                st.setdefault("evx", []).append({"lots": abs(net), "share": share, "fw": fw, "dpk": dpk, "dtr": dtr, "d_up": d_up, "d_dn": d_dn, "d": day})
                 if f5 is not None: st["s5"] += f5; st["n5"] += 1; st["w5"] += 1 if (f5 > 0 if side == "b" else f5 < 0) else 0
                 if f10 is not None: st["s10"] += f10; st["n10"] += 1; st["w10"] += 1 if (f10 > 0 if side == "b" else f10 < 0) else 0
-    out = {"b": [], "s": []}
+    out = {"b": [], "s": [], "x": {}}
+    def med(a):
+        a = sorted(x for x in a if x is not None); return a[len(a) // 2] if a else None
+    def size_curve(side, evx):
+        """張數 → 成績:三分位 + 有效門檻(最小張數,使得 ≥ 它的樣本 10 日勝率 ≥60%、平均贏過基準)+ 時間軸。"""
+        good = lambda f: (f > 0) if side == "b" else (f < 0)
+        ev = [e for e in evx if e["fw"][10] is not None]
+        if len(ev) < 3: return None
+        ev.sort(key=lambda e: e["lots"])
+        k = len(ev); cuts = [ev[:k // 3] or ev[:1], ev[k // 3: 2 * k // 3] or ev[:1], ev[2 * k // 3:] or ev[-1:]]
+        tiers = []
+        for grp in cuts:
+            a = sum(e["fw"][10] for e in grp) / len(grp); w = round(100 * sum(1 for e in grp if good(e["fw"][10])) / len(grp))
+            tiers.append([int(min(e["lots"] for e in grp)), int(max(e["lots"] for e in grp)), len(grp), round(a, 2), w])
+        eff = None
+        for i in range(len(ev)):
+            sub = ev[i:]
+            if len(sub) < 3: break
+            a = sum(e["fw"][10] for e in sub) / len(sub); w = 100 * sum(1 for e in sub if good(e["fw"][10])) / len(sub)
+            ok = (w >= 60 and a >= max(2.0, base10 + 1.5)) if side == "b" else (w >= 60 and a <= min(-2.0, base10 - 1.5))
+            if ok: eff = {"lots": int(ev[i]["lots"]), "share": round(ev[i]["share"], 2), "n": len(sub), "a10": round(a, 2), "w10": round(w)}; break
+        hz = {}
+        for h in (1, 3, 5, 10, 20):
+            vals = [e["fw"][h] for e in ev if e["fw"][h] is not None]
+            if vals: hz[str(h)] = [round(sum(vals) / len(vals), 2), round(100 * sum(1 for v in vals if good(v)) / len(vals)), len(vals)]
+        best = max(hz.items(), key=lambda kv: (kv[1][0] if side == "b" else -kv[1][0])) if hz else None
+        return {"tiers": tiers, "eff": eff, "hz": hz, "best_h": int(best[0]) if best else None,
+                "d_start": med([e["d_up" if side == "b" else "d_dn"] for e in ev]), "d_peak": med([e["dpk" if side == "b" else "dtr"] for e in ev])}
     for (side, name), st in stat.items():
         if st["n10"] < 3: continue
+        try:
+            xc = size_curve(side, st.get("evx") or [])
+            if xc: out["x"][side + ":" + name] = xc
+        except Exception: pass
         a5 = st["s5"] / st["n5"] if st["n5"] else None; a10 = st["s10"] / st["n10"]
         w5 = round(100 * st["w5"] / st["n5"]) if st["n5"] else None; w10 = round(100 * st["w10"] / st["n10"])
         # r826:量的維度——典型佔比(中位)、大買/大賣(≥ 自己中位且 ≥2%)的 10 日成績
@@ -135,7 +172,9 @@ def key_brokers(e, sid):
     # 排序:關鍵優先,再依 10 日平均 × 勝率
     out["b"].sort(key=lambda x: (-x[7], -(x[4] * x[5])))
     out["s"].sort(key=lambda x: (-x[7], (x[4] * x[5])))
-    return {"b": out["b"][:8], "s": out["s"][:8], "days": len(e["d"]), "base5": round(base5, 2), "base10": round(base10, 2)}
+    keep = set(x[0] for x in out["b"][:8]) | set(x[0] for x in out["s"][:8])
+    xo = {k: v for k, v in out["x"].items() if k.split(":", 1)[1] in keep}
+    return {"b": out["b"][:8], "s": out["s"][:8], "x": xo, "days": len(e["d"]), "base5": round(base5, 2), "base10": round(base10, 2)}
 
 
 def load_shards():
