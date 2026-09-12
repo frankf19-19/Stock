@@ -66,7 +66,7 @@ def merge_day(S, day, rows_by_sid):
         if not summ: continue
         e["d"].append(day); e["s"].append(summ)
         order = sorted(range(len(e["d"])), key=lambda i: e["d"][i])
-        e["d"] = [e["d"][i] for i in order][-fb.KEEP:]; e["s"] = [e["s"][i] for i in order][-fb.KEEP:]
+        e["d"] = [e["d"][i] for i in order][-fb.KEEP_RAW:]; e["s"] = [e["s"][i] for i in order][-fb.KEEP_RAW:]
         n += 1
     return n
 
@@ -124,15 +124,17 @@ def main():
             if os.environ.get("BKH_ALL") == "1": st["days_done"].append(day)          # r830:只有全市場補齊才算這天完成
             else: st.setdefault("prio_done", []).append(day)
         log(f"  {day}:優先股 {len(done)}/{len(ids)} 檔")
-        fb.save_shards(S); json.dump(st, open(st_p, "w"), ensure_ascii=False)
-    # 關鍵分點重算
-    nk = 0
-    for k, sh in S.items():
+        fb.save_shards(R, fb.RAW); json.dump(st, open(st_p, "w"), ensure_ascii=False)
+    # 關鍵分點重算(raw 250 日)→ repo 60 日分片
+    fb.save_shards(R, fb.RAW); fb.raw_to_display(R, S); nk = 0
+    for k, sh in R.items():
         for sid, e in sh.items():
             try:
                 kb = fb.key_brokers(e, sid)
-                if kb: e["kb"] = kb; nk += 1
+                if kb: S[k][sid]["kb"] = kb; nk += 1
             except Exception: pass
+    try: fb.broker_tags(R)
+    except Exception as ex2: log(f"  券商標籤失敗:{ex2}")
     fb.save_shards(S); json.dump(st, open(st_p, "w"), ensure_ascii=False)
     log(f"✅ 分點歷史:本班補 {n_days} 個交易日,累計 {len(st['days_done'])};關鍵分點已算 {nk} 檔")
 

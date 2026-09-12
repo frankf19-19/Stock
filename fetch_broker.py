@@ -15,7 +15,8 @@ TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 TOKEN = os.environ.get("FINMIND_TOKEN", "").strip()
 API = "https://api.finmindtrade.com/api/v4/data"
-DIR = "bk"; KEEP = 60
+DIR = "bk"; KEEP = 60                                         # repo 內顯示用:60 日
+RAW = "bkraw"; KEEP_RAW = 250                                 # r838:原始摘要 250 日,放 Actions cache(不進 repo),關鍵分點統計用
 BUDGET_SEC = int(os.environ.get("BK_BUDGET_SEC", "3000"))     # 一輪最多 50 分鐘(r803:45 分鐘只抓到 1,925/2,100)
 SLEEP = 1.1                                                    # r820:雙線程,每線程 1.1s ≈ 合計 5,000/小時以內
 THREADS = 2
@@ -84,8 +85,16 @@ def summarize(rows, prev):
 # 對每檔:每家券商出現在「當日淨買前 15」的日子 → 之後 5/10 日報酬;出現在「淨賣前 15」→ 之後 5/10 日報酬。
 # 進場次數 ≥ 3 才列;起漲分點 = 買後 10 日勝率 ≥ 60% 且平均 ≥ +2%;出貨分點 = 賣後 10 日平均 ≤ −2% 且「跌」的比率 ≥ 60%。
 _K = {}
+_H = {}
 def closes_of(sid):
     k = shard_key(sid)
+    if k not in _H:                                            # r838:優先用 hist/(三年收盤),沒有再用 k/
+        try: _H[k] = json.load(open(f"hist/tw{k}.json", encoding="utf-8"))
+        except Exception: _H[k] = {}
+    h = _H[k].get(sid) or {}
+    if h.get("d") and h.get("c") and len(h["d"]) >= 200:
+        d, c = h["d"], h["c"]
+        return {dd: i for i, dd in enumerate(d)}, [x if x else 0 for x in c]
     if k not in _K:
         try: _K[k] = json.load(open(f"k/tw{k}.json", encoding="utf-8"))
         except Exception: _K[k] = {}
@@ -177,18 +186,47 @@ def key_brokers(e, sid):
     return {"b": out["b"][:8], "s": out["s"][:8], "x": xo, "days": len(e["d"]), "base5": round(base5, 2), "base10": round(base10, 2)}
 
 
-def load_shards():
-    os.makedirs(DIR, exist_ok=True)
+def load_shards(d=None):
+    d = d or DIR; os.makedirs(d, exist_ok=True)
     S = {}
-    for p in glob.glob(os.path.join(DIR, "tw*.json")):
+    for p in glob.glob(os.path.join(d, "tw*.json")):
         try: S[os.path.basename(p)[2:-5]] = json.load(open(p, encoding="utf-8"))
         except Exception: pass
     return S
 
 
-def save_shards(S):
+def save_shards(S, d=None):
+    d = d or DIR; os.makedirs(d, exist_ok=True)
     for k, sh in S.items():
-        json.dump(sh, open(os.path.join(DIR, f"tw{k}.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        json.dump(sh, open(os.path.join(d, f"tw{k}.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+
+
+def raw_load():
+    """r838:原始 250 日摘要(Actions cache)。cache 掉了就以 repo 的 60 日當種子。"""
+    R = load_shards(RAW)
+    if not R:
+        R = load_shards(DIR); log("  bkraw 不存在,以 bk/ 60 日當種子")
+        for sh in R.values():
+            for e in sh.values(): e.pop("kb", None)
+    return R
+
+
+def raw_put(R, sid, day, summ):
+    k = shard_key(sid); e = R.setdefault(k, {}).setdefault(sid, {"d": [], "s": []})
+    if day in e["d"]:
+        e["s"][e["d"].index(day)] = summ
+    else:
+        e["d"].append(day); e["s"].append(summ)
+        order = sorted(range(len(e["d"])), key=lambda i: e["d"][i])
+        e["d"] = [e["d"][i] for i in order][-KEEP_RAW:]; e["s"] = [e["s"][i] for i in order][-KEEP_RAW:]
+
+
+def raw_to_display(R, S):
+    """把 raw 最近 60 日同步到 repo 的 bk/(顯示用),kb 由 raw 算。"""
+    for k, sh in R.items():
+        for sid, e in sh.items():
+            d = S.setdefault(k, {}).setdefault(sid, {"d": [], "s": []})
+            d["d"] = e["d"][-KEEP:]; d["s"] = e["s"][-KEEP:]
 
 
 def gov_banks(day):
@@ -214,7 +252,7 @@ def main():
     except Exception: log("沒有 data.json"); return
     ids = [s["id"] for s in data.get("stocks") or [] if s.get("market") == "TW" and not s.get("etf")]
     todo = [i for i in ids if i not in done]
-    S = load_shards()
+    S = load_shards(); R = raw_load()
     t0 = time.time(); n = 0; empty = 0; fail = 0
     # ── 八大行庫(一次)──
     if not st.get("gov"):
@@ -255,34 +293,71 @@ def main():
             if fail <= 3: log(f"  {sid} 失敗:{err}")
             if fail >= 20: log("  連續失敗太多,停"); break
             continue
-        k = shard_key(sid); e = S.setdefault(k, {}).setdefault(sid, {"d": [], "s": []})
+        k = shard_key(sid); e = R.setdefault(k, {}).setdefault(sid, {"d": [], "s": []})
         prev = e["s"][-1] if e["d"] and e["d"][-1] < day else None
         summ = summarize(rows, prev)
         if summ is None: empty += 1
-        else:
-            if day in e["d"]:
-                i = e["d"].index(day); e["s"][i] = summ
-            else:
-                e["d"].append(day); e["s"].append(summ)
-                e["d"] = e["d"][-KEEP:]; e["s"] = e["s"][-KEEP:]
+        else: raw_put(R, sid, day, summ)
         done.add(sid); n += 1
         if n % 200 == 0:
-            st["done"] = sorted(done); json.dump(st, open(st_p, "w"), ensure_ascii=False); save_shards(S)
+            st["done"] = sorted(done); json.dump(st, open(st_p, "w"), ensure_ascii=False); save_shards(R, RAW)
             log(f"  進度 {n}/{len(todo)}({int(time.time()-t0)}s)")
     ex.shutdown(wait=False)
     st["done"] = sorted(done); json.dump(st, open(st_p, "w"), ensure_ascii=False)
-    # r804:關鍵分點(有 15 天以上才算)
+    save_shards(R, RAW); raw_to_display(R, S)
+    # r804:關鍵分點(有 15 天以上才算);r838:用 raw 250 日算,寫進 repo 的 60 日分片
     nk = 0
-    for k, sh in S.items():
+    for k, sh in R.items():
         for sid, e in sh.items():
             try:
                 kb = key_brokers(e, sid)
-                if kb: e["kb"] = kb; nk += 1
+                if kb: S[k][sid]["kb"] = kb; nk += 1
             except Exception: pass
+    try: broker_tags(R)
+    except Exception as ex2: log(f"  券商標籤失敗:{ex2}")
     save_shards(S)
     try: kb_today(S, day)
     except Exception as e: log(f"  kb_today 失敗:{e}")
     log(f"✅ 分點 {day}:本輪 {n} 檔(無資料 {empty}、失敗 {fail}),累計 {len(done)}/{len(ids)};關鍵分點已算 {nk} 檔")
+
+
+def broker_tags(R):
+    """r838:券商屬性——從全市場 raw 推:隔日沖率(今天前 15 買、明天前 15 賣的比例)、出現檔數、平均連續天數、外資窗口(名稱)。
+       tag:外資 / 隔日沖 / 短線 / 波段 / 一般。→ broker_tags.json"""
+    st = {}
+    for k, sh in R.items():
+        for sid, e in sh.items():
+            d, S = e.get("d") or [], e.get("s") or []
+            for i, summ in enumerate(S):
+                nb = set(x[0] for x in (summ.get("b") or [])); ns_next = set(x[0] for x in (S[i + 1].get("s") or [])) if i + 1 < len(S) else set()
+                for nm in nb:
+                    t = st.setdefault(nm, {"app": 0, "dt": 0, "stocks": set(), "runs": [], "cur": 0})
+                    t["app"] += 1; t["stocks"].add(sid)
+                    if nm in ns_next: t["dt"] += 1
+            # 連續天數(同檔連續在買超前 15)
+            names = set()
+            for summ in S: names |= set(x[0] for x in (summ.get("b") or []))
+            for nm in names:
+                run = 0
+                for summ in S:
+                    if any(x[0] == nm for x in (summ.get("b") or [])): run += 1
+                    else:
+                        if run: st[nm]["runs"].append(run); run = 0
+                if run: st[nm]["runs"].append(run)
+    FOREIGN = ("美商", "港商", "港麥", "瑞銀", "摩根", "美林", "花旗", "法銀", "德意志", "野村", "大和", "台灣摩根", "高盛", "巴克萊", "麥格理", "匯豐", "瑞士信貸", "法國巴黎", "新加坡")
+    out = {}
+    for nm, t in st.items():
+        if t["app"] < 20: continue
+        dtr = t["dt"] / t["app"]; avg_run = (sum(t["runs"]) / len(t["runs"])) if t["runs"] else 1
+        if any(f in nm for f in FOREIGN): tag = "外資"
+        elif dtr >= 0.35: tag = "隔日沖"
+        elif dtr >= 0.2 or avg_run < 1.5: tag = "短線"
+        elif avg_run >= 3: tag = "波段"
+        else: tag = "一般"
+        out[nm] = {"tag": tag, "dt": round(dtr * 100), "n": t["app"], "stocks": len(t["stocks"]), "run": round(avg_run, 1)}
+    json.dump(out, open("broker_tags.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    from collections import Counter
+    log(f"  券商標籤:{len(out)} 家 {dict(Counter(v['tag'] for v in out.values()))}")
 
 
 def kb_today(S, day):
