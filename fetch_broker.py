@@ -183,7 +183,63 @@ def key_brokers(e, sid):
     out["s"].sort(key=lambda x: (-x[7], (x[4] * x[5])))
     keep = set(x[0] for x in out["b"][:8]) | set(x[0] for x in out["s"][:8])
     xo = {k: v for k, v in out["x"].items() if k.split(":", 1)[1] in keep}
-    return {"b": out["b"][:8], "s": out["s"][:8], "x": xo, "days": len(e["d"]), "base5": round(base5, 2), "base10": round(base10, 2)}
+    try: prof = broker_profiles(e, sid, out)
+    except Exception: prof = {}
+    return {"b": out["b"][:8], "s": out["s"][:8], "x": xo, "p": prof, "days": len(e["d"]), "base5": round(base5, 2), "base10": round(base10, 2)}
+
+
+_TAGS = None
+def broker_profiles(e, sid, out):
+    """r841:這檔的分點生態——每家券商在這檔的角色:持有天數(FIFO)、隔日沖率、專門度、淨累積、買/賣後 10 日。"""
+    global _TAGS
+    if _TAGS is None:
+        try: _TAGS = json.load(open("broker_tags.json", encoding="utf-8"))
+        except Exception: _TAGS = {}
+    d, S = e["d"], e["s"]; n = len(d)
+    ev = {}                                                  # name → list of (i, net) 只含前 15 大出現
+    for i, summ in enumerate(S):
+        for nm, net, px in (summ.get("b") or []): ev.setdefault(nm, []).append((i, net))
+        for nm, net, px in (summ.get("s") or []): ev.setdefault(nm, []).append((i, net))
+    keyb = {x[0]: x for x in out["b"] if x[7]}; keys_ = {x[0]: x for x in out["s"] if x[7]}
+    allb = {x[0]: x for x in out["b"]}; alls = {x[0]: x for x in out["s"]}
+    FOREIGN = ("美商", "港商", "港麥", "瑞銀", "摩根", "美林", "花旗", "法銀", "德意志", "野村", "大和", "高盛", "巴克萊", "麥格理", "匯豐", "瑞士信貸", "法國巴黎", "新加坡")
+    prof = {}
+    for nm, lst in ev.items():
+        if len(lst) < 3: continue
+        lst.sort()
+        buys = [(i, v) for i, v in lst if v > 0]; sells = [(i, -v) for i, v in lst if v < 0]
+        lb = sum(v for _, v in buys); ls = sum(v for _, v in sells)
+        # 隔日沖率:買超日的下一個交易日出現在賣超
+        sell_days = set(i for i, _ in sells); dt = sum(1 for i, _ in buys if (i + 1) in sell_days)
+        dtr = dt / len(buys) if buys else 0.0
+        # FIFO 持有天數
+        q = []; held = 0.0; matched = 0
+        for i, v in sorted(buys + [(i, -v) for i, v in sells]):
+            if v > 0: q.append([i, v])
+            else:
+                need = -v
+                while need > 0 and q:
+                    j, rem = q[0]; take = min(rem, need); held += take * (i - j); matched += take; need -= take; q[0][1] -= take
+                    if q[0][1] <= 0: q.pop(0)
+        hold = held / matched if matched else None
+        still = sum(rem for _, rem in q)
+        tot = (_TAGS.get(nm) or {}).get("lots") or 0; spec = (lb + ls) / tot * 100 if tot else None
+        net = lb - ls
+        kb_ = keyb.get(nm); ks_ = keys_.get(nm)
+        if any(f in nm for f in FOREIGN): role = "外資"
+        elif kb_ and (spec is None or spec >= 10 or lb >= 0.5 * max(1, lb + ls)): role = "拉抬主力"
+        elif ks_: role = "出貨主力"
+        elif dtr >= 0.35: role = "隔日沖"
+        elif hold is not None and hold <= 10: role = "短線"
+        elif hold is not None and hold <= 40: role = "波段"
+        elif (hold is None and still > 0 and net > 0) or (hold is not None and hold > 40): role = "長線"
+        else: role = "一般"
+        prof[nm] = {"role": role, "n": len(lst), "lb": int(lb), "ls": int(ls), "net": int(net), "dt": round(dtr * 100), "hold": round(hold, 1) if hold is not None else None,
+                    "still": int(still), "spec": round(spec, 1) if spec is not None else None,
+                    "a10b": allb[nm][4] if nm in allb else None, "w10b": allb[nm][5] if nm in allb else None,
+                    "a10s": alls[nm][4] if nm in alls else None, "w10s": alls[nm][5] if nm in alls else None, "last": d[lst[-1][0]]}
+    top = sorted(prof.items(), key=lambda kv: -(kv[1]["lb"] + kv[1]["ls"]))[:14]
+    return dict(top)
 
 
 def load_shards(d=None):
@@ -330,8 +386,10 @@ def broker_tags(R):
             d, S = e.get("d") or [], e.get("s") or []
             for i, summ in enumerate(S):
                 nb = set(x[0] for x in (summ.get("b") or [])); ns_next = set(x[0] for x in (S[i + 1].get("s") or [])) if i + 1 < len(S) else set()
+                for nm, net, px in (summ.get("b") or []) + (summ.get("s") or []):
+                    st.setdefault(nm, {"app": 0, "dt": 0, "stocks": set(), "runs": [], "cur": 0, "lots": 0})["lots"] += abs(net)
                 for nm in nb:
-                    t = st.setdefault(nm, {"app": 0, "dt": 0, "stocks": set(), "runs": [], "cur": 0})
+                    t = st.setdefault(nm, {"app": 0, "dt": 0, "stocks": set(), "runs": [], "cur": 0, "lots": 0})
                     t["app"] += 1; t["stocks"].add(sid)
                     if nm in ns_next: t["dt"] += 1
             # 連續天數(同檔連續在買超前 15)
@@ -346,15 +404,19 @@ def broker_tags(R):
                 if run: st[nm]["runs"].append(run)
     FOREIGN = ("美商", "港商", "港麥", "瑞銀", "摩根", "美林", "花旗", "法銀", "德意志", "野村", "大和", "台灣摩根", "高盛", "巴克萊", "麥格理", "匯豐", "瑞士信貸", "法國巴黎", "新加坡")
     out = {}
+    ndays = max((len(e.get("d") or []) for sh in R.values() for e in sh.values()), default=0)
     for nm, t in st.items():
         if t["app"] < 20: continue
         dtr = t["dt"] / t["app"]; avg_run = (sum(t["runs"]) / len(t["runs"])) if t["runs"] else 1
+        if ndays < 60:                                            # r841:資料不足 60 天,只標外資、其餘不貼標
+            tag = "外資" if any(f in nm for f in FOREIGN) else None
+            out[nm] = {"tag": tag, "dt": round(dtr * 100), "n": t["app"], "stocks": len(t["stocks"]), "run": round(avg_run, 1), "lots": int(t["lots"])}; continue
         if any(f in nm for f in FOREIGN): tag = "外資"
         elif dtr >= 0.35: tag = "隔日沖"
         elif dtr >= 0.2 or avg_run < 1.5: tag = "短線"
         elif avg_run >= 3: tag = "波段"
         else: tag = "一般"
-        out[nm] = {"tag": tag, "dt": round(dtr * 100), "n": t["app"], "stocks": len(t["stocks"]), "run": round(avg_run, 1)}
+        out[nm] = {"tag": tag, "dt": round(dtr * 100), "n": t["app"], "stocks": len(t["stocks"]), "run": round(avg_run, 1), "lots": int(t["lots"])}
     json.dump(out, open("broker_tags.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     from collections import Counter
     log(f"  券商標籤:{len(out)} 家 {dict(Counter(v['tag'] for v in out.values()))}")
