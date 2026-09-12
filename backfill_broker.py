@@ -14,6 +14,7 @@ TZ = dt.timezone(dt.timedelta(hours=8)); TODAY = dt.datetime.now(TZ).date()
 DAYS = int(os.environ.get("BKH_DAYS", "380"))    # r838:日曆日 ≈ 250 個交易日(原 90)
 BUDGET_SEC = int(os.environ.get("BKH_BUDGET_SEC", "1500"))
 SLEEP_A, SLEEP_B = 1.0, 0.55
+THREADS, THREAD_SLEEP = 3, 1.4                  # r840
 
 
 def log(*a): print(*a, flush=True)
@@ -123,15 +124,28 @@ def main():
         ids = priority_ids(data); done = set(st["b_done"].get(day) or [])
         todo = [i for i in ids if i not in done]
         by = {}
-        for sid in todo:
-            if time.time() - t0 > BUDGET_SEC: break
+        # r840:三線程,每線程 1.4s ≈ 合計 5,500/小時(Sponsor 上限 6,000);原本單線程約 3,400/小時
+        from concurrent.futures import ThreadPoolExecutor
+        def one(sid):
             try:
-                rows = fb.fm("TaiwanStockTradingDailyReport", data_id=sid, start_date=day, end_date=day)
-                if rows: by[sid] = rows
-                done.add(sid)
+                rows = fb.fm("TaiwanStockTradingDailyReport", data_id=sid, start_date=day, end_date=day); time.sleep(THREAD_SLEEP); return sid, rows, None
             except Exception as e:
-                log(f"  {sid}@{day} 失敗:{str(e)[:80]}"); time.sleep(2)
-            time.sleep(SLEEP_B)
+                time.sleep(2); return sid, None, e
+        ex = ThreadPoolExecutor(max_workers=THREADS); pending = []; it = iter(todo); fails = 0
+        def submit_next():
+            try: pending.append(ex.submit(one, next(it))); return True
+            except StopIteration: return False
+        for _ in range(THREADS): submit_next()
+        while pending:
+            f = pending.pop(0); sid, rows, err = f.result()
+            if time.time() - t0 <= BUDGET_SEC: submit_next()
+            if err is not None:
+                fails += 1
+                if fails <= 3: log(f"  {sid}@{day} 失敗:{str(err)[:80]}")
+                continue
+            if rows: by[sid] = rows
+            done.add(sid)
+        ex.shutdown(wait=False)
         merge_day(R, day, by); st["b_done"][day] = sorted(done)
         if len(done) >= len(ids):
             n_days += 1
