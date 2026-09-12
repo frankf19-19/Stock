@@ -1,4 +1,4 @@
-/* K研所 · build r841 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r842 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r841</span>');
+  diag.push('<span style="color:var(--dim)">build r842</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -11879,6 +11879,8 @@ document.querySelectorAll('#fwSeg').forEach(fw=>{
       };
     });
   }
+  const css=document.getElementById('csSeg');                     // r842:成本線開關
+  if(css){const cur=localStorage.getItem('kCost')!=='0';css.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',(b.dataset.t==='1')===cur);b.onclick=()=>{localStorage.setItem('kCost',b.dataset.t);css.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));try{drawKChart();}catch(e){}};});}
   const dvs=document.getElementById('dvSeg');
   if(dvs){
     const cur=localStorage.getItem('kDV')!=='0';
@@ -11986,6 +11988,7 @@ function kChartBoxHTML(){
           <div class="ind-seg" id="fwSeg"><button data-t="1">🔄轉折點</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dedSeg"><button data-t="1">📍扣抵</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="csSeg" title="外資/投信/自營/主力的持倉成本線"><button data-t="1">成本線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="instSeg"><button data-t="1">法人副圖</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI','乖離'].map(m=>
@@ -12586,7 +12589,7 @@ function drawKChart(){
                     yAxis:+curLevels.zone[0].toFixed(2)},
                    {yAxis:+curLevels.zone[1].toFixed(2)}]]:[])]}
           };})():{})},
-      ...maSeries,volSeries,...indSeries,...divMarkSeries(),...gapVolSeries(o,curDates),kdrawSeries0(),
+      ...maSeries,volSeries,...indSeries,...divMarkSeries(),...gapVolSeries(o,curDates),...costLineSeries(),kdrawSeries0(),
       ...(__inst?[
         {name:'外資買賣超',type:'bar',xAxisIndex:3,yAxisIndex:3,data:__inst.F,barMaxWidth:9,
          itemStyle:{color:p2=>((p2.value||0)>=0?UPC:DNC)}},
@@ -13058,9 +13061,10 @@ async function showDetail(id){
   try{usEarnBlock(s);}catch(e){}
   try{usFundBlock(s);}catch(e){}   // r530:美股財報速覽(SEC XBRL)
   try{const fb=document.getElementById('rptFull');if(fb)fb.onclick=()=>rptFullRun(s);}catch(e12){}   // r790:一鍵完整分析
+  window.__costR=null;
   if(s.market!=='US'&&!s.etf){(async()=>{try{window.__bkR=null;await brokerTagsLoad();const e=await bkLoad(s.id);let box=null;for(let i=0;i<30&&!box;i++){box=document.getElementById('bkBox');if(!box)await new Promise(r=>setTimeout(r,700));}
     if(!box)return;const R=bkCalc(e);box.innerHTML=bkHTML(R,s);window.__bkR=R;
-    try{const h=await histLoad(s.id);const cb=document.getElementById('costBox');if(cb){const RC=costCalc(h,e,s.price);cb.innerHTML=costHTML(RC,s);window.__costR=RC;}
+    try{const h=await histLoad(s.id);const cb=document.getElementById('costBox');if(cb){const RC=costCalc(h,e,s.price);cb.innerHTML=costHTML(RC,s);window.__costR=RC;try{if(RC&&typeof drawKChart==='function'&&window.curOhlc)drawKChart();}catch(e19){}}
       const rb=document.getElementById('rhythmBox');if(rb){let dv=[];try{dv=((DATA.divcal||[]).filter(x=>String(x.id)===String(s.id)).map(x=>x.d||x.date)).filter(Boolean);}catch(e0){}const RR=rhythmCalc(h,e,dv);rb.innerHTML=rhythmHTML(RR,s);window.__rhythmR=RR;}}catch(e18){}   // r833:成本;r834:節奏
   }catch(e17){}})();}   // r802:分點動向
   if(s.market!=='US'&&!s.etf){(async()=>{try{window.__sblR=null;const sb=await sblLoad(s.id);if(!sb)return;
@@ -13172,6 +13176,7 @@ async function showDetail(id){
           <div class="ind-seg" id="fwSeg"><button data-t="1">🔄轉折點</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dedSeg"><button data-t="1">📍扣抵</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="dvSeg"><button data-t="1">除權息</button><button data-t="0">隱藏</button></div>
+          <div class="ind-seg" id="csSeg" title="外資/投信/自營/主力的持倉成本線"><button data-t="1">成本線</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="gpSeg"><button data-t="1">缺口量能</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="instSeg"><button data-t="1">法人副圖</button><button data-t="0">隱藏</button></div>
           <div class="ind-seg" id="indSeg">${['MACD','KD','RSI','乖離'].map(m=>
@@ -16785,6 +16790,18 @@ function gapVolSeries(o,dates){
     markPoint:{silent:false,data:mpts,animation:false}}];
 }
 /* 跳空缺口(未回補色帶)佔位註解結束 */
+/* r842:主力/法人持倉成本畫在 K 線上(120 日持倉均價;沒有就用 60 日買進均價)。開關 kCost(預設開) */
+function costLineSeries(){
+  const R=window.__costR;if(!R||localStorage.getItem('kCost')==='0')return[];
+  const mob=innerWidth<640;const COL={f:'#5b9bd5',t:'#c678dd',g:'#e5c07b',m:'#ff7f50'};const NM={f:'外資',t:'投信',g:'自營',m:'主力'};
+  const mk=[];
+  ['f','t','g','m'].forEach(k=>{const o=R[k];if(!o)return;const src=o.hold||o.b60;if(!src||!(src.px>0))return;
+    mk.push({name:NM[k]+'成本',yAxis:+src.px.toFixed(2),lineStyle:{color:COL[k],type:'dotted',width:1.3,opacity:.9},
+      label:{show:true,position:'insideEndTop',formatter:mob?NM[k]:`${NM[k]}成本 ${src.px>=100?Math.round(src.px):src.px.toFixed(2)}`,fontSize:mob?9:10,color:COL[k],backgroundColor:CT.ttBg,borderColor:COL[k],borderWidth:1,padding:mob?[1,3]:[2,6],borderRadius:5}});});
+  if(!mk.length)return[];
+  return [{name:'成本線',type:'line',xAxisIndex:0,yAxisIndex:0,data:[],showSymbol:false,silent:true,
+    markLine:{symbol:'none',silent:true,animation:false,data:mk}}];
+}
 function divMarkSeries(){
   if(!curDivs||!curDivs.length||localStorage.getItem('kDV')==='0'||!curDates||!curDates.length)return[];
   const mob=innerWidth<640;   // 手機:標籤只留圖示,避免互相蓋住
