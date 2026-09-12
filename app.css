@@ -1794,3 +1794,10 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 /* r817:多家關鍵分點同日 */
 .fkb-hot{color:var(--t-gold);border-color:var(--t-gold);background:color-mix(in srgb,var(--t-gold) 14%,var(--panel));font-size:13px}
 .fkb-hot-s{color:var(--down);border-color:var(--down);background:color-mix(in srgb,var(--down) 14%,var(--panel))}
+/* r828:關鍵分點改一家一列 */
+.kbr-h{font-weight:800;font-size:12.5px;margin:4px 0 2px}
+.kbr{display:grid;grid-template-columns:minmax(96px,1.2fr) 1.3fr 1.4fr 1.8fr .8fr;gap:6px 10px;align-items:center;padding:5px 8px;border-bottom:1px dashed var(--line);font-size:12.5px}
+.kbr-key{background:color-mix(in srgb,var(--t-gold) 6%,transparent);border-radius:6px}
+.kbr-n{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbr-c{white-space:nowrap}
+@media(max-width:640px){.kbr{grid-template-columns:1fr 1fr;font-size:12px}.kbr-n{grid-column:1/-1}}
