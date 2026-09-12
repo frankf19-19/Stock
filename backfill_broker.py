@@ -11,7 +11,7 @@ spec = importlib.util.spec_from_file_location("fb", os.path.join(os.path.dirname
 fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
 
 TZ = dt.timezone(dt.timedelta(hours=8)); TODAY = dt.datetime.now(TZ).date()
-DAYS = 90                                   # 日曆日 ≈ 60 個交易日
+DAYS = int(os.environ.get("BKH_DAYS", "380"))    # r838:日曆日 ≈ 250 個交易日(原 90)
 BUDGET_SEC = int(os.environ.get("BKH_BUDGET_SEC", "1500"))
 SLEEP_A, SLEEP_B = 1.0, 0.55
 
@@ -22,7 +22,10 @@ def log(*a): print(*a, flush=True)
 def trading_days():
     """用台積電日 K 的日期當交易日曆。"""
     try:
-        e = json.load(open("k/tw23.json", encoding="utf-8")).get("2330") or {}
+        e = {}
+        try: e = json.load(open("hist/tw23.json", encoding="utf-8")).get("2330") or {}      # r839:三年歷史的日期最完整
+        except Exception: pass
+        if len(e.get("d") or []) < 200: e = json.load(open("k/tw23.json", encoding="utf-8")).get("2330") or {}
         ds = [d for d in (e.get("d") or []) if d >= (TODAY - dt.timedelta(days=DAYS)).isoformat()]
         return sorted(ds)
     except Exception:
@@ -80,11 +83,22 @@ def main():
     st.setdefault("days_done", []); st.setdefault("mode", "A"); st.setdefault("b_done", {})
     try: data = json.load(open("data.json", encoding="utf-8"))
     except Exception: log("沒有 data.json"); return
+    R = fb.raw_load(); S = fb.load_shards()
+    ids_all = set(priority_ids(data))
+    # r839:不信狀態檔,直接看 raw 覆蓋率——某天有 ≥90% 的股票才算補齊(舊狀態把優先股完成誤記成全市場完成)
+    if os.environ.get("BKH_ALL") == "1":
+        cov = {}
+        for sh in R.values():
+            for sid, e in sh.items():
+                if sid in ids_all:
+                    for d in e.get("d") or []: cov[d] = cov.get(d, 0) + 1
+        st["days_done"] = sorted(d for d, c in cov.items() if c >= 0.9 * len(ids_all))
+        log(f"分點歷史:股池 {len(ids_all)} 檔,raw 覆蓋 ≥90% 的交易日 {len(st['days_done'])} 個")
     doneset = set(st["days_done"]) | (set() if os.environ.get("BKH_ALL") == "1" else set(st.get("prio_done") or []))
     days = [d for d in trading_days() if d not in doneset]
     days.sort(reverse=True)                                    # 先補最近的
     if not days: log("分點歷史:全部補齊"); return
-    S = fb.load_shards(); t0 = time.time(); n_days = 0
+    t0 = time.time(); n_days = 0
     log(f"分點歷史:待補 {len(days)} 個交易日(模式 {st['mode']}),本班最多 {BUDGET_SEC//60} 分鐘")
     for day in days:
         if time.time() - t0 > BUDGET_SEC: log("  時間到,下一班接著"); break
@@ -94,7 +108,7 @@ def main():
                 by = {}
                 for r in rows: by.setdefault(str(r.get("stock_id") or ""), []).append(r)
                 by.pop("", None)
-                n = merge_day(S, day, by)
+                n = merge_day(R, day, by)
                 st["days_done"].append(day); n_days += 1
                 log(f"  {day}:全市場 {len(by)} 檔,寫入 {n}({len(rows):,} 列)")
                 time.sleep(SLEEP_A); continue
@@ -118,7 +132,7 @@ def main():
             except Exception as e:
                 log(f"  {sid}@{day} 失敗:{str(e)[:80]}"); time.sleep(2)
             time.sleep(SLEEP_B)
-        merge_day(S, day, by); st["b_done"][day] = sorted(done)
+        merge_day(R, day, by); st["b_done"][day] = sorted(done)
         if len(done) >= len(ids):
             n_days += 1
             if os.environ.get("BKH_ALL") == "1": st["days_done"].append(day)          # r830:只有全市場補齊才算這天完成
