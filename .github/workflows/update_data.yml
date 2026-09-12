@@ -118,7 +118,7 @@ jobs:
             [ -f hourly_scan.json ] && git add hourly_scan.json
             [ -f bias.json ] && git add bias.json
             git add sbl/ 2>/dev/null || true
-            for f in taifex.json signal_log.json signal_stats.json gov.json run_log.json; do [ -f $f ] && git add $f; done
+            for f in taifex.json signal_log.json signal_stats.json gov.json run_log.json kb_today.json; do [ -f $f ] && git add $f; done
             git add bk/ hist/ 2>/dev/null || true
             if git diff --cached --quiet; then echo "沒有變更,略過提交"; return 0; fi
             git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')${1:+ ($1)}"
