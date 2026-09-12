@@ -1,4 +1,4 @@
-/* K研所 · build r826 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r827 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r826</span>');
+  diag.push('<span style="color:var(--dim)">build r827</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13214,7 +13214,21 @@ const STRATS=[
   ['fgo','🌊 外資連買·成長股'],
   ['price','🔥 漲價/缺料'],
   ['theme','🧠 潛在漲價(研究)'],
+  ['kbuy','🎯 關鍵分點大買'],
+  ['ksell','🎯 關鍵分點大賣'],
 ];
+/* r827:全市場關鍵分點(kb_today.json,收盤後由 fetch_broker.py 產生)——個股分頁機會雷達的兩個策略 */
+async function kbTodayLoad(){
+  if(window.__KBT_L)return;window.__KBT_L=1;
+  try{const r=await fT('kb_today.json?v='+kv(),12000,{cache:'no-store'});if(!r||!r.ok)return;const J=await r.json();
+    const f=x=>(x>=0?'+':'')+x;const md=(J.d||'').slice(5).replace('-','/');
+    const mk=(rows,type,label,word)=>rows.map(r=>{const multi=r.br.length>=2;
+      const desc=r.br.slice(0,3).map(x=>`${x[0]} ${word} ${Math.abs(x[1]).toLocaleString()} 張(佔成交 ${x[2]}%${x[3]!=null?`,平常 ${x[3]}%`:''})・過去 ${x[4]} 次後 10 日 ${f(x[5])}%・${type==='kbuy'?'漲':'跌'} ${x[6]}%`).join(';');
+      return {id:r.id,g:{type,label:(multi?`🔥 ${r.br.length} 家`:'')+label,desc:`${md} `+desc}};});
+    window.__KBT=[...mk(J.buy||[],'kbuy','關鍵分點大買','買超'),...mk(J.sell||[],'ksell','關鍵分點大賣','賣超')];
+    try{renderRadar();}catch(e){}
+  }catch(e){}
+}
 /* 研究觀點:供需結構偏緊、未來有漲價/缺料想像的名單(非投資建議,定期檢視) */
 /* 重點股供應鏈圖譜(人工整理,XQ 營運結構風格;逐步擴充) */
 const SUPPLY_MAP={
@@ -13314,6 +13328,9 @@ function radarItems(){
   });
   // 左側/右側交易分類(未來性濾網把關)
   sideItems().forEach(x=>{if(x&&x.s&&x.s.market===(window.GMKT||'TW'))items.push(x);});   // r543:左右側清單同樣鎖定當前市場分頁
+  // r827:關鍵分點大買/大賣(全市場)
+  (window.__KBT||[]).forEach(x=>{const s=byId[x.id];if(s)push(s,x.g);});
+  if(!window.__KBT_L)setTimeout(kbTodayLoad,0);
   // 研究觀點:潛在漲價/缺料
   PRICE_WATCH.forEach(([id,why])=>{
     const s=byId[id];

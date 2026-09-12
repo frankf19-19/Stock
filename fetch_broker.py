@@ -241,7 +241,39 @@ def main():
                 if kb: e["kb"] = kb; nk += 1
             except Exception: pass
     save_shards(S)
+    try: kb_today(S, day)
+    except Exception as e: log(f"  kb_today 失敗:{e}")
     log(f"✅ 分點 {day}:本輪 {n} 檔(無資料 {empty}、失敗 {fail}),累計 {len(done)}/{len(ids)};關鍵分點已算 {nk} 檔")
+
+
+def kb_today(S, day):
+    """r827:全市場「今天關鍵分點大買/大賣」清單 → kb_today.json(個股分頁機會雷達用,不只最愛)。"""
+    buy, sell = [], []
+    for k, sh in S.items():
+        for sid, e in sh.items():
+            kb = e.get("kb"); d = e.get("d") or []
+            if not kb or not d or d[-1] != day: continue
+            last = e["s"][-1]; vol = last.get("vol") or 0
+            def pick(side, rows):
+                keyset = {x[0]: x for x in (kb.get(side) or []) if x[7]}
+                out = []
+                for name, net, px in rows:
+                    x = keyset.get(name)
+                    if not x: continue
+                    share = abs(net) / vol * 100 if vol else 0.0
+                    thr = x[13] if len(x) > 13 and x[13] is not None else 2.0
+                    if share < thr: continue
+                    a10 = x[11] if len(x) > 11 and x[10] >= 3 and x[11] is not None else x[4]
+                    w10 = x[12] if len(x) > 12 and x[10] >= 3 and x[12] is not None else x[5]
+                    out.append([name, net, round(share, 1), (x[9] if len(x) > 9 else None), x[1], a10, w10])
+                return out
+            b = pick("b", last.get("b") or []); x_ = pick("s", last.get("s") or [])
+            if b: buy.append({"id": sid, "br": b, "m15": last.get("m15"), "vol": vol})
+            if x_: sell.append({"id": sid, "br": x_, "m15": last.get("m15"), "vol": vol})
+    buy.sort(key=lambda r: (-len(r["br"]), -max(x[2] for x in r["br"])))
+    sell.sort(key=lambda r: (-len(r["br"]), -max(x[2] for x in r["br"])))
+    json.dump({"d": day, "buy": buy, "sell": sell}, open("kb_today.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    log(f"  kb_today {day}:大買 {len(buy)} 檔、大賣 {len(sell)} 檔")
 
 
 if __name__ == "__main__":
