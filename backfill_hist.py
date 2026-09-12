@@ -40,9 +40,27 @@ def load():
     return S
 
 
+def universe():
+    """r832:只留站上股池(上市/上櫃股票 + ETF);FinMind 按日期查會回幾萬檔權證,不擋分片會爆到 100MB。"""
+    try:
+        data = json.load(open("data.json", encoding="utf-8"))
+        return set(str(s["id"]) for s in data.get("stocks") or [] if s.get("market") == "TW")
+    except Exception:
+        return set()
+
+
 def main():
     if not TOKEN: log("未設 FINMIND_TOKEN"); return
+    U = universe()
+    if not U: log("沒有 data.json 股池,停"); return
     S = load()
+    # 清掉分片裡不在股池的(權證等)
+    dropped = 0
+    for k in list(S):
+        for sid in list(S[k]):
+            if sid not in U: del S[k][sid]; dropped += 1
+        if not S[k]: del S[k]
+    if dropped: log(f"  清掉非股池代號 {dropped} 檔(權證等)")
     st_p = os.path.join(DIR, "_state.json")
     try: st = json.load(open(st_p, encoding="utf-8"))
     except Exception: st = {"done": {}, "skip": []}
@@ -57,6 +75,7 @@ def main():
     log(f"歷史回補:待補 {len(days)} 個交易日(每日 3 個資料集),本班最多 {MAX_CALLS} 次")
     calls = 0
     def put(sid, day, key, val):
+        if sid not in U: return
         k = shard_key(sid); e = S.setdefault(k, {}).setdefault(sid, {"d": []})
         if day not in e["d"]:
             e["d"].append(day)
@@ -111,6 +130,8 @@ def main():
 
 
 def flush(S, st, skip, done):
+    for p in glob.glob(os.path.join(DIR, "tw*.json")):          # r832:不在 S 裡的舊分片(全是權證)直接刪
+        if os.path.basename(p)[2:-5] not in S: os.remove(p)
     for k, sh in S.items():
         for sid, e in sh.items():
             order = sorted(range(len(e["d"])), key=lambda i: e["d"][i])
