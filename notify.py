@@ -38,7 +38,7 @@ LEAD_DAILY_MAX = 3          # r795:主力進出每人每日最多 3 則(最吵�
 # r795:事件鍵前綴 → 類別(使用者可在帳號面板勾選要收哪些)
 CAT_OF = {"fill": "aip", "rot": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
           "fz": "fav", "fh": "fav", "fl": "fav", "fb": "fav", "ftp": "port", "fsl": "port",
-          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "bk_sb": "lead", "bk_ss": "lead", "hs": "h60", "bias": "bias"}
+          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "bk_sb": "lead", "bk_ss": "lead", "kb_t1": "lead", "kb_t2": "lead", "hs": "h60", "bias": "bias"}
 CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離"}
 def cat_of(key):
     p = str(key).split("|")[0]
@@ -482,11 +482,14 @@ def collect_events(aip, prices):
             # r826:只有「大買/大賣」(這次佔成交 ≥ 它的典型量且 ≥2%)才觸發
             vol0 = S[-1].get("vol") or 0
             tbm = {x[0]: x for x in (S[-1].get("b") or [])}; tsm = {x[0]: x for x in (S[-1].get("s") or [])}
-            def _big(x, t):
+            kbx = kb.get("x") or {}
+            def _big(x, t, side="b"):
+                xc = kbx.get(f"{side}:{x[0]}") or {}; eff = xc.get("eff")
+                if eff and eff.get("lots"): return abs(t[1]) >= eff["lots"]           # r843:和畫面一致——有效張數門檻
                 sh = (abs(t[1]) / vol0 * 100) if vol0 else 0.0; thr = x[13] if len(x) > 13 and x[13] is not None else 2.0
                 return sh >= thr
             hb = [x for x in (kb.get("b") or []) if x[7] and x[0] in tbm and _big(x, tbm[x[0]])]
-            hx = [x for x in (kb.get("s") or []) if x[7] and x[0] in tsm and _big(x, tsm[x[0]])]
+            hx = [x for x in (kb.get("s") or []) if x[7] and x[0] in tsm and _big(x, tsm[x[0]], "s")]
             def _sz(x, t):
                 sh = (abs(t[1]) / vol0 * 100) if vol0 else 0.0
                 return f"{abs(t[1]):,} 張(佔成交 {sh:.1f}%,它平常 {x[9] if len(x) > 9 else '—'}%)"
@@ -500,6 +503,27 @@ def collect_events(aip, prices):
                 ev.append((f"kb_x2|{today}|{sid}", 2, f"🔥🎯 <b>{len(hx)} 家關鍵分點同日出場 {nm}</b>({sid})\n{lines}\n多家「賣了會跌」的券商同一天賣超"))
             elif hx and not hb:
                 x = hx[0]; ev.append((f"kb_x|{today}|{sid}", 2, f"🎯 <b>關鍵分點大賣 {nm}</b>({sid})\n{x[0]} 今日賣超 {_sz(x, tsm[x[0]])};它過去 {x[1]} 次出場後 10 日平均 {x[4]:+.1f}%、下跌機率 {x[5]}%"))
+            # r843:預定日提醒——最愛/持股裡,關鍵券商達標後依這檔慣性推算的「預期發動日 / 預期到高低點日」
+            try:
+                prio = set(json.load(open("bk/_prio_users.json", encoding="utf-8")))
+            except Exception: prio = set()
+            if sid in prio and kbx:
+                for side, word_a, word_b in (("b", "開始漲", "到高點"), ("s", "開始跌", "到低點")):
+                    for x in (kb.get(side) or []):
+                        if not x[7]: continue
+                        xc = kbx.get(f"{side}:{x[0]}") or {}; eff = xc.get("eff")
+                        if not eff or not eff.get("lots"): continue
+                        # 找最近一次達標日(不含今天):在 S 裡往回掃
+                        hit_i = None
+                        for i in range(len(S) - 2, max(-1, len(S) - 60), -1):
+                            r = next((z for z in (S[i].get(side) or []) if z[0] == x[0]), None)
+                            if r and abs(r[1]) >= eff["lots"]: hit_i = i; break
+                        if hit_i is None: continue
+                        k = (len(S) - 1) - hit_i                     # 今天是達標後第 k 個交易日
+                        for tag, dd, word in (("t1", xc.get("d_start"), word_a), ("t2", xc.get("d_peak"), word_b)):
+                            if dd and k == dd:
+                                ev.append((f"kb_{tag}|{today}|{sid}|{x[0]}", 2,
+                                           f"⏰ <b>{nm}</b>({sid})今天是 {x[0]} 的預期{word}日\n{d[hit_i][5:].replace('-', '/')} 它{'買超' if side == 'b' else '賣超'}達標;依它在這檔的慣性通常第 {dd} 天{word}(過去 {eff['n']} 次後 10 日平均 {eff['a10']:+.1f}%)"))
             # r818:連買/連賣——同一券商連續出現在買超(賣超)前 15;★ 關鍵 ≥3 日二級、任何券商 ≥5 日三級
             keyB = set(x[0] for x in (kb.get("b") or []) if x[7]); keyS = set(x[0] for x in (kb.get("s") or []) if x[7])
             for side, keyset, kind_k, kind_a, word in (("b", keyB, "kb_sb", "bk_sb", "連買"), ("s", keyS, "kb_ss", "bk_ss", "連賣")):

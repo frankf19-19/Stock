@@ -1,4 +1,4 @@
-/* K研所 · build r842 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r843 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r842</span>');
+  diag.push('<span style="color:var(--dim)">build r843</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20106,12 +20106,12 @@ const PUSH_GROUPS=[
   ['AI Pick',[['fill','已買進 / 換股買進(事實)'],['exit','已出場:到目標 / 停損 / 到期(事實)'],['buy','到買價・可買進'],['chase','進入追價區'],['tp','盤中到目標'],['sl','盤中觸停損'],['exp','今日到期結算提醒']]],
   ['最愛',[['fz','回檔到均線帶'],['fh','突破 20 日高'],['fl','跌破 10 日低'],['fb','跌破均線帶']]],
   ['持股',[['ftp','停利到價'],['fsl','停損到價']]],
-  ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_sb','🔁 關鍵分點連買 ≥3 日'],['kb_ss','🔁 關鍵分點連賣 ≥3 日'],['bk_sb','🔁 任一券商連買 ≥5 日'],['bk_ss','🔁 任一券商連賣 ≥5 日'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
+  ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_t1','⏰ 關鍵分點達標後的預期發動日(最愛/持股)'],['kb_t2','⏰ 預期到高點/低點日(最愛/持股)'],['kb_sb','🔁 關鍵分點連買 ≥3 日'],['kb_ss','🔁 關鍵分點連賣 ≥3 日'],['bk_sb','🔁 任一券商連買 ≥5 日'],['bk_ss','🔁 任一券商連賣 ≥5 日'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
   ['市場',[['bias','大盤週乖離進入低檔 / 高檔']]]];
 const PUSH_KINDS=PUSH_GROUPS.flatMap(g=>g[1].map(x=>x[0]));
-const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:[],bias:['bias']};
+const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_t1','kb_t2','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:[],bias:['bias']};
 /* r817:舊帳號存的細項名單裡沒有新種類 → 預設補上(新種類預設開) */
-(function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(Array.isArray(a)&&!a.includes('lead')){let ch=false;['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss'].forEach(k=>{if(!a.includes(k)){a.push(k);ch=true;}});if(ch)localStorage.setItem('pushCats',JSON.stringify(a));}}catch(e){}})();
+(function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(Array.isArray(a)&&!a.includes('lead')){let ch=false;['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss','kb_t1','kb_t2'].forEach(k=>{if(!a.includes(k)){a.push(k);ch=true;}});if(ch)localStorage.setItem('pushCats',JSON.stringify(a));}}catch(e){}})();
 function pushCatsGet(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(!Array.isArray(a))return PUSH_KINDS.slice();
   const out=new Set();a.forEach(x=>{if(PUSH_CAT_KINDS[x])PUSH_CAT_KINDS[x].forEach(k=>out.add(k));else out.add(x);});return [...out];}catch(e){return PUSH_KINDS.slice();}}
 function pushProfile(){
