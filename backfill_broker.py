@@ -34,6 +34,8 @@ def trading_days():
 
 
 def priority_ids(data):
+    if os.environ.get("BKH_ALL") == "1":                    # r830:週末回補模式——全市場
+        return sorted(s["id"] for s in data.get("stocks") or [] if s.get("market") == "TW" and not s.get("etf"))
     ids = set()
     for s in data.get("stocks") or []:
         if s.get("market") != "TW" or s.get("etf"): continue
@@ -78,7 +80,8 @@ def main():
     st.setdefault("days_done", []); st.setdefault("mode", "A"); st.setdefault("b_done", {})
     try: data = json.load(open("data.json", encoding="utf-8"))
     except Exception: log("沒有 data.json"); return
-    days = [d for d in trading_days() if d not in st["days_done"]]
+    doneset = set(st["days_done"]) | (set() if os.environ.get("BKH_ALL") == "1" else set(st.get("prio_done") or []))
+    days = [d for d in trading_days() if d not in doneset]
     days.sort(reverse=True)                                    # 先補最近的
     if not days: log("分點歷史:全部補齊"); return
     S = fb.load_shards(); t0 = time.time(); n_days = 0
@@ -116,7 +119,10 @@ def main():
                 log(f"  {sid}@{day} 失敗:{str(e)[:80]}"); time.sleep(2)
             time.sleep(SLEEP_B)
         merge_day(S, day, by); st["b_done"][day] = sorted(done)
-        if len(done) >= len(ids): st["days_done"].append(day); n_days += 1
+        if len(done) >= len(ids):
+            n_days += 1
+            if os.environ.get("BKH_ALL") == "1": st["days_done"].append(day)          # r830:只有全市場補齊才算這天完成
+            else: st.setdefault("prio_done", []).append(day)
         log(f"  {day}:優先股 {len(done)}/{len(ids)} 檔")
         fb.save_shards(S); json.dump(st, open(st_p, "w"), ensure_ascii=False)
     # 關鍵分點重算
