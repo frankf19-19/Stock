@@ -4128,6 +4128,8 @@ def fetch_news(n=10):
 
 # ═══════════════ 主流程 ═══════════════
 UD_FULL = os.environ.get("UD_FULL", "1") != "0"     # r823:輕量輪(每段第 2 輪起)略過一天做一次就夠的重活
+UD_WEEKEND = os.environ.get("UD_WEEKEND", "0") == "1" # r831:週末模式——做「不隨交易日變動」的重活:逐檔磨補(季報/現金流)、法說行事曆、除權息行事曆
+_WD = dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).weekday()
 import time as _time
 _T0 = [_time.time()]
 def _lap(tag):
@@ -4160,7 +4162,9 @@ def main():
     seed_tdcc_history(chips)                # 由 tdcc.json 整段回灌大戶週歷史(分片歸零後可立即恢復)
     append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
     backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
-    if UD_FULL: backfill_perstock(chips, comps)   # FinMind 個股查詢逐檔磨補(每輪 250+120 檔)——r823:只在全套輪
+    if UD_WEEKEND: backfill_perstock(chips, comps, rev_n=800, q_n=800, cf_n=600)   # r831:週末大量磨補(季報/現金流每季才變)
+    elif UD_FULL and _WD >= 5: backfill_perstock(chips, comps)                       # 假日排程班也做一點
+    else: print("  平日:逐檔磨補交給週末(季報/現金流每季才變)")
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
     try:
         append_eps(chips, fetch_eps_bulk())     # r707:季 EPS 逐季累積(qe_d/qe,供本益比河流圖)
@@ -4261,7 +4265,10 @@ def main():
         _news = prev_all.get("news") or fetch_news()
     _lap("⑥總經/新聞")
     try:
-        _divcal = fetch_div_calendar()          # r707:除權息行事曆(前端最愛提醒/關鍵價位列用)
+        if UD_WEEKEND or not prev_all.get("divcal"):
+            _divcal = fetch_div_calendar()          # r707:除權息行事曆(前端最愛提醒/關鍵價位列用);r831:週末抓,平日沿用
+        else:
+            _divcal = prev_all.get("divcal") or []; print("  平日:除權息行事曆沿用上一份")
     except Exception as e:
         print(f"  [warn] 除權息行事曆: {e}"); _divcal = []
     # r603 保底:今日掃價失敗的檔沿用前一日資料——股票永不因單日 Yahoo 限流而從股池消失
@@ -4406,10 +4413,13 @@ def main():
     except Exception as e:
         print(f"  [warn] 法說續存跳過: {e}")
     if UD_FULL:                                                 # r823:法說三件(行事曆/場次/簡報 PDF)只在全套輪抓,輕量輪沿用上一輪 conf
-        try:
-            fetch_conf_calendar(stocks)
-        except Exception as e:
-            print(f"  [warn] 法說行事曆跳過: {e}")
+        if UD_WEEKEND or _WD >= 5:                              # r831:整年行事曆只在週末抓;平日只抓近 3 天新場次(fetch_conf)
+            try:
+                fetch_conf_calendar(stocks)
+            except Exception as e:
+                print(f"  [warn] 法說行事曆跳過: {e}")
+        else:
+            print("  平日:法說整年行事曆沿用週末版")
         try:
             fetch_conf(stocks)
         except Exception as e:
