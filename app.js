@@ -1,4 +1,4 @@
-/* K研所 · build r829 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r833 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r829</span>');
+  diag.push('<span style="color:var(--dim)">build r833</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3939,6 +3939,7 @@ function rptFullFacts(s,d){
   try{const B=BIAS&&(BIAS.idx||[]).find(x=>x.sym===(s.market==='US'?'^GSPC':'^TWII'));if(B){const mm=B.ma['20']||{};F.mkt={name:B.name,zone:B.zone,bias20:mm.bias,pct:mm.pct};}}catch(x){}
   try{const R=window.__bkR;if(R)F.broker={date:R.d,verdict:R.verdict,m15_today:R.last.m15,c5:R.c5,c20:R.c20,r5_pct:+R.r5.toFixed(1),pos_days_5:R.pos5,streak_buy:R.streak,streak_sell:R.streakS,conc:R.last.conc,nb:R.last.nb,ns:R.last.ns,top_buy:(R.last.b||[]).slice(0,3),top_sell:(R.last.s||[]).slice(0,3),day_trade_brokers:R.dt,
     key_buy_brokers:(R.kb&&R.kb.b||[]).filter(x=>x[7]).map(x=>{const xc=R.kb.x&&R.kb.x['b:'+x[0]]||{};return {name:x[0],n:x[1],avg10:x[4],win10:x[5],last:x[6],effective_min_lots:xc.eff&&xc.eff.lots,after_eff_avg10:xc.eff&&xc.eff.a10,days_to_start:xc.d_start,days_to_peak:xc.d_peak,best_horizon_days:xc.best_h};}),key_sell_brokers:(R.kb&&R.kb.s||[]).filter(x=>x[7]).map(x=>{const xc=R.kb.x&&R.kb.x['s:'+x[0]]||{};return {name:x[0],n:x[1],avg10:x[4],win10:x[5],last:x[6],effective_min_lots:xc.eff&&xc.eff.lots,days_to_start:xc.d_start,days_to_trough:xc.d_peak};}),key_broker_active_today:R.hit,broker_buy_streaks:(R.runB||[]).slice(0,3),broker_sell_streaks:(R.runS||[]).slice(0,3)};}catch(x){}
+  try{const R=window.__costR;if(R){F.cost={};['f','t','g','m'].forEach(k=>{const o=R[k];if(!o)return;F.cost[o.nm]={buy_avg_20d:o.b20&&+o.b20.px.toFixed(2),buy_avg_60d:o.b60&&+o.b60.px.toFixed(2),holding_avg_120d:o.hold&&+o.hold.px.toFixed(2),price_vs_holding_pct:o.hold&&o.hold.gap,net_lots_120d:o.hold&&o.hold.lots};});}}catch(x){}
   try{const R=window.__sblR;if(R&&R.cur!=null)F.sbl={balance_lots:R.cur,pct_1y:R.curPct,d5:R.d5,d20:R.d20,verdict:R.verdict,hi_bucket_fwd20_med:R.bk[4].med,hi_bucket_win:R.bk[4].win,lo_bucket_fwd20_med:R.bk[0].med,lo_bucket_win:R.bk[0].win,p80_lots:R.cuts[3],p20_lots:R.cuts[0]};}catch(x){}
   F.desc=(d.desc||'').slice(0,300);
   return F;
@@ -3949,7 +3950,7 @@ function rptFullPrompt(F){
 站內資料:
 ${JSON.stringify(F)}
 
-欄位說明:ma=均線與斜率;regime_rule=規則判定的均線結構;inst=三大法人 5/20 日淨買賣(張);tdcc=集保千張大戶持股%與 1/4/8 週變化(pp);leader=主力帶動力分析的主導法人與其大買門檻;margin=融資屬性判讀;aetf=主動式 ETF 持有(檔數/張數/當日淨增減);dna=股性(日常振幅中位/年化波動/創高後典型回檔/任意時點 5 日勝率)與歷史條件勝率;inertia=慣性(順勢 trend/回歸 revert/隨機 random);cycle=ZigZag 週期(上漲段/下跌段典型天數與幅度、完整循環天數、now=目前在哪一段第幾天);pe=以 TTM EPS 回推的近一年本益比分佈;h60=60 分 K 型態;mkt=大盤 20 週乖離所在區位;broker=券商分點(前五大買賣分點、前 15 大主力淨額與 5/20 日累計、佔成交比、連買連賣天數、買賣家數、隔日沖券商;verdict=規則判讀;key_buy_brokers=這檔歷史上「買了之後會漲」的關鍵分點、key_sell_brokers=「賣了之後會跌」的、key_broker_active_today=今天有動作的關鍵分點——這是最強的籌碼證據,要優先引用);sbl=借券賣出餘額(法人空方部位)與這檔自己的一年分位、高低分位桶之後 20 日中位報酬(verdict=pressure 借券高就漲不動 / squeeze 借券高反而漲)。
+欄位說明:ma=均線與斜率;regime_rule=規則判定的均線結構;inst=三大法人 5/20 日淨買賣(張);tdcc=集保千張大戶持股%與 1/4/8 週變化(pp);leader=主力帶動力分析的主導法人與其大買門檻;margin=融資屬性判讀;aetf=主動式 ETF 持有(檔數/張數/當日淨增減);dna=股性(日常振幅中位/年化波動/創高後典型回檔/任意時點 5 日勝率)與歷史條件勝率;inertia=慣性(順勢 trend/回歸 revert/隨機 random);cycle=ZigZag 週期(上漲段/下跌段典型天數與幅度、完整循環天數、now=目前在哪一段第幾天);pe=以 TTM EPS 回推的近一年本益比分佈;h60=60 分 K 型態;mkt=大盤 20 週乖離所在區位;cost=主力/外資/投信/自營成本(買進均價、120 日持倉均價、現價距成本 %——套牢與獲利的解讀依據);broker=券商分點(前五大買賣分點、前 15 大主力淨額與 5/20 日累計、佔成交比、連買連賣天數、買賣家數、隔日沖券商;verdict=規則判讀;key_buy_brokers=這檔歷史上「買了之後會漲」的關鍵分點、key_sell_brokers=「賣了之後會跌」的、key_broker_active_today=今天有動作的關鍵分點——這是最強的籌碼證據,要優先引用);sbl=借券賣出餘額(法人空方部位)與這檔自己的一年分位、高低分位桶之後 20 日中位報酬(verdict=pressure 借券高就漲不動 / squeeze 借券高反而漲)。
 
 只回傳一個 JSON 物件(不要 markdown、不要前後文字),結構:
 {
@@ -8936,6 +8937,46 @@ function bkHTML(R,s){
     </div>
     <div class="dim" style="font-size:11.5px;margin-top:6px">主力吃貨 = 5 日前 15 大淨買 ≥ 成交 3% 且多數天數淨買;出貨反之。買賣家數差為正 = 買的券商家數多於賣的(籌碼分散到多家=散戶接)、為負 = 少數券商在收(集中)。分點是「哪家券商」不是「誰」,同券商可能多個客戶。資料 ${R.days} 日。非投資建議。</div>`;
 }
+/* ═══ r833:💰 主力 / 外資 / 投信 / 自營 成本 ═══
+   外資/投信/自營:hist/(三年法人每日淨買張 + 收盤)。主力:bk/ 前 15 大分點每日淨買張 × 券商成交均價。
+   近 N 日買進均價 = Σ(淨買>0 的日子 淨買張 × 價)÷ Σ 淨買張;累計持倉均價(120 日)= 平均成本法:買進加權入成本、賣出按平均成本減倉。 */
+let HISTCACHE={};
+async function histLoad(sid){
+  const k=twShardKey(sid);
+  if(HISTCACHE[k]===undefined){HISTCACHE[k]=null;try{const r=await fT('hist/tw'+k+'.json?v='+kv(),20000,{cache:'no-store'});if(r&&r.ok)HISTCACHE[k]=await r.json();}catch(e){}}
+  return (HISTCACHE[k]||{})[sid]||null;
+}
+function costSeries(d,net,px,px2){
+  // net:每日淨買張;px:每日價格(法人用收盤;主力用買方均價)。回 {b20,b60,hold120,pos120,n20,n60}
+  const n=d.length;const buyAvg=(k)=>{let a=0,q=0,c=0;for(let i=Math.max(0,n-k);i<n;i++){const v=net[i]||0,p=px[i];if(v>0&&p>0){a+=v*p;q+=v;c++;}}return q?{px:a/q,lots:q,days:c}:null;};
+  let pos=0,cost=0;for(let i=Math.max(0,n-120);i<n;i++){const v=net[i]||0,p=px[i];if(!(p>0))continue;if(v>0){cost+=v*p;pos+=v;}else if(v<0&&pos>0){const out=Math.min(pos,-v);cost-=out*(cost/pos);pos-=out;}}
+  return {b20:buyAvg(20),b60:buyAvg(60),hold:pos>0?{px:cost/pos,lots:pos}:null};
+}
+function costCalc(h,bk,price){
+  const out={};
+  if(h&&h.d&&h.d.length){const C=h.c||[];
+    for(const [key,nm] of [['f','外資'],['t','投信'],['g','自營商']]){const arr=h[key]||[];if(!arr.some(v=>v))continue;out[key]=Object.assign({nm},costSeries(h.d,arr,C));}
+  }
+  if(bk&&bk.d&&bk.d.length){const net=[],px=[];bk.s.forEach(x=>{let q=0,a=0;(x.b||[]).forEach(r=>{q+=r[1];a+=r[1]*(r[2]||0);});(x.s||[]).forEach(r=>{q+=r[1];});net.push(q);px.push(q>0&&a>0?a/((x.b||[]).reduce((s,r)=>s+r[1],0)||1):(x.bp||0));});
+    out.m=Object.assign({nm:'主力(前 15 大分點)'},costSeries(bk.d,net,px));}
+  const price0=+price||0;Object.values(out).forEach(o=>{['b20','b60','hold'].forEach(k=>{if(o[k]&&price0)o[k].gap=+((price0/o[k].px-1)*100).toFixed(1);});});
+  return Object.keys(out).length?out:null;
+}
+function costHTML(R,s){
+  if(!R)return `<h3>💰 主力 / 法人成本</h3><div class="dim-note">尚無法人歷史或分點資料(週末回補中)。</div>`;
+  const px=n=>n==null?'—':n>=100?Math.round(n).toLocaleString():n.toFixed(2);
+  const cell=o=>o?`<b>${px(o.px)}</b><small class="dim"> ${o.lots.toLocaleString()} 張</small>${o.gap!=null?`<div style="font-size:11px;color:${o.gap>=0?'var(--up)':'var(--down)'}">現價${o.gap>=0?'高於':'低於'}成本 ${Math.abs(o.gap)}%</div>`:''}`:'<span class="dim">近期無淨買</span>';
+  const rows=['f','t','g','m'].filter(k=>R[k]).map(k=>{const o=R[k];return `<tr><td style="text-align:left;font-weight:800">${o.nm}</td><td>${cell(o.b20)}</td><td>${cell(o.b60)}</td><td>${cell(o.hold)}</td></tr>`;}).join('');
+  // 判讀:誰套牢、誰獲利
+  const notes=[];['f','t','g','m'].forEach(k=>{const o=R[k];if(!o||!o.hold||o.hold.gap==null)return;const g=o.hold.gap;
+    if(g<=-8)notes.push(`${o.nm}持倉均價 ${px(o.hold.px)},現價低 ${Math.abs(g)}%——<b style="color:var(--down)">套牢</b>,反彈到成本附近容易有解套賣壓`);
+    else if(g>=15)notes.push(`${o.nm}持倉均價 ${px(o.hold.px)},現價高 ${g}%——<b style="color:var(--up)">獲利豐厚</b>,有調節空間`);
+    else notes.push(`${o.nm}持倉均價 ${px(o.hold.px)},現價${g>=0?'高':'低'} ${Math.abs(g)}%——接近成本,守住成本區代表籌碼穩`);});
+  return `<h3>💰 主力 / 法人成本 <span class="ds">誰的貨比較貴・現價距成本</span></h3>
+    <table class="sig-t"><tr><th style="text-align:left">對象</th><th>近 20 日買進均價</th><th>近 60 日買進均價</th><th>120 日持倉均價</th></tr>${rows}</table>
+    ${notes.length?`<div style="font-size:12.5px;line-height:1.7;margin-top:6px">${notes.map(x=>'・'+x).join('<br>')}</div>`:''}
+    <div class="dim" style="font-size:11.5px;margin-top:6px">買進均價 = 只算淨買超的日子,淨買張 × 價格加權;持倉均價 = 120 日內平均成本法(買進入成本、賣出按平均成本減倉),張數是這段期間的淨累積,不是總持股。法人用收盤價、主力用前 15 大分點的實際成交均價。成本越接近現價、又持續買,籌碼越穩;現價跌破所有人成本要小心多殺多。非投資建議。</div>`;
+}
 /* ═══ r793:🩳 借券賣出 vs 股價——每檔自己的「借券承受力」 ═══
    借券賣出是法人/大戶的空方部位。統計:把近一年借券賣出餘額分成五等分(自身分位),各分位之後 20 日的中位報酬與勝率;
    找出「借券到哪個水位之上股價就難漲(壓力區)」與「到哪個水位之下容易漲(低檔區)」。資料:sbl/tw*.json(backfill_sbl.py,上市)。 */
@@ -12772,6 +12813,7 @@ async function showDetail(id){
     </div>
     ${isTW&&!s.etf?`<div class="sec-title" data-sec="stk_bk">🏦 分點動向 <span style="font-weight:400;font-size:13px;letter-spacing:0">券商分點買賣・主力淨額・買賣家數差・隔日沖・每日收盤後更新(資料來源:FinMind)</span></div><div class="sec-body" id="sb-stk_bk">
     <div id="bkBox" class="dim-block"><div class="dim-note">⏳ 讀取分點資料…</div></div>
+    <div id="costBox" class="dim-block"><div class="dim-note">⏳ 計算主力與法人成本…</div></div>
     </div>`:''}
     ${isTW&&!s.etf?`<div class="sec-title" data-sec="stk_bs">⚖️ 大戶買賣比・大戶差比 <span style="font-weight:400;font-size:13px;letter-spacing:0">盤中大單 買方佔比+淨買超強度・富果逐筆即算</span></div><div class="sec-body" id="sb-stk_bs">
     <div id="bigTradeBox" class="dim-block"><div class="dim-note">📡 展開此區塊即以富果逐筆成交計算今日大單買賣比…</div></div>
@@ -12919,7 +12961,9 @@ async function showDetail(id){
   try{usFundBlock(s);}catch(e){}   // r530:美股財報速覽(SEC XBRL)
   try{const fb=document.getElementById('rptFull');if(fb)fb.onclick=()=>rptFullRun(s);}catch(e12){}   // r790:一鍵完整分析
   if(s.market!=='US'&&!s.etf){(async()=>{try{window.__bkR=null;const e=await bkLoad(s.id);let box=null;for(let i=0;i<30&&!box;i++){box=document.getElementById('bkBox');if(!box)await new Promise(r=>setTimeout(r,700));}
-    if(!box)return;const R=bkCalc(e);box.innerHTML=bkHTML(R,s);window.__bkR=R;}catch(e17){}})();}   // r802:分點動向
+    if(!box)return;const R=bkCalc(e);box.innerHTML=bkHTML(R,s);window.__bkR=R;
+    try{const h=await histLoad(s.id);const cb=document.getElementById('costBox');if(cb){const RC=costCalc(h,e,s.price);cb.innerHTML=costHTML(RC,s);window.__costR=RC;}}catch(e18){}   // r833:成本
+  }catch(e17){}})();}   // r802:分點動向
   if(s.market!=='US'&&!s.etf){(async()=>{try{window.__sblR=null;const sb=await sblLoad(s.id);if(!sb)return;
     let box=null;for(let i=0;i<30&&!box;i++){box=document.getElementById('sblBox');if(!box)await new Promise(r=>setTimeout(r,700));}   // r794:股性區塊是延遲渲染的,等它出現
     if(!box||!(DATA.stocks||[]).some(x=>x.id===s.id))return;
