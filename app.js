@@ -1,4 +1,4 @@
-/* K研所 · build r853 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r854 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1436,9 +1436,9 @@ async function usDetail(sym){const nm=(US_LIVE2.find(x=>x[0]===sym)||[])[1]||sym
   ov.innerHTML=`<div class="hlt-box" style="max-width:820px"><div class="hlt-h" style="display:flex;justify-content:space-between;align-items:center"><span>${nm} <span class="dim" style="font-size:12px">${sym}・美股${usSession()}</span></span><span class="hlt-x" style="cursor:pointer;font-weight:900">✕</span></div>
     <div id="usdStat" style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;margin:6px 0"></div>
     <div class="ind-seg" id="usdSeg" style="margin:4px 0"><button data-r="1d" class="on">1 日</button><button data-r="5d">5 日</button><button data-r="1mo">1 月</button></div>
-    <div id="usdChart" style="height:340px"></div><div class="dim" style="font-size:11px;margin-top:6px">線圖 Yahoo 5 分線(含盤前盤後,約延遲 1 分);最後一點與上方報價為 Finnhub 即時。</div></div>`;
+    <div id="usdChart" style="height:340px"></div><div class="dim" style="font-size:11px;margin-top:6px">全部 Finnhub 即時:歷史線是 Worker 每 2 分鐘錄下的即時價(含盤前盤後),最後一段是瀏覽器逐筆串流。</div></div>`;
   document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.classList.contains('hlt-x'))ov.remove();};
-  const draw=async range=>{const h=await usHist(sym,range==='1mo'?'1mo':range);const q=USL.q[sym]||{};if(!h){document.getElementById('usdChart').innerHTML='<div class="dim-note">走勢載入失敗</div>';return;}
+  const draw=async range=>{const h=await usHist(sym,range==='1mo'?'1mo':range);const q=USL.q[sym]||{};if(!h||!h.pts.length){document.getElementById('usdChart').innerHTML='<div class="dim-note">還沒有錄到資料(美股 04:00 ET 起每 2 分鐘錄一筆即時價)</div>';document.getElementById('usdStat').innerHTML='';return;}
     let pts=h.pts.slice();if(range==='1d'){const live=(USL.ticks[sym]||[]).filter(x=>x[0]>pts[pts.length-1][0]);pts=pts.concat(live);}if(q.c&&pts.length)pts[pts.length-1]=[Math.max(pts[pts.length-1][0],Date.now()),q.c];
     const pc=h.pc||q.pc;const last=pts[pts.length-1][1];const dp=pc?(last/pc-1)*100:null;const up=dp==null||dp>=0;
     const hi=Math.max(...pts.map(x=>x[1])),lo=Math.min(...pts.map(x=>x[1]));
@@ -1451,9 +1451,14 @@ async function usDetail(sym){const nm=(US_LIVE2.find(x=>x[0]===sym)||[])[1]||sym
   ov.querySelectorAll('#usdSeg button').forEach(b=>b.onclick=()=>{ov.querySelectorAll('#usdSeg button').forEach(x=>x.classList.toggle('on',x===b));draw(b.dataset.r);});
   draw('1d');}
 async function usLiveQuote(sym){try{const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${fhKey()}`,8000);if(!r||!r.ok)return;const j=await r.json();if(j&&j.c>0){USL.q[sym]=Object.assign(USL.q[sym]||{},{c:j.c,pc:j.pc,dp:j.dp,t:j.t});usTick(sym,j.c);}}catch(e){}}
-const US_PX='https://muddy-cake-cb69.frankccc199.workers.dev/?url=';
-async function usHist(sym,range){try{const r=await fT(US_PX+encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${sym.includes(':')?sym.split(':')[1].replace('_','')+'=X':sym}?range=${range||'1d'}&interval=5m&includePrePost=true`),10000);if(!r||!r.ok)return null;const j=await r.json();const q=j.chart.result[0];const cl=q.indicators.quote[0].close;const out=[];q.timestamp.forEach((t,i)=>{if(cl[i]!=null)out.push([t*1000,cl[i]]);});return {pts:out,pc:q.meta.chartPreviousClose||q.meta.previousClose,meta:q.meta};}catch(e){return null;}}
-async function usHistAll(){for(const [sym] of US_LIVE2){const h=await usHist(sym,'1d');if(h&&h.pts.length){const live=(USL.ticks[sym]||[]).filter(x=>x[0]>h.pts[h.pts.length-1][0]);USL.ticks[sym]=h.pts.concat(live);USL.hist=USL.hist||{};USL.hist[sym]=h;}}usLivePaint();}
+/* r854:走勢歷史 = Worker 每 2 分鐘錄下的 Finnhub 即時價(KV usq:<日期>);不用 Yahoo */
+let USQ_CACHE={t:0,data:null,days:0};
+async function usqLoad(days){try{if(USQ_CACHE.data&&USQ_CACHE.days>=days&&Date.now()-USQ_CACHE.t<60000)return USQ_CACHE.data;const r=await fT(PUSH_HOST+'/usq?days='+days,10000,{cache:'no-store'});if(!r||!r.ok)return null;const j=await r.json();USQ_CACHE={t:Date.now(),data:j,days};return j;}catch(e){return null;}}
+async function usHist(sym,range){const days=range==='1mo'?22:range==='5d'?5:1;const j=await usqLoad(days);if(!j)return null;const ds=Object.keys(j.days).sort();const pts=[];let pc=null;
+  ds.forEach(d=>{const v=j.days[d];(v[sym]||[]).forEach(x=>pts.push([x[0]*1000,x[1]]));if(v['pc:'+sym])pc=v['pc:'+sym];});
+  if(range==='1d'){const last=ds[ds.length-1];const v=(last&&j.days[last])||{};const p1=(v[sym]||[]).map(x=>[x[0]*1000,x[1]]);return {pts:p1,pc:v['pc:'+sym]||pc,src:'finnhub'};}
+  return {pts,pc,src:'finnhub'};}
+async function usHistAll(){for(const [sym] of US_LIVE2){const h=await usHist(sym,'1d');if(h&&h.pts.length){const live=(USL.ticks[sym]||[]).filter(x=>x[0]>h.pts[h.pts.length-1][0]);USL.ticks[sym]=h.pts.concat(live);}}usLivePaint();}
 function usTick(sym,p){const a=USL.ticks[sym]||(USL.ticks[sym]=[]);const now=Date.now();if(a.length&&now-a[a.length-1][0]<2000){a[a.length-1][1]=p;}else a.push([now,p]);if(a.length>360)a.splice(0,a.length-360);}
 function usLiveWS(){try{if(USL.ws)return;const ws=new WebSocket('wss://ws.finnhub.io?token='+encodeURIComponent(fhKey()));USL.ws=ws;
   ws.onopen=()=>{USL.ok=true;[...US_LIVE2.map(x=>x[0]),...FX_LIVE.map(x=>x[0])].forEach(sym=>ws.send(JSON.stringify({type:'subscribe',symbol:sym})));usLivePaint();};
@@ -1715,7 +1720,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r853</span>');
+  diag.push('<span style="color:var(--dim)">build r854</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
