@@ -1,4 +1,4 @@
-/* K研所 · build r851 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r852 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1417,18 +1417,18 @@ function usCardHTML(sym,nm){const q=USL.q[sym]||{};const px=q.c,pc=q.pc;const dp
     <div style="margin-top:4px">${sparkSvg(USL.ticks[sym],up)}</div></div>`;}
 function adrCardHTML(){const t=USL.q.TSM||{};const fxq=USL.q['OANDA:USD_TWD']||{};const fx=fxq.c||(DATA.macro&&DATA.macro.fx&&DATA.macro.fx.USDTWD)||null;const s2330=(DATA.stocks||[]).find(x=>x.id==='2330');const cl=s2330&&s2330.price;
   if(!t.c||!fx||!cl)return `<div class="idx-card" style="grid-column:1/-1;padding:10px 12px"><div class="nm">🇹🇼 台積電 ADR → 開盤前瞻</div><div class="dim-note">等待 TSM / 匯率資料…</div></div>`;
-  const implied=t.c*fx/5;const prem=(implied/cl-1)*100;const sx=USL.q.SOXX||{};const sxdp=(sx.c&&sx.pc)?(sx.c/sx.pc-1)*100:0;const spy=USL.q.SPY||{};const spdp=(spy.c&&spy.pc)?(spy.c/spy.pc-1)*100:0;
-  const twii=0.35*prem+0.65*(0.5*sxdp+0.5*spdp);const col=v=>v>=0?'var(--up)':'var(--down)';const f=v=>(v>=0?'+':'')+v.toFixed(2)+'%';
+  const implied=t.c*fx/5;const prem=(implied/cl-1)*100;const tdp=(t.c&&t.pc)?(t.c/t.pc-1)*100:0;const sx=USL.q.SOXX||{};const sxdp=(sx.c&&sx.pc)?(sx.c/sx.pc-1)*100:0;const spy=USL.q.SPY||{};const spdp=(spy.c&&spy.pc)?(spy.c/spy.pc-1)*100:0;
+  const twii=0.35*tdp+0.65*(0.5*sxdp+0.5*spdp);const col=v=>v>=0?'var(--up)':'var(--down)';const f=v=>(v>=0?'+':'')+v.toFixed(2)+'%';
   return `<div class="idx-card" style="grid-column:1/-1;padding:10px 14px;border-color:var(--t-gold)"><div class="nm">🇹🇼 台積電 ADR → 台股開盤前瞻 <span class="dim" style="font-size:10px">美股${usSession()}・即時</span></div>
     <div style="display:flex;flex-wrap:wrap;gap:14px 26px;margin-top:6px;font-size:13px;line-height:1.7">
-      <div>TSM <b>${t.c.toFixed(2)}</b> × ${fx.toFixed(3)} ÷ 5 = 隱含 <b>${implied.toFixed(0)}</b> 元</div>
-      <div>vs 台積電收盤 ${cl.toLocaleString()} → ADR <b style="color:${col(prem)}">${prem>=0?'溢價':'折價'} ${f(prem)}</b></div>
-      <div>預估台積電開 <b style="color:${col(prem)}">${(cl*(1+prem/100)).toFixed(0)}</b></div>
-      <div>費半 ${f(sxdp)}・S&P ${f(spdp)} → 加權粗估 <b style="color:${col(twii)}">${f(twii)}</b></div></div>
-    <div class="dim" style="font-size:11px;margin-top:4px">加權粗估 = 35% ADR 溢價 + 65% × (費半、S&P 各半);只是開盤前的方向感,不是預測。</div></div>`;}
+      <div>TSM ADR <b>${t.c.toFixed(2)}</b> <b style="color:${col(tdp)}">${f(tdp)}</b> → 預估台積電開 <b style="color:${col(tdp)}">${(cl*(1+tdp/100)).toFixed(0)}</b> <span class="dim">(收盤 ${cl.toLocaleString()})</span></div>
+      <div>費半 <b style="color:${col(sxdp)}">${f(sxdp)}</b>・S&P <b style="color:${col(spdp)}">${f(spdp)}</b> → 加權粗估 <b style="color:${col(twii)}">${f(twii)}</b></div>
+      <div class="dim">ADR 隱含 ${implied.toFixed(0)} 元,${prem>=0?'溢價':'折價'} ${f(prem)}(常態約 +10~20%,看變化不看絕對值)</div></div>
+    <div class="dim" style="font-size:11px;margin-top:4px">台積電開盤預估 = 收盤 × (1 + ADR 當日漲跌%);加權粗估 = 35% ADR 漲跌 + 65% × (費半、S&P 各半)。開盤前的方向感,不是預測。</div></div>`;}
 function usLivePaint(){const g=document.getElementById('usTvCards');if(!g)return;g.innerHTML=adrCardHTML()+US_LIVE2.map(([sym,nm])=>usCardHTML(sym,nm)).join('')+`<div class="dim" style="grid-column:1/-1;font-size:11px">${USL.ok?'● Finnhub 即時串流(含盤前盤後)':'○ 連線中…'}<a href="#" id="fhKeyEdit" style="margin-left:10px;color:var(--t-blue)">更換 key</a></div>`;
   const a=document.getElementById('fhKeyEdit');if(a)a.onclick=e=>{e.preventDefault();const k=prompt('Finnhub API key(finnhub.io 免費註冊)',fhKey());if(k===null)return;try{localStorage.setItem('fh_key',k.trim());}catch(_){}location.reload();};
-  const fr=document.getElementById('fxRow');if(fr&&fhKey()){fr.innerHTML=FX_LIVE.map(([sym,nm])=>usCardHTML(sym,nm)).join('');}}
+  const fr=document.getElementById('fxRow');if(fr&&fhKey()){const fx=(DATA.macro&&DATA.macro.fx)||{};const stat=(nm,v,d)=>`<div class="idx-card" style="padding:10px 12px 8px"><div class="nm">${nm} <span class="dim" style="font-size:10px">日更</span></div><div class="vl">${v!=null?v:'—'}</div><div class="ch">${d!=null?chgHtml(d):''}</div></div>`;
+    fr.innerHTML=FX_LIVE.map(([sym,nm])=>USL.q[sym]&&USL.q[sym].c?usCardHTML(sym,nm):stat(nm,sym.includes('TWD')?fx.USDTWD:sym.includes('JPY')?(fx.USDJPY||null):null,null)).join('')+stat('美元指數 DXY',fx.DXY,null);}}
 async function usLiveQuote(sym){try{const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${fhKey()}`,8000);if(!r||!r.ok)return;const j=await r.json();if(j&&j.c>0){USL.q[sym]=Object.assign(USL.q[sym]||{},{c:j.c,pc:j.pc,dp:j.dp,t:j.t});usTick(sym,j.c);}}catch(e){}}
 function usTick(sym,p){const a=USL.ticks[sym]||(USL.ticks[sym]=[]);const now=Date.now();if(a.length&&now-a[a.length-1][0]<2000){a[a.length-1][1]=p;}else a.push([now,p]);if(a.length>360)a.splice(0,a.length-360);}
 function usLiveWS(){try{if(USL.ws)return;const ws=new WebSocket('wss://ws.finnhub.io?token='+encodeURIComponent(fhKey()));USL.ws=ws;
@@ -1690,7 +1690,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r851</span>');
+  diag.push('<span style="color:var(--dim)">build r852</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
