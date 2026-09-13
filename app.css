@@ -1824,3 +1824,6 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .bktag{display:inline-block;font-size:10px;font-weight:700;border:1px solid;border-radius:4px;padding:0 4px;margin-left:4px;line-height:1.5;vertical-align:1px;opacity:.9}
 /* r845:短沖客列 */
 .kbr2-flip{opacity:.6}
+/* r859:管理員專區 */
+body:not(.is-admin) .admin-only{display:none!important}
+.adm-badge{display:inline-block;margin-left:8px;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:999px;background:var(--t-gold);color:#111;vertical-align:middle}

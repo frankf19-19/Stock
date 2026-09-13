@@ -1,4 +1,4 @@
-/* K研所 · build r858 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r859 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1095,7 +1095,7 @@ function renderMacro(){
   document.getElementById('idxRow').innerHTML=_cards.length?_cards.join('')
     :'<div class="idx-card" id="idxEmpty"><div class="nm">台股指數載入中…</div></div>';
   try{ensureUsTvCards();}catch(e){}
-  try{if(!fhKey()&&!document.getElementById('fhSetup')){const r=document.getElementById('idxRow');if(r&&r.parentNode){const d=document.createElement('div');d.id='fhSetup';d.className='dim';d.style.cssText='font-size:12px;margin-top:6px';d.innerHTML='🇹🇼 想要台積電 ADR 即時開盤前瞻?<a href="#" id="fhSetupA" style="color:var(--t-blue);margin-left:6px">設定 Finnhub 免費 key</a>';r.parentNode.insertBefore(d,r.nextSibling);document.getElementById('fhSetupA').onclick=e=>{e.preventDefault();const k=prompt('Finnhub API key(finnhub.io 免費註冊,Dashboard 複製)');if(k&&k.trim()){try{localStorage.setItem('fh_key',k.trim());}catch(_){}location.reload();}};}}}catch(e){}
+  try{if(!fhKey()&&!document.getElementById('fhSetup')){const r=document.getElementById('idxRow');if(r&&r.parentNode){const d=document.createElement('div');d.id='fhSetup';d.className='dim admin-only';d.style.cssText='font-size:12px;margin-top:6px';d.innerHTML='🇹🇼 想要台積電 ADR 即時開盤前瞻?<a href="#" id="fhSetupA" style="color:var(--t-blue);margin-left:6px">設定 Finnhub 免費 key</a>';r.parentNode.insertBefore(d,r.nextSibling);document.getElementById('fhSetupA').onclick=e=>{e.preventDefault();const k=prompt('Finnhub API key(finnhub.io 免費註冊,Dashboard 複製)');if(k&&k.trim()){try{localStorage.setItem('fh_key',k.trim());}catch(_){}location.reload();}};}}}catch(e){}
   try{rtIdxStale();}catch(e){}   // r738
   const fx=m.fx||{};
   const items=[["美元/台幣","usdtwd","FX_IDC:USDTWD"],["日圓/台幣","jpytwd","FX_IDC:JPYTWD"],["美元指數(DXY 即時)","dxy","CAPITALCOM:DXY"]];   // r488:三卡改 TV 迷你即時卡(價+%+走勢線);Fed廣義序列保留在 dxy 詳細頁
@@ -1698,7 +1698,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r858</span>');
+  diag.push('<span style="color:var(--dim)">build r859</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1773,7 +1773,7 @@ async function diagRoutes(btn){
     +`<br><span style="font-family:var(--sans);color:var(--mut)">${
       misOK?'台股報價通路正常':'台股報價全斷——公共代理塞車,建議設自家代理(免費)'}
       ;國際行情由後端每約20分鐘更新,不受瀏覽器代理影響。</span>
-    <div style="margin-top:8px;font-family:var(--sans)">
+    <div class="admin-only" style="margin-top:8px;font-family:var(--sans)">
       <span style="font-weight:800">🏠 自家代理(選填,設了永遠優先):</span>
       <input id="myPxIn" value="${myProxy()}" placeholder="https://xxx.你的帳號.workers.dev" style="width:min(320px,90%);padding:5px 10px;margin:4px 6px 0 0;border:1px solid var(--line);border-radius:8px">
       <button class="btn-ghost" style="height:30px;padding:0 12px;font-size:12.5px" onclick="try{localStorage.setItem('my_proxy',document.getElementById('myPxIn').value.trim());alert('已儲存,之後所有即時請求優先走你的代理');}catch(e){}">儲存</button>
@@ -20005,6 +20005,10 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const SYNC_KEYS=['fav_ids','port1','pxAlerts','theme3l','tgLink','pushSubs'];   // 同步範圍:最愛/持股/到價提醒/主題/Telegram 綁定碼/推播訂閱
 const SERVER_KEYS=['tgChat'];                                 // r782:後端寫入的欄位——瀏覽器只讀,推送時從雲端原樣帶回,不會蓋掉
 let SB=null, SB_USER=null, sbPushT=null, SB_TOKEN=null, SB_APPLYING=false;
+/* r859:管理員——白名單 email;登入後 body 加 is-admin,.admin-only 元素只有管理員看得到 */
+const ADMIN_EMAILS=['frankccc199@hotmail.com'];
+function isAdmin(){try{return !!(SB_USER&&SB_USER.email&&ADMIN_EMAILS.includes(String(SB_USER.email).toLowerCase()));}catch(e){return false;}}
+function adminApply(){try{document.body.classList.toggle('is-admin',isAdmin());}catch(e){}}
 /* r773:本機改動要「贏過」較舊的雲端 —— 之前 sbMerge 對 port1 等鍵一律以雲端為準,
    手機上改完持股就切走/下拉刷新,1.5 秒的防抖推送來不及跑,重整後 sbPull 把舊雲端蓋回來,改動消失。
    修法:每個同步鍵記「最後本機改動時間」;拉雲端時,本機比雲端 updated_at 新的鍵以本機為準;
@@ -20142,7 +20146,7 @@ function sbHookStorage(){                                   // 攔 setItem:同�
     window.__sbHooked=true;
   }catch(e){}
 }
-function sbBtnPaint(){
+function sbBtnPaint(){adminApply();
   const b=document.getElementById('authBtn'); if(!b)return;
   if(SB_USER){ const n=(SB_USER.email||'').split('@')[0]; b.textContent=n.length>10?n.slice(0,10)+'…':n; b.title='已登入 '+SB_USER.email+'——點擊管理帳號'; b.classList.add('on'); }
   else { b.textContent='登入'; b.title='登入後最愛/持股/提醒跨裝置同步'; b.classList.remove('on'); }
@@ -20348,7 +20352,7 @@ function sbModal(){
 function sbModePaint(mode){
   const b=document.getElementById('sbBody'); if(!b)return;
   if(SB_USER){
-    b.innerHTML=`<div class="sb-info">已登入<br><b>${SB_USER.email||''}</b></div>
+    b.innerHTML=`<div class="sb-info">已登入<br><b>${SB_USER.email||''}</b>${isAdmin()?'<span class="adm-badge">管理員</span>':''}</div>
       <div class="sb-note">最愛・持股・到價提醒・主題會自動同步到雲端,換手機或電腦登入即還原。</div>
       <div id="sbPush" class="sb-tg"></div>
       <div id="sbTg" class="sb-tg"></div>
@@ -21524,7 +21528,7 @@ function renderHero(){
   el.innerHTML=`<div class="hero-card">
     <div class="hero-l">${q('加權指數','加權')}${q('櫃買指數','櫃買')}${q('S&P 500','S&P')}${q('VIX 恐慌指數','VIX')}</div>
     <div class="hero-r">${wk?`<span class="hero-tag">🤖 本週 AI Pick</span>${picks}`:''}
-      <span class="hero-hlt" id="heroHlt" title="資料健康度"><span class="hlt-dot hlt-${hst}"></span>資料</span></div>
+      <span class="hero-hlt admin-only" id="heroHlt" title="資料健康度"><span class="hlt-dot hlt-${hst}"></span>資料</span></div>
   </div>`;
   const hh=document.getElementById('heroHlt');if(hh)hh.onclick=()=>{try{hltPanel();}catch(e){}};
   el.querySelectorAll('[data-go-stock]').forEach(x=>x.onclick=()=>{
