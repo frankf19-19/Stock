@@ -1,4 +1,4 @@
-/* K研所 · build r848 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r849 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1654,7 +1654,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r848</span>');
+  diag.push('<span style="color:var(--dim)">build r849</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20106,7 +20106,7 @@ function sbBtnPaint(){
    使用者按「開啟推播」→ 瀏覽器要權限 → Service Worker 訂閱(VAPID 公鑰)→ 訂閱資訊存進帳號(pushSubs)
    → 後端 notify.py 對每個訂閱推。關掉網頁、甚至關掉瀏覽器(Android)都收得到。
    iPhone:iOS 16.4+ 且必須先「加入主畫面」從主畫面開啟,Safari 分頁裡不支援——這是 Apple 的限制。 */
-const VAPID_PUBLIC='BFrDuw2hruCLJLNkaoBNC-pXPM8WZt8udHaoQ2mGzFNAqWojcqMgGiEMqaQgnjGy1u8FofvsBmpKS2IErmzA6U4';
+const VAPID_PUBLIC='BITjrHn3hTFqyfI7Wazj33ebpvpyMjciRONMc7DRxEaiAqV6yPhSA0YecXX-ZZaiGd_8opFoMtH0cY2dtZ-syy0';
 function b64ToU8(b){const p='='.repeat((4-b.length%4)%4);const s=(b+p).replace(/-/g,'+').replace(/_/g,'/');const r=atob(s);return Uint8Array.from(r,c=>c.charCodeAt(0));}
 function pushSubsGet(){try{return JSON.parse(localStorage.getItem('pushSubs')||'[]')||[];}catch(e){return [];}}
 function pushSubsSet(a){try{localStorage.setItem('pushSubs',JSON.stringify(a));}catch(e){}}
@@ -20154,6 +20154,7 @@ async function pushEnable(){
   if(perm!=='granted')throw new Error('沒有允許通知');
   const reg=await navigator.serviceWorker.ready;
   let sub=await reg.pushManager.getSubscription();
+  if(sub&&!pushKeyMatches(sub)){try{await sub.unsubscribe();}catch(e){}sub=null;}   // r849:VAPID 換鑰 → 舊訂閱作廢,重訂
   if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(VAPID_PUBLIC)});
   const j=sub.toJSON();
   await pushApi('/push/reg',{sub:{endpoint:j.endpoint,keys:j.keys},ua:navigator.userAgent.slice(0,80),...pushProfile()});
@@ -20181,6 +20182,14 @@ async function tgStateRefresh(){
   }catch(e){}
 }
 setInterval(()=>{try{if(SB_USER&&document.getElementById('sbTg'))tgStateRefresh();}catch(e){}},60*1000);
+/* r849:訂閱用的公鑰是否為現在這把(applicationServerKey 比對) */
+function pushKeyMatches(sub){try{const k=sub.options&&sub.options.applicationServerKey;if(!k)return true;const a=new Uint8Array(k),b=b64ToU8(VAPID_PUBLIC);if(a.length!==b.length)return false;for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;return true;}catch(e){return true;}}
+async function pushKeyRotateCheck(){                              // 開站時:此裝置訂閱若是舊鑰,且權限已給 → 靜默重訂並回報 Worker
+  try{if(!SB_USER||!('serviceWorker' in navigator)||Notification.permission!=='granted')return;
+    const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
+    if(sub&&!pushKeyMatches(sub)){await pushEnable();sbToast('推播金鑰已更新,此裝置重新訂閱完成',0);}}catch(e){}
+}
+setTimeout(pushKeyRotateCheck,6000);
 async function pushThisDeviceOn(){
   try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
     return !!(sub&&pushSubsGet().some(x=>x&&x.endpoint===sub.endpoint));}catch(e){return false;}

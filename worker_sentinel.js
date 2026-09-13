@@ -7,7 +7,7 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 const SENT_SITE = 'https://frankf19-19.github.io/Stock/';
 const SENT_RAW  = 'https://raw.githubusercontent.com/frankf19-19/Stock/main/';
-const VAPID_PUB = 'BFrDuw2hruCLJLNkaoBNC-pXPM8WZt8udHaoQ2mGzFNAqWojcqMgGiEMqaQgnjGy1u8FofvsBmpKS2IErmzA6U4';
+const VAPID_PUB = 'BITjrHn3hTFqyfI7Wazj33ebpvpyMjciRONMc7DRxEaiAqV6yPhSA0YecXX-ZZaiGd_8opFoMtH0cY2dtZ-syy0';
 const VAPID_SUB = 'mailto:frankccc199@hotmail.com';
 
 function tpe(now) {                                            // 台北時間各欄位
