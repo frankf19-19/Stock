@@ -1,4 +1,4 @@
-/* K研所 · build r860 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r861 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -472,7 +472,7 @@ function setBadges(extra){
   const sb=document.getElementById('srcBadge');
   if(DATA.source==='live'){ sb.textContent='● 報價即時'; sb.className='badge live'; }
 }
-function favList(){try{const a=JSON.parse(localStorage.getItem('fav_ids')||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}}
+function favList(){try{if(!SB_USER&&!Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k)))return[];}catch(e){}try{const a=JSON.parse(localStorage.getItem('fav_ids')||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}}   // r861:沒有登入 session 一律空
 function favHas(id){return favList().includes(id);}
 function needLogin(what){try{sbToast(`登入後才能${what||'使用這個功能'}——最愛、持股、提醒都存在你的帳號,換裝置也在`,1);sbModal();}catch(e){}return false;}   // r860
 function favToggle(id){
@@ -495,7 +495,7 @@ function showFavPage(){
     <div class="m-head"><div>
       <h2 style="font-size:24px;font-weight:900">⭐ 我的最愛</h2>
       ${!SB_USER?`<div class="c-full" style="margin:6px 0 10px;padding:10px 14px;border:1px solid var(--t-gold);border-radius:10px;font-size:13.5px">🔐 最愛、持股、提醒都存在<b>你的帳號</b>裡,不留在瀏覽器。<a href="#" onclick="sbModal();return false" style="color:var(--t-gold);font-weight:800;margin-left:6px">登入 / 註冊 ›</a></div>`:''}
-      <div class="c-full" style="margin-top:4px">在個股頁點名稱旁的 ☆、或在選股清單卡片點星星即可收藏;收藏只存在你這台裝置。</div>
+      <div class="c-full" style="margin-top:4px">在個股頁點名稱旁的 ☆、或在選股清單卡片點星星即可收藏;收藏存在你的帳號裡,換裝置登入就在。</div>
     </div>
     <button class="btn-ghost" id="favAlTg" style="margin-left:auto;padding:7px 14px;font-weight:800"></button></div>
     <div class="dim-note" style="margin-top:6px">🔔 最愛提醒:每檔最愛到 <b>買進時機</b>(回檔均線帶/突破 20 日高/到達 AI Pick 買價)、<b>賣出訊號</b>(跌破 10 日低或均線帶)、<b>停利/停損</b>(需進場價:持股成本 › 自設 › AI Pick 成交價)時,會跳頁內提醒+瀏覽器通知,並列在首頁頂端;每檔每種一天一次。</div>
@@ -1701,7 +1701,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r860</span>');
+  diag.push('<span style="color:var(--dim)">build r861</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20429,7 +20429,10 @@ async function sbBoot(){
   };
   let hasSession=false;                                 // 之前登入過的人才需要在開機時就接回 session
   try{ hasSession=Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k)); }catch(e){}
-  if(!hasSession)return;
+  if(!hasSession){                                      // r861:沒有登入 session 就把瀏覽器上殘留的個人資料清掉(帳號制)
+    let had=false;['fav_ids','port1','pxAlerts','sb_dirty','favAlertSeen','favAlertLog'].forEach(k=>{try{if(localStorage.getItem(k)!=null){had=true;localStorage.removeItem(k);}}catch(e){}});
+    if(had){try{renderFav();}catch(e){} try{renderPort();}catch(e){}}
+    return;}
   try{ await sbLoadSDK(); }catch(e){ return; }
   const c=sbInit(); if(!c)return;
   sbHookStorage();
