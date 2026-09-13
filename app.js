@@ -1,4 +1,4 @@
-/* K研所 · build r852 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r853 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1412,7 +1412,7 @@ function etNow(){const d=new Date();const y=d.getUTCFullYear();const mar=new Dat
 function usSession(){const T=etNow();const mm=T.h*60+T.m;if(T.dow===0||T.dow===6)return '休市';if(mm<4*60)return '休市';if(mm<9*60+30)return '盤前';if(mm<16*60)return '盤中';if(mm<20*60)return '盤後';return '休市';}
 function sparkSvg(arr,up){if(!arr||arr.length<2)return '';const w=200,h=44;const v=arr.map(x=>x[1]);const lo=Math.min(...v),hi=Math.max(...v);const r=hi-lo||1;const pts=v.map((p,i)=>`${(i/(v.length-1)*w).toFixed(1)},${(h-3-(p-lo)/r*(h-6)).toFixed(1)}`).join(' ');const col=up?'var(--up)':'var(--down)';return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:44px;display:block"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.6"/></svg>`;}
 function usCardHTML(sym,nm){const q=USL.q[sym]||{};const px=q.c,pc=q.pc;const dp=(px&&pc)?(px/pc-1)*100:(q.dp??null);const up=dp==null?true:dp>=0;
-  return `<div class="idx-card" style="position:relative;padding:10px 12px 8px"><div class="nm">${nm} <span class="dim" style="font-size:10px">${sym}</span></div>
+  return `<div class="idx-card" data-usd="${sym}" style="position:relative;padding:10px 12px 8px;cursor:pointer"><div class="nm">${nm} <span class="dim" style="font-size:10px">${sym}</span><span style="color:var(--dim)"> ›</span></div>
     <div class="vl">${px?px.toLocaleString(undefined,{maximumFractionDigits:2}):'—'}</div><div class="ch">${dp!=null?chgHtml(+dp.toFixed(2)):''}</div>
     <div style="margin-top:4px">${sparkSvg(USL.ticks[sym],up)}</div></div>`;}
 function adrCardHTML(){const t=USL.q.TSM||{};const fxq=USL.q['OANDA:USD_TWD']||{};const fx=fxq.c||(DATA.macro&&DATA.macro.fx&&DATA.macro.fx.USDTWD)||null;const s2330=(DATA.stocks||[]).find(x=>x.id==='2330');const cl=s2330&&s2330.price;
@@ -1426,17 +1426,41 @@ function adrCardHTML(){const t=USL.q.TSM||{};const fxq=USL.q['OANDA:USD_TWD']||{
       <div class="dim">ADR 隱含 ${implied.toFixed(0)} 元,${prem>=0?'溢價':'折價'} ${f(prem)}(常態約 +10~20%,看變化不看絕對值)</div></div>
     <div class="dim" style="font-size:11px;margin-top:4px">台積電開盤預估 = 收盤 × (1 + ADR 當日漲跌%);加權粗估 = 35% ADR 漲跌 + 65% × (費半、S&P 各半)。開盤前的方向感,不是預測。</div></div>`;}
 function usLivePaint(){const g=document.getElementById('usTvCards');if(!g)return;g.innerHTML=adrCardHTML()+US_LIVE2.map(([sym,nm])=>usCardHTML(sym,nm)).join('')+`<div class="dim" style="grid-column:1/-1;font-size:11px">${USL.ok?'● Finnhub 即時串流(含盤前盤後)':'○ 連線中…'}<a href="#" id="fhKeyEdit" style="margin-left:10px;color:var(--t-blue)">更換 key</a></div>`;
+  g.querySelectorAll('[data-usd]').forEach(el=>el.onclick=()=>usDetail(el.dataset.usd));
   const a=document.getElementById('fhKeyEdit');if(a)a.onclick=e=>{e.preventDefault();const k=prompt('Finnhub API key(finnhub.io 免費註冊)',fhKey());if(k===null)return;try{localStorage.setItem('fh_key',k.trim());}catch(_){}location.reload();};
   const fr=document.getElementById('fxRow');if(fr&&fhKey()){const fx=(DATA.macro&&DATA.macro.fx)||{};const stat=(nm,v,d)=>`<div class="idx-card" style="padding:10px 12px 8px"><div class="nm">${nm} <span class="dim" style="font-size:10px">日更</span></div><div class="vl">${v!=null?v:'—'}</div><div class="ch">${d!=null?chgHtml(d):''}</div></div>`;
     fr.innerHTML=FX_LIVE.map(([sym,nm])=>USL.q[sym]&&USL.q[sym].c?usCardHTML(sym,nm):stat(nm,sym.includes('TWD')?fx.USDTWD:sym.includes('JPY')?(fx.USDJPY||null):null,null)).join('')+stat('美元指數 DXY',fx.DXY,null);}}
+/* r853:美股即時詳細面板——5 日 5 分線(Yahoo)+ 即時價(Finnhub),自家 ECharts */
+async function usDetail(sym){const nm=(US_LIVE2.find(x=>x[0]===sym)||[])[1]||sym;
+  const ov=document.createElement('div');ov.className='hlt-mask';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML=`<div class="hlt-box" style="max-width:820px"><div class="hlt-h" style="display:flex;justify-content:space-between;align-items:center"><span>${nm} <span class="dim" style="font-size:12px">${sym}・美股${usSession()}</span></span><span class="hlt-x" style="cursor:pointer;font-weight:900">✕</span></div>
+    <div id="usdStat" style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;margin:6px 0"></div>
+    <div class="ind-seg" id="usdSeg" style="margin:4px 0"><button data-r="1d" class="on">1 日</button><button data-r="5d">5 日</button><button data-r="1mo">1 月</button></div>
+    <div id="usdChart" style="height:340px"></div><div class="dim" style="font-size:11px;margin-top:6px">線圖 Yahoo 5 分線(含盤前盤後,約延遲 1 分);最後一點與上方報價為 Finnhub 即時。</div></div>`;
+  document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.classList.contains('hlt-x'))ov.remove();};
+  const draw=async range=>{const h=await usHist(sym,range==='1mo'?'1mo':range);const q=USL.q[sym]||{};if(!h){document.getElementById('usdChart').innerHTML='<div class="dim-note">走勢載入失敗</div>';return;}
+    let pts=h.pts.slice();if(range==='1d'){const live=(USL.ticks[sym]||[]).filter(x=>x[0]>pts[pts.length-1][0]);pts=pts.concat(live);}if(q.c&&pts.length)pts[pts.length-1]=[Math.max(pts[pts.length-1][0],Date.now()),q.c];
+    const pc=h.pc||q.pc;const last=pts[pts.length-1][1];const dp=pc?(last/pc-1)*100:null;const up=dp==null||dp>=0;
+    const hi=Math.max(...pts.map(x=>x[1])),lo=Math.min(...pts.map(x=>x[1]));
+    document.getElementById('usdStat').innerHTML=`<div>現價 <b style="font-size:18px">${last.toFixed(2)}</b> ${dp!=null?`<b style="color:${up?'var(--up)':'var(--down)'}">${dp>=0?'+':''}${dp.toFixed(2)}%</b>`:''}</div><div class="dim">前收 ${pc?pc.toFixed(2):'—'}</div><div class="dim">區間高 ${hi.toFixed(2)}・低 ${lo.toFixed(2)}</div>`;
+    const el=document.getElementById('usdChart');try{const inst=echarts.getInstanceByDom(el);if(inst)inst.dispose();}catch(e){}
+    const ch=echarts.init(el);const col=up?'#ff6b6b':'#3fb37f';
+    ch.setOption({backgroundColor:'transparent',grid:{left:56,right:16,top:14,bottom:28},tooltip:{trigger:'axis',valueFormatter:v=>(+v).toFixed(2)},xAxis:{type:'time',axisLabel:{color:'#8b8f9a',formatter:v=>{const d=new Date(v);return range==='1d'?`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`:`${d.getMonth()+1}/${d.getDate()}`;}},axisLine:{lineStyle:{color:'#333'}},splitLine:{show:false}},
+      yAxis:{type:'value',scale:true,axisLabel:{color:'#8b8f9a'},splitLine:{lineStyle:{color:'#2a2d35'}}},
+      series:[{type:'line',data:pts,showSymbol:false,lineStyle:{color:col,width:1.6},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:col+'55'},{offset:1,color:col+'00'}]}},markLine:pc?{silent:true,symbol:'none',data:[{yAxis:pc,lineStyle:{color:'#8b8f9a',type:'dashed'},label:{formatter:'前收 '+pc.toFixed(2),color:'#8b8f9a',position:'insideEndTop'}}]}:undefined}]});};
+  ov.querySelectorAll('#usdSeg button').forEach(b=>b.onclick=()=>{ov.querySelectorAll('#usdSeg button').forEach(x=>x.classList.toggle('on',x===b));draw(b.dataset.r);});
+  draw('1d');}
 async function usLiveQuote(sym){try{const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${fhKey()}`,8000);if(!r||!r.ok)return;const j=await r.json();if(j&&j.c>0){USL.q[sym]=Object.assign(USL.q[sym]||{},{c:j.c,pc:j.pc,dp:j.dp,t:j.t});usTick(sym,j.c);}}catch(e){}}
+const US_PX='https://muddy-cake-cb69.frankccc199.workers.dev/?url=';
+async function usHist(sym,range){try{const r=await fT(US_PX+encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${sym.includes(':')?sym.split(':')[1].replace('_','')+'=X':sym}?range=${range||'1d'}&interval=5m&includePrePost=true`),10000);if(!r||!r.ok)return null;const j=await r.json();const q=j.chart.result[0];const cl=q.indicators.quote[0].close;const out=[];q.timestamp.forEach((t,i)=>{if(cl[i]!=null)out.push([t*1000,cl[i]]);});return {pts:out,pc:q.meta.chartPreviousClose||q.meta.previousClose,meta:q.meta};}catch(e){return null;}}
+async function usHistAll(){for(const [sym] of US_LIVE2){const h=await usHist(sym,'1d');if(h&&h.pts.length){const live=(USL.ticks[sym]||[]).filter(x=>x[0]>h.pts[h.pts.length-1][0]);USL.ticks[sym]=h.pts.concat(live);USL.hist=USL.hist||{};USL.hist[sym]=h;}}usLivePaint();}
 function usTick(sym,p){const a=USL.ticks[sym]||(USL.ticks[sym]=[]);const now=Date.now();if(a.length&&now-a[a.length-1][0]<2000){a[a.length-1][1]=p;}else a.push([now,p]);if(a.length>360)a.splice(0,a.length-360);}
 function usLiveWS(){try{if(USL.ws)return;const ws=new WebSocket('wss://ws.finnhub.io?token='+encodeURIComponent(fhKey()));USL.ws=ws;
   ws.onopen=()=>{USL.ok=true;[...US_LIVE2.map(x=>x[0]),...FX_LIVE.map(x=>x[0])].forEach(sym=>ws.send(JSON.stringify({type:'subscribe',symbol:sym})));usLivePaint();};
   ws.onmessage=ev=>{try{const m=JSON.parse(ev.data);if(m.type!=='trade')return;for(const t of m.data){const q=USL.q[t.s]||(USL.q[t.s]={});q.c=t.p;usTick(t.s,t.p);}const now=Date.now();if(now-USL.last>1000){USL.last=now;usLivePaint();}}catch(e){}};
   ws.onclose=()=>{USL.ok=false;USL.ws=null;setTimeout(usLiveWS,5000);};ws.onerror=()=>{try{ws.close();}catch(e){}};}catch(e){}}
 async function usLiveStart(){if(window.__usLiveOn)return;window.__usLiveOn=1;
-  await Promise.all([...US_LIVE2.map(x=>x[0]),...FX_LIVE.map(x=>x[0])].map(usLiveQuote));usLivePaint();usLiveWS();
+  await Promise.all([...US_LIVE2.map(x=>x[0]),...FX_LIVE.map(x=>x[0])].map(usLiveQuote));usLivePaint();usLiveWS();usHistAll();setInterval(usHistAll,5*60*1000);
   setInterval(()=>{[...US_LIVE2.map(x=>x[0]),'OANDA:USD_TWD'].forEach(usLiveQuote);setTimeout(usLivePaint,1500);},30000);}   // 30 秒補一次 REST(前收盤價 pc、離線時的價格)
 function ensureUsTvCards(){             // 📺 r487:美股四卡=TradingView 迷你即時卡(SPX/NSX/DJI/SOXX,官方串流價);r851:有 Finnhub key 改即時卡
   if(window.__usTv)return;
@@ -1490,8 +1514,9 @@ async function refreshUsCards(){        // r487:已退役——四卡改 Trading
   });
 }
 /* r487:refreshUsCards 已退役,移除 60 秒重畫註冊(重畫會把 TV 元件洗掉) */
-function tvTape(){                      // 全站即時跑馬燈(首頁最上方,掛一次)
+function tvTape(){                      // 全站即時跑馬燈(首頁最上方,掛一次);r853:有 Finnhub key 不掛(白底外掛),改自家即時卡
   if(window.__tvTape)return;
+  if(fhKey())return;
   const row=document.getElementById('idxRow');
   if(!row||!row.parentNode)return;
   const tape=document.createElement('div');
@@ -1690,7 +1715,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r852</span>');
+  diag.push('<span style="color:var(--dim)">build r853</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
