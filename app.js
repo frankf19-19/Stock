@@ -1,4 +1,4 @@
-/* K研所 · build r849 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r851 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1095,13 +1095,14 @@ function renderMacro(){
   document.getElementById('idxRow').innerHTML=_cards.length?_cards.join('')
     :'<div class="idx-card" id="idxEmpty"><div class="nm">台股指數載入中…</div></div>';
   try{ensureUsTvCards();}catch(e){}
+  try{if(!fhKey()&&!document.getElementById('fhSetup')){const r=document.getElementById('idxRow');if(r&&r.parentNode){const d=document.createElement('div');d.id='fhSetup';d.className='dim';d.style.cssText='font-size:12px;margin-top:6px';d.innerHTML='🇺🇸 想要美股即時(含盤前盤後、台積電 ADR 開盤前瞻)?<a href="#" id="fhSetupA" style="color:var(--t-blue);margin-left:6px">設定 Finnhub 免費 key</a>';r.parentNode.insertBefore(d,r.nextSibling);document.getElementById('fhSetupA').onclick=e=>{e.preventDefault();const k=prompt('Finnhub API key(finnhub.io 免費註冊,Dashboard 複製)');if(k&&k.trim()){try{localStorage.setItem('fh_key',k.trim());}catch(_){}location.reload();}};}}}catch(e){}
   try{rtIdxStale();}catch(e){}   // r738
   const fx=m.fx||{};
   const items=[["美元/台幣","usdtwd","FX_IDC:USDTWD"],["日圓/台幣","jpytwd","FX_IDC:JPYTWD"],["美元指數(DXY 即時)","dxy","CAPITALCOM:DXY"]];   // r488:三卡改 TV 迷你即時卡(價+%+走勢線);Fed廣義序列保留在 dxy 詳細頁
   document.getElementById('fxRow').innerHTML=items.map(([n,k])=>
     `<div class="idx-card" style="position:relative;padding:10px 12px 8px"><div class="nm">${n}<span style="color:var(--dim)"> ›</span></div><div id="fxTv_${k}"><div class="dim-note" style="padding:10px 0">載入中…</div></div><div data-fxgo="${k}" style="position:absolute;inset:0;height:24px;cursor:pointer" title="點我看詳細"></div></div>`).join('');
   items.forEach(([n,k,tvs])=>{
-    try{tvMiniQuote('fxTv_'+k,tvs);}catch(e){}
+    if(!fhKey())try{tvMiniQuote('fxTv_'+k,tvs);}catch(e){}   // r851:有 Finnhub key 由 usLivePaint 填即時匯率
     const go=document.querySelector(`[data-fxgo="${k}"]`);
     if(go)go.onclick=()=>{location.hash='#macro/'+k;};
   });
@@ -1403,8 +1404,43 @@ const __cmdPoll=setInterval(()=>{try{ensureCmdCards();if(window.__cmdTv)clearInt
   const sync=()=>{b.style.display=(location.hash&&location.hash.includes('/'))?'flex':'none';};
   window.addEventListener('hashchange',sync);sync();
 })();
-function ensureUsTvCards(){             // 📺 r487:美股四卡=TradingView 迷你即時卡(SPX/NSX/DJI/SOXX,官方串流價)
+/* ═══ r851:🇺🇸 美股即時(Finnhub WebSocket)+ 台積電 ADR 開盤前瞻 —— 取代 TradingView 卡 ═══ */
+const US_LIVE2=[["SPY","S&P 500","SPY"],['QQQ','那斯達克 100','QQQ'],['DIA','道瓊','DIA'],['SOXX','費城半導體','SOXX'],['TSM','台積電 ADR','TSM']];
+const FX_LIVE=[['OANDA:USD_TWD','美元/台幣'],['OANDA:USD_JPY','美元/日圓']];
+const USL={q:{},ticks:{},ws:null,ok:false,last:0};
+function etNow(){const d=new Date();const y=d.getUTCFullYear();const mar=new Date(Date.UTC(y,2,14-((new Date(Date.UTC(y,2,1)).getUTCDay()+6)%7)+0,7));const nov=new Date(Date.UTC(y,10,7-((new Date(Date.UTC(y,10,1)).getUTCDay()+6)%7)+0,6));const dst=d>=mar&&d<nov;const et=new Date(d.getTime()-(dst?4:5)*3600e3);return {et,h:et.getUTCHours(),m:et.getUTCMinutes(),dow:et.getUTCDay(),dst};}
+function usSession(){const T=etNow();const mm=T.h*60+T.m;if(T.dow===0||T.dow===6)return '休市';if(mm<4*60)return '休市';if(mm<9*60+30)return '盤前';if(mm<16*60)return '盤中';if(mm<20*60)return '盤後';return '休市';}
+function sparkSvg(arr,up){if(!arr||arr.length<2)return '';const w=200,h=44;const v=arr.map(x=>x[1]);const lo=Math.min(...v),hi=Math.max(...v);const r=hi-lo||1;const pts=v.map((p,i)=>`${(i/(v.length-1)*w).toFixed(1)},${(h-3-(p-lo)/r*(h-6)).toFixed(1)}`).join(' ');const col=up?'var(--up)':'var(--down)';return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:44px;display:block"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.6"/></svg>`;}
+function usCardHTML(sym,nm){const q=USL.q[sym]||{};const px=q.c,pc=q.pc;const dp=(px&&pc)?(px/pc-1)*100:(q.dp??null);const up=dp==null?true:dp>=0;
+  return `<div class="idx-card" style="position:relative;padding:10px 12px 8px"><div class="nm">${nm} <span class="dim" style="font-size:10px">${sym}</span></div>
+    <div class="vl">${px?px.toLocaleString(undefined,{maximumFractionDigits:2}):'—'}</div><div class="ch">${dp!=null?chgHtml(+dp.toFixed(2)):''}</div>
+    <div style="margin-top:4px">${sparkSvg(USL.ticks[sym],up)}</div></div>`;}
+function adrCardHTML(){const t=USL.q.TSM||{};const fxq=USL.q['OANDA:USD_TWD']||{};const fx=fxq.c||(DATA.macro&&DATA.macro.fx&&DATA.macro.fx.USDTWD)||null;const s2330=(DATA.stocks||[]).find(x=>x.id==='2330');const cl=s2330&&s2330.price;
+  if(!t.c||!fx||!cl)return `<div class="idx-card" style="grid-column:1/-1;padding:10px 12px"><div class="nm">🇹🇼 台積電 ADR → 開盤前瞻</div><div class="dim-note">等待 TSM / 匯率資料…</div></div>`;
+  const implied=t.c*fx/5;const prem=(implied/cl-1)*100;const sx=USL.q.SOXX||{};const sxdp=(sx.c&&sx.pc)?(sx.c/sx.pc-1)*100:0;const spy=USL.q.SPY||{};const spdp=(spy.c&&spy.pc)?(spy.c/spy.pc-1)*100:0;
+  const twii=0.35*prem+0.65*(0.5*sxdp+0.5*spdp);const col=v=>v>=0?'var(--up)':'var(--down)';const f=v=>(v>=0?'+':'')+v.toFixed(2)+'%';
+  return `<div class="idx-card" style="grid-column:1/-1;padding:10px 14px;border-color:var(--t-gold)"><div class="nm">🇹🇼 台積電 ADR → 台股開盤前瞻 <span class="dim" style="font-size:10px">美股${usSession()}・即時</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px 26px;margin-top:6px;font-size:13px;line-height:1.7">
+      <div>TSM <b>${t.c.toFixed(2)}</b> × ${fx.toFixed(3)} ÷ 5 = 隱含 <b>${implied.toFixed(0)}</b> 元</div>
+      <div>vs 台積電收盤 ${cl.toLocaleString()} → ADR <b style="color:${col(prem)}">${prem>=0?'溢價':'折價'} ${f(prem)}</b></div>
+      <div>預估台積電開 <b style="color:${col(prem)}">${(cl*(1+prem/100)).toFixed(0)}</b></div>
+      <div>費半 ${f(sxdp)}・S&P ${f(spdp)} → 加權粗估 <b style="color:${col(twii)}">${f(twii)}</b></div></div>
+    <div class="dim" style="font-size:11px;margin-top:4px">加權粗估 = 35% ADR 溢價 + 65% × (費半、S&P 各半);只是開盤前的方向感,不是預測。</div></div>`;}
+function usLivePaint(){const g=document.getElementById('usTvCards');if(!g)return;g.innerHTML=adrCardHTML()+US_LIVE2.map(([sym,nm])=>usCardHTML(sym,nm)).join('')+`<div class="dim" style="grid-column:1/-1;font-size:11px">${USL.ok?'● Finnhub 即時串流(含盤前盤後)':'○ 連線中…'}<a href="#" id="fhKeyEdit" style="margin-left:10px;color:var(--t-blue)">更換 key</a></div>`;
+  const a=document.getElementById('fhKeyEdit');if(a)a.onclick=e=>{e.preventDefault();const k=prompt('Finnhub API key(finnhub.io 免費註冊)',fhKey());if(k===null)return;try{localStorage.setItem('fh_key',k.trim());}catch(_){}location.reload();};
+  const fr=document.getElementById('fxRow');if(fr&&fhKey()){fr.innerHTML=FX_LIVE.map(([sym,nm])=>usCardHTML(sym,nm)).join('');}}
+async function usLiveQuote(sym){try{const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${fhKey()}`,8000);if(!r||!r.ok)return;const j=await r.json();if(j&&j.c>0){USL.q[sym]=Object.assign(USL.q[sym]||{},{c:j.c,pc:j.pc,dp:j.dp,t:j.t});usTick(sym,j.c);}}catch(e){}}
+function usTick(sym,p){const a=USL.ticks[sym]||(USL.ticks[sym]=[]);const now=Date.now();if(a.length&&now-a[a.length-1][0]<2000){a[a.length-1][1]=p;}else a.push([now,p]);if(a.length>360)a.splice(0,a.length-360);}
+function usLiveWS(){try{if(USL.ws)return;const ws=new WebSocket('wss://ws.finnhub.io?token='+encodeURIComponent(fhKey()));USL.ws=ws;
+  ws.onopen=()=>{USL.ok=true;[...US_LIVE2.map(x=>x[0]),...FX_LIVE.map(x=>x[0])].forEach(sym=>ws.send(JSON.stringify({type:'subscribe',symbol:sym})));usLivePaint();};
+  ws.onmessage=ev=>{try{const m=JSON.parse(ev.data);if(m.type!=='trade')return;for(const t of m.data){const q=USL.q[t.s]||(USL.q[t.s]={});q.c=t.p;usTick(t.s,t.p);}const now=Date.now();if(now-USL.last>1000){USL.last=now;usLivePaint();}}catch(e){}};
+  ws.onclose=()=>{USL.ok=false;USL.ws=null;setTimeout(usLiveWS,5000);};ws.onerror=()=>{try{ws.close();}catch(e){}};}catch(e){}}
+async function usLiveStart(){if(window.__usLiveOn)return;window.__usLiveOn=1;
+  await Promise.all([...US_LIVE2.map(x=>x[0]),...FX_LIVE.map(x=>x[0])].map(usLiveQuote));usLivePaint();usLiveWS();
+  setInterval(()=>{[...US_LIVE2.map(x=>x[0]),'OANDA:USD_TWD'].forEach(usLiveQuote);setTimeout(usLivePaint,1500);},30000);}   // 30 秒補一次 REST(前收盤價 pc、離線時的價格)
+function ensureUsTvCards(){             // 📺 r487:美股四卡=TradingView 迷你即時卡(SPX/NSX/DJI/SOXX,官方串流價);r851:有 Finnhub key 改即時卡
   if(window.__usTv)return;
+  if(fhKey()){const row=document.getElementById('idxRow');if(!row||!row.parentNode)return;const grid=document.createElement('div');grid.id='usTvCards';grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:10px';row.parentNode.insertBefore(grid,row.nextSibling);window.__usTv=1;usLivePaint();usLiveStart();return;}
   const row=document.getElementById('idxRow');
   if(!row||!row.parentNode)return;
   const grid=document.createElement('div');
@@ -1654,7 +1690,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r849</span>');
+  diag.push('<span style="color:var(--dim)">build r851</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
