@@ -1,4 +1,4 @@
-/* K研所 · build r859 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r860 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -474,7 +474,9 @@ function setBadges(extra){
 }
 function favList(){try{const a=JSON.parse(localStorage.getItem('fav_ids')||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}}
 function favHas(id){return favList().includes(id);}
+function needLogin(what){try{sbToast(`登入後才能${what||'使用這個功能'}——最愛、持股、提醒都存在你的帳號,換裝置也在`,1);sbModal();}catch(e){}return false;}   // r860
 function favToggle(id){
+  if(!SB_USER)return needLogin('收藏');
   let a=favList();
   a=a.includes(id)?a.filter(x=>x!==id):[...a,id];
   try{localStorage.setItem('fav_ids',JSON.stringify(a.slice(-100)));}catch(e){}
@@ -492,6 +494,7 @@ function showFavPage(){
     <button class="back" id="backBtn">← 回儀表板</button>
     <div class="m-head"><div>
       <h2 style="font-size:24px;font-weight:900">⭐ 我的最愛</h2>
+      ${!SB_USER?`<div class="c-full" style="margin:6px 0 10px;padding:10px 14px;border:1px solid var(--t-gold);border-radius:10px;font-size:13.5px">🔐 最愛、持股、提醒都存在<b>你的帳號</b>裡,不留在瀏覽器。<a href="#" onclick="sbModal();return false" style="color:var(--t-gold);font-weight:800;margin-left:6px">登入 / 註冊 ›</a></div>`:''}
       <div class="c-full" style="margin-top:4px">在個股頁點名稱旁的 ☆、或在選股清單卡片點星星即可收藏;收藏只存在你這台裝置。</div>
     </div>
     <button class="btn-ghost" id="favAlTg" style="margin-left:auto;padding:7px 14px;font-weight:800"></button></div>
@@ -1684,10 +1687,10 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
-  diag.push('<span id="hltChip" style="cursor:pointer;font-weight:800;color:var(--amber)" title="各資料源最後更新與覆蓋率">🩺 資料健康</span>');   // r707
+  diag.push('<span id="hltChip" class="admin-only" style="cursor:pointer;font-weight:800;color:var(--amber)" title="各資料源最後更新與覆蓋率">🩺 資料健康</span>');   // r707
   try{const g=window.__idxDiag||{};
       diag.push(`<span id="diagIdxMis"><span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}</span>`);}catch(e){}
-  diag.push(`<span style="cursor:pointer;color:var(--amber);font-weight:800" onclick="try{dataDoctor()}catch(e){}" title="現場實測快照/報價/卡片對帳">🩺 健檢</span>`);
+  diag.push(`<span class="admin-only" style="cursor:pointer;color:var(--amber);font-weight:800" onclick="try{dataDoctor()}catch(e){}" title="現場實測快照/報價/卡片對帳">🩺 健檢</span>`);
   try{const n=(window.__rtOkN||0),ts=window.__rtOkT||0;
     const fresh=ts&&(Date.now()-ts<90000);
     const offOk=window.__fqsOk&&(Date.now()-window.__fqsOk<16*60e3);   // r522:改接巡檢旗標(快照旗標已死)
@@ -1698,7 +1701,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r859</span>');
+  diag.push('<span style="color:var(--dim)">build r860</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -17758,6 +17761,7 @@ function portGet(){try{return JSON.parse(localStorage.getItem('port1')||'[]');}c
 function portSet(v){try{localStorage.setItem('port1',JSON.stringify(v));}catch(e){}}
 function portDel(id){portSet(portGet().filter(x=>x.id!==id));renderPort();setTimeout(portHeadRisk,400);}
 function portAdd(){
+  if(!SB_USER)return needLogin('加入持股');
   const id=(document.getElementById('ptId').value||'').trim().toUpperCase();
   const sh=+document.getElementById('ptSh').value, cost=+document.getElementById('ptCost').value;
   const s=(DATA.stocks||[]).find(x=>x.id===id);
@@ -20362,7 +20366,8 @@ function sbModePaint(mode){
     document.getElementById('sbSyncNow').onclick=()=>sbPull();
     sbTgPaint(); sbPushPaint('sbPush',true);
     document.getElementById('sbOut').onclick=async()=>{ const c=sbInit(); if(c)await c.auth.signOut();
-      SB_USER=null; sbBtnPaint(); sbModePaint(); sbToast('已登出(本機資料保留)'); };
+      SB_USER=null; ['fav_ids','port1','pxAlerts','sb_dirty','favAlertSeen','favAlertLog'].forEach(k=>{try{localStorage.removeItem(k);}catch(e){}});   // r860:登出即清本機個人資料
+      sbBtnPaint(); sbModePaint(); try{renderFav();}catch(e){} try{if(typeof renderPort==='function')renderPort();}catch(e){} sbToast('已登出,這台裝置上的最愛/持股/提醒已清除(資料仍在你的帳號裡)'); };
     document.getElementById('sbDel').onclick=async()=>{
       if(!confirm('確定刪除雲端資料?本機的最愛與持股會保留,但雲端備份會清空,且無法復原。'))return;
       const c=sbInit(); if(!c)return;
