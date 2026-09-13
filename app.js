@@ -1,4 +1,4 @@
-/* K研所 · build r856 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r857 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1273,7 +1273,7 @@ function tvSingleQuote(domId,tvsym){   // 標頭即時報價(TradingView 官方�
   sc.src='https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js';
   sc.async=true;
   sc.innerHTML=JSON.stringify({symbol:tvsym,width:'100%',colorTheme:tvDark()?'dark':'light',
-    isTransparent:true,locale:'zh_TW'});
+    isTransparent:!tvDark(),locale:'zh_TW'});
   wrap.appendChild(sc);
   return true;
 }
@@ -1313,7 +1313,7 @@ function tvMiniQuoteNow(domId,tvsym){     // 卡片報價(TradingView 迷你走�
   sc.async=true;
   sc.innerHTML=JSON.stringify({symbol:tvsym,width:'100%',height:150,dateRange:'1D',
     colorTheme:tvDark()?'dark':'light',
-    isTransparent:true,autosize:false,largeChartUrl:'',chartOnly:false,noTimeScale:true,locale:'zh_TW',
+    isTransparent:!tvDark(),autosize:false,largeChartUrl:'',chartOnly:false,noTimeScale:true,locale:'zh_TW',
     trendLineColor:tvDark()?'#e0b84a':'#b3382c',underLineColor:tvDark()?'rgba(224,184,74,.22)':'rgba(179,56,44,.18)',underLineBottomColor:'rgba(0,0,0,0)'});   // r856:金線配站上主題
   wrap.appendChild(sc);
   return true;
@@ -1521,7 +1521,7 @@ function tvTape(){                      // 全站即時跑馬燈(首頁最上方
       {proName:'FOREXCOM:DJI',title:'道瓊'},{proName:'NASDAQ:SOXX',title:'費半ETF'},
       {proName:'CAPITALCOM:VIX',title:'VIX'},{proName:'CAPITALCOM:J225',title:'日經225'},
       {proName:'FX_IDC:USDTWD',title:'美元/台幣'},{proName:'FOREXCOM:XAUUSD',title:'黃金'}],
-    showSymbolLogo:false,isTransparent:true,displayMode:'adaptive',colorTheme:tvDark()?'dark':'light',locale:'zh_TW'});
+    showSymbolLogo:false,isTransparent:!tvDark(),displayMode:'adaptive',colorTheme:tvDark()?'dark':'light',locale:'zh_TW'});
   wrap.appendChild(sc);
   window.__tvTape=1;
 }
@@ -1698,7 +1698,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r856</span>');
+  diag.push('<span style="color:var(--dim)">build r857</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4978,7 +4978,7 @@ async function asiaCard(){                                 // r489:亞洲股市�
         {proName:'TVC:HSI',title:'香港恆生'},
         {proName:'SSE:000001',title:'上證指數'}],
       colorTheme:tvDark()?'dark':'light',
-      isTransparent:true,showSymbolLogo:true,locale:'zh_TW'});
+      isTransparent:!tvDark(),showSymbolLogo:true,locale:'zh_TW'});
     wrap.appendChild(sc);
   }catch(e){box.style.display='none';}
 }
