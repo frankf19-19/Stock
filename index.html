@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r861">
+<link rel="stylesheet" href="app.css?v=r862">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -77,7 +77,7 @@
 
 <div class="wrap">
 
-  <div class="diag" id="diag"></div>
+  <div class="diag admin-only" id="diag"></div>
 
   <div id="homeView">
 
@@ -335,13 +335,17 @@
   </div>
 
   <div class="foot">
-    綜合評分 = 基本面 40% + 籌碼面 35% + 技術面 25%(規則化計分,細項見個股明細)。<br>
-    本頁為個人研究工具,所有內容僅為資料整理與規則化篩選結果,不構成任何投資建議;投資一定有風險,買賣前請自行judge並詳閱公開說明書。資料來源:FinMind / 公開資訊觀測站 / TWSE。
+    綜合評分 = 基本面 40% + 籌碼面 35% + 技術面 25%(本站自訂權重,可在設定中調整)。
+  </div>
+  <div class="foot legal" id="legal">
+    <div><b>© 2026 K研所 · Frank Fu(傅宏峻)</b>· 版權所有,保留一切權利。</div>
+    <div>本站之選股模型、評分方法、關鍵分點與主力節奏演算法、介面設計與文字內容均為原創著作,受《著作權法》保護;未經書面授權,不得複製、轉載、改作、擷取資料或用於商業用途。</div>
+    <div>所有資訊僅供研究參考,不構成任何投資建議或要約;投資有風險,請自行判斷並承擔。資料來源:證交所、櫃買中心、期交所、公開資訊觀測站、FinMind、富果、Finnhub、TradingView,各歸原權利人所有。</div>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r861"></script>
+<script src="app.js?v=r862"></script>
 <script src="mobile.js?v=r770" defer></script>
 </body>
 </html>
