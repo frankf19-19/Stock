@@ -1,4 +1,4 @@
-/* K研所 · build r854 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r855 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1431,19 +1431,30 @@ function usLivePaint(){const g=document.getElementById('usTvCards');if(!g)return
   const fr=document.getElementById('fxRow');if(fr&&fhKey()){const fx=(DATA.macro&&DATA.macro.fx)||{};const stat=(nm,v,d)=>`<div class="idx-card" style="padding:10px 12px 8px"><div class="nm">${nm} <span class="dim" style="font-size:10px">日更</span></div><div class="vl">${v!=null?v:'—'}</div><div class="ch">${d!=null?chgHtml(d):''}</div></div>`;
     fr.innerHTML=FX_LIVE.map(([sym,nm])=>USL.q[sym]&&USL.q[sym].c?usCardHTML(sym,nm):stat(nm,sym.includes('TWD')?fx.USDTWD:sym.includes('JPY')?(fx.USDJPY||null):null,null)).join('')+stat('美元指數 DXY',fx.DXY,null);}}
 /* r853:美股即時詳細面板——5 日 5 分線(Yahoo)+ 即時價(Finnhub),自家 ECharts */
-async function usDetail(sym){const nm=(US_LIVE2.find(x=>x[0]===sym)||[])[1]||sym;
+function lwcLoad(){return new Promise((res,rej)=>{if(window.LightweightCharts)return res();const sc=document.createElement('script');sc.src='https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';sc.onload=res;sc.onerror=rej;document.head.appendChild(sc);});}
+async function usDetail(sym){const nm=(US_LIVE2.find(x=>x[0]===sym)||[])[1]||sym;try{await lwcLoad();}catch(e){}
   const ov=document.createElement('div');ov.className='hlt-mask';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
   ov.innerHTML=`<div class="hlt-box" style="max-width:820px"><div class="hlt-h" style="display:flex;justify-content:space-between;align-items:center"><span>${nm} <span class="dim" style="font-size:12px">${sym}・美股${usSession()}</span></span><span class="hlt-x" style="cursor:pointer;font-weight:900">✕</span></div>
     <div id="usdStat" style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;margin:6px 0"></div>
     <div class="ind-seg" id="usdSeg" style="margin:4px 0"><button data-r="1d" class="on">1 日</button><button data-r="5d">5 日</button><button data-r="1mo">1 月</button></div>
-    <div id="usdChart" style="height:340px"></div><div class="dim" style="font-size:11px;margin-top:6px">全部 Finnhub 即時:歷史線是 Worker 每 2 分鐘錄下的即時價(含盤前盤後),最後一段是瀏覽器逐筆串流。</div></div>`;
-  document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.classList.contains('hlt-x'))ov.remove();};
+    <div id="usdChart" style="height:340px"></div><div class="dim" style="font-size:11px;margin-top:6px">TradingView Lightweight Charts 引擎・資料全部 Finnhub 即時:歷史是 Worker 每 2 分鐘錄下的即時價(含盤前盤後),之後逐筆即時更新。滾輪縮放、拖曳平移。</div></div>`;
+  document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.classList.contains('hlt-x')){ov.remove();USL.detailFeed=null;}};
   const draw=async range=>{const h=await usHist(sym,range==='1mo'?'1mo':range);const q=USL.q[sym]||{};if(!h||!h.pts.length){document.getElementById('usdChart').innerHTML='<div class="dim-note">還沒有錄到資料(美股 04:00 ET 起每 2 分鐘錄一筆即時價)</div>';document.getElementById('usdStat').innerHTML='';return;}
     let pts=h.pts.slice();if(range==='1d'){const live=(USL.ticks[sym]||[]).filter(x=>x[0]>pts[pts.length-1][0]);pts=pts.concat(live);}if(q.c&&pts.length)pts[pts.length-1]=[Math.max(pts[pts.length-1][0],Date.now()),q.c];
     const pc=h.pc||q.pc;const last=pts[pts.length-1][1];const dp=pc?(last/pc-1)*100:null;const up=dp==null||dp>=0;
     const hi=Math.max(...pts.map(x=>x[1])),lo=Math.min(...pts.map(x=>x[1]));
     document.getElementById('usdStat').innerHTML=`<div>現價 <b style="font-size:18px">${last.toFixed(2)}</b> ${dp!=null?`<b style="color:${up?'var(--up)':'var(--down)'}">${dp>=0?'+':''}${dp.toFixed(2)}%</b>`:''}</div><div class="dim">前收 ${pc?pc.toFixed(2):'—'}</div><div class="dim">區間高 ${hi.toFixed(2)}・低 ${lo.toFixed(2)}</div>`;
     const el=document.getElementById('usdChart');try{const inst=echarts.getInstanceByDom(el);if(inst)inst.dispose();}catch(e){}
+    if(window.LightweightCharts){el.innerHTML='';const LW=window.LightweightCharts;const colUp=up?'#ff6b6b':'#3fb37f';
+      const chart=LW.createChart(el,{layout:{background:{type:'solid',color:'transparent'},textColor:'#9aa0ad'},grid:{vertLines:{color:'#22252d'},horzLines:{color:'#22252d'}},rightPriceScale:{borderColor:'#333'},timeScale:{borderColor:'#333',timeVisible:true,secondsVisible:false},crosshair:{mode:0},localization:{locale:'zh-TW'}});
+      const ser=chart.addAreaSeries({lineColor:colUp,topColor:colUp+'66',bottomColor:colUp+'00',lineWidth:2,priceLineVisible:true,lastValueVisible:true});
+      const seen=new Set();const data=[];pts.forEach(p=>{const t=Math.floor(p[0]/1000);if(seen.has(t))return;seen.add(t);data.push({time:t,value:p[1]});});ser.setData(data);
+      if(pc)ser.createPriceLine({price:pc,color:'#8b8f9a',lineWidth:1,lineStyle:2,title:'前收'});
+      chart.timeScale().fitContent();
+      // 即時:WebSocket 每筆更新最後一點
+      USL.detailFeed={sym,ser,chart,last:data.length?data[data.length-1].time:0};
+      new ResizeObserver(()=>{try{chart.applyOptions({width:el.clientWidth});}catch(e){}}).observe(el);
+      return;}
     const ch=echarts.init(el);const col=up?'#ff6b6b':'#3fb37f';
     ch.setOption({backgroundColor:'transparent',grid:{left:56,right:16,top:14,bottom:28},tooltip:{trigger:'axis',valueFormatter:v=>(+v).toFixed(2)},xAxis:{type:'time',axisLabel:{color:'#8b8f9a',formatter:v=>{const d=new Date(v);return range==='1d'?`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`:`${d.getMonth()+1}/${d.getDate()}`;}},axisLine:{lineStyle:{color:'#333'}},splitLine:{show:false}},
       yAxis:{type:'value',scale:true,axisLabel:{color:'#8b8f9a'},splitLine:{lineStyle:{color:'#2a2d35'}}},
@@ -1462,7 +1473,8 @@ async function usHistAll(){for(const [sym] of US_LIVE2){const h=await usHist(sym
 function usTick(sym,p){const a=USL.ticks[sym]||(USL.ticks[sym]=[]);const now=Date.now();if(a.length&&now-a[a.length-1][0]<2000){a[a.length-1][1]=p;}else a.push([now,p]);if(a.length>360)a.splice(0,a.length-360);}
 function usLiveWS(){try{if(USL.ws)return;const ws=new WebSocket('wss://ws.finnhub.io?token='+encodeURIComponent(fhKey()));USL.ws=ws;
   ws.onopen=()=>{USL.ok=true;[...US_LIVE2.map(x=>x[0]),...FX_LIVE.map(x=>x[0])].forEach(sym=>ws.send(JSON.stringify({type:'subscribe',symbol:sym})));usLivePaint();};
-  ws.onmessage=ev=>{try{const m=JSON.parse(ev.data);if(m.type!=='trade')return;for(const t of m.data){const q=USL.q[t.s]||(USL.q[t.s]={});q.c=t.p;usTick(t.s,t.p);}const now=Date.now();if(now-USL.last>1000){USL.last=now;usLivePaint();}}catch(e){}};
+  ws.onmessage=ev=>{try{const m=JSON.parse(ev.data);if(m.type!=='trade')return;for(const t of m.data){const q=USL.q[t.s]||(USL.q[t.s]={});q.c=t.p;usTick(t.s,t.p);
+      const D=USL.detailFeed;if(D&&D.sym===t.s&&document.getElementById('usdChart')){const ts=Math.floor(t.t/1000);if(ts>=D.last){D.last=ts;try{D.ser.update({time:ts,value:t.p});}catch(e){}}}}const now=Date.now();if(now-USL.last>1000){USL.last=now;usLivePaint();}}catch(e){}};
   ws.onclose=()=>{USL.ok=false;USL.ws=null;setTimeout(usLiveWS,5000);};ws.onerror=()=>{try{ws.close();}catch(e){}};}catch(e){}}
 async function usLiveStart(){if(window.__usLiveOn)return;window.__usLiveOn=1;
   await Promise.all([...US_LIVE2.map(x=>x[0]),...FX_LIVE.map(x=>x[0])].map(usLiveQuote));usLivePaint();usLiveWS();usHistAll();setInterval(usHistAll,5*60*1000);
@@ -1720,7 +1732,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r854</span>');
+  diag.push('<span style="color:var(--dim)">build r855</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
