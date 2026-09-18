@@ -1,4 +1,4 @@
-/* K研所 · build r864 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r865 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1701,7 +1701,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r864</span>');
+  diag.push('<span style="color:var(--dim)">build r865</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20079,19 +20079,23 @@ function sbApply(bundle){                                   // 寫回本機並�
   }
   return changed;
 }
-async function sbPull(){                                    // 登入後拉雲端 → 合併 → 回寫 → 推回合併結果
+async function sbPull(quiet){                               // 登入後拉雲端 → 合併 → 回寫 → 推回合併結果;r865:quiet=背景靜默拉取
   const c=sbInit(); if(!c||!SB_USER)return;
+  if(quiet&&Object.keys(sbDirtyGet()).length)return;        // 本機還有沒推完的變動,先不拉(避免覆蓋)
   try{
     const {data,error}=await c.from('user_data').select('data,updated_at').eq('uid',SB_USER.id).maybeSingle();
     if(error)throw error;
     const merged=sbMerge(data&&data.data,sbLocalBundle(),data&&data.updated_at);
     try{SERVER_KEYS.forEach(k=>{const v=data&&data.data&&data.data[k];if(v!=null)localStorage.setItem('srv_'+k,String(v));else localStorage.removeItem('srv_'+k);});}catch(e1){}
     try{sbTgPaint();}catch(e2){}
+    if(quiet){const cur=JSON.stringify(sbLocalBundle()),nx=JSON.stringify(merged);if(cur===nx)return;sbApply(merged);return;}
     sbApply(merged);
-    await sbPush(true);                                     // 把合併結果寫回雲端(首次登入=上傳本機最愛)
+    await sbPush(true);                                     // 推回合併結果(冪等=雲端不變就不動)
     sbToast('已同步');
-  }catch(e){ sbToast('同步失敗,已用本機資料',1); }
+  }catch(e){ if(!quiet)sbToast('同步失敗,請稍後再試',1); }
 }
+setInterval(()=>{try{if(SB_USER&&document.visibilityState==='visible')sbPull(true);}catch(e){}},60000);   // r865:每分鐘靜默對帳(其他裝置的變動自動反映)
+document.addEventListener('visibilitychange',()=>{try{if(document.visibilityState==='visible'&&SB_USER)sbPull(true);}catch(e){}});
 async function sbPush(now){                                 // 推送(預設防抖 0.6 秒;r773:成功才清除本機髒記號)
   const c=sbInit(); if(!c||!SB_USER)return;
   clearTimeout(sbPushT);
@@ -20106,7 +20110,8 @@ async function sbPush(now){                                 // 推送(預設防�
       const {error}=await c.from('user_data').upsert({uid:SB_USER.id,data:bundle,updated_at:new Date().toISOString()},{onConflict:'uid'});
       if(error)throw error;
       const d=sbDirtyGet(); Object.keys(snap).forEach(k=>{ if(d[k]&&d[k]<=t0)delete d[k]; }); sbDirtySet(d);
-    }catch(e){ /* 留著髒記號,下次再推;離開頁面時 sbFlush 會再試 */ }
+      if(['fav_ids','port1','pxAlerts'].some(k=>snap[k])&&Date.now()-(window.__sbSyncToastAt||0)>5000){window.__sbSyncToastAt=Date.now();sbToast('☁️ 已同步到你的帳號');}   // r865
+    }catch(e){ sbToast('同步失敗,稍後自動重試',1); }
   };
   if(now)return go();
   sbPushT=setTimeout(go,600);
