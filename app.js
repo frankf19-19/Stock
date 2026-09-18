@@ -1,4 +1,4 @@
-/* K研所 · build r863 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r864 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1701,7 +1701,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r863</span>');
+  diag.push('<span style="color:var(--dim)">build r864</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21600,11 +21600,9 @@ function renderSecNav(){
         const a=head.querySelector('.fal-arr');if(a)a.textContent=open?'▴':'▾';};
     }
     let st=null;try{st=localStorage.getItem(key(bar));}catch(e2){}
-    const open=(st===null)?(bar.id==='favAlertBar2'):(st==='1');   // 「我的最愛」頁本來就是來看提醒的 → 預設展開
+    const open=(st==='1');                                          // r864:一律預設收合,只有使用者自己點開才展開   // 「我的最愛」頁本來就是來看提醒的 → 預設展開
     bar.classList.toggle('fal-open',open);
-    if(bar.dataset.falN!==String(n)){bar.dataset.falN=String(n);
-      if(!open&&Number(bar.dataset.falSeenN||0)<n){bar.classList.add('fal-open');}
-      bar.dataset.falSeenN=String(n);}
+    if(bar.dataset.falN!==String(n)){bar.dataset.falN=String(n);bar.dataset.falSeenN=String(n);}   // r864:有新提醒只更新則數,不自動展開(避免畫面跳動)
     const isOpen=bar.classList.contains('fal-open');
     const __h=`<b>${hasAip?'🤖⭐ 買賣提醒':'⭐ 最愛提醒'} <span class="fal-n">${n}</span> 則</b>`
       +`<span class="fal-peek">${isOpen?'今天的到價提醒・點一列進個股':firstTxt+'…'}</span>`
