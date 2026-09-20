@@ -1846,3 +1846,11 @@ body.mini>*:not(#miniBar){display:none!important}
 #miniBar .mn-s{font-family:var(--mono);font-size:12px;margin-top:2px;white-space:nowrap}
 #miniBar .mn-note{font-size:13px;color:#bbb}#miniBar .mn-note a{color:#e0b84a;font-weight:800}
 @media(max-width:480px){#miniBar .mn-g{grid-template-columns:repeat(2,1fr)}}
+/* r867:迷你視窗精簡列 */
+#miniBar.mn-compact{padding:0 10px;justify-content:center}
+#miniBar .mn-row{display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden;font-size:13px}
+#miniBar .mn-k{font-weight:900;color:#e0b84a;font-size:15px}
+#miniBar .mn-big{font-family:var(--mono);font-weight:900;font-size:20px}
+#miniBar .mn-pct{font-family:var(--mono);font-weight:800;font-size:13px}
+#miniBar .mn-rot{margin-left:auto;color:#cfd2da;overflow:hidden;text-overflow:ellipsis}
+#miniBar .mn-rot .mn-lnk{cursor:pointer}
