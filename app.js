@@ -1,4 +1,4 @@
-/* K研所 · build r867 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r868 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -464,6 +464,10 @@ function miniPaint(){
     </div>`;
   bar.querySelectorAll('.mn-lnk').forEach(el=>el.onclick=()=>window.open(location.pathname+'#stock/'+el.dataset.id,'_blank'));
 }
+// r868:一進頁就先掛殼(隱藏整站、顯示載入中),不等 DATA;DATA 太久沒來就提示
+if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.getElementById('miniBar')){const b=document.createElement('div');b.id='miniBar';b.innerHTML='<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">載入中…</div>';document.body.appendChild(b);}
+    setTimeout(()=>{const b=document.getElementById('miniBar');if(b&&!(window.DATA&&DATA.stocks)&&/載入中/.test(b.innerText))b.innerHTML='<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">資料載入較慢,請稍候或按右鍵「重新整理」…</div>';},25000);}catch(e){}};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);try{document.title='K研所 庫存即時';}catch(e){}}
 async function boot(){
   if(MINI){const w=setInterval(()=>{if(DATA&&DATA.stocks){clearInterval(w);miniStart();}},500);}   // r866
@@ -1743,7 +1747,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r867</span>');
+  diag.push('<span style="color:var(--dim)">build r868</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
