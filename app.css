@@ -1873,3 +1873,15 @@ body.mini>*:not(#miniBar){display:none!important}
 #miniBar .mn-ts{font-size:calc(var(--mn-cs)*.6)}
 #miniBar.mn-mid .mn-g{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));grid-auto-rows:1fr}
 #miniBar:not(.mn-mid) .mn-g{grid-template-columns:repeat(5,1fr)}
+/* r870:小工具設定/關閉 */
+#miniBar{position:fixed}
+#miniBar .mn-tools{position:absolute;top:2px;right:4px;display:flex;gap:2px;opacity:0;transition:opacity .15s;z-index:5}
+#miniBar:hover .mn-tools{opacity:1}
+#miniBar .mn-tb{cursor:pointer;font-size:12px;line-height:1;padding:3px 5px;border-radius:5px;color:#9aa0ad;background:#16181d;border:1px solid #2a2d35;-webkit-app-region:no-drag}
+#miniBar .mn-tb:hover{color:#fff;border-color:#e0b84a}
+#mnSet{position:absolute;inset:0;background:#0b0d12f2;z-index:9;padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:auto;-webkit-app-region:no-drag;font-size:12.5px}
+#mnSet .mn-set-h{display:flex;justify-content:space-between;align-items:center;color:#e0b84a}
+#mnSet .mn-x{cursor:pointer;color:#9aa0ad}
+#mnSet .mn-set-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px 10px}
+#mnSet label{display:flex;gap:6px;align-items:center;cursor:pointer;color:#e8e8ea}
+#mnSet .mn-set-f{font-size:11px}

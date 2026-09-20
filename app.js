@@ -1,4 +1,4 @@
-/* K研所 · build r869 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r870 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -426,51 +426,63 @@ function snapLoad(){
 }
 /* ═══ r866:🪟 迷你視窗模式(?mini=1)——桌機常駐置頂用:今日損益/領先大盤/最強最弱/加權櫃買,即時 ═══ */
 const MINI=(()=>{try{return new URLSearchParams(location.search).get('mini')==='1';}catch(e){return false;}})();
-function miniPaint(){
+const MINI_ITEMS=[['day','今日損益'],['tot','總損益'],['lead','領先/落後大盤'],['best','今日最強'],['worst','今日最弱'],['twii','加權指數'],['otc','櫃買指數'],['ts','更新時間']];
+function miniCfg(){try{const c=JSON.parse(localStorage.getItem('mini_cfg')||'{}');if(!Array.isArray(c.items)||!c.items.length)c.items=MINI_ITEMS.map(x=>x[0]);return c;}catch(e){return {items:MINI_ITEMS.map(x=>x[0])};}}
+function miniCfgSet(c){try{localStorage.setItem('mini_cfg',JSON.stringify(c));}catch(e){}}
+function miniQuit(){try{if(/[?&]app=1/.test(location.search)){location.href='kyansuo://quit';return;}}catch(e){}window.close();}
+function miniSettings(){const cfg=miniCfg();let ov=document.getElementById('mnSet');if(ov){ov.remove();return;}
+  ov=document.createElement('div');ov.id='mnSet';ov.innerHTML=`<div class="mn-set-h"><b>顯示項目</b><span class="mn-x" id="mnSetX">✕</span></div>
+    <div class="mn-set-g">${MINI_ITEMS.map(([k,nm])=>`<label><input type="checkbox" data-k="${k}" ${cfg.items.includes(k)?'checked':''}> ${nm}</label>`).join('')}</div>
+    <div class="mn-set-f"><span class="dim">勾選的項目依這個順序排;小視窗時只顯示第一個,其餘輪播。</span></div>`;
+  document.getElementById('miniBar').appendChild(ov);
+  ov.querySelectorAll('input').forEach(cb=>cb.onchange=()=>{const items=MINI_ITEMS.map(x=>x[0]).filter(k=>ov.querySelector(`input[data-k="${k}"]`).checked);if(!items.length){cb.checked=true;return;}miniCfgSet(Object.assign(cfg,{items}));miniPaint(true);});
+  document.getElementById('mnSetX').onclick=()=>ov.remove();}
+function miniPaint(keepSet){
   let bar=document.getElementById('miniBar');
   if(!bar){bar=document.createElement('div');bar.id='miniBar';document.body.appendChild(bar);document.body.classList.add('mini');}
+  const setOpen=!!document.getElementById('mnSet');const setNode=keepSet?null:document.getElementById('mnSet');
   const fmt=v=>{const a=Math.abs(v);return (v<0?'-':'+')+(a>=1e4?Math.round(a).toLocaleString():a.toFixed(0));};
-  const col=v=>v>0?'var(--up)':v<0?'var(--down)':'var(--txt2)';
+  const col=v=>v>0?'var(--up)':v<0?'var(--down)':'var(--txt2)';const pc=v=>(v>=0?'+':'')+v.toFixed(2)+'%';
+  const tools=`<div class="mn-tools"><span class="mn-tb" id="mnGear" title="顯示項目">⚙</span><span class="mn-tb" id="mnClose" title="關閉小工具">✕</span></div>`;
+  const wire=()=>{const g=document.getElementById('mnGear');if(g)g.onclick=e=>{e.stopPropagation();miniSettings();};const x=document.getElementById('mnClose');if(x)x.onclick=e=>{e.stopPropagation();miniQuit();};if(setOpen&&!document.getElementById('mnSet'))miniSettings();};
   const idx=(window.RTIDX&&window.RTIDX['加權'])||(((DATA&&DATA.macro||{}).idx||[]).find(x=>(x.name||'').includes('加權'))||{});const idxChg=idx.chg!=null?+idx.chg:null;const idxVal=idx.val;
   const otc=(window.RTIDX&&window.RTIDX['櫃買'])||{};
   const ts=new Date().toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  if(!SB_USER&&!Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k))){bar.innerHTML=`<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">請先在主站登入(同一個 Chrome),迷你視窗會自動接上帳號。<a href="${location.pathname}" target="_blank">開主站 ›</a></div>`;return;}
+  if(!SB_USER&&!Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k))){bar.innerHTML=tools+`<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">請先在主站登入(同一個 Chrome / 本程式的主站視窗),小工具會自動接上帳號。<a href="${location.pathname}" target="_blank">開主站 ›</a></div>`;wire();return;}
   const arr=(typeof portGet==='function'?portGet():[]).map(p=>({p,s:(DATA&&DATA.stocks||[]).find(x=>x.id===p.id)})).filter(r=>r.s&&r.s.price>0&&r.s.market!=='US');
-  if(!arr.length){bar.innerHTML=`<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">帳號裡還沒有持股。<a href="${location.pathname}#port" target="_blank">去加持股 ›</a></div>`;return;}
+  if(!arr.length){bar.innerHTML=tools+`<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">帳號裡還沒有持股。<a href="${location.pathname}#port" target="_blank">去加持股 ›</a></div>`;wire();return;}
   let mv=0,ct=0,pv=0;const rows=arr.map(({p,s})=>{const chg=typeof s.chg==='number'?s.chg:0;const prev=s.price/(1+chg/100);mv+=s.price*p.sh;ct+=p.cost*p.sh;pv+=prev*p.sh;return {id:s.id,name:s.name,px:s.price,chg,day:(s.price-prev)*p.sh};});
   const day=mv-pv,dayPct=pv?day/pv*100:0,tot=mv-ct,totPct=ct?tot/ct*100:0;
   const best=rows.slice().sort((a,b)=>b.chg-a.chg)[0],worst=rows.slice().sort((a,b)=>a.chg-b.chg)[0];
   const lead=idxChg!=null?dayPct-idxChg:null;
+  // 所有可顯示的格子
+  const ALL={
+    day:{l:'今日損益',v:fmt(day),s:pc(dayPct),c:col(day),line:`今日 <b style="color:${col(day)}">${fmt(day)} ${pc(dayPct)}</b>`},
+    tot:{l:'總損益',v:fmt(tot),s:pc(totPct),c:col(tot),line:`總損益 <b style="color:${col(tot)}">${fmt(tot)} ${pc(totPct)}</b>`},
+    lead:lead!=null?{l:lead>=0?'領先大盤':'落後大盤',v:Math.abs(lead).toFixed(2)+'%',s:`加權 ${pc(idxChg)}`,c:col(lead),line:`<span style="color:${col(lead)}">${lead>=0?'領先':'落後'}大盤 ${Math.abs(lead).toFixed(2)}%</span>`}:null,
+    best:{l:'今日最強',v:`${best.id} ${best.name}`,nm:1,s:`${best.px} (${pc(best.chg)})`,c:col(best.chg),id:best.id,line:`<span class="mn-lnk" data-id="${best.id}">▲ ${best.name} <b style="color:${col(best.chg)}">${pc(best.chg)}</b></span>`},
+    worst:{l:'今日最弱',v:`${worst.id} ${worst.name}`,nm:1,s:`${worst.px} (${pc(worst.chg)})`,c:col(worst.chg),id:worst.id,line:`<span class="mn-lnk" data-id="${worst.id}">▼ ${worst.name} <b style="color:${col(worst.chg)}">${pc(worst.chg)}</b></span>`},
+    twii:{l:'加權指數',v:idxVal!=null?(+idxVal).toLocaleString():'—',s:idxChg!=null?pc(idxChg):'—',c:col(idxChg||0),line:`加權 <b style="color:${col(idxChg||0)}">${idxChg!=null?pc(idxChg):'—'}</b>`},
+    otc:{l:'櫃買指數',v:otc.val!=null?(+otc.val).toLocaleString():'—',s:otc.chg!=null?pc(+otc.chg):'—',c:col(+otc.chg||0),line:`櫃買 <b style="color:${col(+otc.chg||0)}">${otc.chg!=null?pc(+otc.chg):'—'}</b>`},
+    ts:{l:'更新時間',v:ts,s:'每 3 秒',c:'var(--txt2)',line:`<span class="dim">${ts} 更新</span>`}};
+  const cfg=miniCfg();const cells=cfg.items.map(k=>ALL[k]?Object.assign({k},ALL[k]):null).filter(Boolean);
+  if(!cells.length)cells.push(Object.assign({k:'day'},ALL.day));
   // r869:依視窗尺寸自動分級,字級跟著視窗縮放
   const W=innerWidth,H=innerHeight;const fs=Math.max(9,Math.min(H*0.34,W*0.06,42));bar.style.setProperty('--mn-fs',fs+'px');
   bar.classList.remove('mn-xs','mn-compact','mn-mid');
-  if(H<62||W<230){                                              // 超小:只剩今日損益
-    bar.classList.add('mn-xs');
-    bar.innerHTML=`<div class="mn-row" title="今日損益(點開主站)"><span class="mn-big" style="color:${col(day)}">${fmt(day)}</span>${W>=150?`<span class="mn-pct" style="color:${col(day)}">${(dayPct>=0?'+':'')+dayPct.toFixed(1)}%</span>`:''}</div>`;
-    bar.onclick=()=>window.open(location.pathname+'#port','_blank');return;}
+  const first=cells[0];
+  if(H<62||W<230){bar.classList.add('mn-xs');
+    bar.innerHTML=tools+`<div class="mn-row"><span class="mn-big" style="color:${first.c}">${first.v}</span>${W>=150&&!first.nm?`<span class="mn-pct" style="color:${first.c}">${first.s}</span>`:''}</div>`;
+    bar.onclick=()=>window.open(location.pathname+(first.id?'#stock/'+first.id:'#port'),'_blank');wire();return;}
   bar.onclick=null;
-  if(H<150||W<420){
-    const items=[lead!=null?`<span style="color:${col(lead)}">${lead>=0?'領先':'落後'}大盤 ${Math.abs(lead).toFixed(2)}%</span>`:'',
-      `<span class="mn-lnk" data-id="${best.id}">▲ ${best.name} <span style="color:${col(best.chg)}">${best.chg>=0?'+':''}${best.chg.toFixed(2)}%</span></span>`,
-      `<span class="mn-lnk" data-id="${worst.id}">▼ ${worst.name} <span style="color:${col(worst.chg)}">${worst.chg>=0?'+':''}${worst.chg.toFixed(2)}%</span></span>`,
-      idxChg!=null?`加權 <span style="color:${col(idxChg)}">${idxChg>=0?'+':''}${idxChg.toFixed(2)}%</span>${otc.chg!=null?` 櫃買 <span style="color:${col(+otc.chg)}">${otc.chg>=0?'+':''}${(+otc.chg).toFixed(2)}%</span>`:''}`:'',
-      `總損益 <span style="color:${col(tot)}">${fmt(tot)} (${(totPct>=0?'+':'')+totPct.toFixed(2)}%)</span>`].filter(Boolean);
-    const k=Math.floor(Date.now()/4000)%items.length;
-    bar.classList.add('mn-compact');
-    bar.innerHTML=`<div class="mn-row"><span class="mn-k">K</span><span class="mn-big" style="color:${col(day)}">${fmt(day)}</span><span class="mn-pct" style="color:${col(day)}">${(dayPct>=0?'+':'')+dayPct.toFixed(2)}%</span><span class="mn-rot">${items[k]}</span></div>`;
-    bar.querySelectorAll('.mn-lnk').forEach(el=>el.onclick=()=>window.open(location.pathname+'#stock/'+el.dataset.id,'_blank'));
-    return;}
-  if(H<270||W<720)bar.classList.add('mn-mid');            // 中:2~3 欄卡片
+  if(H<150||W<420){const rest=cells.slice(1);const k=rest.length?Math.floor(Date.now()/4000)%rest.length:0;bar.classList.add('mn-compact');
+    bar.innerHTML=tools+`<div class="mn-row"><span class="mn-k">K</span><span class="mn-big" style="color:${first.c}">${first.v}</span>${first.nm?'':`<span class="mn-pct" style="color:${first.c}">${first.s}</span>`}${rest.length?`<span class="mn-rot">${rest[k].line}</span>`:''}</div>`;
+    bar.querySelectorAll('.mn-lnk').forEach(el=>el.onclick=()=>window.open(location.pathname+'#stock/'+el.dataset.id,'_blank'));wire();return;}
+  if(H<270||W<720)bar.classList.add('mn-mid');
   const cs=Math.max(10,Math.min(W*0.026,H*0.09,24));bar.style.setProperty('--mn-cs',cs+'px');
-  bar.innerHTML=`<div class="mn-h"><b>K研所</b> 庫存即時 ${lead!=null?`<span style="color:${col(lead)}">${lead>=0?'領先':'落後'}大盤 ${Math.abs(lead).toFixed(2)}%</span>`:''}<span class="mn-ts">${ts} 更新</span></div>
-    <div class="mn-g">
-      <div class="mn-c"><div class="mn-l">今日損益</div><div class="mn-v" style="color:${col(day)}">${fmt(day)}</div><div class="mn-s" style="color:${col(day)}">${(dayPct>=0?'+':'')+dayPct.toFixed(2)}%</div></div>
-      <div class="mn-c"><div class="mn-l">總損益</div><div class="mn-v" style="color:${col(tot)}">${fmt(tot)}</div><div class="mn-s" style="color:${col(tot)}">${(totPct>=0?'+':'')+totPct.toFixed(2)}%</div></div>
-      <div class="mn-c mn-lnk" data-id="${best.id}"><div class="mn-l">今日最強</div><div class="mn-v mn-nm">${best.id} ${best.name}</div><div class="mn-s" style="color:${col(best.chg)}">${best.px} (${best.chg>=0?'+':''}${best.chg.toFixed(2)}%)</div></div>
-      <div class="mn-c mn-lnk" data-id="${worst.id}"><div class="mn-l">今日最弱</div><div class="mn-v mn-nm">${worst.id} ${worst.name}</div><div class="mn-s" style="color:${col(worst.chg)}">${worst.px} (${worst.chg>=0?'+':''}${worst.chg.toFixed(2)}%)</div></div>
-      <div class="mn-c"><div class="mn-l">加權</div><div class="mn-v" style="font-size:15px">${idxVal!=null?(+idxVal).toLocaleString():'—'}</div><div class="mn-s" style="color:${col(idxChg||0)}">${idxChg!=null?(idxChg>=0?'+':'')+idxChg.toFixed(2)+'%':'—'}${otc.chg!=null?`<span class="dim">・櫃買 ${otc.chg>=0?'+':''}${(+otc.chg).toFixed(2)}%</span>`:''}</div></div>
-    </div>`;
-  bar.querySelectorAll('.mn-lnk').forEach(el=>el.onclick=()=>window.open(location.pathname+'#stock/'+el.dataset.id,'_blank'));
+  bar.innerHTML=tools+`<div class="mn-h"><b>K研所</b> 庫存即時 ${lead!=null?`<span style="color:${col(lead)}">${lead>=0?'領先':'落後'}大盤 ${Math.abs(lead).toFixed(2)}%</span>`:''}<span class="mn-ts">${ts} 更新</span></div>
+    <div class="mn-g" style="grid-template-columns:repeat(${bar.classList.contains('mn-mid')?'auto-fit':cells.length},${bar.classList.contains('mn-mid')?'minmax(150px,1fr)':'1fr'})">${cells.map(c=>`<div class="mn-c${c.id?' mn-lnk':''}" ${c.id?`data-id="${c.id}"`:''}><div class="mn-l">${c.l}</div><div class="mn-v${c.nm?' mn-nm':''}" style="${c.nm?'':`color:${c.c}`}">${c.v}</div><div class="mn-s" style="color:${c.c}">${c.s}</div></div>`).join('')}</div>`;
+  bar.querySelectorAll('.mn-lnk').forEach(el=>el.onclick=()=>window.open(location.pathname+'#stock/'+el.dataset.id,'_blank'));wire();
 }
 // r868:一進頁就先掛殼(隱藏整站、顯示載入中),不等 DATA;DATA 太久沒來就提示
 if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.getElementById('miniBar')){const b=document.createElement('div');b.id='miniBar';b.innerHTML='<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">載入中…</div>';document.body.appendChild(b);}
@@ -1755,7 +1767,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r869</span>');
+  diag.push('<span style="color:var(--dim)">build r870</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
