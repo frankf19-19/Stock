@@ -1854,3 +1854,22 @@ body.mini>*:not(#miniBar){display:none!important}
 #miniBar .mn-pct{font-family:var(--mono);font-weight:800;font-size:13px}
 #miniBar .mn-rot{margin-left:auto;color:#cfd2da;overflow:hidden;text-overflow:ellipsis}
 #miniBar .mn-rot .mn-lnk{cursor:pointer}
+/* r869:迷你視窗任意尺寸自適應 */
+#miniBar{--mn-fs:20px;--mn-cs:16px;padding:min(10px,2vh) min(12px,2vw);gap:min(8px,1.5vh)}
+#miniBar .mn-big{font-size:var(--mn-fs)}
+#miniBar .mn-pct{font-size:calc(var(--mn-fs)*.62)}
+#miniBar .mn-row{font-size:calc(var(--mn-fs)*.6);gap:calc(var(--mn-fs)*.5)}
+#miniBar .mn-k{font-size:calc(var(--mn-fs)*.7)}
+#miniBar.mn-xs{padding:0 min(8px,2vw);justify-content:center;cursor:pointer}
+#miniBar.mn-xs .mn-row{justify-content:center;gap:calc(var(--mn-fs)*.35)}
+#miniBar .mn-g{gap:min(8px,1.2vw)}
+#miniBar .mn-c{padding:calc(var(--mn-cs)*.45) calc(var(--mn-cs)*.6)}
+#miniBar .mn-l{font-size:calc(var(--mn-cs)*.62)}
+#miniBar .mn-v{font-size:calc(var(--mn-cs)*1.15)}
+#miniBar .mn-nm{font-size:calc(var(--mn-cs)*.85)}
+#miniBar .mn-s{font-size:calc(var(--mn-cs)*.7)}
+#miniBar .mn-h{font-size:calc(var(--mn-cs)*.75)}
+#miniBar .mn-h b{font-size:calc(var(--mn-cs)*.85)}
+#miniBar .mn-ts{font-size:calc(var(--mn-cs)*.6)}
+#miniBar.mn-mid .mn-g{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));grid-auto-rows:1fr}
+#miniBar:not(.mn-mid) .mn-g{grid-template-columns:repeat(5,1fr)}

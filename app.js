@@ -1,4 +1,4 @@
-/* K研所 · build r868 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r869 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -441,8 +441,15 @@ function miniPaint(){
   const day=mv-pv,dayPct=pv?day/pv*100:0,tot=mv-ct,totPct=ct?tot/ct*100:0;
   const best=rows.slice().sort((a,b)=>b.chg-a.chg)[0],worst=rows.slice().sort((a,b)=>a.chg-b.chg)[0];
   const lead=idxChg!=null?dayPct-idxChg:null;
-  // r867:小視窗(高 <150px)→ 單列精簡:今日損益 + 輪播(領先/最強/最弱/加權),每 4 秒換
-  if(innerHeight<150||innerWidth<420){
+  // r869:依視窗尺寸自動分級,字級跟著視窗縮放
+  const W=innerWidth,H=innerHeight;const fs=Math.max(9,Math.min(H*0.34,W*0.06,42));bar.style.setProperty('--mn-fs',fs+'px');
+  bar.classList.remove('mn-xs','mn-compact','mn-mid');
+  if(H<62||W<230){                                              // 超小:只剩今日損益
+    bar.classList.add('mn-xs');
+    bar.innerHTML=`<div class="mn-row" title="今日損益(點開主站)"><span class="mn-big" style="color:${col(day)}">${fmt(day)}</span>${W>=150?`<span class="mn-pct" style="color:${col(day)}">${(dayPct>=0?'+':'')+dayPct.toFixed(1)}%</span>`:''}</div>`;
+    bar.onclick=()=>window.open(location.pathname+'#port','_blank');return;}
+  bar.onclick=null;
+  if(H<150||W<420){
     const items=[lead!=null?`<span style="color:${col(lead)}">${lead>=0?'領先':'落後'}大盤 ${Math.abs(lead).toFixed(2)}%</span>`:'',
       `<span class="mn-lnk" data-id="${best.id}">▲ ${best.name} <span style="color:${col(best.chg)}">${best.chg>=0?'+':''}${best.chg.toFixed(2)}%</span></span>`,
       `<span class="mn-lnk" data-id="${worst.id}">▼ ${worst.name} <span style="color:${col(worst.chg)}">${worst.chg>=0?'+':''}${worst.chg.toFixed(2)}%</span></span>`,
@@ -453,7 +460,8 @@ function miniPaint(){
     bar.innerHTML=`<div class="mn-row"><span class="mn-k">K</span><span class="mn-big" style="color:${col(day)}">${fmt(day)}</span><span class="mn-pct" style="color:${col(day)}">${(dayPct>=0?'+':'')+dayPct.toFixed(2)}%</span><span class="mn-rot">${items[k]}</span></div>`;
     bar.querySelectorAll('.mn-lnk').forEach(el=>el.onclick=()=>window.open(location.pathname+'#stock/'+el.dataset.id,'_blank'));
     return;}
-  bar.classList.remove('mn-compact');
+  if(H<270||W<720)bar.classList.add('mn-mid');            // 中:2~3 欄卡片
+  const cs=Math.max(10,Math.min(W*0.026,H*0.09,24));bar.style.setProperty('--mn-cs',cs+'px');
   bar.innerHTML=`<div class="mn-h"><b>K研所</b> 庫存即時 ${lead!=null?`<span style="color:${col(lead)}">${lead>=0?'領先':'落後'}大盤 ${Math.abs(lead).toFixed(2)}%</span>`:''}<span class="mn-ts">${ts} 更新</span></div>
     <div class="mn-g">
       <div class="mn-c"><div class="mn-l">今日損益</div><div class="mn-v" style="color:${col(day)}">${fmt(day)}</div><div class="mn-s" style="color:${col(day)}">${(dayPct>=0?'+':'')+dayPct.toFixed(2)}%</div></div>
@@ -468,7 +476,7 @@ function miniPaint(){
 if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.getElementById('miniBar')){const b=document.createElement('div');b.id='miniBar';b.innerHTML='<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">載入中…</div>';document.body.appendChild(b);}
     setTimeout(()=>{const b=document.getElementById('miniBar');if(b&&!(window.DATA&&DATA.stocks)&&/載入中/.test(b.innerText))b.innerHTML='<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">資料載入較慢,請稍候或按右鍵「重新整理」…</div>';},25000);}catch(e){}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
-function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);try{document.title='K研所 庫存即時';}catch(e){}}
+function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 async function boot(){
   if(MINI){const w=setInterval(()=>{if(DATA&&DATA.stocks){clearInterval(w);miniStart();}},500);}   // r866
   try{
@@ -1747,7 +1755,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r868</span>');
+  diag.push('<span style="color:var(--dim)">build r869</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
