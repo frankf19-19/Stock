@@ -1,4 +1,4 @@
-/* K研所 · build r871 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r872 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -471,7 +471,11 @@ function miniPaint(keepSet){
   const W=innerWidth,H=innerHeight;const fs=Math.max(9,Math.min(H*0.34,W*0.06,42));bar.style.setProperty('--mn-fs',fs+'px');
   bar.classList.remove('mn-xs','mn-compact','mn-mid');
   const first=cells[0];
-  if(H<62||W<230){bar.classList.add('mn-xs');
+  // r872:窄而高(寬 <260、高 ≥150)→ 直式清單,全部項目一格一格往下排
+  if(W<260&&H>=150){bar.classList.add('mn-mid','mn-col');const cs2=Math.max(9,Math.min(W*0.075,H/(cells.length*3.2),22));bar.style.setProperty('--mn-cs',cs2+'px');
+    bar.innerHTML=tools+`<div class="mn-g" style="grid-template-columns:1fr">${cells.map(c=>`<div class="mn-c${c.id?' mn-lnk':''}" ${c.id?`data-id="${c.id}"`:''}><div class="mn-l">${c.l}</div><div class="mn-v${c.nm?' mn-nm':''}" style="${c.nm?'':`color:${c.c}`}">${c.v}</div><div class="mn-s" style="color:${c.c}">${c.s}</div></div>`).join('')}</div>`;
+    bar.querySelectorAll('.mn-lnk').forEach(el=>el.onclick=()=>window.open(location.pathname+'#stock/'+el.dataset.id,'_blank'));wire();return;}
+  if(H<62||(W<230&&H<150)){bar.classList.add('mn-xs');
     bar.innerHTML=tools+`<div class="mn-xsw"><div class="mn-xl">${first.l}</div><div class="mn-row"><span class="mn-big" style="color:${first.c}">${first.v}</span>${W>=150&&!first.nm?`<span class="mn-pct" style="color:${first.c}">${first.s}</span>`:''}</div></div>`;
     bar.onclick=()=>window.open(location.pathname+(first.id?'#stock/'+first.id:'#port'),'_blank');wire();return;}
   bar.onclick=null;
@@ -1767,7 +1771,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r871</span>');
+  diag.push('<span style="color:var(--dim)">build r872</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
