@@ -1,4 +1,4 @@
-/* K研所 · build r870 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r871 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -472,11 +472,11 @@ function miniPaint(keepSet){
   bar.classList.remove('mn-xs','mn-compact','mn-mid');
   const first=cells[0];
   if(H<62||W<230){bar.classList.add('mn-xs');
-    bar.innerHTML=tools+`<div class="mn-row"><span class="mn-big" style="color:${first.c}">${first.v}</span>${W>=150&&!first.nm?`<span class="mn-pct" style="color:${first.c}">${first.s}</span>`:''}</div>`;
+    bar.innerHTML=tools+`<div class="mn-xsw"><div class="mn-xl">${first.l}</div><div class="mn-row"><span class="mn-big" style="color:${first.c}">${first.v}</span>${W>=150&&!first.nm?`<span class="mn-pct" style="color:${first.c}">${first.s}</span>`:''}</div></div>`;
     bar.onclick=()=>window.open(location.pathname+(first.id?'#stock/'+first.id:'#port'),'_blank');wire();return;}
   bar.onclick=null;
   if(H<150||W<420){const rest=cells.slice(1);const k=rest.length?Math.floor(Date.now()/4000)%rest.length:0;bar.classList.add('mn-compact');
-    bar.innerHTML=tools+`<div class="mn-row"><span class="mn-k">K</span><span class="mn-big" style="color:${first.c}">${first.v}</span>${first.nm?'':`<span class="mn-pct" style="color:${first.c}">${first.s}</span>`}${rest.length?`<span class="mn-rot">${rest[k].line}</span>`:''}</div>`;
+    bar.innerHTML=tools+`<div class="mn-row"><span class="mn-k">${first.l}</span><span class="mn-big" style="color:${first.c}">${first.v}</span>${first.nm?'':`<span class="mn-pct" style="color:${first.c}">${first.s}</span>`}${rest.length?`<span class="mn-rot">${rest[k].line}</span>`:''}</div>`;
     bar.querySelectorAll('.mn-lnk').forEach(el=>el.onclick=()=>window.open(location.pathname+'#stock/'+el.dataset.id,'_blank'));wire();return;}
   if(H<270||W<720)bar.classList.add('mn-mid');
   const cs=Math.max(10,Math.min(W*0.026,H*0.09,24));bar.style.setProperty('--mn-cs',cs+'px');
@@ -1767,7 +1767,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r870</span>');
+  diag.push('<span style="color:var(--dim)">build r871</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');

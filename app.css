@@ -1885,3 +1885,7 @@ body.mini>*:not(#miniBar){display:none!important}
 #mnSet .mn-set-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px 10px}
 #mnSet label{display:flex;gap:6px;align-items:center;cursor:pointer;color:#e8e8ea}
 #mnSet .mn-set-f{font-size:11px}
+/* r871:超小/單列模式顯示項目名稱 */
+#miniBar .mn-xsw{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
+#miniBar .mn-xl{font-size:calc(var(--mn-fs)*.5);color:#8b8f9a;font-weight:700;letter-spacing:.05em}
+#miniBar .mn-k{font-size:calc(var(--mn-fs)*.55);color:#8b8f9a;font-weight:700;white-space:nowrap}
