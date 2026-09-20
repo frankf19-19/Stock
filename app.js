@@ -1,4 +1,4 @@
-/* K研所 · build r865 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r866 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -424,7 +424,36 @@ function snapLoad(){
     if(n)console.log('快照覆蓋',n,'檔');
   }catch(e){}
 }
+/* ═══ r866:🪟 迷你視窗模式(?mini=1)——桌機常駐置頂用:今日損益/領先大盤/最強最弱/加權櫃買,即時 ═══ */
+const MINI=(()=>{try{return new URLSearchParams(location.search).get('mini')==='1';}catch(e){return false;}})();
+function miniPaint(){
+  let bar=document.getElementById('miniBar');
+  if(!bar){bar=document.createElement('div');bar.id='miniBar';document.body.appendChild(bar);document.body.classList.add('mini');}
+  const fmt=v=>{const a=Math.abs(v);return (v<0?'-':'+')+(a>=1e4?Math.round(a).toLocaleString():a.toFixed(0));};
+  const col=v=>v>0?'var(--up)':v<0?'var(--down)':'var(--txt2)';
+  const idx=(window.RTIDX&&window.RTIDX['加權'])||(((DATA&&DATA.macro||{}).idx||[]).find(x=>(x.name||'').includes('加權'))||{});const idxChg=idx.chg!=null?+idx.chg:null;const idxVal=idx.val;
+  const otc=(window.RTIDX&&window.RTIDX['櫃買'])||{};
+  const ts=new Date().toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  if(!SB_USER&&!Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k))){bar.innerHTML=`<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">請先在主站登入(同一個 Chrome),迷你視窗會自動接上帳號。<a href="${location.pathname}" target="_blank">開主站 ›</a></div>`;return;}
+  const arr=(typeof portGet==='function'?portGet():[]).map(p=>({p,s:(DATA&&DATA.stocks||[]).find(x=>x.id===p.id)})).filter(r=>r.s&&r.s.price>0&&r.s.market!=='US');
+  if(!arr.length){bar.innerHTML=`<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">帳號裡還沒有持股。<a href="${location.pathname}#port" target="_blank">去加持股 ›</a></div>`;return;}
+  let mv=0,ct=0,pv=0;const rows=arr.map(({p,s})=>{const chg=typeof s.chg==='number'?s.chg:0;const prev=s.price/(1+chg/100);mv+=s.price*p.sh;ct+=p.cost*p.sh;pv+=prev*p.sh;return {id:s.id,name:s.name,px:s.price,chg,day:(s.price-prev)*p.sh};});
+  const day=mv-pv,dayPct=pv?day/pv*100:0,tot=mv-ct,totPct=ct?tot/ct*100:0;
+  const best=rows.slice().sort((a,b)=>b.chg-a.chg)[0],worst=rows.slice().sort((a,b)=>a.chg-b.chg)[0];
+  const lead=idxChg!=null?dayPct-idxChg:null;
+  bar.innerHTML=`<div class="mn-h"><b>K研所</b> 庫存即時 ${lead!=null?`<span style="color:${col(lead)}">${lead>=0?'領先':'落後'}大盤 ${Math.abs(lead).toFixed(2)}%</span>`:''}<span class="mn-ts">${ts} 更新</span></div>
+    <div class="mn-g">
+      <div class="mn-c"><div class="mn-l">今日損益</div><div class="mn-v" style="color:${col(day)}">${fmt(day)}</div><div class="mn-s" style="color:${col(day)}">${(dayPct>=0?'+':'')+dayPct.toFixed(2)}%</div></div>
+      <div class="mn-c"><div class="mn-l">總損益</div><div class="mn-v" style="color:${col(tot)}">${fmt(tot)}</div><div class="mn-s" style="color:${col(tot)}">${(totPct>=0?'+':'')+totPct.toFixed(2)}%</div></div>
+      <div class="mn-c mn-lnk" data-id="${best.id}"><div class="mn-l">今日最強</div><div class="mn-v mn-nm">${best.id} ${best.name}</div><div class="mn-s" style="color:${col(best.chg)}">${best.px} (${best.chg>=0?'+':''}${best.chg.toFixed(2)}%)</div></div>
+      <div class="mn-c mn-lnk" data-id="${worst.id}"><div class="mn-l">今日最弱</div><div class="mn-v mn-nm">${worst.id} ${worst.name}</div><div class="mn-s" style="color:${col(worst.chg)}">${worst.px} (${worst.chg>=0?'+':''}${worst.chg.toFixed(2)}%)</div></div>
+      <div class="mn-c"><div class="mn-l">加權</div><div class="mn-v" style="font-size:15px">${idxVal!=null?(+idxVal).toLocaleString():'—'}</div><div class="mn-s" style="color:${col(idxChg||0)}">${idxChg!=null?(idxChg>=0?'+':'')+idxChg.toFixed(2)+'%':'—'}${otc.chg!=null?`<span class="dim">・櫃買 ${otc.chg>=0?'+':''}${(+otc.chg).toFixed(2)}%</span>`:''}</div></div>
+    </div>`;
+  bar.querySelectorAll('.mn-lnk').forEach(el=>el.onclick=()=>window.open(location.pathname+'#stock/'+el.dataset.id,'_blank'));
+}
+function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);try{document.title='K研所 庫存即時';}catch(e){}}
 async function boot(){
+  if(MINI){const w=setInterval(()=>{if(DATA&&DATA.stocks){clearInterval(w);miniStart();}},500);}   // r866
   try{
     const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
     if(r.ok){ DATA=await r.json(); DATA.source='live'; }
@@ -1701,7 +1730,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r865</span>');
+  diag.push('<span style="color:var(--dim)">build r866</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
