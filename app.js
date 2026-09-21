@@ -1,4 +1,4 @@
-/* K研所 · build r872 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r873 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1771,7 +1771,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r872</span>');
+  diag.push('<span style="color:var(--dim)">build r873</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7888,7 +7888,7 @@ function alToast(type,s,title,text){
   };
   box.appendChild(el);
   setTimeout(()=>{try{el.remove();}catch(e){}},20000);
-  if('Notification' in window&&Notification.permission==='granted'){
+  if(SB_USER&&'Notification' in window&&Notification.permission==='granted'){   // r873:沒登入不跳通知
     try{const n=new Notification(title,{body:`${s.name}(${s.id})`+text.replace(/<[^>]+>/g,''),icon:'icon.png',tag:s.id+type});
         n.onclick=()=>{window.focus();location.hash='#stock/'+s.id;};}catch(e){}
   }
@@ -17316,7 +17316,7 @@ function cfExtrasBind(out){   // r594:目標模式的一鍵按鈕綁定
         const hit=al.op==='<='?s.price<=al.px:s.price>=al.px;
         if(hit){
           const msg=`🔔 ${al.name}(${al.id})已${al.op==='<='?'跌到':'漲到'} ${s.price}(目標 ${al.px})`;
-          try{if(Notification&&Notification.permission==='granted')new Notification('K研所 到價提醒',{body:msg});else alert(msg);}catch(x){alert(msg);}
+          try{if(SB_USER&&Notification&&Notification.permission==='granted')new Notification('K研所 到價提醒',{body:msg});else if(SB_USER)alert(msg);}catch(x){}   // r873:沒登入不跳
         }else keep.push(al);
       });
       if(keep.length!==a.length)save(keep);
@@ -21177,7 +21177,7 @@ function favAlertFire(s,sig){
       box.appendChild(el);setTimeout(()=>{try{el.remove();}catch(e){}},30000);
     }
   }catch(e){}
-  try{if('Notification' in window&&Notification.permission==='granted'){const n=new Notification('K研所 '+(/^🤖/.test(sig.title)?'AI Pick 提示 ':'最愛提醒 ')+sig.title,{body:`${s.name}(${s.id})${sig.text}`,icon:'icon.png',tag:'fav'+s.id+sig.k});n.onclick=()=>{window.focus();location.hash='#stock/'+s.id;};}}catch(e){}
+  try{if(SB_USER&&'Notification' in window&&Notification.permission==='granted'){const n=new Notification('K研所 '+(/^🤖/.test(sig.title)?'AI Pick 提示 ':'最愛提醒 ')+sig.title,{body:`${s.name}(${s.id})${sig.text}`,icon:'icon.png',tag:'fav'+s.id+sig.k});n.onclick=()=>{window.focus();location.hash='#stock/'+s.id;};}}catch(e){}
   renderFavAlertBar();
   return true;
 }
