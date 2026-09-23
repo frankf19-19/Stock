@@ -321,8 +321,99 @@ def append_bar(hist, sid, date, o, h, l, c, v):
 #            "rm":[營收年月],"ry":[YoY%],"ra":[當月營收(千元)]}
 BAD_CHIPS = set()
 
+GH_REPO = os.environ.get("GITHUB_REPOSITORY") or "frankf19-19/Stock"
+def _gh_headers():
+    h = {"Accept": "application/vnd.github+json", "User-Agent": "kyansuo-repair"}
+    tok = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if tok: h["Authorization"] = f"Bearer {tok}"
+    return h
+
+def _gh_path_commits(path, n=100):
+    """r876:某檔案的歷史 commit sha(新→舊),最多 n 筆(runner 是淺 checkout,git log 看不到歷史,改走 API)"""
+    try:
+        r = requests.get(f"https://api.github.com/repos/{GH_REPO}/commits",
+                         params={"path": path, "per_page": n}, headers=_gh_headers(), timeout=30)
+        if r.status_code != 200: return []
+        return [c["sha"] for c in r.json()]
+    except Exception:
+        return []
+
+def _gh_raw_json(sha, path):
+    try:
+        r = requests.get(f"https://raw.githubusercontent.com/{GH_REPO}/{sha}/{path}", timeout=60)
+        if r.status_code != 200: return None
+        return r.json()
+    except Exception:
+        return None
+
+def _shard_median_days(obj):
+    a = sorted(len((e or {}).get("d") or []) for e in obj.values() if isinstance(e, dict))
+    return a[len(a) // 2] if a else 0
+
+def repair_short_shards(chips, min_days=None):
+    """r876:法人分片被撞壞/截斷 → 從 GitHub 歷史找該片最後一版完整的(中位數 ≥300 天),
+       與現況合併(舊完整日資料 ∪ 新日資料;其他欄位以現況為主),直接把 chips 修好。
+       每片最多探 8~15 個歷史版本;找不到就留給 r874 的重抓機制。"""
+    min_days = min_days or int(CHIP_DAYS * 0.5)
+    by_shard = {}
+    for sid, e in chips.items():
+        by_shard.setdefault(f"tw{tw_shard_key(sid)}.json", []).append(sid)
+    fixed_stocks = fixed_shards = 0
+    for fn, sids in sorted(by_shard.items()):
+        lens = sorted(len((chips[s].get("d") or [])) for s in sids)
+        med = lens[len(lens) // 2] if lens else 0
+        if med >= min_days: continue
+        path = f"{C_DIR}/{fn}"
+        shas = _gh_path_commits(path)
+        if not shas: print(f"  [修復] {fn}:抓不到歷史(API),略過"); continue
+        good = None
+        probe = [i for i in (0, 3, 8, 15, 25, 40, 60, 90) if i < len(shas)]
+        hit = -1
+        for i in probe:
+            j = _gh_raw_json(shas[i], path)
+            if j and _shard_median_days(j) >= 300: hit, good = i, j; break
+        if good is None:
+            print(f"  [修復] {fn}:近 {len(shas)} 版都不完整(中位 {med} 天),留給重抓"); continue
+        # 往回找到更新的一版完整的
+        lo = probe[probe.index(hit) - 1] if probe.index(hit) > 0 else -1
+        for i in range(hit - 1, lo, -1):
+            j = _gh_raw_json(shas[i], path)
+            if j and _shard_median_days(j) >= 300: good = j
+            else: break
+        n = 0
+        for sid, o in good.items():
+            if not isinstance(o, dict): continue
+            c = chips.get(sid) or {}
+            m = {}
+            for i, d in enumerate(o.get("d") or []): m[d] = [(o.get("f") or [None]*99)[i] if i < len(o.get("f") or []) else None,
+                                                          (o.get("t") or [])[i] if i < len(o.get("t") or []) else None,
+                                                          (o.get("g") or [])[i] if i < len(o.get("g") or []) else None]
+            for i, d in enumerate(c.get("d") or []): m[d] = [(c.get("f") or [])[i] if i < len(c.get("f") or []) else None,
+                                                          (c.get("t") or [])[i] if i < len(c.get("t") or []) else None,
+                                                          (c.get("g") or [])[i] if i < len(c.get("g") or []) else None]
+            ds = sorted(m)[-CHIP_DAYS:]
+            if len(ds) <= len(c.get("d") or []): continue
+            e = dict(o); e.update(c)                      # 其他欄位以現況為主,缺的補舊版
+            e["d"] = ds; e["f"] = [m[x][0] for x in ds]; e["t"] = [m[x][1] for x in ds]; e["g"] = [m[x][2] for x in ds]
+            chips[sid] = e; n += 1
+        if n:
+            fixed_stocks += n; fixed_shards += 1
+            print(f"  [修復] {fn}:從歷史復原 {n} 檔(中位 {med} → {_shard_median_days({s: chips[s] for s in sids})} 天)")
+    if fixed_shards: print(f"  [修復] 共 {fixed_shards} 片 / {fixed_stocks} 檔法人歷史復原完成")
+    return fixed_stocks
+
 def _restore_from_git(fp, depth=40):
     """r875:從 git 歷史往回找最近一版可解析的 JSON,寫回磁碟並回傳物件;找不到回 None。"""
+    try:                                                   # r876:runner 是淺 checkout → 先走 GitHub API
+        for sha in _gh_path_commits(fp, depth):
+            obj = _gh_raw_json(sha, fp)
+            if isinstance(obj, dict) and obj:
+                tmp = fp + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f: json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
+                os.replace(tmp, fp)
+                return obj
+    except Exception as ex:
+        print(f"  [復原:API 失敗] {fp}: {ex}")
     try:
         shas = subprocess.run(["git", "log", "-n", str(depth), "--format=%H", "--", fp],
                               capture_output=True, text=True, timeout=60).stdout.split()
@@ -668,8 +759,13 @@ def update_chip_hist(chips, meta):
     deep = sum(1 for e in chips.values() if len(e.get("d") or []) >= CHIP_DAYS * 0.8)
     short = sum(1 for e in chips.values() if 0 < len(e.get("d") or []) < CHIP_DAYS * 0.5)
     if deep >= 200 and short >= max(20, int(len(chips) * 0.01)):
-        print(f"  [法人修復] {short} 檔法人歷史被截斷(深度正常 {deep} 檔)→ 本輪起重抓整段補回")
-        have = set()
+        print(f"  [法人修復] {short} 檔法人歷史被截斷(深度正常 {deep} 檔)→ 先從 GitHub 歷史復原")
+        try: repair_short_shards(chips)
+        except Exception as ex: print(f"  [修復失敗] {ex}")
+        short2 = sum(1 for e in chips.values() if 0 < len(e.get("d") or []) < CHIP_DAYS * 0.5)
+        if short2 >= max(20, int(len(chips) * 0.01)):
+            print(f"  [法人修復] 仍有 {short2} 檔不足 → 本輪起重抓整段補回")
+            have = set()
     if len(have) < len(meta_dates):
         print(f"  [自我校正] meta 記錄 {len(meta_dates)} 個交易日,但分片實際只有 {len(have)} 日"
               f" → 以分片實況為準,重新回補缺漏")
