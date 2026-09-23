@@ -624,6 +624,13 @@ def update_chip_hist(chips, meta):
     n_all = max(len(chips), 1)
     real = {dd for dd, c in cnt.items() if c >= n_all * 0.3}
     have = meta_dates & real
+    # r874:偵測「部分分片被截斷」——有一批股票深度正常、另一批只剩幾天時,
+    #      舊邏輯(看全市場比例)會誤判為已補齊。此時清空 have,強制重抓整段補回去。
+    deep = sum(1 for e in chips.values() if len(e.get("d") or []) >= CHIP_DAYS * 0.8)
+    short = sum(1 for e in chips.values() if 0 < len(e.get("d") or []) < CHIP_DAYS * 0.5)
+    if deep >= 200 and short >= max(20, int(len(chips) * 0.01)):
+        print(f"  [法人修復] {short} 檔法人歷史被截斷(深度正常 {deep} 檔)→ 本輪起重抓整段補回")
+        have = set()
     if len(have) < len(meta_dates):
         print(f"  [自我校正] meta 記錄 {len(meta_dates)} 個交易日,但分片實際只有 {len(have)} 日"
               f" → 以分片實況為準,重新回補缺漏")
