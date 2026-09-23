@@ -1,4 +1,4 @@
-/* K研所 · build r873 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r875 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1771,7 +1771,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r873</span>');
+  diag.push('<span style="color:var(--dim)">build r875</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -12310,7 +12310,9 @@ function drawKChart(){
     if(localStorage.getItem('kINST')!=='0'
        &&KHASH.startsWith('#stock/')&&typeof curChips!=='undefined'&&curChips&&curChips.e&&curChips.s
        &&('#stock/'+curChips.s.id)===KHASH&&Array.isArray(curChips.e.d)&&curChips.e.d.length&&curDates){
-      const e2=curChips.e;
+      let e2=curChips.e;
+      // r875:法人分片若太短(如被截斷),改用三年歷史 hist/ 的外資/投信序列
+      try{const H=window.__histCur;if(H&&H.id===curChips.s.id&&H.h&&Array.isArray(H.h.d)&&H.h.d.length>(e2.d||[]).length+30)e2={d:H.h.d,f:H.h.f||[],t:H.h.t||[]};}catch(eh){}
       const keyOf=kView.itv==='1wk'?(ds=>{const d3=new Date(ds+'T00:00:00');const mon=new Date(d3);mon.setDate(d3.getDate()-((d3.getDay()+6)%7));return mon.toISOString().slice(0,10);})
                 :kView.itv==='1mo'?(ds=>String(ds).slice(0,7))
                 :(ds=>ds);
@@ -13210,7 +13212,7 @@ async function showDetail(id){
   if(s.market!=='US'&&!s.etf){(async()=>{try{window.__bkR=null;await brokerTagsLoad();const e=await bkLoad(s.id);let box=null;for(let i=0;i<30&&!box;i++){box=document.getElementById('bkBox');if(!box)await new Promise(r=>setTimeout(r,700));}
     if(!box)return;const R=bkCalc(e);box.innerHTML=bkHTML(R,s);window.__bkR=R;
     try{const st=kbSchedText(R,false);const strip=document.getElementById('stkAlerts');if(st&&strip&&location.hash==='#stock/'+s.id){document.getElementById('kbPill')?.remove();const sp=document.createElement('span');sp.id='kbPill';sp.className='alert-pill alert-'+st.lv;sp.innerHTML=`<span class="ico">⏰</span><span>${st.txt}</span>`;sp.style.cursor='pointer';sp.onclick=()=>{const h=document.querySelector('[data-sec="stk_bk"]');if(h){h.scrollIntoView({behavior:'smooth',block:'start'});}};strip.prepend(sp);strip.style.display='';}}catch(e20){}   // r844:達標時程膠囊
-    try{const h=await histLoad(s.id);const cb=document.getElementById('costBox');if(cb){const RC=costCalc(h,e,s.price);cb.innerHTML=costHTML(RC,s);window.__costR=RC;try{if(RC&&typeof drawKChart==='function'&&window.curOhlc)drawKChart();}catch(e19){}}
+    try{const h=await histLoad(s.id);try{window.__histCur={id:s.id,h};}catch(e0){}const cb=document.getElementById('costBox');if(cb){const RC=costCalc(h,e,s.price);cb.innerHTML=costHTML(RC,s);window.__costR=RC;try{if(RC&&typeof drawKChart==='function'&&window.curOhlc)drawKChart();}catch(e19){}}
       const rb=document.getElementById('rhythmBox');if(rb){let dv=[];try{dv=((DATA.divcal||[]).filter(x=>String(x.id)===String(s.id)).map(x=>x.d||x.date)).filter(Boolean);}catch(e0){}const RR=rhythmCalc(h,e,dv);rb.innerHTML=rhythmHTML(RR,s);window.__rhythmR=RR;}}catch(e18){}   // r833:成本;r834:節奏
   }catch(e17){}})();}   // r802:分點動向
   if(s.market!=='US'&&!s.etf){(async()=>{try{window.__sblR=null;const sb=await sblLoad(s.id);if(!sb)return;

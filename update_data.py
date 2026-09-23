@@ -16,7 +16,7 @@ update_data.py v4 — 三力選股儀表板(全市場版)
 
 第一次執行會回補約 130 個交易日的 K 線(約 10~15 分鐘),之後每天只補新的一天。
 """
-import json, os, time, glob, datetime as dt
+import json, os, time, glob, subprocess, datetime as dt
 from io import StringIO
 import requests
 import pandas as pd
@@ -321,6 +321,28 @@ def append_bar(hist, sid, date, o, h, l, c, v):
 #            "rm":[營收年月],"ry":[YoY%],"ra":[當月營收(千元)]}
 BAD_CHIPS = set()
 
+def _restore_from_git(fp, depth=40):
+    """r875:從 git 歷史往回找最近一版可解析的 JSON,寫回磁碟並回傳物件;找不到回 None。"""
+    try:
+        shas = subprocess.run(["git", "log", "-n", str(depth), "--format=%H", "--", fp],
+                              capture_output=True, text=True, timeout=60).stdout.split()
+        for sha in shas:
+            r = subprocess.run(["git", "show", f"{sha}:{fp}"], capture_output=True, text=True, timeout=120)
+            if r.returncode != 0 or not r.stdout.strip(): continue
+            try:
+                obj = json.loads(r.stdout)
+            except Exception:
+                continue
+            if isinstance(obj, dict) and obj:
+                tmp = fp + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f: f.write(r.stdout)
+                os.replace(tmp, fp)
+                return obj
+    except Exception as ex:
+        print(f"  [復原失敗] {fp}: {ex}")
+    return None
+
+
 def load_chips():
     chips, meta = {}, {"dates": []}
     for fp in glob.glob(os.path.join(C_DIR, "*.json")):
@@ -335,8 +357,17 @@ def load_chips():
             else: chips.update({k: v for k, v in obj.items()
                                 if isinstance(v, dict)})       # 硬防線:非 dict 的值一律不收,任何雜檔都毒不到 chips
         except Exception as e:
+            # r875:分片壞掉 → 先從 git 歷史找最近一版可解析的復原回來(永遠不砍資料)
+            restored = _restore_from_git(fp)
+            if restored is not None:
+                try:
+                    if fn == "meta.json": meta = restored
+                    else: chips.update({k: v for k, v in restored.items() if isinstance(v, dict)})
+                    print(f"  [復原] {fn} 損毀({str(e)[:40]}),已從 git 歷史復原")
+                    continue
+                except Exception: pass
             if fn != "meta.json": BAD_CHIPS.add(fn)
-            print(f"  [ERROR] 籌碼分片讀取失敗 {fn}: {e} → 本輪保留原檔,不覆寫")
+            print(f"  [ERROR] 無法讀取分片 {fn}: {e} → 略過此分片,不覆寫")
     nd = sum(1 for v in chips.values() if isinstance(v, dict) and v.get("d"))
     print(f"  既有籌碼歷史:{len(chips)} 檔、meta 記錄 {len(meta.get('dates', []))} 個交易日"
           f"(分片內有法人日資料者 {nd} 檔)"
@@ -385,6 +416,14 @@ def save_chips(chips, meta, comps):
                 old_n = 0
         if old_n and new_n < old_n * 0.6:
             print(f"  [守門] {fn}:新資料僅 {new_n} 筆法人日 < 舊檔 {old_n} 的六成,判定異常,保留舊檔")
+            kept += 1; continue
+        # r875:逐檔保護——任何一檔的日資料從 ≥30 天掉到不足一半,整片不寫(資料只能增加不能減少)
+        try:
+            shrink = [sid for sid, ov in (_o.items() if old_n else []) if len(ov.get("d") or []) >= 30
+                      and len((obj.get(sid) or {}).get("d") or []) < len(ov.get("d") or []) * 0.5]
+        except Exception: shrink = []
+        if shrink:
+            print(f"  [守門] {fn}:{len(shrink)} 檔日資料縮水(如 {shrink[:3]}),不覆寫")
             kept += 1; continue
         tmp = fp + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
