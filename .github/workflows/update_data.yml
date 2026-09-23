@@ -30,7 +30,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: data-update
+  group: kdata
   cancel-in-progress: false    # r781:迴圈班不能被備援觸發砍掉;卡死靠 END 絕對時間 + timeout-minutes 自癒(排隊班一啟動就會發現過期收工)
 
 jobs:

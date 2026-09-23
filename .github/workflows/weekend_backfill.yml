@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: weekend-backfill
+  group: kdata
   cancel-in-progress: false
 
 permissions:
