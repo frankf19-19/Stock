@@ -329,14 +329,23 @@ def _gh_headers():
     return h
 
 def _gh_path_commits(path, n=100):
-    """r876:某檔案的歷史 commit sha(新→舊),最多 n 筆(runner 是淺 checkout,git log 看不到歷史,改走 API)"""
+    """r876:某檔案的歷史 commit sha(新→舊),最多 n 筆(runner 是淺 checkout,git log 看不到歷史,改走 API);r878:可分頁到 n>100"""
+    out = []
     try:
-        r = requests.get(f"https://api.github.com/repos/{GH_REPO}/commits",
-                         params={"path": path, "per_page": n}, headers=_gh_headers(), timeout=30)
-        if r.status_code != 200: return []
-        return [c["sha"] for c in r.json()]
+        page = 1
+        while len(out) < n and page <= 6:
+            r = requests.get(f"https://api.github.com/repos/{GH_REPO}/commits",
+                             params={"path": path, "per_page": min(100, n - len(out)), "page": page},
+                             headers=_gh_headers(), timeout=30)
+            if r.status_code != 200: break
+            js = r.json()
+            if not js: break
+            out += [c["sha"] for c in js]
+            if len(js) < 100: break
+            page += 1
     except Exception:
-        return []
+        pass
+    return out[:n]
 
 def _gh_raw_json(sha, path):
     try:
@@ -364,10 +373,10 @@ def repair_short_shards(chips, min_days=None):
         med = lens[len(lens) // 2] if lens else 0
         if med >= min_days: continue
         path = f"{C_DIR}/{fn}"
-        shas = _gh_path_commits(path)
+        shas = _gh_path_commits(path, 400)                  # r878:往回最多 400 版(約一個月的更新)
         if not shas: print(f"  [修復] {fn}:抓不到歷史(API),略過"); continue
         good = None
-        probe = [i for i in (0, 3, 8, 15, 25, 40, 60, 90) if i < len(shas)]
+        probe = [i for i in (0, 3, 8, 15, 25, 40, 60, 90, 130, 180, 240, 300, 360, 399) if i < len(shas)]
         hit = -1
         for i in probe:
             j = _gh_raw_json(shas[i], path)
