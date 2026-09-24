@@ -1,4 +1,4 @@
-/* K研所 · build r879 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r880 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -572,7 +572,7 @@ function showFavPage(){
     <div class="favAlertBar fal-bar" id="favAlertBar2" hidden style="margin-top:10px"></div>
     <div class="radar" id="favBox" style="margin-top:14px"></div>
   </div>`;
-  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('backBtn').onclick=()=>{navBackHome();};
   const tg=document.getElementById('favAlTg');   // r702:提醒開關
   const paintTg=()=>{tg.textContent=favAlertOn()?'🔔 提醒:開':'🔕 提醒:關';tg.style.borderColor=favAlertOn()?'var(--amber)':'var(--line)';};
   paintTg();
@@ -1470,6 +1470,10 @@ function ensureCmdCards(){              // ⛏️ 原物料卡:TradingView 即�
   });
 }
 const __cmdPoll=setInterval(()=>{try{ensureCmdCards();if(window.__cmdTv)clearInterval(__cmdPoll);}catch(e){}},1500);
+/* r880:記住上一頁 —— 從最愛/持股/AI Pick 點進個股,回上一頁要回到來源頁,不是首頁 */
+window.__prevHash=null;
+addEventListener('hashchange',ev=>{try{const o=new URL(ev.oldURL).hash||'';if(!/^#stock\//.test(o))window.__prevHash=o;}catch(e){}});
+function navBackHome(){const p=window.__prevHash;if(p&&p!==location.hash&&!/^#stock\//.test(p))location.hash=p;else location.hash='';}
 (function navBackBtn(){                 // ← 浮動返回鈕:進到詳情頁(hash 含 /)才顯示;PWA 全螢幕必備
   const b=document.createElement('div');
   b.id='navBack';b.textContent='‹';b.title='回上一頁';
@@ -1771,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r879</span>');
+  diag.push('<span style="color:var(--dim)">build r880</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13132,7 +13136,7 @@ async function showDetail(id){
     <div class="links">${links.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}</div>
     </div>`}
   </div>`;
-  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('backBtn').onclick=()=>{navBackHome();};
   try{wireDetailSecs();}catch(e){}
   setTimeout(()=>{try{loadSeason(s);}catch(e){}},350);   // 進頁自動載入季節性
   setTimeout(()=>{try{loadTdcc(s);}catch(e){}},600);      // 大戶持股趨勢
@@ -15068,7 +15072,7 @@ function showThemeLab(){
       </div>`).join('')}
     </div>
     <div class="dim-note" style="margin-top:12px">小樣即實際變數對照(底/面板/線框/主字/輔字/強調/漲跌)。圈好後告訴我:「要 3 和 7」這樣即可;也可以說「3 的底配 7 的強調色」混搭。</div>`;
-  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('backBtn').onclick=()=>{navBackHome();};
   dv.querySelectorAll('.lab-card').forEach(c=>c.onclick=()=>{
     const on=c.dataset.on==='1';
     c.dataset.on=on?'':'1';
@@ -15092,7 +15096,7 @@ function showLearnIndex(){
     <div class="idx-row" style="margin-top:10px">${learnCards()}</div>
     <div class="dim-note" style="margin-top:14px">內容為產業知識教學,非投資建議。想加新主題(被動元件、重電、無人機…)歡迎提出。</div>
   </div>`;
-  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('backBtn').onclick=()=>{navBackHome();};
   dv.querySelectorAll('[data-lk]').forEach(c=>c.onclick=()=>{location.hash='#learn/'+c.dataset.lk;});
   dv.querySelectorAll('[data-lnav]').forEach(a=>a.onclick=()=>{
     const el=document.getElementById('lsec'+a.dataset.lnav);
@@ -15641,7 +15645,7 @@ function showEventsIndex(){
         </span></a>`;
     }).join('')}</div>
   </div>`;
-  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('backBtn').onclick=()=>{navBackHome();};
   document.getElementById('evIdxBox').addEventListener('click',e=>{
     const a=e.target.closest('[data-ev]');
     if(!a)return;
@@ -15676,7 +15680,7 @@ function showEventDetail(){
         <a href="https://tw.investing.com/economic-calendar/" target="_blank" rel="noopener">Investing 財經日曆 ↗</a>
       </div></div>
   </div>`;
-  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('backBtn').onclick=()=>{navBackHome();};
   evNews(kb.q,document.getElementById('evNewsBox'));
 }
 async function yNews(q,count){
@@ -19372,7 +19376,7 @@ async function showFutDetail(){
     <div class="dim-block"><h3>這是什麼</h3><div class="dim-note">期貨「淨未平倉口數」=多單減空單後留倉的部位。<b>外資</b>期貨部位常被視為對台股後市的態度(注意可能包含現貨部位的避險單);<b>十大交易人</b>是市場最大的十個帳戶(其中「特定法人」多為外資機構),代表最大資金的方向;<b>散戶小台</b>用「法人反向」推算——散戶整體與法人對作時,長期而言法人勝率較高,因此被視為反向指標。</div></div>
     <div class="dim-block"><h3>怎麼看</h3><div class="dim-note">重點不是絕對數字,而是<b>方向轉變與極端值</b>:①外資淨空快速回補(空單縮減)常是行情轉多前兆;②散戶淨多創階段新高,常出現在高檔(反指標亮燈);③十大特定法人與外資同步翻多,是較可信的中期多方訊號。搭配首頁的大盤防守線一起看——法人翻空+指數跌破月線=訊號共振,倉位要更保守。</div></div>
   </div>`;
-  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('backBtn').onclick=()=>{navBackHome();};
   if(!f||!f.h)return;
   const h=f.h;
   /* 加權指數疊圖線(FinMind,快取於全域;台指期與加權走勢幾乎一致) */
@@ -19478,7 +19482,7 @@ function showCreditDetail(){
     <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>規則化判讀</h3><div class="dim-note" id="crNote"></div></div>`}
     <div class="dim-block"><h3>怎麼看</h3><div class="dim-note"><b>融資緩增+指數上漲</b>=健康多頭;<b>融資急增+指數不漲</b>=散戶追高、籌碼轉浮,高檔警訊;<b>融資急降(俗稱斷頭清洗)</b>常出現在恐慌低點,洗完浮額反而是中期買點溫床;<b>融券快速增加</b>=看空的人變多,若行情不跌反漲,回補力道會助漲(軋空)。櫃買融資對「散戶情緒」更敏感——中小型股的過熱與退潮,通常先反映在這裡。點名詞可看白話解釋。</div></div>
   </div>`;
-  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('backBtn').onclick=()=>{navBackHome();};
   if(!c||!c.h)return;
   const _m6=innerWidth<640;
   const box1=document.getElementById('crC1');
@@ -19548,7 +19552,7 @@ async function showMacroDetail(key){
       <div class="dim-block" style="border-left:4px solid var(--amber)"><h3>怎麼看</h3><div class="dim-note">${def.how}</div></div>
       <div class="dim-note">資料來源:證交所 BFI82U 三大法人買賣金額統計(僅上市);歷史自 v5 部署起逐日累積。</div>
     </div>`;
-    document.getElementById('backBtn').onclick=()=>{location.hash='';};
+    document.getElementById('backBtn').onclick=()=>{navBackHome();};
     const mk=await getMktHist((a,b)=>{
       const el=document.getElementById('mkInstWrap');
       if(el&&location.hash==='#macro/'+key)
@@ -19608,7 +19612,7 @@ async function showMacroDetail(key){
     <div class="dim-block"><h3>怎麼看</h3><div class="dim-note">${def.how}</div></div>
     <div class="dim-note">說明:以上為規則化判讀,非投資建議。即時報價可能有 15 分鐘內延遲。</div>
   </div>`;
-  document.getElementById('backBtn').onclick=()=>{location.hash='';};
+  document.getElementById('backBtn').onclick=()=>{navBackHome();};
   // 完整 K 線(與個股同引擎:範圍/週期/均線/指標)
   kView={rng:'3m',itv:'1d'}; baseK=null; curLevels=null; indMode='MACD';
   KHASH='#macro/'+key;
