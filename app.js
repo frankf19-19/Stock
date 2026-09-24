@@ -1,4 +1,4 @@
-/* K研所 · build r877 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r879 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1771,7 +1771,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r877</span>');
+  diag.push('<span style="color:var(--dim)">build r879</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -12312,7 +12312,11 @@ function drawKChart(){
        &&('#stock/'+curChips.s.id)===KHASH&&Array.isArray(curChips.e.d)&&curChips.e.d.length&&curDates){
       let e2=curChips.e;
       // r875:法人分片若太短(如被截斷),改用三年歷史 hist/ 的外資/投信序列
-      try{const H=window.__histCur;if(H&&H.id===curChips.s.id&&H.h&&Array.isArray(H.h.d)&&H.h.d.length>(e2.d||[]).length+30)e2={d:H.h.d,f:H.h.f||[],t:H.h.t||[]};}catch(eh){}
+      // r879:三年歷史(深)∪ 法人分片(新):兩邊合併,分片的最新幾天優先,避免最近幾天空白
+      try{const H=window.__histCur;if(H&&H.id===curChips.s.id&&H.h&&Array.isArray(H.h.d)&&H.h.d.length){const m={};
+        (H.h.d||[]).forEach((d,i)=>{m[d]=[(H.h.f||[])[i],(H.h.t||[])[i]];});
+        (e2.d||[]).forEach((d,i)=>{m[d]=[(e2.f||[])[i],(e2.t||[])[i]];});
+        const ds=Object.keys(m).sort();if(ds.length>(e2.d||[]).length)e2={d:ds,f:ds.map(d=>m[d][0]),t:ds.map(d=>m[d][1])};}}catch(eh){}
       const keyOf=kView.itv==='1wk'?(ds=>{const d3=new Date(ds+'T00:00:00');const mon=new Date(d3);mon.setDate(d3.getDate()-((d3.getDay()+6)%7));return mon.toISOString().slice(0,10);})
                 :kView.itv==='1mo'?(ds=>String(ds).slice(0,7))
                 :(ds=>ds);
