@@ -1,4 +1,4 @@
-/* K研所 · build r880 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r881 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -635,7 +635,7 @@ function renderFav(){
     if(!s)return `<div class="r-card" data-id="${id}"><span class="r-name">${id} <span class="c-code">資料更新後顯示</span></span></div>`;
     return `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
       <span class="r-name"><span class="fav-tg on" data-fav="${s.id}" title="移除收藏">★</span> ${s.name} <span class="c-code">${s.id}</span>
-        <b class="rpx" data-ppx="${s.id}">${s.price??'—'}</b> <span style="font-family:var(--mono);font-size:13px" data-pch="${s.id}">${chgHtml(s.chg)}</span><span class="mini-candle" data-candle="${s.id}"></span></span>
+        <span class="pxpill ${s.chg>0?'up':s.chg<0?'dn':''}" data-pxp="${s.id}"><b class="rpx" data-ppx="${s.id}">${s.price??'—'}</b><span class="pxchg" data-pch="${s.id}">${chgHtml(s.chg)}</span></span><span class="mini-candle" data-candle="${s.id}"></span></span>
       <span class="r-desc">${s.etf?`${(s.perf&&s.perf.q!=null)?`近3月 ${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%`:'ETF'}${s.hold&&s.hold.dy?` · 殖利率 ${s.hold.dy.toFixed(2)}%`:''}${s.hold&&s.hold.aum?` · 規模 ${(s.hold.aum/1e8).toFixed(0)} 億`:''}`
         :`綜合 ${total(s)} 分|基本 ${s.f.score} · 籌碼 ${s.c.score} · 技術 ${s.t.score}${s.sig&&s.sig.length?` · <b style="color:var(--amber)">${s.sig.map(x=>x.label).join('+')}</b>`:''}`}</span>
       ${s.etf?'':'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>'}
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r880</span>');
+  diag.push('<span style="color:var(--dim)">build r881</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4917,6 +4917,7 @@ setInterval(()=>{                                          // 📶 報價即時:
         el.style.transition='color .3s';el.style.color='var(--amber)';
         setTimeout(()=>{el.style.color='';},350);}          // 價格變動閃一下,看得見「活著」
     });
+    document.querySelectorAll('[data-pxp]').forEach(p=>{const st=(DATA.stocks||[]).find(x=>x.id===p.dataset.pxp);if(!st||st.chg==null)return;p.classList.toggle('up',st.chg>0);p.classList.toggle('dn',st.chg<0);});   // r881:漲跌色跟著即時走
     document.querySelectorAll('[data-pch]').forEach(ch=>{
       const st=(DATA.stocks||[]).find(x=>x.id===ch.dataset.pch);
       if(st&&st.chg!=null)ch.innerHTML=chgHtml(+st.chg);
