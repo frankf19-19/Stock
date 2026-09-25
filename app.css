@@ -1901,3 +1901,5 @@ body.mini>*:not(#miniBar){display:none!important}
 .r-name .pxpill.up .rpx{color:var(--up)}
 .r-name .pxpill.dn{background:rgba(63,179,127,.10);border-color:rgba(63,179,127,.35)}
 .r-name .pxpill.dn .rpx{color:var(--down)}
+/* r882:未登入 → 提醒列、頁內提醒、同步提示一律不顯示 */
+body:not(.is-user) .fal-bar,body:not(.is-user) #favAlertBar,body:not(.is-user) #favAlertBar2,body:not(.is-user) #toasts,body:not(.is-user) #sbToast{display:none!important}
