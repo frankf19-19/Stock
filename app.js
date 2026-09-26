@@ -1,4 +1,4 @@
-/* K研所 · build r890 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r892 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r890</span>');
+  diag.push('<span style="color:var(--dim)">build r892</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13723,9 +13723,10 @@ function setGMKT(m,skipRender){
       x.classList.toggle('on',x.dataset.m==='ALL');
     });
   }catch(e){}
-  const twOnly=['mk_temp','mk_fut','mk_head','mk_conf','mk_pick','glb','aipick'];   // r702:AI Pick 為台股週選   // r557:mk_rot(資金輪動熱力圖)台美通用   // r544:大盤走勢區(mk_idx)不再整區隱藏——美股共用即時走勢引擎,細項分流
+  const twOnly=['mk_temp','mk_fut','mk_head','mk_conf','mk_pick','glb'];   // r892:aipick 移出(美股也有 AI Pick)   // r702:AI Pick 為台股週選   // r557:mk_rot(資金輪動熱力圖)台美通用   // r544:大盤走勢區(mk_idx)不再整區隱藏——美股共用即時走勢引擎,細項分流
   twOnly.forEach(k=>{document.querySelectorAll(`.sec-title[data-sec="${k}"],#sb-${k}`).forEach(el=>el.classList.toggle('gm-hide',m==='US'));});
-  document.documentElement.classList.toggle('gm-us',m==='US');            // r544:美股大盤細分流(CSS 隱藏台股卡/台指期/加權櫃買鈕)
+  document.documentElement.classList.toggle('gm-us',m==='US');
+  try{if(!skipRender)renderAIPick();}catch(e){}                   // r892:AI Pick 跟著換市場            // r544:美股大盤細分流(CSS 隱藏台股卡/台指期/加權櫃買鈕)
   try{   // r547:股癌=台股專屬大分類——美股模式藏分頁鈕;若正停在股癌頁則跳回個股
     const gb=document.querySelector('#homeTabs [data-tab="gooaye"]');
     if(gb)gb.classList.toggle('gm-hide',m==='US');
@@ -20929,10 +20930,11 @@ async function aipLoadUS(force){try{if(!force&&AIPK_US&&Date.now()-AIPK_US_T<10*
   const r=await fT('aipick_us.json?v='+kv()+'_'+Math.floor(Date.now()/600e3),15000,{cache:'default'});
   if(r&&r.ok){const j=await r.json();if(j&&Array.isArray(j.weeks)){AIPK_US=j;AIPK_US_T=Date.now();}}}catch(e){}return AIPK_US;}
 function aipMktOK(){return US_AIP_SHOW||isAdmin();}
-function aipMktBar(){if(!aipMktOK())return '';return `<div class="aip-mkt"><button data-m="TW" class="${AIPK_MKT==='TW'?'on':''}">🇹🇼 台股</button><button data-m="US" class="${AIPK_MKT==='US'?'on':''}">🇺🇸 美股</button>${US_AIP_SHOW?'':'<span class="dim" style="font-size:11px;margin-left:8px">美股版目前只有管理員看得到</span>'}</div>`;}
+function aipMktBar(){return '';}   // r892:改由網站頂端的 台股/美股 切換決定,不另設按鈕
 function renderAIPick(){
   const box=document.getElementById('aipickBox');if(!box)return;
-  const mk=aipMktOK()?AIPK_MKT:'TW';
+  const mk=window.GMKT==='US'?'US':'TW';                        // r892:跟著頂端 台股/美股
+  if(mk==='US'&&!aipMktOK()){box.innerHTML='<div class="dim-note" style="padding:14px">🇺🇸 美股 AI Pick 實戰驗證中,即將開放。切回上方「台股」可看台股 AI Pick。</div>';return;}
   const bind=()=>{box.querySelectorAll('.aip-mkt button').forEach(b=>b.onclick=()=>{AIPK_MKT=b.dataset.m;try{localStorage.setItem('aipMkt',AIPK_MKT);}catch(e){}renderAIPick();});};
   if(mk==='US'){
     if(!AIPK_US){box.innerHTML=aipMktBar()+'<div class="dim-note">載入美股 AI Pick…</div>';bind();aipLoadUS().then(j=>{if(j)renderAIPick();else{box.innerHTML=aipMktBar()+'<div class="dim-note">美股 AI Pick 還沒產生(後端第一次跑完才有)。</div>';bind();}});return;}
