@@ -1,4 +1,4 @@
-/* K研所 · build r888 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r889 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r888</span>');
+  diag.push('<span style="color:var(--dim)">build r889</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6178,7 +6178,10 @@ function renderMacroAlerts(){
     if(nf&&Date.now()/1000-nf.t<16*3600&&Math.abs(nf.sprd)>=0.15){
       add(Math.abs(nf.sprd)>=0.8?'amb':'ok','🌙',atag('夜盤')+`台指夜盤 ${(+nf.px).toLocaleString()}(${nf.sprd>0?'+':''}${nf.sprd}% vs 加權收盤)——隔日開盤${nf.sprd>0.15?'偏多':'偏空'}參考`);
     }}catch(e){}
-  window.__openHead=()=>{try{document.body.classList.add('head-open');const t=document.getElementById('sb-mk_head');if(t){t.previousElementSibling&&t.previousElementSibling.classList.remove('shut');t.classList.remove('shut');t.scrollIntoView({behavior:'smooth',block:'start'});}}catch(e){}};   // r888
+  window.__openHead=()=>{try{document.body.classList.add('head-open');try{if(location.hash&&location.hash!=='#macro'&&location.hash!=='')location.hash='';setHomeTab('macro');}catch(e1){}
+    const b=document.getElementById('sb-mk_head'),t=document.querySelector('.sec-title[data-sec="mk_head"]');
+    if(t)t.classList.remove('closed');if(b)b.classList.remove('closed');
+    setTimeout(()=>{try{(t||b).scrollIntoView({behavior:'smooth',block:'start'});}catch(e2){}},120);}catch(e){}};   // r889:切到大盤分頁、打開收合、再捲過去
   Object.values(window.__headIdx||{}).forEach(x=>{           // 🔺 大盤/櫃買趨勢與頭部機率(常駐;≥50%升級為警告)
     const lv=x.prob>=70?'red':x.prob>=50?'amb':'ok';
     const ico=x.prob>=50?'🔺':'📈';
