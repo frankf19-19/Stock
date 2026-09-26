@@ -1,4 +1,4 @@
-/* K研所 · build r893 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r895 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r893</span>');
+  diag.push('<span style="color:var(--dim)">build r895</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20934,10 +20934,11 @@ function aipMktBar(){return '';}   // r892:改由網站頂端的 台股/美股 �
 function renderAIPick(){
   const box=document.getElementById('aipickBox');if(!box)return;
   const mk=window.GMKT==='US'?'US':'TW';                        // r892:跟著頂端 台股/美股
-  if(mk==='US'&&!aipMktOK()){box.innerHTML='<div class="dim-note" style="padding:14px">🇺🇸 美股 AI Pick 實戰驗證中,即將開放。切回上方「台股」可看台股 AI Pick。</div>';return;}
+  const blankOthers=msg=>['aipTodayBox','aipHoldBox','aipStatBox','aipHistBox'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML=`<div class="dim-note">${msg}</div>`;});   // r895
+  if(mk==='US'&&!aipMktOK()){box.innerHTML='<div class="dim-note" style="padding:14px">🇺🇸 美股 AI Pick 實戰驗證中,即將開放。切回上方「台股」可看台股 AI Pick。</div>';blankOthers('🇺🇸 美股 AI Pick 即將開放');return;}
   const bind=()=>{box.querySelectorAll('.aip-mkt button').forEach(b=>b.onclick=()=>{AIPK_MKT=b.dataset.m;try{localStorage.setItem('aipMkt',AIPK_MKT);}catch(e){}renderAIPick();});};
   if(mk==='US'){
-    if(!AIPK_US){box.innerHTML='<div class="dim-note">載入美股 AI Pick…</div>';
+    if(!AIPK_US){box.innerHTML='<div class="dim-note">載入美股 AI Pick…</div>';blankOthers('🇺🇸 美股 AI Pick 載入中/尚未產生');aitMount('US');
       aipLoadUS().then(j=>{if(window.GMKT!=='US')return;              // r893:載入期間已切回台股 → 不要蓋掉台股畫面
         if(j)renderAIPick();else box.innerHTML='<div class="dim-note">🇺🇸 美股 AI Pick 還沒產生(後端第一次跑完才有,預計週日 18:30 後)。切回上方「台股」看台股 AI Pick。</div>';});return;}
     const save=AIPK;AIPK=AIPK_US;
@@ -21381,7 +21382,7 @@ const AIPL_KEY='aipLiveLog';
 const AIPL_LBL={buy:'🟢 觸買價',tp:'🎯 觸目標',sl:'🛑 觸停損',exp:'⏰ 到期結算'};
 function aipLogGet(){try{return JSON.parse(localStorage.getItem(AIPL_KEY)||'[]')||[];}catch(e){return [];}}
 function aipLogSet(a){try{localStorage.setItem(AIPL_KEY,JSON.stringify(a.slice(-300)));}catch(e){}}
-function aipLogDel(k){aipLogSet(aipLogGet().filter(r=>r.key!==k));try{const b=document.getElementById('aipTodayBox');if(b)b.innerHTML=aipToday();}catch(e){}}
+function aipLogDel(k){aipLogSet(aipLogGet().filter(r=>r.key!==k));try{const b=document.getElementById('aipTodayBox');if(b&&window.GMKT!=='US')b.innerHTML=aipToday();}catch(e){}}
 function aipLiveSweep(){
   try{
     if(!AIPK||!DATA||!DATA.stocks)return;
@@ -21413,7 +21414,7 @@ function aipLiveSweep(){
         }
       });
     });
-    if(add){aipLogSet(log);try{const b=document.getElementById('aipTodayBox');if(b)b.innerHTML=aipToday();}catch(e){}}
+    if(add){aipLogSet(log);try{const b=document.getElementById('aipTodayBox');if(b&&window.GMKT!=='US')b.innerHTML=aipToday();}catch(e){}}
   }catch(e){}
 }
 document.addEventListener('click',e=>{
