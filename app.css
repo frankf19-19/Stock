@@ -1907,3 +1907,11 @@ body:not(.is-user) .fal-bar,body:not(.is-user) #favAlertBar,body:not(.is-user) #
 .lev-card{background:linear-gradient(180deg,rgba(224,184,74,.05),transparent)}
 .lev-why{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
 .lev-why span{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04)}
+/* r886:正2 卡表格 */
+.lev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:8px}
+.lev-t{font-weight:800;font-size:13px;margin-bottom:4px;color:var(--t-gold)}
+.lev-tb{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono)}
+.lev-tb th{text-align:left;color:var(--dim);font-weight:600;padding:2px 6px;border-bottom:1px solid var(--line);font-family:var(--sans)}
+.lev-tb td{padding:2px 6px;border-bottom:1px dashed rgba(255,255,255,.06);white-space:nowrap}
+.lev-tb td:first-child{font-family:var(--sans);white-space:normal}
+.lev-tb tr.hi td{background:rgba(224,184,74,.10);font-weight:800}

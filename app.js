@@ -1,4 +1,4 @@
-/* K研所 · build r885 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r886 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r885</span>');
+  diag.push('<span style="color:var(--dim)">build r886</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21053,24 +21053,36 @@ function renderBias(){
     <div class="dim-note" style="margin-top:8px">「低檔進場回測」= 過去十年每次從上方跌進低檔區的那一週買進,8/13 週後的結果;跟「任意時點」基準比才知道低檔有沒有優勢。乖離低檔是<b>時機</b>不是保證——系統性事件(2020/03、2022)時可以更低。資料:Yahoo 週線。非投資建議。</div>`;
 }
 /* r883:🚀 台股正2 進場時機卡 */
-const LEV_SHOW=false;   // r885:正2 時機卡——資料驗證通過前不上線(00631L 週線來源已改 FinMind,待人工核對回測數字)
+const LEV_SHOW=false;   // r886:正2 時機卡——回測數字人工核對後才對外開(管理員預覽)
 function levHTML(J){if(!LEV_SHOW&&!isAdmin())return '';const L=(J&&J.lev||[]);if(!L.length)return '';const f1=x=>x==null?'—':(x>=0?'+':'')+(+x).toFixed(1)+'%';
-  const vc={'積極分批':'var(--up)','分批進場':'var(--t-gold)','小量試單':'var(--txt2)','觀望':'var(--mut)','減碼/不追':'var(--down)'};
-  return L.map(x=>{const m=x.ma['20']||{},bt=x.twii_low_bt||{},b8=bt['8'],b13=bt['13'],b26=bt['26'],own=x.low_bt||{},o8=own['8'],ab=(x.ma52||{}).above||{},bl=(x.ma52||{}).below||{},ch=x.chop_bt,eps=(x.twii_low_eps||[]).slice(-3).reverse();
-    const col=vc[x.verdict]||'var(--txt2)';
+  const vc={'加碼區・分批':'var(--up)','可小量':'var(--t-gold)','持有不加碼':'var(--txt2)','減碼/不追':'var(--down)'};
+  const row=(lab,b,hi)=>b?`<tr${hi?' class="hi"':''}><td>${lab}</td><td>${b.n}</td><td style="color:${b.win>=70?'var(--up)':b.win<55?'var(--down)':'inherit'}">${b.win}%</td><td>${f1(b.med)}</td><td>${f1(b.worst)}</td></tr>`:'';
+  return L.map(x=>{const m=x.ma['20']||{};const col=vc[x.verdict]||'var(--txt2)';const bt=k=>(x.twii_low25&&x.twii_low25.bt||{})[k];const b10=k=>(x.twii_low10&&x.twii_low10.bt||{})[k];const bs=k=>(x.base||{})[k];const ow=k=>(x.own_low&&x.own_low.bt||{})[k];const lk=(x.like_now||{}).bt||{};const vb=x.vol_bt||{};const ab=(x.ma52||{}).above||{},bl=(x.ma52||{}).below||{};
+    const yrs=(x.yearly||[]).slice(-8);
     return `<div class="bias-card lev-card" style="border-left-color:${col};margin-top:12px">
-      <div class="bias-h"><b>🚀 ${x.name}</b><span class="c-code">${x.sym.replace('.TW','')}</span><span class="bias-zone" style="color:${col};font-size:15px">判定:${x.verdict}</span></div>
-      <div class="bias-m">現價 <b>${x.last}</b>・20 週均 ${m.ma??'—'}・<b>週乖離 <span style="color:${m.bias<0?'var(--down)':'var(--up)'}">${f1(m.bias)}</span></b>・自身十年分位 <b>${m.pct}</b>
-        ・加權${x.twii_above_ma52?'<b style="color:var(--up)">在年線上</b>':'<b style="color:var(--down)">在年線下</b>'}(${(x.twii_ma52||0).toLocaleString()})・加權 20 週波動分位 <b style="color:${x.vol_pct>=75?'var(--down)':'var(--txt2)'}">${x.vol_pct??'—'}</b></div>
+      <div class="bias-h"><b>🚀 ${x.name}</b><span class="c-code">${x.sym.replace('.TW','')}</span><span class="bias-zone" style="color:${col};font-size:15px">現在:${x.verdict}</span></div>
+      <div class="bias-m">現價 <b>${x.last}</b>・自身週乖離 <b style="color:${m.bias<0?'var(--down)':'var(--up)'}">${f1(m.bias)}</b>(分位 ${m.pct})・加權週乖離 <b>${f1(x.twii_bias)}</b>(分位 <b>${x.twii_pct}</b>;偏低檔門檻 ${f1(x.p25)})・加權${x.twii_above_ma52?'在年線上':'在年線下'}・波動分位 ${x.vol_pct??'—'}</div>
       <div class="lev-why">${(x.why||[]).map(w=>`<span>${w}</span>`).join('')}</div>
-      <div class="bias-row">${biasSpark(x.spark,m.p10,m.p90)}<div class="bias-side">
-        ${b8?`<div><b>加權跌進低檔區時買正2</b>(十年 ${b8.n} 次):8 週後勝率 <b style="color:${b8.win>=60?'var(--up)':'var(--txt2)'}">${b8.win}%</b>・中位 <b>${f1(b8.med)}</b>・最差 ${f1(b8.worst)}・最好 ${f1(b8.best)}${b13?`;13 週勝率 ${b13.win}%・中位 ${f1(b13.med)}`:''}${b26?`;26 週勝率 ${b26.win}%・中位 ${f1(b26.med)}`:''}</div>`:''}
-        ${o8?`<div>正2 自身跌進低檔區:8 週後勝率 <b>${o8.win}%</b>・中位 ${f1(o8.med)}・最差 ${f1(o8.worst)}</div>`:''}
-        ${ab['8']&&bl['8']?`<div><b>年線規則</b>:加權在年線上時買,8 週勝率 <b style="color:var(--up)">${ab['8'].win}%</b>・中位 ${f1(ab['8'].med)};年線下 ${bl['8'].win}%・中位 ${f1(bl['8'].med)}${ab['13']&&bl['13']?`(13 週:上 ${ab['13'].win}% / 下 ${bl['13'].win}%)`:''}</div>`:''}
-        ${ch?`<div><b>盤整衰耗</b>:高波動+加權乖離 ±3% 內時買,8 週勝率 ${ch.win}%・中位 ${f1(ch.med)}(${ch.n} 週樣本)——這是正2 最吃虧的環境</div>`:''}
-        ${eps.length?`<div class="dim">最近加權進低檔 → 正2:${eps.map(e=>`${e.d.slice(2).replace(/-/g,'/')}(加權 ${f1(e.twii_bias)}${e.fwd&&e.fwd['8']!=null?` → 正2 8週 ${f1(e.fwd['8'])}`:''})`).join('・')}</div>`:''}
-      </div></div>
-      <div class="dim-note" style="margin-top:6px">正2 = 每日 2 倍,長期報酬不等於 2 倍指數;最怕高波動盤整(來回磨損)。這張卡的邏輯:<b>加權便宜(乖離低檔)+ 在年線上 + 波動不高</b>才分批;過熱或年線下不追。分數 ≥3 積極分批、2 分批、1 試單、0 觀望、負分減碼。非投資建議。</div>
+      <div class="lev-grid">
+        <div><div class="lev-t">① 加權便宜時買正2,之後怎麼走</div>
+          <table class="lev-tb"><tr><th>進場條件</th><th>次數</th><th>勝率</th><th>中位</th><th>最差</th></tr>
+          ${row('加權偏低檔(≤25)・8 週',bt('8'))}${row('加權偏低檔(≤25)・13 週',bt('13'))}${row('加權偏低檔(≤25)・26 週',bt('26'),1)}
+          ${row('加權極低檔(≤10)・8 週',b10('8'))}${row('加權極低檔(≤10)・26 週',b10('26'))}
+          ${row('任意時點・8 週',bs('8'))}${row('任意時點・26 週',bs('26'))}</table>
+          <div class="dim" style="font-size:11.5px">偏低檔(分位 ≤25)是甜蜜點;極低檔多半是崩盤中途,短線無優勢。</div></div>
+        <div><div class="lev-t">② 三個反直覺的發現</div>
+          <table class="lev-tb"><tr><th>情境(8 週)</th><th>次數</th><th>勝率</th><th>中位</th><th>最差</th></tr>
+          ${row('正2 自身跌進低檔',ow('8'))}${row('加權波動分位 ≥90',vb.hi90_8)}${row('高波動+盤整(乖離±3%)',vb.chop_8)}${row('低波動(≤50)',vb.calm_8)}</table>
+          <table class="lev-tb" style="margin-top:6px"><tr><th>年線(26 週)</th><th>次數</th><th>勝率</th><th>中位</th><th>最差</th></tr>${row('加權在年線上',ab['26'])}${row('加權在年線下',bl['26'])}</table>
+          <div class="dim" style="font-size:11.5px">正2 自己便宜不是買點(看加權);高波動段之後反而好;年線下更好只因 12 年沒長空頭——不當規則。</div></div>
+        <div><div class="lev-t">③ 現在同類情境(加權分位 ±12・波動同側・年線同側)</div>
+          ${lk['8']?`<table class="lev-tb"><tr><th>之後</th><th>次數</th><th>勝率</th><th>中位</th><th>最差</th></tr>${row('8 週',lk['8'])}${row('13 週',lk['13'])}${row('26 週',lk['26'])}</table>
+          <div class="dim" style="font-size:11.5px">共 ${x.like_now.n} 次,其中 <b>${x.like_now.recent10w} 次是最近 10 週</b>——樣本被今年這波灌爆,${x.like_now.recent10w>=x.like_now.n/2?'獨立樣本太少,別當依據':'還算有代表性'}。</div>`:'<div class="dim">樣本不足</div>'}</div>
+        <div><div class="lev-t">④ 它的本質:年度報酬與回檔</div>
+          <table class="lev-tb"><tr><th>年</th><th>正2</th><th>加權</th></tr>${yrs.map(y=>`<tr><td>${y.y}</td><td style="color:${y.lev>=0?'var(--up)':'var(--down)'}">${y.lev>=0?'+':''}${y.lev}%</td><td style="color:${y.twii>=0?'var(--up)':'var(--down)'}">${y.twii==null?'—':(y.twii>=0?'+':'')+y.twii+'%'}</td></tr>`).join('')}</table>
+          <div class="dim" style="font-size:11.5px">${x.total?`自 ${x.total.from.slice(0,7)} 累計:正2 <b>${f1(x.total.lev)}</b> / 加權 ${f1(x.total.twii)}。`:''}最近 12 個半年最大回檔:${(x.dd_half||[]).map(d=>d+'%').join('、')}——<b>−30~−50% 是常態</b>,抱得住才適合。</div></div>
+      </div>
+      <div class="dim-note" style="margin-top:8px">判定規則(依上面回測):加權分位 10~25 +2、≤10 +1、≥90 −1;正2 自身 ≤10 −1、≥90 −1;波動 ≥90 +1;年線不計分。≥2 加碼區、1 可小量、0 持有不加碼、負分減碼。資料:FinMind(00631L 日線併週線,分割還原)+ Yahoo(加權週線),2014-10 起。非投資建議。</div>
     </div>`;}).join('');}
 lazyRun('#biasBox',()=>{biasLoad().then(()=>renderBias());},30*60*1000);
 /* ═══ r795:🧭 期貨籌碼(fetch_taifex.py 每日產 taifex.json)═══ */

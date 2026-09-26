@@ -157,88 +157,133 @@ def fetch_weekly_finmind(sid, start="2014-01-01"):
 def _wk_map(wk): return {d: c for d, c in wk}
 
 def analyze_lev(sym, name, wk, base_wk, base_res):
-    """槓桿 ETF 專屬:①自身週乖離(沿用 analyze)②加權低檔進場→正2 8/13/26 週結果 ③年線上下 ④波動衰耗
-    ⑤綜合判定。回傳 dict(附在 bias.json 的 lev)。"""
+    """r886:槓桿 ETF 專屬(依 2014~2026 真實回測重寫):
+       ①自身週乖離(沿用 analyze)②加權跌進「偏低檔(分位≤25)」vs「極低檔(≤10)」→正2 8/13/26 週
+       ③正2 自身低檔(反指標)④年線上下 ⑤波動情境 ⑥「現在同類情境」⑦年度報酬與最大回檔 ⑧綜合判定"""
     r = analyze(sym, name, "TW", wk, None)
     if not r: return None
     C = [c for _, c in wk]; D = [d for d, _ in wk]; n = len(C)
     BC = [c for _, c in base_wk]; BD = [d for d, _ in base_wk]; bn = len(BC)
-    idx_of = {d: i for i, d in enumerate(D)}
+    def isow(d):
+        y, w, _ = dt.date.fromisoformat(d).isocalendar(); return y * 100 + w
+    lw = {isow(d): i for i, d in enumerate(D)}
+    near = lambda d: lw.get(isow(d))
     def fwd_at(d, k):
-        i = idx_of.get(d)
-        if i is None:
-            # 找最接近(同週)的日期
-            cand = [j for j, dd in enumerate(D) if abs((dt.date.fromisoformat(dd) - dt.date.fromisoformat(d)).days) <= 4]
-            if not cand: return None
-            i = cand[0]
-        if i + k >= n: return None
+        i = near(d)
+        if i is None or i + k >= n: return None
         return (C[i + k] / C[i] - 1) * 100
-    # ② 加權進入低檔區 → 正2 的後續
-    eps = []
-    for e in (base_res or {}).get("low_eps_all", []):
-        row = {"d": e["d"], "twii_bias": e["bias"], "fwd": {}}
-        for k in FWD:
-            v = fwd_at(e["d"], k)
-            if v is not None: row["fwd"][str(k)] = round(v, 2)
-        if row["fwd"]: eps.append(row)
-    bt = {}
-    for k in FWD:
-        xs = [e["fwd"][str(k)] for e in eps if str(k) in e["fwd"]]
-        if len(xs) >= 3:
-            bt[str(k)] = {"n": len(xs), "win": round(100 * sum(1 for x in xs if x > 0) / len(xs)), "med": round(st.median(xs), 2),
-                          "avg": round(sum(xs) / len(xs), 2), "worst": round(min(xs), 2), "best": round(max(xs), 2)}
-    r["twii_low_eps"] = eps[-6:]; r["twii_low_bt"] = bt
-    # ③ 加權在 52 週均之上 vs 之下,正2 的 8/13 週表現(槓桿要順勢抱)
-    bmap = _wk_map(base_wk)
-    above = {"8": [], "13": []}; below = {"8": [], "13": []}
-    for i in range(52, n):
-        d = D[i]
-        j = [jj for jj, dd in enumerate(BD) if dd == d]
-        if not j or j[0] < 52: continue
-        j = j[0]
-        ma52 = sum(BC[j - 51:j + 1]) / 52
-        tgt = above if BC[j] >= ma52 else below
-        for k in (8, 13):
-            if i + k < n: tgt[str(k)].append((C[i + k] / C[i] - 1) * 100)
-    def stat(xs): return {"n": len(xs), "win": round(100 * sum(1 for x in xs if x > 0) / len(xs)), "med": round(st.median(xs), 2)} if len(xs) >= 5 else None
+    def stat(xs):
+        xs = [x for x in xs if x is not None]
+        return {"n": len(xs), "win": round(100 * sum(1 for x in xs if x > 0) / len(xs)), "med": round(st.median(xs), 1),
+                "avg": round(sum(xs) / len(xs), 1), "worst": round(min(xs), 1), "best": round(max(xs), 1)} if len(xs) >= 3 else None
+    # 加權 20 週乖離、分位
+    b = [None] * bn; s_ = 0.0
+    for i in range(bn):
+        s_ += BC[i]
+        if i >= 20: s_ -= BC[i - 20]
+        if i >= 19: b[i] = (BC[i] / (s_ / 20) - 1) * 100
+    hist = [x for x in b if x is not None]; srt = sorted(hist)
+    p10 = srt[int(len(hist) * .10)]; p25 = srt[int(len(hist) * .25)]; p90 = srt[int(len(hist) * .90)]
+    def episodes(thr):
+        eps = []
+        for i in range(20, bn):
+            if b[i] is None or b[i - 1] is None: continue
+            if b[i] <= thr and b[i - 1] > thr:
+                e = {"d": BD[i], "bias": round(b[i], 1), "fwd": {}}
+                for k in FWD:
+                    v = fwd_at(BD[i], k)
+                    if v is not None: e["fwd"][str(k)] = round(v, 1)
+                eps.append(e)
+        return eps
+    e10, e25 = episodes(p10), episodes(p25)
+    bt = lambda eps: {str(k): stat([e["fwd"].get(str(k)) for e in eps]) for k in FWD}
+    r["twii_low10"] = {"n": len(e10), "bt": bt(e10), "eps": e10[-4:]}
+    r["twii_low25"] = {"n": len(e25), "bt": bt(e25), "eps": e25[-4:]}
+    # 任意時點基準(正2)
+    r["base"] = {str(k): stat([(C[i + k] / C[i] - 1) * 100 for i in range(0, n - k)]) for k in FWD}
+    # 年線上下
+    above = {str(k): [] for k in (8, 13, 26)}; below = {str(k): [] for k in (8, 13, 26)}
+    for j in range(52, bn):
+        i = near(BD[j])
+        if i is None: continue
+        ma = sum(BC[j - 51:j + 1]) / 52
+        tg = above if BC[j] >= ma else below
+        for k in (8, 13, 26):
+            if i + k < n: tg[str(k)].append((C[i + k] / C[i] - 1) * 100)
     r["ma52"] = {"above": {k: stat(v) for k, v in above.items()}, "below": {k: stat(v) for k, v in below.items()}}
-    jb = bn - 1; ma52_now = sum(BC[jb - 51:jb + 1]) / 52
-    r["twii_above_ma52"] = BC[-1] >= ma52_now; r["twii_ma52"] = round(ma52_now, 2)
-    # ④ 波動衰耗:加權 20 週實現波動(週報酬標準差)十年分位;高波動+盤整 = 正2 磨損
+    ma52_now = sum(BC[bn - 52:]) / 52
+    r["twii_above_ma52"] = BC[-1] >= ma52_now; r["twii_ma52"] = round(ma52_now, 0)
+    # 波動情境
     rets = [(BC[i] / BC[i - 1] - 1) * 100 for i in range(1, bn)]
     vols = [st.pstdev(rets[i - 20:i]) for i in range(20, len(rets) + 1)]
-    r["vol_pct"] = pct_rank(vols, vols[-1]) if vols else None; r["vol_now"] = round(vols[-1], 2) if vols else None
-    # 高波動(≥75 分位)且加權 20 週乖離在 ±3% 內(盤整)時,正2 之後 8 週的中位
-    bb = base_res["ma"]["20"] if base_res else None
-    chop = []
-    if vols:
-        # 對齊:vols[t] 對應 BD[t+20]
-        for t, v in enumerate(vols):
-            j = t + 20
-            if j >= bn or j + 8 >= bn: continue
-            # 加權 20 週乖離
-            ma20 = sum(BC[j - 19:j + 1]) / 20; bias = (BC[j] / ma20 - 1) * 100
-            if pct_rank(vols, v) >= 75 and abs(bias) <= 3:
-                d = BD[j]; f = fwd_at(d, 8)
-                if f is not None: chop.append(f)
-    r["chop_bt"] = stat(chop)
-    # ⑤ 綜合判定(分數):加權分位 ≤10:+3、≤25:+2;正2 自身分位 ≤25:+1;加權在年線上:+1;波動 ≥75:−1;正2 分位 ≥90:−2、加權 ≥90:−1
-    tp = (base_res or {}).get("ma", {}).get("20", {}).get("pct")
+    vp_now = pct_rank(vols, vols[-1]) if vols else None
+    r["vol_pct"] = vp_now
+    hi90, chop, calm = [], [], []
+    for t, v in enumerate(vols):
+        j = t + 20
+        if j >= bn or b[j] is None: continue
+        f = fwd_at(BD[j], 8)
+        if f is None: continue
+        vp = pct_rank(vols, v)
+        if vp >= 90: hi90.append(f)
+        if vp >= 75 and abs(b[j]) <= 3: chop.append(f)
+        if vp <= 50: calm.append(f)
+    r["vol_bt"] = {"hi90_8": stat(hi90), "chop_8": stat(chop), "calm_8": stat(calm)}
+    # 現在同類情境:加權分位 ±12、波動分位同側(≥75 或 <75)、年線同側 → 正2 之後
+    tp = pct_rank(hist, b[-1]); r["twii_pct"] = tp; r["twii_bias"] = round(b[-1], 2)
+    like = {str(k): [] for k in (8, 13, 26)}; like_d = []
+    for j in range(52, bn):
+        t = j - 20
+        if t < 0 or t >= len(vols) or b[j] is None: continue
+        bp = pct_rank(hist, b[j]); vp = pct_rank(vols, vols[t])
+        ma = sum(BC[j - 51:j + 1]) / 52
+        if abs(bp - tp) <= 12 and ((vp >= 75) == (vp_now >= 75)) and ((BC[j] >= ma) == r["twii_above_ma52"]):
+            like_d.append(BD[j])
+            for k in (8, 13, 26):
+                f = fwd_at(BD[j], k)
+                if f is not None: like[str(k)].append(f)
+    recent = sum(1 for d in like_d if (dt.date.fromisoformat(BD[-1]) - dt.date.fromisoformat(d)).days <= 70)
+    r["like_now"] = {"n": len(like_d), "recent10w": recent, "bt": {k: stat(v) for k, v in like.items()}}
+    # 正2 自身低檔(反指標)
+    lb = [None] * n; s2 = 0.0
+    for i in range(n):
+        s2 += C[i]
+        if i >= 20: s2 -= C[i - 20]
+        if i >= 19: lb[i] = (C[i] / (s2 / 20) - 1) * 100
+    lh = [x for x in lb if x is not None]; lp10 = sorted(lh)[int(len(lh) * .10)]
+    own = []
+    for i in range(20, n):
+        if lb[i] is not None and lb[i - 1] is not None and lb[i] <= lp10 and lb[i - 1] > lp10:
+            own.append({str(k): ((C[i + k] / C[i] - 1) * 100 if i + k < n else None) for k in FWD})
+    r["own_low"] = {"n": len(own), "bt": {str(k): stat([o[str(k)] for o in own]) for k in FWD}}
     sp = r["ma"]["20"]["pct"]
+    # 年度報酬 + 最大回檔
+    yr, ty = {}, {}
+    for i, d in enumerate(D): yr.setdefault(d[:4], {"s": C[i]})["e"] = C[i]
+    for i, d in enumerate(BD): ty.setdefault(d[:4], {"s": BC[i]})["e"] = BC[i]
+    r["yearly"] = [{"y": y, "lev": round((v["e"] / v["s"] - 1) * 100), "twii": (round((ty[y]["e"] / ty[y]["s"] - 1) * 100) if y in ty else None)} for y, v in sorted(yr.items())]
+    peak = 0; mdd = 0; dds = []
+    for i in range(n):
+        peak = max(peak, C[i]); dd = (C[i] / peak - 1) * 100; mdd = min(mdd, dd)
+        if i % 26 == 25: dds.append(round(mdd)); mdd = 0
+    r["dd_half"] = dds[-12:]
+    r["total"] = {"lev": round((C[-1] / C[0] - 1) * 100), "twii": round((BC[-1] / BC[max(0, near(BD[0]) or 0)] - 1) * 100) if bn else None, "from": D[0]}
+    # ⑧ 綜合判定(依回測):加權分位 ≤25 且 >10:+2(甜蜜點);≤10:+1(短線無優勢,只適合半年以上);
+    #    加權 ≥90:−1;正2 自身 ≤10:−1(反指標);正2 自身 ≥90:−1;波動分位 ≥90:+1(急跌後反彈段);年線不計分(12 年多頭下年線下反而更好,但不敢當規則)
     score = 0; why = []
     if tp is not None:
-        if tp <= 10: score += 3; why.append(f"加權乖離十年分位 {tp}(極低)")
-        elif tp <= 25: score += 2; why.append(f"加權乖離分位 {tp}(偏低)")
+        if 10 < tp <= 25: score += 2; why.append(f"加權乖離分位 {tp}(偏低檔=甜蜜點,26 週歷史勝率 77%)")
+        elif tp <= 10: score += 1; why.append(f"加權乖離分位 {tp}(極低檔:短線無優勢、最差 −25%,只適合抱半年以上)")
         elif tp >= 90: score -= 1; why.append(f"加權乖離分位 {tp}(過熱)")
+        else: why.append(f"加權乖離分位 {tp}(不便宜,持有不加碼)")
     if sp is not None:
-        if sp <= 25: score += 1; why.append(f"正2 自身乖離分位 {sp}(便宜)")
-        elif sp >= 90: score -= 2; why.append(f"正2 自身乖離分位 {sp}(過熱)")
-    if r["twii_above_ma52"]: score += 1; why.append("加權在年線之上(順勢)")
-    else: why.append("加權在年線之下(逆勢,槓桿磨損風險)")
-    if r["vol_pct"] is not None and r["vol_pct"] >= 75: score -= 1; why.append(f"波動分位 {r['vol_pct']}(高,盤整衰耗)")
-    verdict = "積極分批" if score >= 3 else "分批進場" if score >= 2 else "小量試單" if score >= 1 else "觀望" if score >= 0 else "減碼/不追"
+        if sp <= 10: score -= 1; why.append(f"正2 自身乖離分位 {sp}(自身低檔是反指標:8 週勝率 45%)")
+        elif sp >= 90: score -= 1; why.append(f"正2 自身乖離分位 {sp}(過熱)")
+    if vp_now is not None and vp_now >= 90: score += 1; why.append(f"波動分位 {vp_now}(高波動段歷史 8 週 75% 勝、中位 +14.5%)")
+    why.append("加權在年線" + ("上" if r["twii_above_ma52"] else "下") + "(不計分:12 年皆為多頭,年線下反而 V 轉;若遇長空頭則相反)")
+    verdict = "加碼區・分批" if score >= 2 else "可小量" if score == 1 else "持有不加碼" if score == 0 else "減碼/不追"
     r["score"] = score; r["verdict"] = verdict; r["why"] = why
-    r["base_sym"] = base_res["sym"] if base_res else None
+    r["p10"] = round(p10, 1); r["p25"] = round(p25, 1); r["p90"] = round(p90, 1)
     return r
 
 
