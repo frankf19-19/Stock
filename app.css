@@ -1903,3 +1903,7 @@ body.mini>*:not(#miniBar){display:none!important}
 .r-name .pxpill.dn .rpx{color:var(--down)}
 /* r882:未登入 → 提醒列、頁內提醒、同步提示一律不顯示 */
 body:not(.is-user) .fal-bar,body:not(.is-user) #favAlertBar,body:not(.is-user) #favAlertBar2,body:not(.is-user) #toasts,body:not(.is-user) #sbToast{display:none!important}
+/* r883:正2 進場時機卡 */
+.lev-card{background:linear-gradient(180deg,rgba(224,184,74,.05),transparent)}
+.lev-why{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+.lev-why span{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04)}

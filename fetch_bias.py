@@ -103,6 +103,7 @@ def analyze(sym, name, mkt, wk, prev):
             bt[str(k)] = {"n": len(xs), "win": round(100 * sum(1 for x in xs if x > 0) / len(xs)), "med": round(st.median(xs), 2),
                           "avg": round(sum(xs) / len(xs), 2), "worst": round(min(xs), 2)}
     res["low_eps"] = eps[-8:]
+    res["low_eps_all"] = eps                                # r883:給正2對齊用(不輸出到前端卡片)
     res["low_bt"] = bt
     # 對照:任意週之後 k 週的基準
     base = {}
@@ -114,6 +115,97 @@ def analyze(sym, name, mkt, wk, prev):
     res["spark"] = [round(x, 1) if x is not None else None for x in b[-52:]]
     res["spark_d"] = D[-52:]
     return res
+
+
+# ═══ r883:台股正2(00631L)進場時機 ═══
+LEV = [("00631L.TW", "元大台灣50正2", "^TWII")]
+
+def _wk_map(wk): return {d: c for d, c in wk}
+
+def analyze_lev(sym, name, wk, base_wk, base_res):
+    """槓桿 ETF 專屬:①自身週乖離(沿用 analyze)②加權低檔進場→正2 8/13/26 週結果 ③年線上下 ④波動衰耗
+    ⑤綜合判定。回傳 dict(附在 bias.json 的 lev)。"""
+    r = analyze(sym, name, "TW", wk, None)
+    if not r: return None
+    C = [c for _, c in wk]; D = [d for d, _ in wk]; n = len(C)
+    BC = [c for _, c in base_wk]; BD = [d for d, _ in base_wk]; bn = len(BC)
+    idx_of = {d: i for i, d in enumerate(D)}
+    def fwd_at(d, k):
+        i = idx_of.get(d)
+        if i is None:
+            # 找最接近(同週)的日期
+            cand = [j for j, dd in enumerate(D) if abs((dt.date.fromisoformat(dd) - dt.date.fromisoformat(d)).days) <= 4]
+            if not cand: return None
+            i = cand[0]
+        if i + k >= n: return None
+        return (C[i + k] / C[i] - 1) * 100
+    # ② 加權進入低檔區 → 正2 的後續
+    eps = []
+    for e in (base_res or {}).get("low_eps_all", []):
+        row = {"d": e["d"], "twii_bias": e["bias"], "fwd": {}}
+        for k in FWD:
+            v = fwd_at(e["d"], k)
+            if v is not None: row["fwd"][str(k)] = round(v, 2)
+        if row["fwd"]: eps.append(row)
+    bt = {}
+    for k in FWD:
+        xs = [e["fwd"][str(k)] for e in eps if str(k) in e["fwd"]]
+        if len(xs) >= 3:
+            bt[str(k)] = {"n": len(xs), "win": round(100 * sum(1 for x in xs if x > 0) / len(xs)), "med": round(st.median(xs), 2),
+                          "avg": round(sum(xs) / len(xs), 2), "worst": round(min(xs), 2), "best": round(max(xs), 2)}
+    r["twii_low_eps"] = eps[-6:]; r["twii_low_bt"] = bt
+    # ③ 加權在 52 週均之上 vs 之下,正2 的 8/13 週表現(槓桿要順勢抱)
+    bmap = _wk_map(base_wk)
+    above = {"8": [], "13": []}; below = {"8": [], "13": []}
+    for i in range(52, n):
+        d = D[i]
+        j = [jj for jj, dd in enumerate(BD) if dd == d]
+        if not j or j[0] < 52: continue
+        j = j[0]
+        ma52 = sum(BC[j - 51:j + 1]) / 52
+        tgt = above if BC[j] >= ma52 else below
+        for k in (8, 13):
+            if i + k < n: tgt[str(k)].append((C[i + k] / C[i] - 1) * 100)
+    def stat(xs): return {"n": len(xs), "win": round(100 * sum(1 for x in xs if x > 0) / len(xs)), "med": round(st.median(xs), 2)} if len(xs) >= 5 else None
+    r["ma52"] = {"above": {k: stat(v) for k, v in above.items()}, "below": {k: stat(v) for k, v in below.items()}}
+    jb = bn - 1; ma52_now = sum(BC[jb - 51:jb + 1]) / 52
+    r["twii_above_ma52"] = BC[-1] >= ma52_now; r["twii_ma52"] = round(ma52_now, 2)
+    # ④ 波動衰耗:加權 20 週實現波動(週報酬標準差)十年分位;高波動+盤整 = 正2 磨損
+    rets = [(BC[i] / BC[i - 1] - 1) * 100 for i in range(1, bn)]
+    vols = [st.pstdev(rets[i - 20:i]) for i in range(20, len(rets) + 1)]
+    r["vol_pct"] = pct_rank(vols, vols[-1]) if vols else None; r["vol_now"] = round(vols[-1], 2) if vols else None
+    # 高波動(≥75 分位)且加權 20 週乖離在 ±3% 內(盤整)時,正2 之後 8 週的中位
+    bb = base_res["ma"]["20"] if base_res else None
+    chop = []
+    if vols:
+        # 對齊:vols[t] 對應 BD[t+20]
+        for t, v in enumerate(vols):
+            j = t + 20
+            if j >= bn or j + 8 >= bn: continue
+            # 加權 20 週乖離
+            ma20 = sum(BC[j - 19:j + 1]) / 20; bias = (BC[j] / ma20 - 1) * 100
+            if pct_rank(vols, v) >= 75 and abs(bias) <= 3:
+                d = BD[j]; f = fwd_at(d, 8)
+                if f is not None: chop.append(f)
+    r["chop_bt"] = stat(chop)
+    # ⑤ 綜合判定(分數):加權分位 ≤10:+3、≤25:+2;正2 自身分位 ≤25:+1;加權在年線上:+1;波動 ≥75:−1;正2 分位 ≥90:−2、加權 ≥90:−1
+    tp = (base_res or {}).get("ma", {}).get("20", {}).get("pct")
+    sp = r["ma"]["20"]["pct"]
+    score = 0; why = []
+    if tp is not None:
+        if tp <= 10: score += 3; why.append(f"加權乖離十年分位 {tp}(極低)")
+        elif tp <= 25: score += 2; why.append(f"加權乖離分位 {tp}(偏低)")
+        elif tp >= 90: score -= 1; why.append(f"加權乖離分位 {tp}(過熱)")
+    if sp is not None:
+        if sp <= 25: score += 1; why.append(f"正2 自身乖離分位 {sp}(便宜)")
+        elif sp >= 90: score -= 2; why.append(f"正2 自身乖離分位 {sp}(過熱)")
+    if r["twii_above_ma52"]: score += 1; why.append("加權在年線之上(順勢)")
+    else: why.append("加權在年線之下(逆勢,槓桿磨損風險)")
+    if r["vol_pct"] is not None and r["vol_pct"] >= 75: score -= 1; why.append(f"波動分位 {r['vol_pct']}(高,盤整衰耗)")
+    verdict = "積極分批" if score >= 3 else "分批進場" if score >= 2 else "小量試單" if score >= 1 else "觀望" if score >= 0 else "減碼/不追"
+    r["score"] = score; r["verdict"] = verdict; r["why"] = why
+    r["base_sym"] = base_res["sym"] if base_res else None
+    return r
 
 
 def main():
@@ -132,7 +224,25 @@ def main():
             m = r["ma"][str(MAIN)]
             log(f"  {name}:{r['last']}・20週乖離 {m['bias']:+.2f}%(十年分位 {m['pct']})→ {r['zone']}"
                 + (f",自 {r['zone_since']}" if r["zone_since"] != r["as_of"] else "(本週進入)"))
-    res = {"u": NOW.strftime("%Y-%m-%d %H:%M"), "main_ma": MAIN, "idx": out}
+    # r883:正2
+    lev_out = []
+    base_by = {x["sym"]: x for x in out}
+    wk_cache = {}
+    for sym, name, base in LEV:
+        wk = fetch_weekly(sym)
+        if not wk: log(f"  {name}:抓不到"); continue
+        bwk = wk_cache.get(base) or fetch_weekly(base)
+        if not bwk: continue
+        wk_cache[base] = bwk
+        try:
+            r = analyze_lev(sym, name, wk, bwk, base_by.get(base))
+            if r:
+                r.pop("low_eps_all", None); lev_out.append(r)
+                log(f"  {name}:{r['last']}・判定 {r['verdict']}(分數 {r['score']})・{';'.join(r['why'])}")
+        except Exception as e:
+            log(f"  {name} 分析失敗:{e}")
+    for x in out: x.pop("low_eps_all", None)
+    res = {"u": NOW.strftime("%Y-%m-%d %H:%M"), "main_ma": MAIN, "idx": out, "lev": lev_out}
     json.dump(res, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     log(f"✅ {OUT}:{len(out)} 個指數")
 
