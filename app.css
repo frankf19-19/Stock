@@ -1926,3 +1926,16 @@ body:not(.head-open) [data-jump="mk_head"],body:not(.head-open) .jump-chip[href=
 .aip-mkt button{padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--txt2);font-weight:800;cursor:pointer}
 .aip-mkt button.on{background:var(--t-gold);color:#111;border-color:var(--t-gold)}
 .aip-us-note{font-size:12.5px;line-height:1.6;padding:9px 12px;border-radius:10px;border:1px solid rgba(91,155,213,.35);background:rgba(91,155,213,.08);margin:0 0 10px}
+/* r894:AI 交易員卡 */
+.ait-card{border:1px solid rgba(224,184,74,.45);border-radius:14px;padding:12px 14px;margin:0 0 14px;background:linear-gradient(180deg,rgba(224,184,74,.07),transparent 60%)}
+.ait-h{font-weight:900;font-size:16px;margin-bottom:8px}.ait-h .dim{font-weight:400;font-size:12px;margin-left:6px}
+.ait-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:8px}
+.ait-kpi>div{background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:12.5px}
+.ait-big{font-family:var(--mono);font-weight:900;font-size:19px;margin:2px 0}
+.ait-sub{font-weight:800;margin:10px 0 4px;color:var(--t-gold);font-size:13px}
+.ait-tw{overflow-x:auto}.ait-tb{width:100%;border-collapse:collapse;font-size:12px}
+.ait-tb th{text-align:left;color:var(--dim);font-weight:600;padding:3px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.ait-tb td{padding:3px 6px;border-bottom:1px dashed rgba(255,255,255,.06);font-family:var(--mono);white-space:nowrap}
+.ait-tb td:first-child,.ait-tb td.ait-why{font-family:var(--sans)}.ait-tb td.ait-why{white-space:normal;min-width:220px;color:var(--txt2)}
+.ait-tb td.up{color:var(--up);font-weight:800}.ait-tb td.dn{color:var(--down);font-weight:800}
+.ait-ords{display:flex;flex-wrap:wrap;gap:6px}.ait-ord{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line)}

@@ -1,4 +1,4 @@
-/* K研所 · build r892 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r893 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r892</span>');
+  diag.push('<span style="color:var(--dim)">build r893</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20937,14 +20937,61 @@ function renderAIPick(){
   if(mk==='US'&&!aipMktOK()){box.innerHTML='<div class="dim-note" style="padding:14px">🇺🇸 美股 AI Pick 實戰驗證中,即將開放。切回上方「台股」可看台股 AI Pick。</div>';return;}
   const bind=()=>{box.querySelectorAll('.aip-mkt button').forEach(b=>b.onclick=()=>{AIPK_MKT=b.dataset.m;try{localStorage.setItem('aipMkt',AIPK_MKT);}catch(e){}renderAIPick();});};
   if(mk==='US'){
-    if(!AIPK_US){box.innerHTML=aipMktBar()+'<div class="dim-note">載入美股 AI Pick…</div>';bind();aipLoadUS().then(j=>{if(j)renderAIPick();else{box.innerHTML=aipMktBar()+'<div class="dim-note">美股 AI Pick 還沒產生(後端第一次跑完才有)。</div>';bind();}});return;}
+    if(!AIPK_US){box.innerHTML='<div class="dim-note">載入美股 AI Pick…</div>';
+      aipLoadUS().then(j=>{if(window.GMKT!=='US')return;              // r893:載入期間已切回台股 → 不要蓋掉台股畫面
+        if(j)renderAIPick();else box.innerHTML='<div class="dim-note">🇺🇸 美股 AI Pick 還沒產生(後端第一次跑完才有,預計週日 18:30 後)。切回上方「台股」看台股 AI Pick。</div>';});return;}
     const save=AIPK;AIPK=AIPK_US;
     try{renderAIPickCore();}finally{AIPK=save;}
+    aitMount('US');
     box.insertAdjacentHTML('afterbegin',aipMktBar()+`<div class="aip-us-note">🇺🇸 <b>美股 AI Pick</b>:S&P 500 成分股,<b>純技術面</b>(美股基本面分數目前為預設值,不計入)・美東週五收盤後選下週 5 檔・同產業最多 2 檔・價格為美元。回測 25 週(walk-forward):勝率 54%、平均 +1.6%/筆(去掉一筆 +84% 極端值為 +1.0%)、25 週裡 16 週贏大盤中位數。樣本僅 13 個月、未經熊市。非投資建議。</div>`);
     bind();return;}
   renderAIPickCore();
+  aitMount('TW');
   if(aipMktOK()){box.insertAdjacentHTML('afterbegin',aipMktBar());bind();}
 }
+/* ═══ r894:🤖 AI 交易員——台股、美股各 NT$1,000 萬模擬帳戶(每天照規則真的交易,並列 0050/SPY) ═══ */
+const AIT_SHOW=false;                    // 先只有管理員看得到
+let AIT=null,AIT_T=0;
+async function aitLoad(force){try{if(!force&&AIT&&Date.now()-AIT_T<10*60e3)return AIT;const r=await fT('aitrader.json?v='+kv()+'_'+Math.floor(Date.now()/600e3),15000,{cache:'default'});if(r&&r.ok){AIT=await r.json();AIT_T=Date.now();}}catch(e){}return AIT;}
+function aitHTML(mk){
+  if(!(AIT_SHOW||isAdmin()))return '';
+  const A=AIT&&AIT[mk];const flag=mk==='US'?'🇺🇸':'🇹🇼';const bn=mk==='US'?'SPY':'0050';
+  if(!A||!A.nav||!A.nav.length)return `<div class="ait-card"><div class="ait-h">🤖 AI 交易員 ${flag} <span class="dim">模擬帳戶 NT$10,000,000</span></div><div class="dim-note">2026-09-28(週一)開戶,第一筆交易在開盤後產生。之後每天收盤結算淨值、持股與每筆買賣理由,並列 ${bn} 同期買進抱著的淨值。</div></div>`;
+  const S=A.sum||{},L=A.nav[A.nav.length-1],fx=mk==='US'?(L[5]||A.fx0):1;const cur=mk==='US'?'US$':'NT$';
+  const tw=v=>'NT$'+Math.round(v).toLocaleString();const pc=v=>v==null?'—':(v>=0?'+':'')+(+v).toFixed(2)+'%';const col=v=>v>0?'var(--up)':v<0?'var(--down)':'var(--txt2)';
+  const bnav=S.bench_ret!=null?A.cap_twd*(1+S.bench_ret/100):null;
+  const pos=Object.entries(A.pos||{}).map(([id,p])=>{const r=(p.lastc/p.entry-1)*100;return `<tr><td><a href="#stock/${id}">${p.name}</a> <span class="dim">${id}</span></td><td>${(+p.sh).toLocaleString()}</td><td>${p.entry}</td><td>${p.lastc}</td><td>${Math.round(p.sh*p.lastc*fx).toLocaleString()}</td><td style="color:${col(r)}">${pc(r)}</td><td>${p.stop}${p.stop>=p.entry?' <span class="dim">移動</span>':''}</td><td>${p.days||0}</td></tr>`;}).join('');
+  const ord=Object.entries(A.orders||{}).map(([id,o])=>`<span class="ait-ord">${o.name} ${id}・限價 ${o.buy}(可追 ${o.hi})・剩 ${o.left} 天</span>`).join('');
+  const tr=(A.trades||[]).slice(-40).reverse().map(t=>`<tr><td>${t.d.slice(5)}</td><td class="${t.side==='buy'?'up':'dn'}">${t.side==='buy'?'買':'賣'}</td><td><a href="#stock/${t.id}">${t.name}</a></td><td>${(+t.sh).toLocaleString()}</td><td>${t.px}</td><td>${Math.round((t.amt)*fx).toLocaleString()}</td><td>${Math.round((t.fee+t.tax)*fx).toLocaleString()}</td><td style="color:${col(t.ret)}">${t.ret!=null?pc(t.ret):''}</td><td class="ait-why">${t.why||''}</td></tr>`).join('');
+  return `<div class="ait-card">
+    <div class="ait-h">🤖 AI 交易員 ${flag} <span class="dim">模擬帳戶・${A.start} 開戶・本金 NT$10,000,000${mk==='US'?`(開戶匯率 ${A.fx0},以美元交易)`:''}・更新 ${A.updated||L[0]}</span></div>
+    <div class="ait-kpi">
+      <div><div class="dim">帳戶淨值</div><div class="ait-big" style="color:${col(S.ret)}">${tw(S.nav_twd||0)}</div><div style="color:${col(S.ret)}">${pc(S.ret)}</div></div>
+      <div><div class="dim">同期買 ${bn} 抱著</div><div class="ait-big">${bnav?tw(bnav):'—'}</div><div style="color:${col(S.bench_ret)}">${pc(S.bench_ret)}</div></div>
+      <div><div class="dim">領先 / 落後</div><div class="ait-big" style="color:${col((S.ret||0)-(S.bench_ret||0))}">${S.bench_ret!=null?pc((S.ret||0)-S.bench_ret):'—'}</div><div class="dim">vs ${bn}</div></div>
+      <div><div class="dim">持股 / 現金</div><div class="ait-big">${S.n_pos||0} 檔</div><div class="dim">現金 ${S.cash_pct??'—'}%</div></div>
+      <div><div class="dim">已平倉</div><div class="ait-big">${S.closed||0} 筆</div><div class="dim">勝 ${S.wins||0}・費稅 ${tw((S.fees||0)*fx)}</div></div>
+    </div>
+    <div id="aitChart" style="height:220px"></div>
+    <div class="ait-sub">持股(${Object.keys(A.pos||{}).length})</div>
+    ${pos?`<div class="ait-tw"><table class="ait-tb"><tr><th>股票</th><th>股數</th><th>成本</th><th>現價</th><th>市值(NT$)</th><th>損益</th><th>停損價</th><th>持有天</th></tr>${pos}</table></div>`:'<div class="dim-note">目前空手</div>'}
+    ${ord?`<div class="ait-sub">掛單中</div><div class="ait-ords">${ord}</div>`:''}
+    <div class="ait-sub">交易紀錄(最近 40 筆)</div>
+    ${tr?`<div class="ait-tw"><table class="ait-tb"><tr><th>日期</th><th></th><th>股票</th><th>股數</th><th>價格</th><th>金額(NT$)</th><th>費稅</th><th>報酬</th><th>理由</th></tr>${tr}</table></div>`:'<div class="dim-note">還沒有交易</div>'}
+    <div class="dim-note" style="margin-top:6px">規則:最多 10 檔、每檔約 1/10 淨值、同產業最多 2 檔;每週一依 AI Pick 模型重新排名補位;限價掛 5 天;沒有固定賣出日——停損(−2ATR,最多 −8%)、移動停利(高點回落 2.5ATR)、訊號轉弱(掉出前 30% 且破月線)。含手續費${mk==='US'?'、匯差':'、證交稅'}。模擬帳戶,非投資建議。</div>
+  </div>`;}
+function aitChart(mk){try{const el=document.getElementById('aitChart');const A=AIT&&AIT[mk];if(!el||!A||!A.nav||A.nav.length<2)return;
+  const fx=r=>mk==='US'?(r[5]||A.fx0):1;const b0=A.bench.px0;
+  const ai=A.nav.map(r=>[r[0],Math.round(r[1]*fx(r))]),bb=b0?A.nav.map(r=>[r[0],r[4]?Math.round(A.cap_twd*r[4]/b0):null]):[];
+  const ch=echarts.getInstanceByDom(el)||echarts.init(el);
+  ch.setOption({backgroundColor:'transparent',grid:{left:70,right:14,top:24,bottom:26},tooltip:{trigger:'axis',valueFormatter:v=>v==null?'—':'NT$'+(+v).toLocaleString()},legend:{top:0,textStyle:{color:'#9aa0ad'}},
+    xAxis:{type:'category',data:ai.map(x=>x[0].slice(5)),axisLabel:{color:'#8b8f9a'}},yAxis:{type:'value',scale:true,axisLabel:{color:'#8b8f9a',formatter:v=>(v/1e4).toFixed(0)+'萬'},splitLine:{lineStyle:{color:'#2a2d35'}}},
+    series:[{name:'AI 交易員',type:'line',data:ai.map(x=>x[1]),showSymbol:false,lineStyle:{width:2,color:'#e0b84a'},itemStyle:{color:'#e0b84a'}},
+            {name:(mk==='US'?'SPY':'0050')+' 抱著',type:'line',data:bb.map(x=>x[1]),showSymbol:false,lineStyle:{width:1.5,color:'#8b8f9a',type:'dashed'},itemStyle:{color:'#8b8f9a'}},
+            {type:'line',data:ai.map(()=>A.cap_twd),showSymbol:false,lineStyle:{width:1,color:'#444'},silent:true,tooltip:{show:false}}]});}catch(e){}}
+function aitMount(mk){const box=document.getElementById('aipickBox');if(!box||!(AIT_SHOW||isAdmin()))return;
+  const put=()=>{if(!document.getElementById('aipickBox'))return;const old=box.querySelector('.ait-card');if(old)old.remove();box.insertAdjacentHTML('afterbegin',aitHTML(mk));aitChart(mk);};
+  if(AIT)put();else aitLoad().then(()=>{if((window.GMKT==='US'?'US':'TW')===mk)put();});}
 function renderAIPickCore(){
   const box=document.getElementById('aipickBox');
   if(!box)return;
