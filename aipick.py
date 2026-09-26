@@ -20,10 +20,21 @@
 """
 import json, os, sys, datetime as dt
 
-TZ = dt.timezone(dt.timedelta(hours=8))
+# r890:市場參數化——AIPICK_MKT=US 時跑美股(S&P 500),其餘一律台股,台股行為完全不變
+MKT = (os.environ.get("AIPICK_MKT") or "TW").upper()
+US = MKT == "US"
+if US:
+    try:
+        from zoneinfo import ZoneInfo
+        TZ = ZoneInfo("America/New_York")
+    except Exception:
+        TZ = dt.timezone(dt.timedelta(hours=-4))
+else:
+    TZ = dt.timezone(dt.timedelta(hours=8))
+BENCH_SID = "SPY" if US else "2330"
 NOW = dt.datetime.now(TZ)
 TODAY = NOW.date()
-OUT = "aipick.json"
+OUT = "aipick_us.json" if US else "aipick.json"
 MODEL = "v2"
 XVER = 3                      # r738:結算版本(換股輪動;版本一變舊檔自動重跑)
 N_PICK = 5
@@ -42,7 +53,8 @@ def iso(d):
 
 
 def tick(px):
-    """台股升降單位"""
+    """台股升降單位(美股一律 0.01)"""
+    if US: return 0.01
     if px < 10: return 0.01
     if px < 50: return 0.05
     if px < 100: return 0.1
@@ -82,9 +94,9 @@ def shard_key(sid):
 
 _SH = {}
 def shard(sid):
-    k = shard_key(sid)
+    k = (str(sid)[0].lower() if US else shard_key(sid))
     if k not in _SH:
-        p = f"k/tw{k}.json"
+        p = f"k/us_{k}.json" if US else f"k/tw{k}.json"
         try:
             with open(p, encoding="utf-8") as f: _SH[k] = json.load(f)
         except Exception:
@@ -92,7 +104,7 @@ def shard(sid):
     return _SH[k]
 
 
-SETTLE_CUTOFF_H = 14        # 台北 14:00 前不採用當日 K 棒(13:30 收盤 + 緩衝)
+SETTLE_CUTOFF_H = 17 if US else 14        # 台北 14:00 前不採用當日 K 棒(13:30 收盤 + 緩衝)
 
 def bars_of(sid):
     """r749:結算只用「已完成」的日 K。
@@ -138,7 +150,7 @@ def _score_one(s, d, o, cutoff):
     if any(len(x) < 5 for x in o[-65:]): return None
     c = [x[3] for x in o]; h = [x[1] for x in o]; l = [x[2] for x in o]; v = [x[4] or 0 for x in o]
     last = c[-1]
-    if not (last >= 10): return None
+    if not (last >= (5 if US else 10)): return None
     ma5, ma10, ma20, ma60 = avg(c[-5:]), avg(c[-10:]), avg(c[-20:]), avg(c[-60:])
     ma20p = avg(c[-25:-5])
     r5 = last / c[-6] - 1; r20 = last / c[-21] - 1; r60 = last / c[-61] - 1
@@ -146,8 +158,8 @@ def _score_one(s, d, o, cutoff):
     v5, v20 = avg(v[-5:]), avg(v[-20:])
     if v20 <= 0: return None
     vr = v5 / v20
-    liq = avg([c[i] * v[i] for i in range(len(c) - 20, len(c))]) * 1000   # 元/日
-    if liq < 3e7: return None                                            # 日均成交值 < 3,000 萬:流動性不足
+    liq = avg([c[i] * v[i] for i in range(len(c) - 20, len(c))]) * (1 if US else 1000)   # 元/日(美股:美元,量為股數)
+    if liq < (2e7 if US else 3e7): return None                           # 台股 3,000 萬元/日;美股 2,000 萬美元/日
     h20 = max(h[-21:-1]); near = last / h20
     a = atr(o, 14)
     if not a or a <= 0: return None
@@ -245,7 +257,7 @@ def week_samples(data, cutoff_week):
     out = []
     h_end = iso(cutoff_week + dt.timedelta(days=11))
     for s in data.get("stocks", []):
-        if s.get("market") != "TW" or s.get("etf"): continue
+        if s.get("market") != MKT or s.get("etf"): continue
         d, o = bars_of(s["id"])
         if not d: continue
         r = score_one(s, d, o, key)
@@ -282,7 +294,7 @@ def fit_model(samples):
         ra = a.argsort().argsort(); rr = R.argsort().argsort()
         ic.append(float(np.corrcoef(ra, rr)[0, 1]))
     return {"n": int(len(X)), "w": [round(float(v), 4) for v in w], "b": round(b, 4),
-            "mu": [round(float(v), 5) for v in mu], "sd": [round(float(v), 5) for v in sd],
+            "mu": [round(float(v), 5) for v in mu], "sd": [round(max(float(v), 1e-5), 5) for v in sd],   # r890:常數特徵(美股無籌碼/基本面)避免除以 0
             "acc": round(acc * 100, 1), "ic": [round(v, 3) for v in ic]}
 
 
@@ -346,7 +358,7 @@ def model_logit(learn, fx):
     if not learn or not learn.get("w"): return 0.0
     z = learn["b"]
     for j in range(NF):
-        z += learn["w"][j] * (fx[j] - learn["mu"][j]) / learn["sd"][j]
+        z += learn["w"][j] * (fx[j] - learn["mu"][j]) / (learn["sd"][j] or 1.0)
     return z
 
 
@@ -380,7 +392,7 @@ def gen_week(data, buy_week, learn=None):
     cutoff = iso(buy_week)
     cands = []
     for s in data.get("stocks", []):
-        if s.get("market") != "TW" or s.get("etf") or s.get("disp"): continue
+        if s.get("market") != MKT or s.get("etf") or s.get("disp"): continue
         if not (isinstance(s.get("price"), (int, float)) and s["price"] > 0): continue
         d, o = bars_of(s["id"])
         if not d: continue
@@ -477,7 +489,7 @@ def _run_leg(leg, ew_end, eval_over):
 
 def _has_day_after(day, ew_end):
     """day 之後、視窗內還有沒有交易日(以台積電日曆為準)。"""
-    d, _ = bars_of("2330")
+    d, _ = bars_of(BENCH_SID)
     return any(day < x <= ew_end for x in d)
 
 
@@ -731,7 +743,7 @@ def week_benchmark(data, w):
     ew_end = iso(dt.date.fromisoformat(w["eval_week"]) + dt.timedelta(days=4))
     rets = []
     for s in data.get("stocks", []):
-        if s.get("market") != "TW" or s.get("etf"): continue
+        if s.get("market") != MKT or s.get("etf"): continue
         d, o = bars_of(s["id"])
         if len(d) < 30: continue
         i0 = next((i for i, x in enumerate(d) if x >= bw), None)
@@ -892,7 +904,7 @@ def main():
 
     # 這一班應該存在的「買進週」
     wd = TODAY.weekday(); hm = NOW.hour * 60 + NOW.minute
-    if (wd == 4 and hm >= 14 * 60 + 30) or wd >= 5:
+    if (wd == 4 and hm >= ((16 * 60 + 30) if US else (14 * 60 + 30))) or wd >= 5:
         buy_week = monday(TODAY) + dt.timedelta(days=7)
     else:
         buy_week = monday(TODAY)
@@ -926,7 +938,7 @@ def main():
     if not have and not LIGHT:
         ok = True
         if wd == 4 and buy_week > monday(TODAY):   # 週五盤後:必須等到週五 K 入庫(以台積電為準)才選,否則留給下一班
-            d, _ = bars_of("2330")
+            d, _ = bars_of(BENCH_SID)
             if not d or d[-1] < iso(TODAY):
                 ok = False; print(f"aipick:週五 K 尚未入庫(最新 {d[-1] if d else '無'}),本班不選股")
         if ok:
@@ -962,16 +974,16 @@ def main():
     weeks = weeks[-KEEP_WEEKS:]
     # r787:盤中當下記(只在交易時段;時間用報價快照的時間)
     try:
-        if TODAY.weekday() < 5 and 9 * 60 <= hm <= 13 * 60 + 35:
+        if (not US) and TODAY.weekday() < 5 and 9 * 60 <= hm <= 13 * 60 + 35:
             prices = {s["id"]: float(s["price"]) for s in data.get("stocks") or [] if s.get("price")}
             ni = intraday_watch(weeks, prices, data.get("intraday") or NOW.strftime("%H:%M"))
             if ni: print(f"aipick:盤中記錄 {ni} 筆觸發(買價/目標/停損)")
     except Exception as e:
         print(f"aipick:盤中記錄失敗 {e}")
     try:
-        na = apply_intraday_times(weeks)
+        na = 0 if US else apply_intraday_times(weeks)       # r890:美股不做分K時間戳(台股 MIS 專用)
         if na: print(f"aipick:沿用盤中記錄的時間 {na} 筆")
-        nt = stamp_times(weeks, budget=6 if LIGHT else 20)
+        nt = 0 if US else stamp_times(weeks, budget=6 if LIGHT else 20)
         if nt: print(f"aipick:補成交/出場時間 {nt} 次查詢(富果 1 分 K)")
     except Exception as e:
         print(f"aipick:補時間失敗 {e}")

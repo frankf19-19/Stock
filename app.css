@@ -1921,3 +1921,8 @@ body:not(.head-open) [data-jump="mk_head"],body:not(.head-open) .jump-chip[href=
 #boxHead7:not(.h7-open){display:none!important}
 .alert-pill.hd-pill{cursor:pointer}
 .alert-pill .hd-more{margin-left:6px;font-size:11px;font-weight:800;opacity:.75}
+/* r890:AI Pick 台股/美股切換 */
+.aip-mkt{display:flex;align-items:center;gap:6px;margin:0 0 10px}
+.aip-mkt button{padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--txt2);font-weight:800;cursor:pointer}
+.aip-mkt button.on{background:var(--t-gold);color:#111;border-color:var(--t-gold)}
+.aip-us-note{font-size:12.5px;line-height:1.6;padding:9px 12px;border-radius:10px;border:1px solid rgba(91,155,213,.35);background:rgba(91,155,213,.08);margin:0 0 10px}

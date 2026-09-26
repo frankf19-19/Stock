@@ -1,4 +1,4 @@
-/* K研所 · build r889 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r890 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r889</span>');
+  diag.push('<span style="color:var(--dim)">build r890</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -20921,7 +20921,29 @@ function aipWeekBlock(w,compact){
     +((w.bench||[]).length?`<div class="aip-bench"><div class="aip-bh">🔄 候補名單 <span class="dim">名次接在正選之後;任一倉位出場後依序遞補,同時持有同產業至多 2 檔</span></div>
       <div class="aip-bl">${w.bench.map((b,j)=>`<span class="aip-bk" data-aip="${b.id}"><i>${j+1}</i><b>${b.name}</b> <span class="c-code">${b.id}</span><em>買 ${b.buy} · 目標 ${b.target} · 停損 ${b.stop}</em></span>`).join('')}</div></div>`:'');
 }
+/* r890:AI Pick 分台股/美股——AIPK 永遠是台股(最愛/提醒/哨兵都依賴它);美股另存 AIPK_US,渲染時暫時換上 */
+const US_AIP_SHOW=false;                         // 美股版先只給管理員看,實戰幾週再開
+let AIPK_US=null,AIPK_US_T=0;
+let AIPK_MKT=(()=>{try{return localStorage.getItem('aipMkt')==='US'?'US':'TW';}catch(e){return 'TW';}})();
+async function aipLoadUS(force){try{if(!force&&AIPK_US&&Date.now()-AIPK_US_T<10*60e3)return AIPK_US;
+  const r=await fT('aipick_us.json?v='+kv()+'_'+Math.floor(Date.now()/600e3),15000,{cache:'default'});
+  if(r&&r.ok){const j=await r.json();if(j&&Array.isArray(j.weeks)){AIPK_US=j;AIPK_US_T=Date.now();}}}catch(e){}return AIPK_US;}
+function aipMktOK(){return US_AIP_SHOW||isAdmin();}
+function aipMktBar(){if(!aipMktOK())return '';return `<div class="aip-mkt"><button data-m="TW" class="${AIPK_MKT==='TW'?'on':''}">🇹🇼 台股</button><button data-m="US" class="${AIPK_MKT==='US'?'on':''}">🇺🇸 美股</button>${US_AIP_SHOW?'':'<span class="dim" style="font-size:11px;margin-left:8px">美股版目前只有管理員看得到</span>'}</div>`;}
 function renderAIPick(){
+  const box=document.getElementById('aipickBox');if(!box)return;
+  const mk=aipMktOK()?AIPK_MKT:'TW';
+  const bind=()=>{box.querySelectorAll('.aip-mkt button').forEach(b=>b.onclick=()=>{AIPK_MKT=b.dataset.m;try{localStorage.setItem('aipMkt',AIPK_MKT);}catch(e){}renderAIPick();});};
+  if(mk==='US'){
+    if(!AIPK_US){box.innerHTML=aipMktBar()+'<div class="dim-note">載入美股 AI Pick…</div>';bind();aipLoadUS().then(j=>{if(j)renderAIPick();else{box.innerHTML=aipMktBar()+'<div class="dim-note">美股 AI Pick 還沒產生(後端第一次跑完才有)。</div>';bind();}});return;}
+    const save=AIPK;AIPK=AIPK_US;
+    try{renderAIPickCore();}finally{AIPK=save;}
+    box.insertAdjacentHTML('afterbegin',aipMktBar()+`<div class="aip-us-note">🇺🇸 <b>美股 AI Pick</b>:S&P 500 成分股,<b>純技術面</b>(美股基本面分數目前為預設值,不計入)・美東週五收盤後選下週 5 檔・同產業最多 2 檔・價格為美元。回測 25 週(walk-forward):勝率 54%、平均 +1.6%/筆(去掉一筆 +84% 極端值為 +1.0%)、25 週裡 16 週贏大盤中位數。樣本僅 13 個月、未經熊市。非投資建議。</div>`);
+    bind();return;}
+  renderAIPickCore();
+  if(aipMktOK()){box.insertAdjacentHTML('afterbegin',aipMktBar());bind();}
+}
+function renderAIPickCore(){
   const box=document.getElementById('aipickBox');
   if(!box)return;
   if(!AIPK){box.innerHTML='<div class="dim-note">⏳ 讀取 AI Pick 名單中…(後端每週五盤後選股;若這裡一直空白,代表 aipick.json 尚未由 GitHub Actions 產生)</div>';aipLoad().then(j=>{if(j)renderAIPick();});return;}
