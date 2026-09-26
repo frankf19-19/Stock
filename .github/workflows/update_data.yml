@@ -121,6 +121,7 @@ jobs:
             git add e/ 2>/dev/null || true
             [ -f spark.json ] && git add spark.json
             [ -f aipick.json ] && git add aipick.json
+            [ -f aipick_us.json ] && git add aipick_us.json      # r890:美股 AI Pick
             [ -f notify_state.json ] && git add notify_state.json
             [ -f hourly_scan.json ] && git add hourly_scan.json
             [ -f bias.json ] && git add bias.json
@@ -162,6 +163,7 @@ jobs:
               echo "  (本輪略過分點/歷史回補:HEAVY_EXTRAS=${HEAVY_EXTRAS:-1}, HHMM=$HHMM)"
             fi
             step AIPick timeout 900 python aipick.py || echo "AI Pick 失敗,不影響主資料"
+            step AIPick美股 bash -c 'AIPICK_MKT=US timeout 900 python aipick.py || echo "美股 AI Pick 失敗,不影響主資料"'   # r890
             step 推播 timeout 300 python notify.py || echo "推播失敗,不影響主資料"
             commit_push                                                                    # 整輪提交
           }
