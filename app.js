@@ -1,4 +1,4 @@
-/* K研所 · build r886 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r888 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r886</span>');
+  diag.push('<span style="color:var(--dim)">build r888</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4742,7 +4742,7 @@ async function renderHeadStock(s){
         pill.className='alert-pill alert-'+lv;pill.dataset.hd='1';
         pill.style.cursor='pointer';pill.title='點我看七腳印完整判讀';
         pill.innerHTML=`<span class="ico">${hp.prob>=50?'🔺':'📈'}</span><span>趨勢:${hp.trend} · 頭部機率 ${hp.prob}%${hp.prob>=70?'——證據齊備,紀律減碼/停損':hp.prob>=50?'——做頭風險偏高,反彈視為減碼機會':''}</span>`;
-        pill.onclick=()=>{try{document.getElementById('headStk').scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}};
+        pill.onclick=()=>{try{const bx=document.getElementById('boxHead7');if(bx)bx.classList.add('h7-open');document.getElementById('headStk').scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}};
         const ok=al.querySelector('.alert-ok');
         if(ok&&lv!=='ok')ok.remove();                       // 有警告時把「無警示」拿掉
         al.style.display='';al.prepend(pill);
@@ -6178,6 +6178,7 @@ function renderMacroAlerts(){
     if(nf&&Date.now()/1000-nf.t<16*3600&&Math.abs(nf.sprd)>=0.15){
       add(Math.abs(nf.sprd)>=0.8?'amb':'ok','🌙',atag('夜盤')+`台指夜盤 ${(+nf.px).toLocaleString()}(${nf.sprd>0?'+':''}${nf.sprd}% vs 加權收盤)——隔日開盤${nf.sprd>0.15?'偏多':'偏空'}參考`);
     }}catch(e){}
+  window.__openHead=()=>{try{document.body.classList.add('head-open');const t=document.getElementById('sb-mk_head');if(t){t.previousElementSibling&&t.previousElementSibling.classList.remove('shut');t.classList.remove('shut');t.scrollIntoView({behavior:'smooth',block:'start'});}}catch(e){}};   // r888
   Object.values(window.__headIdx||{}).forEach(x=>{           // 🔺 大盤/櫃買趨勢與頭部機率(常駐;≥50%升級為警告)
     const lv=x.prob>=70?'red':x.prob>=50?'amb':'ok';
     const ico=x.prob>=50?'🔺':'📈';
@@ -6215,7 +6216,7 @@ function renderMacroAlerts(){
     `<a class="alert-pill alert-${x.lv}" href="${x.l}" target="_blank" rel="noopener"><span class="ico">${x.lv==='red'?'🚨':'📰'}</span><span>${x.lv==='red'?'重大外電:':'外電訊號:'}${x.t}${x.tags.length?` <b>→ ${x.tags.join('/')}</b>`:''}<span style="color:var(--dim);font-weight:600"> · ${x.ago} ↗</span></span></a>`).join('');
   el.style.display='';
   el.innerHTML=(A.length||news)
-    ?A.map(a=>`<span class="alert-pill alert-${a.lv}"><span class="ico">${a.ico}</span><span>${a.txt}</span></span>`).join('')+news
+    ?A.map(a=>{const hd=/頭部|轉折/.test(a.txt.slice(0,80));return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).join('')+news
     :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>風險溫度計與外電目前無特別警示</span></span>';
 }
 setTimeout(()=>{try{renderMacroAlerts();}catch(e){}},4500);

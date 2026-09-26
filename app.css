@@ -1915,3 +1915,9 @@ body:not(.is-user) .fal-bar,body:not(.is-user) #favAlertBar,body:not(.is-user) #
 .lev-tb td{padding:2px 6px;border-bottom:1px dashed rgba(255,255,255,.06);white-space:nowrap}
 .lev-tb td:first-child{font-family:var(--sans);white-space:normal}
 .lev-tb tr.hi td{background:rgba(224,184,74,.10);font-weight:800}
+/* r888:頭部七腳印/轉折點——預設隱藏,只留頂端提示膠囊;點膠囊才展開 */
+body:not(.head-open) [data-sec="mk_head"],body:not(.head-open) #sb-mk_head{display:none!important}
+body:not(.head-open) [data-jump="mk_head"],body:not(.head-open) .jump-chip[href="#sb-mk_head"],body:not(.head-open) .snav a[data-sec="mk_head"]{display:none!important}
+#boxHead7:not(.h7-open){display:none!important}
+.alert-pill.hd-pill{cursor:pointer}
+.alert-pill .hd-more{margin-left:6px;font-size:11px;font-weight:800;opacity:.75}
