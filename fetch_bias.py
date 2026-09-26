@@ -120,6 +120,40 @@ def analyze(sym, name, mkt, wk, prev):
 # ═══ r883:台股正2(00631L)進場時機 ═══
 LEV = [("00631L.TW", "元大台灣50正2", "^TWII")]
 
+def fetch_weekly_finmind(sid, start="2014-01-01"):
+    """r884:Yahoo 的 00631L 週線有分割/錯值(2015-01 出現 19→0.87),改抓 FinMind 日線自己併成週線(取每週最後一個交易日收盤)。"""
+    try:
+        tok = os.environ.get("FINMIND_TOKEN", "")
+        r = requests.get("https://api.finmindtrade.com/api/v4/data",
+                         params={"dataset": "TaiwanStockPrice", "data_id": sid, "start_date": start, "token": tok}, timeout=60)
+        rows = (r.json() or {}).get("data") or []
+        if len(rows) < 200: log(f"  FinMind {sid} 只有 {len(rows)} 筆"); return None
+        # 分割還原:00631L 2024 年有 1:? 分割;用「前後日跳動 >40%」偵測並把之前的價格按比例折算
+        rows.sort(key=lambda x: x["date"])
+        px = [(x["date"], float(x["close"])) for x in rows if x.get("close")]
+        adj = []
+        factor = 1.0
+        # 由後往前:遇到跳空(前一日/當日 比例 >1.4 或 <0.7)就把更早的價格乘上比例
+        out = [None] * len(px)
+        for i in range(len(px) - 1, -1, -1):
+            d, c = px[i]
+            if i < len(px) - 1:
+                nxt = px[i + 1][1]
+                ratio = nxt / c if c else 1
+                if ratio < 0.7 or ratio > 1.4:
+                    factor *= ratio
+            out[i] = (d, c * factor)
+        # 併週線:ISO 週,取該週最後一筆
+        wk = {}
+        for d, c in out:
+            y, w, _ = dt.date.fromisoformat(d).isocalendar()
+            wk[(y, w)] = (d, c)
+        res = [wk[k] for k in sorted(wk)]
+        return res if len(res) >= 60 else None
+    except Exception as e:
+        log(f"  FinMind {sid} 失敗:{e}"); return None
+
+
 def _wk_map(wk): return {d: c for d, c in wk}
 
 def analyze_lev(sym, name, wk, base_wk, base_res):
@@ -229,7 +263,7 @@ def main():
     base_by = {x["sym"]: x for x in out}
     wk_cache = {}
     for sym, name, base in LEV:
-        wk = fetch_weekly(sym)
+        wk = fetch_weekly_finmind(sym.replace(".TW", ""))     # r884:正2 走 FinMind(Yahoo 這檔資料壞)
         if not wk: log(f"  {name}:抓不到"); continue
         bwk = wk_cache.get(base) or fetch_weekly(base)
         if not bwk: continue
