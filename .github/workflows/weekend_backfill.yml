@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: kdata
+  group: weekend-backfill      # r887:回到獨立群組——共用 kdata 會被平日迴圈班擋住、排隊時還會被新排程互相取消
   cancel-in-progress: false
 
 permissions:
