@@ -1,4 +1,4 @@
-/* K研所 · build r883 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r885 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r883</span>');
+  diag.push('<span style="color:var(--dim)">build r885</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21053,7 +21053,8 @@ function renderBias(){
     <div class="dim-note" style="margin-top:8px">「低檔進場回測」= 過去十年每次從上方跌進低檔區的那一週買進,8/13 週後的結果;跟「任意時點」基準比才知道低檔有沒有優勢。乖離低檔是<b>時機</b>不是保證——系統性事件(2020/03、2022)時可以更低。資料:Yahoo 週線。非投資建議。</div>`;
 }
 /* r883:🚀 台股正2 進場時機卡 */
-function levHTML(J){const L=(J&&J.lev||[]);if(!L.length)return '';const f1=x=>x==null?'—':(x>=0?'+':'')+(+x).toFixed(1)+'%';
+const LEV_SHOW=false;   // r885:正2 時機卡——資料驗證通過前不上線(00631L 週線來源已改 FinMind,待人工核對回測數字)
+function levHTML(J){if(!LEV_SHOW&&!isAdmin())return '';const L=(J&&J.lev||[]);if(!L.length)return '';const f1=x=>x==null?'—':(x>=0?'+':'')+(+x).toFixed(1)+'%';
   const vc={'積極分批':'var(--up)','分批進場':'var(--t-gold)','小量試單':'var(--txt2)','觀望':'var(--mut)','減碼/不追':'var(--down)'};
   return L.map(x=>{const m=x.ma['20']||{},bt=x.twii_low_bt||{},b8=bt['8'],b13=bt['13'],b26=bt['26'],own=x.low_bt||{},o8=own['8'],ab=(x.ma52||{}).above||{},bl=(x.ma52||{}).below||{},ch=x.chop_bt,eps=(x.twii_low_eps||[]).slice(-3).reverse();
     const col=vc[x.verdict]||'var(--txt2)';
