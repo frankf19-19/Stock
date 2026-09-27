@@ -1,4 +1,4 @@
-/* K研所 · build r897 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r898 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r897</span>');
+  diag.push('<span style="color:var(--dim)">build r898</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -8356,8 +8356,9 @@ function gemBlock(s,g){
     const PW=Math.min(360,innerWidth-16);                                                   // r822:面板不能超出畫面左緣(手機上鈴鐺在左邊)
     const rightPx=Math.min(Math.max(8,Math.round(innerWidth-r.right)),innerWidth-PW-8);
     panel.style.cssText=`position:fixed;top:${Math.round(r.bottom+8)}px;right:${rightPx}px;z-index:999;`+
-      `background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;width:${PW}px;max-height:calc(100vh - ${Math.round(r.bottom+16)}px);overflow-y:auto;box-shadow:0 8px 28px rgba(0,0,0,.25)`;
-    document.body.appendChild(panel);
+      `background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;width:${PW}px;max-height:${Math.max(240,Math.round((window.visualViewport?visualViewport.height:innerHeight)-r.bottom-16))}px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;box-shadow:0 8px 28px rgba(0,0,0,.25)`;   // r898:iPhone 的 100vh 含工具列 → 改用實際可見高度,才滑得到底
+    document.body.appendChild(panel);panel.id='bellPanel';
+    if(innerWidth<=640){panel.style.top=`${Math.round(r.bottom+8)}px`;panel.style.left='8px';panel.style.right='8px';panel.style.width='auto';panel.style.maxHeight=`calc(100dvh - ${Math.round(r.bottom+8)}px - 80px - env(safe-area-inset-bottom))`;}
     render();
     setTimeout(()=>{document.addEventListener('click',function h(e2){
       if(panel&&!panel.contains(e2.target)&&e2.target!==b){closePanel();document.removeEventListener('click',h);}
