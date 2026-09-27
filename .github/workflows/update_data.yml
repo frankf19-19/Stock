@@ -123,6 +123,7 @@ jobs:
             [ -f aipick.json ] && git add aipick.json
             [ -f aipick_us.json ] && git add aipick_us.json      # r890:美股 AI Pick
             [ -f aitrader.json ] && git add aitrader.json        # r894:AI 交易員
+            [ -f holidays.json ] && git add holidays.json        # r904:休市行事曆
             [ -f notify_state.json ] && git add notify_state.json
             [ -f hourly_scan.json ] && git add hourly_scan.json
             [ -f bias.json ] && git add bias.json
@@ -142,6 +143,7 @@ jobs:
             echo "══════ 開始一輪 $(TZ=Asia/Taipei date '+%m/%d %H:%M') ══════"
             git pull --rebase --autostash -X theirs origin main || true     # 先同步別班的成果(ETF 17:35、盤中迴圈)
             # r823:輕量輪——每段第 2 輪起 ETF 持股不重抓、update_data.py 略過逐檔磨補/個股新聞/總經新聞/法說會(沿用上一輪)
+            step 休市行事曆 timeout 120 python fetch_holidays.py || echo "行事曆失敗,沿用上一版"   # r904
             if [ "${HEAVY_EXTRAS:-1}" = "1" ]; then
               step 主資料 bash -c 'python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"; python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"'
             else
