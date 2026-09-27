@@ -1,4 +1,4 @@
-/* K研所 · build r914 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r915 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r914</span>');
+  diag.push('<span style="color:var(--dim)">build r915</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4104,6 +4104,8 @@ function rptFullHTML(J,F,fromCache){
   const V=J.valuation||{},E=J.entry||{},up=F.px&&V.target_mid?((V.target_mid/F.px-1)*100).toFixed(1):null;
   return `<div class="rf">
     <div class="rf-top"><div class="rf-verdict">${J.verdict||''}</div><div class="rf-score">綜合吸引力 <b>${c(J.score)}</b>/100</div></div>
+    ${J.thesis?`<div class="rf-card rf-thesis"><h4>💡 核心投資論點</h4><div>${J.thesis}</div></div>`:''}
+    ${(J.bull||[]).length||(J.bear||[]).length?`<div class="rf-2col rf-debate"><div class="rf-card" style="border-left-color:var(--up)"><h4 style="color:var(--up)">📈 看多理由</h4><ul>${li(J.bull)}</ul></div><div class="rf-card" style="border-left-color:var(--down)"><h4 style="color:var(--down)">📉 看空理由</h4><ul>${li(J.bear)}</ul></div></div>`:''}
     <div class="rf-grid">
       <div class="rf-card" style="border-left-color:${stC[(J.regime||{}).state]||'var(--line)'}"><h4>📈 趨勢:<span style="color:${stC[(J.regime||{}).state]}">${(J.regime||{}).state||'—'}</span> <small>信心 ${(J.regime||{}).confidence||'—'}・規則版 ${F.regime_rule}</small></h4><ul>${li((J.regime||{}).evidence)}</ul></div>
       <div class="rf-card" style="border-left-color:${stC[(J.chips||{}).state]||'var(--line)'}"><h4>🧮 籌碼:<span style="color:${stC[(J.chips||{}).state]}">${(J.chips||{}).state||'—'}</span> <small>信心 ${(J.chips||{}).confidence||'—'}</small></h4><ul>${li((J.chips||{}).evidence)}</ul></div>
@@ -4111,6 +4113,7 @@ function rptFullHTML(J,F,fromCache){
     <div class="rf-card"><h4>🏭 產業與基本面</h4><div><b>基本面</b>:${(J.fundamentals||{}).summary||''} <span class="dim">${[(J.fundamentals||{}).growth,(J.fundamentals||{}).quality].filter(x=>x&&!/資料不足/.test(x)).join(';')}</span></div>
       <div style="margin-top:4px"><b>產業位置</b>:${(J.industry||{}).position||''}</div><div><b>展望</b>:${(J.industry||{}).outlook||''}</div>
       <div class="rf-2col"><div><b style="color:var(--up)">催化劑</b><ul>${li((J.industry||{}).catalysts)}</ul></div><div><b style="color:var(--down)">產業風險</b><ul>${li((J.industry||{}).risks)}</ul></div></div></div>
+    ${J.peers?`<div class="rf-card"><h4>⚔️ 同業比較</h4>${J.peers}</div>`:''}
     <div class="rf-grid"><div class="rf-card"><h4>🧭 股性</h4>${J.personality||''}</div><div class="rf-card"><h4>🔁 週期</h4>${J.cycle||''}</div></div>
     <div class="rf-card rf-val"><h4>🎯 目標價(網站計算,${V.horizon||'6~12 個月'})</h4>
       <div class="rf-tp"><span>保守 <b>${c(V.target_low)}</b></span><span class="rf-mid">中性 <b>${c(V.target_mid)}</b>${up!=null?`<small style="color:${up>=0?'var(--up)':'var(--down)'}">${up>=0?'+':''}${up}%</small>`:''}</span><span>樂觀 <b>${c(V.target_high)}</b></span></div>
@@ -4118,6 +4121,9 @@ function rptFullHTML(J,F,fromCache){
     <div class="rf-card rf-entry"><h4>🪙 長期投資建議進場價:<b style="font-size:18px;color:var(--up)">${c(E.long_term_price)}</b> <small>現價 ${c(F.px)}</small></h4>
       <div>${E.rationale||''}</div>
       ${(E.layers||[]).length?`<div class="rf-layers">${E.layers.map(l=>`<span><b>${c(l.price)}</b> ${l.note||''}</span>`).join('')}</div>`:''}</div>
+    ${J.valuation_view?`<div class="rf-card"><h4>⚖️ 估值判斷</h4>${J.valuation_view}</div>`:''}
+    ${J.scenarios?`<div class="rf-grid3 rf-scn"><div class="rf-card" style="border-left-color:var(--up)"><h4>🌤 樂觀情境</h4>${J.scenarios.bull||''}</div><div class="rf-card"><h4>⛅ 中性情境</h4>${J.scenarios.base||''}</div><div class="rf-card" style="border-left-color:var(--down)"><h4>🌧 悲觀情境</h4>${J.scenarios.bear||''}</div></div>`:''}
+    ${(J.watch||[]).length?`<div class="rf-card"><h4>👀 接下來要追蹤</h4><ul>${li(J.watch)}</ul></div>`:''}
     <div class="rf-grid3"><div class="rf-card"><h4>短線</h4>${(J.plan||{}).short||''}</div><div class="rf-card"><h4>中線</h4>${(J.plan||{}).mid||''}</div><div class="rf-card"><h4>長線</h4>${(J.plan||{}).long||''}</div></div>
     <div class="rf-grid"><div class="rf-card"><h4 style="color:var(--down)">⚠ 風險</h4><ul>${li(J.risks)}</ul></div><div class="rf-card"><h4 style="color:var(--amber)">🧯 判斷失效條件</h4><ul>${li(J.invalidation)}</ul></div></div>
     ${(J.news||[]).length?`<div class="rf-card"><h4>📰 近期關鍵新聞(AI 搜尋)</h4><ul>${li(J.news)}</ul></div>`:''}
@@ -4227,20 +4233,41 @@ function rptDigest(F){   // r913:把原始數據翻成 AI 看得懂的白話(原
   if(F.mkt)L.push(`大盤:${F.mkt.name} 週乖離位於 ${F.mkt.zone}`);
   return L.join('\n');
 }
-function rptNarrPrompt(F,C){
-  return `你是資深台股/美股研究員。以下是網站已算好的結論與整理好的數據。
-公司:${F.name}(${F.id}),產業類別:${F.sector||'未知'}。${F.desc?'公司簡介:'+F.desc:''}
+function rptResearchPrompt(F){
+  return `你是專業的股票研究員,請用 Google 搜尋「${F.name}」(股票代號 ${F.id})最近 3 個月的資訊,整理成研究筆記(繁體中文,500 字內):
+1. 公司主要產品/業務、營收結構、主要客戶與競爭對手
+2. 最近的重要新聞、法說會重點、公司展望或指引(附日期)
+3. 所屬產業目前的趨勢、景氣循環位置
+4. 市場對這家公司的主要看法與爭議點
+只寫查得到的事實,不確定就不寫;不要給投資建議。`;
+}
+function rptNarrPrompt(F,C,R){
+  return `你是資深的股票研究分析師,要寫一份有「判斷」的深度分析——不是把數字重唸一遍,而是解釋這些數字代表什麼、彼此之間的關係、對投資人的意義,並給出你的看法與理由。
 
-【已算好的結論】${JSON.stringify({score:C.score,regime:C.regime,chips:C.chips,valuation:C.valuation,entry:C.entry})}
-【整理好的數據】
+公司:${F.name}(${F.id}),產業:${F.sector||'未知'}。${F.desc?'簡介:'+F.desc:''}
+
+【網站量化結論】(已確定正確)
+${JSON.stringify({綜合分數:C.score,趨勢:C.regime,籌碼:C.chips,估值:C.valuation,進場分層:C.entry,失效條件:C.invalidation})}
+
+【財務與股價數據】
 ${rptDigest(F)||'(無)'}
 
-寫作規則:
-1) fundamentals:一定要用上面的營收年增率、毛利率/營益率/淨利率、EPS、ROE 具體描述成長與獲利品質(引用數字)。
-2) industry(產業位置、展望、催化劑、風險):用你對「${F.name}」這家公司與「${F.sector||'所屬'}」產業的知識寫,例如主要產品、客戶、競爭對手、產業趨勢。這部分不需要上面的數據,**不可以寫「資料不足」**;若對這家公司不熟,就寫它所屬產業的一般狀況。催化劑、風險各寫 2~3 點。
-3) personality 用股性/慣性數據解讀;cycle 用波段週期數據解讀。
-4) 價位、目標價、本益比、EPS 等數字只能引用上面出現過的,不要自己算新的價位。
-5) 繁體中文、具體、不要空話。`;
+【最新研究筆記】(網路搜尋整理)
+${R||'(無)'}
+
+分析要求:
+- thesis:一段 150 字內的核心投資論點——這家公司現在最重要的一件事是什麼、市場在賭什麼
+- bull / bear:看多與看空的理由各 3 點,每點要有推理(不是只列事實),要和上面的數據或筆記連結
+- fundamentals:解讀成長與獲利品質的「趨勢與原因」(例如毛利率為何變化、營收加速還是放緩代表什麼)
+- valuation_view:評論網站算出的估值是否合理——現在的本益比偏高/偏低是否有道理(成長性能不能撐住),什麼情況下目標價會被上修或下修
+- industry:產業位置、展望、催化劑、風險(用你的知識+研究筆記,不可寫資料不足)
+- peers:和主要同業比,它的優勢與劣勢(80 字內)
+- scenarios:樂觀/中性/悲觀三種情境,各寫「會發生的條件」與「股價可能的反應」(用上面已算好的目標價/進場分層描述,不要自己發明新價位)
+- watch:接下來 3~5 個最該追蹤的指標或事件(例如下個月營收、某產品出貨、法說會)
+- personality / cycle:用股性與波段數據說明這檔股票適合怎麼操作
+- plan:短線(1~4 週)、中線(1~3 月)、長線(6 月以上)的具體做法與理由
+- risks:最需要注意的 3~4 個風險
+規則:價位、目標價、本益比、EPS 只能引用上面出現過的數字;繁體中文;具體、有觀點、有推理。`;
 }
 function _rptEmpty(x){return !x||/資料不足|無法判斷|未提供/.test(Array.isArray(x)?x.join(''):String(x));}
 async function rptFillIndustry(F,N){
@@ -4259,12 +4286,16 @@ async function rptFillIndustry(F,N){
   return N;
 }
 const RPT_SCHEMA={type:'OBJECT',properties:{
-  verdict:{type:'STRING'},
+  verdict:{type:'STRING'},thesis:{type:'STRING'},
+  bull:{type:'ARRAY',items:{type:'STRING'}},bear:{type:'ARRAY',items:{type:'STRING'}},
+  valuation_view:{type:'STRING'},peers:{type:'STRING'},
+  scenarios:{type:'OBJECT',properties:{bull:{type:'STRING'},base:{type:'STRING'},bear:{type:'STRING'}}},
+  watch:{type:'ARRAY',items:{type:'STRING'}},
   fundamentals:{type:'OBJECT',properties:{summary:{type:'STRING'},growth:{type:'STRING'},quality:{type:'STRING'}},required:['summary']},
   industry:{type:'OBJECT',properties:{position:{type:'STRING'},outlook:{type:'STRING'},catalysts:{type:'ARRAY',items:{type:'STRING'}},risks:{type:'ARRAY',items:{type:'STRING'}}}},
   personality:{type:'STRING'},cycle:{type:'STRING'},
   plan:{type:'OBJECT',properties:{short:{type:'STRING'},mid:{type:'STRING'},long:{type:'STRING'}}},
-  risks:{type:'ARRAY',items:{type:'STRING'}}},required:['verdict','fundamentals','plan','risks']};
+  risks:{type:'ARRAY',items:{type:'STRING'}}},required:['verdict','thesis','bull','bear','fundamentals','valuation_view','industry','scenarios','plan','risks']};
 async function rptFullRun(s,boxId){ return rptFullRun2(s,boxId); }
 async function rptFullRun2(s,boxId){
   const box=document.getElementById(boxId||'rptBox');if(!box)return;
@@ -4274,7 +4305,7 @@ async function rptFullRun2(s,boxId){
     try{await Promise.all([hscanLoad().catch(()=>{}),biasLoad().catch(()=>{}),etfRevLoad().catch(()=>{})]);}catch(e){}
     const F=rptFullFacts(s,d);window.__rptFacts=F;
     const C=rptCalc(F);
-    const ck='rptFull3_'+s.id,today2=tpDay(Date.now()/1000);   // r913:換鍵,舊的「資料不足」結果作廢
+    const ck='rptFull4_'+s.id,today2=tpDay(Date.now()/1000);   // r913:換鍵,舊的「資料不足」結果作廢
     let N=null,fromCache=false,aiErr=null;
     if(!window.__rptForce){try{const c=JSON.parse(localStorage.getItem(ck)||'null');if(c&&c.d===today2&&c.n){N=c.n;fromCache=true;}}catch(e){}}
     window.__rptForce=false;
@@ -4285,9 +4316,14 @@ async function rptFullRun2(s,boxId){
     paint();
     if(!N){
       for(let i=0;i<3&&!(AI&&AI.keys&&(AI.keys.gemini||(AI.prov==='shared'&&AI.keys.shared)));i++){try{await gemAutoKey();}catch(e){}if(!(AI&&AI.keys&&AI.keys.gemini))await new Promise(r=>setTimeout(r,900));}
-      const gen={responseMimeType:'application/json',responseSchema:RPT_SCHEMA,temperature:0.3};
-      for(const mdl of [null,'gemini-2.5-flash','gemini-2.5-flash-lite']){
-        try{const t=await gaAiOnce(rptNarrPrompt(F,C),null,true,3072,mdl,gen);N=JSON.parse(t);aiErr=null;break;}
+      // r915:兩階段深度分析——① 上網研究最新資訊 ② 開「思考模式」做有判斷的分析
+      const st=m=>{const b=document.querySelector('#rptFullBlk .rf-verdict');if(b)b.textContent=m;};
+      let R='';st('🔎 AI 研究中(1/2):搜尋最新新聞、法說會、產業動態…');
+      try{R=await gaAiOnce(rptResearchPrompt(F),null,false,1500,'gemini-2.5-flash');}catch(e){R='';}
+      st('🧠 AI 分析中(2/2):推理多空論點、估值、情境…(約 20~40 秒)');
+      const gen={responseMimeType:'application/json',responseSchema:RPT_SCHEMA,temperature:0.4,thinkingConfig:{thinkingBudget:4096}};
+      for(const [mdl,g] of [[null,gen],['gemini-2.5-flash',gen],['gemini-2.5-flash-lite',Object.assign({},gen,{thinkingConfig:{thinkingBudget:1024}})]]){
+        try{const t=await gaAiOnce(rptNarrPrompt(F,C,R),null,true,8192,mdl,g);N=JSON.parse(t);if(R)N._research=R;aiErr=null;break;}
         catch(e){aiErr=e;if(!/^429|^5\d\d|quota|RESOURCE_EXHAUSTED|JSON|Unexpected/i.test(String(e&&e.message||e)))break;}
       }
       if(N){try{N=await rptFillIndustry(F,N);}catch(e){}}      // r913
@@ -16018,7 +16054,7 @@ async function gaAiOnce(prompt,parts,noTools,maxTok,modelOverride,gen){     // �
   const model=modelOverride||(prov==='shared'?AI.models.shared:AI.models.gemini);
   const body={contents:[{role:'user',parts:parts||[{text:prompt}]}],
     generationConfig:Object.assign({maxOutputTokens:maxTok||2048},gen||{})};   // r901:gen 可帶 responseMimeType/responseSchema/temperature
-  if(/2\.5|2\.0/.test(model))body.generationConfig.thinkingConfig={thinkingBudget:0};  // 關思考:不然思考吃掉輸出額度會斷頭
+  if(/2\.5|2\.0/.test(model)&&!(gen&&gen.thinkingConfig))body.generationConfig.thinkingConfig={thinkingBudget:0};   // r915:深度分析可開思考  // 關思考:不然思考吃掉輸出額度會斷頭
   if(!noTools)body.tools=[{google_search:{}}];
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
     {method:'POST',headers:{'content-type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)});   // r566:新版 AQ. 金鑰用標頭帶,舊版 AIza 兩式皆通
