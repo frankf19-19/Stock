@@ -1,4 +1,4 @@
-/* K研所 · build r901 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r902 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r901</span>');
+  diag.push('<span style="color:var(--dim)">build r902</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4183,7 +4183,7 @@ function rptCalc(F){
   const V={horizon:'6~12 個月'};
   if(F.eps_ttm>0&&F.pe){V.method='TTM EPS × 近一年本益比區間';V.eps_basis=r2(F.eps_ttm);V.pe_low=F.pe.p10;V.pe_mid=F.pe.p50;V.pe_high=F.pe.p90;
     V.target_low=r2(F.eps_ttm*F.pe.p10);V.target_mid=r2(F.eps_ttm*F.pe.p50);V.target_high=r2(F.eps_ttm*F.pe.p90);
-    V.note=`目前本益比 ${F.pe.now} 倍(近一年第 ${F.pe.now<=F.pe.p10?'10 以下':F.pe.now>=F.pe.p90?'90 以上':F.pe.now<=F.pe.p50?'10~50':'50~90'} 百分位)。假設 EPS 不變,純評價回歸。`;}
+    V.note=`目前本益比 ${F.pe.now} 倍(位於近一年${F.pe.now<=F.pe.p10?'最低 10%':F.pe.now>=F.pe.p90?'最高 10%':F.pe.now<=F.pe.p50?'中位數以下':'中位數以上'})。假設 EPS 不變,純評價回歸。`;}
   else V.note='近四季 EPS 為負或資料不足,不做本益比估值。';
   J.valuation=V;
   // 長期進場分層:低於現價的支撐(季線、半年線、年線、本益比 P10 價、52 週低)
@@ -4210,7 +4210,11 @@ function rptSanitize(txt,allow,px){
 function rptNarrPrompt(F,C){
   const facts={...F};delete facts.desc;
   return `你是台股/美股研究員。以下是網站已經算好的數據與結論(數字全部由程式計算,已確定正確)。
-請只負責「白話解讀」:不要自行計算或提出任何新的價位、目標價、本益比;需要提到價位時只能引用下面「已算好的結論」裡出現的數字。資料沒有的事就說資料不足,不要編造。
+請負責「白話解讀」,規則:
+1) 價位、目標價、本益比、EPS 等數字:只能引用下面資料裡出現過的數字,不要自行計算或提出新數字。
+2) 產業地位、產業展望、催化劑、產業風險:可以用你對這家公司與所屬產業的一般知識來寫(定性描述,不要附具體數字或日期)。
+3) 股性(personality):根據原始數據的 dna(波動、回檔、慣性)與 inertia 解讀;週期(cycle):根據 cycle 數據(上漲/下跌段天數與幅度、目前位置)解讀。
+4) 真的判斷不了的才寫「資料不足」,不要每段都寫。
 
 公司:${F.name}(${F.id},${F.sector})。公司簡介:${F.desc||'無'}
 已算好的結論:${JSON.stringify({score:C.score,regime:C.regime,chips:C.chips,valuation:C.valuation,entry:C.entry,invalidation:C.invalidation})}
