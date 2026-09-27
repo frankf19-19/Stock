@@ -206,8 +206,7 @@ def run():
                     "wins": len([t for t in A["trades"] if t["side"] == "sell" and (t.get("ret") or 0) > 0]),
                     "fees": round(sum(t["fee"] + t["tax"] for t in A["trades"]), 2)}
         print(f"aitrader[{MKT}]:{last[0]} 淨值 NT${nav_twd:,.0f}({A['sum']['ret']:+.2f}%)vs {BENCH} {A['sum']['bench_ret']}%,持股 {last[3]} 檔")
-    A["trades"] = A["trades"][-600:]
-    A["nav"] = A["nav"][-800:]
+    # r906:交易紀錄與每日淨值永久保留(一年約數百筆,檔案很小)
     A["updated"] = AP.NOW.strftime("%Y-%m-%d %H:%M")
     J[MKT] = A
     J["rules"] = {"npos": NPOS, "max_sec": MAX_SEC, "order_days": ORDER_DAYS, "stop": "−2ATR(最多 −8%)",

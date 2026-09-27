@@ -164,8 +164,21 @@ def main():
         seen.add(s["id"]); sug2.append(s)
     journal = [j for j in (prev.get("journal") or []) if j.get("d") != TODAY]
     journal.append({"d": TODAY, "t": NOW.strftime("%H:%M"), "items": J})
-    res = {"u": NOW.strftime("%Y-%m-%d %H:%M"), "trust": trust, "journal": journal[-60:], "suggestions": list(reversed(sug2))[-20:], "snap": S}
+    res = {"u": NOW.strftime("%Y-%m-%d %H:%M"), "trust": trust, "journal": journal[-60:], "hist": "brain_hist/", "suggestions": list(reversed(sug2))[-20:], "snap": S}
     with open(OUT, "w", encoding="utf-8") as f: json.dump(res, f, ensure_ascii=False, separators=(",", ":"))
+    # r906:永久記憶——每天一筆(日誌 + 可信度快照 + AI Pick/交易員狀態),依年份存檔,永不刪除
+    try:
+        os.makedirs("brain_hist", exist_ok=True)
+        hp = f"brain_hist/{TODAY[:4]}.json"
+        Hh = load(hp, {"days": []})
+        Hh["days"] = [x for x in Hh["days"] if x.get("d") != TODAY]
+        Hh["days"].append({"d": TODAY, "t": NOW.strftime("%H:%M"), "items": J,
+                           "trust": {k: {"n": v["n"], "trust": v["trust"], "win": v["win"], "med20": v["med20"]} for k, v in trust.items()},
+                           "snap": {k: v for k, v in S.items() if k not in ("learned_seen",)}})
+        Hh["days"].sort(key=lambda x: x["d"])
+        with open(hp, "w", encoding="utf-8") as f: json.dump(Hh, f, ensure_ascii=False, separators=(",", ":"))
+    except Exception as e:
+        print("大腦永久記憶寫入失敗", e)
     print(f"🧠 大腦:今日 {len(J)} 條心得、可信度追蹤 {len(trust)} 種訊號、待驗證建議 {len(sug2)} 條;記憶:待評分 {mem['pending']:,}、已評分 {mem['graded']:,}")
 
 
