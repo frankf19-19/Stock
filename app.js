@@ -1,4 +1,4 @@
-/* K研所 · build r915 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r916 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r915</span>');
+  diag.push('<span style="color:var(--dim)">build r916</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4215,6 +4215,7 @@ function rptSanitize(txt,allow,px){
     const nx=all.slice(off+m.length).replace(/^\s+/,'').charAt(0);
     if('張%天日週個倍億萬股次年月檔季名位QqH'.includes(nx)||/^[-\/~]/.test(all.slice(off-1,off)))return m;   // 張數、百分比、天數、日期、季度(2025Q2)等不是價位
     if(/^(19|20)\d\d$/.test(m))return m;                                  // r914:四位數年份(2025)不是價位
+    if(/[A-Za-z]/.test(nx)||/[A-Za-z]/.test(all.slice(off-1,off)))return m;   // r916:800V、GB300、5nm 這種型號規格不是價位
     if(!(v>=px*0.25&&v<=px*4))return m;
     return allow.some(a=>Math.abs(v/a-1)<=0.03)?m:'〔數字已移除〕';});
 }
