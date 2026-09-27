@@ -4014,13 +4014,16 @@ def append_eps(chips, cur):
 def build_health(hist, chips, comps, extra):
     """r707 🩺 資料健康度:各資料源最後日期+覆蓋率+紅黃綠;寫進 data.json['health']。"""
     now_tp = dt.datetime.utcnow() + dt.timedelta(hours=8)
+    # r903:台股休市日(颱風假另計)不算缺資料——避免中秋/國慶等假日後健康度誤報「warn」
+    TW_HOLI = {"2026-09-25", "2026-10-09", "2027-01-01"}
+    def _off(d): return d.weekday() >= 5 or d.isoformat() in TW_HOLI
     def last_td(back=0):
         d = now_tp.date()
         if now_tp.hour < 15: d -= dt.timedelta(days=1)
-        while d.weekday() >= 5: d -= dt.timedelta(days=1)
+        while _off(d): d -= dt.timedelta(days=1)
         for _ in range(back):
             d -= dt.timedelta(days=1)
-            while d.weekday() >= 5: d -= dt.timedelta(days=1)
+            while _off(d): d -= dt.timedelta(days=1)
         return d.isoformat()
     exp0, exp2 = last_td(0), last_td(2)
     items = []
