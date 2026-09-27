@@ -1,4 +1,4 @@
-/* K研所 · build r899 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r900 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -496,7 +496,7 @@ function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*2
 async function boot(){
   if(MINI){const w=setInterval(()=>{if(DATA&&DATA.stocks){clearInterval(w);miniStart();}},500);}   // r866
   try{
-    const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+    const r=await fetch('data.json',{cache:'no-cache'});        // r900:改用 ETag 重新驗證——沒更新就回 304、不再每次重抓 2.6MB
     if(r.ok){ DATA=await r.json(); DATA.source='live'; }
   }catch(e){}
   if(!DATA) DATA=DEMO;
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r899</span>');
+  diag.push('<span style="color:var(--dim)">build r900</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');

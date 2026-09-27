@@ -2005,3 +2005,5 @@ button,a,[onclick],.tap,select,summary,label{touch-action:manipulation;-webkit-t
   #tp-etf button{min-height:36px}
   [style*="font-size:10.5px"],[style*="font-size:10px"]{font-size:12px!important}
 }
+/* r900:個股頁報告按鈕手機加大 */
+@media(max-width:640px){#rptQuick,#rptAI,#rptFull,#rptPdf,.btn{min-height:40px}}
