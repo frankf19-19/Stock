@@ -36,10 +36,16 @@ def load(p, d):
     except Exception: return d
 
 
-def trust_of(v, bear):
-    """貝氏收縮勝率:先驗 50%、強度 30 筆 → 樣本少時不會被幾筆運氣騙到"""
+# r912:實戰訊號 ↔ 15 年長期研究的對應(長期研究的勝率當「先驗」——先有多年經驗,再用實戰修正)
+LONG_MAP = {"lead_b": "inst_big_buy", "lead_x": "inst_big_sell", "lead_s3": "inst_streak3", "fh": "brk20", "fl": "brk_dn_ma20"}
+STUDY = {}
+
+
+def trust_of(v, bear, kind=None):
+    """貝氏收縮勝率:先驗 = 長期研究勝率(沒有就 50%)、強度 30 筆 → 樣本少時不會被幾筆運氣騙到"""
     wins = sum(1 for z in v if (z < 0 if bear else z > 0))
-    return round(100 * (wins + 15) / (len(v) + 30), 1), round(100 * wins / len(v), 1)
+    p0 = ((STUDY.get("signals") or {}).get(LONG_MAP.get(kind, ""), {}) or {}).get("win20", 50) / 100
+    return round(100 * (wins + 30 * p0) / (len(v) + 30), 1), round(100 * wins / len(v), 1)
 
 
 def review_signals(prev, J):
@@ -53,7 +59,7 @@ def review_signals(prev, J):
         v = [x["f20"] for x in xs if x.get("f20") is not None]
         if len(v) < 10: continue
         bear = k in BEAR
-        tr, raw = trust_of(v, bear)
+        tr, raw = trust_of(v, bear, k)
         v5 = [x["f5"] for x in xs if x.get("f5") is not None]
         T[k] = {"name": NAMES.get(k, k), "n": len(v), "trust": tr, "win": raw, "med20": round(st.median(v), 2),
                 "med5": round(st.median(v5), 2) if v5 else None, "bear": bear}
@@ -144,9 +150,34 @@ def review_trader(J, SUG):
     return
 
 
+def review_study(prev, J, S):
+    global STUDY
+    STUDY = load("brain_study.json", {})
+    sig = STUDY.get("signals") or {}
+    if not sig: return
+    S["study_u"] = STUDY.get("u")
+    if (prev.get("snap") or {}).get("study_u") == STUDY.get("u"): return      # 研究沒更新就不重複寫
+    rg = STUDY.get("range") or ["?", "?"]; base = STUDY.get("base") or {}
+    J.append({"tag": "長期經驗", "level": "info",
+              "text": f"讀完 {rg[0][:4]}~{rg[1][:4]} 年、{STUDY.get('stocks', 0):,} 檔的歷史:任意一天買進,20 日後上漲機率 {base.get('win20')}%、中位 {base.get('med20')}%(這是比較基準)"})
+    bull = sorted([(k, v) for k, v in sig.items() if not v["bear"] and v.get("excess20") is not None], key=lambda kv: -kv[1]["excess20"])
+    for k, v in bull[:2]:
+        J.append({"tag": "長期經驗", "level": "good" if v["excess20"] > 0 else "info",
+                  "text": f"「{v['name']}」{v['n']:,} 次:20 日上漲機率 {v['win20']}%、比同日大盤{'多' if v['excess20'] >= 0 else '少'} {abs(v['excess20'])}%,{v['stable']} 年有效"})
+    for k, v in bull[-2:]:
+        if v["excess20"] < 0:
+            J.append({"tag": "長期經驗", "level": "warn",
+                      "text": f"「{v['name']}」長期反而比大盤差 {abs(v['excess20'])}%({v['n']:,} 次)——看到這訊號別急著追"})
+    for k, v in sig.items():
+        if v["bear"]:
+            J.append({"tag": "長期經驗", "level": "good" if v["win20"] > 52 else "info",
+                      "text": f"「{v['name']}」{v['n']:,} 次:20 日下跌機率 {v['win20']}%、中位 {v['med20']}%,{v['stable']} 年有效"})
+
+
 def main():
     prev = load(OUT, {})
     J, S, SUG = [], {}, list(prev.get("suggestions") or [])
+    review_study(prev, J, S)
     trust, mem = review_signals(prev, J)
     review_aipick("aipick.json", "AI Pick(台股)", prev, J, S)
     review_aipick("aipick_us.json", "AI Pick(美股)", prev, J, S)
