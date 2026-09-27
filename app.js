@@ -1,4 +1,4 @@
-/* K研所 · build r904 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r905 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r904</span>');
+  diag.push('<span style="color:var(--dim)">build r905</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21124,8 +21124,22 @@ function aitChart(mk){try{const el=document.getElementById('aitChart');const A=A
     series:[{name:'AI 交易員',type:'line',data:ai.map(x=>x[1]),showSymbol:false,lineStyle:{width:2,color:'#e0b84a'},itemStyle:{color:'#e0b84a'}},
             {name:(mk==='US'?'SPY':'0050')+' 抱著',type:'line',data:bb.map(x=>x[1]),showSymbol:false,lineStyle:{width:1.5,color:'#8b8f9a',type:'dashed'},itemStyle:{color:'#8b8f9a'}},
             {type:'line',data:ai.map(()=>A.cap_twd),showSymbol:false,lineStyle:{width:1,color:'#444'},silent:true,tooltip:{show:false}}]});}catch(e){}}
+/* ═══ r905:🧠 K研所大腦——每天收盤後回顧、寫學習日誌、追蹤每種訊號的可信度 ═══ */
+let BRAIN=null;
+async function brainLoad(){try{if(BRAIN)return BRAIN;const r=await fT('brain.json?v='+kv()+'_'+Math.floor(Date.now()/600e3),12000,{cache:'default'});if(r&&r.ok)BRAIN=await r.json();}catch(e){}return BRAIN;}
+function brainHTML(){const B=BRAIN;if(!B||!(AIT_SHOW||isAdmin()))return '';
+  const col={good:'var(--up)',warn:'var(--amber)',info:'var(--txt2)'};const ico={good:'✅',warn:'⚠️',info:'💭'};
+  const day=(j,open)=>`<details class="brn-day"${open?' open':''}><summary><b>${j.d}</b> <span class="dim">${j.t||''}・${j.items.length} 條</span></summary><ul>${j.items.map(i=>`<li style="border-left-color:${col[i.level]||'var(--line)'}"><span class="brn-tag">${i.tag}</span>${ico[i.level]||''} ${i.text}</li>`).join('')}</ul></details>`;
+  const J=(B.journal||[]).slice().reverse();const M=(B.snap||{}).memory||{};
+  const T=Object.entries(B.trust||{}).sort((a,b)=>b[1].trust-a[1].trust);
+  const tr=T.length?`<div class="brn-sub">訊號可信度(依訊號後 20 日真實結果,樣本少時往 50 拉)</div><div class="ait-tw"><table class="ait-tb"><tr><th>訊號</th><th>筆數</th><th>可信度</th><th>實際勝率</th><th>20 日中位</th></tr>${T.map(([k,t])=>`<tr><td>${t.name}</td><td>${t.n}</td><td style="color:${t.trust>=55?'var(--up)':t.trust<45?'var(--down)':'inherit'}"><b>${t.trust}</b></td><td>${t.win}%</td><td>${t.med20>0?'+':''}${t.med20}%</td></tr>`).join('')}</table></div>`:'';
+  const sug=(B.suggestions||[]).length?`<div class="brn-sub">待驗證的改進建議(驗證通過、你同意後才改規則)</div><ul class="brn-sug">${B.suggestions.map(x=>`<li><span class="brn-tag">${x.area}</span>${x.text} <span class="dim">[${x.status}]</span></li>`).join('')}</ul>`:'';
+  return `<div class="brn-card"><div class="ait-h">🧠 K研所大腦 <span class="dim">每天收盤後回顧・更新 ${B.u||''}・記憶:待評分 ${(M.pending||0).toLocaleString()} 筆、已評分 ${(M.graded||0).toLocaleString()} 筆</span></div>
+    ${J.length?day(J[0],true)+J.slice(1,7).map(j=>day(j,false)).join(''):'<div class="dim-note">還沒有日誌</div>'}${tr}${sug}
+    <div class="dim-note" style="margin-top:6px">大腦的原則:記住每個訊號和每筆交易的結果 → 每天回顧 → 寫下學到什麼 → 提出改進。改變分析規則的建議一律先用歷史資料驗證、經你確認才採用;AI Pick 的選股模型則每週用最新實戰結果自動重新訓練。</div></div>`;}
 function aitMount(mk){const box=document.getElementById('aipickBox');if(!box||!(AIT_SHOW||isAdmin()))return;
-  const put=()=>{if(!document.getElementById('aipickBox'))return;const old=box.querySelector('.ait-card');if(old)old.remove();box.insertAdjacentHTML('afterbegin',aitHTML(mk));aitChart(mk);};
+  const put=()=>{if(!document.getElementById('aipickBox'))return;box.querySelectorAll('.ait-card,.brn-card').forEach(x=>x.remove());box.insertAdjacentHTML('afterbegin',aitHTML(mk)+brainHTML());aitChart(mk);
+    if(!BRAIN)brainLoad().then(b=>{if(b&&!box.querySelector('.brn-card')){const a=box.querySelector('.ait-card');if(a)a.insertAdjacentHTML('afterend',brainHTML());}});};
   if(AIT)put();else aitLoad().then(()=>{if((window.GMKT==='US'?'US':'TW')===mk)put();});}
 function renderAIPickCore(){
   const box=document.getElementById('aipickBox');

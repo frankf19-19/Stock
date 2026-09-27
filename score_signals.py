@@ -70,7 +70,20 @@ def main():
     except Exception: log("沒有 signal_log.json"); return
     items = L.get("items") or []
     n = fill(items)
+    # r905:長期記憶——f20 已評分的移到 signal_arch.json(精簡欄位,保留 3 年),短期記憶只留待評分的
+    ARCH = "signal_arch.json"
+    try: A = json.load(open(ARCH, encoding="utf-8"))
+    except Exception: A = {"items": []}
+    done = [x for x in items if x.get("f20") is not None]
+    have = set(a["k"] for a in A["items"])
+    for x in done:
+        if x["k"] not in have: A["items"].append({"k": x["k"], "cat": x.get("cat"), "id": x.get("id"), "d": x["d"], "lv": x.get("lv"), "f5": x.get("f5"), "f20": x["f20"]})
+    cut3 = (dt.date.today() - dt.timedelta(days=1100)).isoformat()
+    A["items"] = [a for a in A["items"] if a["d"] >= cut3]
+    json.dump(A, open(ARCH, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    L["items"] = [x for x in items if x.get("f20") is None]
     json.dump(L, open(LOG, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    items = A["items"] + L["items"]
     S = agg(items)
     S["u"] = dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M")
     S["total"] = len(items)

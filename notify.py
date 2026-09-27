@@ -179,7 +179,19 @@ def log_signals(ev, prices):
         px = prices.get(sid) if sid else None
         L["items"].append({"k": k, "cat": cat_of(k), "id": sid, "d": TODAY, "t": NOW.strftime("%H:%M"), "px": px, "lv": lv})
         have.add(k); n += 1
-    L["items"] = L["items"][-6000:]
+    # r905:大腦的記憶——原本只留最後 6000 筆(分點訊號一天近 900 筆,6 天就被擠掉,永遠等不到 20 日後的評分)
+    #       改成:保留 50 天內的待評分訊號;每種訊號每天最多 60 筆(等級高的優先);已評分的由 score_signals 移到長期記憶
+    try:
+        cut = (dt.date.fromisoformat(TODAY) - dt.timedelta(days=50)).isoformat()
+        keep, per = [], {}
+        for x in sorted(L["items"], key=lambda z: (z.get("d", ""), -(z.get("lv") or 0))):
+            if x.get("d", "") < cut: continue
+            kd = (str(x["k"]).split("|")[0], x.get("d"))
+            if per.get(kd, 0) >= 60: continue
+            per[kd] = per.get(kd, 0) + 1; keep.append(x)
+        L["items"] = keep[-30000:]
+    except Exception:
+        L["items"] = L["items"][-30000:]
     json.dump(L, open(SIG_LOG, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     if n: log(f"  訊號記錄:+{n} 筆(累積 {len(L['items'])})")
 

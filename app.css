@@ -2010,3 +2010,10 @@ button,a,[onclick],.tap,select,summary,label{touch-action:manipulation;-webkit-t
 /* r904:休市膠囊 */
 .badge.holi-on{background:rgba(224,184,74,.18);border-color:rgba(224,184,74,.6);color:var(--t-gold);font-weight:800}
 .badge.holi-soon{background:rgba(91,155,213,.12);border-color:rgba(91,155,213,.45);color:#8fb8e6}
+/* r905:大腦卡 */
+.brn-card{border:1px solid rgba(155,125,230,.45);border-radius:14px;padding:12px 14px;margin:0 0 14px;background:linear-gradient(180deg,rgba(155,125,230,.08),transparent 60%)}
+.brn-day{margin:6px 0}.brn-day summary{cursor:pointer;padding:4px 0}
+.brn-day ul,.brn-sug{list-style:none;padding:0;margin:4px 0}
+.brn-day li,.brn-sug li{border-left:3px solid var(--line);padding:5px 9px;margin:4px 0;background:var(--panel2);border-radius:6px;font-size:13px;line-height:1.55}
+.brn-tag{display:inline-block;font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;background:rgba(155,125,230,.18);color:#c8b6f5;margin-right:6px}
+.brn-sub{font-weight:800;margin:10px 0 4px;color:#c8b6f5;font-size:13px}
