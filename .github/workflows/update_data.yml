@@ -84,6 +84,10 @@ jobs:
           #    現在:平日 14:45~19:00 啟動 → A 段(收工 19:00);19:00~23:00 啟動 → B 段(收工 23:00);其餘單次。loop=no 強制單次。
           END=0
           HHMM=$((10#$(TZ=Asia/Taipei date +%H%M))); DOW=$(TZ=Asia/Taipei date +%u)
+          # r911:台股休市日(國定假日/颱風假)——不自迴圈、不跑分點/歷史回補(省 FinMind 額度給假日工作);
+          #       美股報價、美股 AI Pick、AI 交易員、大腦等「每天都要」的照跑一輪
+          TWOPEN=1; python market_day.py tw || TWOPEN=0
+          if [ "$TWOPEN" = "0" ]; then export HEAVY_EXTRAS=0; LOOP=no; echo "📅 台股今天休市:只跑一輪每日必要項目"; fi
           if [ "$LOOP" != "no" ] && [ "$DOW" -le 5 ]; then
             if   [ $HHMM -ge 1445 ] && [ $HHMM -lt 1900 ]; then END=$(TZ=Asia/Taipei date -d "today 19:00" +%s 2>/dev/null || echo 0)
             elif [ $HHMM -ge 1900 ] && [ $HHMM -lt 2300 ]; then END=$(TZ=Asia/Taipei date -d "today 23:00" +%s 2>/dev/null || echo 0)
