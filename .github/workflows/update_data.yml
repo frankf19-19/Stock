@@ -126,6 +126,7 @@ jobs:
             [ -f holidays.json ] && git add holidays.json        # r904:休市行事曆
             [ -f brain.json ] && git add brain.json              # r905:大腦
             git add brain_hist/ 2>/dev/null || true               # r906:大腦永久記憶(每年一檔)
+            git add score_hist/ 2>/dev/null || true               # r909:每日分數歷史(永久,每月一檔)
             [ -f signal_arch.json ] && git add signal_arch.json  # r905:訊號長期記憶
             [ -f signal_log.json ] && git add signal_log.json
             [ -f notify_state.json ] && git add notify_state.json
@@ -173,6 +174,7 @@ jobs:
             step AIPick美股 bash -c 'AIPICK_MKT=US timeout 900 python aipick.py || echo "美股 AI Pick 失敗,不影響主資料"'   # r890
             step AI交易員 bash -c 'AITRADER_MKT=TW timeout 600 python aitrader.py; AITRADER_MKT=US timeout 600 python aitrader.py; true'   # r894
             step 推播 timeout 300 python notify.py || echo "推播失敗,不影響主資料"
+            step 分數歷史 timeout 120 python score_hist.py || echo "分數歷史失敗"   # r909
             step 大腦 timeout 120 python brain.py || echo "大腦失敗,不影響主資料"   # r905:每輪最後回顧、寫學習日誌
             commit_push                                                                    # 整輪提交
           }
