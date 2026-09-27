@@ -1,4 +1,4 @@
-/* K研所 · build r907 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r908 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r907</span>');
+  diag.push('<span style="color:var(--dim)">build r908</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -1888,9 +1888,13 @@ async function yChart(sym,range,interval){
   return {t,c,v:t.map(()=>0),prev:src2.prev??(e.d&&e.d.c&&e.d.c[e.d.c.length-2])??null,
           daily:useM&&!e.m};  // true=要分線但只有日線可給(FRED 日更),呼叫端勿當分時圖畫
 }
-let __yextCache=null,__yextAt=0;
+let __yextCache=null,__yextAt=0,__yextP=null;
 async function yextData(){
   if(__yextCache&&Date.now()-__yextAt<55000)return __yextCache;
+  if(__yextP)return __yextP;                                   // r908:下載中就等同一份
+  __yextP=yextData0().finally(()=>{__yextP=null;});return __yextP;
+}
+async function yextData0(){
   try{
     const r=await fT('yext.json?_='+Math.floor(Date.now()/55000),6000);
     if(!r.ok)return __yextCache;
@@ -15670,7 +15674,8 @@ function fT(url,ms,opts){  // 帶逾時的 fetch:代理掛掉也不會讓畫面�
   const t=setTimeout(()=>c.abort(),ms||9000);
   const p=fetch(url,Object.assign(o,{signal:c.signal})).finally(()=>clearTimeout(t));
   if(!key)return p;
-  __inflight.set(key,p);p.then(()=>{},()=>{}).finally(()=>__inflight.delete(key));
+  __inflight.set(key,p);
+  p.then(r=>r.clone().arrayBuffer()).catch(()=>{}).finally(()=>__inflight.delete(key));   // r908:等整個內容下載完才放手(原本表頭一到就放,慢檔案仍會重複下載)
   return p.then(r=>r.clone());
 }
 const PROXY=[x=>x,
