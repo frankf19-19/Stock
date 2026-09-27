@@ -1,4 +1,4 @@
-/* K研所 · build r900 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r901 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r900</span>');
+  diag.push('<span style="color:var(--dim)">build r901</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4108,7 +4108,7 @@ function rptFullHTML(J,F,fromCache){
       <div style="margin-top:4px"><b>產業位置</b>:${(J.industry||{}).position||''}</div><div><b>展望</b>:${(J.industry||{}).outlook||''}</div>
       <div class="rf-2col"><div><b style="color:var(--up)">催化劑</b><ul>${li((J.industry||{}).catalysts)}</ul></div><div><b style="color:var(--down)">產業風險</b><ul>${li((J.industry||{}).risks)}</ul></div></div></div>
     <div class="rf-grid"><div class="rf-card"><h4>🧭 股性</h4>${J.personality||''}</div><div class="rf-card"><h4>🔁 週期</h4>${J.cycle||''}</div></div>
-    <div class="rf-card rf-val"><h4>🎯 目標價(AI 估算,${V.horizon||'6~12 個月'})</h4>
+    <div class="rf-card rf-val"><h4>🎯 目標價(網站計算,${V.horizon||'6~12 個月'})</h4>
       <div class="rf-tp"><span>保守 <b>${c(V.target_low)}</b></span><span class="rf-mid">中性 <b>${c(V.target_mid)}</b>${up!=null?`<small style="color:${up>=0?'var(--up)':'var(--down)'}">${up>=0?'+':''}${up}%</small>`:''}</span><span>樂觀 <b>${c(V.target_high)}</b></span></div>
       <div class="dim">${V.method||''}:EPS ${c(V.eps_basis)} × 本益比 ${c(V.pe_low)}/${c(V.pe_mid)}/${c(V.pe_high)} 倍。${V.note||''}</div></div>
     <div class="rf-card rf-entry"><h4>🪙 長期投資建議進場價:<b style="font-size:18px;color:var(--up)">${c(E.long_term_price)}</b> <small>現價 ${c(F.px)}</small></h4>
@@ -4117,7 +4117,7 @@ function rptFullHTML(J,F,fromCache){
     <div class="rf-grid3"><div class="rf-card"><h4>短線</h4>${(J.plan||{}).short||''}</div><div class="rf-card"><h4>中線</h4>${(J.plan||{}).mid||''}</div><div class="rf-card"><h4>長線</h4>${(J.plan||{}).long||''}</div></div>
     <div class="rf-grid"><div class="rf-card"><h4 style="color:var(--down)">⚠ 風險</h4><ul>${li(J.risks)}</ul></div><div class="rf-card"><h4 style="color:var(--amber)">🧯 判斷失效條件</h4><ul>${li(J.invalidation)}</ul></div></div>
     ${(J.news||[]).length?`<div class="rf-card"><h4>📰 近期關鍵新聞(AI 搜尋)</h4><ul>${li(J.news)}</ul></div>`:''}
-    <div class="dim-note" style="margin-top:8px">${fromCache?'今日快取・':''}${J._note||''}Gemini + 即時搜尋,依站內 ${Object.keys(F).length} 組量化指標推論。目標價與進場價是 AI 依「TTM EPS × 本益比分佈」與技術/週期位置的<b>估算</b>,不是投顧目標價;請自行查證財報與新聞。非投資建議。</div>
+    <div class="dim-note" style="margin-top:8px">${fromCache?'今日快取・':''}${J._note||''}目標價、進場分層、評分、趨勢與籌碼判定都是網站依站內 ${Object.keys(F).length} 組數據<b>直接計算</b>(TTM EPS × 近一年本益比區間、均線與估值支撐),每次一樣、可以驗算;AI(Gemini)只負責文字解讀,文字中若出現網站沒算過的價位會自動移除。僅供研究參考,非投資建議。</div>
   </div>`;
 }
 /* ═══ r795:個股頁「今日重點」——不用 AI,把站上算好的東西濃縮成 5 行;沒資料的行就不出現 ═══ */
@@ -4154,7 +4154,116 @@ function stkFoldSetup(){
   if(a)a.onclick=()=>apply(true);if(o)o.onclick=()=>apply(false);
   try{if(localStorage.getItem('stkFold')==='1')apply(true);}catch(e){}
 }
-async function rptFullRun(s,boxId){
+/* ═══ r901:一鍵完整分析改為「數字交給程式、文字交給 AI」═══
+   rptCalc:目標價/進場分層/評分/趨勢/籌碼/失效條件——全部由網站資料計算,每次一樣、可驗算
+   AI(Gemini 結構化輸出)只寫白話解讀;AI 寫出的價位若不在允許清單 ±3% 內一律拿掉 */
+function rptCalc(F){
+  const r2=x=>x==null||!isFinite(x)?null:Math.round(x*100)/100, px=+F.px, m=F.ma||{};
+  const J={};
+  // 評分:網站三力(基本 40 + 籌碼 35 + 技術 25)
+  const f=+F.f||50,c=+F.c||50,t=+F.t||50; J.score=Math.round(f*.4+c*.35+t*.25);
+  // 趨勢
+  const st=F.regime_rule==='多頭排列'?'多頭':F.regime_rule==='空頭排列'?'空頭':'盤整';
+  const agree=[m.slope20_10d,m.slope60_20d].filter(v=>v!=null&&(st==='多頭'?v>0:st==='空頭'?v<0:Math.abs(v)<1.5)).length;
+  const ev=[];
+  if(m.ma20)ev.push(`股價 ${px} ${px>=m.ma20?'站上':'跌破'}月線 ${m.ma20}、季線 ${m.ma60??'—'}、半年線 ${m.ma120??'—'}(${F.regime_rule})`);
+  if(m.slope20_10d!=null)ev.push(`月線 10 日斜率 ${m.slope20_10d>0?'+':''}${m.slope20_10d}%,季線 20 日斜率 ${m.slope60_20d>0?'+':''}${m.slope60_20d??'—'}%`);
+  if(F.ret)ev.push(`近 20 日 ${F.ret.d20>0?'+':''}${F.ret.d20}%、60 日 ${F.ret.d60??'—'}%、120 日 ${F.ret.d120??'—'}%`);
+  if(F.range52)ev.push(`52 週區間 ${F.range52.lo}~${F.range52.hi},目前位於 ${F.range52.pos}% 位置`);
+  J.regime={state:st,confidence:agree>=2?'高':agree===1?'中':'低',evidence:ev};
+  // 籌碼
+  const I=F.inst||{},T=F.tdcc||{},ce=[];let sc=0;
+  const inst20=(I.f20||0)+(I.t20||0); if(I.f20!=null){sc+=inst20>0?1:inst20<0?-1:0;ce.push(`外資 20 日 ${I.f20>0?'+':''}${(I.f20||0).toLocaleString()} 張、投信 ${I.t20>0?'+':''}${(I.t20||0).toLocaleString()} 張(5 日:外資 ${I.f5??'—'}、投信 ${I.t5??'—'})`);}
+  if(T.big_4w!=null){sc+=T.big_4w>0.3?1:T.big_4w<-0.3?-1:0;ce.push(`千張大戶持股 ${T.big_now}%,4 週 ${T.big_4w>0?'+':''}${T.big_4w} 個百分點`);}
+  if(F.broker&&F.broker.verdict){ce.push(`分點:${F.broker.verdict}(近 5 日主力 ${F.broker.c5>0?'+':''}${F.broker.c5??'—'} 張)`);sc+=F.broker.c5>0?1:F.broker.c5<0?-1:0;}
+  if(F.leader&&F.leader.who)ce.push(`主導法人:${F.leader.who}`);
+  if(F.margin&&F.margin.title)ce.push(`融資:${F.margin.title}`);
+  J.chips={state:sc>=2?'大戶吃貨':sc<=-2?'大戶出貨':'換手中性',confidence:Math.abs(sc)>=3?'高':Math.abs(sc)===2?'中':'低',evidence:ce.length?ce:['籌碼資料不足']};
+  // 估值:TTM EPS × 近一年本益比 P10/P50/P90
+  const V={horizon:'6~12 個月'};
+  if(F.eps_ttm>0&&F.pe){V.method='TTM EPS × 近一年本益比區間';V.eps_basis=r2(F.eps_ttm);V.pe_low=F.pe.p10;V.pe_mid=F.pe.p50;V.pe_high=F.pe.p90;
+    V.target_low=r2(F.eps_ttm*F.pe.p10);V.target_mid=r2(F.eps_ttm*F.pe.p50);V.target_high=r2(F.eps_ttm*F.pe.p90);
+    V.note=`目前本益比 ${F.pe.now} 倍(近一年第 ${F.pe.now<=F.pe.p10?'10 以下':F.pe.now>=F.pe.p90?'90 以上':F.pe.now<=F.pe.p50?'10~50':'50~90'} 百分位)。假設 EPS 不變,純評價回歸。`;}
+  else V.note='近四季 EPS 為負或資料不足,不做本益比估值。';
+  J.valuation=V;
+  // 長期進場分層:低於現價的支撐(季線、半年線、年線、本益比 P10 價、52 週低)
+  const cand=[['季線',m.ma60],['半年線',m.ma120],['年線',m.ma240],['本益比低檔(P10)',V.target_low],['52 週低點',F.range52&&F.range52.lo]]
+    .filter(([_,p])=>p&&p<px*0.99).map(([n,p])=>({price:r2(p),note:n})).sort((a,b)=>b.price-a.price);
+  const L=[];for(const x of cand){if(!L.length||x.price<L[L.length-1].price*0.97)L.push(x);if(L.length>=3)break;}
+  J.entry={layers:L,long_term_price:L.length?L[Math.min(1,L.length-1)].price:null,
+    rationale:L.length?`分三層:${L.map(x=>x.note+' '+x.price).join(' → ')};長期價取第二層,越靠近本益比低檔越有安全邊際。`:'目前價位已低於主要均線與估值低檔,沒有更低的參考支撐。'};
+  // 失效條件
+  const inv=[];if(m.ma120)inv.push(`收盤跌破半年線 ${m.ma120} 且兩週站不回`);if(m.ma240)inv.push(`跌破年線 ${m.ma240},長線趨勢轉弱`);
+  if(T.big_4w!=null)inv.push('千張大戶連續 4 週減持');J.invalidation=inv;
+  // 允許出現在文字裡的價位清單
+  J.__allow=[px,m.ma20,m.ma60,m.ma120,m.ma240,V.target_low,V.target_mid,V.target_high,F.range52&&F.range52.hi,F.range52&&F.range52.lo,...L.map(x=>x.price)].filter(x=>x>0);
+  return J;
+}
+function rptSanitize(txt,allow,px){
+  if(typeof txt!=='string'||!px)return txt;
+  return txt.replace(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g,(m,off,all)=>{const v=+m.replace(/,/g,'');
+    const nx=all.slice(off+m.length).replace(/^\s+/,'').charAt(0);
+    if('張%天日週個倍億萬股次年月檔季名位'.includes(nx)||/^[-\/~]/.test(all.slice(off-1,off)))return m;   // 張數、百分比、天數、日期等不是價位
+    if(!(v>=px*0.25&&v<=px*4))return m;
+    return allow.some(a=>Math.abs(v/a-1)<=0.03)?m:'〔數字已移除〕';});
+}
+function rptNarrPrompt(F,C){
+  const facts={...F};delete facts.desc;
+  return `你是台股/美股研究員。以下是網站已經算好的數據與結論(數字全部由程式計算,已確定正確)。
+請只負責「白話解讀」:不要自行計算或提出任何新的價位、目標價、本益比;需要提到價位時只能引用下面「已算好的結論」裡出現的數字。資料沒有的事就說資料不足,不要編造。
+
+公司:${F.name}(${F.id},${F.sector})。公司簡介:${F.desc||'無'}
+已算好的結論:${JSON.stringify({score:C.score,regime:C.regime,chips:C.chips,valuation:C.valuation,entry:C.entry,invalidation:C.invalidation})}
+原始數據:${JSON.stringify(facts)}
+
+用繁體中文,依指定 JSON 結構回答。每段精簡、具體,引用數據時用上面出現過的數字。`;
+}
+const RPT_SCHEMA={type:'OBJECT',properties:{
+  verdict:{type:'STRING'},
+  fundamentals:{type:'OBJECT',properties:{summary:{type:'STRING'},growth:{type:'STRING'},quality:{type:'STRING'}},required:['summary']},
+  industry:{type:'OBJECT',properties:{position:{type:'STRING'},outlook:{type:'STRING'},catalysts:{type:'ARRAY',items:{type:'STRING'}},risks:{type:'ARRAY',items:{type:'STRING'}}}},
+  personality:{type:'STRING'},cycle:{type:'STRING'},
+  plan:{type:'OBJECT',properties:{short:{type:'STRING'},mid:{type:'STRING'},long:{type:'STRING'}}},
+  risks:{type:'ARRAY',items:{type:'STRING'}}},required:['verdict','fundamentals','plan','risks']};
+async function rptFullRun(s,boxId){ return rptFullRun2(s,boxId); }
+async function rptFullRun2(s,boxId){
+  const box=document.getElementById(boxId||'rptBox');if(!box)return;
+  box.innerHTML='<div class="dim-note">⏳ 整理資料中…</div>';
+  try{
+    const d=await rptData(s);
+    try{await Promise.all([hscanLoad().catch(()=>{}),biasLoad().catch(()=>{}),etfRevLoad().catch(()=>{})]);}catch(e){}
+    const F=rptFullFacts(s,d);window.__rptFacts=F;
+    const C=rptCalc(F);
+    const ck='rptFull2_'+s.id,today2=tpDay(Date.now()/1000);
+    let N=null,fromCache=false,aiErr=null;
+    if(!window.__rptForce){try{const c=JSON.parse(localStorage.getItem(ck)||'null');if(c&&c.d===today2&&c.n){N=c.n;fromCache=true;}}catch(e){}}
+    window.__rptForce=false;
+    // 先把「程式算的」畫出來——AI 失敗也看得到
+    const paint=(note)=>{const J=Object.assign({},C,N||{verdict:`${C.regime.state}・${C.chips.state}(AI 解讀${aiErr?'暫時無法取得':'產生中…'})`}); J._note=note||'';
+      box.innerHTML=`<div class="dim-block" id="rptFullBlk" style="border-left:4px solid var(--t-purple)"><h3>✦ 完整分析 <span class="ds">數字由網站計算・文字由 AI 解讀</span>${fromCache?' <a href="javascript:void 0" id="rptFullRegen" style="font-size:12px">重新產生</a>':''}</h3>${rptFullHTML(J,F,fromCache)}</div>`;
+      const rg=document.getElementById('rptFullRegen');if(rg)rg.onclick=()=>{window.__rptForce=true;rptFullRun(s,boxId);};};
+    paint();
+    if(!N){
+      for(let i=0;i<3&&!(AI&&AI.keys&&(AI.keys.gemini||(AI.prov==='shared'&&AI.keys.shared)));i++){try{await gemAutoKey();}catch(e){}if(!(AI&&AI.keys&&AI.keys.gemini))await new Promise(r=>setTimeout(r,900));}
+      const gen={responseMimeType:'application/json',responseSchema:RPT_SCHEMA,temperature:0.3};
+      for(const mdl of [null,'gemini-2.5-flash','gemini-2.5-flash-lite']){
+        try{const t=await gaAiOnce(rptNarrPrompt(F,C),null,true,3072,mdl,gen);N=JSON.parse(t);aiErr=null;break;}
+        catch(e){aiErr=e;if(!/^429|^5\d\d|quota|RESOURCE_EXHAUSTED|JSON|Unexpected/i.test(String(e&&e.message||e)))break;}
+      }
+      if(N){const clean=v=>typeof v==='string'?rptSanitize(v,C.__allow,+F.px):Array.isArray(v)?v.map(clean):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,clean(x)])):v;
+        N=clean(N);try{localStorage.setItem(ck,JSON.stringify({d:today2,n:N}));}catch(e){}}
+    }
+    paint(N?'':'(AI 解讀暫時取不到:'+String(aiErr&&aiErr.message||aiErr||'').slice(0,40)+';上面數字仍有效)');
+    // 新聞:獨立一步(開 Google 搜尋),失敗不影響
+    if(N&&!N.news&&!fromCache){try{const t=await gaAiOnce(`用 Google 搜尋 ${F.name}(${F.id})最近 30 天 2~4 則最重要的新聞。每則一行,格式:YYYY-MM-DD 標題重點(來源)。只列真的搜得到的,找不到就回「無」。`,null,false,600,'gemini-2.5-flash');
+      const lines=(t||'').split('\n').map(x=>x.replace(/^[-*•\d.\s]+/,'').trim()).filter(x=>/\d{4}-\d{2}-\d{2}/.test(x)).slice(0,4);
+      if(lines.length){N.news=lines;try{localStorage.setItem(ck,JSON.stringify({d:today2,n:N}));}catch(e){}paint();}}catch(e){}}
+  }catch(err){
+    box.innerHTML='<div class="dim-note">⚠ 完整分析失敗:'+String(err&&err.message||err).slice(0,140)+' <a href="javascript:void 0" id="rptFullRetry" style="color:var(--amber);font-weight:800">重試</a></div>';
+    const rb=document.getElementById('rptFullRetry');if(rb)rb.onclick=()=>rptFullRun(s,boxId);
+  }
+}
+async function rptFullRunOld(s,boxId){
   const box=document.getElementById(boxId||'rptBox');if(!box)return;
   box.innerHTML='<div class="dim-note">⏳ 彙整站內指標中…</div>';
   try{
@@ -15829,14 +15938,14 @@ function gaAdStrip(d){                            // 股癌描述=第一段是�
   return (AD.test(paras[0])&&!first)?'':first.slice(0,200);
 }
 function gaKey(t){let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))>>>0;return 'ga_sum_'+h;}
-async function gaAiOnce(prompt,parts,noTools,maxTok,modelOverride){     // 單次生成(不開聊天面板);gemini/共用限定;r792:可指定模型(額度降級用)
+async function gaAiOnce(prompt,parts,noTools,maxTok,modelOverride,gen){     // 單次生成(不開聊天面板);gemini/共用限定;r792:可指定模型(額度降級用)
   const prov=AI.prov==='shared'?'shared':'gemini';
   let key=null;
   if(prov==='shared'){try{key=await sharedUnlock(aiKey());}catch(e){throw new Error('通行碼未設定或不正確(⚙ 設定)');}}
   else{key=AI.keys.gemini;if(!key)throw new Error('需要 Gemini 金鑰或共用通行碼(⚙ 設定)');}
   const model=modelOverride||(prov==='shared'?AI.models.shared:AI.models.gemini);
   const body={contents:[{role:'user',parts:parts||[{text:prompt}]}],
-    generationConfig:{maxOutputTokens:maxTok||2048}};
+    generationConfig:Object.assign({maxOutputTokens:maxTok||2048},gen||{})};   // r901:gen 可帶 responseMimeType/responseSchema/temperature
   if(/2\.5|2\.0/.test(model))body.generationConfig.thinkingConfig={thinkingBudget:0};  // 關思考:不然思考吃掉輸出額度會斷頭
   if(!noTools)body.tools=[{google_search:{}}];
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
