@@ -1939,3 +1939,54 @@ body:not(.head-open) [data-jump="mk_head"],body:not(.head-open) .jump-chip[href=
 .ait-tb td:first-child,.ait-tb td.ait-why{font-family:var(--sans)}.ait-tb td.ait-why{white-space:normal;min-width:220px;color:var(--txt2)}
 .ait-tb td.up{color:var(--up);font-weight:800}.ait-tb td.dn{color:var(--down);font-weight:800}
 .ait-ords{display:flex;flex-wrap:wrap;gap:6px}.ait-ord{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line)}
+
+/* ═══ r896:手機操作優化(iPhone / Android,≤640px)═══
+   目標:頂部更精簡、點擊範圍 ≥40px、不重複的黏頂列、底部避開瀏海/手勢條、輸入不放大 */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,a,[onclick],.tap,select,summary,label{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+@media(max-width:640px){
+  /* 1) 頂部:藏標語、搜尋獨佔一行、按鈕一排可滑、狀態列縮小 */
+  .head-in{padding:calc(8px + env(safe-area-inset-top)) 10px 8px;gap:6px;align-items:stretch}
+  .head-in>div:first-child{display:flex;align-items:center;justify-content:space-between;width:100%}
+  header h1{font-size:20px;margin:0}
+  header .sub{display:none}
+  .head-in .meta{width:100%}
+  .toolbar{flex-wrap:nowrap;overflow-x:auto;gap:6px;justify-content:flex-start;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+  .toolbar::-webkit-scrollbar{display:none}
+  .toolbar .qs-wrap{flex:1 0 100%;order:-1}
+  .toolbar{flex-wrap:wrap}
+  .toolbar>button,.toolbar>select{min-height:40px;padding:8px 12px;font-size:14px;flex:0 0 auto}
+  #favBtn{display:none}                                              /* 底部導覽已有「最愛」 */
+  .statline{gap:6px;margin-top:4px}
+  .statline .badge{min-height:30px;display:inline-flex;align-items:center;font-size:12px}
+  /* 2) 輸入框 16px:iOS 不會自動放大畫面 */
+  input,select,textarea{font-size:16px!important}
+  /* 3) 點擊範圍 */
+  #gmktBar button{min-height:46px}
+  #homeTabs button{min-height:44px}
+  .mob-jump button{min-height:38px;padding:8px 14px}
+  .sec-title{padding-top:12px!important;padding-bottom:12px!important;min-height:46px}
+  .btn-ghost,.btn-upd,.nav-fold{min-height:40px}
+  .fal-bar{min-height:46px}
+  .alert-pill{min-height:40px;padding-top:8px;padding-bottom:8px}
+  .chip,.chips button{min-height:36px}
+  /* 4) 同時只留一條黏頂的「跳到」列(大盤內那條重複) */
+  #macroJump{position:static!important}
+  /* 5) 底部:導覽列+指數列避開 iPhone 手勢條;內容不被蓋住 */
+  #mobIdxBar{bottom:calc(60px + env(safe-area-inset-bottom))!important}
+  body{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
+  #mobNav a,#mobNav button{min-height:48px}
+  #navBack{bottom:calc(104px + env(safe-area-inset-bottom))!important;width:44px!important;height:44px!important}
+  /* 6) 小字下限 12px */
+  .dim-note,.ds,.dim{font-size:max(12px,1em)}
+  /* 7) 彈窗:滿寬、可捲、底部留安全區 */
+  .hlt-box,.sb-box{width:calc(100vw - 20px)!important;max-width:none!important;max-height:calc(88vh - env(safe-area-inset-bottom))!important;overflow:auto;-webkit-overflow-scrolling:touch}
+  /* 8) 寬表格一律可以左右滑,不撐破頁面 */
+  table{max-width:100%}
+  .chart-box,.idx-card,.bias-card,.ait-card{overflow-x:auto}
+}
+/* 橫向手機:底部列變薄 */
+@media(max-width:900px) and (max-height:500px) and (orientation:landscape){
+  #mobIdxBar{display:none!important}
+  body{padding-bottom:calc(64px + env(safe-area-inset-bottom))!important}
+}
