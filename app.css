@@ -1997,3 +1997,11 @@ button,a,[onclick],.tap,select,summary,label{touch-action:manipulation;-webkit-t
   .head-in .statline #updBadge{display:none}
   .fal-bar a{display:inline-block;padding:12px 8px;margin:-12px -8px}
 }
+/* r899:手機第二輪——ETF 清單可左右滑(不再撐破頁面)、小按鈕加大、10.5px 小字放大 */
+#etfBody{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media(max-width:640px){
+  .glb-aibtn{min-height:36px;padding:6px 12px}
+  #advManual{display:inline-block;padding:10px 4px}
+  #tp-etf button{min-height:36px}
+  [style*="font-size:10.5px"],[style*="font-size:10px"]{font-size:12px!important}
+}

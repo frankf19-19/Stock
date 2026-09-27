@@ -767,7 +767,11 @@ def update_chip_hist(chips, meta):
     #      舊邏輯(看全市場比例)會誤判為已補齊。此時清空 have,強制重抓整段補回去。
     deep = sum(1 for e in chips.values() if len(e.get("d") or []) >= CHIP_DAYS * 0.8)
     short = sum(1 for e in chips.values() if 0 < len(e.get("d") or []) < CHIP_DAYS * 0.5)
-    if deep >= 200 and short >= max(20, int(len(chips) * 0.01)):
+    # r899:新上市/新進櫃的股票天生就短,不是被截斷。只有「短的檔數比上次多出一批」才當成截斷事件,
+    #      否則每輪都會誤觸發、白白重抓 300 天。
+    short_prev = int(meta.get("short_n", short))            # 第一次:以現況為基準,不觸發
+    meta["short_n"] = short
+    if deep >= 200 and short - short_prev >= max(20, int(len(chips) * 0.01)):
         print(f"  [法人修復] {short} 檔法人歷史被截斷(深度正常 {deep} 檔)→ 先從 GitHub 歷史復原")
         try: repair_short_shards(chips)
         except Exception as ex: print(f"  [修復失敗] {ex}")
