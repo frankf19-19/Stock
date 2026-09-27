@@ -1,4 +1,4 @@
-/* K研所 · build r905 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r907 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1743,7 +1743,7 @@ async function refreshLive(auto){
   const btn=document.getElementById('updBtn');
   if(!auto){ btn.disabled=true; btn.textContent='↻ 更新中'; }
   const diag=[];
-  try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+  try{const r=await fetch('data.json',{cache:'no-cache'});         // r907:盤中每分鐘的重整改用 ETag 驗證——資料沒變就 304,不再每分鐘重抓 2.6MB
       if(r.ok){DATA=await r.json();DATA.source='live';
         try{snapLoad();}catch(e){}
         try{applyRTQ();}catch(e){}                        // 立刻蓋回最新即時價,不閃舊資料
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r905</span>');
+  diag.push('<span style="color:var(--dim)">build r907</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -15657,10 +15657,21 @@ function entryHTML(lv,o,price){
 }
 
 /* ══════════════ 總經行事曆事件詳細頁(說明+即時相關新聞)══════════════ */
+/* r907:fT 兩個省流量改造
+   ① 同一個網址正在下載中,後來的呼叫共用同一次下載(原本個股頁會把 yext.json 同時抓 16 次)
+   ② 自家檔案改用 ETag 驗證(no-cache):沒變就回 304,不再每次整檔重抓;外部 API 維持 no-store */
+const __inflight=new Map();
 function fT(url,ms,opts){  // 帶逾時的 fetch:代理掛掉也不會讓畫面卡死
+  const same=typeof url==='string'&&!/^https?:/i.test(url);
+  const o=Object.assign({cache:same?'no-cache':'no-store'},opts||{});
+  const key=(!o.method||o.method==='GET')&&!o.body&&typeof url==='string'?url:null;
+  if(key&&__inflight.has(key))return __inflight.get(key).then(r=>r.clone());
   const c=new AbortController();
   const t=setTimeout(()=>c.abort(),ms||9000);
-  return fetch(url,Object.assign({cache:'no-store',signal:c.signal},opts||{})).finally(()=>clearTimeout(t));
+  const p=fetch(url,Object.assign(o,{signal:c.signal})).finally(()=>clearTimeout(t));
+  if(!key)return p;
+  __inflight.set(key,p);p.then(()=>{},()=>{}).finally(()=>__inflight.delete(key));
+  return p.then(r=>r.clone());
 }
 const PROXY=[x=>x,
   x=>myWrap(x)||x,                                                       // 🏠 自家代理(於🔌診斷面板設定,最穩)

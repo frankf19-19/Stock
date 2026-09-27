@@ -78,8 +78,7 @@ def main():
     have = set(a["k"] for a in A["items"])
     for x in done:
         if x["k"] not in have: A["items"].append({"k": x["k"], "cat": x.get("cat"), "id": x.get("id"), "d": x["d"], "lv": x.get("lv"), "f5": x.get("f5"), "f20": x["f20"]})
-    cut3 = (dt.date.today() - dt.timedelta(days=1100)).isoformat()
-    A["items"] = [a for a in A["items"] if a["d"] >= cut3]
+    # r907:長期記憶永久保存(不再刪 3 年前的)
     json.dump(A, open(ARCH, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     L["items"] = [x for x in items if x.get("f20") is None]
     json.dump(L, open(LOG, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
