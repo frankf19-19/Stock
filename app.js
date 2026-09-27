@@ -1,4 +1,4 @@
-/* K研所 · build r903 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r904 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r903</span>');
+  diag.push('<span style="color:var(--dim)">build r904</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10408,16 +10408,29 @@ setInterval(()=>{try{if(openish())loadSpark();}catch(e){}},120000);   // 📈 �
 setTimeout(rtTick,3000);
 
 /* ── 開盤時段自動更新:台北週一至五 08:55–13:40,每 60 秒重抓 data.json ── */
+/* ═══ r904:休市行事曆(holidays.json:證交所官方 + NYSE 規則 + 從資料學到的颱風假)═══ */
+let HOLI=null;
+(async()=>{try{const r=await fetch('holidays.json',{cache:'no-cache'});if(r.ok){HOLI=await r.json();holiPaint();}}catch(e){}})();
+const _isoIn=tz=>{const t=new Date(new Date().toLocaleString('en-US',{timeZone:tz}));return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;};
+function holiTW(iso){return HOLI&&HOLI.tw&&HOLI.tw[iso||_isoIn('Asia/Taipei')]||null;}
+function holiUS(iso){return HOLI&&HOLI.us&&HOLI.us[iso||_isoIn('America/New_York')]||null;}
+function holiNext(mk){const H=HOLI&&HOLI[mk];if(!H)return null;const t=_isoIn(mk==='us'?'America/New_York':'Asia/Taipei');const k=Object.keys(H).sort().find(x=>x>t);return k?[k,H[k]]:null;}
+function holiPaint(){try{const b=document.getElementById('holiChip')||(()=>{const sl=document.querySelector('.statline');if(!sl)return null;const e=document.createElement('span');e.id='holiChip';e.className='badge';sl.prepend(e);return e;})();if(!b)return;
+  const us=window.GMKT==='US',today=us?holiUS():holiTW(),nx=holiNext(us?'us':'tw');
+  const tm=nx&&(()=>{const d=new Date(nx[0]+'T00:00:00'),t0=new Date(_isoIn(us?'America/New_York':'Asia/Taipei')+'T00:00:00');return Math.round((d-t0)/864e5);})();
+  if(today){b.textContent=`🏖 今日${us?'美股':'台股'}休市:${today}`;b.style.display='';b.className='badge holi-on';}
+  else if(nx&&tm<=3){b.textContent=`📅 ${tm===1?'明天':nx[0].slice(5).replace('-','/')}${us?'美股':'台股'}休市:${nx[1]}`;b.style.display='';b.className='badge holi-soon';}
+  else b.style.display='none';}catch(e){}}
 function openish(){
   // 收盤後~19:30 仍持續同步「今日」資料(MIS 收盤快照+Yahoo 回補),不再下午就凍結
   const t=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
   const d=t.getDay(),m=t.getHours()*60+t.getMinutes();
-  return d>=1&&d<=5&&m>=535&&m<=1170;
+  return d>=1&&d<=5&&!holiTW()&&m>=535&&m<=1170;
 }
 function marketOpen(){
   const tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
   const d=tp.getDay(), m=tp.getHours()*60+tp.getMinutes();
-  return d>=1&&d<=5&&m>=535&&m<=820;
+  return d>=1&&d<=5&&!holiTW()&&m>=535&&m<=820;              // r904:國定假日休市
 }
 setInterval(()=>{ if(marketOpen()) refreshLive(true); }, 60000);
 setInterval(async()=>{   // r526:盤後同步窗——13:40~19:30 每10分鐘自動帶入官方收盤K/三大法人/融資券(原本收盤即凍結,要手動重整)
@@ -13845,7 +13858,8 @@ function setGMKT(m,skipRender){
   const twOnly=['mk_temp','mk_fut','mk_head','mk_conf','mk_pick','glb'];   // r892:aipick 移出(美股也有 AI Pick)   // r702:AI Pick 為台股週選   // r557:mk_rot(資金輪動熱力圖)台美通用   // r544:大盤走勢區(mk_idx)不再整區隱藏——美股共用即時走勢引擎,細項分流
   twOnly.forEach(k=>{document.querySelectorAll(`.sec-title[data-sec="${k}"],#sb-${k}`).forEach(el=>el.classList.toggle('gm-hide',m==='US'));});
   document.documentElement.classList.toggle('gm-us',m==='US');
-  try{if(!skipRender)renderAIPick();}catch(e){}                   // r892:AI Pick 跟著換市場            // r544:美股大盤細分流(CSS 隱藏台股卡/台指期/加權櫃買鈕)
+  try{if(!skipRender)renderAIPick();}catch(e){}                   // r892:AI Pick 跟著換市場
+  try{holiPaint();}catch(e){}            // r544:美股大盤細分流(CSS 隱藏台股卡/台指期/加權櫃買鈕)
   try{   // r547:股癌=台股專屬大分類——美股模式藏分頁鈕;若正停在股癌頁則跳回個股
     const gb=document.querySelector('#homeTabs [data-tab="gooaye"]');
     if(gb)gb.classList.toggle('gm-hide',m==='US');
@@ -21084,6 +21098,7 @@ function aitHTML(mk){
   const ord=Object.entries(A.orders||{}).map(([id,o])=>`<span class="ait-ord">${o.name} ${id}・限價 ${o.buy}(可追 ${o.hi})・剩 ${o.left} 天</span>`).join('');
   const tr=(A.trades||[]).slice(-40).reverse().map(t=>`<tr><td>${t.d.slice(5)}</td><td class="${t.side==='buy'?'up':'dn'}">${t.side==='buy'?'買':'賣'}</td><td><a href="#stock/${t.id}">${t.name}</a></td><td>${(+t.sh).toLocaleString()}</td><td>${t.px}</td><td>${Math.round((t.amt)*fx).toLocaleString()}</td><td>${Math.round((t.fee+t.tax)*fx).toLocaleString()}</td><td style="color:${col(t.ret)}">${t.ret!=null?pc(t.ret):''}</td><td class="ait-why">${t.why||''}</td></tr>`).join('');
   return `<div class="ait-card">
+    ${(mk==='US'?holiUS():holiTW())?`<div class="dim-note" style="margin-bottom:6px">🏖 今日${mk==='US'?'美股':'台股'}休市(${mk==='US'?holiUS():holiTW()}),交易員不下單,淨值沿用上一個交易日。</div>`:''}
     <div class="ait-h">🤖 AI 交易員 ${flag} <span class="dim">模擬帳戶・${A.start} 開戶・本金 NT$10,000,000${mk==='US'?`(開戶匯率 ${A.fx0},以美元交易)`:''}・更新 ${A.updated||L[0]}</span></div>
     <div class="ait-kpi">
       <div><div class="dim">帳戶淨值</div><div class="ait-big" style="color:${col(S.ret)}">${tw(S.nav_twd||0)}</div><div style="color:${col(S.ret)}">${pc(S.ret)}</div></div>

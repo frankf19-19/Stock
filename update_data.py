@@ -4015,7 +4015,10 @@ def build_health(hist, chips, comps, extra):
     """r707 🩺 資料健康度:各資料源最後日期+覆蓋率+紅黃綠;寫進 data.json['health']。"""
     now_tp = dt.datetime.utcnow() + dt.timedelta(hours=8)
     # r903:台股休市日(颱風假另計)不算缺資料——避免中秋/國慶等假日後健康度誤報「warn」
-    TW_HOLI = {"2026-09-25", "2026-10-09", "2027-01-01"}
+    try:                                                   # r904:改讀 holidays.json(證交所官方+資料推斷)
+        with open("holidays.json", encoding="utf-8") as _hf: TW_HOLI = set((json.load(_hf).get("tw") or {}).keys())
+    except Exception:
+        TW_HOLI = {"2026-09-25", "2026-09-28", "2026-10-09", "2026-10-26", "2026-12-25", "2027-01-01"}
     def _off(d): return d.weekday() >= 5 or d.isoformat() in TW_HOLI
     def last_td(back=0):
         d = now_tp.date()

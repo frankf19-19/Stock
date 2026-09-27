@@ -2007,3 +2007,6 @@ button,a,[onclick],.tap,select,summary,label{touch-action:manipulation;-webkit-t
 }
 /* r900:個股頁報告按鈕手機加大 */
 @media(max-width:640px){#rptQuick,#rptAI,#rptFull,#rptPdf,.btn{min-height:40px}}
+/* r904:休市膠囊 */
+.badge.holi-on{background:rgba(224,184,74,.18);border-color:rgba(224,184,74,.6);color:var(--t-gold);font-weight:800}
+.badge.holi-soon{background:rgba(91,155,213,.12);border-color:rgba(91,155,213,.45);color:#8fb8e6}
