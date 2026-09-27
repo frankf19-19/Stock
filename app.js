@@ -1,4 +1,4 @@
-/* K研所 · build r912 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r913 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r912</span>');
+  diag.push('<span style="color:var(--dim)">build r913</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4108,7 +4108,7 @@ function rptFullHTML(J,F,fromCache){
       <div class="rf-card" style="border-left-color:${stC[(J.regime||{}).state]||'var(--line)'}"><h4>📈 趨勢:<span style="color:${stC[(J.regime||{}).state]}">${(J.regime||{}).state||'—'}</span> <small>信心 ${(J.regime||{}).confidence||'—'}・規則版 ${F.regime_rule}</small></h4><ul>${li((J.regime||{}).evidence)}</ul></div>
       <div class="rf-card" style="border-left-color:${stC[(J.chips||{}).state]||'var(--line)'}"><h4>🧮 籌碼:<span style="color:${stC[(J.chips||{}).state]}">${(J.chips||{}).state||'—'}</span> <small>信心 ${(J.chips||{}).confidence||'—'}</small></h4><ul>${li((J.chips||{}).evidence)}</ul></div>
     </div>
-    <div class="rf-card"><h4>🏭 產業與基本面</h4><div><b>基本面</b>:${(J.fundamentals||{}).summary||''} <span class="dim">${(J.fundamentals||{}).growth||''};${(J.fundamentals||{}).quality||''}</span></div>
+    <div class="rf-card"><h4>🏭 產業與基本面</h4><div><b>基本面</b>:${(J.fundamentals||{}).summary||''} <span class="dim">${[(J.fundamentals||{}).growth,(J.fundamentals||{}).quality].filter(x=>x&&!/資料不足/.test(x)).join(';')}</span></div>
       <div style="margin-top:4px"><b>產業位置</b>:${(J.industry||{}).position||''}</div><div><b>展望</b>:${(J.industry||{}).outlook||''}</div>
       <div class="rf-2col"><div><b style="color:var(--up)">催化劑</b><ul>${li((J.industry||{}).catalysts)}</ul></div><div><b style="color:var(--down)">產業風險</b><ul>${li((J.industry||{}).risks)}</ul></div></div></div>
     <div class="rf-grid"><div class="rf-card"><h4>🧭 股性</h4>${J.personality||''}</div><div class="rf-card"><h4>🔁 週期</h4>${J.cycle||''}</div></div>
@@ -4211,20 +4211,51 @@ function rptSanitize(txt,allow,px){
     if(!(v>=px*0.25&&v<=px*4))return m;
     return allow.some(a=>Math.abs(v/a-1)<=0.03)?m:'〔數字已移除〕';});
 }
+function rptDigest(F){   // r913:把原始數據翻成 AI 看得懂的白話(原本丟代號,AI 認不出就寫「資料不足」)
+  const L=[],j=a=>(a||[]).filter(x=>x!=null).join('、'),pct=a=>(a||[]).map(x=>x==null?'—':(x>0?'+':'')+x+'%').join('、');
+  if(F.rev&&F.rev.m)L.push(`近 ${F.rev.m.length} 個月營收年增率(${j(F.rev.m)}):${pct(F.rev.yoy)}`);
+  if(F.q&&F.q.fq){const pl=a=>(a||[]).map(x=>x==null?'—':x+'%').join('、');L.push(`近 ${F.q.fq.length} 季(${j(F.q.fq)}):毛利率 ${pl(F.q.gm)};營業利益率 ${pl(F.q.om)};淨利率 ${pl(F.q.nm)}`);}
+  if(F.eps_series&&F.eps_series.length)L.push(`EPS 序列(近四季累計):${F.eps_series.map(e=>(e.q||e.d||'')+' '+e.eps).join('、')};目前近四季 EPS ${F.eps_ttm}`);
+  if(F.roe!=null)L.push(`ROE ${F.roe}%`);if(F.debt!=null)L.push(`負債比 ${F.debt}%`);
+  if(F.pe)L.push(`本益比 ${F.pe.now} 倍,近一年區間 ${F.pe.p10}~${F.pe.p90} 倍(中位 ${F.pe.p50})`);
+  if(F.range52)L.push(`52 週區間 ${F.range52.lo}~${F.range52.hi},目前在 ${F.range52.pos}% 位置`);
+  if(F.ret)L.push(`股價報酬:近 20 日 ${F.ret.d20}%、60 日 ${F.ret.d60}%、120 日 ${F.ret.d120}%、240 日 ${F.ret.d240}%`);
+  if(F.dna)L.push(`股性:年化波動 ${F.dna.vol_ann}%、日振幅中位 ${F.dna.med_rng}%、回檔中位 ${F.dna.pull_med}%${(F.dna.tags||[]).length?'、特徵:'+F.dna.tags.join('、'):''}`);
+  if(F.inertia)L.push(`慣性:${F.inertia.kind}(一日自相關 ${F.inertia.rho1})`);
+  if(F.cycle)L.push(`波段週期:上漲段中位 ${F.cycle.up_days} 天/${F.cycle.up_pct}%、下跌段中位 ${F.cycle.dn_days} 天/${F.cycle.dn_pct}%${F.cycle.now?`;目前處於${F.cycle.now.dir>0?'上漲':'下跌'}段第 ${F.cycle.now.since} 天(${F.cycle.now.pct}%)`:''}`);
+  if(F.mkt)L.push(`大盤:${F.mkt.name} 週乖離位於 ${F.mkt.zone}`);
+  return L.join('\n');
+}
 function rptNarrPrompt(F,C){
-  const facts={...F};delete facts.desc;
-  return `你是台股/美股研究員。以下是網站已經算好的數據與結論(數字全部由程式計算,已確定正確)。
-請負責「白話解讀」,規則:
-1) 價位、目標價、本益比、EPS 等數字:只能引用下面資料裡出現過的數字,不要自行計算或提出新數字。
-2) 產業地位、產業展望、催化劑、產業風險:可以用你對這家公司與所屬產業的一般知識來寫(定性描述,不要附具體數字或日期)。
-3) 股性(personality):根據原始數據的 dna(波動、回檔、慣性)與 inertia 解讀;週期(cycle):根據 cycle 數據(上漲/下跌段天數與幅度、目前位置)解讀。
-4) 真的判斷不了的才寫「資料不足」,不要每段都寫。
+  return `你是資深台股/美股研究員。以下是網站已算好的結論與整理好的數據。
+公司:${F.name}(${F.id}),產業類別:${F.sector||'未知'}。${F.desc?'公司簡介:'+F.desc:''}
 
-公司:${F.name}(${F.id},${F.sector})。公司簡介:${F.desc||'無'}
-已算好的結論:${JSON.stringify({score:C.score,regime:C.regime,chips:C.chips,valuation:C.valuation,entry:C.entry,invalidation:C.invalidation})}
-原始數據:${JSON.stringify(facts)}
+【已算好的結論】${JSON.stringify({score:C.score,regime:C.regime,chips:C.chips,valuation:C.valuation,entry:C.entry})}
+【整理好的數據】
+${rptDigest(F)||'(無)'}
 
-用繁體中文,依指定 JSON 結構回答。每段精簡、具體,引用數據時用上面出現過的數字。`;
+寫作規則:
+1) fundamentals:一定要用上面的營收年增率、毛利率/營益率/淨利率、EPS、ROE 具體描述成長與獲利品質(引用數字)。
+2) industry(產業位置、展望、催化劑、風險):用你對「${F.name}」這家公司與「${F.sector||'所屬'}」產業的知識寫,例如主要產品、客戶、競爭對手、產業趨勢。這部分不需要上面的數據,**不可以寫「資料不足」**;若對這家公司不熟,就寫它所屬產業的一般狀況。催化劑、風險各寫 2~3 點。
+3) personality 用股性/慣性數據解讀;cycle 用波段週期數據解讀。
+4) 價位、目標價、本益比、EPS 等數字只能引用上面出現過的,不要自己算新的價位。
+5) 繁體中文、具體、不要空話。`;
+}
+function _rptEmpty(x){return !x||/資料不足|無法判斷|未提供/.test(Array.isArray(x)?x.join(''):String(x));}
+async function rptFillIndustry(F,N){
+  const I=N.industry||{};
+  if(!(_rptEmpty(I.position)||_rptEmpty(I.outlook)||_rptEmpty(I.catalysts)||_rptEmpty(I.risks)))return N;
+  const t=await gaAiOnce(`用 Google 搜尋「${F.name} ${F.id}」與其產業的最新資訊,用繁體中文回答,嚴格照以下 4 行格式,不要其他文字:
+產業位置:(這家公司做什麼、主要產品/客戶、在產業中的地位,60 字內)
+產業展望:(未來 6~12 個月產業趨勢,80 字內)
+催化劑:(2~3 點,用 | 分隔)
+風險:(2~3 點,用 | 分隔)`,null,false,800,'gemini-2.5-flash');
+  const g=k=>{const m=(t||'').match(new RegExp(k+'[::]\\s*(.+)'));return m?m[1].trim():'';};
+  const pos=g('產業位置'),out=g('產業展望'),cat=g('催化劑').split(/[|｜]/).map(x=>x.trim()).filter(Boolean),risk=g('風險').split(/[|｜]/).map(x=>x.trim()).filter(Boolean);
+  N.industry={position:_rptEmpty(I.position)&&pos?pos:I.position,outlook:_rptEmpty(I.outlook)&&out?out:I.outlook,
+    catalysts:_rptEmpty(I.catalysts)&&cat.length?cat:I.catalysts,risks:_rptEmpty(I.risks)&&risk.length?risk:I.risks};
+  if(pos||out)N._ind_src='(產業段含 Google 搜尋結果)';
+  return N;
 }
 const RPT_SCHEMA={type:'OBJECT',properties:{
   verdict:{type:'STRING'},
@@ -4242,7 +4273,7 @@ async function rptFullRun2(s,boxId){
     try{await Promise.all([hscanLoad().catch(()=>{}),biasLoad().catch(()=>{}),etfRevLoad().catch(()=>{})]);}catch(e){}
     const F=rptFullFacts(s,d);window.__rptFacts=F;
     const C=rptCalc(F);
-    const ck='rptFull2_'+s.id,today2=tpDay(Date.now()/1000);
+    const ck='rptFull3_'+s.id,today2=tpDay(Date.now()/1000);   // r913:換鍵,舊的「資料不足」結果作廢
     let N=null,fromCache=false,aiErr=null;
     if(!window.__rptForce){try{const c=JSON.parse(localStorage.getItem(ck)||'null');if(c&&c.d===today2&&c.n){N=c.n;fromCache=true;}}catch(e){}}
     window.__rptForce=false;
@@ -4258,6 +4289,7 @@ async function rptFullRun2(s,boxId){
         try{const t=await gaAiOnce(rptNarrPrompt(F,C),null,true,3072,mdl,gen);N=JSON.parse(t);aiErr=null;break;}
         catch(e){aiErr=e;if(!/^429|^5\d\d|quota|RESOURCE_EXHAUSTED|JSON|Unexpected/i.test(String(e&&e.message||e)))break;}
       }
+      if(N){try{N=await rptFillIndustry(F,N);}catch(e){}}      // r913
       if(N){const clean=v=>typeof v==='string'?rptSanitize(v,C.__allow,+F.px):Array.isArray(v)?v.map(clean):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,clean(x)])):v;
         N=clean(N);try{localStorage.setItem(ck,JSON.stringify({d:today2,n:N}));}catch(e){}}
     }
