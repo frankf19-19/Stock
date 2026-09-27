@@ -1,0 +1,32 @@
+name: 長期歷史回補(15 年,r910)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 */3 * * 0,6'        # 週末每 3 小時接著跑,做完後只會補新上市的股票
+permissions:
+  contents: write
+concurrency:
+  group: archive-backfill
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: 回補(每輪最多 4500 次 API、300 分鐘)
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+          BF_BUDGET: '4500'
+          BF_MINUTES: '300'
+        run: python backfill_10y.py
+      - name: 提交存檔
+        run: |
+          git config user.name "kyansuo-bot"; git config user.email "bot@users.noreply.github.com"
+          git add archive/
+          git commit -m "archive: 長期歷史回補 $(date +'%m-%d %H:%M')" -q || exit 0
+          for i in 1 2 3 4 5; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 8; done
