@@ -1990,3 +1990,10 @@ button,a,[onclick],.tap,select,summary,label{touch-action:manipulation;-webkit-t
   #mobIdxBar{display:none!important}
   body{padding-bottom:calc(64px + env(safe-area-inset-bottom))!important}
 }
+/* r897:手機頂部再省一排——狀態膠囊移到 Logo 同一行右側;最愛提醒列的連結加大點擊範圍 */
+@media(max-width:640px){
+  header{position:relative}
+  .head-in .statline{position:absolute;top:calc(10px + env(safe-area-inset-top));right:10px;margin:0;max-width:62%;flex-wrap:nowrap;overflow:hidden}
+  .head-in .statline #updBadge{display:none}
+  .fal-bar a{display:inline-block;padding:12px 8px;margin:-12px -8px}
+}
