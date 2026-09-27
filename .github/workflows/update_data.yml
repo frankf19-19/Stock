@@ -124,6 +124,9 @@ jobs:
             [ -f aipick_us.json ] && git add aipick_us.json      # r890:美股 AI Pick
             [ -f aitrader.json ] && git add aitrader.json        # r894:AI 交易員
             [ -f holidays.json ] && git add holidays.json        # r904:休市行事曆
+            [ -f brain.json ] && git add brain.json              # r905:大腦
+            [ -f signal_arch.json ] && git add signal_arch.json  # r905:訊號長期記憶
+            [ -f signal_log.json ] && git add signal_log.json
             [ -f notify_state.json ] && git add notify_state.json
             [ -f hourly_scan.json ] && git add hourly_scan.json
             [ -f bias.json ] && git add bias.json
@@ -169,6 +172,7 @@ jobs:
             step AIPick美股 bash -c 'AIPICK_MKT=US timeout 900 python aipick.py || echo "美股 AI Pick 失敗,不影響主資料"'   # r890
             step AI交易員 bash -c 'AITRADER_MKT=TW timeout 600 python aitrader.py; AITRADER_MKT=US timeout 600 python aitrader.py; true'   # r894
             step 推播 timeout 300 python notify.py || echo "推播失敗,不影響主資料"
+            step 大腦 timeout 120 python brain.py || echo "大腦失敗,不影響主資料"   # r905:每輪最後回顧、寫學習日誌
             commit_push                                                                    # 整輪提交
           }
 
