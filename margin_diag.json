@@ -1,5 +1,5 @@
 {
- "ts": "2026-09-25T18:03:29.055233",
+ "ts": "2026-09-28T20:13:25.127904",
  "steps": [
   {
    "s": "twse_margin",
@@ -50,7 +50,7 @@
   {
    "s": "tpex_probe_fail",
    "u": "www.tpex.org.tw/openapi/v1/tpex_mgtq_bal",
-   "e": "Expecting value: line 1 column 1 (char 0)"
+   "e": "HTTP Error 520: <none>"
   },
   {
    "s": "keep_old_file",
