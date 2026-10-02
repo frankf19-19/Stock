@@ -1,4 +1,4 @@
-/* K研所 · build r924 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r925 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -493,6 +493,17 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
     setTimeout(()=>{const b=document.getElementById('miniBar');if(b&&!(window.DATA&&DATA.stocks)&&/載入中/.test(b.innerText))b.innerHTML='<div class="mn-h"><b>K研所</b> 庫存即時</div><div class="mn-note">資料載入較慢,請稍候或按右鍵「重新整理」…</div>';},25000);}catch(e){}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
+/* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
+const APP_BUILD='r925';
+(function(){try{
+  const want=(document.querySelector('meta[name="build"]')||{}).content;
+  if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
+    (navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration().then(r=>r&&r.update()):Promise.resolve()).finally(()=>location.reload());}
+  setTimeout(()=>{if(!(window.DATA&&DATA.stocks)){const b=document.createElement('div');b.id='bootWarn';b.style.cssText='position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));z-index:9999;background:#2a1f10;border:1px solid #e0b84a;border-radius:12px;padding:12px 14px;font-size:14px;color:#f3e3b0;box-shadow:0 8px 28px rgba(0,0,0,.4)';
+    b.innerHTML='⏳ 資料載入比平常慢(網路慢或快取卡住)。<button onclick="sessionStorage.removeItem(\'__vfix\');caches&&caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith(\'stock-pwa\')).map(k=>caches.delete(k)))).finally(()=>location.reload(true))" style="margin-left:8px;padding:6px 12px;border-radius:8px;border:1px solid #e0b84a;background:#e0b84a;color:#000;font-weight:800">清快取重新載入</button>';
+    document.body.appendChild(b);}},25000);
+  window.addEventListener('error',e=>{try{if(window.DATA&&DATA.stocks)return;const b=document.getElementById('bootWarn')||document.createElement('div');b.id='bootWarn';b.style.cssText='position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));z-index:9999;background:#2a1010;border:1px solid #e05a4a;border-radius:12px;padding:10px 14px;font-size:13px;color:#ffd9d4';b.textContent='⚠ 程式錯誤:'+String(e.message||'').slice(0,120)+'(請截圖給 Frank)';document.body.appendChild(b);}catch(_){}});
+}catch(e){}})();
 async function boot(){
   if(MINI){const w=setInterval(()=>{if(DATA&&DATA.stocks){clearInterval(w);miniStart();}},500);}   // r866
   try{
@@ -1775,7 +1786,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r924</span>');
+  diag.push('<span style="color:var(--dim)">build r925</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
