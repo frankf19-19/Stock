@@ -1,4 +1,4 @@
-/* K研所 · build r920 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r921 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r920</span>');
+  diag.push('<span style="color:var(--dim)">build r921</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21240,8 +21240,8 @@ function aipStatusHTML(){
   const evs=[];
   const blocks=weeks.map(w=>{
     const bwEnd=aipAdd(w.buy_week,4),evEnd=w.eval_week?aipAdd(w.eval_week,4):bwEnd;
-    const phase=today<w.buy_week?'next':today<=bwEnd?'buy':'eval';
-    const title=phase==='next'?`📅 下週預定(${aipMD(w.buy_week)} 週一開盤起掛單)`:phase==='buy'?`📌 本週(${aipMD(w.buy_week)}~${aipMD(bwEnd)} 買進,持有到 ${aipMD(evEnd)})`:`📌 持有中(${aipMD(w.buy_week)} 那週買進,評估至 ${aipMD(evEnd)})`;
+    const phase=today<w.buy_week?'next':(w.mode==='open'?(today<=bwEnd?'buy':'eval'):today<=bwEnd?'buy':'eval');
+    const title=phase==='next'?`📅 下週預定(${aipMD(w.buy_week)} 週一開盤起掛單)`:phase==='buy'?`📌 本週(${aipMD(w.buy_week)}~${aipMD(bwEnd)} 買進,持有到 ${aipMD(evEnd)})`:`📌 持有中(${aipMD(w.buy_week)} 那週買進・無期限,出場由訊號決定)`;
     const rows=(w.picks||[]).map(p=>{
       const legs=aipLegs(p),cur=legs.length?legs[legs.length-1]:null,iv=p.iv||{};
       let badge='',main='',sub='',col='';
@@ -21252,7 +21252,7 @@ function aipStatusHTML(){
         else if(today>bwEnd||p._nofill){badge='✖ 未成交';main=`買價 ${p.buy} 沒到`;col='var(--dim)';}
         else{const px=pxOf(p.id);const gap=pc(px,p.buy);badge='⏳ 等買價';main=`≤ ${p.buy}${p.buy_hi?'(追到 '+p.buy_hi+')':''}`;sub=px?`現價 ${px}(${gap!=null?(gap>0?'高 ':'低 ')+Math.abs(gap).toFixed(1)+'%':''})`:'';}
       }else if(cur.xd){
-        const w2={tp:'✅ 停利',sl:'🛑 停損',exp:'⏰ 到期'}[cur.xw]||'出場';badge=w2;main=`${aipMD(cur.xd)} @${cur.xp}`;col=cl(cur.ret);sub=`損益 ${fp(cur.ret)}`;
+        const w2={tp:'✅ 停利',sl:'🛑 停損',trail:'🔒 移動停利',weak:'📉 訊號轉弱',exp:'⏰ 到期'}[cur.xw]||'出場';badge=w2;main=`${aipMD(cur.xd)} @${cur.xp}`;col=cl(cur.ret);sub=`損益 ${fp(cur.ret)}`;
         if(cur.xd===today)evs.push(`${cur.xt||hhmm} ${w2} ${cur.name} @${cur.xp}(${fp(cur.ret)})`);
       }else{
         const px=pxOf(cur.id),r=px?pc(px,cur.entry):cur.ret_c;
@@ -21262,7 +21262,7 @@ function aipStatusHTML(){
         else{badge='📈 持有中';main=`${aipMD(cur.fill)} 買 ${cur.entry}`;col=cl(r);sub=`現價 ${px||cur.last||'—'}・${fp(r)}・目標 ${cur.target}/停損 ${cur.stop}`;
           if(cur.fill===today)evs.push(`${cur.ft||hhmm} 🟢 ${cur.name} 成交 @${cur.entry}`);}
       }
-      const chain=legs.length>1?`<div class="aps-chain">${legs.map((L,i)=>`${i?'→ ':''}${L.name}${L.xd?({tp:' ✅',sl:' 🛑',exp:' ⏰'}[L.xw]||' 出場'):' 持有'}`).join(' ')}</div>`:'';
+      const chain=legs.length>1?`<div class="aps-chain">${legs.map((L,i)=>`${i?'→ ':''}${L.name}${L.xd?({tp:' ✅',sl:' 🛑',trail:' 🔒',weak:' 📉',exp:' ⏰'}[L.xw]||' 出場'):' 持有'}`).join(' ')}</div>`:'';
       const nm=cur?cur.name:p.name,id=cur?cur.id:p.id;
       return `<tr><td><a href="#stock/${id}" style="font-weight:800">${nm}</a> <span class="dim">${id}</span>${chain}</td><td><span class="aps-badge" style="color:${col||'inherit'}">${badge}</span></td><td>${main}${sub?`<div class="dim" style="font-size:12px">${sub}</div>`:''}</td></tr>`;
     }).join('');
@@ -21270,7 +21270,7 @@ function aipStatusHTML(){
   }).join('');
   const evh=evs.length?`<div class="aps-ev"><b>🔔 今天發生</b><ul>${evs.sort().map(e=>`<li>${e}</li>`).join('')}</ul></div>`:`<div class="aps-ev dim">🔔 今天還沒有成交或出場事件</div>`;
   return `<div class="aps-card aip-status"><div class="aps-h">🤖 AI Pick 現況 <span class="dim">更新 ${AIPK.updated||''}・${hhmm}</span></div>${blocks}${evh}
-    <div class="dim-note" style="margin-top:6px">圖例:⏳ 等買價 → 🟢 成交 → 📈 持有中 → ✅ 停利 / 🛑 停損(出場當下由候補 🔁 換股接替)/ ⏰ 到期出場。詳細數據、模型與戰績在下方。</div></div>`;
+    <div class="dim-note" style="margin-top:6px">圖例:⏳ 等買價 → 🟢 成交 → 📈 持有中 → ✅ 到目標 / 🔒 移動停利 / 🛑 停損 / 📉 訊號轉弱(出場當下由候補 🔁 換股接替)。沒有到期日,持有多久由訊號決定;掛單則保留到下一週新名單出來、該股不在名單上才取消。詳細數據、模型與戰績在下方。</div></div>`;
 }
 function renderAIPickCore(){
   const box=document.getElementById('aipickBox');
