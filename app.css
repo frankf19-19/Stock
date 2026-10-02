@@ -2073,3 +2073,15 @@ body.aip-simple #tp-aipick .mob-jump,body.aip-simple #tp-aipick .sec-title[data-
   #detailView table,.tabPane table{font-size:13px}
   #detailView,.tabPane,.wrap{max-width:100vw;overflow-x:clip}
 }
+
+/* r933:持股總表手機改卡片(不用左右滑);其他可滑表格加右側漸層+「⇄ 可左右滑」提示;修左邊被切 */
+.ait-tw{margin:0;padding:0}
+.aps-mob{display:none}
+.aps-item{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:var(--panel2)}
+.aps-item-h{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.aps-item-st{margin-left:auto;font-size:12.5px}.aps-item-ret{font-size:16px;margin-left:6px}
+.aps-item-g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 8px;margin-top:8px}
+.aps-item-g i{display:block;font-style:normal;font-size:11px;color:var(--mut)}.aps-item-g b{font-size:14px}.aps-item-g small{display:block;font-size:11px;color:var(--mut)}
+.aps-item-chain{font-size:12px;color:var(--mut);margin-top:8px;padding-top:6px;border-top:1px dashed var(--line);line-height:1.5}
+.tbl-scroll,.ait-tw{position:relative}
+.tbl-scroll.can-scroll:not(.at-end)::after,.ait-tw.can-scroll:not(.at-end)::after{content:'⇄ 可左右滑';position:absolute;right:0;top:0;bottom:0;width:72px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--panel) 70%);display:flex;align-items:flex-start;justify-content:flex-end;padding:4px 6px 0 0;font-size:11px;color:var(--t-gold,#e0b84a);font-weight:800}
+@media(max-width:640px){.aps-desk{display:none}.aps-mob{display:block}}
