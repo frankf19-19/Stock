@@ -2034,3 +2034,10 @@ button,a,[onclick],.tap,select,summary,label{touch-action:manipulation;-webkit-t
 
 /* r922:個股客製停利停損理由 */
 .aip-lvl{font-size:12.5px;color:var(--t-gold,#e0b84a);margin:2px 0 4px;line-height:1.5}
+
+/* r924:iOS 固定底欄保險——禁止雙擊/捏合縮放(縮放時固定元素會跑到畫面中間);底欄用 translateZ 強制獨立圖層 */
+html,body{touch-action:pan-x pan-y}
+@media(max-width:640px){
+  #mobNav,#mobIdxBar,#toasts,#sbToast{transform:translateZ(0);-webkit-transform:translateZ(0)}
+  #mobNav{bottom:0!important;top:auto!important}
+}
