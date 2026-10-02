@@ -2044,3 +2044,13 @@ html,body{touch-action:pan-x pan-y}
 
 /* r926:鍵盤打開時藏底欄,收起後恢復 */
 body.kb-open #mobNav,body.kb-open #mobIdxBar,body.kb-open #navBack{display:none!important}
+
+/* r929:AI Pick 簡潔模式——只留三張表,其他區塊藏起來(切「詳細模式」才顯示) */
+body.aip-simple #tp-aipick .sec-title[data-sec="aiptoday"],body.aip-simple #tp-aipick .sec-title[data-sec="aiphold"],body.aip-simple #tp-aipick .sec-title[data-sec="aipstat"],body.aip-simple #tp-aipick .sec-title[data-sec="aiphist"],
+body.aip-simple #aipTodayBox,body.aip-simple #aipHoldBox,body.aip-simple #aipStatBox,body.aip-simple #aipHistBox,
+body.aip-simple #aipickBox .aip-albar,body.aip-simple #aipickBox .aip-fold:not(.aps-fold),body.aip-simple #aipickBox .aip-week,body.aip-simple #aipickBox .aip-hist,body.aip-simple #aipickBox>.dim-note,
+body.aip-simple #tp-aipick .mob-jump,body.aip-simple #tp-aipick .sec-title[data-sec="aipick"]>span{display:none!important}
+.aps-mode{float:right;font-size:12px;padding:4px 10px;min-height:28px}
+.aps-tb td{line-height:1.45}.aps-sub td{font-size:12px;color:var(--mut);background:var(--panel2)}
+.aps-why{font-size:12px;max-width:260px}
+@media(max-width:640px){.aps-tb{font-size:12.5px}.aps-why{max-width:160px}}
