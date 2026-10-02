@@ -1,4 +1,4 @@
-/* K研所 · build r926 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r927 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r926';
+const APP_BUILD='r927';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -511,6 +511,7 @@ async function boot(){
     if(r.ok){ DATA=await r.json(); DATA.source='live'; }
   }catch(e){}
   if(!DATA) DATA=DEMO;
+  window.DATA=DATA;                                              // r927:DATA 是 let,mobile.js 與開機看門狗要用 window.DATA(之前永遠拿不到 → 指數列永遠「載入中」、看門狗誤報)
   try{snapLoad();}catch(e){}
   setBadges(); renderAll(); route();   // 資料一到立即渲染,背景抓取由各計時器延後進行
 }
@@ -1755,7 +1756,7 @@ async function refreshLive(auto){
   if(!auto){ btn.disabled=true; btn.textContent='↻ 更新中'; }
   const diag=[];
   try{const r=await fetch('data.json',{cache:'no-cache'});         // r907:盤中每分鐘的重整改用 ETag 驗證——資料沒變就 304,不再每分鐘重抓 2.6MB
-      if(r.ok){DATA=await r.json();DATA.source='live';
+      if(r.ok){DATA=await r.json();DATA.source='live';window.DATA=DATA;
         try{snapLoad();}catch(e){}
         try{applyRTQ();}catch(e){}                        // 立刻蓋回最新即時價,不閃舊資料
         window.__sweepForce=Date.now()+5*60e3;            // 更新後強制再掃一輪矯正
@@ -1786,7 +1787,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r926</span>');
+  diag.push('<span style="color:var(--dim)">build r927</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
