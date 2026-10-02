@@ -1,4 +1,4 @@
-/* K研所 · build r932 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r933 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r932';
+const APP_BUILD='r933';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -510,7 +510,9 @@ const APP_BUILD='r932';
   const wrap=root=>{try{(root||document).querySelectorAll('table').forEach(t=>{if(t.closest(SKIP)||t.dataset.wrapped)return;t.dataset.wrapped='1';
       const p=t.parentElement;if(!p)return;const cs=getComputedStyle(p);if(/auto|scroll/.test(cs.overflowX))return;
       const d=document.createElement('div');d.className='tbl-scroll';p.insertBefore(d,t);d.appendChild(t);});}catch(e){}};
-  let tm=null;const sched=()=>{if(tm)return;tm=setTimeout(()=>{tm=null;wrap();},150);};
+  const mark=()=>{try{document.querySelectorAll('.tbl-scroll,.ait-tw').forEach(d=>{const more=d.scrollWidth>d.clientWidth+4;d.classList.toggle('can-scroll',more);if(more&&!d.__sc){d.__sc=1;d.addEventListener('scroll',()=>d.classList.toggle('at-end',d.scrollLeft+d.clientWidth>=d.scrollWidth-4),{passive:true});}});}catch(e){}};
+  window.addEventListener('resize',()=>setTimeout(mark,200));
+  let tm=null;const sched=()=>{if(tm)return;tm=setTimeout(()=>{tm=null;wrap();mark();},150);};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{wrap();new MutationObserver(sched).observe(document.body,{childList:true,subtree:true});});
   else{wrap();new MutationObserver(sched).observe(document.body,{childList:true,subtree:true});}
 })();
@@ -1797,7 +1799,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r932</span>');
+  diag.push('<span style="color:var(--dim)">build r933</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21321,7 +21323,10 @@ function aipStatusHTML(){
   const T=(rows)=>rows.map(r=>{const ret=pc(r.px,r.entry);return `<tr><td><a href="#stock/${r.id}"><b>${r.name}</b></a><br><span class="dim">${r.id}</span></td><td>${r.st}</td><td>${aipMD(r.fill)}<br>${r.entry}</td><td>${r.px||'—'}<br><b style="color:${cl(ret)}">${fp(ret)}</b></td><td>${r.tgt}<br><span class="dim">${fp(pc(r.tgt,r.px||r.entry))}</span></td><td>${r.stp}${r.trail?'<br><span class="dim">🔒 移動</span>':'<br><span class="dim">'+fp(pc(r.stp,r.px||r.entry))+'</span>'}</td><td>${r.days!=null?r.days+' 天':'—'}</td></tr>${r.chain?`<tr class="aps-sub"><td colspan="7">🔁 ${r.chain}</td></tr>`:''}`;}).join('');
   let h=`<div class="aps-card aip-status"><div class="aps-h">🤖 AI Pick <span class="dim">更新 ${AIPK.updated||''}</span><button class="btn-ghost aps-mode" onclick="aipSimpleToggle()">${aipSimpleOn()?'詳細模式':'簡潔模式'}</button></div>`;
   h+=`<div class="aps-title">📋 持股總表(${hold.length} 檔)</div>`;
-  h+=hold.length?`<div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>狀態</th><th>進場</th><th>現價/損益</th><th>目標</th><th>停損</th><th>持有</th></tr>${T(hold)}</table></div>`:'<div class="dim-note">目前沒有持股</div>';
+  const cards=rows=>rows.map(r=>{const ret=pc(r.px,r.entry);return `<div class="aps-item"><div class="aps-item-h"><a href="#stock/${r.id}"><b>${r.name}</b></a> <span class="dim">${r.id}</span><span class="aps-item-st">${r.st}</span><b class="aps-item-ret" style="color:${cl(ret)}">${fp(ret)}</b></div>
+    <div class="aps-item-g"><div><i>進場</i><b>${aipMD(r.fill)} ${r.entry}</b></div><div><i>現價</i><b>${r.px||'—'}</b></div><div><i>持有</i><b>${r.days!=null?r.days+' 天':'—'}</b></div><div><i>目標</i><b>${r.tgt}</b><small>${fp(pc(r.tgt,r.px||r.entry))}</small></div><div><i>${r.trail?'🔒 移動停利':'停損'}</i><b>${r.stp}</b><small>${fp(pc(r.stp,r.px||r.entry))}</small></div></div>
+    ${r.chain?`<div class="aps-item-chain">🔁 ${r.chain}</div>`:''}</div>`;}).join('');
+  h+=hold.length?`<div class="ait-tw aps-desk"><table class="aps-tb"><tr><th>股票</th><th>狀態</th><th>進場</th><th>現價/損益</th><th>目標</th><th>停損</th><th>持有</th></tr>${T(hold)}</table></div><div class="aps-cards aps-mob">${cards(hold)}</div>`:'<div class="dim-note">目前沒有持股</div>';
   if(wait.length)h+=`<div class="aps-title">⏳ 掛單中(${wait.length} 檔,現價回到買價就成交)</div><div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>掛單價</th><th>現價</th><th>距買價</th><th>目標</th><th>停損</th></tr>${wait.map(r=>`<tr><td><a href="#stock/${r.id}"><b>${r.name}</b></a> <span class="dim">${r.id}</span></td><td>≤ ${r.buy}${r.buy_hi?'<br><span class="dim">追到 '+r.buy_hi+'</span>':''}</td><td>${r.px||'—'}</td><td style="color:${r.gap!=null&&r.gap<=0?'var(--up)':'inherit'}">${r.gap==null?'—':(r.gap>0?'還差 ':'已到 ')+Math.abs(r.gap).toFixed(1)+'%'}</td><td>${r.tgt}</td><td>${r.stp}</td></tr>`).join('')}</table></div>`;
   if(nextW)h+=`<div class="aps-title">🗓 下週名單(${aipMD(nextW.buy_week)} 週一起掛單)</div><div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>掛單價</th><th>目標</th><th>停損</th><th>為什麼選</th></tr>${(nextW.picks||[]).map(p=>`<tr><td><a href="#stock/${p.id}"><b>${p.name}</b></a> <span class="dim">${p.id}</span></td><td>${p.buy}${p.buy_hi?'<br><span class="dim">追到 '+p.buy_hi+'</span>':''}</td><td>${p.target}<br><span class="dim">${fp(pc(p.target,p.buy))}</span></td><td>${p.stop}<br><span class="dim">${fp(pc(p.stop,p.buy))}</span></td><td class="aps-why">${(p.why||[]).slice(0,3).join('・')}${p.lvl&&p.lvl.why?'<br><span class="dim">📐 '+p.lvl.why+'</span>':''}</td></tr>`).join('')}</table></div>`;
   h+=evs.length?`<div class="aps-ev"><b>🔔 今天發生</b><ul>${[...new Set(evs)].sort().map(e=>`<li>${e}</li>`).join('')}</ul></div>`:'';
