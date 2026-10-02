@@ -1,5 +1,5 @@
 {
- "ts": "2026-10-01T19:01:08.184472",
+ "ts": "2026-10-02T18:40:21.509412",
  "steps": [
   {
    "s": "mi_margn_positional",
@@ -89,15 +89,15 @@
    "s": "twse_daytrade_ok",
    "tag": "legacy",
    "n": 1228,
-   "nonzero": 1125
+   "nonzero": 1148
   },
   {
    "s": "tpex_margin_ok",
    "u": "www.tpex.org.tw/www/zh-tw/margin/balance",
-   "n": 918
+   "n": 919
   }
  ],
  "verdict": [
-  "OK(2219 檔)"
+  "OK(2220 檔)"
  ]
 }
