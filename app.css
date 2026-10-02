@@ -2021,3 +2021,13 @@ button,a,[onclick],.tap,select,summary,label{touch-action:manipulation;-webkit-t
 .rf-thesis{border-left:4px solid var(--t-purple,#9b7de6)!important;background:linear-gradient(90deg,rgba(155,125,230,.10),transparent 70%)}
 .rf-thesis div{font-size:14.5px;line-height:1.7}
 .rf-debate li,.rf-scn .rf-card{line-height:1.65}
+/* r920:AI Pick 狀況總覽 */
+.aps-card{border:1px solid rgba(224,184,74,.55);border-radius:14px;padding:12px 14px;margin:0 0 14px;background:linear-gradient(180deg,rgba(224,184,74,.08),transparent 60%)}
+.aps-h{font-weight:900;font-size:16px;margin-bottom:6px}
+.aps-week{margin:8px 0 10px}.aps-title{font-weight:800;margin:4px 0 6px;color:var(--t-gold,#e0b84a)}
+.aps-tb{width:100%;border-collapse:collapse;font-size:13.5px}.aps-tb th{text-align:left;color:var(--mut);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--line)}
+.aps-tb td{padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}.aps-tb tr:last-child td{border-bottom:0}
+.aps-badge{font-weight:800;white-space:nowrap}.aps-chain{font-size:12px;color:var(--mut);margin-top:2px}
+.aps-ev{margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--panel2)}.aps-ev ul{margin:4px 0 0;padding-left:18px}.aps-ev li{margin:2px 0}
+.aip-fold{margin:6px 0 10px}.aip-fold summary{cursor:pointer;font-weight:800;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2)}
+@media(max-width:640px){.aps-tb{font-size:13px}.aps-tb td,.aps-tb th{padding:6px 4px}}
