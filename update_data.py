@@ -1431,6 +1431,22 @@ def _bulk_backfill(hist, tw_comps, ex, fetcher, label, max_days, need_bars=240):
        補滿之後下一輪 need 為空即整段略過,不浪費呼叫。"""
     need = {c["id"] for c in tw_comps if c.get("ex") == ex
             and len((hist.get(c["id"]) or {}).get("d") or []) < need_bars}
+    # r917:這個掃描要抓 270 天的全市場行情(每天 1~3 秒,被證交所限流時更久),之前「每一輪」都跑,
+    #      新上市股永遠補不滿 → 每輪白掃 3 小時,把 AI Pick 換股、推播全部拖晚。
+    #      改成:只在 17:00 後或休市日跑、一天最多一次;短的檔數沒增加就不重跑。
+    try:
+        _st = json.load(open("k/_bulk_state.json", encoding="utf-8"))
+    except Exception:
+        _st = {}
+    _now = dt.datetime.utcnow() + dt.timedelta(hours=8)
+    _rec = _st.get(ex) or {}
+    _can = (_now.hour >= 17 or _now.weekday() >= 5)
+    if need and (not _can or (_rec.get("date") == TODAY.isoformat() and len(need) <= int(_rec.get("need", 0)))):
+        print(f"  批次回補({label}):{len(need)} 檔 K 棒偏短(多為新上市),{'盤中不掃' if not _can else '今天已掃過'},略過"); return
+    if need:
+        _st[ex] = {"date": TODAY.isoformat(), "need": len(need)}
+        os.makedirs("k", exist_ok=True)
+        json.dump(_st, open("k/_bulk_state.json", "w", encoding="utf-8"))
     if not need:
         print(f"  批次回補({label}):K 線史已達 {need_bars} 根以上,略過"); return
     N = len(need)
