@@ -36,7 +36,7 @@ STATE = "notify_state.json"
 NOTIFY_DAILY_MAX = 10
 LEAD_DAILY_MAX = 3          # r795:主力進出每人每日最多 3 則(最吵的一類)
 # r795:事件鍵前綴 → 類別(使用者可在帳號面板勾選要收哪些)
-CAT_OF = {"fill": "aip", "rot": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
+CAT_OF = {"fill": "aip", "rot": "aip", "rotbuy": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
           "fz": "fav", "fh": "fav", "fl": "fav", "fb": "fav", "ftp": "port", "fsl": "port",
           "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "bk_sb": "lead", "bk_ss": "lead", "kb_t1": "lead", "kb_t2": "lead", "hs": "h60", "bias": "bias"}
 CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離"}
@@ -414,6 +414,22 @@ def pct(a, b):
     except Exception: return ""
 
 
+def rot_candidate(w, p):
+    """r917:和 aipick.py 的換股規則一致——候補名單裡第一個「沒用過、同產業未滿 2 檔」的;目標/停損依候補的比例推算"""
+    try:
+        picks = w.get("picks") or []
+        used = {q["id"] for q in picks} | {L["id"] for q in picks for L in (q.get("legs") or [])}
+        open_sec = {}
+        for q in picks:
+            L = (q.get("legs") or [None])[-1]
+            if L and not L.get("xd") and q is not p: open_sec[L.get("sector")] = open_sec.get(L.get("sector"), 0) + 1
+        for b in w.get("bench") or []:
+            if b["id"] in used or open_sec.get(b.get("sector"), 0) >= 2: continue
+            rr = (b["target"] / b["buy"] - 1) * 100 if b.get("buy") else 0; rs = (b["stop"] / b["buy"] - 1) * 100 if b.get("buy") else 0
+            return {"id": b["id"], "name": b.get("name", b["id"]), "sector": b.get("sector"), "tgt": f"{rr:+.1f}%", "stp": f"{rs:+.1f}%"}
+    except Exception: pass
+    return None
+
 def collect_events(aip, prices):
     """回傳 [(key, level, text), ...]。level 1=事實,2=該行動。"""
     ev = []
@@ -444,7 +460,17 @@ def collect_events(aip, prices):
                                      f"{why} <b>{L['name']}</b>({L['id']}) {mdt(L['fill'], L.get('ft'))} 買 {L['entry']} → {mdt(L['xd'], L.get('xt'))} 賣 {L['xp']}"))
             # ── 二級:即時報價觸發(該行動)──
             cur = legs[-1] if legs else None
-            if cur and cur.get("xd"): continue                 # 這個倉位已收工
+            if cur and cur.get("xd"):                          # 這個倉位已收工
+                # r917:出場後的隔一個交易日早上,開盤時提醒「換股買進候補」(不用等到下午結算那輪)
+                try:
+                    hh = NOW.strftime("%H%M")
+                    if cur["xd"] < today and today <= bw_end and "0855" <= hh <= "0935" and cur.get("xw") != "exp" and not (p.get("iv") or {}).get("rot"):
+                        rot = rot_candidate(w, p)
+                        if rot and rot["id"] not in {L["id"] for L in legs} and prices.get(rot["id"]):
+                            ev.append((f"rotbuy|{today}|{rot['id']}", 1,
+                                       f"🔄 <b>換股・今日開盤買進 {rot['name']}</b>({rot['id']})\n接替 {cur['name']}({cur.get('xw','')} 出場);現價約 {prices[rot['id']]},目標 {rot['tgt']}、停損 {rot['stp']}"))
+                except Exception: pass
+                continue
             sid = cur["id"] if cur else p["id"]; nm = cur["name"] if cur else p["name"]
             px = prices.get(sid)
             if not px: continue
@@ -456,10 +482,15 @@ def collect_events(aip, prices):
                     ev.append((f"chase|{today}|{sid}", 3, f"🟡 <b>進入追價區 {nm}</b>({sid})\n現價 {px} 在追價上限 {p['buy_hi']} 內(建議買價 {p['buy']});可分批,守停損 {p['stop']}"))
             else:
                 rt = pct(px, cur["entry"])
+                ivr = (p.get("iv") or {}).get("rot")                                               # r918:aipick 已即時換股
+                rot = rot_candidate(w, p)
+                if ivr: rot_txt = f"\n🔁 <b>已即時換股:買進 {ivr.get('name')}</b>({ivr['id']})@{ivr.get('px')}(目標 {(float(ivr.get('rr') or 1)-1)*100:+.1f}%、停損 {(float(ivr.get('rs') or 1)-1)*100:+.1f}%)"
+                elif rot: rot_txt = f"\n🔁 換股接替:<b>{rot['name']}</b>({rot['id']}),目標 {rot['tgt']}、停損 {rot['stp']}(現價買進)"
+                else: rot_txt = "\n(本週候補已用完,出場後不換股)"
                 if px >= cur["target"]:
-                    ev.append((f"tp|{today}|{sid}", 2, f"🎯 <b>到目標・可賣出 {nm}</b>({sid})\n現價 {px} ≥ 目標 {cur['target']};{md(cur['fill'])} 買 {cur['entry']},帳面 {rt}"))
+                    ev.append((f"tp|{today}|{sid}", 2, f"🎯 <b>到目標・可賣出 {nm}</b>({sid})\n現價 {px} ≥ 目標 {cur['target']};{md(cur['fill'])} 買 {cur['entry']},帳面 {rt}" + rot_txt))
                 elif px <= cur["stop"]:
-                    ev.append((f"sl|{today}|{sid}", 2, f"🛑 <b>觸停損・宜賣出 {nm}</b>({sid})\n現價 {px} ≤ 停損 {cur['stop']};{md(cur['fill'])} 買 {cur['entry']},帳面 {rt}"))
+                    ev.append((f"sl|{today}|{sid}", 2, f"🛑 <b>觸停損・宜賣出 {nm}</b>({sid})\n現價 {px} ≤ 停損 {cur['stop']};{md(cur['fill'])} 買 {cur['entry']},帳面 {rt}" + rot_txt))
                 elif ew_end and today == ew_end:                                                  # r776:到期提醒
                     ev.append((f"exp|{today}|{sid}", 3, f"⏰ <b>今日到期結算 {nm}</b>({sid})\n評估週最後一個交易日,{md(cur['fill'])} 買 {cur['entry']} 的部位收盤賣出;現價 {px}({rt})"))
     # ── r789:大盤週乖離進入低檔/高檔(對所有人相同;zone_since == as_of 代表本週剛進入)──
