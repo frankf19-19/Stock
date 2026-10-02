@@ -2041,3 +2041,6 @@ html,body{touch-action:pan-x pan-y}
   #mobNav,#mobIdxBar,#toasts,#sbToast{transform:translateZ(0);-webkit-transform:translateZ(0)}
   #mobNav{bottom:0!important;top:auto!important}
 }
+
+/* r926:鍵盤打開時藏底欄,收起後恢復 */
+body.kb-open #mobNav,body.kb-open #mobIdxBar,body.kb-open #navBack{display:none!important}
