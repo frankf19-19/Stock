@@ -475,7 +475,9 @@ def _run_leg(leg, ew_end, eval_over):
     leg["last"], leg["last_day"] = lastc, lastd
     leg["ret_c"] = round((lastc / leg["entry"] - 1) * 100, 2) if leg["entry"] else None
     leg["hi"] = max(b[1] for _, b in held); leg["lo"] = min(b[2] for _, b in held)
-    xd, xp, xw, n = exit_scan(leg, held, leg["entry"])
+    scan = held[1:] if leg.get("same_day") else held          # r918:盤中即時換股的那檔,進場當天不用整根日K判斷出場
+    xd, xp, xw, n = exit_scan(leg, scan, leg["entry"]) if scan else (None, None, None, 0)
+    if xd and leg.get("same_day"): n += 1
     if xd:
         leg.update(xd=xd, xp=round(xp, 2), xw=xw, hold=n, ret=round((xp / leg["entry"] - 1) * 100, 2))
         return True
@@ -676,6 +678,15 @@ def evaluate(week):
         _, p, lg = pick_slot
         lg["_rot"] = 1                                    # 這一段已試過換股,不論成不成功都不再回頭
         nxt = None
+        rot = (p.get("iv") or {}).get("rot")              # r918:即時換股(盤中出場當下就接替,不等隔日開盤)
+        if rot and rot.get("d") == lg["xd"] and rot["id"] not in used and rot.get("px"):
+            en = float(rot["px"])
+            leg = _leg("bench", rot["id"], rot.get("name"), rot.get("sector"), rot["d"], en,
+                       rtick(en * float(rot.get("rr") or 1.0), "near"), rtick(en * float(rot.get("rs") or 1.0), "near"), rot.get("score"), rot.get("kind"))
+            leg["same_day"] = 1; leg["ft"] = rot.get("t")
+            p["legs"].append(leg); used.add(rot["id"])
+            _run_leg(leg, ew_end, eval_over)
+            continue
         while bi < len(bench):
             b = bench[bi]; bi += 1
             if b["id"] in used: continue
