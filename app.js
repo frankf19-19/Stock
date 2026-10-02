@@ -1,4 +1,4 @@
-/* K研所 · build r921 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r922 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r921</span>');
+  diag.push('<span style="color:var(--dim)">build r922</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21136,6 +21136,7 @@ function aipWeekBlock(w,compact){
       ${p.ai?`<div class="aip-ai">🤖 ${p.ai}</div>`:''}
       ${aipTrade(p,w,i)}
       <div class="aip-c3">${L.chip}</div>
+      ${p.lvl&&p.lvl.why?`<div class="aip-lvl">📐 ${p.lvl.why}</div>`:''}
       <div class="aip-why">${(p.why||[]).map(x=>`<span class="pick-chip">${x}</span>`).join('')}<span class="pick-chip" style="opacity:.75">模型分 ${p.score}</span></div>
     </div>`;}).join('')}</div>`
     +((w.bench||[]).length?`<div class="aip-bench"><div class="aip-bh">🔄 候補名單 <span class="dim">名次接在正選之後;任一倉位出場後依序遞補,同時持有同產業至多 2 檔</span></div>
