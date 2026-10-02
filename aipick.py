@@ -210,11 +210,11 @@ def _score_one(s, d, o, cutoff):
     else: buy = max(ma5, last - 0.5 * a)
     buy = rtick(buy, "down")
     buy_hi = rtick(buy * 1.015, "up")
-    tgt = rtick(min(buy * 1.12, max(buy * 1.04, buy + 2.0 * a)), "near")
-    stp = rtick(max(buy * 0.92, buy - 2.0 * a), "near")
+    tgt, stp, lvl = stock_levels(d, o, buy, a)                      # r922:依個股壓力/支撐/波段習性定目標與停損(不再制式 +12%/-8%)
     meta = {"ref_close": round(last, 2), "ref_day": d[-1], "atr": round(a, 2), "buy": buy, "buy_hi": buy_hi,
             "target": tgt, "stop": stp, "kind": kind, "r20": round(r20 * 100, 1), "bias20": round(bias20 * 100, 1),
-            "vr": round(vr, 2)}
+            "vr": round(vr, 2), "lvl": lvl}
+    if lvl.get("rr") is not None and lvl["rr"] < 1.5: sc -= 8        # 賺賠比不到 1.5 的,分數扣一些(結構不利)
     # 🧠 學習用特徵向量(連續值;順序 = FEATS)
     import math
     fx = [1.0 if ma5 > ma20 else 0.0, 1.0 if ma20 > ma60 else 0.0, 1.0 if last > ma20 else 0.0,
@@ -465,6 +465,76 @@ def exit_scan(p, held, entry):
             return day, px, "tp", i + 1
         hi = max(hi, hh)
     return None, None, None, len(held)
+
+
+def _pivots(o, win=4):
+    """簡單波段轉折:win 根內最高/最低 → 壓力/支撐候選與波段幅度"""
+    H = [b[1] for b in o]; L = [b[2] for b in o]; n = len(o)
+    ph, pl = [], []
+    for i in range(win, n - win):
+        if H[i] >= max(H[i - win:i]) and H[i] >= max(H[i + 1:i + 1 + win]): ph.append((i, H[i]))
+        if L[i] <= min(L[i - win:i]) and L[i] <= min(L[i + 1:i + 1 + win]): pl.append((i, L[i]))
+    return ph, pl
+
+
+def stock_levels(d, o, buy, a):
+    """r922:每檔依自己的結構定目標/停損(回傳 目標, 停損, 說明)
+    目標:買價上方「有意義的壓力」——20/60/250 日高點、近期波段高點;太近(<4%)就看下一道;
+          上限參考這檔自己的波段習性(近一年上漲段中位數),大波動股允許更大目標、牛皮股目標較小
+    停損:買價下方最近的支撐——20 日低、月線、季線、近期波段低點——再留 0.5 ATR 緩衝;
+          但不會緊到 1.5 ATR 內(雜訊),也不會寬過 3 ATR / 15%
+    賺賠比:目標距離至少是停損距離的 1.5 倍,不夠就把目標推到下一道壓力"""
+    n = len(o); C = [b[3] for b in o]; H = [b[1] for b in o]; L = [b[2] for b in o]
+    o250 = o[-250:]; ph, pl = _pivots(o250)
+    ups, dns = [], []
+    pts = sorted([(i, h, "h") for i, h in ph] + [(i, l, "l") for i, l in pl])
+    for k in range(1, len(pts)):
+        (i0, p0, t0), (i1, p1, t1) = pts[k - 1], pts[k]
+        if t0 == "l" and t1 == "h" and p0 > 0: ups.append(p1 / p0 - 1)
+        if t0 == "h" and t1 == "l" and p0 > 0: dns.append(1 - p1 / p0)
+    up_med = sorted(ups)[len(ups) // 2] if len(ups) >= 4 else 0.10
+    dn_med = sorted(dns)[len(dns) // 2] if len(dns) >= 4 else 0.08
+    ma20 = sum(C[-20:]) / 20; ma60 = sum(C[-60:]) / 60 if n >= 60 else None
+    # ── 壓力候選(買價上方)
+    res = []
+    for lab, v in (("20 日高", max(H[-20:])), ("60 日高", max(H[-60:]) if n >= 60 else None), ("年高", max(H[-250:]))):
+        if v and v > buy * 1.005: res.append((v, lab))
+    for i, h in ph[-6:]:
+        if h > buy * 1.005: res.append((h, f"波段高 {d[-len(o250) + i][5:]}"))
+    res.sort()
+    tmax = buy * (1 + min(0.35, max(0.06, 1.2 * up_med)))     # 這檔的「合理一段行情」
+    tgt = None; tsrc = ""
+    for v, lab in res:
+        if v >= buy * 1.04 and v <= tmax: tgt, tsrc = v, lab; break
+    if tgt is None:
+        far = [r for r in res if r[0] > tmax]
+        tgt, tsrc = (min(tmax, far[0][0]), "波段習性上限") if far else (max(buy * 1.06, buy + 2.0 * a), "2 倍 ATR")
+    # ── 支撐候選(買價下方)
+    sup = []
+    for lab, v in (("20 日低", min(L[-20:])), ("月線", ma20), ("季線", ma60)):
+        if v and v < buy * 0.995: sup.append((v, lab))
+    for i, l in pl[-6:]:
+        if l < buy * 0.995: sup.append((l, f"波段低 {d[-len(o250) + i][5:]}"))
+    sup.sort(reverse=True)
+    smin, smax = buy - 1.5 * a, max(buy - 2.5 * a, buy * 0.90)
+    stp = None; ssrc = ""
+    for v, lab in sup:
+        v2 = v - 0.5 * a
+        if smax <= v2 <= smin: stp, ssrc = v2, lab + " 下方"; break
+    if stp is None:
+        near = [x for x in sup if x[0] - 0.5 * a > smin]
+        stp, ssrc = (smin, "1.5 倍 ATR") if near else (max(smax, buy - 2.0 * a), "2 倍 ATR")
+    # ── 賺賠比至少 1.5
+    risk = buy - stp
+    if risk > 0 and (tgt - buy) < 1.5 * risk:
+        nxt = [r for r in res if r[0] >= buy + 1.5 * risk and r[0] <= buy * 1.35]
+        if nxt: tgt, tsrc = nxt[0][0], nxt[0][1] + "(補足賺賠比)"
+        else: tgt, tsrc = buy + 1.5 * risk, "1.5 倍風險"
+    tgt = rtick(tgt, "near"); stp = rtick(stp, "near")
+    rr = round((tgt - buy) / (buy - stp), 2) if buy > stp else None
+    lvl = {"tgt_src": tsrc, "stp_src": ssrc, "rr": rr, "up_med": round(up_med * 100, 1), "dn_med": round(dn_med * 100, 1),
+           "why": f"目標 {tgt}({tsrc},+{(tgt / buy - 1) * 100:.1f}%)/ 停損 {stp}({ssrc},{(stp / buy - 1) * 100:.1f}%)/ 賺賠比 {rr}"}
+    return tgt, stp, lvl
 
 
 def _leg(src, sid, name, sector, fill, entry, tgt, stp, score=None, kind=None):
