@@ -333,7 +333,7 @@ def simulate_bt(data, n_bt, amax):
     for k in range(n_bt, 0, -1):
         bwk = monday(TODAY) - dt.timedelta(days=7 * k)
         if bwk + dt.timedelta(days=13) > TODAY: continue
-        L = build_learn(data, bwk, amax=amax)
+        L = build_learn(data, bwk, amax=amax); L["_bt"] = True
         w = gen_week(data, bwk, L)
         if w["picks"]:
             w["bt"] = True; evaluate(w); out.append(w)
@@ -388,9 +388,29 @@ def aipmd(s):
     m = str(s)[5:].split("-"); return f"{int(m[0])}/{int(m[1])}"
 
 
+def chip_of(sid):
+    """c/ 分片裡這檔的法人日資料(d/f/t/g)"""
+    if "_CSH" not in globals(): globals()["_CSH"] = {}
+    if MKT != "TW": return {}
+    key = "tw" + (sid[:3] if sid[:2] == "00" else sid[:2])
+    if key not in _CSH:
+        try: _CSH[key] = load_json(f"c/{key}.json", {})
+        except Exception: _CSH[key] = {}
+    return _CSH[key].get(sid) or {}
+
+
 def gen_week(data, buy_week, learn=None):
     cutoff = iso(buy_week)
     cands = []
+    # r935:台股改用 v2(15 年訓練模型 + 過熱過濾);美股維持原模型(尚未用同套引擎驗證);回測週不用
+    V2 = None
+    if MKT == "TW" and os.environ.get("AIPICK_V2", "1") == "1" and not (learn or {}).get("_bt"):
+        try:
+            from aipick_v2 import V2Scorer
+            V2 = V2Scorer(bars_of, chip_of, data)
+            if not V2.ok: V2 = None
+        except Exception as e:
+            print("aipick:v2 載入失敗,改用原模型", e); V2 = None
     for s in data.get("stocks", []):
         if s.get("market") != MKT or s.get("etf") or s.get("disp"): continue
         if not (isinstance(s.get("price"), (int, float)) and s["price"] > 0): continue
@@ -399,9 +419,16 @@ def gen_week(data, buy_week, learn=None):
         r = score_one(s, d, o, cutoff)
         if not r: continue
         sc, why, meta = r
+        if V2:
+            pv = V2.prob(s["id"], s, d, o)
+            if pv is None: continue
+            meta["v2p"] = round(pv, 4); meta["rule"] = round(sc, 1)
+            sc = pv * 100                                             # v2:用「未來 10 日贏過大盤機率」排名
+            why = [f"15 年模型:贏大盤機率 {pv * 100:.0f}%"] + list(why)[:3]
         cands.append((sc, s, why, meta))
     # 🧠 混合:規則分 z 值 ×(1−α)+ 學習模型 logit z 值 × α
     alpha = float((learn or {}).get("alpha") or 0.0)
+    if V2: alpha = 0.0                                                   # v2 已經是模型分,不再混舊的學習權重
     if alpha > 0 and len(cands) > 5:
         base = [c[0] for c in cands]; lg = [model_logit(learn, c[3]["fx"]) for c in cands]
         def z(a):
@@ -412,6 +439,10 @@ def gen_week(data, buy_week, learn=None):
                  for i, c in enumerate(cands)]
     cands.sort(key=lambda x: -x[0])
     picks, per = [], {}
+    if V2 and V2.overheated:                                             # 過熱:全市場站上月線家數 > 70% → 本週不選股
+        print(f"aipick:v2 過熱過濾——站上月線家數 {V2.breadth20 * 100:.0f}% > 70%,本週不選股")
+        return {"buy_week": cutoff, "gen": NOW.strftime("%Y-%m-%d %H:%M"), "status": "skip", "picks": [], "bench": [], "n_cand": len(cands),
+                "skip": f"市場過熱:全市場 {V2.breadth20 * 100:.0f}% 的股票站上月線(> 70%),這種週追高容易回檔,AI 選擇空手一週", "breadth20": round(V2.breadth20, 3), "v2": True}
     for sc, s, why, meta in cands:
         sec = s.get("sector") or "其他"
         if per.get(sec, 0) >= MAX_PER_SECTOR: continue
@@ -436,7 +467,9 @@ def gen_week(data, buy_week, learn=None):
     return {"buy_week": cutoff, "eval_week": iso(buy_week + dt.timedelta(days=7)),
             "made": NOW.strftime("%Y-%m-%d %H:%M"), "ref_day": ref_day,
             "model": (learn or {}).get("ver") or "v1", "alpha": alpha, "learn_n": int((learn or {}).get("n") or 0),
-            "status": "open", "picks": picks, "bench": bench, "n_cand": len(cands)}
+            "status": "open", "picks": picks, "bench": bench, "n_cand": len(cands),
+            "cand_top": [c[1]["id"] for c in cands[:max(10, len(cands) * 3 // 10)]],      # r935:前 30%(訊號轉弱判斷用;r921 漏掉了)
+            "v2": bool(V2), "breadth20": round(V2.breadth20, 3) if V2 and V2.breadth20 is not None else None}
 
 
 # ───────────────────────── 追蹤結算 ─────────────────────────
@@ -881,7 +914,9 @@ def evaluate(week):
 
     week["xv"] = XVER
     week["rot"] = sum(p.get("rot") or 0 for p in picks)
-    if all_done and picks:
+    if week.get("skip"):
+        week["status"] = "skip"                                  # r935:過熱空手週,狀態固定
+    elif all_done and picks:
         week["status"] = "done"
     elif TODAY >= ew:
         week["status"] = "tracking"
@@ -1097,7 +1132,9 @@ def main():
         if ok:
             L = build_learn(data, buy_week, amax=amax)
             w = gen_week(data, buy_week, L)
-            if w["picks"]:
+            if w.get("status") == "skip":
+                weeks.append(w); print("aipick:本週空手(" + w.get("skip", "") + ")")
+            elif w["picks"]:
                 weeks.append(w)
                 print(f"aipick:選出 {w['buy_week']} 買進週 {len(w['picks'])} 檔(候選 {w['n_cand']}):" +
                       "、".join(f"{p['name']}@{p['buy']}" for p in w["picks"]))
