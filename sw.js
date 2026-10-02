@@ -4,7 +4,7 @@
      • 快取鍵一律去掉查詢字串:同一個檔案只留最新一份
      • 只清自己的舊快取(stock-pwa-*),不動同網域其他專案的快取
      • 超過 8MB 的回應不進快取 */
-const CACHE = 'stock-pwa-v2';
+const CACHE = 'stock-pwa-v3';
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks =>
@@ -18,18 +18,25 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;      // 外部資源(CDN/代理/TV)不攔
   if (!url.pathname.startsWith('/Stock/')) return; // 同網域其他專案不攔
   const key = url.origin + url.pathname;            // 去掉查詢字串:每個檔案只留一份
-  e.respondWith(
-    fetch(req).then(r => {
-      try {
-        const len = +(r.headers.get('content-length') || 0);
-        if (r && r.ok && r.type === 'basic' && (!len || len < 8e6)) {
-          const cp = r.clone();
-          caches.open(CACHE).then(c => c.put(key, cp));
-        }
-      } catch (err) {}
-      return r;
-    }).catch(() => caches.match(key).then(hit => hit || caches.match(url.origin + '/Stock/index.html') || caches.match('./index.html')))
-  );
+  // r925:仍是網路優先,但網路 5 秒沒回應且本機有快取 → 先用快取把畫面開起來(背景照樣更新快取),
+  //      不再「開起來就卡在載入中」;網路失敗也回快取
+  const net = fetch(req).then(r => {
+    try {
+      const len = +(r.headers.get('content-length') || 0);
+      if (r && r.ok && r.type === 'basic' && (!len || len < 8e6)) {
+        const cp = r.clone();
+        caches.open(CACHE).then(c => c.put(key, cp));
+      }
+    } catch (err) {}
+    return r;
+  });
+  const fallback = () => caches.match(key).then(hit => hit || caches.match(url.origin + '/Stock/index.html') || caches.match('./index.html'));
+  e.respondWith(new Promise(resolve => {
+    let done = false;
+    const timer = setTimeout(() => { caches.match(key).then(hit => { if (hit && !done) { done = true; resolve(hit); } }); }, 5000);
+    net.then(r => { clearTimeout(timer); if (!done) { done = true; resolve(r); } })
+       .catch(() => { clearTimeout(timer); if (!done) { done = true; fallback().then(resolve); } });
+  }));
 });
 
 /* ═══ r784:Web Push ═══
