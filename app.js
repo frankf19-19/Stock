@@ -1,4 +1,4 @@
-/* K研所 · build r925 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r926 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r925';
+const APP_BUILD='r926';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1786,7 +1786,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r925</span>');
+  diag.push('<span style="color:var(--dim)">build r926</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -14269,6 +14269,15 @@ function setupMobileNav(){
     window.addEventListener('hashchange',()=>setTimeout(sync,0));
     document.getElementById('homeTabs')?.addEventListener('click',()=>setTimeout(sync,0));
     sync();
+    /* r926:iPhone 鍵盤收起後,Safari 的「可見區域」常常沒有復原,底部固定列就卡在畫面中間。
+       做法:① 鍵盤打開時把底欄藏起來 ② 鍵盤收起/輸入框失焦時,強制捲動 1px 讓 Safari 重新計算可見區域 */
+    try{
+      const vv=window.visualViewport;
+      const settle=()=>{setTimeout(()=>{window.scrollTo(window.scrollX,window.scrollY+1);window.scrollTo(window.scrollX,window.scrollY-1);},80);};
+      if(vv){const fix=()=>{const kb=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);const open=kb>120;const was=document.body.classList.contains('kb-open');document.body.classList.toggle('kb-open',open);if(was&&!open)settle();};
+        vv.addEventListener('resize',fix);vv.addEventListener('scroll',fix);}
+      document.addEventListener('focusout',e=>{if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))settle();},true);
+    }catch(e){}
     document.getElementById('homeTabs')?.addEventListener('click',()=>setTimeout(buildHomeSide,80));   // r701:切分頁重建首頁左欄
     window.addEventListener('hashchange',()=>setTimeout(buildHomeSide,150));
     setTimeout(buildHomeSide,900);
