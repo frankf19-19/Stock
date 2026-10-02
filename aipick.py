@@ -36,7 +36,7 @@ NOW = dt.datetime.now(TZ)
 TODAY = NOW.date()
 OUT = "aipick_us.json" if US else "aipick.json"
 MODEL = "v2"
-XVER = 3                      # r738:結算版本(換股輪動;版本一變舊檔自動重跑)
+XVER = 4                      # r921:無期限模式;r738:結算版本(換股輪動;版本一變舊檔自動重跑)
 N_PICK = 5
 BENCH_N = 15                  # r738:候補名單長度——倉位出場後依序遞補,前端盤中可立刻提示換股
 MAX_PER_SECTOR = 2
@@ -444,8 +444,15 @@ def exit_scan(p, held, entry):
     """成交後逐日找「實際出場」:先到目標→目標價賣、先到停損→停損價賣,同日兩者皆觸及採保守(停損先)。
     回傳 (出場日, 出場價, 原因 tp/sl, 持有天數);都沒碰到回傳 (None, None, None, 已持有天數)。"""
     tg, sp = p["target"], p["stop"]
+    hi = entry; weak = p.get("weak_from")                   # r921:移動停利(漲 8% 後停損上移到高點 94%)/ 訊號轉弱出場
     for i, (day, b) in enumerate(held):
         op, hh, ll = b[0], b[1], b[2]
+        if weak and day > weak:
+            return day, op, "weak", i + 1
+        if p.get("trail") and i > 0 and hi >= entry * 1.08:
+            tsp = round(hi * 0.94, 2)
+            if tsp > sp and ll <= tsp:
+                return day, (op if op <= tsp else tsp), "trail", i + 1
         hit_sl = ll <= sp
         hit_tp = hh >= tg
         if hit_sl:                                          # 保守:同日都碰到,先算停損
@@ -456,6 +463,7 @@ def exit_scan(p, held, entry):
             if i == 0: px = tg if entry < tg else entry
             else: px = op if op >= tg else tg
             return day, px, "tp", i + 1
+        hi = max(hi, hh)
     return None, None, None, len(held)
 
 
@@ -466,8 +474,15 @@ def _leg(src, sid, name, sector, fill, entry, tgt, stp, score=None, kind=None):
             "last": None, "last_day": None}
 
 
+def _apply_weak(p, leg):
+    wk = p.get("weak")
+    if wk and wk.get("id") == leg["id"] and not leg.get("xd"): leg["weak_from"] = wk["from"]
+    return leg
+
+
 def _run_leg(leg, ew_end, eval_over):
     """把一段部位從成交日跑到出場或視窗結束。回傳 True = 已出場。"""
+    if ew_end == FAR: leg["trail"] = 1                      # r921:無期限模式 → 開移動停利
     d, o = bars_of(leg["id"])
     held = [(d[i], o[i]) for i in range(len(d)) if leg["fill"] <= d[i] <= ew_end and len(o[i]) >= 4]
     if not held: return False
@@ -481,7 +496,7 @@ def _run_leg(leg, ew_end, eval_over):
     if xd:
         leg.update(xd=xd, xp=round(xp, 2), xw=xw, hold=n, ret=round((xp / leg["entry"] - 1) * 100, 2))
         return True
-    if lastd >= ew_end or eval_over:                      # 到期:評估週最後一根 K 收盤賣出
+    if ew_end != FAR and (lastd >= ew_end or eval_over):  # 到期(只有回測週;實戰無期限,r921)
         leg.update(xd=lastd, xp=lastc, xw="exp", hold=len(held), ret=leg["ret_c"])
         return True
     leg["hold"] = len(held)
@@ -547,7 +562,7 @@ def intraday_watch(weeks, prices, hhmm):
             px = prices.get(sid)
             if not px: continue
             if not cur:                                                 # 等買進:限價/追價第一次碰到
-                if not (bw <= today <= bw_end) or iv.get("fill"): continue
+                if (w.get("mode") == "open" and (today < bw or iv.get("fill") or p.get("result") == "nofill")) or (w.get("mode") != "open" and (not (bw <= today <= bw_end) or iv.get("fill"))): continue
                 if px <= p["buy"]:
                     iv["fill"] = {"d": today, "t": hhmm, "px": p["buy"], "how": "limit"}; n += 1
                 elif px <= p.get("buy_hi", p["buy"]):
@@ -638,11 +653,22 @@ def _fill_px(b, p):
     return None
 
 
+FAR = "2099-12-31"
 def evaluate(week):
     bw = dt.date.fromisoformat(week["buy_week"]); ew = bw + dt.timedelta(days=7)
     bw_end = iso(bw + dt.timedelta(days=4)); ew_end = iso(ew + dt.timedelta(days=4))
     buy_week_over = TODAY > bw + dt.timedelta(days=6)
     eval_over = TODAY > ew + dt.timedelta(days=6)     # 評估週之後的週一起一定結算
+    # r921:實戰(非回測)改成「無期限」——沒有到期賣出、買進也不限一週;
+    #      出場只由訊號決定:到目標 / 觸停損 / 移動停利 / 訊號轉弱(排名掉出前 30% 且跌破月線)
+    if not week.get("bt"):
+        week["mode"] = "open"
+        bw_end, ew_end = FAR, FAR
+        buy_week_over = False; eval_over = False
+        nw = week.get("_next_ids")                     # 下一週名單出來後,沒進名單的舊掛單取消(排名已掉)
+        if nw is not None and TODAY > bw + dt.timedelta(days=6):
+            for p in week["picks"]:
+                if not (p.get("legs") or []) and not (p.get("iv") or {}).get("fill") and p["id"] not in nw: p["_cancel"] = 1
     bench = list(week.get("bench") or [])
     picks = week["picks"]
 
@@ -659,10 +685,10 @@ def evaluate(week):
         if fill:
             p["legs"] = [_leg("pick", p["id"], p["name"], p.get("sector"), fill, entry,
                               p["target"], p["stop"], p.get("score"), p.get("kind"))]
-            _run_leg(p["legs"][0], ew_end, eval_over)
+            _run_leg(_apply_weak(p, p["legs"][0]), ew_end, eval_over)
         else:
             p["legs"] = []
-        p["_nofill"] = bool(not fill and buy_week_over and (bb or TODAY > bw + dt.timedelta(days=9)))
+        p["_nofill"] = bool(not fill and (p.pop("_cancel", 0) or (buy_week_over and (bb or TODAY > bw + dt.timedelta(days=9)))))
 
     # ── 🔄 換股輪動:誰先出場誰先挑候補,次數不設限 ──
     used = {p["id"] for p in picks}
@@ -685,7 +711,7 @@ def evaluate(week):
                        rtick(en * float(rot.get("rr") or 1.0), "near"), rtick(en * float(rot.get("rs") or 1.0), "near"), rot.get("score"), rot.get("kind"))
             leg["same_day"] = 1; leg["ft"] = rot.get("t")
             p["legs"].append(leg); used.add(rot["id"])
-            _run_leg(leg, ew_end, eval_over)
+            _run_leg(_apply_weak(p, leg), ew_end, eval_over)
             continue
         while bi < len(bench):
             b = bench[bi]; bi += 1
@@ -695,6 +721,7 @@ def evaluate(week):
             if openn >= MAX_PER_SECTOR: continue
             nxt = b; break
         if not nxt: break
+        if week.get("mode") == "open" and lg["xd"] > iso(bw + dt.timedelta(days=13)): continue   # r921:出場太晚就不換股,交給新一週名單
         nd = _open_at(nxt["id"], lg["xd"], ew_end)
         if not nd: continue                               # 沒有下一個交易日了(視窗已到尾)
         day, en = nd
@@ -705,7 +732,7 @@ def evaluate(week):
         leg = _leg("bench", nxt["id"], nxt["name"], nxt.get("sector"), day, en,
                    rtick(en * rr, "near"), rtick(en * rs, "near"), nxt.get("score"), nxt.get("kind"))
         p["legs"].append(leg); used.add(nxt["id"])
-        _run_leg(leg, ew_end, eval_over)
+        _run_leg(_apply_weak(p, leg), ew_end, eval_over)
 
     # ── 倉位彙總:報酬 = 各段複利相乘 ──
     all_done = True
@@ -832,7 +859,7 @@ def ai_reason_exit(L, p):
 
 
 def stats_of(weeks):
-    done = [w for w in weeks if w.get("status") == "done"]
+    done = [w for w in weeks if w.get("status") == "done" or w.get("mode") == "open"]   # r921:無期限模式 → 以已平倉的個股計,不等整週結束
     picks = [p for w in done for p in w["picks"]]
     filled = [p for p in picks if p.get("result") in ("win", "loss", "flat")]
     wins = [p for p in filled if p["result"] == "win"]; losses = [p for p in filled if p["result"] == "loss"]
@@ -977,6 +1004,26 @@ def main():
             except Exception as e:
                 print("aipick:補產候補失敗", w.get("buy_week"), e)
     # 逐週結算(已 done 的不再動,結果永久凍結)
+    # r921:無期限模式的兩個訊號——① 下一週名單(舊掛單是否取消)② 訊號轉弱(排名掉出前 30% 且跌破月線 → 下一根 K 開盤出場)
+    try:
+        lw = sorted([w for w in weeks if not w.get("bt")], key=lambda w: w["buy_week"])
+        for i, w in enumerate(lw):
+            w["_next_ids"] = {p["id"] for p in lw[i + 1]["picks"]} if i + 1 < len(lw) else None
+        latest = lw[-1] if lw else None
+        top = set(latest.get("cand_top") or []) if latest else set()
+        if top:
+            for w in lw:
+                if w is latest: continue
+                for p in w["picks"]:
+                    cur = (p.get("legs") or [None])[-1]
+                    if not cur or cur.get("xd") or p.get("weak"): continue
+                    if cur["id"] in top: continue
+                    d, o = bars_of(cur["id"])
+                    if len(d) >= 20 and o[-1][3] < sum(x[3] for x in o[-20:]) / 20:
+                        p["weak"] = {"id": cur["id"], "from": d[-1]}
+                        print(f"aipick:訊號轉弱 {cur['id']} {cur.get('name')}(排名掉出前 30% 且跌破月線)→ 下一根 K 開盤出場")
+    except Exception as e:
+        print("aipick:訊號轉弱判斷例外", e)
     for w in weeks:
         if w.get("status") != "done" or w.get("xv") != XVER:      # r736:舊檔(只有收盤結算)重跑一次,補買賣時間與實現損益
             try: evaluate(w)
@@ -1045,6 +1092,7 @@ def main():
             msg += ";權重變化最大:" + "、".join(f"{FEATS[j]} {learn_prev['w'][j]:+.2f}→{learn['w'][j]:+.2f}" for j in dw)
         log.insert(0, {"t": NOW.strftime("%m-%d"), "k": "train", "msg": msg})
     learn["log"] = log[:40]; learn["reviewed"] = sorted(reviewed)[-80:]
+    for w in weeks: w.pop("_next_ids", None)                          # r921:暫存欄位(set)不寫入
     out = {"model": MODEL, "updated": NOW.strftime("%Y-%m-%d %H:%M"), "weeks": weeks, "learn": learn,
            "stats": stats_of([w for w in weeks if not w.get("bt")]),        # 實戰(凍結後追蹤)
            "stats_bt": stats_of([w for w in weeks if w.get("bt")])}         # 回測(首次建檔 walk-forward)
