@@ -210,7 +210,7 @@ def _score_one(s, d, o, cutoff):
     else: buy = max(ma5, last - 0.5 * a)
     buy = rtick(buy, "down")
     buy_hi = rtick(buy * 1.015, "up")
-    tgt, stp, lvl = stock_levels(d, o, buy, a)                      # r922:依個股壓力/支撐/波段習性定目標與停損(不再制式 +12%/-8%)
+    tgt, stp, lvl = stock_levels(d, o, buy, a, s)                      # r922:依個股壓力/支撐/波段習性定目標與停損(不再制式 +12%/-8%)
     meta = {"ref_close": round(last, 2), "ref_day": d[-1], "atr": round(a, 2), "buy": buy, "buy_hi": buy_hi,
             "target": tgt, "stop": stp, "kind": kind, "r20": round(r20 * 100, 1), "bias20": round(bias20 * 100, 1),
             "vr": round(vr, 2), "lvl": lvl}
@@ -477,7 +477,36 @@ def _pivots(o, win=4):
     return ph, pl
 
 
-def stock_levels(d, o, buy, a):
+def _vol_profile(o, bins=40):
+    """量能密集區(近 120 日成交量集中的價位帶):上方是壓力、下方是支撐"""
+    oo = [b for b in o[-120:] if len(b) >= 5 and b[4]]
+    if len(oo) < 30: return []
+    lo, hi = min(b[2] for b in oo), max(b[1] for b in oo)
+    if hi <= lo: return []
+    w = (hi - lo) / bins; acc = [0.0] * bins
+    for b in oo:
+        i0, i1 = int((b[2] - lo) / w), min(bins - 1, int((b[1] - lo) / w))
+        for i in range(max(0, i0), i1 + 1): acc[i] += b[4] / (i1 - i0 + 1)
+    tot = sum(acc) or 1
+    top = sorted(range(bins), key=lambda i: -acc[i])[:3]
+    return [(lo + (i + 0.5) * w, acc[i] / tot) for i in top if acc[i] / tot >= 0.06]
+
+
+def _gaps(o):
+    """未回補的跳空缺口:上方缺口 = 壓力(缺口下緣);下方缺口 = 支撐(缺口上緣)"""
+    out = []; oo = o[-120:]
+    for i in range(1, len(oo)):
+        pv, cu = oo[i - 1], oo[i]
+        if cu[2] > pv[1]:                                    # 向上跳空
+            top, bot = cu[2], pv[1]
+            if not any(x[2] <= bot for x in oo[i + 1:]): out.append(("down", top))   # 之後沒跌回 → 缺口上緣是支撐
+        elif cu[1] < pv[2]:                                  # 向下跳空
+            top, bot = pv[2], cu[1]
+            if not any(x[1] >= top for x in oo[i + 1:]): out.append(("up", bot))     # 之後沒漲回 → 缺口下緣是壓力
+    return out
+
+
+def stock_levels(d, o, buy, a, s=None):
     """r922:每檔依自己的結構定目標/停損(回傳 目標, 停損, 說明)
     目標:買價上方「有意義的壓力」——20/60/250 日高點、近期波段高點;太近(<4%)就看下一道;
           上限參考這檔自己的波段習性(近一年上漲段中位數),大波動股允許更大目標、牛皮股目標較小
@@ -501,8 +530,19 @@ def stock_levels(d, o, buy, a):
         if v and v > buy * 1.005: res.append((v, lab))
     for i, h in ph[-6:]:
         if h > buy * 1.005: res.append((h, f"波段高 {d[-len(o250) + i][5:]}"))
+    vp = _vol_profile(o); gp = _gaps(o)                                  # r923:量能密集區、未補缺口
+    for v, share in vp:
+        if v > buy * 1.005: res.append((v, f"量能密集區({share * 100:.0f}% 成交)"))
+    for kind, v in gp:
+        if kind == "up" and v > buy * 1.005: res.append((v, "上方缺口"))
     res.sort()
     tmax = buy * (1 + min(0.35, max(0.06, 1.2 * up_med)))     # 這檔的「合理一段行情」
+    fsc = ((s or {}).get("f") or {}).get("score") if s else None   # r923:基本面強 → 目標可以放遠;弱 → 收斂
+    csc = ((s or {}).get("c") or {}).get("score") if s else None   #       籌碼強 → 停損可用較遠支撐;弱 → 緊一點
+    if isinstance(fsc, (int, float)) and fsc != 50: tmax *= 1.15 if fsc >= 70 else 0.88 if fsc <= 40 else 1.0
+    pe, eps = (s or {}).get("pe"), (s or {}).get("eps")               # 估值天花板:本益比已 > 35 倍的,目標不超過 eps×(本益比+8)
+    if isinstance(pe, (int, float)) and isinstance(eps, (int, float)) and pe > 35 and eps > 0:
+        tmax = min(tmax, max(buy * 1.05, eps * (pe + 8)))
     tgt = None; tsrc = ""
     for v, lab in res:
         if v >= buy * 1.04 and v <= tmax: tgt, tsrc = v, lab; break
@@ -515,8 +555,13 @@ def stock_levels(d, o, buy, a):
         if v and v < buy * 0.995: sup.append((v, lab))
     for i, l in pl[-6:]:
         if l < buy * 0.995: sup.append((l, f"波段低 {d[-len(o250) + i][5:]}"))
+    for v, share in vp:
+        if v < buy * 0.995: sup.append((v, f"量能密集區({share * 100:.0f}% 成交)"))
+    for kind, v in gp:
+        if kind == "down" and v < buy * 0.995: sup.append((v, "下方缺口"))
     sup.sort(reverse=True)
     smin, smax = buy - 1.5 * a, max(buy - 2.5 * a, buy * 0.90)
+    if isinstance(csc, (int, float)) and csc <= 40: smax = max(buy - 2.0 * a, buy * 0.92)   # 籌碼弱:停損不給太寬
     stp = None; ssrc = ""
     for v, lab in sup:
         v2 = v - 0.5 * a
