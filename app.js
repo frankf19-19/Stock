@@ -1,4 +1,4 @@
-/* K研所 · build r916 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r920 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -1775,7 +1775,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r916</span>');
+  diag.push('<span style="color:var(--dim)">build r920</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21226,9 +21226,52 @@ function brainHTML(){const B=BRAIN;if(!B||!(AIT_SHOW||isAdmin()))return '';
     ${J.length?day(J[0],true)+J.slice(1,7).map(j=>day(j,false)).join(''):'<div class="dim-note">還沒有日誌</div>'}${lt}${tr}${sug}
     <div class="dim-note" style="margin-top:6px">大腦的原則:記住每個訊號和每筆交易的結果 → 每天回顧 → 寫下學到什麼 → 提出改進。改變分析規則的建議一律先用歷史資料驗證、經你確認才採用;AI Pick 的選股模型則每週用最新實戰結果自動重新訓練。</div></div>`;}
 function aitMount(mk){const box=document.getElementById('aipickBox');if(!box||!(AIT_SHOW||isAdmin()))return;
-  const put=()=>{if(!document.getElementById('aipickBox'))return;box.querySelectorAll('.ait-card,.brn-card').forEach(x=>x.remove());box.insertAdjacentHTML('afterbegin',aitHTML(mk)+brainHTML());aitChart(mk);
+  const put=()=>{if(!document.getElementById('aipickBox'))return;box.querySelectorAll('.ait-card,.brn-card').forEach(x=>x.remove());const sc=box.querySelector('.aip-status');if(sc)sc.insertAdjacentHTML('afterend',aitHTML(mk)+brainHTML());else box.insertAdjacentHTML('afterbegin',aitHTML(mk)+brainHTML());aitChart(mk);
     if(!BRAIN)brainLoad().then(b=>{if(b&&!box.querySelector('.brn-card')){const a=box.querySelector('.ait-card');if(a)a.insertAdjacentHTML('afterend',brainHTML());}});};
   if(AIT)put();else aitLoad().then(()=>{if((window.GMKT==='US'?'US':'TW')===mk)put();});}
+/* ═══ r920:AI Pick 狀況總覽——一張表看懂「現在每一檔在哪個階段」,放在最上面 ═══ */
+function aipStatusHTML(){
+  if(!AIPK)return '';
+  const today=aipIso(aipTpDate()),now=aipTpDate(),hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const pxOf=id=>{const st=(DATA.stocks||[]).find(x=>x.id===id);return st&&st.price>0?+st.price:null;};
+  const pc=(a,b)=>a&&b?((a/b-1)*100):null,fp=v=>v==null?'—':(v>0?'+':'')+v.toFixed(2)+'%',cl=v=>v==null?'':v>0?'var(--up)':v<0?'var(--down)':'inherit';
+  const weeks=(AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='done').sort((a,b)=>a.buy_week<b.buy_week?-1:1);
+  if(!weeks.length)return '';
+  const evs=[];
+  const blocks=weeks.map(w=>{
+    const bwEnd=aipAdd(w.buy_week,4),evEnd=w.eval_week?aipAdd(w.eval_week,4):bwEnd;
+    const phase=today<w.buy_week?'next':today<=bwEnd?'buy':'eval';
+    const title=phase==='next'?`📅 下週預定(${aipMD(w.buy_week)} 週一開盤起掛單)`:phase==='buy'?`📌 本週(${aipMD(w.buy_week)}~${aipMD(bwEnd)} 買進,持有到 ${aipMD(evEnd)})`:`📌 持有中(${aipMD(w.buy_week)} 那週買進,評估至 ${aipMD(evEnd)})`;
+    const rows=(w.picks||[]).map(p=>{
+      const legs=aipLegs(p),cur=legs.length?legs[legs.length-1]:null,iv=p.iv||{};
+      let badge='',main='',sub='',col='';
+      if(!cur){
+        const fill=iv.fill;
+        if(fill&&fill.d===today){badge='🟢 今日成交';main=`${fill.px}(${fill.t||''}${fill.how==='chase'?'・追價':''})`;col='var(--up)';evs.push(`${fill.t||hhmm} 🟢 ${p.name} 成交 @${fill.px}`);}
+        else if(phase==='next'){badge='📅 等週一';main=`掛 ${p.buy}${p.buy_hi?'~'+p.buy_hi:''}`;}
+        else if(today>bwEnd||p._nofill){badge='✖ 未成交';main=`買價 ${p.buy} 沒到`;col='var(--dim)';}
+        else{const px=pxOf(p.id);const gap=pc(px,p.buy);badge='⏳ 等買價';main=`≤ ${p.buy}${p.buy_hi?'(追到 '+p.buy_hi+')':''}`;sub=px?`現價 ${px}(${gap!=null?(gap>0?'高 ':'低 ')+Math.abs(gap).toFixed(1)+'%':''})`:'';}
+      }else if(cur.xd){
+        const w2={tp:'✅ 停利',sl:'🛑 停損',exp:'⏰ 到期'}[cur.xw]||'出場';badge=w2;main=`${aipMD(cur.xd)} @${cur.xp}`;col=cl(cur.ret);sub=`損益 ${fp(cur.ret)}`;
+        if(cur.xd===today)evs.push(`${cur.xt||hhmm} ${w2} ${cur.name} @${cur.xp}(${fp(cur.ret)})`);
+      }else{
+        const px=pxOf(cur.id),r=px?pc(px,cur.entry):cur.ret_c;
+        const ex=iv.exit&&iv.exit.leg===legs.length-1&&iv.exit.d===today?iv.exit:null;
+        if(ex){badge=ex.w==='tp'?'🎯 今日到目標':'🛑 今日觸停損';main=`@${ex.px}(${ex.t||''})`;col=ex.w==='tp'?'var(--up)':'var(--down)';evs.push(`${ex.t||hhmm} ${badge.slice(2)} ${cur.name} @${ex.px}`);
+          if(iv.rot&&iv.rot.d===today){sub=`🔁 已換股 → ${iv.rot.name} @${iv.rot.px}(${iv.rot.t||''})`;evs.push(`${iv.rot.t||hhmm} 🔁 換股買進 ${iv.rot.name} @${iv.rot.px}`);}else sub='等收盤結算,之後由候補接替';}
+        else{badge='📈 持有中';main=`${aipMD(cur.fill)} 買 ${cur.entry}`;col=cl(r);sub=`現價 ${px||cur.last||'—'}・${fp(r)}・目標 ${cur.target}/停損 ${cur.stop}`;
+          if(cur.fill===today)evs.push(`${cur.ft||hhmm} 🟢 ${cur.name} 成交 @${cur.entry}`);}
+      }
+      const chain=legs.length>1?`<div class="aps-chain">${legs.map((L,i)=>`${i?'→ ':''}${L.name}${L.xd?({tp:' ✅',sl:' 🛑',exp:' ⏰'}[L.xw]||' 出場'):' 持有'}`).join(' ')}</div>`:'';
+      const nm=cur?cur.name:p.name,id=cur?cur.id:p.id;
+      return `<tr><td><a href="#stock/${id}" style="font-weight:800">${nm}</a> <span class="dim">${id}</span>${chain}</td><td><span class="aps-badge" style="color:${col||'inherit'}">${badge}</span></td><td>${main}${sub?`<div class="dim" style="font-size:12px">${sub}</div>`:''}</td></tr>`;
+    }).join('');
+    return `<div class="aps-week"><div class="aps-title">${title}</div><table class="aps-tb"><tr><th>股票</th><th>狀態</th><th>說明</th></tr>${rows}</table></div>`;
+  }).join('');
+  const evh=evs.length?`<div class="aps-ev"><b>🔔 今天發生</b><ul>${evs.sort().map(e=>`<li>${e}</li>`).join('')}</ul></div>`:`<div class="aps-ev dim">🔔 今天還沒有成交或出場事件</div>`;
+  return `<div class="aps-card aip-status"><div class="aps-h">🤖 AI Pick 現況 <span class="dim">更新 ${AIPK.updated||''}・${hhmm}</span></div>${blocks}${evh}
+    <div class="dim-note" style="margin-top:6px">圖例:⏳ 等買價 → 🟢 成交 → 📈 持有中 → ✅ 停利 / 🛑 停損(出場當下由候補 🔁 換股接替)/ ⏰ 到期出場。詳細數據、模型與戰績在下方。</div></div>`;
+}
 function renderAIPickCore(){
   const box=document.getElementById('aipickBox');
   if(!box)return;
@@ -21239,11 +21282,13 @@ function renderAIPickCore(){
   const done=live.filter(w=>w.status==='done');
   const st=AIPK.stats||{},sb=AIPK.stats_bt||{};
   let h='';
+  try{h+=aipStatusHTML();}catch(e){console.warn('aipStatus',e);}
   h+=`<div class="aip-albar"><button class="btn-ghost" id="aipAlTg">${aipAlertOn()?'🔔 買賣提示:開':'🔕 買賣提示:關'}</button><span class="dim-note" style="margin:0">名單裡任何一檔到<b>建議買價</b>、<b>目標價</b>、<b>停損價</b>或<b>到期結算日</b>,都會跳出提示卡與瀏覽器通知(不必加入最愛)</span></div>`;
   let hs=st.weeks?aipStatStrip(st,'實戰戰績(凍結後追蹤)','每週名單一經選出即凍結,用實際 K 線核對;「準確率」= 實際賣出價高於買進價的比例')
      :aipStatStrip(sb,'回測戰績(walk-forward・首次建檔)','實戰週數累積到 1 週前,先以「當時只看得到的 K 線」逐週回測近半年;基本面/籌碼分數採現值,回測績效僅供參考');
   if(st.weeks&&sb.weeks)hs+=aipStatStrip(sb,'回測戰績(walk-forward・對照組)','以「當時只看得到的 K 線」逐週回測,與上方實戰對照');
   hs+=aipLearnPanel(AIPK.learn);
+  hs=`<details class="aip-fold"><summary>📊 戰績與模型(點開)</summary>${hs}</details>`;   // r920:折疊,現況優先
   if(!cur.length)h+='<div class="dim-note" style="margin:10px 0">本週名單尚未產生——模型固定在每週五 14:30 後、週五 K 線入庫的第一班選股(週末/週一補跑),請稍後再看。</div>';
   cur.forEach((w,i)=>{h+=`<div class="aip-week ${w.status}">${aipWeekBlock(w,i>0)}</div>`;});
   let hh='';
