@@ -83,7 +83,7 @@ def main():
                 m5, m60 = ma(i, 5), ma(i, 60); m5p, m60p = ma(i - 1, 5), ma(i - 1, 60)
                 if m5 > m20 > m60 and not (m5p > m20p > m60p): hit.append("ma_bull")
                 for h in hit: events[h].append((d[i], f5, f20))
-    mavg = {dd: sum(v) / len(v) for dd, v in mkt.items() if len(v) >= 30}
+    mavg = {dd: st.median(v) for dd, v in mkt.items() if len(v) >= 30}      # r919:用中位數當「同日大盤」(平均值會被少數暴漲股拉高,讓每個訊號都被低估)
     res = {}
     for k, ev in events.items():
         if len(ev) < 50: continue
