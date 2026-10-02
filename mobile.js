@@ -177,10 +177,8 @@ function buildIdxBar(){
     });
   }
   var list = [];
-  try{
-    if(typeof rtIdxApply === 'function') rtIdxApply();
-    list = ((window.DATA && DATA.macro && DATA.macro.idx) || []);
-  }catch(e){}
+  try{ if(typeof rtIdxApply === 'function') rtIdxApply(); }catch(e){}            /* r924:即時套用失敗也不影響顯示 */
+  try{ list = ((window.DATA && DATA.macro && DATA.macro.idx) || []); }catch(e){}
   var pick = [];
   IDX_KEYS.forEach(function(k){
     var it = list.find(function(x){ return String(x.name||'').indexOf(k) >= 0; });
