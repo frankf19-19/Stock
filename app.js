@@ -6568,6 +6568,23 @@ function stkReorderSections(s){                            // r501:個股頁資�
           setChap(b.dataset.ch);
           try{bar.scrollIntoView({behavior:'smooth',block:'start'});}catch(x){}
         });
+        /* r930:手機更好操作——① 左右滑動內容就換章節(避開圖表/表格)② 每章最下面有「上一章/下一章」 */
+        try{
+          const order=tabs.map(t=>t[0]);
+          const go=d=>{const i=order.indexOf(document.documentElement.dataset.chap||'ov');const n=order[i+d];if(n){setChap(n);try{bar.scrollIntoView({behavior:'smooth',block:'start'});}catch(x){}}};
+          window.__chapGo=go;
+          const dv=document.getElementById('detailView');
+          if(dv&&!dv.__swipe){dv.__swipe=1;let sx=0,sy=0,ok=false;
+            dv.addEventListener('touchstart',e=>{const t=e.touches[0];sx=t.clientX;sy=t.clientY;ok=!e.target.closest('canvas,.chart-box,[_echarts_instance_],table,.ait-tw,.kseg-row,.chips,.mob-jump,.toolbar,pre,#chapTabs,input,select,textarea');},{passive:true});
+            dv.addEventListener('touchend',e=>{if(!ok)return;const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;if(Math.abs(dx)>70&&Math.abs(dy)<45&&Math.abs(dx)>Math.abs(dy)*2)go(dx<0?1:-1);},{passive:true});}
+          const foot=document.getElementById('chapFoot')||document.createElement('div');foot.id='chapFoot';
+          const nm=Object.fromEntries(tabs);
+          const paintFoot=()=>{const i=order.indexOf(document.documentElement.dataset.chap||'ov');foot.innerHTML=`<button class="btn-ghost" ${i<=0?'disabled':''} onclick="window.__chapGo(-1)">‹ ${i>0?nm[order[i-1]]:''}</button><span class="dim">${i+1} / ${order.length}・左右滑動也可以換章</span><button class="btn-ghost" ${i>=order.length-1?'disabled':''} onclick="window.__chapGo(1)">${i<order.length-1?nm[order[i+1]]:''} ›</button>`;};
+          if(!foot.parentNode&&dv)dv.appendChild(foot);
+          const _set=setChap;paintFoot();
+          bar.addEventListener('click',()=>setTimeout(paintFoot,0));
+          window.__chapFootPaint=paintFoot;
+        }catch(e){}
         const keep=(window.__chapStk===s.id&&document.documentElement.dataset.chap)||'ov';   // r701:刷新不踢回總覽
         setChap(keep);
         window.__chapStk=s.id;
