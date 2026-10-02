@@ -20897,7 +20897,9 @@ function aipHold(){
   });
   if(!rows.length&&!pend.length)
     return '<div class="aipt-none">目前沒有持股。<span class="dim">名單裡沒有任何一檔還在場內。</span></div>';
-  rows.forEach(r=>{ r.ret=r.px?(r.px/r.cl.entry-1)*100:null; });
+  rows.forEach(r=>{ r.ret=r.px?(r.px/r.cl.entry-1)*100:null; r.hi=Math.max(r.cl.hi||0,r.px||0); });
+  const legs2txt=r=>{const legs=aipLegs(r.p);const w={tp:'到目標',sl:'停損',trail:'移動停利',weak:'訊號轉弱',exp:'到期'};
+    return legs.slice(0,-1).map(L=>L.name+' '+aipMD(L.fill)+' 買 '+L.entry+','+aipMD(L.xd)+' '+(w[L.xw]||'出場')+' '+L.xp+'('+((L.ret||0)>0?'+':'')+(L.ret||0).toFixed(1)+'%)').join(';')+' → 換成 '+r.cl.name+'('+aipMD(r.cl.fill)+' 買 '+r.cl.entry+')';};
   rows.sort((a,b)=>(a.ret==null?9e9:a.ret)-(b.ret==null?9e9:b.ret));
   const n=rows.length, valid=rows.filter(r=>r.ret!=null);
   const avg=valid.length?valid.reduce((s,r)=>s+r.ret,0)/valid.length:null;
@@ -20918,7 +20920,7 @@ function aipHold(){
     const k=(toS!=null&&toS>-3)?'warn':(toT!=null&&toT<3)?'hot':'';
     h+='<div class="aiph-card '+k+'" data-aip="'+L.id+'">'+
       '<div class="aiph-h"><b>'+L.name+'</b><span class="c-code">'+L.id+'</span>'+
-      (r.li?'<span class="aiph-seg">第 '+(r.li+1)+' 段・接替 '+(r.prev?r.prev.name:'—')+'</span>':'')+
+      (r.li?'<span class="aiph-seg">🔁 換股</span>':'')+
       '<span class="aiph-ret '+cls(r.ret)+'">'+pc(r.ret)+'</span></div>'+
       '<div class="aiph-g">'+
         '<div><i>進場</i><b>'+aipMD(L.fill)+' @'+L.entry+'</b></div>'+
@@ -20926,8 +20928,11 @@ function aipHold(){
         '<div><i>目標</i><b>'+L.target+'<small class="pos">'+(toT==null?'':pc(toT))+'</small></b></div>'+
         '<div><i>停損</i><b>'+L.stop+'<small class="neg">'+(toS==null?'':pc(toS))+'</small></b></div>'+
         '<div><i>持有</i><b>'+hd+' 天</b></div>'+
-        '<div><i>結算</i><b>'+(r.evEnd?aipMD(r.evEnd)+(left!=null?'<small>剩 '+left+' 天</small>':''):'—')+'</b></div>'+
-      '</div></div>';
+        '<div><i>移動停利</i><b>'+(r.hi&&r.hi>=L.entry*1.08?Math.round(r.hi*0.94*100)/100+'<small class="dim"> 已啟動</small>':'<small class="dim">漲 8% 後啟動</small>')+'</b></div>'+
+      '</div>'+
+      (r.li?'<div class="aiph-why">🔁 '+legs2txt(r)+'</div>':'')+
+      '<div class="aiph-why dim">出場條件:到目標 '+L.target+' / 跌到停損 '+L.stop+' / 漲 8% 後從高點回落 6%(移動停利)/ 每週排名掉出前 30% 且跌破月線(訊號轉弱)。沒有到期日。</div>'+
+      '</div>';
   });
   if(pend.length)h+='<div class="aiph-pend">尚未成交('+pend.length+' 檔,等現價回到買價才進場):'+pend.join('・')+'</div>';
   return h;
