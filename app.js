@@ -1,4 +1,4 @@
-/* K研所 · build r931 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r932 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r931';
+const APP_BUILD='r932';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -504,6 +504,16 @@ const APP_BUILD='r931';
     document.body.appendChild(b);}},25000);
   window.addEventListener('error',e=>{try{if(window.DATA&&DATA.stocks)return;const b=document.getElementById('bootWarn')||document.createElement('div');b.id='bootWarn';b.style.cssText='position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));z-index:9999;background:#2a1010;border:1px solid #e05a4a;border-radius:12px;padding:10px 14px;font-size:13px;color:#ffd9d4';b.textContent='⚠ 程式錯誤:'+String(e.message||'').slice(0,120)+'(請截圖給 Frank)';document.body.appendChild(b);}catch(_){}});
 }catch(e){}})();
+/* r932:自動把每個表格包進可左右滑的框(手機不再擠成一個字一行);用 MutationObserver 在畫面更新後處理 */
+(function(){
+  const SKIP='.tbl-scroll,.ait-tw,.aps-card .ait-tw,[style*="overflow"],.chart-box';
+  const wrap=root=>{try{(root||document).querySelectorAll('table').forEach(t=>{if(t.closest(SKIP)||t.dataset.wrapped)return;t.dataset.wrapped='1';
+      const p=t.parentElement;if(!p)return;const cs=getComputedStyle(p);if(/auto|scroll/.test(cs.overflowX))return;
+      const d=document.createElement('div');d.className='tbl-scroll';p.insertBefore(d,t);d.appendChild(t);});}catch(e){}};
+  let tm=null;const sched=()=>{if(tm)return;tm=setTimeout(()=>{tm=null;wrap();},150);};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{wrap();new MutationObserver(sched).observe(document.body,{childList:true,subtree:true});});
+  else{wrap();new MutationObserver(sched).observe(document.body,{childList:true,subtree:true});}
+})();
 async function boot(){
   if(MINI){const w=setInterval(()=>{if(DATA&&DATA.stocks){clearInterval(w);miniStart();}},500);}   // r866
   try{
@@ -1787,7 +1797,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r931</span>');
+  diag.push('<span style="color:var(--dim)">build r932</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
