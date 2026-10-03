@@ -1,4 +1,4 @@
-/* K研所 · build r945 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r946 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r945';
+const APP_BUILD='r946';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1799,7 +1799,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r945</span>');
+  diag.push('<span style="color:var(--dim)">build r946</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -22523,20 +22523,65 @@ document.addEventListener('click',e=>{
   if(e.target.closest&&(e.target.closest('#homeTabs button')||e.target.closest('#gmktBar button')))
     setTimeout(()=>{try{renderSecNav();}catch(x){}},120);
 });
-/* ══ r945:📊 底部指數列 → 點開「即時抽屜」:加權/櫃買 1 分走勢 + ⭐我的最愛即時走勢 + 🤖 AI Pick 持股即時 ══
-   資料全部沿用站內既有來源(idxPick/spark.json/DATA.stocks/aipick.json),不新增任何外部請求 */
+/* ══ r945→r946:📊 底部指數列 → 點開「即時抽屜」
+   分頁:大盤(🇹🇼 加權/櫃買 1 分線 ・ 🇺🇸 那斯達克/費半/S&P/道瓊)・⭐ 最愛(台股/美股分開)・🤖 AI Pick 持股
+   資料全部沿用站內既有來源(idxPick/spark.json/yext.json/DATA.stocks/aipick.json),不新增任何外部請求 */
 (function(){
-  const TABS=[['tw','加權'],['otc','櫃買'],['fav','⭐ 最愛'],['aip','🤖 AI Pick']];
-  let tab=(()=>{try{return localStorage.getItem('isTab')||'tw';}catch(e){return 'tw';}})();
-  let favSort=(()=>{try{return localStorage.getItem('isFavSort')||'my';}catch(e){return 'my';}})();
+  const LS=(k,d)=>{try{return localStorage.getItem(k)||d;}catch(e){return d;}};
+  const SS=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
+  let tab=LS('isTab','mkt');if(tab==='tw'||tab==='otc'){SS('isIdxTw',tab);tab='mkt';}   // r946 舊值相容
+  if(!['mkt','fav','aip'].includes(tab))tab='mkt';
+  let mkt=LS('isMkt','tw')==='us'?'us':'tw';
+  let idxTw=LS('isIdxTw','tw')==='otc'?'otc':'tw';
+  const US_IDX=[['ixic','^IXIC','那斯達克'],['sox','^SOX','費半'],['gspc','^GSPC','S&P 500'],['dji','^DJI','道瓊']];
+  let idxUs=LS('isIdxUs','ixic');if(!US_IDX.some(x=>x[0]===idxUs))idxUs='ixic';
+  let favSort=LS('isFavSort','my');
   let timer=null,aipWait=0;
+  const usCache={};   // key → {at, d}
   const col=v=>v>0?'var(--up)':v<0?'var(--down)':'var(--mut)';
   const pc=v=>v==null||!isFinite(v)?'—':(v>0?'+':'')+v.toFixed(2)+'%';
   const f2=v=>v==null||!isFinite(v)?'—':(+v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   const fpx=v=>v==null||!isFinite(v)?'—':(+v>=1000?(+v).toLocaleString(undefined,{maximumFractionDigits:1}):String(+(+v).toFixed(2)));
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-  /* 時間域無關:真 epoch 的 09:00 台北 = UTC 01:00(60 分);富果 +8 域 = 540 分 → 一律換成「距 09:00 幾分鐘」 */
+  const isUS=s=>s&&s.market==='US';
+  /* 台股時間軸:距 09:00 幾分鐘(時間域無關:真 epoch 09:00 台北=UTC 60 分;富果 +8 域=540 分) */
   const mOf=ts=>{let m=(((ts%86400)+86400)%86400)/60;if(m>=420)m-=480;return m-60;};
+  /* 美股時間軸:距美東 09:30 幾分鐘(Intl 自動處理夏令時間) */
+  const ETF=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hourCycle:'h23',month:'2-digit',day:'2-digit'});
+  const etParts=ts=>{const o={};ETF.formatToParts(new Date(ts*1000)).forEach(p=>o[p.type]=p.value);return o;};
+  const etM=ts=>{const o=etParts(ts);return (+o.hour)*60+(+o.minute)-570;};
+  const tpNowM=()=>{const tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));return tp.getHours()*60+tp.getMinutes()-540;};
+  const TW_AX={span:270,grid:[60,120,180,240],lab:[[0,'09'],[60,'10'],[120,'11'],[180,'12'],[240,'13']]};
+  const US_AX={span:390,grid:[30,90,150,210,270,330],lab:[[0,'09:30'],[90,'11'],[210,'13'],[330,'15'],[390,'16']]};
+  function axisHTML(ax){return `<div class="is-ax">${ax.lab.map(([m,t])=>`<span style="left:${(m/ax.span*100).toFixed(2)}%">${t}</span>`).join('')}</div>`;}
+
+  /* 走勢 SVG:pts=[[x,v]],x 範圍 0..span;昨收虛線、紅漲綠跌、半透明面積 */
+  function lineSVG(pts,prev,W,H,opt){
+    opt=opt||{};const span=opt.span||270;
+    const vs=pts.map(p=>p[1]);if(prev)vs.push(prev);
+    let mn=Math.min(...vs),mx=Math.max(...vs);const pad=(mx-mn)*0.08||Math.max(1e-6,mx*0.002);mn-=pad;mx+=pad;
+    const X=m=>Math.max(0,Math.min(span,m))/span*W,Y=v=>H-(v-mn)/(mx-mn)*H;
+    const last=pts[pts.length-1][1],ref=prev||pts[0][1];
+    const c=last>ref?'var(--up)':last<ref?'var(--down)':'var(--mut)';
+    const line=pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join('');
+    const yb=prev?Y(prev):H;
+    const area=line+'L'+X(pts[pts.length-1][0]).toFixed(1)+','+yb.toFixed(1)+'L'+X(pts[0][0]).toFixed(1)+','+yb.toFixed(1)+'Z';
+    const gid='isg'+Math.random().toString(36).slice(2,7);
+    const grid=(opt.grid||[]).map(m=>`<line x1="${X(m)}" y1="0" x2="${X(m)}" y2="${H}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${opt.h||H}px;display:block;overflow:visible">
+      <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity=".32"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs>
+      ${grid}<path d="${area}" fill="url(#${gid})" stroke="none"/>
+      ${prev?`<line x1="0" y1="${yb.toFixed(1)}" x2="${W}" y2="${yb.toFixed(1)}" stroke="var(--mut)" stroke-width="1" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" opacity=".7"/>`:''}
+      <path d="${line}" fill="none" stroke="${c}" stroke-width="${opt.sw||1.6}" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+  /* 沒有分時資料的個股(美股/快照缺)→ 今日漲跌條(±10% 滿格) */
+  function chgBar(chg){
+    if(chg==null||!isFinite(chg))return '<div class="is-nochart">—</div>';
+    const w=Math.min(Math.abs(chg),10)/10*50;
+    return `<div class="is-bar"><i></i><b style="${chg>=0?'left:50%':'right:50%'};width:${w.toFixed(1)}%;background:${col(chg)}"></b></div>`;
+  }
+
+  /* ── 台股指數 ── */
   function idxNow(k){
     const nm=k==='tw'?'加權':'櫃買';
     try{if(typeof rtIdxApply==='function')rtIdxApply();}catch(e){}
@@ -22546,7 +22591,7 @@ document.addEventListener('click',e=>{
     const chg=r.chg!=null&&isFinite(r.chg)?+r.chg:(it.chg!=null?+it.chg:null);
     return {val,chg,prev:(val!=null&&chg!=null)?val/(1+chg/100):null};
   }
-  function idxSeries(k){
+  function twSeries(k){
     let d=null;
     try{d=idxPick(k);}catch(e){}
     try{if(d)d=sparkBase(k==='tw'?'t00':'o00',d);}catch(e){}
@@ -22562,30 +22607,93 @@ document.addEventListener('click',e=>{
     let day='';try{day=tpDay(d.t[d.t.length-1]);}catch(e){}
     return {pts,prev:d.prev,day};
   }
-  /* 分時線 SVG:昨收虛線、紅漲綠跌、半透明面積;x 軸固定 09:00~13:30 */
-  function intraSVG(pts,prev,W,H,opt){
-    opt=opt||{};
-    const vs=pts.map(p=>p[1]);if(prev)vs.push(prev);
-    let mn=Math.min(...vs),mx=Math.max(...vs);const pad=(mx-mn)*0.08||Math.max(1e-6,mx*0.002);mn-=pad;mx+=pad;
-    const X=m=>Math.max(0,Math.min(270,m))/270*W,Y=v=>H-(v-mn)/(mx-mn)*H;
-    const last=pts[pts.length-1][1],ref=prev||pts[0][1];
-    const c=last>ref?'var(--up)':last<ref?'var(--down)':'var(--mut)';
-    const line=pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join('');
-    const yb=prev?Y(prev):H;
-    const area=line+'L'+X(pts[pts.length-1][0]).toFixed(1)+','+yb.toFixed(1)+'L'+X(pts[0][0]).toFixed(1)+','+yb.toFixed(1)+'Z';
-    const gid='isg'+Math.random().toString(36).slice(2,7);
-    let grid='';
-    if(opt.grid){[60,120,180,240].forEach(m=>{grid+=`<line x1="${X(m)}" y1="0" x2="${X(m)}" y2="${H}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;});}
-    const lp=pts[pts.length-1];
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${opt.h||H}px;display:block;overflow:visible">
-      <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity=".32"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs>
-      ${grid}
-      <path d="${area}" fill="url(#${gid})" stroke="none"/>
-      ${prev?`<line x1="0" y1="${yb.toFixed(1)}" x2="${W}" y2="${yb.toFixed(1)}" stroke="var(--mut)" stroke-width="1" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" opacity=".7"/>`:''}
-      <path d="${line}" fill="none" stroke="${c}" stroke-width="${opt.sw||1.6}" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-      ${opt.dot?`<circle cx="${X(lp[0]).toFixed(1)}" cy="${Y(lp[1]).toFixed(1)}" r="3.2" fill="${c}" class="is-dot"/>`:''}
-    </svg>`;
+  function quoteHTML(o){
+    return `<div class="is-q">
+        <div class="is-big" style="color:${col(o.chg)}">${f2(o.val)}</div>
+        <div class="is-chg" style="color:${col(o.chg)}">${o.diff==null?'—':(o.diff>0?'▲':o.diff<0?'▼':'')+Math.abs(o.diff).toFixed(2)}<span>${pc(o.chg)}</span></div>
+        ${o.kv.map(([k,v,c])=>`<div class="is-kv"><i>${k}</i><b${c?` style="color:${c}"`:''}>${f2(v)}</b></div>`).join('')}
+        ${o.tag?`<span class="is-tag">${o.tag}</span>`:''}
+      </div>`;
   }
+  function paintTwIdx(box,k){
+    const now=idxNow(k),se=twSeries(k);
+    let pts=se?se.pts:null;
+    const stale=!!(se&&se.day&&se.day!==tpDay(Date.now()/1000));   // 圖是前一交易日 → 開高低、昨收基準跟著圖,不跟今日報價混
+    const prev=now.prev||(se&&se.prev)||null,cprev=stale?((se&&se.prev)||null):prev;
+    if(pts&&now.val!=null&&typeof marketOpen==='function'&&marketOpen()&&!stale){
+      const m=tpNowM();if(m>pts[pts.length-1][0])pts=pts.concat([[Math.min(270,m),now.val]]);
+    }
+    const vs=(pts&&!stale)?pts.map(p=>p[1]):[];
+    box.innerHTML=`<div class="is-idx">
+      <div class="is-chart">${pts?lineSVG(pts,cprev,300,150,{h:150,grid:TW_AX.grid,sw:1.8,span:270}):'<div class="is-empty">🕘 分線資料還沒進來<br><small>開盤 09:00 起自動繪製</small></div>'}${axisHTML(TW_AX)}</div>
+      ${quoteHTML({val:now.val,chg:now.chg,diff:(now.val!=null&&prev)?now.val-prev:null,
+        kv:[['昨收',prev],['開盤',vs.length?vs[0]:null],['最高',vs.length?Math.max(...vs):null,'var(--up)'],['最低',vs.length?Math.min(...vs):null,'var(--down)']],
+        tag:stale?se.day.slice(5).replace('-','/')+' 走勢':''})}</div>`;
+  }
+  /* ── 美股指數(後端 yext.json:有 1 分線就畫當日,只有日線就畫近 3 個月)── */
+  async function loadUs(key,sym){
+    const c=usCache[key];if(c&&Date.now()-c.at<55000)return c.d;
+    let out=null;
+    try{
+      const m=await yChart(sym,'1d','1m');
+      if(m&&!m.daily&&Array.isArray(m.t)&&m.t.length>=2){
+        const raw=[];m.t.forEach((ts,i)=>{const v=m.c[i];if(v==null||!isFinite(+v))return;raw.push([ts,+v]);});
+        raw.sort((a,b)=>a[0]-b[0]);
+        if(raw.length>=2){
+          const lastTs=raw[raw.length-1][0],lp=etParts(lastTs),day=lp.month+'/'+lp.day;
+          const pts=raw.filter(([ts])=>{const p=etParts(ts);return p.month+'/'+p.day===day;}).map(([ts,v])=>[etM(ts),v]).filter(p=>p[0]>=-5&&p[0]<=395);
+          if(pts.length>=2)out={mode:'intra',pts,prev:m.prev,day};
+        }
+      }
+      if(!out){
+        const d=await yChart(sym,'3mo','1d');
+        if(d&&Array.isArray(d.c)){
+          const rows=d.t.map((ts,i)=>[ts,d.c[i]]).filter(r=>r[1]!=null&&isFinite(+r[1]));
+          if(rows.length>=2){
+            const last=rows[rows.length-1],prev=rows[rows.length-2][1];
+            const fd=ts=>{const x=new Date(ts*1000);return (x.getUTCMonth()+1)+'/'+x.getUTCDate();};
+            out={mode:'daily',pts:rows.map((r,i)=>[i,+r[1]]),prev:+prev,n:rows.length,d0:fd(rows[0][0]),d1:fd(last[0])};
+          }
+        }
+      }
+    }catch(e){}
+    usCache[key]={at:Date.now(),d:out};return out;
+  }
+  function paintUsIdx(box,key){
+    const it=US_IDX.find(x=>x[0]===key);const c=usCache[key];
+    if(!c||Date.now()-c.at>=55000){
+      if(!c)box.innerHTML='<div class="is-empty">⏳ 讀取美股指數中…</div>';
+      loadUs(key,it[1]).then(()=>{if(tab==='mkt'&&mkt==='us'&&idxUs===key)paint();});
+      if(!c)return;
+    }
+    const d=c.d;
+    if(!d){box.innerHTML='<div class="is-empty">這個指數目前讀不到資料<br><small>後端約每 20 分鐘更新一次</small></div>';return;}
+    const vs=d.pts.map(p=>p[1]),val=vs[vs.length-1],prev=d.prev;
+    const diff=prev?val-prev:null,chg=prev?(val/prev-1)*100:null;
+    let chart,kv,tag;
+    if(d.mode==='intra'){
+      chart=lineSVG(d.pts,prev,300,150,{h:150,grid:US_AX.grid,sw:1.8,span:390})+axisHTML(US_AX);
+      kv=[['昨收',prev],['開盤',vs[0]],['最高',Math.max(...vs),'var(--up)'],['最低',Math.min(...vs),'var(--down)']];
+      tag='美東 '+d.day+(d.pts[d.pts.length-1][0]>=385?' 收盤':' 盤中');
+    }else{
+      chart=lineSVG(d.pts,null,300,150,{h:150,sw:1.8,span:d.n-1})+`<div class="is-ax"><span style="left:0">${d.d0}</span><span style="left:100%">${d.d1}</span></div>`;
+      kv=[['前收',prev],['3月高',Math.max(...vs),'var(--up)'],['3月低',Math.min(...vs),'var(--down)']];
+      tag='無分線資料・近 3 月日線';
+    }
+    box.innerHTML=`<div class="is-idx"><div class="is-chart">${chart}</div>${quoteHTML({val,chg,diff,kv,tag})}</div>`;
+  }
+  function paintMkt(body){
+    const seg=segHTML();
+    const chips=mkt==='tw'
+      ?[['tw','加權'],['otc','櫃買']].map(([k,n])=>`<button data-ix="${k}" class="${idxTw===k?'on':''}">${n}</button>`).join('')
+      :US_IDX.map(([k,,n])=>`<button data-ix="${k}" class="${idxUs===k?'on':''}">${n}</button>`).join('');
+    body.innerHTML=seg+`<div class="is-chips">${chips}</div><div class="is-ibox"></div>
+      <button class="is-go" data-go="macro">看完整大盤分析 ›</button>`;
+    const box=body.querySelector('.is-ibox');
+    if(mkt==='tw')paintTwIdx(box,idxTw);else paintUsIdx(box,idxUs);
+  }
+
+  /* ── 個股列 ── */
   function stockOf(id){return ((window.DATA||{}).stocks||[]).find(x=>x.id===id)||null;}
   function stockPts(id,s){
     try{
@@ -22594,64 +22702,42 @@ document.addEventListener('click',e=>{
       if(sp.d&&typeof sessDay==='function'&&sp.d!==sessDay())return null;   // 快照不是最近交易時段 → 不畫舊日線
       const pts=[];sp.t.forEach((ts,i)=>{const v=seq[i];if(v==null||!isFinite(+v))return;const m=mOf(ts);if(m<-5||m>275)return;pts.push([m,+v]);});
       if(s&&s.price>0&&typeof marketOpen==='function'&&marketOpen()){   // 盤中:5 分快照後接上即時現價
-        const tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));const m=tp.getHours()*60+tp.getMinutes()-540;
-        if(!pts.length||m>pts[pts.length-1][0])pts.push([Math.min(270,m),+s.price]);}
+        const m=tpNowM();if(!pts.length||m>pts[pts.length-1][0])pts.push([Math.min(270,m),+s.price]);}
       return pts.length>=2?pts:null;
     }catch(e){return null;}
   }
   function prevOf(s){return (s&&s.price>0&&typeof s.chg==='number'&&s.chg!==-100)?s.price/(1+s.chg/100):null;}
   function rowHTML(s,extra){
-    const pts=s.market==='US'?null:stockPts(s.id,s);
-    const chart=pts?intraSVG(pts,prevOf(s),120,34,{h:34,sw:1.4}):`<div class="is-nochart">${s.market==='US'?'美股':'—'}</div>`;
+    const pts=isUS(s)?null:stockPts(s.id,s);
+    const chart=pts?lineSVG(pts,prevOf(s),120,34,{h:34,sw:1.4,span:270}):chgBar(s.chg);
     return `<div class="is-row" data-id="${esc(s.id)}">
       <div class="is-nm"><b>${esc(s.name)}</b><span>${esc(s.id)}</span></div>
       <div class="is-sp">${chart}</div>
       <div class="is-px"><b style="color:${col(s.chg)}">${fpx(s.price)}</b><span style="color:${col(s.chg)}">${pc(s.chg)}</span>${extra||''}</div></div>`;
   }
-  function favIds(){
+  function favRows(){
     let a=[];try{a=(typeof favList==='function'?favList():[]).map(x=>typeof x==='string'?x:(x&&x.id)).filter(Boolean);}catch(e){}
-    return [...new Set(a)];
+    return [...new Set(a)].map(stockOf).filter(Boolean);
   }
-  function paintIdx(body,k){
-    const now=idxNow(k),se=idxSeries(k);
-    let pts=se?se.pts:null;
-    const stale=!!(se&&se.day&&se.day!==tpDay(Date.now()/1000));   // 圖是前一交易日 → 開高低、昨收基準都跟著圖,不跟今日報價混在一起
-    const prev=now.prev||(se&&se.prev)||null,cprev=stale?((se&&se.prev)||null):prev;
-    if(pts&&now.val!=null&&typeof marketOpen==='function'&&marketOpen()&&!stale){
-      const tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));const m=tp.getHours()*60+tp.getMinutes()-540;
-      if(m>pts[pts.length-1][0])pts=pts.concat([[Math.min(270,m),now.val]]);
-    }
-    const vs=(pts&&!stale)?pts.map(p=>p[1]):[];
-    const hi=vs.length?Math.max(...vs):null,lo=vs.length?Math.min(...vs):null,op=vs.length?vs[0]:null;
-    const diff=(now.val!=null&&prev)?now.val-prev:null;
-    const dayTag=stale?`<span class="is-tag">${se.day.slice(5).replace('-','/')} 走勢</span>`:'';
-    body.innerHTML=`<div class="is-idx">
-      <div class="is-chart">${pts?intraSVG(pts,cprev,300,150,{h:150,grid:1,sw:1.8}):'<div class="is-empty">🕘 分線資料還沒進來<br><small>開盤 09:00 起自動繪製</small></div>'}
-        <div class="is-ax"><span>09</span><span>10</span><span>11</span><span>12</span><span>13</span></div></div>
-      <div class="is-q">
-        <div class="is-big" style="color:${col(now.chg)}">${f2(now.val)}</div>
-        <div class="is-chg" style="color:${col(now.chg)}">${diff==null?'—':(diff>0?'▲':diff<0?'▼':'')+Math.abs(diff).toFixed(2)}<span>${pc(now.chg)}</span></div>
-        <div class="is-kv"><i>昨收</i><b>${f2(prev)}</b></div>
-        <div class="is-kv"><i>開盤</i><b>${f2(op)}</b></div>
-        <div class="is-kv"><i>最高</i><b style="color:var(--up)">${f2(hi)}</b></div>
-        <div class="is-kv"><i>最低</i><b style="color:var(--down)">${f2(lo)}</b></div>
-        ${dayTag}
-      </div></div>
-      <button class="is-go" data-go="macro">看完整大盤分析 ›</button>`;
+  function segHTML(){
+    let n={tw:'',us:''};
+    if(tab==='fav'){const r=favRows();n.tw=` <em>${r.filter(s=>!isUS(s)).length}</em>`;n.us=` <em>${r.filter(isUS).length}</em>`;}
+    return `<div class="is-seg"><button data-mk="tw" class="${mkt==='tw'?'on':''}">🇹🇼 台股${n.tw}</button><button data-mk="us" class="${mkt==='us'?'on':''}">🇺🇸 美股${n.us}</button></div>`;
   }
   function paintFav(body){
-    const ids=favIds();
-    if(!ids.length){body.innerHTML='<div class="is-empty">還沒有最愛股票<br><small>在個股頁按 ⭐ 加入(需先登入),這裡就會出現即時走勢</small></div>';return;}
-    let rows=ids.map(stockOf).filter(Boolean);
+    const all=favRows();
+    if(!all.length){body.innerHTML='<div class="is-empty">還沒有最愛股票<br><small>在個股頁按 ⭐ 加入(需先登入),這裡就會出現即時走勢</small></div>';return;}
+    let rows=all.filter(s=>mkt==='us'?isUS(s):!isUS(s));
     if(favSort==='up')rows.sort((a,b)=>(b.chg||0)-(a.chg||0));
     else if(favSort==='dn')rows.sort((a,b)=>(a.chg||0)-(b.chg||0));
-    const tw=rows.filter(s=>typeof s.chg==='number');
-    const up=tw.filter(s=>s.chg>0).length,dn=tw.filter(s=>s.chg<0).length;
-    const avg=tw.length?tw.reduce((a,s)=>a+s.chg,0)/tw.length:null;
-    body.innerHTML=`<div class="is-sum"><span>共 <b>${rows.length}</b> 檔</span><span>漲 <b style="color:var(--up)">${up}</b> / 跌 <b style="color:var(--down)">${dn}</b></span><span>平均 <b style="color:${col(avg)}">${pc(avg)}</b></span>
+    const v=rows.filter(s=>typeof s.chg==='number');
+    const up=v.filter(s=>s.chg>0).length,dn=v.filter(s=>s.chg<0).length;
+    const avg=v.length?v.reduce((a,s)=>a+s.chg,0)/v.length:null;
+    body.innerHTML=segHTML()+(rows.length?`<div class="is-sum"><span>漲 <b style="color:var(--up)">${up}</b> / 跌 <b style="color:var(--down)">${dn}</b></span><span>平均 <b style="color:${col(avg)}">${pc(avg)}</b></span>
       <span class="is-sort">${[['my','我的順序'],['up','漲幅'],['dn','跌幅']].map(([k,n])=>`<button data-fs="${k}" class="${favSort===k?'on':''}">${n}</button>`).join('')}</span></div>
       <div class="is-list">${rows.map(s=>rowHTML(s)).join('')}</div>
-      <div class="is-foot">走勢:盤中每 5 分鐘快照 + 即時現價;點一檔進個股頁</div>`;
+      <div class="is-foot">${mkt==='us'?'美股沒有個股分時資料,以今日漲跌條顯示(±10% 滿格)':'走勢:盤中每 5 分鐘快照 + 即時現價'};點一檔進個股頁</div>`
+      :`<div class="is-empty">${mkt==='us'?'最愛裡還沒有美股':'最愛裡還沒有台股'}</div>`);
   }
   function aipRows(){
     const out=[];
@@ -22680,10 +22766,11 @@ document.addEventListener('click',e=>{
   function paint(){
     const sh=document.getElementById('idxSheet');if(!sh||!sh.classList.contains('open'))return;
     sh.querySelectorAll('[data-it]').forEach(b=>b.classList.toggle('on',b.dataset.it===tab));
-    const body=sh.querySelector('.is-body');
+    const body=sh.querySelector('.is-body');const st=body.scrollTop;
     try{
-      if(tab==='fav')paintFav(body);else if(tab==='aip')paintAip(body);else paintIdx(body,tab);
+      if(tab==='fav')paintFav(body);else if(tab==='aip')paintAip(body);else paintMkt(body);
     }catch(e){body.innerHTML='<div class="is-empty">⚠ 顯示失敗:'+esc(String(e&&e.message||e).slice(0,80))+'</div>';}
+    body.scrollTop=st;
     const ts=sh.querySelector('.is-ts');
     if(ts)ts.textContent=new Date().toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'})+' 更新';
   }
@@ -22692,14 +22779,16 @@ document.addEventListener('click',e=>{
     const bd=document.createElement('div');bd.id='idxSheetBd';document.body.appendChild(bd);
     sh=document.createElement('div');sh.id='idxSheet';
     sh.innerHTML=`<div class="is-grip"><span></span></div>
-      <div class="is-tabs">${TABS.map(([k,n])=>`<button data-it="${k}">${n}</button>`).join('')}<button class="is-x" aria-label="關閉">✕</button></div>
+      <div class="is-tabs"><button data-it="mkt">📊 大盤</button><button data-it="fav">⭐ 最愛</button><button data-it="aip">🤖 AI Pick</button><button class="is-x" aria-label="關閉">✕</button></div>
       <div class="is-body"></div><div class="is-ts"></div>`;
     document.body.appendChild(sh);
     bd.onclick=closeSheet;
     sh.addEventListener('click',e=>{
-      const t=e.target.closest('[data-it]');if(t){tab=t.dataset.it;try{localStorage.setItem('isTab',tab);}catch(x){}paint();return;}
+      const t=e.target.closest('[data-it]');if(t){tab=t.dataset.it;SS('isTab',tab);sh.querySelector('.is-body').scrollTop=0;paint();return;}
       if(e.target.closest('.is-x')){closeSheet();return;}
-      const fs=e.target.closest('[data-fs]');if(fs){favSort=fs.dataset.fs;try{localStorage.setItem('isFavSort',favSort);}catch(x){}paint();return;}
+      const mk=e.target.closest('[data-mk]');if(mk){mkt=mk.dataset.mk;SS('isMkt',mkt);sh.querySelector('.is-body').scrollTop=0;paint();return;}
+      const ix=e.target.closest('[data-ix]');if(ix){if(mkt==='tw'){idxTw=ix.dataset.ix;SS('isIdxTw',idxTw);}else{idxUs=ix.dataset.ix;SS('isIdxUs',idxUs);}paint();return;}
+      const fs=e.target.closest('[data-fs]');if(fs){favSort=fs.dataset.fs;SS('isFavSort',favSort);paint();return;}
       const g=e.target.closest('[data-go]');if(g){closeSheet();if(location.hash)location.hash='';const b=document.querySelector(`#homeTabs [data-tab="${g.dataset.go}"]`);if(b)b.click();window.scrollTo({top:0,behavior:'smooth'});return;}
       const r=e.target.closest('.is-row[data-id]');if(r){closeSheet();location.hash='#stock/'+r.dataset.id;}
     });
@@ -22711,8 +22800,9 @@ document.addEventListener('click',e=>{
     sh.addEventListener('touchstart',st,{passive:true});sh.addEventListener('touchmove',mv,{passive:true});sh.addEventListener('touchend',en);
     return sh;
   }
-  function openSheet(t){
-    const sh=build();if(t)tab=t;
+  function openSheet(o){
+    const sh=build();o=o||{};
+    if(o.tab)tab=o.tab;if(o.mkt)mkt=o.mkt;if(o.idxTw)idxTw=o.idxTw;
     try{if(typeof loadSpark==='function')loadSpark().then(()=>paint());}catch(e){}
     document.body.classList.add('is-open');sh.classList.add('open');
     paint();
@@ -22724,12 +22814,14 @@ document.addEventListener('click',e=>{
   }
   window.openIdxSheet=openSheet;window.closeIdxSheet=closeSheet;
   window.addEventListener('hashchange',()=>{if(document.body.classList.contains('is-open')&&/^#stock\//.test(location.hash))closeSheet();});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&document.body.classList.contains('is-open'))paint();});   // 切回 App 立刻刷新,不等 5 秒
   /* 指數列由 mobile.js 建立:用捕捉階段攔截點擊(舊版 mobile.js 會跳去大盤頁,改成開抽屜) */
   document.addEventListener('click',e=>{
     const bar=e.target.closest&&e.target.closest('#mobIdxBar');if(!bar)return;
     e.stopPropagation();e.preventDefault();
-    const sp=e.target.closest('#mobIdxBar > span');
-    let k=null;if(sp){const t=sp.textContent||'';k=t.includes('櫃買')?'otc':t.includes('加權')?'tw':null;}
-    openSheet(k);
+    const sp=e.target.closest('#mobIdxBar > span');const t=sp?(sp.textContent||''):'';
+    if(t.includes('櫃買'))openSheet({tab:'mkt',mkt:'tw',idxTw:'otc'});
+    else if(t.includes('加權'))openSheet({tab:'mkt',mkt:'tw',idxTw:'tw'});
+    else openSheet();
   },true);
 })();
