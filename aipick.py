@@ -1024,20 +1024,72 @@ def _gemini_raw(prompt, max_tokens=900, search=False, json_schema=None):
             _t.sleep(10)
     return ""
 
+def chip_digest(sid, s):
+    """r940:把這檔的籌碼資料整理成白話(法人、大戶、融資、分點主力、關鍵分點),給 AI 複核用"""
+    L = []
+    try:
+        kv = ((s.get("c") or {}).get("kv") or {})
+        if kv: L.append("法人:" + "、".join(f"{k} {v}" for k, v in kv.items()))
+        c = chip_of(sid) or {}
+        bp, bd = c.get("bp") or [], c.get("bd") or []
+        if len(bp) >= 5: L.append(f"400 張以上大戶持股:{bp[-1]}%(4 週前 {bp[-5]}%,變化 {bp[-1] - bp[-5]:+.2f} 個百分點)")
+        mf = [x for x in (c.get("mf") or []) if x is not None]
+        if len(mf) >= 20: L.append(f"融資餘額:{mf[-1]:,} 張(20 日前 {mf[-20]:,},{(mf[-1] / mf[-20] - 1) * 100:+.1f}%)")
+        f = c.get("f") or []; t = c.get("t") or []
+        if len(f) >= 3:
+            st = 0
+            for x in reversed(f):
+                if (x or 0) > 0: st += 1
+                else: break
+            if st >= 2: L.append(f"外資已連買 {st} 天")
+            st = 0
+            for x in reversed(t):
+                if (x or 0) > 0: st += 1
+                else: break
+            if st >= 2: L.append(f"投信已連買 {st} 天")
+        key = "tw" + (sid[:3] if sid[:2] == "00" else sid[:2])
+        bk = load_json(f"bk/{key}.json", {}).get(sid) or {}
+        SL = bk.get("s") or []; DL = bk.get("d") or []
+        S = SL[-1] if isinstance(SL, list) and SL and isinstance(SL[-1], dict) else {}
+        if S:
+            m5 = sum((x.get("m15") or 0) for x in SL[-5:] if isinstance(x, dict))
+            L.append(f"分點({DL[-1] if DL else ''}):主力 15 大分點今日淨買 {S.get('m15', 0):+,} 張、近 5 日累計 {m5:+,} 張、買方家數 {S.get('nb')} / 賣方 {S.get('ns')}、集中度 {S.get('conc')}%")
+            if S.get("b"): L.append("今日買超前 5 分點:" + "、".join(f"{x[0]} +{x[1]:,} 張@{x[2]}" for x in S["b"][:5]))
+            if S.get("s"): L.append("今日賣超前 5 分點:" + "、".join(f"{x[0]} {x[1]:,} 張@{x[2]}" for x in S["s"][:5]))
+            if S.get("dt"): L.append("短沖分點(當沖為主,不算主力):" + "、".join(S["dt"][:4]))
+        kb = bk.get("kb") or {}
+        if kb.get("b"):
+            L.append("這檔的關鍵分點(歷史上進場後勝率高,看它們有沒有再進場):" + "、".join(f"{x[0]}(進場後 20 日平均 {x[4]:+.1f}%、勝率 {x[5]}%,最近進場 {x[6]})" for x in kb["b"][:3]))
+        if kb.get("s"):
+            L.append("歷史上出場訊號準的分點:" + "、".join(f"{x[0]}(最近出場 {x[6]})" for x in kb["s"][:3]))
+    except Exception as e:
+        L.append(f"(籌碼整理例外 {e})")
+    return "\n".join(L) if L else "(無籌碼資料)"
+
+
 AI2_SCHEMA = {"type": "OBJECT", "properties": {
     "verdict": {"type": "STRING"}, "thesis": {"type": "STRING"}, "industry": {"type": "STRING"}, "outlook": {"type": "STRING"},
+    "chips": {"type": "STRING"}, "chip_verdict": {"type": "STRING"},
     "catalysts": {"type": "ARRAY", "items": {"type": "STRING"}}, "risks": {"type": "ARRAY", "items": {"type": "STRING"}},
     "timing": {"type": "STRING"}, "watch": {"type": "ARRAY", "items": {"type": "STRING"}}},
-    "required": ["verdict", "thesis", "industry", "outlook", "timing"]}
+    "required": ["verdict", "thesis", "industry", "outlook", "timing", "chips", "chip_verdict"]}
+
+def s_of(sid):
+    try:
+        return next((x for x in (_DATA_CACHE.get("stocks") or []) if x.get("id") == sid), {})
+    except Exception:
+        return {}
+_DATA_CACHE = {}
 
 def ai_review_pick(p, w):
     """r939:AI 複核——模型選出來後,AI 上網研究這家公司與產業,給「同意 / 保留」與理由(不改變選股,先記錄;大腦追蹤哪種結果好)"""
     name, sid, sec = p["name"], p["id"], p.get("sector") or "—"
     research = _gemini_raw(f"用 Google 搜尋「{name} {sid}」最近 3 個月的資訊,整理成研究筆記(繁體中文,400 字內):主要產品/客戶/競爭對手;最新重要新聞與法說會重點(附日期);所屬產業趨勢與景氣位置;市場主要爭議。只寫查得到的事實。", 1200, search=True)
     prompt = (f"你是資深股票研究員。量化模型選出 {name}({sid},{sec})為本週候選,買價 {p['buy']}、目標 {p['target']}(+{(p['target']/p['buy']-1)*100:.1f}%)、停損 {p['stop']}({(p['stop']/p['buy']-1)*100:.1f}%)。\n"
-              f"量化理由:{'、'.join(p.get('why') or [])}。\n研究筆記:{research or '(無)'}\n"
+              f"量化理由:{'、'.join(p.get('why') or [])}。\n研究筆記:{research or '(無)'}\n【籌碼數據】\n{chip_digest(sid, s_of(sid))}\n"
               "請以產業與公司基本面角度複核,給出:verdict(只能是「同意」或「保留」:同意=基本面/產業也支持此時進場;保留=有明顯疑慮,例如產業轉弱、重大利空、估值透支),"
               "thesis(100 字內核心看法),industry(產業位置 60 字內),outlook(未來 6~12 個月展望 80 字內),catalysts(2~3 點),risks(2~3 點),"
+              "chips(籌碼解讀 120 字內:誰在買、誰在賣、法人與分點主力方向是否一致、大戶與融資的變化代表什麼、關鍵分點的動向),chip_verdict(只能是「偏多」「中性」「偏空」),"
               "timing(對買進時機的看法:現在、拉回再買、或等事件後;以及什麼情況應提早賣出,80 字內),watch(接下來 2~3 個要追蹤的事)。價位只能引用上面給的數字。")
     t = _gemini_raw(prompt, 1600, json_schema=AI2_SCHEMA)
     try:
@@ -1141,7 +1193,7 @@ def stats_of(weeks):
 
 # ───────────────────────── 主流程 ─────────────────────────
 def main():
-    data = load_json("data.json", {})
+    data = load_json("data.json", {}); _DATA_CACHE.update(data)
     if not data.get("stocks"):
         print("aipick:data.json 不可用,略過"); return
     J = load_json(OUT, {"model": MODEL, "weeks": [], "stats": {}})
