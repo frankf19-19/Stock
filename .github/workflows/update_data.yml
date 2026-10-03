@@ -175,6 +175,7 @@ jobs:
               echo "  (本輪略過分點/歷史回補:HEAVY_EXTRAS=${HEAVY_EXTRAS:-1}, HHMM=$HHMM)"
             fi
             step AIPick timeout 900 python aipick.py || echo "AI Pick 失敗,不影響主資料"
+            step AI複核 timeout 1500 python aipick_review.py || echo "AI 複核失敗,不影響選股"   # r943:獨立步驟,每檔存一次
             step AIPick美股 bash -c 'AIPICK_MKT=US timeout 900 python aipick.py || echo "美股 AI Pick 失敗,不影響主資料"'   # r890
             step AI交易員 bash -c 'AITRADER_MKT=TW timeout 600 python aitrader.py; AITRADER_MKT=US timeout 600 python aitrader.py; true'   # r894
             step 推播 timeout 300 python notify.py || echo "推播失敗,不影響主資料"
