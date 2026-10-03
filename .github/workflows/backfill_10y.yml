@@ -22,7 +22,7 @@ jobs:
         if: steps.gate.outputs.run == '1'
         with:
           python-version: '3.11'
-      - run: pip install requests
+      - run: pip install requests numpy
         if: steps.gate.outputs.run == '1'
       - name: 回補(每輪最多 4500 次 API、300 分鐘)
         if: steps.gate.outputs.run == '1'
@@ -34,10 +34,13 @@ jobs:
       - name: 🧠 大腦長期研究(用 15 年資料重跑各種訊號)
         if: steps.gate.outputs.run == '1'
         run: python brain_study.py || echo "長期研究失敗"
+      - name: 🧠 AI Pick v2 模型每月重訓(距上次 ≥ 25 天才跑)
+        if: steps.gate.outputs.run == '1'
+        run: timeout 2400 python retrain_v2.py || echo "重訓失敗,保留舊模型"
       - name: 提交存檔
         if: steps.gate.outputs.run == '1'
         run: |
           git config user.name "kyansuo-bot"; git config user.email "bot@users.noreply.github.com"
-          git add archive/ brain_study.json 2>/dev/null || git add archive/
+          git add archive/ brain_study.json aipick_v2_model.json brain_v2_log.json 2>/dev/null || git add archive/
           git commit -m "archive: 長期歷史回補 $(date +'%m-%d %H:%M')" -q || exit 0
           for i in 1 2 3 4 5; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 8; done
