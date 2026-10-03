@@ -111,7 +111,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 @media(max-width:720px){.sp-grid{grid-template-columns:1fr}}
 
 /* ── 卡片格 ── */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;cursor:pointer;transition:border-color .15s,transform .15s}
 .card:hover{border-color:var(--amber);transform:translateY(-2px)}
 .c-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
@@ -202,7 +202,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .detail-wrap{max-width:760px;margin:0 auto}
 
 /* ── 機會雷達 ── */
-.radar{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.radar{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:10px}
 .r-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:4px}
 .r-card:hover{border-color:var(--amber)}
 .r-tag{align-self:flex-start;font-size:12px;font-weight:700;border-radius:4px;padding:2px 8px;letter-spacing:.05em}
@@ -680,7 +680,7 @@ button{transition:background .12s,color .12s,border-color .12s}
 .nm{font-size:13.5px;font-weight:800;letter-spacing:.02em}
 
 /* r402:下週關注五檔 + 全站精緻化 */
-.pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
+.pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:10px}
 .pick-card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:12px 14px;cursor:pointer;
   transition:transform .15s,box-shadow .15s,border-color .15s;position:relative;overflow:hidden}
 .pick-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
@@ -1358,7 +1358,7 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 .aip-wtag.tracking{background:#5A8CD6}.aip-wtag.done{background:var(--dim)}
 .aip-wmeta{font-size:12.5px;color:var(--mut)}
 .aip-wavg{margin-left:auto;font-size:13.5px;font-weight:700}
-.aip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+.aip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:10px}
 .aip-card{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:8px;transition:transform .12s,box-shadow .12s}
 .aip-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.12);border-color:var(--amber)}
 .aip-c1{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -1441,7 +1441,7 @@ html[data-theme="navy"] .fav-tg:hover,html[data-theme="graphite"] .fav-tg:hover{
 .aip-lmeta{font-size:12.5px;color:var(--mut);flex:1 1 320px}
 .aip-lx{margin-left:auto;font-size:13px;font-weight:800;color:#8E5BC7}
 .aip-lb{padding:10px 14px 12px;border-top:1px dashed var(--line)}
-.aip-fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:4px 16px}
+.aip-fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:4px 16px}
 .aip-fr{display:grid;grid-template-columns:110px 1fr 50px 58px;align-items:center;gap:6px;font-size:12.5px}
 .aip-fn{color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .aip-fb{position:relative;height:9px;background:var(--panel2);border-radius:5px;overflow:hidden}
@@ -1667,7 +1667,7 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .sb-tg-wait{color:var(--amber);font-size:12px;font-weight:800;border:1px solid var(--amber);border-radius:999px;padding:0 8px}
 .sb-tg .sb-go,.sb-tg .sb-alt{margin-top:6px}
 /* r785:60 分 K 型態掃描 */
-.hs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.hs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:8px}
 .hs-card{border:1px solid var(--line);border-radius:11px;padding:9px 11px;background:var(--panel);cursor:pointer;transition:border-color .12s}
 .hs-card:hover{border-color:var(--t-purple)}
 .hs-both{border-color:var(--t-purple);box-shadow:0 0 0 1px color-mix(in srgb,var(--t-purple) 35%,transparent)}
@@ -1686,7 +1686,7 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .aip-trb b small,.aip-trs b small{display:block;font-size:9.5px;font-weight:600;opacity:.75;line-height:1}
 
 /* r789:大盤週乖離 */
-.bias-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:10px}
+.bias-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));gap:10px}
 .bias-card{border:1px solid var(--line);border-left-width:5px;border-radius:0 12px 12px 0;padding:10px 12px;background:var(--panel)}
 .bias-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px}
 .bias-h .c-code{font-family:var(--mono);font-size:11px;color:var(--dim)}
@@ -1701,7 +1701,7 @@ body.carddrag .cardsorting{outline:2px solid var(--amber)!important;outline-offs
 .rf-verdict{font-size:17px;font-weight:900;flex:1;min-width:240px}
 .rf-score{font-size:13px;color:var(--txt2);border:1px solid var(--line);border-radius:999px;padding:3px 12px}
 .rf-score b{font-size:18px;color:var(--t-gold)}
-.rf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin:8px 0}
+.rf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:10px;margin:8px 0}
 .rf-grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:8px 0}
 .rf-card{border:1px solid var(--line);border-left-width:5px;border-radius:0 12px 12px 0;padding:10px 12px;background:var(--panel);margin:8px 0}
 .rf-grid .rf-card,.rf-grid3 .rf-card{margin:0}
@@ -1908,7 +1908,7 @@ body:not(.is-user) .fal-bar,body:not(.is-user) #favAlertBar,body:not(.is-user) #
 .lev-why{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
 .lev-why span{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04)}
 /* r886:正2 卡表格 */
-.lev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:8px}
+.lev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:12px;margin-top:8px}
 .lev-t{font-weight:800;font-size:13px;margin-bottom:4px;color:var(--t-gold)}
 .lev-tb{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono)}
 .lev-tb th{text-align:left;color:var(--dim);font-weight:600;padding:2px 6px;border-bottom:1px solid var(--line);font-family:var(--sans)}
@@ -2091,3 +2091,9 @@ body.aip-simple #tp-aipick .mob-jump,body.aip-simple #tp-aipick .sec-title[data-
 
 /* r939:AI 複核 */
 .aps-rev{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;line-height:1.6;font-size:13.5px}.aps-rev-h{font-size:15px;margin-bottom:4px}
+
+/* r944:所有格狀排版在手機上最少一欄、不超出螢幕;週乖離卡的文字可換行 */
+@media(max-width:640px){
+  [class*="-grid"],[class$="grid"]{grid-template-columns:1fr!important}
+  .bias-card{overflow:visible}.bias-card *{white-space:normal}
+}
