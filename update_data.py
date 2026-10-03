@@ -4309,8 +4309,20 @@ UD_WEEKEND = os.environ.get("UD_WEEKEND", "0") == "1" # r831:週末模式——�
 _WD = dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).weekday()
 import time as _time
 _T0 = [_time.time()]
+_START_TAG = (dt.datetime.utcnow() + dt.timedelta(hours=8)).strftime("%m-%d %H:%M")
+_LAP_PREV = [_time.time()]
 def _lap(tag):
     now = _time.time(); print(f"  ⏱ {tag} {now - _T0[0]:.0f}s", flush=True); _T0[0] = now
+    # r942:把各階段耗時也寫進 k/_progress.json(會隨 k/ 一起提交),不用看 Actions 紀錄也能知道慢在哪
+    try:
+        _p = json.load(open("k/_progress.json", encoding="utf-8")) if os.path.exists("k/_progress.json") else {}
+        _d = (dt.datetime.utcnow() + dt.timedelta(hours=8)).strftime("%m-%d %H:%M")
+        _p.setdefault("runs", []); 
+        if not _p["runs"] or _p["runs"][-1].get("start") != _START_TAG: _p["runs"].append({"start": _START_TAG, "laps": []})
+        _p["runs"][-1]["laps"].append([tag, round(now - _LAP_PREV[0]), _d]); _p["runs"] = _p["runs"][-12:]
+        json.dump(_p, open("k/_progress.json", "w", encoding="utf-8"), ensure_ascii=False)
+    except Exception: pass
+    _LAP_PREV[0] = now
 
 
 def main():
