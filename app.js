@@ -1,4 +1,4 @@
-/* K研所 · build r946 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r947 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r946';
+const APP_BUILD='r947';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1799,7 +1799,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r946</span>');
+  diag.push('<span style="color:var(--dim)">build r947</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -22529,7 +22529,7 @@ document.addEventListener('click',e=>{
 (function(){
   const LS=(k,d)=>{try{return localStorage.getItem(k)||d;}catch(e){return d;}};
   const SS=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
-  let tab=LS('isTab','mkt');if(tab==='tw'||tab==='otc'){SS('isIdxTw',tab);tab='mkt';}   // r946 舊值相容
+  let tab=LS('isTab','mkt');if(tab==='tw'||tab==='otc'){SS('isIdxTw',tab);tab='mkt';}   // r947 舊值相容
   if(!['mkt','fav','aip'].includes(tab))tab='mkt';
   let mkt=LS('isMkt','tw')==='us'?'us':'tw';
   let idxTw=LS('isIdxTw','tw')==='otc'?'otc':'tw';
@@ -22695,13 +22695,49 @@ document.addEventListener('click',e=>{
 
   /* ── 個股列 ── */
   function stockOf(id){return ((window.DATA||{}).stocks||[]).find(x=>x.id===id)||null;}
+  /* r947:後端 spark 快照常因 GitHub 排程延誤而缺早盤(例:10/02 從 11:12 才開始)
+     → 早盤缺口用富果「當日 1 分 K」補整天;排隊抓、每 2.5 秒最多 1 檔,不吃爆富果每分鐘額度 */
+  const fgC={};let fgQ=[],fgBusy=false,fgNeed=[],rpT=null;
+  const sheetOn=()=>{const sh=document.getElementById('idxSheet');return !!(sh&&sh.classList.contains('open'));};
+  const repaintSoon=()=>{clearTimeout(rpT);rpT=setTimeout(paint,500);};
+  function fgWant(ids){
+    if(typeof fglCandles!=='function'||typeof fglKey!=='function'||!fglKey())return;
+    const ttl=(typeof marketOpen==='function'&&marketOpen())?180e3:1800e3;
+    ids.forEach(id=>{const c=fgC[id];if(c&&Date.now()-c.at<ttl)return;if(!fgQ.includes(id))fgQ.push(id);});
+    fgPump();
+  }
+  async function fgPump(){
+    if(fgBusy)return;fgBusy=true;
+    try{
+      while(fgQ.length&&sheetOn()){
+        const id=fgQ.shift();let pts=null;
+        try{
+          const d=await fglCandles(id,false);
+          if(d&&Array.isArray(d.t)&&d.t.length>=2&&tpDay(d.t[d.t.length-1])===sessDay()){   // 只收最近交易時段那一天
+            pts=[];d.t.forEach((ts,i)=>{const v=d.c[i];if(!(v>0))return;const m=mOf(ts);if(m<-5||m>275)return;pts.push([m,+v]);});
+            pts.sort((a,b)=>a[0]-b[0]);
+          }
+        }catch(e){}
+        fgC[id]={at:Date.now(),pts:pts&&pts.length>=2?pts:null};
+        if(pts&&pts.length>=2)repaintSoon();
+        await new Promise(r=>setTimeout(r,2500));
+      }
+    }finally{fgBusy=false;}
+  }
   function stockPts(id,s){
     try{
-      const sp=window.__SPARK;const seq=sp&&sp.s&&sp.s[id];
-      if(!Array.isArray(seq)||!Array.isArray(sp.t))return null;
-      if(sp.d&&typeof sessDay==='function'&&sp.d!==sessDay())return null;   // 快照不是最近交易時段 → 不畫舊日線
-      const pts=[];sp.t.forEach((ts,i)=>{const v=seq[i];if(v==null||!isFinite(+v))return;const m=mOf(ts);if(m<-5||m>275)return;pts.push([m,+v]);});
-      if(s&&s.price>0&&typeof marketOpen==='function'&&marketOpen()){   // 盤中:5 分快照後接上即時現價
+      let pts=null;
+      const fg=fgC[id];
+      if(fg&&fg.pts)pts=fg.pts.slice();                                   // 富果全日 1 分 K 優先
+      else{
+        const sp=window.__SPARK;const seq=sp&&sp.s&&sp.s[id];
+        if(Array.isArray(seq)&&Array.isArray(sp.t)&&!(sp.d&&typeof sessDay==='function'&&sp.d!==sessDay())){   // 快照不是最近交易時段 → 不畫舊日線
+          pts=[];sp.t.forEach((ts,i)=>{const v=seq[i];if(v==null||!isFinite(+v))return;const m=mOf(ts);if(m<-5||m>275)return;pts.push([m,+v]);});
+        }
+        if(!pts||!pts.length||pts[0][0]>10)fgNeed.push(id);              // 缺早盤(第一點晚於 09:10)或沒快照 → 排隊補
+        if(!pts)pts=[];
+      }
+      if(s&&s.price>0&&typeof marketOpen==='function'&&marketOpen()){   // 盤中:接上即時現價
         const m=tpNowM();if(!pts.length||m>pts[pts.length-1][0])pts.push([Math.min(270,m),+s.price]);}
       return pts.length>=2?pts:null;
     }catch(e){return null;}
@@ -22736,7 +22772,7 @@ document.addEventListener('click',e=>{
     body.innerHTML=segHTML()+(rows.length?`<div class="is-sum"><span>漲 <b style="color:var(--up)">${up}</b> / 跌 <b style="color:var(--down)">${dn}</b></span><span>平均 <b style="color:${col(avg)}">${pc(avg)}</b></span>
       <span class="is-sort">${[['my','我的順序'],['up','漲幅'],['dn','跌幅']].map(([k,n])=>`<button data-fs="${k}" class="${favSort===k?'on':''}">${n}</button>`).join('')}</span></div>
       <div class="is-list">${rows.map(s=>rowHTML(s)).join('')}</div>
-      <div class="is-foot">${mkt==='us'?'美股沒有個股分時資料,以今日漲跌條顯示(±10% 滿格)':'走勢:盤中每 5 分鐘快照 + 即時現價'};點一檔進個股頁</div>`
+      <div class="is-foot">${mkt==='us'?'美股沒有個股分時資料,以今日漲跌條顯示(±10% 滿格)':'走勢:富果全日 1 分 K(沒有時用 5 分鐘快照)+ 即時現價'};點一檔進個股頁</div>`
       :`<div class="is-empty">${mkt==='us'?'最愛裡還沒有美股':'最愛裡還沒有台股'}</div>`);
   }
   function aipRows(){
@@ -22767,12 +22803,14 @@ document.addEventListener('click',e=>{
     const sh=document.getElementById('idxSheet');if(!sh||!sh.classList.contains('open'))return;
     sh.querySelectorAll('[data-it]').forEach(b=>b.classList.toggle('on',b.dataset.it===tab));
     const body=sh.querySelector('.is-body');const st=body.scrollTop;
+    fgNeed=[];
     try{
       if(tab==='fav')paintFav(body);else if(tab==='aip')paintAip(body);else paintMkt(body);
     }catch(e){body.innerHTML='<div class="is-empty">⚠ 顯示失敗:'+esc(String(e&&e.message||e).slice(0,80))+'</div>';}
     body.scrollTop=st;
+    if(fgNeed.length)fgWant(fgNeed);
     const ts=sh.querySelector('.is-ts');
-    if(ts)ts.textContent=new Date().toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'})+' 更新';
+    if(ts)ts.textContent='台北 '+new Date().toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'})+' 更新';
   }
   function build(){
     let sh=document.getElementById('idxSheet');if(sh)return sh;
