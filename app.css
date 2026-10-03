@@ -2097,3 +2097,54 @@ body.aip-simple #tp-aipick .mob-jump,body.aip-simple #tp-aipick .sec-title[data-
   [class*="-grid"],[class$="grid"]{grid-template-columns:1fr!important}
   .bias-card{overflow:visible}.bias-card *{white-space:normal}
 }
+/* ══ r945:底部指數列 → 即時抽屜(加權/櫃買走勢・最愛・AI Pick)══ */
+#mobIdxBar{cursor:pointer}
+#mobIdxBar::after{content:'▴ 走勢';margin-left:auto;padding-left:10px;font-family:var(--sans,inherit);font-size:11.5px;font-weight:800;color:var(--gold,#E8B44A);flex:0 0 auto}
+#idxSheetBd{position:fixed;inset:0;z-index:68;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s}
+body.is-open #idxSheetBd{opacity:1;pointer-events:auto}
+body.is-open{overflow:hidden}
+#idxSheet{position:fixed;left:0;right:0;bottom:0;z-index:69;max-height:82vh;display:flex;flex-direction:column;
+  background:var(--panel,#16181D);border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+  box-shadow:0 -10px 34px rgba(0,0,0,.55);padding:0 12px calc(10px + env(safe-area-inset-bottom));
+  transform:translateY(105%);transition:transform .26s cubic-bezier(.2,.8,.2,1);color:var(--txt)}
+#idxSheet.open{transform:translateY(0)}
+#idxSheet .is-grip{display:flex;justify-content:center;padding:8px 0 4px}
+#idxSheet .is-grip span{width:40px;height:4px;border-radius:2px;background:var(--line)}
+#idxSheet .is-tabs{display:flex;gap:4px;align-items:center;border-bottom:1px solid var(--line);padding-bottom:6px}
+#idxSheet .is-tabs button{flex:1;background:none;border:none;color:var(--mut);font-size:14.5px;font-weight:800;padding:9px 2px;border-radius:9px;white-space:nowrap;font-family:inherit}
+#idxSheet .is-tabs button.on{color:var(--txt);background:var(--panel2,#22252C)}
+#idxSheet .is-tabs .is-x{flex:0 0 36px;font-size:16px}
+#idxSheet .is-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding-top:10px;min-height:230px}
+#idxSheet .is-ts{text-align:right;font-size:11px;color:var(--dim);padding-top:6px;font-family:var(--mono,monospace)}
+#idxSheet .is-idx{display:flex;gap:12px;align-items:stretch}
+#idxSheet .is-chart{flex:1 1 auto;min-width:0;position:relative;padding:4px 0 0}
+#idxSheet .is-ax{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);font-family:var(--mono,monospace);padding-top:4px}
+#idxSheet .is-q{flex:0 0 132px;display:flex;flex-direction:column;gap:5px}
+#idxSheet .is-big{font-family:var(--mono,monospace);font-size:26px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
+#idxSheet .is-chg{font-family:var(--mono,monospace);font-size:15px;font-weight:700;display:flex;justify-content:space-between;margin-bottom:4px}
+#idxSheet .is-kv{display:flex;justify-content:space-between;font-size:13px}
+#idxSheet .is-kv i{font-style:normal;color:var(--mut)}
+#idxSheet .is-kv b{font-family:var(--mono,monospace);font-weight:700}
+#idxSheet .is-tag{margin-top:4px;font-size:11px;color:var(--amber);border:1px solid color-mix(in srgb,var(--amber) 50%,transparent);border-radius:6px;padding:2px 6px;align-self:flex-start}
+#idxSheet .is-empty{text-align:center;color:var(--mut);padding:46px 10px;line-height:1.8;font-size:14px}
+#idxSheet .is-empty small{color:var(--dim)}
+#idxSheet .is-go{display:block;width:100%;margin-top:12px;padding:11px;border-radius:11px;border:1px solid var(--line);background:var(--panel2,#22252C);color:var(--gold,#E8B44A);font-weight:800;font-size:14px;font-family:inherit}
+#idxSheet .is-sum{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:13px;color:var(--mut);padding-bottom:8px}
+#idxSheet .is-sum b{font-family:var(--mono,monospace);color:var(--txt)}
+#idxSheet .is-sort{margin-left:auto;display:flex;gap:4px}
+#idxSheet .is-sort button{background:none;border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:4px 8px;font-size:12px;font-weight:700;font-family:inherit}
+#idxSheet .is-sort button.on{color:var(--txt);border-color:var(--gold,#E8B44A)}
+#idxSheet .is-row{display:grid;grid-template-columns:minmax(0,1fr) 120px 92px;gap:10px;align-items:center;padding:9px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+#idxSheet .is-row:active{background:var(--panel2,#22252C)}
+#idxSheet .is-nm{display:flex;flex-direction:column;min-width:0}
+#idxSheet .is-nm b{font-size:15.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#idxSheet .is-nm span{font-size:12px;color:var(--dim);font-family:var(--mono,monospace)}
+#idxSheet .is-sp{height:34px}
+#idxSheet .is-nochart{height:34px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px}
+#idxSheet .is-px{display:flex;flex-direction:column;align-items:flex-end;font-family:var(--mono,monospace)}
+#idxSheet .is-px b{font-size:16px;font-weight:800}
+#idxSheet .is-px span{font-size:12.5px;font-weight:700}
+#idxSheet .is-ret{font-family:var(--sans,inherit);font-size:11px;color:var(--dim);white-space:nowrap;margin-top:1px}
+#idxSheet .is-ret em{font-style:normal;font-weight:800;font-family:var(--mono,monospace)}
+#idxSheet .is-foot{font-size:11.5px;color:var(--dim);text-align:center;padding-top:8px}
+@media(max-width:360px){#idxSheet .is-row{grid-template-columns:minmax(0,1fr) 92px 84px}#idxSheet .is-q{flex-basis:118px}#idxSheet .is-big{font-size:22px}}
