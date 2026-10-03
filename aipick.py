@@ -1057,12 +1057,14 @@ def _gemini_raw(prompt, max_tokens=900, search=False, json_schema=None):
     for attempt in range(2):
         try:
             r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}", json=body, timeout=90)
-            if r.status_code in (429, 500, 503): _t.sleep(20 * (attempt + 1)); continue
-            if not r.ok: return ""
-            cand = (r.json().get("candidates") or [{}])[0]
-            return "".join(p.get("text", "") for p in ((cand.get("content") or {}).get("parts") or [])).strip()
-        except Exception:
-            _t.sleep(10)
+            if r.status_code in (429, 500, 503): print(f"  gemini {r.status_code},等候重試"); _t.sleep(20 * (attempt + 1)); continue
+            if not r.ok: print(f"  gemini 錯誤 {r.status_code}:{r.text[:300]}"); return ""
+            j = r.json(); cand = (j.get("candidates") or [{}])[0]
+            txt = "".join(p.get("text", "") for p in ((cand.get("content") or {}).get("parts") or []) if not p.get("thought")).strip()
+            if not txt: print(f"  gemini 空回應:{str(j)[:300]}")
+            return txt
+        except Exception as e:
+            print(f"  gemini 例外:{e}"); _t.sleep(10)
     return ""
 
 def chip_digest(sid, s):
@@ -1137,7 +1139,8 @@ def ai_review_pick(p, w):
         j = json.loads(t)
         if j.get("verdict") not in ("同意", "保留"): j["verdict"] = "同意" if "同意" in str(j.get("verdict")) else "保留"
         j["at"] = NOW.strftime("%Y-%m-%d %H:%M"); return j
-    except Exception:
+    except Exception as e:
+        print(f"  複核 JSON 解析失敗:{e} / 回應開頭:{(t or '')[:200]}")
         return None
 
 def ai_reason_pick(p, w):
