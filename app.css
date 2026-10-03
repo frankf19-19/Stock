@@ -2085,3 +2085,6 @@ body.aip-simple #tp-aipick .mob-jump,body.aip-simple #tp-aipick .sec-title[data-
 .tbl-scroll,.ait-tw{position:relative}
 .tbl-scroll.can-scroll:not(.at-end)::after,.ait-tw.can-scroll:not(.at-end)::after{content:'⇄ 可左右滑';position:absolute;right:0;top:0;bottom:0;width:72px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--panel) 70%);display:flex;align-items:flex-start;justify-content:flex-end;padding:4px 6px 0 0;font-size:11px;color:var(--t-gold,#e0b84a);font-weight:800}
 @media(max-width:640px){.aps-desk{display:none}.aps-mob{display:block}}
+
+/* r938:空手週提示 */
+.aps-skip{border:1px solid rgba(91,155,213,.5);background:rgba(91,155,213,.10);border-radius:10px;padding:10px 12px;margin:8px 0;line-height:1.6}
