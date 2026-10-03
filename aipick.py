@@ -1000,6 +1000,53 @@ def _gemini(prompt, max_tokens=400):
 
 _RULES = "用繁體中文寫,語氣像交易員筆記,只能引用我給的數字,不要加任何我沒給的資訊,不要說「建議買進」這類話,不要用驚嘆號。"
 
+AI2_BUDGET = 24
+_G2 = {"n": 0}
+
+def _gemini_raw(prompt, max_tokens=900, search=False, json_schema=None):
+    """r939:深度複核用——可開 Google 搜尋(研究)或結構化 JSON(分析),兩者不能同時"""
+    if not GEMINI_KEY or _G2["n"] >= AI2_BUDGET: return ""
+    import time as _t, requests
+    if _G2["n"] > 0: _t.sleep(4)
+    _G2["n"] += 1
+    gc = {"maxOutputTokens": max_tokens, "temperature": 0.4}
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": gc}
+    if search: body["tools"] = [{"google_search": {}}]
+    if json_schema: gc["responseMimeType"] = "application/json"; gc["responseSchema"] = json_schema; gc["thinkingConfig"] = {"thinkingBudget": 2048}
+    for attempt in range(2):
+        try:
+            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}", json=body, timeout=90)
+            if r.status_code in (429, 500, 503): _t.sleep(20 * (attempt + 1)); continue
+            if not r.ok: return ""
+            cand = (r.json().get("candidates") or [{}])[0]
+            return "".join(p.get("text", "") for p in ((cand.get("content") or {}).get("parts") or [])).strip()
+        except Exception:
+            _t.sleep(10)
+    return ""
+
+AI2_SCHEMA = {"type": "OBJECT", "properties": {
+    "verdict": {"type": "STRING"}, "thesis": {"type": "STRING"}, "industry": {"type": "STRING"}, "outlook": {"type": "STRING"},
+    "catalysts": {"type": "ARRAY", "items": {"type": "STRING"}}, "risks": {"type": "ARRAY", "items": {"type": "STRING"}},
+    "timing": {"type": "STRING"}, "watch": {"type": "ARRAY", "items": {"type": "STRING"}}},
+    "required": ["verdict", "thesis", "industry", "outlook", "timing"]}
+
+def ai_review_pick(p, w):
+    """r939:AI 複核——模型選出來後,AI 上網研究這家公司與產業,給「同意 / 保留」與理由(不改變選股,先記錄;大腦追蹤哪種結果好)"""
+    name, sid, sec = p["name"], p["id"], p.get("sector") or "—"
+    research = _gemini_raw(f"用 Google 搜尋「{name} {sid}」最近 3 個月的資訊,整理成研究筆記(繁體中文,400 字內):主要產品/客戶/競爭對手;最新重要新聞與法說會重點(附日期);所屬產業趨勢與景氣位置;市場主要爭議。只寫查得到的事實。", 1200, search=True)
+    prompt = (f"你是資深股票研究員。量化模型選出 {name}({sid},{sec})為本週候選,買價 {p['buy']}、目標 {p['target']}(+{(p['target']/p['buy']-1)*100:.1f}%)、停損 {p['stop']}({(p['stop']/p['buy']-1)*100:.1f}%)。\n"
+              f"量化理由:{'、'.join(p.get('why') or [])}。\n研究筆記:{research or '(無)'}\n"
+              "請以產業與公司基本面角度複核,給出:verdict(只能是「同意」或「保留」:同意=基本面/產業也支持此時進場;保留=有明顯疑慮,例如產業轉弱、重大利空、估值透支),"
+              "thesis(100 字內核心看法),industry(產業位置 60 字內),outlook(未來 6~12 個月展望 80 字內),catalysts(2~3 點),risks(2~3 點),"
+              "timing(對買進時機的看法:現在、拉回再買、或等事件後;以及什麼情況應提早賣出,80 字內),watch(接下來 2~3 個要追蹤的事)。價位只能引用上面給的數字。")
+    t = _gemini_raw(prompt, 1600, json_schema=AI2_SCHEMA)
+    try:
+        j = json.loads(t)
+        if j.get("verdict") not in ("同意", "保留"): j["verdict"] = "同意" if "同意" in str(j.get("verdict")) else "保留"
+        j["at"] = NOW.strftime("%Y-%m-%d %H:%M"); return j
+    except Exception:
+        return None
+
 def ai_reason_pick(p, w):
     """入選理由:2 句,只用評分明細裡的數字。"""
     why = "、".join(p.get("why") or [])
@@ -1225,6 +1272,9 @@ def main():
                     if not _ai_ok(p.get("ai")) and _G["n"] < AI_BUDGET and w.get("status") != "done":
                         t = ai_reason_pick(p, w)
                         if t: p["ai"] = t; na += 1
+                    if not p.get("ai2") and w.get("status") == "open" and _G2["n"] < AI2_BUDGET - 1 and w["buy_week"] >= iso(monday(TODAY)):   # r939:新一週的入選股做深度複核(一次)
+                        j = ai_review_pick(p, w)
+                        if j: p["ai2"] = j; print(f"aipick:AI 複核 {p['name']} → {j.get('verdict')}:{(j.get('thesis') or '')[:40]}")
                     for L in p.get("legs") or []:
                         if L.get("xd") and not _ai_ok(L.get("ai_x")) and _G["n"] < AI_BUDGET:
                             t = ai_reason_exit(L, p)
