@@ -174,10 +174,24 @@ def review_study(prev, J, S):
                       "text": f"「{v['name']}」{v['n']:,} 次:20 日下跌機率 {v['win20']}%、中位 {v['med20']}%,{v['stable']} 年有效"})
 
 
+def review_v2(prev, J, S):
+    """r937:AI Pick v2 模型每月重訓的結果"""
+    L = load("brain_v2_log.json", {}).get("runs") or []
+    if not L: return
+    r = L[-1]; S["v2_last"] = r.get("d")
+    if (prev.get("snap") or {}).get("v2_last") == r.get("d"): return
+    if r.get("ok"):
+        J.append({"tag": "AI Pick 模型", "level": "good",
+                  "text": f"v2 模型重新訓練完成:{r.get('samples', 0):,} 筆樣本(到 {r.get('to')}),最近 52 週走查 {r['last52w'].get('avg_ret')}%/勝率 {r['last52w'].get('win')}%;目前最重視 " + "、".join(f"{k}({v:+})" for k, v in r.get("top", []))})
+    else:
+        J.append({"tag": "AI Pick 模型", "level": "warn", "text": f"v2 模型重訓未通過檢查(最近 52 週 {r['last52w'].get('avg_ret')}%),保留舊模型——市場風格可能改變,下月再試"})
+
+
 def main():
     prev = load(OUT, {})
     J, S, SUG = [], {}, list(prev.get("suggestions") or [])
     review_study(prev, J, S)
+    review_v2(prev, J, S)
     trust, mem = review_signals(prev, J)
     review_aipick("aipick.json", "AI Pick(台股)", prev, J, S)
     review_aipick("aipick_us.json", "AI Pick(美股)", prev, J, S)
