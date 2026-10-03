@@ -1,56 +1,36 @@
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini 錯誤 404:{
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
+  gemini gemini-3.5-flash-lite 429,換模型/重試
+  gemini gemini-3.5-flash 429,換模型/重試
+  gemini gemini-2.0-flash 404,換模型/重試
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini 錯誤 404:{
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
-  複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini 錯誤 404:{
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
+review:台積電 → 同意 / 籌碼 中性:台積電基本面與產業地位穩固，量化模型顯示技術面多頭排列，月線在季線上且翻揚，配合投信連買與大戶持股穩
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini 錯誤 404:{
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
-  複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
+  gemini gemini-3.5-flash-lite 429,換模型/重試
+  gemini gemini-3.5-flash 429,換模型/重試
+  gemini gemini-2.0-flash 404,換模型/重試
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini 錯誤 404:{
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini 錯誤 404:{
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
-  複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
+review:鴻海 → 同意 / 籌碼 中性:鴻海受惠AI伺服器拉貨動能強勁，技術面月線在季線上且基本面穩健，quant模型勝率高，建議在買價25
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini 錯誤 404:{
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
+  gemini gemini-3.5-flash-lite 429,換模型/重試
+  gemini gemini-3.5-flash 429,換模型/重試
+  gemini gemini-2.0-flash 404,換模型/重試
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini 錯誤 404:{
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
-  複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini 錯誤 404:{
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
+review:川湖 → 同意 / 籌碼 偏多:川湖(2059)具備伺服器導軌領導地位，技術門檻高且市佔穩固。量化選股顯示月線在季線上、大戶持股穩定
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini 錯誤 404:{
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
-  複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
-review:完成 0 檔,待複核 5 檔
+  gemini gemini-3.5-flash-lite 429,換模型/重試
+  gemini gemini-3.5-flash 429,換模型/重試
+  gemini gemini-2.0-flash 404,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  複核 JSON 解析失敗:Unterminated string starting at: line 1 column 26 (char 25) / 回應開頭:{"verdict":"同意","thesis":"緯創受惠AI伺服器強勁需求，基本面良好且月線翻揚，大戶持股增加，具備上漲至目標價20
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-3.5-flash-lite 429,換模型/重試
+  gemini gemini-3.5-flash 429,換模型/重試
+  gemini gemini-2.0-flash 404,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+review:南亞科 → 同意 / 籌碼 偏多:南亞科受惠記憶體三率三升與基本面 75 分的穩健支撐，月線在季線上且外資持續買超，目標價 584.0
+review:完成 4 檔,待複核 1 檔
