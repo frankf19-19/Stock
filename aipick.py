@@ -409,7 +409,8 @@ def chip_of(sid):
     return _CSH[key].get(sid) or {}
 
 
-def gen_week(data, buy_week, learn=None):
+def gen_week(data, buy_week, learn=None, reviews=None):
+    """reviews:{sid: ai2}——由獨立步驟 aipick_review.py 產生;有就用在第三關排序(r943)"""
     cutoff = iso(buy_week)
     cands = []
     # r935:台股改用 v2(15 年訓練模型 + 過熱過濾);美股維持原模型(尚未用同套引擎驗證);回測週不用
@@ -470,13 +471,9 @@ def gen_week(data, buy_week, learn=None):
             comp = [(zp[i] * 1.0 + 0.35 * zc[i], top[i]) for i in range(len(top))]
             comp.sort(key=lambda x: -x[0])
             short = [c for _, c in comp[:10]]
-            # ③ AI 複核(有 GEMINI_KEY 才做;失敗就不影響排序)
-            rev = {}
-            if GEMINI_KEY:
-                for sc0, s0, why0, meta0 in short:
-                    pp = {"id": s0["id"], "name": s0.get("name") or s0["id"], "sector": s0.get("sector"), "buy": meta0["buy"], "target": meta0["target"], "stop": meta0["stop"], "why": why0}
-                    j = ai_review_pick(pp, {"buy_week": cutoff})
-                    if j: rev[s0["id"]] = j
+            # ③ AI 複核:不在這裡呼叫 AI(會超時),改用 aipick_review.py 事先做好的結果(reviews);沒有就只用前兩關
+            rev = dict(reviews or {})
+            shortlist = [c[1]["id"] for c in short]
             final = []
             for k, (cv, c) in enumerate(comp[:10]):
                 j = rev.get(c[1]["id"]); pen = 0.0
@@ -485,6 +482,7 @@ def gen_week(data, buy_week, learn=None):
                 final.append((cv - pen, c[1], c[2], meta))
             final.sort(key=lambda x: -x[0])
             cands = final + [c for c in cands if c[1]["id"] not in {f[1]["id"] for f in final}]
+            globals()["_SHORTLIST"] = shortlist
             print(f"aipick:三關選股 → 量化前5 {alt_quant} / 綜合前5 {[c[1]['id'] for c in cands[:5]]} / AI 複核 {len(rev)} 檔(保留 {sum(1 for j in rev.values() if j.get('verdict') == '保留')})")
         except Exception as e:
             print("aipick:三關選股例外,改用純量化", e)
@@ -521,6 +519,8 @@ def gen_week(data, buy_week, learn=None):
             "cand_top": [c[1]["id"] for c in cands[:max(10, len(cands) * 3 // 10)]],      # r935:前 30%(訊號轉弱判斷用;r921 漏掉了)
             "weights": _vol_weights(picks),                                                 # r936:建議權重(1/波動率)
             "alt_quant": alt_quant,                                                         # r941:純量化前 5(對照組)
+            "shortlist": globals().get("_SHORTLIST") or [c[1]["id"] for c in cands[:10]],  # r943:前 10(給獨立複核步驟用)
+            "reviews": dict(reviews or {}),
             "v2": bool(V2), "breadth20": round(V2.breadth20, 3) if V2 and V2.breadth20 is not None else None}
 
 
@@ -1307,6 +1307,26 @@ def main():
             except Exception as e:
                 print("aipick:補產候補失敗", w.get("buy_week"), e)
     # 逐週結算(已 done 的不再動,結果永久凍結)
+    # r943:複核已完成、買進週還沒開始 → 依複核結果重排一次(保留的往後、候補遞補),只做一次
+    try:
+        for i, w in enumerate(weeks):
+            if w.get("bt") or w.get("rev_applied") or not w.get("reviews") or w.get("status") == "skip": continue
+            bwd = dt.date.fromisoformat(w["buy_week"])
+            if bwd < TODAY or (bwd == TODAY and NOW.hour >= 9): continue        # 開盤後就不再動名單
+            if not all(sid in w["reviews"] for sid in (w.get("shortlist") or [])[:10]): continue
+            L2 = build_learn(data, dt.date.fromisoformat(w["buy_week"]), amax=amax)
+            w2 = gen_week(data, dt.date.fromisoformat(w["buy_week"]), L2, reviews=w["reviews"])
+            if w2.get("picks"):
+                old = [p["id"] for p in w["picks"]]; new = [p["id"] for p in w2["picks"]]
+                for p in w2["picks"]:
+                    if p["id"] in w["reviews"]: p["ai2"] = w["reviews"][p["id"]]
+                    for q in w["picks"]:
+                        if q["id"] == p["id"] and q.get("ai"): p["ai"] = q["ai"]
+                w2["reviews"] = w["reviews"]; w2["rev_applied"] = 1; w2["pre_review"] = old
+                weeks[i] = w2
+                print(f"aipick:複核後重排 {w['buy_week']}:{old} → {new}" + ("(有調整)" if old != new else "(不變)"))
+    except Exception as e:
+        print("aipick:複核後重排例外", e)
     # r921:無期限模式的兩個訊號——① 下一週名單(舊掛單是否取消)② 訊號轉弱(排名掉出前 30% 且跌破月線 → 下一根 K 開盤出場)
     try:
         lw = sorted([w for w in weeks if not w.get("bt")], key=lambda w: w["buy_week"])
@@ -1365,9 +1385,7 @@ def main():
                     if not _ai_ok(p.get("ai")) and _G["n"] < AI_BUDGET and w.get("status") != "done":
                         t = ai_reason_pick(p, w)
                         if t: p["ai"] = t; na += 1
-                    if not p.get("ai2") and w.get("status") == "open" and _G2["n"] < AI2_BUDGET - 1 and w["buy_week"] >= iso(monday(TODAY)):   # r939:選股時沒複核到的,事後補一次
-                        j = ai_review_pick(p, w)
-                        if j: p["ai2"] = j; print(f"aipick:AI 複核 {p['name']} → {j.get('verdict')}:{(j.get('thesis') or '')[:40]}")
+                    pass   # r943:複核改由 aipick_review.py 獨立步驟處理
                     for L in p.get("legs") or []:
                         if L.get("xd") and not _ai_ok(L.get("ai_x")) and _G["n"] < AI_BUDGET:
                             t = ai_reason_exit(L, p)
