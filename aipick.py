@@ -448,6 +448,46 @@ def gen_week(data, buy_week, learn=None):
         cands = [((1 - alpha) * zb[i] * 10 + alpha * zl[i] * 10 + 50, c[1], c[2], dict(c[3], ml=round(lg[i], 3), rule=round(c[0], 1)))
                  for i, c in enumerate(cands)]
     cands.sort(key=lambda x: -x[0])
+    # r941:三關選股(台股 v2)——① 15 年模型取前 30 ② 加籌碼/分點綜合分重排取前 10 ③ AI 逐檔複核(產業/籌碼/時機),「保留」的往後排 → 前 5 + 候補 5
+    #       同時記下「純量化」的前 5(alt_quant),大腦追蹤兩種選法的實際成績
+    alt_quant = [c[1]["id"] for c in cands[:5]]
+    if V2 and len(cands) >= 10 and not V2.overheated:
+        try:
+            top = cands[:30]
+            def z(a):
+                m = avg(a); sd = (avg([(x - m) ** 2 for x in a]) ** 0.5) or 1.0
+                return [(x - m) / sd for x in a]
+            zp = z([c[0] for c in top])
+            ch = []
+            for c in top:
+                sid = c[1]["id"]; cs = ((c[1].get("c") or {}).get("score") or 50)
+                bk = load_json(f"bk/tw{sid[:3] if sid[:2] == '00' else sid[:2]}.json", {}).get(sid) or {}
+                SL = bk.get("s") or []; m5 = sum((x.get("m15") or 0) for x in SL[-5:] if isinstance(x, dict))
+                _d, _o = bars_of(sid); v20 = (sum((b[4] or 0) for b in _o[-20:]) / 20) if len(_o) >= 20 else 1
+                kbb = 1 if any((x[6] or "") >= iso(buy_week - dt.timedelta(days=10)) for x in ((bk.get("kb") or {}).get("b") or [])[:5]) else 0
+                ch.append((cs - 50) / 15 + max(-2, min(2, m5 / v20 * 20)) + 0.5 * kbb)      # 籌碼分 + 分點主力 5 日淨買比 + 關鍵分點最近進場
+            zc = z(ch)
+            comp = [(zp[i] * 1.0 + 0.35 * zc[i], top[i]) for i in range(len(top))]
+            comp.sort(key=lambda x: -x[0])
+            short = [c for _, c in comp[:10]]
+            # ③ AI 複核(有 GEMINI_KEY 才做;失敗就不影響排序)
+            rev = {}
+            if GEMINI_KEY:
+                for sc0, s0, why0, meta0 in short:
+                    pp = {"id": s0["id"], "name": s0.get("name") or s0["id"], "sector": s0.get("sector"), "buy": meta0["buy"], "target": meta0["target"], "stop": meta0["stop"], "why": why0}
+                    j = ai_review_pick(pp, {"buy_week": cutoff})
+                    if j: rev[s0["id"]] = j
+            final = []
+            for k, (cv, c) in enumerate(comp[:10]):
+                j = rev.get(c[1]["id"]); pen = 0.0
+                if j: pen = (0.6 if j.get("verdict") == "保留" else 0) + (0.2 if j.get("chip_verdict") == "偏空" else -0.1 if j.get("chip_verdict") == "偏多" else 0)
+                meta = dict(c[3], comp=round(cv, 3), chip_z=round(zc[k] if k < len(zc) else 0, 2), ai2=j)
+                final.append((cv - pen, c[1], c[2], meta))
+            final.sort(key=lambda x: -x[0])
+            cands = final + [c for c in cands if c[1]["id"] not in {f[1]["id"] for f in final}]
+            print(f"aipick:三關選股 → 量化前5 {alt_quant} / 綜合前5 {[c[1]['id'] for c in cands[:5]]} / AI 複核 {len(rev)} 檔(保留 {sum(1 for j in rev.values() if j.get('verdict') == '保留')})")
+        except Exception as e:
+            print("aipick:三關選股例外,改用純量化", e)
     picks, per = [], {}
     if V2 and V2.overheated:                                             # 過熱:全市場站上月線家數 > 70% → 本週不選股
         print(f"aipick:v2 過熱過濾——站上月線家數 {V2.breadth20 * 100:.0f}% > 70%,本週不選股")
@@ -480,6 +520,7 @@ def gen_week(data, buy_week, learn=None):
             "status": "open", "picks": picks, "bench": bench, "n_cand": len(cands),
             "cand_top": [c[1]["id"] for c in cands[:max(10, len(cands) * 3 // 10)]],      # r935:前 30%(訊號轉弱判斷用;r921 漏掉了)
             "weights": _vol_weights(picks),                                                 # r936:建議權重(1/波動率)
+            "alt_quant": alt_quant,                                                         # r941:純量化前 5(對照組)
             "v2": bool(V2), "breadth20": round(V2.breadth20, 3) if V2 and V2.breadth20 is not None else None}
 
 
@@ -1324,7 +1365,7 @@ def main():
                     if not _ai_ok(p.get("ai")) and _G["n"] < AI_BUDGET and w.get("status") != "done":
                         t = ai_reason_pick(p, w)
                         if t: p["ai"] = t; na += 1
-                    if not p.get("ai2") and w.get("status") == "open" and _G2["n"] < AI2_BUDGET - 1 and w["buy_week"] >= iso(monday(TODAY)):   # r939:新一週的入選股做深度複核(一次)
+                    if not p.get("ai2") and w.get("status") == "open" and _G2["n"] < AI2_BUDGET - 1 and w["buy_week"] >= iso(monday(TODAY)):   # r939:選股時沒複核到的,事後補一次
                         j = ai_review_pick(p, w)
                         if j: p["ai2"] = j; print(f"aipick:AI 複核 {p['name']} → {j.get('verdict')}:{(j.get('thesis') or '')[:40]}")
                     for L in p.get("legs") or []:
