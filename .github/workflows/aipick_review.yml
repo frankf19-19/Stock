@@ -1,0 +1,34 @@
+name: AI Pick 複核(獨立,r943)
+on:
+  workflow_dispatch:
+concurrency:
+  group: aipick-review
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests numpy
+      - name: AI 複核(前 10 名逐檔研究)
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: timeout 1500 python aipick_review.py || echo "複核失敗"
+      - name: 依複核重排名單(開盤前才會調整)
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: AIPICK_LIGHT=1 timeout 600 python aipick.py || echo "重排失敗"
+      - name: 提交
+        run: |
+          git config user.name "kyansuo-bot"; git config user.email "bot@users.noreply.github.com"
+          git add aipick.json
+          git commit -m "aipick: AI 複核 $(TZ=Asia/Taipei date +'%m-%d %H:%M')" -q || exit 0
+          for i in 1 2 3 4 5; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 8; done
