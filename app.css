@@ -2088,3 +2088,6 @@ body.aip-simple #tp-aipick .mob-jump,body.aip-simple #tp-aipick .sec-title[data-
 
 /* r938:空手週提示 */
 .aps-skip{border:1px solid rgba(91,155,213,.5);background:rgba(91,155,213,.10);border-radius:10px;padding:10px 12px;margin:8px 0;line-height:1.6}
+
+/* r939:AI 複核 */
+.aps-rev{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;line-height:1.6;font-size:13.5px}.aps-rev-h{font-size:15px;margin-bottom:4px}
