@@ -1055,11 +1055,11 @@ def _gemini_raw(prompt, max_tokens=900, search=False, json_schema=None):
     if search: body["tools"] = [{"google_search": {}}]
     if json_schema: gc["responseMimeType"] = "application/json"; gc["responseSchema"] = json_schema; gc["thinkingConfig"] = {"thinkingBudget": 2048}
     # r946:429(額度用完)就換模型——flash → flash-lite → 2.0-flash 各自有獨立額度
-    for attempt, mdl in enumerate([GEMINI_MODEL, "gemini-2.5-flash-lite", "gemini-2.0-flash", GEMINI_MODEL]):
+    for attempt, mdl in enumerate([GEMINI_MODEL, "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-2.0-flash", GEMINI_MODEL]):
         try:
             if json_schema and mdl == "gemini-2.0-flash": body["generationConfig"].pop("thinkingConfig", None)
             r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent?key={GEMINI_KEY}", json=body, timeout=90)
-            if r.status_code in (429, 500, 503): print(f"  gemini {mdl} {r.status_code},換模型/重試"); _t.sleep(6 if attempt < 3 else 30); continue
+            if r.status_code in (429, 500, 503, 404): print(f"  gemini {mdl} {r.status_code},換模型/重試"); _t.sleep(6 if attempt < 4 else 30); continue
             if not r.ok: print(f"  gemini 錯誤 {r.status_code}:{r.text[:300]}"); return ""
             j = r.json(); cand = (j.get("candidates") or [{}])[0]
             txt = "".join(p.get("text", "") for p in ((cand.get("content") or {}).get("parts") or []) if not p.get("thought")).strip()
