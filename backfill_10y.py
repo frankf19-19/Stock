@@ -106,11 +106,11 @@ DATASETS = [  # (代號, FinMind 資料集, 轉換, 目錄, 起始)
 ]
 
 
-def us_price(sym):
+def us_price(sym, since=None):
     global calls
     if calls >= BUDGET or time.time() > DEADLINE: raise StopIteration
     calls += 1
-    p1 = int(dt.datetime.fromisoformat(START).timestamp()); p2 = int(time.time())
+    p1 = int(dt.datetime.fromisoformat(since or START).timestamp()); p2 = int(time.time())
     for host in ("query1", "query2"):
         try:
             r = requests.get(f"https://{host}.finance.yahoo.com/v8/finance/chart/{sym}",
@@ -139,6 +139,8 @@ def main():
         with open(STATE, encoding="utf-8") as f: st = json.load(f)
     except Exception: pass
     done = st.setdefault("done", {})
+    inc = st.setdefault("inc", {})                                   # r937:增量更新紀錄 {key: 上次抓到的日期}
+    INC_DAYS = 7                                                     # 每週補一次;重疊 7 天避免漏
     tw = sorted({s["id"] for s in D.get("stocks") or [] if s.get("market") == "TW"})
     us = sorted({s["id"] for s in D.get("stocks") or [] if s.get("market") == "US"})
     shards = {}
@@ -151,7 +153,13 @@ def main():
             for sid in shards[sh]:
                 for key, ds, conv, sub, start in DATASETS:
                     k = f"{key}:{sid}"
-                    if k in done: continue
+                    if k in done:
+                        last = inc.get(k) or done[k]                 # 增量:上次抓到的日期之後(重疊 7 天)
+                        if (dt.date.fromisoformat(TODAY) - dt.date.fromisoformat(last)).days < INC_DAYS: continue
+                        rows = fm(ds, sid, (dt.date.fromisoformat(last) - dt.timedelta(days=INC_DAYS)).isoformat())
+                        if rows is None: continue
+                        for y, ser in conv(rows).items(): pend.setdefault((sub, y), {})[sid] = ser
+                        inc[k] = TODAY; continue
                     rows = fm(ds, sid, start)
                     if rows is None: continue
                     for y, ser in conv(rows).items(): pend.setdefault((sub, y), {})[sid] = ser
@@ -176,7 +184,15 @@ def main():
         pend = {}
         for sym in us:
             k = f"price:{sym}"
-            if k in done: continue
+            if k in done:
+                last = inc.get(k) or done[k]
+                if (dt.date.fromisoformat(TODAY) - dt.date.fromisoformat(last)).days < INC_DAYS: continue
+                got = us_price(sym, since=(dt.date.fromisoformat(last) - dt.timedelta(days=INC_DAYS)).isoformat())
+                if got is None: continue
+                for y, ser in got.items(): pend.setdefault((sym[0].lower(), y), {})[sym] = ser
+                inc[k] = TODAY
+                if len(pend) > 400: flush_us(pend); save_state(st)
+                continue
             got = us_price(sym)
             if got is None: continue
             for y, ser in got.items(): pend.setdefault((sym[0].lower(), y), {})[sym] = ser
