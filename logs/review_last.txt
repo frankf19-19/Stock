@@ -1,1 +1,26 @@
+  gemini 429,等候重試
+  gemini 429,等候重試
+  gemini 429,等候重試
+  gemini 429,等候重試
+  複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
+  gemini 429,等候重試
+  gemini 429,等候重試
+  gemini 429,等候重試
+  gemini 429,等候重試
+  複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
+  gemini 429,等候重試
+  gemini 429,等候重試
+  gemini 429,等候重試
+  gemini 429,等候重試
+  複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
+  gemini 429,等候重試
+  gemini 429,等候重試
+  gemini 429,等候重試
+  gemini 429,等候重試
+  複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
+  gemini 429,等候重試
+  gemini 429,等候重試
+  gemini 429,等候重試
+  gemini 429,等候重試
+  複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
 review:完成 0 檔,待複核 5 檔
