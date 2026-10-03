@@ -388,6 +388,16 @@ def aipmd(s):
     m = str(s)[5:].split("-"); return f"{int(m[0])}/{int(m[1])}"
 
 
+def _vol_weights(picks):
+    """r936:依波動率給建議權重——波動小的配多一點(1/ATR%),總和 100%"""
+    try:
+        w = {p["id"]: 1.0 / max(0.005, (p.get("atr") or 0) / p["buy"]) for p in picks if p.get("buy")}
+        tot = sum(w.values()) or 1
+        return {k: round(100 * v / tot) for k, v in w.items()}
+    except Exception:
+        return {}
+
+
 def chip_of(sid):
     """c/ 分片裡這檔的法人日資料(d/f/t/g)"""
     if "_CSH" not in globals(): globals()["_CSH"] = {}
@@ -469,6 +479,7 @@ def gen_week(data, buy_week, learn=None):
             "model": (learn or {}).get("ver") or "v1", "alpha": alpha, "learn_n": int((learn or {}).get("n") or 0),
             "status": "open", "picks": picks, "bench": bench, "n_cand": len(cands),
             "cand_top": [c[1]["id"] for c in cands[:max(10, len(cands) * 3 // 10)]],      # r935:前 30%(訊號轉弱判斷用;r921 漏掉了)
+            "weights": _vol_weights(picks),                                                 # r936:建議權重(1/波動率)
             "v2": bool(V2), "breadth20": round(V2.breadth20, 3) if V2 and V2.breadth20 is not None else None}
 
 
