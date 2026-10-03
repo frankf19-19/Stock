@@ -1,26 +1,56 @@
-  gemini 429,等候重試
-  gemini 429,等候重試
-  gemini 429,等候重試
-  gemini 429,等候重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini 錯誤 404:{
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini 錯誤 404:{
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
   複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
-  gemini 429,等候重試
-  gemini 429,等候重試
-  gemini 429,等候重試
-  gemini 429,等候重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini 錯誤 404:{
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini 錯誤 404:{
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
   複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
-  gemini 429,等候重試
-  gemini 429,等候重試
-  gemini 429,等候重試
-  gemini 429,等候重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini 錯誤 404:{
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini 錯誤 404:{
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
   複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
-  gemini 429,等候重試
-  gemini 429,等候重試
-  gemini 429,等候重試
-  gemini 429,等候重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini 錯誤 404:{
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini 錯誤 404:{
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
   複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
-  gemini 429,等候重試
-  gemini 429,等候重試
-  gemini 429,等候重試
-  gemini 429,等候重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini 錯誤 404:{
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini 錯誤 404:{
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemin
   複核 JSON 解析失敗:Expecting value: line 1 column 1 (char 0) / 回應開頭:
 review:完成 0 檔,待複核 5 檔
