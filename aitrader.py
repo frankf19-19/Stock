@@ -140,7 +140,10 @@ def process_day(A, data, day, week_start, rank_cache):
         if b:
             fill = b[0] if b[0] <= o["hi"] else (o["buy"] if b[2] <= o["buy"] else None)
             if fill:
-                target = nav_now / NPOS; budget = min(target, A["cash"])
+                # r936:依波動率調整部位——波動小的多買一點、波動大的少買一點(1/ATR%,限 0.6~1.5 倍;回測:每週組合 +0.97% → +1.10%)
+                atrp = (o.get("atr") or 0) / fill if fill else 0
+                vw = min(1.5, max(0.6, 0.03 / atrp)) if atrp > 0 else 1.0
+                target = nav_now / NPOS * vw; budget = min(target, A["cash"])
                 sh = int(budget / (fill * (1 + FEE + FX_SPREAD)))
                 if not US and sh >= 1000: sh = sh // 1000 * 1000 if sh >= 1000 else sh   # 台股:整張為主、零頭用零股
                 if sh > 0 and budget >= target * 0.3:
