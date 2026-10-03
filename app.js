@@ -1,4 +1,4 @@
-/* K研所 · build r938 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r939 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r938';
+const APP_BUILD='r939';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1799,7 +1799,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r938</span>');
+  diag.push('<span style="color:var(--dim)">build r939</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21330,7 +21330,13 @@ function aipStatusHTML(){
   h+=hold.length?`<div class="ait-tw aps-desk"><table class="aps-tb"><tr><th>股票</th><th>狀態</th><th>進場</th><th>現價/損益</th><th>目標</th><th>停損</th><th>持有</th></tr>${T(hold)}</table></div><div class="aps-cards aps-mob">${cards(hold)}</div>`:'<div class="dim-note">目前沒有持股</div>';
   if(wait.length)h+=`<div class="aps-title">⏳ 掛單中(${wait.length} 檔,現價回到買價就成交)</div><div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>掛單價</th><th>現價</th><th>距買價</th><th>目標</th><th>停損</th></tr>${wait.map(r=>`<tr><td><a href="#stock/${r.id}"><b>${r.name}</b></a> <span class="dim">${r.id}</span></td><td>≤ ${r.buy}${r.buy_hi?'<br><span class="dim">追到 '+r.buy_hi+'</span>':''}</td><td>${r.px||'—'}</td><td style="color:${r.gap!=null&&r.gap<=0?'var(--up)':'inherit'}">${r.gap==null?'—':(r.gap>0?'還差 ':'已到 ')+Math.abs(r.gap).toFixed(1)+'%'}</td><td>${r.tgt}</td><td>${r.stp}</td></tr>`).join('')}</table></div>`;
   if(skipNote)h+=skipNote;
-  if(nextW)h+=`<div class="aps-title">🗓 下週名單(${aipMD(nextW.buy_week)} 週一起掛單${nextW.v2?'・15 年模型 v2':''}${nextW.breadth20!=null?'・市場寬度 '+Math.round(nextW.breadth20*100)+'%':''})</div><div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>掛單價</th><th>目標</th><th>停損</th><th>建議比重</th><th>為什麼選</th></tr>${(nextW.picks||[]).map(p=>`<tr><td><a href="#stock/${p.id}"><b>${p.name}</b></a> <span class="dim">${p.id}</span></td><td>${p.buy}${p.buy_hi?'<br><span class="dim">追到 '+p.buy_hi+'</span>':''}</td><td>${p.target}<br><span class="dim">${fp(pc(p.target,p.buy))}</span></td><td>${p.stop}<br><span class="dim">${fp(pc(p.stop,p.buy))}</span></td><td>${(nextW.weights||{})[p.id]!=null?(nextW.weights[p.id]+'%'):'—'}</td><td class="aps-why">${(p.why||[]).slice(0,3).join('・')}${p.lvl&&p.lvl.why?'<br><span class="dim">📐 '+p.lvl.why+'</span>':''}</td></tr>`).join('')}</table></div>`;
+  if(nextW)h+=`<div class="aps-title">🗓 下週名單(${aipMD(nextW.buy_week)} 週一起掛單${nextW.v2?'・15 年模型 v2':''}${nextW.breadth20!=null?'・市場寬度 '+Math.round(nextW.breadth20*100)+'%':''})</div><div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>掛單價</th><th>目標</th><th>停損</th><th>建議比重</th><th>AI 複核</th><th>為什麼選</th></tr>${(nextW.picks||[]).map(p=>`<tr><td><a href="#stock/${p.id}"><b>${p.name}</b></a> <span class="dim">${p.id}</span></td><td>${p.buy}${p.buy_hi?'<br><span class="dim">追到 '+p.buy_hi+'</span>':''}</td><td>${p.target}<br><span class="dim">${fp(pc(p.target,p.buy))}</span></td><td>${p.stop}<br><span class="dim">${fp(pc(p.stop,p.buy))}</span></td><td>${(nextW.weights||{})[p.id]!=null?(nextW.weights[p.id]+'%'):'—'}</td><td>${p.ai2?`<b style="color:${p.ai2.verdict==='同意'?'var(--up)':'var(--amber)'}">${p.ai2.verdict==='同意'?'✅ 同意':'⚠️ 保留'}</b>`:'<span class="dim">研究中</span>'}</td><td class="aps-why">${(p.why||[]).slice(0,3).join('・')}${p.lvl&&p.lvl.why?'<br><span class="dim">📐 '+p.lvl.why+'</span>':''}</td></tr>`).join('')}</table></div>`;
+  if(nextW&&(nextW.picks||[]).some(p=>p.ai2)){
+    h+=`<details class="aip-fold aps-fold"><summary>🔎 AI 複核詳細(產業・未來性・買賣時機)</summary>${(nextW.picks||[]).filter(p=>p.ai2).map(p=>{const a=p.ai2;return `<div class="aps-rev"><div class="aps-rev-h"><b>${p.name}</b> <span style="color:${a.verdict==='同意'?'var(--up)':'var(--amber)'}">${a.verdict==='同意'?'✅ 同意':'⚠️ 保留'}</span></div>
+      <div>💡 ${a.thesis||''}</div><div>🏭 <b>產業:</b>${a.industry||''}</div><div>🔭 <b>未來性:</b>${a.outlook||''}</div><div>⏱ <b>買賣時機:</b>${a.timing||''}</div>
+      ${(a.catalysts||[]).length?`<div>🚀 <b>催化劑:</b>${a.catalysts.join('、')}</div>`:''}${(a.risks||[]).length?`<div>⚠️ <b>風險:</b>${a.risks.join('、')}</div>`:''}${(a.watch||[]).length?`<div>👀 <b>追蹤:</b>${a.watch.join('、')}</div>`:''}</div>`;}).join('')}
+      <div class="dim-note">AI 複核不改變模型的選股,只提供基本面與產業觀點;大腦會追蹤「同意」與「保留」兩類的實際成績,累積足夠樣本後再決定是否讓複核參與決策。</div></details>`;
+  }
   h+=evs.length?`<div class="aps-ev"><b>🔔 今天發生</b><ul>${[...new Set(evs)].sort().map(e=>`<li>${e}</li>`).join('')}</ul></div>`:'';
   if(closed.length){closed.sort((a,b)=>a.d<b.d?1:-1);h+=`<details class="aip-fold aps-fold"><summary>📒 近 3 週結算(${closed.length} 筆)</summary><div class="ait-tw"><table class="aps-tb"><tr><th>出場日</th><th>股票</th><th>買 → 賣</th><th>損益</th><th>原因</th><th>接替</th></tr>${closed.map(c=>`<tr><td>${aipMD(c.d)}</td><td>${c.name} <span class="dim">${c.id}</span></td><td>${c.entry} → ${c.xp}</td><td style="color:${cl(c.ret)}"><b>${fp(c.ret)}</b></td><td>${c.why}</td><td>${c.next||'—'}</td></tr>`).join('')}</table></div></details>`;}
   const st=AIPK.stats||{},sb=AIPK.stats_bt||{};
