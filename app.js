@@ -1,4 +1,4 @@
-/* K研所 · build r956 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r961 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r956';
+const APP_BUILD='r961';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -526,7 +526,7 @@ async function boot(){
   window.DATA=DATA;                                              // r927:DATA 是 let,mobile.js 與開機看門狗要用 window.DATA(之前永遠拿不到 → 指數列永遠「載入中」、看門狗誤報)
   try{snapLoad();}catch(e){}
   setBadges(); renderAll(); route();   // 資料一到立即渲染,背景抓取由各計時器延後進行
-  /* r956:冷開 App 的空殼修正——今日總覽(指數)、區塊導覽列是 lazyRun:一看到就先跑,常常跑在 data.json 到之前 → 空白要等 60 秒;
+  /* r949:冷開 App 的空殼修正——今日總覽(指數)、區塊導覽列是 lazyRun:一看到就先跑,常常跑在 data.json 到之前 → 空白要等 60 秒;
      診斷列/官方收盤只在盤中或盤後同步窗自動更新 → 假日、深夜重開永遠是空的,得手動按「更新」。資料到了就各補一次 */
   setTimeout(()=>{try{renderHero();}catch(e){}try{renderSecNav();}catch(e){}try{renderFavAlertBar();}catch(e){}},60);
   setTimeout(()=>{try{if(!marketOpen())refreshLive(true);}catch(e){}},1500);   // 盤中有每分鐘的自動更新,不重複打
@@ -1803,7 +1803,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r956</span>');
+  diag.push('<span style="color:var(--dim)">build r961</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2168,6 +2168,24 @@ function drawIntraLWC(domId,d){
   const avgS=ch.addLineSeries({color:TONE.gold,lineWidth:1,priceLineVisible:false,lastValueVisible:false,
     crosshairMarkerVisible:false});
   avgS.setData(avgPts);
+  // r961:📊 每分鐘成交量柱(圖底 22%,紅=比上一分鐘漲、綠=跌;指數沒有量就不畫)
+  let volS=null;
+  try{
+    const vv=dd.v.map(x=>+x||0);
+    if(vv.filter(x=>x>0).length>=5){
+      ch.priceScale('right').applyOptions({scaleMargins:{top:0.06,bottom:0.27}});
+      volS=ch.addHistogramSeries({priceScaleId:'vol',priceFormat:{type:'volume'},lastValueVisible:false,priceLineVisible:false});
+      ch.priceScale('vol').applyOptions({scaleMargins:{top:0.78,bottom:0},visible:false});
+      const vd=[];let pc=d.prev;
+      dd.t.forEach((ts,i)=>{
+        const c=dd.c[i],t=ts+_TZ8;
+        if(c==null||!vv[i]){vd.push({time:t});return;}
+        const up=c>=(pc||c);pc=c;
+        vd.push({time:t,value:Math.round(vv[i]/1000),color:up?'rgba(229,72,77,.55)':'rgba(33,164,102,.55)'});
+      });
+      volS.setData(vd);
+    }
+  }catch(e){volS=null;}
   // 昨收虛線
   if(d.prev>0)area.createPriceLine({price:+(+d.prev).toFixed(2),color:dark?'#888':'#999',
     lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dashed,axisLabelVisible:true,title:'昨收'});
@@ -2231,7 +2249,7 @@ function drawIntraLWC(domId,d){
     ch.timeScale().subscribeVisibleTimeRangeChange(place);
     box.__pulsePlace=place;   // 供外部重繪後重新貼位
   }catch(e){}
-  return {lwc:1,ch,area,avgS,prev:d.prev,cv,cpv,lastT,id:d.__id};
+  return {lwc:1,ch,area,avgS,volS,prev:d.prev,cv,cpv,lastT,id:d.__id};
  }catch(e){
   try{const box=document.getElementById(domId);if(box){if(box.__lwc){box.__lwc.remove();box.__lwc=null;}box.style.background='';}}catch(_){}
   return null;                                  // → 呼叫端自動退 ECharts(底色一併還原)
@@ -17342,7 +17360,7 @@ function setHomeTab(t){
     if(b)b.classList.toggle('on',k===t);
   });
   try{localStorage.setItem('homeTab',t);}catch(e){}
-  try{if(window.__mobNavSync)setTimeout(window.__mobNavSync,0);}catch(e){}   // r956:任何方式切分頁(含程式還原)都同步底部導覽
+  try{if(window.__mobNavSync)setTimeout(window.__mobNavSync,0);}catch(e){}   // r950:任何方式切分頁(含程式還原)都同步底部導覽
   if(t==='aipick'){setTimeout(()=>{   // r745:延到本輪腳本跑完再碰 AIPK(啟動時還原分頁會早於 AIPK 宣告 → TDZ)
     try{aipLoad().then(()=>{try{renderAIPick();}catch(e){}});}catch(e){}
     try{setTimeout(aipSweep,600);}catch(e){}},0);}
@@ -18909,7 +18927,7 @@ function renderEtf(){
   const qi=document.getElementById('etfQ');
   if(qi)qi.oninput=()=>{try{renderEtf();}catch(e){}};
   let t='stocks';try{t=localStorage.getItem('homeTab')||'stocks';}catch(e){}
-  try{if(window.matchMedia('(max-width:640px)').matches)t='macro';}catch(e){}   // r956:手機冷開一律從「大盤」開始(底部導覽也亮大盤)——之前還原上次分頁,畫面是 AI Pick 卻亮著大盤
+  try{if(window.matchMedia('(max-width:640px)').matches)t='macro';}catch(e){}   // r950:手機冷開一律從「大盤」開始(底部導覽也亮大盤)——之前還原上次分頁,畫面是 AI Pick 卻亮著大盤
   setHomeTab(t);
 })();
 /* 🧺 r751:個股反查——哪些主動式 ETF 持有這一檔、今天加碼還是減碼(每日快照相減,張數為真實申報值) */
