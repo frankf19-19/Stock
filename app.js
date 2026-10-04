@@ -1,4 +1,4 @@
-/* K研所 · build r971 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r972 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r971';
+const APP_BUILD='r972';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -629,25 +629,39 @@ function favState(s,o){
     return {cls:'fst-up',txt:'📈 多頭順勢·月線上且翻揚'};
   return {cls:'fst-wait',txt:'⏳ 區間整理·等訊號'};
 }
+/* r972:狀態徽章卡在「判讀中」修正——
+   ① 原本只處理前 24 檔最愛,第 25 檔起永遠停在判讀中;
+   ② 卡片會被即時報價重繪,重繪後徽章又變回「判讀中」(結果沒快取),而迴圈還抓著舊的元素在更新;
+   ③ K 線讀不到時直接跳過,徽章永遠轉圈。
+   → 結果快取在 FAVST(卡片重繪時直接帶出),每次都重新找當下的元素,全部最愛都處理,讀不到就明講。 */
+const FAVST={};
+function favStPaint(id){
+  const c=FAVST[id];if(!c)return;
+  const card=document.querySelector(`#favBox .r-card[data-id="${id}"]`);if(!card)return;
+  const el=card.querySelector('.fav-st');if(el){el.className='fav-st '+c.cls;el.innerHTML=c.html;}
+  if(c.plan!=null){const sl=card.querySelector('.fav-plan-slot');if(sl&&sl.innerHTML!==c.plan)sl.innerHTML=c.plan;}
+}
 async function favStateFill(){
-  const ids=favList().slice(0,24);
-  for(const id of ids){
-    const el=document.querySelector(`#favBox .r-card[data-id="${id}"] .fav-st`);
+  const ids=favList();
+  Object.keys(FAVST).forEach(favStPaint);                       // 先把已算好的補回重繪後的卡片
+  if(window.__favStRun)return;window.__favStRun=1;             // 上一輪還在跑就不重複開(它會用最新的元素)
+  try{for(const id of ids){
+    if(!document.getElementById('favBox'))break;             // 已離開頁面
     const s=(DATA.stocks||[]).find(x=>x.id===id);
-    if(!el||!s||s.etf)continue;
+    if(!s||s.etf)continue;
+    if(FAVST[id]&&Date.now()-FAVST[id].t<5*60e3){favStPaint(id);continue;}
     try{
       const k=await loadK(s);
-      if(!k||k.demo)continue;
-      if(!document.querySelector(`#favBox .r-card[data-id="${id}"]`))return;  // 已離開頁面
+      if(!k||k.demo||!k.ohlc||!k.ohlc.length){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— K 線資料暫缺,無法判讀狀態',plan:null};favStPaint(id);continue;}
       const st=favState(s,k.ohlc);
       let fut='';
       try{const v=aiVerdict(s);if(v&&v.tier)fut=`<span class="fav-fut">未來性:${v.tier}</span>`;}catch(e){}
-      el.className='fav-st '+st.cls;
-      el.innerHTML=st.txt+fut;
-      try{const sl=document.querySelector(`#favBox .r-card[data-id="${id}"] .fav-plan-slot`);if(sl)sl.innerHTML=favPlanHtml(s,k.ohlc,k.dates);}catch(e){}   // r702:關鍵價位列(買進區/突破/出場線/停利/停損)
-    }catch(e){}
-    await new Promise(r=>setTimeout(r,120));
-  }
+      let plan=null;try{plan=favPlanHtml(s,k.ohlc,k.dates);}catch(e){}   // r702:關鍵價位列(買進區/突破/出場線/停利/停損)
+      FAVST[id]={t:Date.now(),cls:st.cls,html:st.txt+fut,plan};
+      favStPaint(id);
+    }catch(e){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— 狀態判讀失敗,稍後自動重試',plan:null};FAVST[id].t-=4*60e3;favStPaint(id);}
+    await new Promise(r=>setTimeout(r,80));
+  }}finally{window.__favStRun=0;}
 }
 function renderFav(){
   const box=document.getElementById('favBox');
@@ -666,8 +680,8 @@ function renderFav(){
         <span class="pxpill ${s.chg>0?'up':s.chg<0?'dn':''}" data-pxp="${s.id}"><b class="rpx" data-ppx="${s.id}">${s.price??'—'}</b><span class="pxchg" data-pch="${s.id}">${chgHtml(s.chg)}</span></span><span class="mini-candle" data-candle="${s.id}"></span></span>
       <span class="r-desc">${s.etf?`${(s.perf&&s.perf.q!=null)?`近3月 ${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%`:'ETF'}${s.hold&&s.hold.dy?` · 殖利率 ${s.hold.dy.toFixed(2)}%`:''}${s.hold&&s.hold.aum?` · 規模 ${(s.hold.aum/1e8).toFixed(0)} 億`:''}`
         :`綜合 ${total(s)} 分|基本 ${s.f.score} · 籌碼 ${s.c.score} · 技術 ${s.t.score}${s.sig&&s.sig.length?` · <b style="color:var(--amber)">${s.sig.map(x=>x.label).join('+')}</b>`:''}`}</span>
-      ${s.etf?'':'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>'}
-      ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}">${(()=>{try{return favPlanHtml(s,null,null);}catch(e){return '';}})()}</div>`:''}
+      ${s.etf?'':(FAVST[s.id]?`<span class="fav-st ${FAVST[s.id].cls}">${FAVST[s.id].html}</span>`:'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>')}
+      ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:(()=>{try{return favPlanHtml(s,null,null);}catch(e){return '';}})()}</div>`:''}
     </div>`;
   };
   const g={tw:[],us:[],etf:[],etfUS:[],other:[]};
@@ -1805,7 +1819,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r971</span>');
+  diag.push('<span style="color:var(--dim)">build r972</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13416,7 +13430,7 @@ async function loadK(s){
       if(r2.ok){const j2=await r2.json();if(j2&&j2[s.id])KCACHE[sh]=Object.assign(j2,{__re:KCACHE.__re});}
     }
   }catch(e){}}
-  const e=KCACHE[sh][s.id];
+  const e=(KCACHE[sh]||{})[s.id];                               // r972:分片下載失敗時不要丟例外(最愛狀態徽章會永遠卡在判讀中)
   if(!(e&&Array.isArray(e.o)&&e.o.length>5))return null;
   const dates=e.d.slice(), ohlc=e.o.map(r=>r.slice());
   // 📌 補最新K棒(r523 真實化):分片落後最新交易日 → 依「MIS 官方快照 → 富果/MIS 即時快取 → spark 盤中5分快照」
