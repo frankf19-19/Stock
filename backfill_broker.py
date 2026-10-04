@@ -23,12 +23,15 @@ def log(*a): print(*a, flush=True)
 def trading_days():
     """用台積電日 K 的日期當交易日曆。"""
     try:
-        e = {}
-        try: e = json.load(open("hist/tw23.json", encoding="utf-8")).get("2330") or {}      # r839:三年歷史的日期最完整
-        except Exception: pass
-        if len(e.get("d") or []) < 200: e = json.load(open("k/tw23.json", encoding="utf-8")).get("2330") or {}
-        ds = [d for d in (e.get("d") or []) if d >= (TODAY - dt.timedelta(days=DAYS)).isoformat()]
-        return sorted(ds)
+        # r957:hist/ 與 k/ 的日期取聯集——hist/tw23.json 停在 9/11 沒再更新,舊版只看 hist,
+        #       9/11 之後的交易日完全不在回補清單裡(9/29、9/30、10/02 分點缺口因此永遠補不到)
+        ds = set()
+        for p in ("hist/tw23.json", "k/tw23.json"):
+            try: ds |= set((json.load(open(p, encoding="utf-8")).get("2330") or {}).get("d") or [])
+            except Exception: pass
+        if not ds: raise RuntimeError("no calendar")
+        lo = (TODAY - dt.timedelta(days=DAYS)).isoformat()
+        return sorted(d for d in ds if d >= lo)
     except Exception:
         out = []; d = TODAY
         while (TODAY - d).days <= DAYS:
