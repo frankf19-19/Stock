@@ -1976,7 +1976,7 @@ button,a,[onclick],.tap,select,summary,label{touch-action:manipulation;-webkit-t
   #mobIdxBar{bottom:calc(60px + env(safe-area-inset-bottom))!important}
   body{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
   #mobNav a,#mobNav button{min-height:48px}
-  #navBack{bottom:calc(104px + env(safe-area-inset-bottom))!important;width:44px!important;height:44px!important}
+  #navBack{bottom:calc(104px + env(safe-area-inset-bottom))!important}
   /* 6) 小字下限 12px */
   .dim-note,.ds,.dim{font-size:max(12px,1em)}
   /* 7) 彈窗:滿寬、可捲、底部留安全區 */
@@ -2269,3 +2269,12 @@ body.kl-open #klSheetBd{opacity:1;pointer-events:auto}
 #intraBig .ib-bk{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
 #intraBig .ib-bkr{font-size:12.5px;color:var(--txt2)}
 #intraBig .ib-bkr b{font-family:var(--mono,monospace)}
+
+/* r965:浮動返回鈕——看得清楚的金邊膠囊 */
+#navBack{align-items:center;gap:4px;height:44px;padding:0 16px 0 10px;border-radius:999px;
+  background:rgba(22,24,29,.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border:1.5px solid var(--gold,#E8B44A);color:#fff;font-size:15px;font-weight:800;letter-spacing:.5px;font-family:inherit;
+  box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 0 3px color-mix(in srgb,var(--gold,#E8B44A) 14%,transparent);transition:transform .1s}
+#navBack svg{color:var(--gold,#E8B44A);flex:0 0 auto}
+#navBack:active{transform:scale(.94)}
+html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:rgba(255,255,255,.95);color:#1a1a1a}

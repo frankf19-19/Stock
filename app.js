@@ -1,4 +1,4 @@
-/* K研所 · build r964 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r965 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r964';
+const APP_BUILD='r965';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1504,8 +1504,10 @@ addEventListener('hashchange',ev=>{try{const o=new URL(ev.oldURL).hash||'';if(!/
 function navBackHome(){const p=window.__prevHash;if(p&&p!==location.hash&&!/^#stock\//.test(p))location.hash=p;else location.hash='';}
 (function navBackBtn(){                 // ← 浮動返回鈕:進到詳情頁(hash 含 /)才顯示;PWA 全螢幕必備
   const b=document.createElement('div');
-  b.id='navBack';b.textContent='‹';b.title='回上一頁';
-  b.style.cssText='position:fixed;left:10px;bottom:78px;width:42px;height:42px;border-radius:50%;background:var(--panel,#fff);border:1px solid var(--line,#ddd);box-shadow:0 3px 10px rgba(0,0,0,.22);display:none;align-items:center;justify-content:center;font-size:26px;line-height:1;z-index:900;cursor:pointer;user-select:none;color:var(--fg,#333);padding-bottom:3px';
+  b.id='navBack';b.title='回上一頁';b.setAttribute('role','button');b.setAttribute('aria-label','返回');
+  // r965:原本是深灰 ‹ 字放在深色圓上(--fg 在深色主題沒定義 → 落到 #333),幾乎看不見 → 改成有金色描邊的「‹ 返回」膠囊
+  b.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>返回</span>';
+  b.style.cssText='position:fixed;left:10px;bottom:78px;display:none;z-index:900;cursor:pointer;user-select:none';
   b.onclick=()=>{try{history.back();}catch(e){}};
   document.body.appendChild(b);
   const sync=()=>{b.style.display=(location.hash&&location.hash.includes('/'))?'flex':'none';};
@@ -1803,7 +1805,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r964</span>');
+  diag.push('<span style="color:var(--dim)">build r965</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
