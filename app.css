@@ -2343,3 +2343,8 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .kbv-tb td,.kbv-tb th{text-align:left!important}
 .kbv-tb td:not(:first-child){font-family:var(--mono,monospace);font-size:12px}
 .kbv-tb th small{display:block;font-weight:400;font-size:10.5px}
+/* r971:分點驗證分週期 */
+.kbv-sum{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:6px 0}
+.kbv-sum span{display:flex;flex-direction:column;align-items:center;padding:6px 2px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--panel,#16181D)}
+.kbv-sum span.on{border-color:var(--gold,#E8B44A);background:color-mix(in srgb,var(--gold,#E8B44A) 12%,var(--panel,#16181D))}
+.kbv-sum b{font-size:13px}.kbv-sum small{font-size:10.5px;color:var(--dim)}

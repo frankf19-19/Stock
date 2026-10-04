@@ -1,4 +1,4 @@
-/* K研所 · build r970 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r971 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r970';
+const APP_BUILD='r971';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1805,7 +1805,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r970</span>');
+  diag.push('<span style="color:var(--dim)">build r971</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -9528,22 +9528,31 @@ async function kbvHTML(v,s){
   if(!v)return `<div class="cp"><div class="cp-h"><b>🔬 這檔的分點驗證</b></div><div class="dim-note">這檔分點紀錄還不夠長(至少要 60 個有後續報酬的交易日),後端每天累積後會自動算。</div></div>`;
   const G=await kbvSummary();
   const f=x=>x==null?'—':(x>0?'+':'')+(+x).toFixed(2)+'%';const md=d=>d?d.slice(5).replace('-','/'):'';
-  const verdict=(it,up)=>{const nT=it[4],aT=it[5],wT=it[6];
+  // r971:分週期——舊資料只有 10 日,包成同樣結構
+  const HZ=v.hz&&Object.keys(v.hz).length?v.hz:{'10':{base_tr:v.base_tr,base_te:v.base_te,buy:v.buy||[],sell:v.sell||[]}};
+  const MG={'1':0.3,'3':0.5,'5':0.7,'10':1,'20':1.5};
+  const verdict=(H,it,up,h)=>{const nT=it[4],aT=it[5],wT=it[6];
     if(!nT)return ['後段沒出手','var(--dim)'];if(nT<3)return ['樣本太少','var(--dim)'];
-    const ex=aT-v.base_te;const ok=up?(ex>=1&&wT>=55):(ex<=-1&&wT>=55);return ok?['✅ 延續','var(--up)']:['❌ 失效','var(--down)'];};
-  const tb=(L,up)=>L.length?`<table class="cp-tb kbv-tb"><tr><th>券商</th><th>前段<small>次數・10日・${up?'漲':'跌'}%</small></th><th>後段<small>次數・10日・${up?'漲':'跌'}%</small></th><th>結果</th></tr>${L.map(it=>{const [vd,vc]=verdict(it,up);
+    const ex=aT-H.base_te,m=MG[h]||1;const ok=up?(ex>=m&&wT>=55):(ex<=-m&&wT>=55);return ok?['✅ 延續','var(--up)']:['❌ 失效','var(--down)'];};
+  const tb=(H,L,up,h)=>L.length?`<table class="cp-tb kbv-tb"><tr><th>券商</th><th>前段<small>次數・${h}日・${up?'漲':'跌'}%</small></th><th>後段<small>次數・${h}日・${up?'漲':'跌'}%</small></th><th>結果</th></tr>${L.map(it=>{const [vd,vc]=verdict(H,it,up,h);
       return `<tr><td>${it[0]}${typeof bkTag==='function'?bkTag(it[0]):''}</td><td>${it[1]} 次・<b style="color:${it[2]>=0?'var(--up)':'var(--down)'}">${f(it[2])}</b>・${it[3]}%</td><td>${it[4]?`${it[4]} 次・<b style="color:${it[5]>=0?'var(--up)':'var(--down)'}">${f(it[5])}</b>・${it[6]}%`:'—'}</td><td style="color:${vc};font-weight:800">${vd}</td></tr>`;}).join('')}</table>`:'<div class="dim" style="font-size:12px">前段沒有符合條件的分點</div>';
-  const cnt=L=>{const a=L.map(x=>verdict(x,L===v.buy)[0]);return {ok:a.filter(x=>x.includes('延續')).length,bad:a.filter(x=>x.includes('失效')).length,na:a.filter(x=>!x.includes('延續')&&!x.includes('失效')).length};};
-  const cb=cnt(v.buy),cs=cnt(v.sell);
-  const tot=cb.ok+cb.bad+cs.ok+cs.bad,okN=cb.ok+cs.ok;
-  const head=tot?`這檔前段挑出的關鍵分點,後段有再出手的 ${tot} 家中,<b style="color:${okN/tot>=0.5?'var(--up)':'var(--down)'}">${okN} 家延續</b>、${tot-okN} 家失效。`:'這檔前段挑出的關鍵分點,後段都沒有足夠出手次數可以檢驗。';
-  const gb=G&&G['起漲分點(驗證期)'],gc=G&&G['對照:一般買方券商'];
-  return `<div class="cp">
-    <div class="cp-h"><b>🔬 這檔的分點驗證</b><span class="cp-vb dim">前段 ~${md(v.cut)}・後段 ${md(v.cut)}~</span></div>
-    <p>用前段資料挑出「買了會漲 / 賣了會跌」的券商,再看它們在後段出手後的實際結果。${head}判定:後段 10 日報酬比這檔同期平常(${f(v.base_te)})${'高 1% 以上且漲機率 ≥55%(賣方相反)'}才算延續。</p>
-    <div class="cp-sub">前段「買了會漲」的券商 → 後段表現</div><div class="cp-tw">${tb(v.buy||[],true)}</div>
-    <div class="cp-sub">前段「賣了會跌」的券商 → 後段表現</div><div class="cp-tw">${tb(v.sell||[],false)}</div>
-    ${gb&&gc?`<div class="cp-note dim">全市場(${G.stocks} 檔):起漲分點後段出手後 10 日超額 ${f(gb.excess_avg)},一般券商 ${f(gc.excess_avg)}——整體幾乎沒有差別,所以個股上「延續」的分點也可能只是運氣。更新 ${G.updated}</div>`:''}
+  const hs=['1','3','5','10','20'].filter(h=>HZ[h]);
+  const stat=h=>{const H=HZ[h];let ok=0,bad=0;(H.buy||[]).forEach(it=>{const x=verdict(H,it,true,h)[0];if(x.includes('延續'))ok++;else if(x.includes('失效'))bad++;});(H.sell||[]).forEach(it=>{const x=verdict(H,it,false,h)[0];if(x.includes('延續'))ok++;else if(x.includes('失效'))bad++;});return {ok,bad};};
+  const S0=hs.map(h=>({h,...stat(h)}));
+  const best=S0.filter(x=>x.ok+x.bad>=2).sort((a,b)=>(b.ok/(b.ok+b.bad))-(a.ok/(a.ok+a.bad))||b.ok-a.ok)[0];
+  const def=best?best.h:(hs.includes('10')?'10':hs[0]);
+  const uid='kbv'+String(s&&s.id||'').replace(/\W/g,'');
+  const mkt=G&&G.hz?`<div class="cp-sub">全市場:各週期「關鍵分點」後段表現 vs 一般券商(超額報酬)</div><div class="cp-tw"><table class="cp-tb"><tr><th>週期</th><th>起漲分點</th><th>一般買方</th><th>出貨分點</th><th>一般賣方</th></tr>${['1','3','5','10','20'].map(h=>{const g=G.hz[h]||{};const c=x=>x&&x.excess_avg!=null?`<span style="color:${x.excess_avg>=0?'var(--up)':'var(--down)'}">${f(x.excess_avg)}</span>`:'—';return `<tr><td>${h} 日</td><td>${c(g.buy)}</td><td>${c(g.ctl_b)}</td><td>${c(g.sell)}</td><td>${c(g.ctl_s)}</td></tr>`;}).join('')}</table></div><div class="cp-note dim">起漲分點要明顯高於一般買方、出貨分點要明顯低於一般賣方,才代表這個週期的分點有預測力。${G.stocks} 檔・更新 ${G.updated}</div>`:'';
+  return `<div class="cp" id="${uid}">
+    <div class="cp-h"><b>🔬 這檔的分點驗證・分週期</b><span class="cp-vb dim">前段 ~${md(v.cut)}・後段 ${md(v.cut)}~</span></div>
+    <p>不同券商影響的週期不一樣:隔日沖看 1~3 天、短線看 5 天、波段看 10~20 天。每個週期各自用前段資料挑出「買了會漲 / 賣了會跌」的券商,再看它們後段出手後同一週期的實際結果。</p>
+    <div class="kbv-sum">${S0.map(x=>`<span${x.h===def?' class="on"':''} data-h="${x.h}" onclick="(function(el){const r=document.getElementById('${uid}');r.querySelectorAll('.kbv-sum span').forEach(b=>b.classList.toggle('on',b===el));r.querySelectorAll('.kbv-pane').forEach(p=>p.style.display=p.dataset.h===el.dataset.h?'':'none');})(this)"><b>${x.h} 日</b><small>${x.ok+x.bad?`延續 ${x.ok}/${x.ok+x.bad}`:'—'}</small></span>`).join('')}</div>
+    ${best?`<div class="cp-note">📌 這檔分點「最常延續」的週期:<b>${best.h} 日</b>(${best.ok}/${best.ok+best.bad} 家延續)</div>`:''}
+    ${hs.map(h=>{const H=HZ[h];return `<div class="kbv-pane" data-h="${h}" style="${h===def?'':'display:none'}">
+      <div class="cp-note dim">${h} 日週期:這檔前段任意一天之後 ${h} 日平均 ${f(H.base_tr)},後段 ${f(H.base_te)};後段要比平常${h==='1'?'高':'高'} ${MG[h]}% 以上且勝率 ≥55% 才算延續。</div>
+      <div class="cp-sub">前段「買了會漲」→ 後段</div><div class="cp-tw">${tb(H,H.buy||[],true,h)}</div>
+      <div class="cp-sub">前段「賣了會跌」→ 後段</div><div class="cp-tw">${tb(H,H.sell||[],false,h)}</div></div>`;}).join('')}
+    ${mkt}
   </div>`;
 }
 function bkHTML(R,s){
@@ -9572,7 +9581,7 @@ function bkHTML(R,s){
       <div style="overflow-x:auto"><table class="sig-t" style="font-size:12px"><tr><th style="text-align:left">券商</th><th>角色</th><th>平均持有</th><th>隔日沖率</th><th>專門度</th><th>淨累積(張)</th><th>買後 10 日</th><th>賣後 10 日</th></tr>${rows}</table></div>
       <div class="dim" style="font-size:11.5px;margin-top:4px">角色是「在這檔」的行為:拉抬主力 = 買了會漲的 ★ 且專門/量大;出貨主力 = 賣了會跌的 ★;隔日沖 = 買超隔天就賣超 ≥35%;短線 ≤10 天、波段 11~40 天、長線 >40 天或幾乎沒賣。平均持有 = 買進與之後賣出 FIFO 配對的加權天數;專門度 = 這家在這檔的張數佔它全市場的比例;淨累積 = 期間內買減賣。</div>`;})():''}
     ${(R.runB&&R.runB.length)||(R.runS&&R.runS.length)?`<div style="margin:6px 0;font-size:13px;line-height:1.8">${(R.runB||[]).map(x=>`<span class="fkb ${x.key?'fkb-b':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連買 ${x.days} 日 <small>累計 ${(x.lots>=0?'+':'')+x.lots.toLocaleString()} 張</small></span>`).join(' ')} ${(R.runS||[]).map(x=>`<span class="fkb ${x.key?'fkb-s':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連賣 ${x.days} 日 <small>累計 ${x.lots.toLocaleString()} 張</small></span>`).join(' ')}</div>`:''}
-    ${R.kb?`<div style="margin:8px 0 2px;font-weight:800;font-size:13px">🎯 關鍵分點(歷史回顧)<small class="dim" style="font-weight:400;margin-left:6px">近 ${R.kb.days} 個交易日・這檔任意時點 10 日平均 ${(R.kb.base10>=0?'+':'')+R.kb.base10}%</small></div><div class="kb-warn">⚠ 全市場前後段驗證:這些「過去很準」的分點,之後再出手並沒有比一般券商準(詳見下方「🔬 這檔的分點驗證」)。下面是歷史紀錄,不是買賣訊號。</div>
+    ${R.kb?`<div style="margin:8px 0 2px;font-weight:800;font-size:13px">🎯 關鍵分點(歷史回顧)<small class="dim" style="font-weight:400;margin-left:6px">近 ${R.kb.days} 個交易日・這檔任意時點 10 日平均 ${(R.kb.base10>=0?'+':'')+R.kb.base10}%</small></div><div class="kb-warn">這檔的完整分點紀錄如下(門檻、天期、發動日都保留)。這些分點之後還準不準,請看下方「🔬 這檔的分點驗證・分週期」逐家檢驗。</div>
     ${(()=>{const f=v=>(v>=0?'+':'')+v+'%';const md=d=>d?d.slice(5).replace('-','/'):'—';
       const row=(k,up)=>{const x=k.x,xc=k.xc,eff=k.eff;const c=v=>up?(v>0?'var(--up)':'var(--down)'):(v<0?'var(--down)':'var(--up)');const word=up?'漲':'跌';
         const last=k.hits[0];const recent=k.hits.filter(h=>h.ago<=20);
