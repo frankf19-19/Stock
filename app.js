@@ -1,4 +1,4 @@
-/* K研所 · build r963 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r964 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r963';
+const APP_BUILD='r964';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1803,7 +1803,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r963</span>');
+  diag.push('<span style="color:var(--dim)">build r964</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4173,7 +4173,7 @@ function rptFullHTML(J,F,fromCache){
     <div class="rf-grid3"><div class="rf-card"><h4>短線</h4>${(J.plan||{}).short||''}</div><div class="rf-card"><h4>中線</h4>${(J.plan||{}).mid||''}</div><div class="rf-card"><h4>長線</h4>${(J.plan||{}).long||''}</div></div>
     <div class="rf-grid"><div class="rf-card"><h4 style="color:var(--down)">⚠ 風險</h4><ul>${li(J.risks)}</ul></div><div class="rf-card"><h4 style="color:var(--amber)">🧯 判斷失效條件</h4><ul>${li(J.invalidation)}</ul></div></div>
     ${(J.news||[]).length?`<div class="rf-card"><h4>📰 近期關鍵新聞(AI 搜尋)</h4><ul>${li(J.news)}</ul></div>`:''}
-    <div class="dim-note" style="margin-top:8px">${fromCache?'今日快取・':''}${J._note||''}目標價、進場分層、評分、趨勢與籌碼判定都是網站依站內 ${Object.keys(F).length} 組數據<b>直接計算</b>(TTM EPS × 近一年本益比區間、均線與估值支撐),每次一樣、可以驗算;AI(Gemini)只負責文字解讀,文字中若出現網站沒算過的價位會自動移除。僅供研究參考,非投資建議。</div>
+    <div class="dim-note" style="margin-top:8px">${fromCache?'今日快取・':''}${J._note||''}目標價、進場分層、評分、趨勢與籌碼判定都是網站依站內 ${Object.keys(F).length} 組數據<b>直接計算</b>(TTM EPS × 近一年本益比區間、均線與估值支撐),每次一樣、可以驗算;AI(${J._engine||'Gemini'})只負責文字解讀,文字中若出現網站沒算過的價位會自動移除。${/Claude/.test(J._engine||'')?'':'想要更深入的推理:到 ⚙ AI 設定填入 Claude 金鑰(付費,每次約 NT$2~4),一鍵分析會自動改用 Claude。'}僅供研究參考,非投資建議。</div>
   </div>`;
 }
 /* ═══ r795:個股頁「今日重點」——不用 AI,把站上算好的東西濃縮成 5 行;沒資料的行就不出現 ═══ */
@@ -4314,7 +4314,15 @@ ${R||'(無)'}
 - personality / cycle:用股性與波段數據說明這檔股票適合怎麼操作
 - plan:短線(1~4 週)、中線(1~3 月)、長線(6 月以上)的具體做法與理由
 - risks:最需要注意的 3~4 個風險
-規則:價位、目標價、本益比、EPS 只能引用上面出現過的數字;繁體中文;具體、有觀點、有推理。`;
+規則:價位、目標價、本益比、EPS 只能引用上面出現過的數字;繁體中文;具體、有觀點、有推理。
+
+寫作準則(r964,很重要):
+1. 先講結論再講理由;每一點至少連結一個上面的具體數據(營收年增、毛利率、法人張數、本益比分位、波段天數…),不准只有形容詞。
+2. 禁止空話:「值得關注」「有望受惠」「審慎樂觀」「仍需觀察」這類句子,沒有接具體原因與條件就不要寫。
+3. 講因果:不是「毛利率上升」,而是「毛利率從 A 升到 B,原因是…,代表…」;找出數據之間互相印證或矛盾的地方(例如營收強但法人在賣,要解釋可能原因)。
+4. 要有立場:verdict 用一句話講清楚現在該怎麼看(偏多/中性/偏空 + 一句關鍵理由),不要兩面討好。
+5. 看空理由要真的有份量,不能是「大盤回檔風險」這種對所有股票都成立的話,要寫這家公司特有的。
+6. 研究筆記裡的事實優先使用,並標明時間;筆記沒有的不要編造。`;
 }
 function _rptEmpty(x){return !x||/資料不足|無法判斷|未提供/.test(Array.isArray(x)?x.join(''):String(x));}
 async function rptFillIndustry(F,N){
@@ -4343,6 +4351,35 @@ const RPT_SCHEMA={type:'OBJECT',properties:{
   personality:{type:'STRING'},cycle:{type:'STRING'},
   plan:{type:'OBJECT',properties:{short:{type:'STRING'},mid:{type:'STRING'},long:{type:'STRING'}}},
   risks:{type:'ARRAY',items:{type:'STRING'}}},required:['verdict','thesis','bull','bear','fundamentals','valuation_view','industry','scenarios','plan','risks']};
+/* r964:一鍵完整分析的引擎——有設 Claude 金鑰就用 Claude(推理品質明顯較好,付費),否則用 Gemini 最強的可用型號 */
+async function claudeOnce(prompt,opt){
+  opt=opt||{};const key=(AI.keys&&AI.keys.anthropic)||'';if(!key)throw new Error('沒有 Claude 金鑰');
+  const body={model:opt.model||(AI.models&&AI.models.anthropic)||'claude-sonnet-4-6',max_tokens:opt.maxTok||4000,messages:[{role:'user',content:prompt}]};
+  if(opt.system)body.system=opt.system;
+  if(opt.web)body.tools=[{type:'web_search_20250305',name:'web_search',max_uses:opt.maxSearch||5}];
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+    headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
+  if(!r.ok){let m='';try{const j=await r.json();m=(j.error&&j.error.message)||'';}catch(e){}throw new Error(r.status+(m?':'+m.slice(0,120):''));}
+  const j=await r.json();
+  return (j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+}
+function rptEngine(){
+  if(AI.keys&&AI.keys.anthropic)return {kind:'claude',name:((AI.models&&AI.models.anthropic)||'claude-sonnet-4-6').replace(/^claude-(\w)/,(m,c)=>'Claude '+c.toUpperCase()).replace(/-(\d+)-(\d+).*/,' $1.$2')};
+  return {kind:'gemini',name:'Gemini'};
+}
+const RPT_GEM_MODELS=['gemini-3.5-pro','gemini-3-pro-preview','gemini-2.5-pro','gemini-3.5-flash','gemini-2.5-flash'];   // 由強到弱;不存在/額度滿就往下換
+async function rptGemini(prompt,gen,noTools,maxTok,list){
+  let last=null;
+  for(const mdl of (list||RPT_GEM_MODELS)){
+    try{
+      const g=Object.assign({},gen||{});
+      if(g.thinkingConfig&&!/2\.5/.test(mdl))delete g.thinkingConfig;           // 3.x 系列預設就會思考,舊參數可能被拒
+      const t=await gaAiOnce(prompt,null,noTools,maxTok,mdl,Object.keys(g).length?g:undefined);
+      if(t)return {t,mdl};
+    }catch(e){last=e;if(!/^(400|403|404|429|5\d\d)|quota|RESOURCE_EXHAUSTED|not found|not supported/i.test(String(e&&e.message||e)))throw e;}
+  }
+  throw last||new Error('Gemini 無可用型號');
+}
 async function rptFullRun(s,boxId){ return rptFullRun2(s,boxId); }
 async function rptFullRun2(s,boxId){
   const box=document.getElementById(boxId||'rptBox');if(!box)return;
@@ -4352,7 +4389,7 @@ async function rptFullRun2(s,boxId){
     try{await Promise.all([hscanLoad().catch(()=>{}),biasLoad().catch(()=>{}),etfRevLoad().catch(()=>{})]);}catch(e){}
     const F=rptFullFacts(s,d);window.__rptFacts=F;
     const C=rptCalc(F);
-    const ck='rptFull4_'+s.id,today2=tpDay(Date.now()/1000);   // r913:換鍵,舊的「資料不足」結果作廢
+    const ck='rptFull5_'+s.id,today2=tpDay(Date.now()/1000);   // r913:換鍵,舊的「資料不足」結果作廢
     let N=null,fromCache=false,aiErr=null;
     if(!window.__rptForce){try{const c=JSON.parse(localStorage.getItem(ck)||'null');if(c&&c.d===today2&&c.n){N=c.n;fromCache=true;}}catch(e){}}
     window.__rptForce=false;
@@ -4365,14 +4402,24 @@ async function rptFullRun2(s,boxId){
       for(let i=0;i<3&&!(AI&&AI.keys&&(AI.keys.gemini||(AI.prov==='shared'&&AI.keys.shared)));i++){try{await gemAutoKey();}catch(e){}if(!(AI&&AI.keys&&AI.keys.gemini))await new Promise(r=>setTimeout(r,900));}
       // r915:兩階段深度分析——① 上網研究最新資訊 ② 開「思考模式」做有判斷的分析
       const st=m=>{const b=document.querySelector('#rptFullBlk .rf-verdict');if(b)b.textContent=m;};
-      let R='';st('🔎 AI 研究中(1/2):搜尋最新新聞、法說會、產業動態…');
-      try{R=await gaAiOnce(rptResearchPrompt(F),null,false,1500,'gemini-2.5-flash');}catch(e){R='';}
-      st('🧠 AI 分析中(2/2):推理多空論點、估值、情境…(約 20~40 秒)');
-      const gen={responseMimeType:'application/json',responseSchema:RPT_SCHEMA,temperature:0.4,thinkingConfig:{thinkingBudget:4096}};
-      for(const [mdl,g] of [[null,gen],['gemini-2.5-flash',gen],['gemini-2.5-flash-lite',Object.assign({},gen,{thinkingConfig:{thinkingBudget:1024}})]]){
-        try{const t=await gaAiOnce(rptNarrPrompt(F,C,R),null,true,8192,mdl,g);N=JSON.parse(t);if(R)N._research=R;aiErr=null;break;}
-        catch(e){aiErr=e;if(!/^429|^5\d\d|quota|RESOURCE_EXHAUSTED|JSON|Unexpected/i.test(String(e&&e.message||e)))break;}
-      }
+      const EN=rptEngine();let R='';
+      st(`🔎 AI 研究中(1/2,${EN.name}):搜尋最新新聞、法說會、產業動態…`);
+      try{
+        if(EN.kind==='claude')R=await claudeOnce(rptResearchPrompt(F),{web:true,maxTok:2000,maxSearch:5});
+        else R=(await rptGemini(rptResearchPrompt(F),null,false,1500,['gemini-3.5-flash','gemini-2.5-flash'])).t;
+      }catch(e){R='';}
+      st(`🧠 AI 分析中(2/2,${EN.name}):推理多空論點、估值、情境…(約 30~60 秒)`);
+      try{
+        if(EN.kind==='claude'){
+          const keys=Object.keys(RPT_SCHEMA.properties).join('、');
+          const t=await claudeOnce(rptNarrPrompt(F,C,R)+`\n\n輸出格式:只輸出一個 JSON 物件(不要 markdown 標記、不要其他文字),欄位:${keys}。scenarios 物件含 bull/base/bear;fundamentals 物件含 summary/growth/quality;industry 物件含 position/outlook/catalysts(陣列)/risks(陣列);plan 物件含 short/mid/long;bull、bear、watch、risks 為字串陣列。`,{maxTok:6000});
+          const m=t.match(/\{[\s\S]*\}/);N=JSON.parse(m?m[0]:t);N._engine=EN.name;
+        }else{
+          const gen={responseMimeType:'application/json',responseSchema:RPT_SCHEMA,temperature:0.4,thinkingConfig:{thinkingBudget:4096}};
+          const o=await rptGemini(rptNarrPrompt(F,C,R),gen,true,8192);N=JSON.parse(o.t);N._engine=o.mdl.replace(/^gemini-/,'Gemini ').replace(/-preview$/,'');
+        }
+        if(R)N._research=R;aiErr=null;
+      }catch(e){aiErr=e;N=null;}
       if(N){try{N=await rptFillIndustry(F,N);}catch(e){}}      // r913
       if(N){const clean=v=>typeof v==='string'?rptSanitize(v,C.__allow,+F.px):Array.isArray(v)?v.map(clean):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,clean(x)])):v;
         N=clean(N);try{localStorage.setItem(ck,JSON.stringify({d:today2,n:N}));}catch(e){}}
