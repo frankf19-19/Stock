@@ -1,4 +1,4 @@
-/* K研所 · build r951 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r952 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r951';
+const APP_BUILD='r952';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -526,7 +526,7 @@ async function boot(){
   window.DATA=DATA;                                              // r927:DATA 是 let,mobile.js 與開機看門狗要用 window.DATA(之前永遠拿不到 → 指數列永遠「載入中」、看門狗誤報)
   try{snapLoad();}catch(e){}
   setBadges(); renderAll(); route();   // 資料一到立即渲染,背景抓取由各計時器延後進行
-  /* r951:冷開 App 的空殼修正——今日總覽(指數)、區塊導覽列是 lazyRun:一看到就先跑,常常跑在 data.json 到之前 → 空白要等 60 秒;
+  /* r952:冷開 App 的空殼修正——今日總覽(指數)、區塊導覽列是 lazyRun:一看到就先跑,常常跑在 data.json 到之前 → 空白要等 60 秒;
      診斷列/官方收盤只在盤中或盤後同步窗自動更新 → 假日、深夜重開永遠是空的,得手動按「更新」。資料到了就各補一次 */
   setTimeout(()=>{try{renderHero();}catch(e){}try{renderSecNav();}catch(e){}try{renderFavAlertBar();}catch(e){}},60);
   setTimeout(()=>{try{if(!marketOpen())refreshLive(true);}catch(e){}},1500);   // 盤中有每分鐘的自動更新,不重複打
@@ -1803,7 +1803,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r951</span>');
+  diag.push('<span style="color:var(--dim)">build r952</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -17342,7 +17342,7 @@ function setHomeTab(t){
     if(b)b.classList.toggle('on',k===t);
   });
   try{localStorage.setItem('homeTab',t);}catch(e){}
-  try{if(window.__mobNavSync)setTimeout(window.__mobNavSync,0);}catch(e){}   // r951:任何方式切分頁(含程式還原)都同步底部導覽
+  try{if(window.__mobNavSync)setTimeout(window.__mobNavSync,0);}catch(e){}   // r952:任何方式切分頁(含程式還原)都同步底部導覽
   if(t==='aipick'){setTimeout(()=>{   // r745:延到本輪腳本跑完再碰 AIPK(啟動時還原分頁會早於 AIPK 宣告 → TDZ)
     try{aipLoad().then(()=>{try{renderAIPick();}catch(e){}});}catch(e){}
     try{setTimeout(aipSweep,600);}catch(e){}},0);}
@@ -18909,7 +18909,7 @@ function renderEtf(){
   const qi=document.getElementById('etfQ');
   if(qi)qi.oninput=()=>{try{renderEtf();}catch(e){}};
   let t='stocks';try{t=localStorage.getItem('homeTab')||'stocks';}catch(e){}
-  try{if(window.matchMedia('(max-width:640px)').matches)t='macro';}catch(e){}   // r951:手機冷開一律從「大盤」開始(底部導覽也亮大盤)——之前還原上次分頁,畫面是 AI Pick 卻亮著大盤
+  try{if(window.matchMedia('(max-width:640px)').matches)t='macro';}catch(e){}   // r952:手機冷開一律從「大盤」開始(底部導覽也亮大盤)——之前還原上次分頁,畫面是 AI Pick 卻亮著大盤
   setHomeTab(t);
 })();
 /* 🧺 r751:個股反查——哪些主動式 ETF 持有這一檔、今天加碼還是減碼(每日快照相減,張數為真實申報值) */
@@ -22869,4 +22869,141 @@ document.addEventListener('click',e=>{
     else if(t.includes('加權'))openSheet({tab:'mkt',mkt:'tw',idxTw:'tw'});
     else openSheet();
   },true);
+})();
+/* ══ r952:🎛 K線圖層面板——所有圖層一頁開關 + 簡潔/標準/全開一鍵模式 + 說明文字收合 ══
+   原本 8 組「開/隱藏」散在工具列右側(手機要橫滑才看得到)且預設全開 → 圖疊成一團。
+   這裡不改任何繪圖邏輯:沿用原本的 localStorage 開關鍵(kLV/kTL/kFW/kDED/kDV/kCost/kGP/kINST),
+   原開關改為隱藏(邏輯仍在),均線/布林走 ECharts 圖例並記住選擇。 */
+(function(){
+  const L=[   // [key, seg, 預設語意(on 值), 圖示, 名稱, 說明, 群組]
+    ['kLV','lvSeg','on','🧱','壓力支撐','關鍵價位、均線帶買進區','price'],
+    ['kTL','tlSeg','on','📐','趨勢線','上升/下降趨勢線、三角收斂','price'],
+    ['kFW','fwSeg','off','🔄','轉折點','波段高低點、0.618、測量目標','price'],
+    ['kDED','dedSeg','on','📍','均線扣抵','扣抵位置▲,預判均線上彎/下彎','price'],
+    ['kGP','gpSeg','on','🕳️','缺口・爆量','未回補缺口色帶、爆量標記','price'],
+    ['kDV','dvSeg','on','💰','除權息','除權息日標記','event'],
+    ['kCost','csSeg','on','👥','法人成本線','外資/投信/自營/主力持倉成本','event'],
+    ['kINST','instSeg','on','📊','法人副圖','三大法人買賣超副圖','sub']];
+  const PRESET={
+    simple:{name:'簡潔',sub:'K線+3條均線',on:[],ma:['MA5','MA20','MA60'],bb:false},
+    std:{name:'標準',sub:'+壓力支撐・趨勢線',on:['kLV','kTL'],ma:['MA5','MA10','MA20','MA60'],bb:false},
+    all:{name:'全開',sub:'所有分析圖層',on:L.map(x=>x[0]),ma:['MA5','MA10','MA20','MA60','MA120','MA240'],bb:true}};
+  const LS=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:v;}catch(e){return d;}};
+  const SS=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
+  const isOn=k=>{const it=L.find(x=>x[0]===k);const v=LS(k,null);return it[2]==='off'?v==='1':v!=='0';};
+  const maSel=()=>{try{return JSON.parse(LS('kMaSel','{}'))||{};}catch(e){return {};}};
+  const mode=()=>LS('kLayerMode','');
+  /* 第一次用新面板:套「標準」——之前預設全開太亂 */
+  if(!mode()){
+    const p=PRESET.std;L.forEach(([k,,,])=>SS(k,p.on.includes(k)?'1':'0'));
+    const sel={};PRESET.all.ma.forEach(n=>sel[n]=p.ma.includes(n));sel['布林上軌']=sel['布林下軌']=false;
+    SS('kMaSel',JSON.stringify(sel));SS('kLayerMode','std');
+  }
+  function syncSegs(){   // 讓隱藏的舊開關保持一致(其他程式會讀它們的 .on)
+    L.forEach(([k,seg])=>{const on=isOn(k);document.querySelectorAll('#'+seg+' button').forEach(b=>b.classList.toggle('on',(b.dataset.t==='1')===on));});
+  }
+  function relocate(changed){
+    try{if(typeof SEG_CARD!=='object'||typeof relocateCard!=='function')return;
+      Object.entries(SEG_CARD).forEach(([seg,[k,box]])=>{if(changed.includes(k))relocateCard(box,isOn(k));});}catch(e){}
+  }
+  function legendNames(){
+    try{const op=chartInst&&chartInst.getOption();const d=(op&&op.legend&&op.legend[0]&&op.legend[0].data)||[];
+      return d.map(x=>typeof x==='string'?x:x.name).filter(n=>n&&n!=='K線');}catch(e){return [];}
+  }
+  function maColor(n){
+    try{const s=(chartInst.getOption().series||[]).find(x=>x.name===n);return (s&&s.lineStyle&&s.lineStyle.color)||'var(--mut)';}catch(e){return 'var(--mut)';}
+  }
+  function applyLegend(){
+    try{
+      if(!chartInst)return;const names=legendNames();if(!names.length)return;
+      const sel=maSel(),o={};names.forEach(n=>{if(n in sel)o[n]=!!sel[n];});
+      if(Object.keys(o).length)chartInst.setOption({legend:{selected:o}});
+      if(!chartInst.__klBound){chartInst.__klBound=1;
+        chartInst.on('legendselectchanged',e=>{const s=maSel();Object.assign(s,e.selected||{});delete s['K線'];SS('kMaSel',JSON.stringify(s));SS('kLayerMode','custom');paintBtn();if(open())paint();});}
+    }catch(e){}
+  }
+  /* 包住 drawKChart:每次重畫後套用均線選擇、補上圖層按鈕 */
+  try{
+    if(typeof drawKChart==='function'&&!drawKChart.__kl){
+      const _dk=drawKChart;
+      drawKChart=function(){const r=_dk.apply(this,arguments);try{applyLegend();ensureBtn();syncSegs();}catch(e){}setTimeout(()=>{try{applyLegend();ensureBtn();}catch(e){}},400);return r;};
+      drawKChart.__kl=1;
+    }
+  }catch(e){}
+  function redraw(){try{drawKChart();}catch(e){}}
+  function setLayer(k,on){
+    SS(k,on?'1':'0');SS('kLayerMode','custom');syncSegs();relocate([k]);redraw();
+  }
+  function setMa(n,on){
+    const s=maSel();s[n]=on;if(n==='布林'){s['布林上軌']=s['布林下軌']=on;delete s['布林'];}
+    SS('kMaSel',JSON.stringify(s));SS('kLayerMode','custom');applyLegend();
+  }
+  function setPreset(id){
+    const p=PRESET[id];const changed=[];
+    L.forEach(([k])=>{const was=isOn(k),now=p.on.includes(k);SS(k,now?'1':'0');if(was!==now)changed.push(k);});
+    const s=maSel();PRESET.all.ma.forEach(n=>s[n]=p.ma.includes(n));s['布林上軌']=s['布林下軌']=p.bb;
+    SS('kMaSel',JSON.stringify(s));SS('kLayerMode',id);syncSegs();relocate(changed);redraw();
+  }
+  const notesOpen=()=>LS('kNotesOpen','0')==='1';
+  function applyNotes(){document.querySelectorAll('.chart-box').forEach(cb=>{if(cb.querySelector('#kbox'))cb.classList.toggle('kl-notes-off',!notesOpen());});}
+  function modeLabel(){const m=mode();return PRESET[m]?PRESET[m].name:'自訂';}
+  function paintBtn(){
+    document.querySelectorAll('.kl-btn').forEach(b=>{b.querySelector('em').textContent=modeLabel();});
+    document.querySelectorAll('.kl-note').forEach(b=>b.classList.toggle('on',notesOpen()));
+  }
+  function ensureBtn(){
+    const kb=document.getElementById('kbox');if(!kb)return;
+    const cb=kb.closest('.chart-box');if(!cb)return;
+    const head=cb.querySelector('.ind-head');if(!head)return;
+    if(!head.querySelector('.kl-bar')){
+      const bar=document.createElement('div');bar.className='kl-bar';
+      bar.innerHTML='<button class="kl-btn" type="button"><span class="kl-ic">🎛</span>圖層<em></em></button><button class="kl-note" type="button" title="圖例說明">ⓘ 說明</button>';
+      const h3=head.querySelector('h3');if(h3&&h3.nextSibling)head.insertBefore(bar,h3.nextSibling);else head.appendChild(bar);
+      bar.querySelector('.kl-btn').onclick=openSheet;
+      bar.querySelector('.kl-note').onclick=()=>{SS('kNotesOpen',notesOpen()?'0':'1');applyNotes();paintBtn();};
+    }
+    cb.classList.add('kl-host');
+    applyNotes();paintBtn();
+  }
+  /* ── 面板 ── */
+  const open=()=>{const s=document.getElementById('klSheet');return !!(s&&s.classList.contains('open'));};
+  function sw(on){return `<span class="kl-sw${on?' on':''}"><i></i></span>`;}
+  function paint(){
+    const sh=document.getElementById('klSheet');if(!sh)return;
+    const m=mode(),sel=maSel(),names=legendNames();
+    const mas=names.filter(n=>!/^布林/.test(n)),hasBB=names.some(n=>/^布林/.test(n));
+    const maOn=n=>n in sel?!!sel[n]:true;
+    const row=([k,,,ic,nm,ds])=>`<button class="kl-row" data-k="${k}" type="button"><span class="kl-ri">${ic}</span><span class="kl-rt"><b>${nm}</b><small>${ds}</small></span>${sw(isOn(k))}</button>`;
+    sh.querySelector('.kl-body').innerHTML=`
+      <div class="kl-pre">${Object.entries(PRESET).map(([id,p])=>`<button type="button" data-p="${id}" class="${m===id?'on':''}"><b>${p.name}</b><small>${p.sub}</small></button>`).join('')}</div>
+      ${m==='custom'?'<div class="kl-cust">目前是自訂組合</div>':''}
+      ${mas.length?`<div class="kl-h">均線</div><div class="kl-ma">${mas.map(n=>`<button type="button" data-ma="${n}" class="${maOn(n)?'on':''}"><i style="background:${maColor(n)}"></i>${n.replace(/\(.*\)/,'')}</button>`).join('')}
+        ${hasBB?`<button type="button" data-ma="布林" class="${(sel['布林上軌']===true)?'on':''}"><i style="background:var(--mut)"></i>布林</button>`:''}</div>`:''}
+      <div class="kl-h">價位與型態</div><div class="kl-card">${L.filter(x=>x[6]==='price').map(row).join('')}</div>
+      <div class="kl-h">事件與籌碼</div><div class="kl-card">${L.filter(x=>x[6]!=='price').map(row).join('')}</div>
+      <div class="kl-foot">設定會記住,換股票、重開 App 都一樣</div>`;
+  }
+  function build(){
+    let sh=document.getElementById('klSheet');if(sh)return sh;
+    const bd=document.createElement('div');bd.id='klSheetBd';document.body.appendChild(bd);bd.onclick=closeSheet;
+    sh=document.createElement('div');sh.id='klSheet';
+    sh.innerHTML='<div class="kl-grip"><span></span></div><div class="kl-top"><b>🎛 K 線圖層</b><button type="button" class="kl-x" aria-label="關閉">✕</button></div><div class="kl-body"></div>';
+    document.body.appendChild(sh);
+    sh.addEventListener('click',e=>{
+      if(e.target.closest('.kl-x')){closeSheet();return;}
+      const p=e.target.closest('[data-p]');if(p){setPreset(p.dataset.p);paint();paintBtn();return;}
+      const r=e.target.closest('.kl-row[data-k]');if(r){setLayer(r.dataset.k,!isOn(r.dataset.k));paint();paintBtn();return;}
+      const ma=e.target.closest('[data-ma]');if(ma){const n=ma.dataset.ma;const cur=n==='布林'?maSel()['布林上軌']===true:(n in maSel()?!!maSel()[n]:true);setMa(n,!cur);paint();paintBtn();}
+    });
+    let y0=null,dy=0;
+    sh.addEventListener('touchstart',e=>{if(!e.target.closest('.kl-grip,.kl-top'))return;y0=e.touches[0].clientY;dy=0;sh.style.transition='none';},{passive:true});
+    sh.addEventListener('touchmove',e=>{if(y0==null)return;dy=Math.max(0,e.touches[0].clientY-y0);sh.style.transform=`translateY(${dy}px)`;},{passive:true});
+    sh.addEventListener('touchend',()=>{if(y0==null)return;sh.style.transition='';sh.style.transform='';y0=null;if(dy>70)closeSheet();});
+    return sh;
+  }
+  function openSheet(){const sh=build();paint();document.body.classList.add('kl-open');sh.classList.add('open');}
+  function closeSheet(){const sh=document.getElementById('klSheet');if(sh)sh.classList.remove('open');document.body.classList.remove('kl-open');}
+  window.addEventListener('hashchange',closeSheet);
+  /* 圖可能比本段程式先畫好 → 進頁/切頁時補按鈕 */
+  setInterval(()=>{try{if(document.getElementById('kbox'))ensureBtn();}catch(e){}},1500);
 })();
