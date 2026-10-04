@@ -1454,7 +1454,7 @@ def main():
         # 🤖 入選/出場理由:純敘述,不影響選股與結算;沒金鑰或預算用完就跳過,下一班再補
         if GEMINI_KEY:
             na = nx = 0
-            for w in weeks:
+            for w in sorted(weeks, key=lambda x: x["buy_week"], reverse=True):   # r960:最新一週優先(每班預算 12 次,舊出場理由排後面慢慢補)
                 if w.get("bt"): continue
                 for p in w.get("picks") or []:
                     if not _ai_ok(p.get("ai")) and _G["n"] < AI_BUDGET and w.get("status") != "done":
