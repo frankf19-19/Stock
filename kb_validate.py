@@ -30,6 +30,11 @@ def per_stock(e, ds, C):
     if len(rr) < MIN_ROWS: return None
     cut = rr[int(len(rr) * 0.7)][0]
     out = {"cut": cut, "hz": {}}
+    te_all = [r for r in rows if r[0] > cut]
+    te_idx = {3: {}, 4: {}}                                    # r971b:驗證期「券商 → 出手的列」先建索引(原本每家都掃一遍,分週期後超時)
+    for i, r in enumerate(te_all):
+        for col in (3, 4):
+            for nm in r[col]: te_idx[col].setdefault(nm, []).append(i)
     for h in HZ:
         tr = [r for r in rows if h in r[2] and r[1][h] <= cut]       # 不偷看:h 日後的價格也在切點前
         te = [r for r in rows if h in r[2] and r[0] > cut]
@@ -45,7 +50,7 @@ def per_stock(e, ds, C):
                 if len(v) < 3: continue
                 w = sum(1 for x in v if (x > 0 if side == "b" else x < 0)) / len(v) * 100; a = st.mean(v)
                 key = (w >= 60 and a >= max(lo, btr + mg)) if side == "b" else (w >= 60 and a <= min(-lo, btr - mg))
-                tv = [r[2][h] for r in te if nm in r[col]]
+                tv = [te_all[i][2][h] for i in te_idx[col].get(nm, ()) if h in te_all[i][2]]
                 it = [nm, len(v), round(a, 2), round(w), len(tv), round(st.mean(tv), 2) if tv else None,
                       round(sum(1 for x in tv if (x > 0 if side == "b" else x < 0)) / len(tv) * 100) if tv else None]
                 (H["buy" if side == "b" else "sell"] if key else H["ctl_" + side]).append(it)
