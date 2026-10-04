@@ -87,20 +87,23 @@ def summarize(rows, prev):
 _K = {}
 _H = {}
 def closes_of(sid):
+    """r969:hist/(三年收盤)∪ k/(近一年日 K,較新者優先)——hist 停在 9/11 沒更新,舊版只用 hist 會讓之後的分點日全部找不到後續報酬"""
     k = shard_key(sid)
-    if k not in _H:                                            # r838:優先用 hist/(三年收盤),沒有再用 k/
+    if k not in _H:
         try: _H[k] = json.load(open(f"hist/tw{k}.json", encoding="utf-8"))
         except Exception: _H[k] = {}
-    h = _H[k].get(sid) or {}
-    if h.get("d") and h.get("c") and len(h["d"]) >= 200:
-        d, c = h["d"], h["c"]
-        return {dd: i for i, dd in enumerate(d)}, [x if x else 0 for x in c]
     if k not in _K:
         try: _K[k] = json.load(open(f"k/tw{k}.json", encoding="utf-8"))
         except Exception: _K[k] = {}
+    m = {}
+    h = _H[k].get(sid) or {}
+    for dd, c in zip(h.get("d") or [], h.get("c") or []):
+        if c: m[dd] = c
     e = _K[k].get(sid) or {}
-    d, o = e.get("d") or [], e.get("o") or []
-    return {dd: i for i, dd in enumerate(d)}, [x[3] for x in o]
+    for dd, o in zip(e.get("d") or [], e.get("o") or []):
+        if o and len(o) >= 4 and o[3]: m[dd] = o[3]
+    ds = sorted(m)
+    return {dd: i for i, dd in enumerate(ds)}, [m[dd] for dd in ds]
 
 
 def key_brokers(e, sid):
@@ -433,6 +436,9 @@ def main():
     try:                                                     # r968:🧬 主力集中度個性(每檔 250 日,walk-forward 驗證)
         import conc_profile; conc_profile.build(R, S, shard_key, log)
     except Exception as ex3: log(f"  集中度個性失敗:{ex3}")
+    try:                                                     # r969:🔍 關鍵分點 walk-forward 驗證
+        import kb_validate; kb_validate.build(R, S, closes_of, log)
+    except Exception as ex4: log(f"  關鍵分點驗證失敗:{ex4}")
     save_shards(S)
     try: kb_today(S, day)
     except Exception as e: log(f"  kb_today 失敗:{e}")

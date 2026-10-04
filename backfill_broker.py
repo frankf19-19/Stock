@@ -103,7 +103,8 @@ def main():
     days.sort(reverse=True)                                    # 先補最近的
     if not days:
         try:                                                 # r968:沒有要補的也算一次集中度個性
-            import conc_profile; conc_profile.build(R, S, fb.shard_key, log); fb.save_shards(S)
+            import conc_profile; conc_profile.build(R, S, fb.shard_key, log)
+            import kb_validate; kb_validate.build(R, S, fb.closes_of, log); fb.save_shards(S)
         except Exception as ex3: log(f"  集中度個性失敗:{ex3}")
         log("分點歷史:全部補齊"); return
     t0 = time.time(); n_days = 0
@@ -175,6 +176,9 @@ def main():
     try:                                                     # r968:🧬 主力集中度個性
         import conc_profile; conc_profile.build(R, S, fb.shard_key, log)
     except Exception as ex3: log(f"  集中度個性失敗:{ex3}")
+    try:                                                     # r969:🔍 關鍵分點驗證
+        import kb_validate; kb_validate.build(R, S, fb.closes_of, log)
+    except Exception as ex4: log(f"  關鍵分點驗證失敗:{ex4}")
     fb.save_shards(S); json.dump(st, open(st_p, "w"), ensure_ascii=False)
     log(f"✅ 分點歷史:本班補 {n_days} 個交易日,累計 {len(st['days_done'])};關鍵分點已算 {nk} 檔")
 
