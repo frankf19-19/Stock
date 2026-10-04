@@ -1,4 +1,4 @@
-/* K研所 · build r965 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r966 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r965';
+const APP_BUILD='r966';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1805,7 +1805,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r965</span>');
+  diag.push('<span style="color:var(--dim)">build r966</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -4383,6 +4383,98 @@ async function rptGemini(prompt,gen,noTools,maxTok,list){
   throw last||new Error('Gemini 無可用型號');
 }
 async function rptFullRun(s,boxId){ return rptFullRun2(s,boxId); }
+/* ═══ r966:AI 分析師報告——不再是「數字網站算、AI 只寫解讀」,而是 AI 像券商分析師一樣獨立研究、自己推估、自己給評等與目標價 ═══
+   網站算的數字降為「參考資料」餵給 AI(可以不同意,但要說理由),畫面下方另有收合的「網站量化參考」對照。 */
+const RPT2_SCHEMA={type:'OBJECT',properties:{
+  rating:{type:'STRING'},target_price:{type:'NUMBER'},target_method:{type:'STRING'},horizon:{type:'STRING'},
+  headline:{type:'STRING'},summary:{type:'STRING'},key_points:{type:'ARRAY',items:{type:'STRING'}},
+  company:{type:'STRING'},industry:{type:'STRING'},operations:{type:'STRING'},
+  forecast:{type:'OBJECT',properties:{eps_this_year:{type:'NUMBER'},eps_next_year:{type:'NUMBER'},revenue_growth_next:{type:'STRING'},margin_view:{type:'STRING'},reasoning:{type:'STRING'}}},
+  valuation:{type:'STRING'},technical:{type:'STRING'},chips:{type:'STRING'},
+  catalysts:{type:'ARRAY',items:{type:'STRING'}},risks:{type:'ARRAY',items:{type:'STRING'}},
+  strategy:{type:'OBJECT',properties:{short:{type:'STRING'},mid:{type:'STRING'},long:{type:'STRING'},entry:{type:'STRING'},stop:{type:'STRING'}}},
+  conclusion:{type:'STRING'}},
+  required:['rating','target_price','target_method','headline','summary','key_points','company','industry','operations','forecast','valuation','technical','chips','catalysts','risks','strategy','conclusion']};
+function rptAnalystPrompt(F,C,R){
+  const y=new Date().getFullYear();
+  return `你是台灣大型券商研究部的資深分析師(10 年以上產業研究經驗),要替投資人寫一份正式的「個股研究報告」。
+這不是把數據唸一遍——你要像真正的分析師一樣:理解這家公司怎麼賺錢、產業正在發生什麼、未來一年獲利會怎麼變,然後「自己推估 EPS、自己訂目標價、自己給評等」,並把推理過程寫清楚。
+
+標的:${F.name}(${F.id}),產業:${F.sector||'未知'},現價 ${F.px} 元。${F.desc?'公司簡介:'+F.desc:''}
+今天:${new Date().toISOString().slice(0,10)}(今年 = ${y} 年,明年 = ${y+1} 年)
+
+【最新研究筆記】(剛上網搜尋整理,事實優先使用並註明時間)
+${R||'(無,請用你對這家公司與產業的既有知識,並標明「推估」)'}
+
+【財務、股價、股性數據】
+${rptDigest(F)||'(無)'}
+
+【網站的量化參考】(規則計算,僅供參考——你可以不同意,但要說理由)
+${JSON.stringify({網站評分:C.score,趨勢:C.regime,籌碼:C.chips,本益比區間估值:C.valuation,支撐分層:C.entry})}
+
+請依序撰寫(繁體中文,專業但讀得懂):
+- rating:投資評等,只能是「買進」「增加持股」「中立」「減碼」「賣出」其一
+- target_price:12 個月目標價(數字)
+- target_method:目標價怎麼算的,寫出算式與假設(例:「${y+1}F EPS 52.0 元 × 目標本益比 22 倍 = 1,144 元;22 倍為近三年平均本益比,考量 AI 伺服器營收占比提升給予 10% 溢價」)
+- horizon:評等期間(例:12 個月)
+- headline:報告標題,一句話講清楚核心觀點(像券商報告標題,25 字內)
+- summary:投資摘要 200~300 字——為什麼給這個評等、市場可能忽略了什麼、最關鍵的變數
+- key_points:投資重點 3~5 點,每點一句結論+一句理由
+- company:公司概況與競爭優勢(產品、客戶、營收結構、護城河)150~250 字
+- industry:產業分析(景氣位置、供需、技術趨勢、競爭格局、它在產業中的位置)200~300 字
+- operations:近期營運分析(月營收趨勢、毛利率/營益率變化的原因、法說會指引)200~300 字
+- forecast:eps_this_year(今年 EPS 推估)、eps_next_year(明年 EPS 推估)、revenue_growth_next(明年營收成長推估,例「+15~20%」)、margin_view(毛利率展望)、reasoning(推估依據 100~200 字)
+- valuation:評價分析——現在的本益比貴不貴、和歷史區間與同業比較、為什麼值得(或不值得)這個倍數 150~250 字
+- technical:技術面解讀(趨勢、關鍵支撐壓力、股性與波段位置)100~200 字
+- chips:籌碼面解讀(法人、大戶、主力分點的動向代表什麼)100~200 字
+- catalysts:未來 3~6 個月的催化劑 3~5 點(盡量具體,含時間點)
+- risks:主要風險 3~5 點(這家公司特有的,不要寫對所有股票都成立的話)
+- strategy:short(1~4 週)、mid(1~3 月)、long(6 月以上)的操作建議,entry(建議布局區間)、stop(停損/觀點失效條件)
+- conclusion:結論 100~150 字
+
+寫作準則:
+1. 先講結論再講理由;每個判斷都要有依據(數據、事實或明確的邏輯),禁止「值得關注」「有望受惠」「審慎樂觀」這類空話。
+2. 講因果與連動:營收→毛利→EPS→估值→股價,要串起來;數據互相矛盾時要點出來並解釋。
+3. 要有立場,不兩面討好;看空理由要有份量。
+4. 研究筆記沒有的具體事實(訂單、客戶名、金額)不要編造;用既有知識推估的地方標明「推估」。
+5. 目標價、EPS 是你的專業推估,要和 target_method 的算式一致。`;
+}
+function rptReportHTML(N,C,F,eng,fromCache){
+  const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const p=t=>esc(t).split(/\n+/).map(x=>x.trim()).filter(Boolean).map(x=>`<p>${x.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')}</p>`).join('');
+  const li=a=>(a||[]).map(x=>`<li>${esc(x).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')}</li>`).join('');
+  const RC={'買進':'var(--up)','增加持股':'var(--up)','中立':'var(--amber)','減碼':'var(--down)','賣出':'var(--down)'};
+  const rc=RC[N.rating]||'var(--txt)';
+  const tp=+N.target_price,px=+F.px,up=(tp>0&&px>0)?((tp/px-1)*100):null;
+  const odd=(tp>0&&px>0)&&(tp>px*3||tp<px*0.3);
+  const fc=N.forecast||{},sg=N.strategy||{};
+  const sec=(ic,t,body)=>body?`<section class="ar-sec"><h4>${ic} ${t}</h4>${body}</section>`:'';
+  const fmt=v=>v==null||v===''||isNaN(+v)?'—':(+v).toLocaleString(undefined,{maximumFractionDigits:2});
+  return `<div class="ar">
+    <div class="ar-head">
+      <div class="ar-rate" style="color:${rc};border-color:${rc}">${esc(N.rating||'—')}</div>
+      <div class="ar-tp"><div class="ar-k">目標價${N.horizon?`(${esc(N.horizon)})`:''}</div><div class="ar-v">${fmt(tp)}${up!=null?` <small style="color:${up>=0?'var(--up)':'var(--down)'}">${up>=0?'+':''}${up.toFixed(1)}%</small>`:''}</div><div class="ar-k">現價 ${fmt(px)}</div></div>
+      <div class="ar-meta">分析師:AI(${esc(eng||'')})<br>${new Date().toISOString().slice(0,10)}${fromCache?'・今日快取':''}</div>
+    </div>
+    ${odd?'<div class="ar-warn">⚠ 目標價與現價差距過大,請特別留意 AI 的推估假設。</div>':''}
+    <h3 class="ar-title">${esc(N.headline||'')}</h3>
+    ${sec('📝','投資摘要',p(N.summary))}
+    ${(N.key_points||[]).length?sec('📌','投資重點',`<ol>${li(N.key_points)}</ol>`):''}
+    ${sec('🏢','公司概況與競爭優勢',p(N.company))}
+    ${sec('🏭','產業分析',p(N.industry))}
+    ${sec('📊','營運分析',p(N.operations))}
+    ${sec('🔮','財務預估',`<div class="ar-fc"><span>今年 EPS(推估)<b>${fmt(fc.eps_this_year)}</b></span><span>明年 EPS(推估)<b>${fmt(fc.eps_next_year)}</b></span><span>明年營收成長<b>${esc(fc.revenue_growth_next||'—')}</b></span></div>${fc.margin_view?`<p><b>毛利率展望</b>:${esc(fc.margin_view)}</p>`:''}${p(fc.reasoning)}`)}
+    ${sec('🎯','評價與目標價',`<div class="ar-method">${esc(N.target_method||'')}</div>${p(N.valuation)}`)}
+    ${sec('📈','技術面',p(N.technical))}
+    ${sec('🧮','籌碼面',p(N.chips))}
+    <div class="ar-2col">${sec('🚀','催化劑',`<ul>${li(N.catalysts)}</ul>`)}${sec('⚠️','風險',`<ul>${li(N.risks)}</ul>`)}</div>
+    ${sec('🧭','操作建議',`<div class="ar-plan"><div><b>短線 1~4 週</b>${esc(sg.short||'—')}</div><div><b>中線 1~3 月</b>${esc(sg.mid||'—')}</div><div><b>長線 6 月以上</b>${esc(sg.long||'—')}</div></div>${sg.entry?`<p><b>布局區間</b>:${esc(sg.entry)}</p>`:''}${sg.stop?`<p><b>停損/觀點失效</b>:${esc(sg.stop)}</p>`:''}`)}
+    ${sec('✅','結論',p(N.conclusion))}
+    ${N._research?`<details class="ar-det"><summary>🔎 AI 研究筆記(本報告引用的最新資訊)</summary>${p(N._research)}</details>`:''}
+    <details class="ar-det"><summary>🧮 網站量化參考(規則計算,與 AI 觀點對照)</summary>${rptFullHTML(Object.assign({},C,{verdict:`網站規則:${C.regime.state}・${C.chips.state}`}),F,false)}</details>
+    <div class="dim-note" style="margin-top:8px">本報告由 AI 研究最新資訊後撰寫,評等、EPS 與目標價皆為 AI 的推估,可能有誤;請與其他資訊交叉確認。僅供研究參考,非投資建議。${/Claude/.test(eng||'')?'':'想要更深入的推理:⚙ AI 設定填入 Claude 金鑰(付費,每次約 NT$3~6),會自動改用 Claude 撰寫。'}</div>
+  </div>`;
+}
 async function rptFullRun2(s,boxId){
   const box=document.getElementById(boxId||'rptBox');if(!box)return;
   box.innerHTML='<div class="dim-note">⏳ 整理資料中…</div>';
@@ -4391,48 +4483,47 @@ async function rptFullRun2(s,boxId){
     try{await Promise.all([hscanLoad().catch(()=>{}),biasLoad().catch(()=>{}),etfRevLoad().catch(()=>{})]);}catch(e){}
     const F=rptFullFacts(s,d);window.__rptFacts=F;
     const C=rptCalc(F);
-    const ck='rptFull5_'+s.id,today2=tpDay(Date.now()/1000);   // r913:換鍵,舊的「資料不足」結果作廢
-    let N=null,fromCache=false,aiErr=null;
-    if(!window.__rptForce){try{const c=JSON.parse(localStorage.getItem(ck)||'null');if(c&&c.d===today2&&c.n){N=c.n;fromCache=true;}}catch(e){}}
+    const ck='rptAR1_'+s.id,today2=tpDay(Date.now()/1000);
+    let N=null,fromCache=false,aiErr=null,status='';
+    if(!window.__rptForce){try{const c=JSON.parse(localStorage.getItem(ck)||'null');if(c&&c.d===today2&&c.n&&c.n.rating){N=c.n;fromCache=true;}}catch(e){}}
     window.__rptForce=false;
-    // 先把「程式算的」畫出來——AI 失敗也看得到
-    const paint=(note)=>{const J=Object.assign({},C,N||{verdict:`${C.regime.state}・${C.chips.state}(AI 解讀${aiErr?'暫時無法取得':'產生中…'})`}); J._note=note||'';
-      box.innerHTML=`<div class="dim-block" id="rptFullBlk" style="border-left:4px solid var(--t-purple)"><h3>✦ 完整分析 <span class="ds">數字由網站計算・文字由 AI 解讀</span>${fromCache?' <a href="javascript:void 0" id="rptFullRegen" style="font-size:12px">重新產生</a>':''}</h3>${rptFullHTML(J,F,fromCache)}</div>`;
-      const rg=document.getElementById('rptFullRegen');if(rg)rg.onclick=()=>{window.__rptForce=true;rptFullRun(s,boxId);};};
+    const paint=()=>{
+      const head=`<h3>✦ AI 分析師報告 <span class="ds">AI 研究最新資訊後的獨立判斷・評等・目標價・EPS 推估</span>${N?' <a href="javascript:void 0" id="rptFullRegen" style="font-size:12px">重新產生</a>':''}</h3>`;
+      const body=N?rptReportHTML(N,C,F,N._engine,fromCache)
+        :`<div class="ar-wait">${status||'準備中…'}</div>${aiErr?`<div class="dim-note">⚠ AI 報告暫時無法產生:${String(aiErr&&aiErr.message||aiErr).slice(0,80)} <a href="javascript:void 0" id="rptFullRetry2" style="color:var(--amber);font-weight:800">重試</a></div>`:''}
+          <details class="ar-det"${aiErr?' open':''}><summary>🧮 網站量化參考(規則計算)</summary>${rptFullHTML(Object.assign({},C,{verdict:`網站規則:${C.regime.state}・${C.chips.state}`}),F,false)}</details>`;
+      box.innerHTML=`<div class="dim-block" id="rptFullBlk" style="border-left:4px solid var(--t-purple)">${head}${body}</div>`;
+      const rg=document.getElementById('rptFullRegen');if(rg)rg.onclick=()=>{window.__rptForce=true;rptFullRun(s,boxId);};
+      const rt=document.getElementById('rptFullRetry2');if(rt)rt.onclick=()=>{window.__rptForce=true;rptFullRun(s,boxId);};
+    };
     paint();
     if(!N){
-      for(let i=0;i<3&&!(AI&&AI.keys&&(AI.keys.gemini||(AI.prov==='shared'&&AI.keys.shared)));i++){try{await gemAutoKey();}catch(e){}if(!(AI&&AI.keys&&AI.keys.gemini))await new Promise(r=>setTimeout(r,900));}
-      // r915:兩階段深度分析——① 上網研究最新資訊 ② 開「思考模式」做有判斷的分析
-      const st=m=>{const b=document.querySelector('#rptFullBlk .rf-verdict');if(b)b.textContent=m;};
+      for(let i=0;i<3&&!(AI&&AI.keys&&(AI.keys.anthropic||AI.keys.gemini||(AI.prov==='shared'&&AI.keys.shared)));i++){try{await gemAutoKey();}catch(e){}if(!(AI&&AI.keys&&AI.keys.gemini))await new Promise(r=>setTimeout(r,900));}
       const EN=rptEngine();let R='';
-      st(`🔎 AI 研究中(1/2,${EN.name}):搜尋最新新聞、法說會、產業動態…`);
+      status=`🔎 研究中(1/2,${EN.name}):搜尋最新月營收、法說會、產業動態、市場看法…`;paint();
+      const rp=rptResearchPrompt(F).replace('500 字內','800 字內')+'\n5. 最近的月營收數字與年增率、最新一季財報重點、法說會對下一季的指引\n6. 外資/投顧最近的評等與目標價(附券商與日期)';
       try{
-        if(EN.kind==='claude')R=await claudeOnce(rptResearchPrompt(F),{web:true,maxTok:2000,maxSearch:5});
-        else R=(await rptGemini(rptResearchPrompt(F),null,false,1500,['gemini-3.5-flash','gemini-2.5-flash'])).t;
+        if(EN.kind==='claude')R=await claudeOnce(rp,{web:true,maxTok:2500,maxSearch:6});
+        else R=(await rptGemini(rp,null,false,2500,['gemini-3.5-flash','gemini-2.5-flash'])).t;
       }catch(e){R='';}
-      st(`🧠 AI 分析中(2/2,${EN.name}):推理多空論點、估值、情境…(約 30~60 秒)`);
+      status=`✍️ 撰寫報告中(2/2,${EN.name}):推估 EPS、訂目標價、整理多空…(約 40~90 秒)`;paint();
       try{
         if(EN.kind==='claude'){
-          const keys=Object.keys(RPT_SCHEMA.properties).join('、');
-          const t=await claudeOnce(rptNarrPrompt(F,C,R)+`\n\n輸出格式:只輸出一個 JSON 物件(不要 markdown 標記、不要其他文字),欄位:${keys}。scenarios 物件含 bull/base/bear;fundamentals 物件含 summary/growth/quality;industry 物件含 position/outlook/catalysts(陣列)/risks(陣列);plan 物件含 short/mid/long;bull、bear、watch、risks 為字串陣列。`,{maxTok:6000});
+          const keys=Object.keys(RPT2_SCHEMA.properties).join('、');
+          const t=await claudeOnce(rptAnalystPrompt(F,C,R)+`\n\n輸出格式:只輸出一個 JSON 物件(不要 markdown 標記、不要其他文字),欄位:${keys}。forecast 物件含 eps_this_year/eps_next_year(數字)/revenue_growth_next/margin_view/reasoning;strategy 物件含 short/mid/long/entry/stop;key_points、catalysts、risks 為字串陣列;target_price 為數字。`,{maxTok:8000});
           const m=t.match(/\{[\s\S]*\}/);N=JSON.parse(m?m[0]:t);N._engine=EN.name;
         }else{
-          const gen={responseMimeType:'application/json',responseSchema:RPT_SCHEMA,temperature:0.4,thinkingConfig:{thinkingBudget:4096}};
-          const o=await rptGemini(rptNarrPrompt(F,C,R),gen,true,8192);N=JSON.parse(o.t);N._engine=o.mdl.replace(/^gemini-/,'Gemini ').replace(/-preview$/,'');
+          const gen={responseMimeType:'application/json',responseSchema:RPT2_SCHEMA,temperature:0.5,thinkingConfig:{thinkingBudget:6000}};
+          const o=await rptGemini(rptAnalystPrompt(F,C,R),gen,true,12000);N=JSON.parse(o.t);N._engine=o.mdl.replace(/^gemini-/,'Gemini ').replace(/-preview$/,'');
         }
-        if(R)N._research=R;aiErr=null;
-      }catch(e){aiErr=e;N=null;}
-      if(N){try{N=await rptFillIndustry(F,N);}catch(e){}}      // r913
-      if(N){const clean=v=>typeof v==='string'?rptSanitize(v,C.__allow,+F.px):Array.isArray(v)?v.map(clean):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,clean(x)])):v;
-        N=clean(N);try{localStorage.setItem(ck,JSON.stringify({d:today2,n:N}));}catch(e){}}
+        if(R)N._research=R;
+        if(!N.rating||!N.headline)throw new Error('AI 回傳的報告不完整');
+        try{localStorage.setItem(ck,JSON.stringify({d:today2,n:N}));}catch(e){}
+      }catch(e){aiErr=e;N=null;status='';}
     }
-    paint(N?'':'(AI 解讀暫時取不到:'+String(aiErr&&aiErr.message||aiErr||'').slice(0,40)+';上面數字仍有效)');
-    // 新聞:獨立一步(開 Google 搜尋),失敗不影響
-    if(N&&!N.news&&!fromCache){try{const t=await gaAiOnce(`用 Google 搜尋 ${F.name}(${F.id})最近 30 天 2~4 則最重要的新聞。每則一行,格式:YYYY-MM-DD 標題重點(來源)。只列真的搜得到的,找不到就回「無」。`,null,false,600,'gemini-2.5-flash');
-      const lines=(t||'').split('\n').map(x=>x.replace(/^[-*•\d.\s]+/,'').trim()).filter(x=>/\d{4}-\d{2}-\d{2}/.test(x)).slice(0,4);
-      if(lines.length){N.news=lines;try{localStorage.setItem(ck,JSON.stringify({d:today2,n:N}));}catch(e){}paint();}}catch(e){}}
+    paint();
   }catch(err){
-    box.innerHTML='<div class="dim-note">⚠ 完整分析失敗:'+String(err&&err.message||err).slice(0,140)+' <a href="javascript:void 0" id="rptFullRetry" style="color:var(--amber);font-weight:800">重試</a></div>';
+    box.innerHTML='<div class="dim-note">⚠ 分析失敗:'+String(err&&err.message||err).slice(0,140)+' <a href="javascript:void 0" id="rptFullRetry" style="color:var(--amber);font-weight:800">重試</a></div>';
     const rb=document.getElementById('rptFullRetry');if(rb)rb.onclick=()=>rptFullRun(s,boxId);
   }
 }
@@ -13347,7 +13438,7 @@ async function showDetail(id){
     ${kpiStrip(s)}
     ${s.etf?'':`<button class="aifull-btn" id="rptFullTop" type="button">
       <span class="aifull-ic"><svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true"><defs><linearGradient id="aifg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#f0c060"/></linearGradient></defs><path d="M24 4l3.2 8.6L36 16l-8.8 3.4L24 28l-3.2-8.6L12 16l8.8-3.4z" fill="url(#aifg)"/><path d="M36 26l1.8 4.6L42 32l-4.2 1.4L36 38l-1.8-4.6L30 32l4.2-1.4z" fill="url(#aifg)" opacity=".9"/><path d="M11 30l1.4 3.6L16 35l-3.6 1.4L11 40l-1.4-3.6L6 35l3.6-1.4z" fill="url(#aifg)" opacity=".8"/></svg></span>
-      <span class="aifull-t"><b>AI 一鍵完整分析</b><small>趨勢・籌碼・產業・股性・週期・目標價・長期進場價</small></span>
+      <span class="aifull-t"><b>AI 分析師報告</b><small>像券商分析師一樣研究:評等・目標價・EPS 推估・產業・多空・操作建議</small></span>
       <span class="aifull-go">分析 ›</span>
     </button>
     <div id="rptFullTopBox"></div>`}
@@ -13459,7 +13550,7 @@ async function showDetail(id){
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         <button class="btn" id="rptQuick">⚡ 產生即席報告(站內資料)</button>
         <button class="btn" id="rptAI">🤖 AI 深度版(查最新新聞)</button>
-        <button class="btn" id="rptFull" style="border-color:var(--t-purple);color:var(--t-purple);font-weight:900">🧠 一鍵完整分析(趨勢・籌碼・產業・目標價・進場價)</button>
+        <button class="btn" id="rptFull" style="border-color:var(--t-purple);color:var(--t-purple);font-weight:900">🧠 AI 分析師報告(評等・目標價・EPS 推估・多空・操作)</button>
         <button class="btn" id="rptPDF">📄 匯出 PDF(A4)</button>
         <button class="btn" id="rptCopy" style="display:none">📋 複製全文</button>
       </div>

@@ -2278,3 +2278,31 @@ body.kl-open #klSheetBd{opacity:1;pointer-events:auto}
 #navBack svg{color:var(--gold,#E8B44A);flex:0 0 auto}
 #navBack:active{transform:scale(.94)}
 html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:rgba(255,255,255,.95);color:#1a1a1a}
+/* r966:AI 分析師報告 */
+.ar{font-size:14px;line-height:1.8}
+.ar-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 14px;margin:6px 0 10px;border-radius:14px;background:var(--panel2,#22252C);border:1px solid var(--line)}
+.ar-rate{font-size:20px;font-weight:900;padding:6px 16px;border:2px solid;border-radius:12px;letter-spacing:2px}
+.ar-tp{flex:1;min-width:140px}
+.ar-tp .ar-v{font-family:var(--mono,monospace);font-size:24px;font-weight:900;line-height:1.2}
+.ar-tp .ar-v small{font-size:14px;margin-left:4px}
+.ar-k{font-size:12px;color:var(--dim)}
+.ar-meta{font-size:11.5px;color:var(--dim);text-align:right;line-height:1.5}
+.ar-warn{color:var(--amber);font-size:12.5px;margin:-4px 0 8px}
+.ar-title{font-size:18px!important;font-weight:900;margin:4px 0 6px!important;line-height:1.5;color:var(--txt)}
+.ar-sec{margin:12px 0;padding-top:10px;border-top:1px solid var(--line)}
+.ar-sec h4{font-size:15px;font-weight:900;margin:0 0 6px;color:var(--gold,#E8B44A)}
+.ar-sec p{margin:0 0 8px}
+.ar-sec ol,.ar-sec ul{margin:0;padding-left:20px}
+.ar-sec li{margin-bottom:6px}
+.ar-fc{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.ar-fc span{flex:1;min-width:110px;padding:8px 10px;border-radius:10px;background:var(--panel2,#22252C);font-size:12px;color:var(--dim);display:flex;flex-direction:column}
+.ar-fc b{font-family:var(--mono,monospace);font-size:17px;color:var(--txt)}
+.ar-method{padding:8px 12px;border-left:3px solid var(--gold,#E8B44A);background:color-mix(in srgb,var(--gold,#E8B44A) 8%,transparent);border-radius:0 8px 8px 0;margin-bottom:8px;font-size:13.5px}
+.ar-2col{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.ar-plan{display:grid;gap:6px;margin-bottom:6px}
+.ar-plan div{padding:8px 10px;border-radius:10px;background:var(--panel2,#22252C)}
+.ar-plan b{display:block;font-size:12px;color:var(--gold,#E8B44A)}
+.ar-det{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.ar-det summary{cursor:pointer;font-weight:800;font-size:13px;color:var(--mut)}
+.ar-wait{padding:14px;text-align:center;color:var(--mut);font-weight:700}
+@media(max-width:640px){.ar-2col{grid-template-columns:1fr}.ar-meta{text-align:left;width:100%}}
