@@ -1,4 +1,4 @@
-/* K研所 · build r950 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r951 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r950';
+const APP_BUILD='r951';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -526,7 +526,7 @@ async function boot(){
   window.DATA=DATA;                                              // r927:DATA 是 let,mobile.js 與開機看門狗要用 window.DATA(之前永遠拿不到 → 指數列永遠「載入中」、看門狗誤報)
   try{snapLoad();}catch(e){}
   setBadges(); renderAll(); route();   // 資料一到立即渲染,背景抓取由各計時器延後進行
-  /* r950:冷開 App 的空殼修正——今日總覽(指數)、區塊導覽列是 lazyRun:一看到就先跑,常常跑在 data.json 到之前 → 空白要等 60 秒;
+  /* r951:冷開 App 的空殼修正——今日總覽(指數)、區塊導覽列是 lazyRun:一看到就先跑,常常跑在 data.json 到之前 → 空白要等 60 秒;
      診斷列/官方收盤只在盤中或盤後同步窗自動更新 → 假日、深夜重開永遠是空的,得手動按「更新」。資料到了就各補一次 */
   setTimeout(()=>{try{renderHero();}catch(e){}try{renderSecNav();}catch(e){}try{renderFavAlertBar();}catch(e){}},60);
   setTimeout(()=>{try{if(!marketOpen())refreshLive(true);}catch(e){}},1500);   // 盤中有每分鐘的自動更新,不重複打
@@ -1803,7 +1803,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r950</span>');
+  diag.push('<span style="color:var(--dim)">build r951</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -2129,7 +2129,7 @@ function drawIntraLWC(domId,d){
     rightPriceScale:{borderVisible:false,scaleMargins:{top:0.08,bottom:0.10}},
     timeScale:{borderVisible:false,timeVisible:true,secondsVisible:false,rightOffset:0,shiftVisibleRangeOnNewBar:false},
     crosshair:{mode:LightweightCharts.CrosshairMode.Magnet},
-    handleScroll:{mouseWheel:false},handleScale:{mouseWheel:false,pinch:true},
+    handleScroll:false,handleScale:false,   // r951:即時分時圖固定 09:00~13:30 框,不能拖、不能縮(之前手指一滑就跑出資料外、留大片空白)
     localization:{locale:'zh-TW'}
   });
   box.__lwc=ch;
@@ -7703,7 +7703,7 @@ function prevCloseOf(s){                                   // r468:個股昨收�
     try{                                                   // 日K分片:不受四捨五入漲跌幅污染的精確昨收
       const sh=shardOf(s),e=(KCACHE[sh]||{})[s.id];
       if(e&&e.o&&e.o.length>=2){
-        const today=tpDay(Date.now()/1000);
+        const today=(typeof sessDay==='function')?sessDay():tpDay(Date.now()/1000);   // r951:用「最近交易時段日」而非日曆日——週末/凌晨看前一交易日圖時,昨收要是那天的前一天(之前週末顯示昨收=當日收盤)
         const lastD=e.d&&e.d.length?String(e.d[e.d.length-1]).slice(0,10):null;
         const c1=+e.o[e.o.length-1][3],c2=+e.o[e.o.length-2][3];
         const v=lastD===today?c2:c1;
@@ -17342,7 +17342,7 @@ function setHomeTab(t){
     if(b)b.classList.toggle('on',k===t);
   });
   try{localStorage.setItem('homeTab',t);}catch(e){}
-  try{if(window.__mobNavSync)setTimeout(window.__mobNavSync,0);}catch(e){}   // r950:任何方式切分頁(含程式還原)都同步底部導覽
+  try{if(window.__mobNavSync)setTimeout(window.__mobNavSync,0);}catch(e){}   // r951:任何方式切分頁(含程式還原)都同步底部導覽
   if(t==='aipick'){setTimeout(()=>{   // r745:延到本輪腳本跑完再碰 AIPK(啟動時還原分頁會早於 AIPK 宣告 → TDZ)
     try{aipLoad().then(()=>{try{renderAIPick();}catch(e){}});}catch(e){}
     try{setTimeout(aipSweep,600);}catch(e){}},0);}
@@ -18909,7 +18909,7 @@ function renderEtf(){
   const qi=document.getElementById('etfQ');
   if(qi)qi.oninput=()=>{try{renderEtf();}catch(e){}};
   let t='stocks';try{t=localStorage.getItem('homeTab')||'stocks';}catch(e){}
-  try{if(window.matchMedia('(max-width:640px)').matches)t='macro';}catch(e){}   // r950:手機冷開一律從「大盤」開始(底部導覽也亮大盤)——之前還原上次分頁,畫面是 AI Pick 卻亮著大盤
+  try{if(window.matchMedia('(max-width:640px)').matches)t='macro';}catch(e){}   // r951:手機冷開一律從「大盤」開始(底部導覽也亮大盤)——之前還原上次分頁,畫面是 AI Pick 卻亮著大盤
   setHomeTab(t);
 })();
 /* 🧺 r751:個股反查——哪些主動式 ETF 持有這一檔、今天加碼還是減碼(每日快照相減,張數為真實申報值) */
