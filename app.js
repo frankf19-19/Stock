@@ -1,4 +1,4 @@
-/* K研所 · build r962 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r963 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r962';
+const APP_BUILD='r963';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1803,7 +1803,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r962</span>');
+  diag.push('<span style="color:var(--dim)">build r963</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -6538,11 +6538,30 @@ function stkReorderSections(s){                            // r501:個股頁資�
     const first=document.querySelector('[data-sec="stk_k"]');
     if(!first)return;
     const root=first.parentNode;
+    /* r963:分頁內容歸位——
+       ① 除權息/配息紀錄原本塞在「走勢・K線」節裡(技術)→ 獨立成「💵 股利與除權息」放基本面
+       ② 海龜法則、漲停 8 招、頭部七腳印、轉折點分析是技術型態工具,原本在「AI 綜合研判」(研判)→ 獨立成「🧪 技術型態檢核」放技術
+       ③ 三力檢視是基本+籌碼+技術的綜合評分,原本在技術 → 移到研判 */
+    const mkSec=(key,title,sub)=>{
+      if(root.querySelector(`[data-sec="${key}"]`))return document.getElementById('sb-'+key);
+      const t=document.createElement('div');t.className='sec-title';t.dataset.sec=key;
+      t.innerHTML=`${title} <span style="font-weight:400;font-size:13px;letter-spacing:0">${sub}</span>`;
+      const b=document.createElement('div');b.className='sec-body';b.id='sb-'+key;
+      root.appendChild(t);root.appendChild(b);return b;
+    };
+    try{
+      const dv=document.getElementById('divTL');
+      if(dv){const b=mkSec('stk_div','💵 股利與除權息','配息紀錄・殖利率・發放率・除權息日');if(b&&dv.parentNode!==b)b.appendChild(dv);}
+      const ids=['turtleBox','zt8Box','boxHead7','boxTurn'];
+      const els=ids.map(id=>document.getElementById(id)).filter(Boolean);
+      if(els.length){const b=mkSec('stk_tp','🧪 技術型態檢核','海龜法則・漲停 8 招・頭部七腳印・轉折點');if(b)els.forEach(el=>{if(el.parentNode!==b)b.appendChild(el);});}
+      if(typeof wireDetailSecs==='function')wireDetailSecs();
+    }catch(e){}
     const GROUPS=[
-      ['📈','技術與價格','現在怎麼走・在哪進出',['stk_k','stk_dna','stk_3','stk_s']],
+      ['📈','技術與價格','現在怎麼走・在哪進出',['stk_k','stk_tp','stk_dna','stk_s']],
       ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_ae','stk_h','stk_bk','stk_cost','stk_rhythm','stk_bs','stk_c']],   // r806:分點動向歸籌碼章;r835:成本、節奏獨立成節
-      ['💰','基本面與價值','值不值得・前景如何',['stk_r','stk_v','stk_peer','stk_conf']],
-      ['🧭','綜合研判與背景','AI 總結・市場觀點・公司背景',['stk_ai','stk_m','stk_p','stk_e']],
+      ['💰','基本面與價值','值不值得・前景如何',['stk_r','stk_v','stk_div','stk_peer','stk_conf']],
+      ['🧭','綜合研判與背景','AI 總結・三力評分・市場觀點・公司背景',['stk_ai','stk_3','stk_m','stk_p','stk_e']],
     ];
     const pair=k=>{
       const t=root.querySelector(`[data-sec="${k}"]`);
@@ -12195,7 +12214,7 @@ function bindKControls(sLike){
   }
   
 
-window.SEG_CARD={lvSeg:['kLV','lvBox'],fwSeg:['kFW','boxTurn'],dvSeg:['kDV','divTL']};
+window.SEG_CARD={lvSeg:['kLV','lvBox'],fwSeg:['kFW','boxTurn']};   // r963:除權息卡不再搬到 K 線下(它住在基本面「股利與除權息」)
 window.wireSegRelocate=function(){
   Object.entries(SEG_CARD).forEach(([segId,[lsKey,boxId]])=>{
     document.querySelectorAll('#'+segId+' button').forEach(b=>{
@@ -13289,7 +13308,7 @@ async function showDetail(id){
       <div class="ticker-track" id="sTickTrack"></div>
     </div>
     <div id="fundAlert" style="display:none"></div>
-    <div class="sec-title" data-sec="stk_k">${s.etf?`📈 走勢`:`📈 走勢・價位・進場策略`} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.etf?`K線・配息時間`:`K線・關鍵價位・除權息時間`}</span></div><div class="sec-body" id="sb-stk_k">
+    <div class="sec-title" data-sec="stk_k">${s.etf?`📈 走勢`:`📈 走勢・價位・進場策略`} <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.etf?`K線・配息時間`:`即時走勢・K線・關鍵價位・進場策略`}</span></div><div class="sec-body" id="sb-stk_k">
     <div id="kwrap"><div class="chart-box"><h3>K 線載入中…</h3></div></div>
     <div id="divTL" data-jumpname="📅 除權息與配息"></div>
     </div>
