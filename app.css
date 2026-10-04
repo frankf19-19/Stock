@@ -2226,3 +2226,31 @@ body.kl-open #klSheetBd{opacity:1;pointer-events:auto}
 .kl-sw.on i{transform:translateX(18px)}
 #klSheet .kl-foot{text-align:center;font-size:11.5px;color:var(--dim);padding:16px 0 4px}
 @media(max-width:640px){.kl-bar{width:100%}.kl-bar .kl-btn{flex:1;justify-content:center}}
+/* ══ r953:K線工具列——週期/區間改成兩條分段控制(不必橫滑)、副圖改下拉 ══ */
+.kl-host #indSeg{display:none!important}
+.kl-host .ind-head{display:flex;flex-wrap:wrap}
+.kl-host .kseg-row{order:2;display:flex!important;flex-wrap:nowrap!important;gap:8px!important;overflow:visible!important;width:100%;margin-left:0!important;-webkit-mask-image:none!important;mask-image:none!important}
+.kl-host .kl-bar{order:3}
+.kl-host #itvSeg,.kl-host #rngSeg{flex:1 1 0;min-width:0;display:grid!important;grid-template-columns:repeat(4,1fr);gap:2px;padding:3px;border-radius:12px;
+  background:var(--bg,#0A0B0D)!important;border:1px solid var(--line)!important;box-shadow:none!important}
+.kl-host #itvSeg button,.kl-host #rngSeg button{height:32px;padding:0 2px!important;border:none!important;border-radius:9px!important;background:transparent!important;
+  color:var(--mut)!important;font-size:13px!important;font-weight:800;font-family:inherit;white-space:nowrap;box-shadow:none!important;transition:background .15s,color .15s}
+.kl-host #itvSeg button.on,.kl-host #rngSeg button.on{background:var(--panel2,#22252C)!important;color:var(--gold,#E8B44A)!important;box-shadow:0 1px 3px rgba(0,0,0,.35),inset 0 0 0 1px color-mix(in srgb,var(--gold,#E8B44A) 35%,transparent)!important}
+.kl-host.kl-yr #rngSeg{opacity:.35;pointer-events:none}
+.kl-bar .kl-car{font-size:10px;opacity:.7;margin-left:-2px}
+.kl-bar .kl-ind{border-color:var(--line);background:var(--panel2,#22252C);color:var(--txt)}
+.kl-bar .kl-ind em{background:color-mix(in srgb,var(--txt) 10%,transparent);color:var(--txt)}
+#klIndMenu{position:fixed;z-index:72;background:var(--panel,#16181D);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 12px 34px rgba(0,0,0,.55);animation:klPop .14s ease-out}
+@keyframes klPop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+#klIndMenu .kl-mh{font-size:11.5px;font-weight:800;color:var(--dim);letter-spacing:1px;padding:6px 10px 4px}
+#klIndMenu button{display:flex;align-items:center;gap:10px;width:100%;padding:10px;border:none;border-radius:10px;background:none;color:var(--txt);text-align:left;font-family:inherit;cursor:pointer}
+#klIndMenu button b{font-family:var(--mono,monospace);font-size:14px;min-width:46px}
+#klIndMenu button small{flex:1;font-size:12px;color:var(--dim)}
+#klIndMenu button span{color:var(--gold,#E8B44A);font-weight:900}
+#klIndMenu button.on{background:color-mix(in srgb,var(--gold,#E8B44A) 10%,transparent)}
+#klIndMenu button.on b{color:var(--gold,#E8B44A)}
+@media(max-width:640px){
+  .kl-host .kseg-row{flex-direction:column!important;gap:8px!important}
+  .kl-host #itvSeg,.kl-host #rngSeg{width:100%;flex:none}
+  .kl-bar .kl-ind{flex:1;justify-content:center}
+}
