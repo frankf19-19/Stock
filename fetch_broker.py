@@ -296,22 +296,70 @@ def gov_banks(day):
     return out
 
 
+LOOKBACK = 6        # r957:每班都回頭檢查最近 6 個交易日的缺口
+MAX_TRIES = 4       # 有成交卻回空 → 最多再試 4 班(FinMind 傍晚陸續上架,早抓會拿到空的)
+
+
+def recent_days(day, n):
+    try:
+        ds = [d for d in (json.load(open("k/tw23.json", encoding="utf-8")).get("2330") or {}).get("d") or [] if d <= day]
+        return ds[-n:] if ds else [day]
+    except Exception:
+        return [day]
+
+
+_KV = {}
+def traded(sid, d):
+    """這檔這天有沒有成交(日 K 有棒且量 > 0);查不到就當有,照樣去抓"""
+    k = shard_key(sid)
+    if k not in _KV:
+        try: _KV[k] = json.load(open(f"k/tw{k}.json", encoding="utf-8"))
+        except Exception: _KV[k] = {}
+    e = _KV[k].get(sid)
+    if not e or not e.get("d"): return True
+    if d < e["d"][0]: return True
+    try:
+        i = e["d"].index(d)
+    except ValueError:
+        return False                                         # 這天沒有 K 棒 = 停牌/未上市
+    b = e["o"][i] if i < len(e.get("o") or []) else None
+    return bool(b and len(b) >= 5 and (b[4] or 0) > 0)
+
+
+def has_raw(R, sid, d):
+    e = (R.get(shard_key(sid)) or {}).get(sid)
+    return bool(e and d in (e.get("d") or []))
+
+
+def prev_summ(R, sid, d):
+    e = (R.get(shard_key(sid)) or {}).get(sid) or {}
+    best = None
+    for dd, ss in zip(e.get("d") or [], e.get("s") or []):
+        if dd < d and (best is None or dd > best[0]): best = (dd, ss)
+    return best[1] if best else None
+
+
 def main():
+    """r957 改版:
+    舊版:狀態檔只記「今天」,抓過就標記完成——FinMind 傍晚分批上架,16:40 先抓到的大量空回應也被當完成,
+          隔天狀態歸零、前一天永遠不補 → 9/29 只剩 63%、9/30 56%、10/02 86% 的股票有分點。
+    新版:①有成交卻回空的不算完成,下一班再試(最多 MAX_TRIES 班);②每班回頭檢查最近 LOOKBACK 個交易日,
+          以「raw 裡實際有沒有那天的資料」判斷缺口(不信狀態檔),先補今天再補舊的。"""
     if not TOKEN: log("未設 FINMIND_TOKEN"); return
     day = last_trade_day()
     st_p = os.path.join(DIR, "_state.json"); os.makedirs(DIR, exist_ok=True)
     try: st = json.load(open(st_p, encoding="utf-8"))
     except Exception: st = {}
-    if st.get("date") != day: st = {"date": day, "done": [], "gov": False}
-    done = set(st.get("done") or [])
+    tries = st.get("tries") if isinstance(st.get("tries"), dict) else {}
+    days = recent_days(day, LOOKBACK)
+    tries = {d: v for d, v in tries.items() if d in days}
     try: data = json.load(open("data.json", encoding="utf-8"))
     except Exception: log("沒有 data.json"); return
     ids = [s["id"] for s in data.get("stocks") or [] if s.get("market") == "TW" and not s.get("etf")]
-    todo = [i for i in ids if i not in done]
     S = load_shards(); R = raw_load()
     t0 = time.time(); n = 0; empty = 0; fail = 0
-    # ── 八大行庫(一次)──
-    if not st.get("gov"):
+    # ── 八大行庫(當天一次)──
+    if st.get("gov_day") != day and not (st.get("date") == day and st.get("gov")):
         try:
             g = gov_banks(day)
             try: G = json.load(open("gov.json", encoding="utf-8"))
@@ -324,42 +372,53 @@ def main():
                 top = sorted(g.items(), key=lambda x: -x[1])
                 G["top"] = {"d": day, "buy": top[:10], "sell": sorted(g.items(), key=lambda x: x[1])[:10], "net_all": sum(g.values())}
                 json.dump(G, open("gov.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-            st["gov"] = True; log(f"  八大行庫 {day}:{len(g)} 檔,全市場淨 {sum(g.values()):+,} 張")
+            st["gov_day"] = day; log(f"  八大行庫 {day}:{len(g)} 檔,全市場淨 {sum(g.values()):+,} 張")
         except Exception as e:
             log(f"  八大行庫失敗:{e}")
-    log(f"分點 {day}:待抓 {len(todo)}/{len(ids)} 檔(本輪上限 {BUDGET_SEC//60} 分鐘,{THREADS} 線程)")
+    # ── 缺口清單:今天優先,其餘由近到遠 ──
+    tasks = []; cov = {}
+    for d in [day] + [x for x in reversed(days) if x != day]:
+        tr = tries.setdefault(d, {})
+        need = [sid for sid in ids if not has_raw(R, sid, d) and traded(sid, d) and tr.get(sid, 0) < MAX_TRIES]
+        have = sum(1 for sid in ids if has_raw(R, sid, d))
+        cov[d] = have
+        tasks += [(d, sid) for sid in need]
+    log("分點缺口:" + "、".join(f"{d[5:]} 有 {cov[d]}/{len(ids)}" for d in sorted(cov)) + f";本班待抓 {len(tasks)} 筆(上限 {BUDGET_SEC//60} 分鐘,{THREADS} 線程)")
     from concurrent.futures import ThreadPoolExecutor
-    def one(sid):
+    def one(task):
+        d, sid = task
         try:
-            r = fm("TaiwanStockTradingDailyReport", data_id=sid, start_date=day, end_date=day); time.sleep(SLEEP); return sid, r, None
+            r = fm("TaiwanStockTradingDailyReport", data_id=sid, start_date=d, end_date=d); time.sleep(SLEEP); return task, r, None
         except Exception as e:
-            time.sleep(2); return sid, None, e
+            time.sleep(2); return task, None, e
     ex = ThreadPoolExecutor(max_workers=THREADS)
-    pending = []; it = iter(todo)
+    pending = []; it = iter(tasks); got = {}
     def submit_next():
         try: pending.append(ex.submit(one, next(it))); return True
         except StopIteration: return False
     for _ in range(THREADS): submit_next()
     while pending:
-        f = pending.pop(0); sid, rows, err = f.result()
+        f = pending.pop(0); (d, sid), rows, err = f.result()
         if time.time() - t0 <= BUDGET_SEC: submit_next()
         elif not pending: log("  時間到,下一輪接著抓")
         if err is not None:
             fail += 1
-            if fail <= 3: log(f"  {sid} 失敗:{err}")
+            if fail <= 3: log(f"  {sid}@{d} 失敗:{err}")
             if fail >= 20: log("  連續失敗太多,停"); break
             continue
-        k = shard_key(sid); e = R.setdefault(k, {}).setdefault(sid, {"d": [], "s": []})
-        prev = e["s"][-1] if e["d"] and e["d"][-1] < day else None
-        summ = summarize(rows, prev)
-        if summ is None: empty += 1
-        else: raw_put(R, sid, day, summ)
-        done.add(sid); n += 1
+        summ = summarize(rows, prev_summ(R, sid, d))
+        if summ is None:
+            empty += 1; tries[d][sid] = tries[d].get(sid, 0) + 1          # 有成交卻沒資料 → 下一班再試
+        else:
+            raw_put(R, sid, d, summ); got[d] = got.get(d, 0) + 1
+        n += 1
         if n % 200 == 0:
-            st["done"] = sorted(done); json.dump(st, open(st_p, "w"), ensure_ascii=False); save_shards(R, RAW)
-            log(f"  進度 {n}/{len(todo)}({int(time.time()-t0)}s)")
+            st["tries"] = tries; json.dump(st, open(st_p, "w"), ensure_ascii=False); save_shards(R, RAW)
+            log(f"  進度 {n}/{len(tasks)}({int(time.time()-t0)}s)")
     ex.shutdown(wait=False)
-    st["done"] = sorted(done); json.dump(st, open(st_p, "w"), ensure_ascii=False)
+    st.update({"date": day, "tries": tries, "cov": {d: cov[d] + got.get(d, 0) for d in cov}, "ids": len(ids)})
+    st.pop("done", None)
+    json.dump(st, open(st_p, "w"), ensure_ascii=False)
     save_shards(R, RAW); raw_to_display(R, S)
     # r804:關鍵分點(有 15 天以上才算);r838:用 raw 250 日算,寫進 repo 的 60 日分片
     nk = 0
@@ -374,7 +433,8 @@ def main():
     save_shards(S)
     try: kb_today(S, day)
     except Exception as e: log(f"  kb_today 失敗:{e}")
-    log(f"✅ 分點 {day}:本輪 {n} 檔(無資料 {empty}、失敗 {fail}),累計 {len(done)}/{len(ids)};關鍵分點已算 {nk} 檔")
+    log(f"✅ 分點:本輪抓 {n} 筆(補進 {sum(got.values())}、仍空 {empty}、失敗 {fail});覆蓋 " +
+        "、".join(f"{d[5:]} {st['cov'][d]}/{len(ids)}" for d in sorted(st["cov"])) + f";關鍵分點已算 {nk} 檔")
 
 
 def broker_tags(R):
