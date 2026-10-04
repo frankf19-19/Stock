@@ -430,6 +430,9 @@ def main():
             except Exception: pass
     try: broker_tags(R)
     except Exception as ex2: log(f"  券商標籤失敗:{ex2}")
+    try:                                                     # r968:🧬 主力集中度個性(每檔 250 日,walk-forward 驗證)
+        import conc_profile; conc_profile.build(R, S, shard_key, log)
+    except Exception as ex3: log(f"  集中度個性失敗:{ex3}")
     save_shards(S)
     try: kb_today(S, day)
     except Exception as e: log(f"  kb_today 失敗:{e}")

@@ -2311,3 +2311,30 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .kl-bar button{white-space:nowrap;flex:0 0 auto;min-width:max-content}
 .kl-bar button *{white-space:nowrap}
 @media(max-width:640px){.kl-bar .kl-btn,.kl-bar .kl-ind{flex:1 1 auto}}
+/* r968:主力集中度個性 */
+.cp{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel2,#22252C);font-size:13.5px;line-height:1.7}
+.cp-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px}
+.cp-h b{font-size:15px}
+.cp-type{font-weight:900;padding:2px 10px;border:1.5px solid;border-radius:999px;font-size:13px}
+.cp-vb{font-size:12px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--panel,#16181D)}
+.cp-vb.ok{color:var(--up)}.cp-vb.no{color:var(--amber)}
+.cp p{margin:4px 0 8px}
+.cp-now{padding:8px 10px;border-radius:10px;background:var(--panel,#16181D);margin-bottom:8px}
+.cp-sub{font-size:12px;font-weight:800;color:var(--dim);margin:10px 0 4px;letter-spacing:.5px}
+.cp-q{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;text-align:center}
+.cp-qc b{display:block;font-family:var(--mono,monospace);font-size:12.5px}
+.cp-qc small{font-size:10.5px;color:var(--dim);line-height:1.3;display:block}
+.cp-qb{position:relative;height:92px;border-bottom:1px dashed var(--line)}
+.cp-qb::after{content:'';position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--line)}
+.cp-qb i{position:absolute;left:28%;right:28%;border-radius:3px;opacity:.85}
+.cp-tw{overflow-x:auto}
+.cp-tb{width:100%;border-collapse:collapse;font-size:12.5px;font-family:var(--mono,monospace)}
+.cp-tb th{font-family:var(--sans,inherit);color:var(--dim);font-weight:700;padding:4px;text-align:right}
+.cp-tb th:first-child,.cp-tb td:first-child{text-align:left;font-family:var(--sans,inherit)}
+.cp-tb td{padding:5px 4px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+.cp-tb td small{display:block;font-size:10.5px;color:var(--dim)}
+.cp-note{font-size:12.5px;color:var(--txt2)}
+.cp-note em{font-style:normal;font-size:10.5px;color:var(--amber);border:1px solid currentColor;border-radius:4px;padding:0 3px;margin-left:2px}
+.cp-val{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12.5px}
+.cp-val div{padding:8px 10px;border-radius:10px;background:var(--panel,#16181D)}
+@media(max-width:640px){.cp-val{grid-template-columns:1fr}}

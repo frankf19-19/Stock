@@ -101,7 +101,11 @@ def main():
     doneset = set(st["days_done"]) | (set() if os.environ.get("BKH_ALL") == "1" else set(st.get("prio_done") or []))
     days = [d for d in trading_days() if d not in doneset]
     days.sort(reverse=True)                                    # 先補最近的
-    if not days: log("分點歷史:全部補齊"); return
+    if not days:
+        try:                                                 # r968:沒有要補的也算一次集中度個性
+            import conc_profile; conc_profile.build(R, S, fb.shard_key, log); fb.save_shards(S)
+        except Exception as ex3: log(f"  集中度個性失敗:{ex3}")
+        log("分點歷史:全部補齊"); return
     t0 = time.time(); n_days = 0
     log(f"分點歷史:待補 {len(days)} 個交易日(模式 {st['mode']}),本班最多 {BUDGET_SEC//60} 分鐘")
     for day in days:
@@ -168,6 +172,9 @@ def main():
             except Exception: pass
     try: fb.broker_tags(R)
     except Exception as ex2: log(f"  券商標籤失敗:{ex2}")
+    try:                                                     # r968:🧬 主力集中度個性
+        import conc_profile; conc_profile.build(R, S, fb.shard_key, log)
+    except Exception as ex3: log(f"  集中度個性失敗:{ex3}")
     fb.save_shards(S); json.dump(st, open(st_p, "w"), ensure_ascii=False)
     log(f"✅ 分點歷史:本班補 {n_days} 個交易日,累計 {len(st['days_done'])};關鍵分點已算 {nk} 檔")
 
