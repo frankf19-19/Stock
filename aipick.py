@@ -415,10 +415,12 @@ def gen_week(data, buy_week, learn=None, reviews=None):
     cands = []
     # r935:台股改用 v2(15 年訓練模型 + 過熱過濾);美股維持原模型(尚未用同套引擎驗證);回測週不用
     V2 = None
-    if MKT == "TW" and os.environ.get("AIPICK_V2", "1") == "1" and not (learn or {}).get("_bt"):
+    # r955:美股也上 v2(規則篩選 + 美股重訓模型排序;回測驗證見 aipick_v2_model_us.json 的 backtest)
+    _bt = bool((learn or {}).get("_bt"))
+    if os.environ.get("AIPICK_V2", "1") == "1" and (not _bt or os.environ.get("AIPICK_V2_BT") == "1"):
         try:
             from aipick_v2 import V2Scorer
-            V2 = V2Scorer(bars_of, chip_of, data)
+            V2 = V2Scorer(bars_of, chip_of, data, mkt=MKT, cutoff=cutoff)
             if not V2.ok: V2 = None
         except Exception as e:
             print("aipick:v2 載入失敗,改用原模型", e); V2 = None
@@ -435,7 +437,7 @@ def gen_week(data, buy_week, learn=None, reviews=None):
             if pv is None: continue
             meta["v2p"] = round(pv, 4); meta["rule"] = round(sc, 1)
             sc = pv * 100                                             # v2:用「未來 10 日贏過大盤機率」排名
-            why = [f"15 年模型:贏大盤機率 {pv * 100:.0f}%"] + list(why)[:3]
+            why = [f"{'15' if MKT == 'TW' else '14'} 年模型:贏大盤機率 {pv * 100:.0f}%"] + list(why)[:3]
         cands.append((sc, s, why, meta))
     # 🧠 混合:規則分 z 值 ×(1−α)+ 學習模型 logit z 值 × α
     alpha = float((learn or {}).get("alpha") or 0.0)
@@ -452,7 +454,7 @@ def gen_week(data, buy_week, learn=None, reviews=None):
     # r941:三關選股(台股 v2)——① 15 年模型取前 30 ② 加籌碼/分點綜合分重排取前 10 ③ AI 逐檔複核(產業/籌碼/時機),「保留」的往後排 → 前 5 + 候補 5
     #       同時記下「純量化」的前 5(alt_quant),大腦追蹤兩種選法的實際成績
     alt_quant = [c[1]["id"] for c in cands[:5]]
-    if V2 and len(cands) >= 10 and not V2.overheated:
+    if V2 and MKT == "TW" and len(cands) >= 10 and not V2.overheated:   # 三關的籌碼/分點/AI 複核只有台股資料
         try:
             top = cands[:30]
             def z(a):

@@ -17,16 +17,24 @@ def _ma(x, w, i):
     return sum(seg) / w if len(seg) == w else None
 
 
+def _cut(d, o, cutoff):
+    """只留日期 < cutoff 的 K(回測週不偷看未來;cutoff=None 不裁)"""
+    if not cutoff or not d or d[-1] < cutoff: return d, o
+    n = sum(1 for x in d if x < cutoff)
+    return d[:n], o[:n]
+
+
 class V2Scorer:
-    def __init__(self, bars_of, chip_of, data):
-        self.ok = False
+    def __init__(self, bars_of, chip_of, data, mkt="TW", cutoff=None):
+        # r955:參數化市場——美股用 aipick_v2_model_us.json(美股 2012 起重新訓練;無法人/本益比/殖利率,那幾個特徵權重為 0)
+        self.ok = False; self.mkt = mkt; self.cutoff = cutoff
         try:
-            self.m = json.load(open(MODEL, encoding="utf-8"))
+            self.m = json.load(open(MODEL if mkt == "TW" else "aipick_v2_model_us.json", encoding="utf-8"))
         except Exception:
             self.m = None; return
         self.bars_of, self.chip_of = bars_of, chip_of
         self.pe_hist = {}
-        for p in glob.glob("archive/per/tw/*/*.json.gz"):                 # 本益比一年歷史(算本益比位置)
+        for p in (glob.glob("archive/per/tw/*/*.json.gz") if mkt == "TW" else []):                 # 本益比一年歷史(算本益比位置)
             if not any(y in p for y in ("2025", "2026")): continue
             try:
                 with gzip.open(p, "rt", encoding="utf-8") as f: j = json.load(f)
@@ -37,8 +45,8 @@ class V2Scorer:
             except Exception: pass
         r60, above, n = [], 0, 0
         for s in data.get("stocks", []):
-            if s.get("market") != "TW" or s.get("etf"): continue
-            d, o = bars_of(s["id"])
+            if s.get("market") != mkt or s.get("etf"): continue
+            d, o = _cut(*bars_of(s["id"]), cutoff)
             if len(o) < 61: continue
             c = [b[3] for b in o]
             if not c[-1] or not c[-61]: continue
@@ -47,7 +55,8 @@ class V2Scorer:
             if m20: n += 1; above += 1 if c[-1] > m20 else 0
         self.mkt_r60 = st.median(r60) if r60 else 0.0
         self.breadth20 = above / n if n else None
-        self.overheated = self.breadth20 is not None and self.breadth20 > 0.70
+        reg = (self.m or {}).get("regime") or {}
+        self.overheated = (reg.get("rule") != "none") and self.breadth20 is not None and self.breadth20 > 0.70   # 美股模型 regime=none:回測顯示過熱過濾沒有幫助
         self.ok = True
 
     def feats(self, sid, s, d, o):
@@ -59,7 +68,7 @@ class V2Scorer:
         if not (ma5 and ma20 and ma60 and ma20p and ma60p): return None
         tr = [max(h[k] - l[k], abs(h[k] - c[k - 1]), abs(l[k] - c[k - 1])) for k in range(i - 13, i + 1)]
         atr = sum(tr) / 14; v5 = _ma(v, 5, i); v20 = _ma(v, 20, i)
-        if not v20 or v20 <= 0 or c[i] * v20 < 20000: return None
+        if not v20 or v20 <= 0 or c[i] * v20 < (20000 if self.mkt == "TW" else 2e7): return None
         ch = self.chip_of(sid) or {}
         cd, cf, ct = ch.get("d") or [], ch.get("f") or [], ch.get("t") or []
         last20 = [k for k in range(len(cd)) if cd[k] >= d[i - 19] and cd[k] <= d[i]]
@@ -81,6 +90,7 @@ class V2Scorer:
 
     def prob(self, sid, s, d, o):
         if not self.ok: return None
+        d, o = _cut(d, o, self.cutoff)
         x = self.feats(sid, s, d, o)
         if x is None: return None
         m = self.m; z = sum((x[k] - m["mu"][k]) / m["sd"][k] * m["w"][k] for k in range(len(x))) + m["b"]
