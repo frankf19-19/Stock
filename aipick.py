@@ -409,8 +409,10 @@ def chip_of(sid):
     return _CSH[key].get(sid) or {}
 
 
-def gen_week(data, buy_week, learn=None, reviews=None):
-    """reviews:{sid: ai2}——由獨立步驟 aipick_review.py 產生;有就用在第三關排序(r943)"""
+def gen_week(data, buy_week, learn=None, reviews=None, exclude=None):
+    """reviews:{sid: ai2}——由獨立步驟 aipick_review.py 產生;有就用在第三關排序(r943)
+    exclude:r956 目前已持有(或掛單中)的股票——不再重複入選,由下一順位遞補"""
+    exclude = set(exclude or [])
     cutoff = iso(buy_week)
     cands = []
     # r935:台股改用 v2(15 年訓練模型 + 過熱過濾);美股維持原模型(尚未用同套引擎驗證);回測週不用
@@ -494,6 +496,7 @@ def gen_week(data, buy_week, learn=None, reviews=None):
         return {"buy_week": cutoff, "gen": NOW.strftime("%Y-%m-%d %H:%M"), "status": "skip", "picks": [], "bench": [], "n_cand": len(cands),
                 "skip": f"市場過熱:全市場 {V2.breadth20 * 100:.0f}% 的股票站上月線(> 70%),這種週追高容易回檔,AI 選擇空手一週", "breadth20": round(V2.breadth20, 3), "v2": True}
     for sc, s, why, meta in cands:
+        if s["id"] in exclude: continue                                    # r956:已持有/掛單中 → 不重複入選(只擋入選,不動排名與 cand_top)
         sec = s.get("sector") or "其他"
         if per.get(sec, 0) >= MAX_PER_SECTOR: continue
         per[sec] = per.get(sec, 0) + 1
@@ -507,7 +510,7 @@ def gen_week(data, buy_week, learn=None, reviews=None):
     pid = {p["id"] for p in picks}
     bench = []
     for sc, s, why, meta in cands:
-        if s["id"] in pid: continue
+        if s["id"] in pid or s["id"] in exclude: continue
         bench.append({"id": s["id"], "name": s.get("name") or s["id"], "sector": s.get("sector") or "其他",
                       "score": round(sc, 1), "why": why[:3], "kind": meta["kind"],
                       "buy": meta["buy"], "target": meta["target"], "stop": meta["stop"],
@@ -523,7 +526,38 @@ def gen_week(data, buy_week, learn=None, reviews=None):
             "alt_quant": alt_quant,                                                         # r941:純量化前 5(對照組)
             "shortlist": globals().get("_SHORTLIST") or [c[1]["id"] for c in cands[:10]],  # r943:前 10(給獨立複核步驟用)
             "reviews": dict(reviews or {}),
-            "v2": bool(V2), "breadth20": round(V2.breadth20, 3) if V2 and V2.breadth20 is not None else None}
+            "v2": bool(V2), "breadth20": round(V2.breadth20, 3) if V2 and V2.breadth20 is not None else None,
+            "held_excl": sorted(exclude)}
+
+
+# ───────────────────────── r956:跨週持股去重 ─────────────────────────
+#   無期限模式下舊週倉位會一直留著,新名單/換股又選到同一檔 → 同一檔被持有 2~3 個倉位、資金過度集中。
+#   規則:①新一週選股排除「目前持有中」與「掛單等成交」的股票;②換股時,別的倉位當天正持有的股票不換進。
+#   只影響 EXCL_FROM 之後的決策——已發生的歷史紀錄不回頭改寫。
+EXCL_FROM = "2026-10-05"
+_WEEKS = []
+
+def _held_elsewhere(sid, day, week):
+    for w in _WEEKS:
+        if w is week or w.get("bt"): continue
+        for p in w.get("picks") or []:
+            for L in p.get("legs") or []:
+                if L.get("id") == sid and L.get("fill") and L["fill"] <= day and (not L.get("xd") or L["xd"] > day):
+                    return True
+    return False
+
+def held_now(weeks):
+    """目前持有中(最後一段未出場)+ 掛單等成交(未成交、未取消)的股票"""
+    out = set()
+    for w in weeks:
+        if w.get("bt") or w.get("status") in ("done", "skip"): continue
+        for p in w.get("picks") or []:
+            legs = p.get("legs") or []
+            if legs:
+                if not legs[-1].get("xd"): out.add(legs[-1]["id"])
+            elif p.get("result") not in ("nofill",) and not p.get("_nofill"):
+                out.add(p["id"])
+    return out
 
 
 # ───────────────────────── 追蹤結算 ─────────────────────────
@@ -907,7 +941,8 @@ def evaluate(week):
         lg["_rot"] = 1                                    # 這一段已試過換股,不論成不成功都不再回頭
         nxt = None
         rot = (p.get("iv") or {}).get("rot")              # r918:即時換股(盤中出場當下就接替,不等隔日開盤)
-        if rot and rot.get("d") == lg["xd"] and rot["id"] not in used and rot.get("px"):
+        if rot and rot.get("d") == lg["xd"] and rot["id"] not in used and rot.get("px") \
+                and not (lg["xd"] >= EXCL_FROM and _held_elsewhere(rot["id"], lg["xd"], week)):
             en = float(rot["px"])
             leg = _leg("bench", rot["id"], rot.get("name"), rot.get("sector"), rot["d"], en,
                        rtick(en * float(rot.get("rr") or 1.0), "near"), rtick(en * float(rot.get("rs") or 1.0), "near"), rot.get("score"), rot.get("kind"))
@@ -918,6 +953,7 @@ def evaluate(week):
         while bi < len(bench):
             b = bench[bi]; bi += 1
             if b["id"] in used: continue
+            if lg["xd"] >= EXCL_FROM and _held_elsewhere(b["id"], lg["xd"], week): continue   # r956:別的倉位正持有 → 不重複換進
             openn = sum(1 for q in picks for L in q["legs"]                 # 同時持有的同產業檔數上限
                         if L.get("sector") == b.get("sector") and L["fill"] <= lg["xd"] and (not L["xd"] or L["xd"] > lg["xd"]))
             if openn >= MAX_PER_SECTOR: continue
@@ -1022,15 +1058,17 @@ def _gemini(prompt, max_tokens=400):
     body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.4,
                                  "thinkingConfig": {"thinkingBudget": 0}}}
-    for attempt in range(2):
+    # r956:額度用完(429)或模型下架(404)就換模型——8/31 起出場理由全數空白、10/05 名單入選理由 0/5,原因是只打單一模型
+    for attempt, mdl in enumerate([GEMINI_MODEL, "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-2.0-flash"]):
         try:
-            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_KEY}",
+            if mdl.startswith("gemini-2.0"): body["generationConfig"].pop("thinkingConfig", None)   # 2.0 不認 thinkingConfig
+            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent?key={GEMINI_KEY}",
                               json=body, timeout=60)
-            if r.status_code in (429, 500, 503): _t.sleep(20 * (attempt + 1)); continue
+            if r.status_code in (429, 500, 503, 404): print(f"  gemini 理由 {mdl} {r.status_code},換模型"); _t.sleep(6); continue
             if not r.ok:
-                if attempt == 0 and "thinkingConfig" in str(r.text):        # 舊模型不認 thinkingConfig → 拿掉再試
-                    body["generationConfig"].pop("thinkingConfig", None); continue
-                return ""
+                print(f"  gemini 理由 {mdl} 錯誤 {r.status_code}:{r.text[:160]}")
+                if "thinking" in str(r.text): body["generationConfig"].pop("thinkingConfig", None)
+                continue
             cand = (r.json().get("candidates") or [{}])[0]
             ps = (cand.get("content") or {}).get("parts") or []
             txt = "".join(p.get("text", "") for p in ps).strip().replace("\n", " ")
@@ -1182,6 +1220,14 @@ def stats_of(weeks):
           "tp_rate": round(len([p for p in filled if p.get("hit_tp")]) / len(filled) * 100, 1) if filled else None,
           "sl_rate": round(len([p for p in filled if p.get("hit_sl")]) / len(filled) * 100, 1) if filled else None,
           "sum_ret": round(sum(rets), 2) if rets else None}
+    # r956:含持有中倉位的成績(無期限模式下多數倉位還沒結案,只看已結案會被「先停損先結案」拉低)
+    live = [p for w in done if not w.get("bt") for p in w["picks"] if (p.get("legs") or []) and isinstance(p.get("ret"), (int, float))]
+    if live:
+        mr = sorted(p["ret"] for p in live)
+        st["mtm"] = {"n": len(live), "open": len([p for p in live if p.get("result") == "pending"]),
+                     "win_rate": round(len([x for x in mr if x > 0]) / len(mr) * 100, 1),
+                     "avg_ret": round(avg(mr), 2), "median": round(mr[len(mr) // 2], 2),
+                     "best": round(mr[-1], 2), "worst": round(mr[0], 2)}
     hold = [p["hold"] for p in filled if isinstance(p.get("hold"), int)]
     retc = [p["ret_c"] for p in filled if isinstance(p.get("ret_c"), (int, float))]
     st["avg_hold"] = round(avg(hold), 1) if hold else None
@@ -1310,7 +1356,7 @@ def main():
                     print(f"aipick:K 入庫 {bl} 覆蓋 {hit}/{tot}({cov:.0%})" + (",已過寬限,照現有資料選" if cov < 0.90 else ""))
         if ok:
             L = build_learn(data, buy_week, amax=amax)
-            w = gen_week(data, buy_week, L)
+            w = gen_week(data, buy_week, L, exclude=held_now(weeks))
             if w.get("status") == "skip":
                 weeks.append(w); print("aipick:本週空手(" + w.get("skip", "") + ")")
             elif w["picks"]:
@@ -1327,7 +1373,7 @@ def main():
             if w.get("bt") or w.get("status") == "done" or w.get("bench"): continue
             try:
                 bw = dt.date.fromisoformat(w["buy_week"])
-                w2 = gen_week(data, bw, build_learn(data, bw, amax=amax))
+                w2 = gen_week(data, bw, build_learn(data, bw, amax=amax), exclude=w.get("held_excl"))
                 used = {p["id"] for p in w.get("picks") or []}
                 used |= {L["id"] for p in (w.get("picks") or []) for L in (p.get("legs") or [])}
                 w["bench"] = [b for b in (w2.get("bench") or []) if b["id"] not in used][:BENCH_N]
@@ -1343,7 +1389,7 @@ def main():
             if bwd < TODAY or (bwd == TODAY and NOW.hour >= 9): continue        # 開盤後就不再動名單
             if not all(sid in w["reviews"] for sid in (w.get("shortlist") or [])[:10]): continue
             L2 = build_learn(data, dt.date.fromisoformat(w["buy_week"]), amax=amax)
-            w2 = gen_week(data, dt.date.fromisoformat(w["buy_week"]), L2, reviews=w["reviews"])
+            w2 = gen_week(data, dt.date.fromisoformat(w["buy_week"]), L2, reviews=w["reviews"], exclude=w.get("held_excl"))
             if w2.get("picks"):
                 old = [p["id"] for p in w["picks"]]; new = [p["id"] for p in w2["picks"]]
                 for p in w2["picks"]:
@@ -1375,6 +1421,7 @@ def main():
                         print(f"aipick:訊號轉弱 {cur['id']} {cur.get('name')}(排名掉出前 30% 且跌破月線)→ 下一根 K 開盤出場")
     except Exception as e:
         print("aipick:訊號轉弱判斷例外", e)
+    globals()["_WEEKS"][:] = weeks                                  # r956:換股去重要看到其他週的持股
     for w in weeks:
         if w.get("status") != "done" or w.get("xv") != XVER:      # r736:舊檔(只有收盤結算)重跑一次,補買賣時間與實現損益
             try: evaluate(w)

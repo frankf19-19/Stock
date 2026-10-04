@@ -2254,3 +2254,9 @@ body.kl-open #klSheetBd{opacity:1;pointer-events:auto}
   .kl-host #itvSeg,.kl-host #rngSeg{width:100%;flex:none}
   .kl-bar .kl-ind{flex:1;justify-content:center}
 }
+/* r956:AI Pick 成績——含持有中倉位 */
+.aip-mtm{margin:8px 0 10px;padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--gold,#E8B44A) 45%,transparent);background:color-mix(in srgb,var(--gold,#E8B44A) 8%,transparent)}
+.aip-mtm-h{font-size:12.5px;font-weight:800;color:var(--gold,#E8B44A);margin-bottom:4px}
+.aip-mtm-row{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:14px}
+.aip-mtm-row b{font-family:var(--mono,monospace);font-size:16px}
+.aip-mtm-n{font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.5}
