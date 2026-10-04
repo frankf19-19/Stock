@@ -1,4 +1,4 @@
-/* K研所 · build r968 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r970 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r968';
+const APP_BUILD='r970';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1805,7 +1805,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r968</span>');
+  diag.push('<span style="color:var(--dim)">build r970</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -9473,7 +9473,7 @@ function bkCalc(e){
 }
 /* ══ r968:🧬 主力集中度個性(後端 conc_profile.py 每日以 250 日分點計算、walk-forward 驗證)══
    規則:驗證前只給管理員看(CP_SHOW=false);確認全市場驗證結果有效後才公開 */
-const CP_SHOW=false;let CP_SUM=null;
+const CP_SHOW=true;let CP_SUM=null;   // r970:公開——但以「歷史統計」呈現,全市場驗證未通過,不給訊號
 async function cpSummary(){if(CP_SUM)return CP_SUM;try{const r=await fT('bk/_conc_summary.json?v='+kv(),10000,{cache:'no-store'});if(r&&r.ok)CP_SUM=await r.json();}catch(e){}return CP_SUM;}
 async function cpHTML(cp,s){
   if(!CP_SHOW&&!(typeof isAdmin==='function'&&isAdmin()))return '';
@@ -9485,14 +9485,14 @@ async function cpHTML(cp,s){
   const TC={'順勢型':'var(--up)','反指標型':'#3B82D6','不敏感':'var(--mut)'};
   const tc=TC[cp.type]||'var(--mut)';
   const D=cp.det||{},d5=D['5']||{},b5=d5.big||{},s5=d5.small||{},a5=d5.all||{};
-  const what=cp.type==='順勢型'?`主力(前 15 大券商)5 日集中買超之後,這檔<b style="color:var(--up)">通常跟著漲</b>:大買日之後 5 日平均 <b style="color:${c(b5.avg)}">${f(b5.avg)}</b>(上漲機率 ${b5.win??'—'}%),大賣日之後 <b style="color:${c(s5.avg)}">${f(s5.avg)}</b>;全期間任意一天 ${f(a5.avg)}。`
-    :cp.type==='反指標型'?`主力 5 日集中買超之後,這檔<b style="color:#3B82D6">反而偏弱</b>:大買日之後 5 日平均 <b style="color:${c(b5.avg)}">${f(b5.avg)}</b>(上漲機率只有 ${b5.win??'—'}%),大賣日之後反而 <b style="color:${c(s5.avg)}">${f(s5.avg)}</b>;全期間任意一天 ${f(a5.avg)}。主力買超常是短線追價或隔日沖,買完就倒。`
+  const what=cp.type==='順勢型'?`過去一年,主力(前 15 大券商)5 日集中買超之後,這檔<b style="color:var(--up)">多半跟著漲</b>:大買日之後 5 日平均 <b style="color:${c(b5.avg)}">${f(b5.avg)}</b>(上漲機率 ${b5.win??'—'}%),大賣日之後 <b style="color:${c(s5.avg)}">${f(s5.avg)}</b>;全期間任意一天 ${f(a5.avg)}。`
+    :cp.type==='反指標型'?`過去一年,主力 5 日集中買超之後,這檔<b style="color:#3B82D6">反而偏弱</b>:大買日之後 5 日平均 <b style="color:${c(b5.avg)}">${f(b5.avg)}</b>(上漲機率只有 ${b5.win??'—'}%),大賣日之後反而 <b style="color:${c(s5.avg)}">${f(s5.avg)}</b>;全期間任意一天 ${f(a5.avg)}。主力買超常是短線追價或隔日沖,買完就倒。`
     :`這檔股價和主力集中買賣<b>沒有穩定關係</b>:大買日之後 5 日平均 ${f(b5.avg)}、大賣日之後 ${f(s5.avg)},全期間 ${f(a5.avg)}。看主力動向對這檔參考價值低,以基本面與趨勢為主。`;
   const vb=cp.type==='不敏感'?'<span class="cp-vb dim">不適用</span>':cp.passed?'<span class="cp-vb ok">✅ 驗證通過</span>':'<span class="cp-vb no">⚠ 驗證未通過・僅供參考</span>';
   const cur=cp.cur||{};
   let curTxt=`${md(cur.d)} 的 5 日集中度 <b style="color:${c(cur.C5)}">${f(cur.C5)}</b>(佔成交量),在這檔自己的歷史第 <b>${cur.pct??'—'}</b> 百分位`;
-  if(cur.zone==='大買')curTxt+=`,屬於<b>主力大買區</b>`+(cp.type==='順勢型'&&cp.passed?`——依這檔個性 <b style="color:var(--up)">偏多訊號</b>`:cp.type==='反指標型'&&cp.passed?`——依這檔個性 <b style="color:#3B82D6">反而要提防回檔</b>`:'');
-  else if(cur.zone==='大賣')curTxt+=`,屬於<b>主力大賣區</b>`+(cp.type==='順勢型'&&cp.passed?`——依這檔個性 <b style="color:var(--down)">偏空訊號</b>`:cp.type==='反指標型'&&cp.passed?`——依這檔個性 <b style="color:var(--up)">可能是落底訊號</b>`:'');
+  if(cur.zone==='大買')curTxt+=`,屬於這檔歷史上的<b>主力大買區</b>`;
+  else if(cur.zone==='大賣')curTxt+=`,屬於這檔歷史上的<b>主力大賣區</b>`;
   else curTxt+=',在一般區間,沒有訊號';
   const H=['1','3','5','10','20'];
   const cell=g=>g?`<td style="color:${c(g.avg)}">${f(g.avg)}<small>${g.win}%・${g.n}次</small></td>`:'<td>—</td>';
@@ -9505,7 +9505,8 @@ async function cpHTML(cp,s){
   const brk=a=>(a||[]).map(x=>`${x[0]}${x[2]?`<em>${x[2]}</em>`:''} ×${x[1]}`).join('・');
   const tr=cp.train||{},te=cp.test||{};
   return `<div class="cp">
-    <div class="cp-h"><b>🧬 主力集中度個性</b><span class="cp-type" style="color:${tc};border-color:${tc}">${cp.type}</span>${vb}${CP_SHOW?'':'<span class="cp-vb dim">管理員預覽</span>'}</div>
+    <div class="cp-h"><b>🧬 主力集中度・歷史統計</b><span class="cp-type" style="color:${tc};border-color:${tc}">歷史傾向:${cp.type==='不敏感'?'無明顯關係':cp.type}</span>${vb}</div>
+    <div class="kb-warn">全市場一年前後段驗證:個股的「主力集中度傾向」不會延續(前段 vs 後段相關 ≈ 0)。以下是這檔過去的實際統計,方便你了解它的歷史,不是預測。</div>
     <p>${what}</p>
     <div class="cp-now">📍 ${curTxt}。</div>
     <div class="cp-sub">主力集中度分五組,之後 5 日平均報酬(由主力最賣到最買)</div>${bars}
@@ -9518,6 +9519,31 @@ async function cpHTML(cp,s){
       <div><b>驗證期</b> ${md(te.from)}~${md(cp.to)}・${te.n} 天<br>${cp.type==='不敏感'?'—':`訊號 ${te.sig} 次・命中 ${te.hit??'—'}%・大買減大賣 ${f(te.spread)}`}</div></div>
     ${S?`<div class="cp-note dim">全市場:${S.stocks} 檔中 順勢型 ${S.types['順勢型']?.n||0}(通過 ${S.types['順勢型']?.passed||0})・反指標型 ${S.types['反指標型']?.n||0}(通過 ${S.types['反指標型']?.passed||0});實際通過率 ${S.real_pass_rate}% vs 隨機對照 ${S.null_pass_rate}%(對照越接近,代表越多是巧合)・更新 ${S.updated}</div>`:''}
     <div class="dim-note">集中度 = 近 5 日前 15 大券商淨買賣張數 ÷ 成交量。「大買/大賣日」= 這檔自己歷史前 20%/後 20%。資料 ${cp.n} 個交易日;歷史規律不保證未來,僅供研究參考。</div>
+  </div>`;
+}
+/* ══ r970:🔬 這檔的分點驗證(後端 kb_validate.py:前 70% 挑關鍵分點 → 後 30% 看它們再出手的表現)══ */
+let KBV_SUM=null;
+async function kbvSummary(){if(KBV_SUM)return KBV_SUM;try{const r=await fT('bk/_kb_validation.json?v='+kv(),10000,{cache:'no-store'});if(r&&r.ok)KBV_SUM=await r.json();}catch(e){}return KBV_SUM;}
+async function kbvHTML(v,s){
+  if(!v)return `<div class="cp"><div class="cp-h"><b>🔬 這檔的分點驗證</b></div><div class="dim-note">這檔分點紀錄還不夠長(至少要 60 個有後續報酬的交易日),後端每天累積後會自動算。</div></div>`;
+  const G=await kbvSummary();
+  const f=x=>x==null?'—':(x>0?'+':'')+(+x).toFixed(2)+'%';const md=d=>d?d.slice(5).replace('-','/'):'';
+  const verdict=(it,up)=>{const nT=it[4],aT=it[5],wT=it[6];
+    if(!nT)return ['後段沒出手','var(--dim)'];if(nT<3)return ['樣本太少','var(--dim)'];
+    const ex=aT-v.base_te;const ok=up?(ex>=1&&wT>=55):(ex<=-1&&wT>=55);return ok?['✅ 延續','var(--up)']:['❌ 失效','var(--down)'];};
+  const tb=(L,up)=>L.length?`<table class="cp-tb kbv-tb"><tr><th>券商</th><th>前段<small>次數・10日・${up?'漲':'跌'}%</small></th><th>後段<small>次數・10日・${up?'漲':'跌'}%</small></th><th>結果</th></tr>${L.map(it=>{const [vd,vc]=verdict(it,up);
+      return `<tr><td>${it[0]}${typeof bkTag==='function'?bkTag(it[0]):''}</td><td>${it[1]} 次・<b style="color:${it[2]>=0?'var(--up)':'var(--down)'}">${f(it[2])}</b>・${it[3]}%</td><td>${it[4]?`${it[4]} 次・<b style="color:${it[5]>=0?'var(--up)':'var(--down)'}">${f(it[5])}</b>・${it[6]}%`:'—'}</td><td style="color:${vc};font-weight:800">${vd}</td></tr>`;}).join('')}</table>`:'<div class="dim" style="font-size:12px">前段沒有符合條件的分點</div>';
+  const cnt=L=>{const a=L.map(x=>verdict(x,L===v.buy)[0]);return {ok:a.filter(x=>x.includes('延續')).length,bad:a.filter(x=>x.includes('失效')).length,na:a.filter(x=>!x.includes('延續')&&!x.includes('失效')).length};};
+  const cb=cnt(v.buy),cs=cnt(v.sell);
+  const tot=cb.ok+cb.bad+cs.ok+cs.bad,okN=cb.ok+cs.ok;
+  const head=tot?`這檔前段挑出的關鍵分點,後段有再出手的 ${tot} 家中,<b style="color:${okN/tot>=0.5?'var(--up)':'var(--down)'}">${okN} 家延續</b>、${tot-okN} 家失效。`:'這檔前段挑出的關鍵分點,後段都沒有足夠出手次數可以檢驗。';
+  const gb=G&&G['起漲分點(驗證期)'],gc=G&&G['對照:一般買方券商'];
+  return `<div class="cp">
+    <div class="cp-h"><b>🔬 這檔的分點驗證</b><span class="cp-vb dim">前段 ~${md(v.cut)}・後段 ${md(v.cut)}~</span></div>
+    <p>用前段資料挑出「買了會漲 / 賣了會跌」的券商,再看它們在後段出手後的實際結果。${head}判定:後段 10 日報酬比這檔同期平常(${f(v.base_te)})${'高 1% 以上且漲機率 ≥55%(賣方相反)'}才算延續。</p>
+    <div class="cp-sub">前段「買了會漲」的券商 → 後段表現</div><div class="cp-tw">${tb(v.buy||[],true)}</div>
+    <div class="cp-sub">前段「賣了會跌」的券商 → 後段表現</div><div class="cp-tw">${tb(v.sell||[],false)}</div>
+    ${gb&&gc?`<div class="cp-note dim">全市場(${G.stocks} 檔):起漲分點後段出手後 10 日超額 ${f(gb.excess_avg)},一般券商 ${f(gc.excess_avg)}——整體幾乎沒有差別,所以個股上「延續」的分點也可能只是運氣。更新 ${G.updated}</div>`:''}
   </div>`;
 }
 function bkHTML(R,s){
@@ -9546,7 +9572,7 @@ function bkHTML(R,s){
       <div style="overflow-x:auto"><table class="sig-t" style="font-size:12px"><tr><th style="text-align:left">券商</th><th>角色</th><th>平均持有</th><th>隔日沖率</th><th>專門度</th><th>淨累積(張)</th><th>買後 10 日</th><th>賣後 10 日</th></tr>${rows}</table></div>
       <div class="dim" style="font-size:11.5px;margin-top:4px">角色是「在這檔」的行為:拉抬主力 = 買了會漲的 ★ 且專門/量大;出貨主力 = 賣了會跌的 ★;隔日沖 = 買超隔天就賣超 ≥35%;短線 ≤10 天、波段 11~40 天、長線 >40 天或幾乎沒賣。平均持有 = 買進與之後賣出 FIFO 配對的加權天數;專門度 = 這家在這檔的張數佔它全市場的比例;淨累積 = 期間內買減賣。</div>`;})():''}
     ${(R.runB&&R.runB.length)||(R.runS&&R.runS.length)?`<div style="margin:6px 0;font-size:13px;line-height:1.8">${(R.runB||[]).map(x=>`<span class="fkb ${x.key?'fkb-b':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連買 ${x.days} 日 <small>累計 ${(x.lots>=0?'+':'')+x.lots.toLocaleString()} 張</small></span>`).join(' ')} ${(R.runS||[]).map(x=>`<span class="fkb ${x.key?'fkb-s':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連賣 ${x.days} 日 <small>累計 ${x.lots.toLocaleString()} 張</small></span>`).join(' ')}</div>`:''}
-    ${R.kb?`<div style="margin:8px 0 2px;font-weight:800;font-size:13px">🎯 關鍵分點<small class="dim" style="font-weight:400;margin-left:6px">近 ${R.kb.days} 個交易日・這檔任意時點 10 日平均 ${(R.kb.base10>=0?'+':'')+R.kb.base10}%,券商要贏過它才算 ★</small></div>
+    ${R.kb?`<div style="margin:8px 0 2px;font-weight:800;font-size:13px">🎯 關鍵分點(歷史回顧)<small class="dim" style="font-weight:400;margin-left:6px">近 ${R.kb.days} 個交易日・這檔任意時點 10 日平均 ${(R.kb.base10>=0?'+':'')+R.kb.base10}%</small></div><div class="kb-warn">⚠ 全市場前後段驗證:這些「過去很準」的分點,之後再出手並沒有比一般券商準(詳見下方「🔬 這檔的分點驗證」)。下面是歷史紀錄,不是買賣訊號。</div>
     ${(()=>{const f=v=>(v>=0?'+':'')+v+'%';const md=d=>d?d.slice(5).replace('-','/'):'—';
       const row=(k,up)=>{const x=k.x,xc=k.xc,eff=k.eff;const c=v=>up?(v>0?'var(--up)':'var(--down)'):(v<0?'var(--down)':'var(--up)');const word=up?'漲':'跌';
         const last=k.hits[0];const recent=k.hits.filter(h=>h.ago<=20);
@@ -9563,8 +9589,8 @@ function bkHTML(R,s){
       const flips=[...new Set([...B,...S2].filter(k=>k.flip).map(k=>k.name))];
       return `${(todayB.length||todayS.length)?`<div style="font-size:13px;margin:4px 0 6px;padding:6px 10px;border-radius:8px;background:color-mix(in srgb,var(--t-gold) 10%,var(--panel));border:1px solid var(--t-gold)">📌 <b>${R.d.slice(5).replace('-','/')} 達標</b>:${todayB.map(k=>`<b style="color:var(--up)">${k.name}</b> 買 ${Math.abs(k.hits[0].lots).toLocaleString()} 張(門檻 ${k.thr})`).concat(todayS.map(k=>`<b style="color:var(--down)">${k.name}</b> 賣 ${Math.abs(k.hits[0].lots).toLocaleString()} 張(門檻 ${k.thr})`)).join('、')}</div>`:`<div class="dim" style="font-size:12px;margin:2px 0 6px">${R.d.slice(5).replace('-','/')} 沒有關鍵券商達到影響力門檻。</div>`}
         ${flips.length?`<div style="font-size:12.5px;margin:2px 0 8px;padding:6px 10px;border-radius:8px;border:1px solid var(--amber);color:var(--amber)">⚠ <b>短沖客</b>:${flips.join('、')}——同時出現在買賣兩邊、快進快出(或達標後隔天就沖掉),它們的買賣訊號都不列入提醒,看它只當「今天有人在沖」。</div>`:''}
-        <div class="kbr-h" style="color:var(--up)">買了之後會漲的(${B.length} 家)</div>${B.length?sortK(B).map(k=>row(k,1)).join(''):'<div class="dim" style="font-size:12px;padding:4px 0">樣本不足</div>'}
-        <div class="kbr-h" style="color:var(--down);margin-top:8px">賣了之後會跌的(${S2.length} 家)</div>${S2.length?sortK(S2).map(k=>row(k,0)).join(''):'<div class="dim" style="font-size:12px;padding:4px 0">樣本不足</div>'}
+        <div class="kbr-h" style="color:var(--up)">過去買進後上漲的(${B.length} 家・歷史)</div>${B.length?sortK(B).map(k=>row(k,1)).join(''):'<div class="dim" style="font-size:12px;padding:4px 0">樣本不足</div>'}
+        <div class="kbr-h" style="color:var(--down);margin-top:8px">過去賣出後下跌的(${S2.length} 家・歷史)</div>${S2.length?sortK(S2).map(k=>row(k,0)).join(''):'<div class="dim" style="font-size:12px;padding:4px 0">樣本不足</div>'}
         <div class="dim" style="font-size:11.5px;margin-top:6px">「≥ N 張才有影響」= 這家在這檔歷史上,達到這個張數以上的進出,之後 10 日勝率 ≥60% 且贏過這檔基準;沒達標的小單不算訊號。點「詳細」看分量與天期。</div>`;})()}`:'<div class="dim" style="font-size:12px;margin:6px 0">關鍵分點要累積 15 個交易日以上的分點紀錄才算(回補中)。</div>'}
     ${R.dt.length?`<div style="font-size:12.5px;color:var(--amber);margin:4px 0">⚠ 隔日沖:${R.dt.join('、')}——昨天前五大買、今天前五大賣,這種券商在的日子漲跌都快、不宜追。</div>`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
@@ -13731,8 +13757,9 @@ async function showDetail(id){
   if(s.market!=='US'){(async()=>{try{const h=await histLoad(s.id);if(h&&location.hash==='#stock/'+s.id){window.__histCur={id:s.id,h};try{drawKChart();}catch(e1){}}}catch(e){}})();}   // r877:三年歷史獨立載入 → K線法人柱備援不再等分點區塊
   if(s.market!=='US'&&!s.etf){(async()=>{try{window.__bkR=null;await brokerTagsLoad();const e=await bkLoad(s.id);let box=null;for(let i=0;i<30&&!box;i++){box=document.getElementById('bkBox');if(!box)await new Promise(r=>setTimeout(r,700));}
     if(!box)return;const R=bkCalc(e);box.innerHTML=bkHTML(R,s);window.__bkR=R;
+    try{const h=await kbvHTML(e&&e.kbv,s);if(h){const d1=document.createElement('div');d1.id='kbvBox';d1.innerHTML=h;box.appendChild(d1);}}catch(e8){}   // r970:這檔的分點驗證
     try{const h=await cpHTML(e&&e.cp,s);if(h){const d0=document.createElement('div');d0.id='cpBox';d0.innerHTML=h;box.appendChild(d0);}}catch(e9){}   // r968:主力集中度個性
-    try{const st=kbSchedText(R,false);const strip=document.getElementById('stkAlerts');if(st&&strip&&location.hash==='#stock/'+s.id){document.getElementById('kbPill')?.remove();const sp=document.createElement('span');sp.id='kbPill';sp.className='alert-pill alert-'+st.lv;sp.innerHTML=`<span class="ico">⏰</span><span>${st.txt}</span>`;sp.style.cursor='pointer';sp.onclick=()=>{const h=document.querySelector('[data-sec="stk_bk"]');if(h){h.scrollIntoView({behavior:'smooth',block:'start'});}};strip.prepend(sp);strip.style.display='';}}catch(e20){}   // r844:達標時程膠囊
+    if(0)try{const st=kbSchedText(R,false);const strip=document.getElementById('stkAlerts');if(st&&strip&&location.hash==='#stock/'+s.id){document.getElementById('kbPill')?.remove();const sp=document.createElement('span');sp.id='kbPill';sp.className='alert-pill alert-'+st.lv;sp.innerHTML=`<span class="ico">⏰</span><span>${st.txt}</span>`;sp.style.cursor='pointer';sp.onclick=()=>{const h=document.querySelector('[data-sec="stk_bk"]');if(h){h.scrollIntoView({behavior:'smooth',block:'start'});}};strip.prepend(sp);strip.style.display='';}}catch(e20){}   // r844:達標時程膠囊
     try{const h=await histLoad(s.id);try{window.__histCur={id:s.id,h};}catch(e0){}const cb=document.getElementById('costBox');if(cb){const RC=costCalc(h,e,s.price);cb.innerHTML=costHTML(RC,s);window.__costR=RC;try{if(RC&&typeof drawKChart==='function'&&window.curOhlc)drawKChart();}catch(e19){}}
       const rb=document.getElementById('rhythmBox');if(rb){let dv=[];try{dv=((DATA.divcal||[]).filter(x=>String(x.id)===String(s.id)).map(x=>x.d||x.date)).filter(Boolean);}catch(e0){}const RR=rhythmCalc(h,e,dv);rb.innerHTML=rhythmHTML(RR,s);window.__rhythmR=RR;}}catch(e18){}   // r833:成本;r834:節奏
   }catch(e17){}})();}   // r802:分點動向
@@ -14045,8 +14072,8 @@ const STRATS=[
   ['fgo','🌊 外資連買·成長股'],
   ['price','🔥 漲價/缺料'],
   ['theme','🧠 潛在漲價(研究)'],
-  ['kbuy','🎯 關鍵分點大買'],
-  ['ksell','🎯 關鍵分點大賣'],
+  ['kbuy','🎯 關鍵分點大買(未驗證)'],
+  ['ksell','🎯 關鍵分點大賣(未驗證)'],
 ];
 /* r827:全市場關鍵分點(kb_today.json,收盤後由 fetch_broker.py 產生)——個股分頁機會雷達的兩個策略 */
 async function kbTodayLoad(){
@@ -22143,7 +22170,7 @@ async function favKbFill(root){
       const hit=R.hit||[];const parts=[];
       const md=d=>d?d.slice(5).replace('-','/'):'';
       const nb=hit.filter(h=>h.side==='b'&&h.big&&!h.flip).length,ns=hit.filter(h=>h.side==='s'&&h.big&&!h.flip).length;
-      try{const st=kbSchedText(R,true);if(st)parts.push(`<span class="fkb ${st.x.side==='b'?'fkb-b':'fkb-s'}" style="border-style:dashed">⏰ ${st.txt}</span>`);}catch(e0){}
+      if(0)try{const st=kbSchedText(R,true);if(st)parts.push(`<span class="fkb ${st.x.side==='b'?'fkb-b':'fkb-s'}" style="border-style:dashed">⏰ ${st.txt}</span>`);}catch(e0){}
       if(nb>=2)parts.push(`<span class="fkb fkb-hot">🔥 ${nb} 家關鍵分點同日進場</span>`);
       if(ns>=2)parts.push(`<span class="fkb fkb-hot fkb-hot-s">🔥 ${ns} 家關鍵分點同日出場</span>`);
       const szTxt=h=>h.effLots!=null?`${Math.abs(h.lots)>=h.effLots?'≥':'<'} 門檻 ${h.effLots.toLocaleString()} 張`:`佔成交 ${h.share}%${h.med!=null?`(平常 ${h.med}%)`:''}`;
