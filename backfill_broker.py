@@ -125,6 +125,8 @@ def main():
                     time.sleep(3); continue
         # B 模式
         ids = priority_ids(data); done = set(st["b_done"].get(day) or [])
+        # r959:raw 裡這天已經有資料的股票直接算完成,只抓真正的缺口(原本整天 1,925 檔全部重抓,一天要 15 分鐘)
+        done |= {i for i in ids if day in (((R.get(fb.shard_key(i)) or {}).get(i) or {}).get("d") or [])}
         todo = [i for i in ids if i not in done]
         by = {}
         # r840:三線程,每線程 1.4s ≈ 合計 5,500/小時(Sponsor 上限 6,000);原本單線程約 3,400/小時
