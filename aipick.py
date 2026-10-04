@@ -1281,10 +1281,31 @@ def main():
         print("aipick:輕量班不選股,等 update_data 重班產生本週名單")
     if not have and not LIGHT:
         ok = True
-        if wd == 4 and buy_week > monday(TODAY):   # 週五盤後:必須等到週五 K 入庫(以台積電為準)才選,否則留給下一班
-            d, _ = bars_of(BENCH_SID)
-            if not d or d[-1] < iso(TODAY):
-                ok = False; print(f"aipick:週五 K 尚未入庫(最新 {d[-1] if d else '無'}),本班不選股")
+        if buy_week > monday(TODAY):
+            # r954:下週名單必須等「上一個交易日的 K」全市場入庫才選。
+            #  舊版只在週五檢查、且只看指標股(台積電/SPY)——週末的班完全不檢查:
+            #  10/03 美股名單在美東週六 00:10 產生時,全市場 10/02 K 還沒入庫(16:54 台北才進來),
+            #  5 檔裡 4 檔用 10/01 收盤當基準;台股 8/31 週也發生過(用 8/27 選)。
+            #  規則:①指標股要有最近一個平日的 K;②全市場 ≥90% 的活躍股票要跟指標股同一天;
+            #        ③過了寬限時間(平日後一天 18:00,當地時間)仍不齊 → 視為假日/部分缺漏,照現有資料選並記錄。
+            d, _ = bars_of(BENCH_SID); bl = d[-1] if d else ""
+            last_wd = TODAY - dt.timedelta(days=max(0, wd - 4))
+            grace = NOW >= dt.datetime.combine(last_wd + dt.timedelta(days=1), dt.time(18, 0), tzinfo=NOW.tzinfo)
+            if not bl or (bl < iso(last_wd) and not grace):
+                ok = False; print(f"aipick:{iso(last_wd)} K 尚未入庫(指標股最新 {bl or '無'}),本班不選股")
+            else:
+                lo = iso(dt.date.fromisoformat(bl) - dt.timedelta(days=10)); tot = hit = 0
+                for s0 in data.get("stocks", []):
+                    if s0.get("market") != MKT or s0.get("etf"): continue
+                    dd, _ = bars_of(s0["id"])
+                    if not dd or dd[-1] < lo: continue
+                    tot += 1; hit += 1 if dd[-1] >= bl else 0
+                cov = hit / tot if tot else 0
+                hard = NOW >= dt.datetime.combine(last_wd + dt.timedelta(days=2), dt.time(12, 0), tzinfo=NOW.tzinfo)
+                if cov < 0.90 and not hard:
+                    ok = False; print(f"aipick:{bl} K 只有 {hit}/{tot}({cov:.0%})入庫,未達 90%,本班不選股")
+                else:
+                    print(f"aipick:K 入庫 {bl} 覆蓋 {hit}/{tot}({cov:.0%})" + (",已過寬限,照現有資料選" if cov < 0.90 else ""))
         if ok:
             L = build_learn(data, buy_week, amax=amax)
             w = gen_week(data, buy_week, L)
