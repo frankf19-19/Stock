@@ -1,4 +1,4 @@
-/* K研所 · build r966 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r967 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r966';
+const APP_BUILD='r967';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1805,7 +1805,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r966</span>');
+  diag.push('<span style="color:var(--dim)">build r967</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -11613,8 +11613,15 @@ async function yOHLC(s,range,interval){
     if(take&&d.length>take){d=d.slice(-take);k=k.slice(-take);}
     return {dates:d.slice(),ohlc:k.map(r=>r.slice())};
   }
-  const base=await loadK(s);
+  let base=await loadK(s);
   if(!base||base.demo||!base.ohlc||!base.ohlc.length)return await yextOHLC(s,range,interval);
+  if(range==='max'&&(interval==='1d'||interval==='1wk')){        // r967:「全部」真的給全部——接上 archive/ 2012 起的日 K(原本只有 k/ 分片的一年)
+    try{const A=await archDaily(s);
+      if(A&&A.d.length>base.dates.length){
+        const m=new Map();A.d.forEach((d,i)=>m.set(d,A.o[i]));base.dates.forEach((d,i)=>m.set(d,base.ohlc[i]));   // 最新幾天以 k/ 為準
+        const ds=[...m.keys()].sort();base={dates:ds,ohlc:ds.map(d=>m.get(d))};
+      }}catch(e){}
+  }
   if(interval==='1d'){
     let d=base.dates.slice(),o=base.ohlc.map(r=>r.slice());
     const takeD={'3mo':66,'6mo':130,'1y':252}[range];
@@ -11640,6 +11647,26 @@ async function yOHLC(s,range,interval){
     return ohlc.length>=2?{dates,ohlc}:null;
   }
   return null;
+}
+const ARCHK={};
+async function archDaily(s){          // r967:長期日 K(archive/k/tw/<年>/<分片>.json.gz,2012 起);瀏覽器內解壓,同檔快取
+  if(!s||s.market!=='TW'||typeof DecompressionStream==='undefined')return null;
+  if(ARCHK[s.id])return ARCHK[s.id];
+  const sh=twShardKey(s.id),y1=new Date().getFullYear(),ys=[];for(let y=2012;y<=y1;y++)ys.push(y);
+  const one=async y=>{
+    try{const r=await fetch(`archive/k/tw/${y}/${sh}.json.gz`,{cache:'default'});if(!r.ok)return null;
+      const buf=await r.arrayBuffer();
+      const txt=await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+      const j=JSON.parse(txt);return j[s.id]||null;}catch(e){return null;}
+  };
+  const parts=[];
+  for(let i=0;i<ys.length;i+=5){parts.push(...await Promise.all(ys.slice(i,i+5).map(one)));}
+  const d=[],o=[];
+  parts.forEach(e=>{if(e&&e.d)e.d.forEach((x,i)=>{const b=e.o[i];if(b&&b.length>=4&&b[3]>0){d.push(x);o.push(b);}});});
+  if(!d.length)return null;
+  const idx=d.map((x,i)=>i).sort((a,b)=>d[a]<d[b]?-1:d[a]>d[b]?1:0);
+  const out={d:idx.map(i=>d[i]),o:idx.map(i=>o[i])};
+  ARCHK[s.id]=out;return out;
 }
 const MCACHE={};
 async function mK(s){
@@ -12578,7 +12605,7 @@ function kChartBoxHTML(){
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K/年K=上市全歷史;日K/週K=回補引擎每日加深,目標約三年) · MA5~MA240 全數預設顯示(點圖例可開關) · 滾輪/滑桿縮放 · 手機:上方工具列可左右滑動<span id="kBoxNote"></span></div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K/年K=上市全歷史;日K/週K=2012 年起,首次載入約 2~5 秒) · MA5~MA240 全數預設顯示(點圖例可開關) · 滾輪/滑桿縮放 · 手機:上方工具列可左右滑動<span id="kBoxNote"></span></div>
       <div id="kbox" style="height:560px"></div>
     </div>`;
 }
@@ -13775,7 +13802,7 @@ async function showDetail(id){
             `<button data-i="${m}" class="${m===indMode?'on':''}">${m}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K/年K=上市全歷史;日K/週K=回補引擎每日加深,目標約三年) · MA5~MA240 全數預設顯示(點圖例可開關;年線需背景載入約2秒) · 滾輪/滑桿縮放</div>
+      <div class="dim-note" style="margin:2px 0 8px">「全部」=資料庫完整深度(月K/年K=上市全歷史;日K/週K=2012 年起,首次載入約 2~5 秒) · MA5~MA240 全數預設顯示(點圖例可開關;年線需背景載入約2秒) · 滾輪/滑桿縮放</div>
       <div id="kbox" style="height:560px"></div>
     </div>
     ${(()=>{try{return gapHTML(gapCalc(curOhlc,curDates));}catch(x){return '';}})()}

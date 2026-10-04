@@ -2306,3 +2306,8 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .ar-det summary{cursor:pointer;font-weight:800;font-size:13px;color:var(--mut)}
 .ar-wait{padding:14px;text-align:center;color:var(--mut);font-weight:700}
 @media(max-width:640px){.ar-2col{grid-template-columns:1fr}.ar-meta{text-align:left;width:100%}}
+/* r967:K 線工具列按鈕不再被擠成直排字 */
+.kl-bar{flex-wrap:wrap}
+.kl-bar button{white-space:nowrap;flex:0 0 auto;min-width:max-content}
+.kl-bar button *{white-space:nowrap}
+@media(max-width:640px){.kl-bar .kl-btn,.kl-bar .kl-ind{flex:1 1 auto}}
