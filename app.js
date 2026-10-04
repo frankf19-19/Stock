@@ -1,4 +1,4 @@
-/* K研所 · build r961 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r962 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r961';
+const APP_BUILD='r962';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1803,7 +1803,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r961</span>');
+  diag.push('<span style="color:var(--dim)">build r962</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -19257,8 +19257,8 @@ function quadRender(rows,ts,fail,total,mode){
 }
 setTimeout(()=>{try{quadInit();}catch(e){}},5200);
 
-async function fglTradesRaw(sid){         // r701:富果逐筆共用抓取(直連→Worker 代發),回 {tr:[...]} 或 {err}
-  const api='https://api.fugle.tw/marketdata/v1.0/stock/intraday/trades/'+encodeURIComponent(sid)+'?limit=1000';
+async function fglTradesRaw(sid,offset){  // r701:富果逐筆共用抓取(直連→Worker 代發),回 {tr:[...]} 或 {err};r962:可帶 offset 分頁
+  const api='https://api.fugle.tw/marketdata/v1.0/stock/intraday/trades/'+encodeURIComponent(sid)+'?limit=1000'+(offset?'&offset='+offset:'');
   const key=fglKey();
   let r=null,err='';
   if(key){try{r=await fglRawGet2(api,key,9000);}catch(e){r=null;err=String(e&&e.name||e).slice(0,18);}}
@@ -23067,4 +23067,136 @@ document.addEventListener('click',e=>{
   window.addEventListener('hashchange',closeSheet);
   /* 圖可能比本段程式先畫好 → 進頁/切頁時補按鈕 */
   setInterval(()=>{try{if(document.getElementById('kbox'))ensureBtn();}catch(e){}},1500);
+})();
+
+/* ══ r962:🐋 即時走勢加「盤中大單」標記 + 大單淨買累積線 + 盤後分點主力摘要 ══
+   盤中:富果逐筆成交,單筆金額 ≥500 萬算大單;成交價 ≥ 賣價=大單買(外盤)、≤ 買價=大單賣(內盤)(與「大戶買賣比」同口徑)。
+   盤後:分點資料(fetch_broker.py → bk/)入庫後,圖下列出當日前 15 大券商淨額與買賣超最多的券商。
+   注意:大單 ≠ 特定大戶;是誰買賣要看盤後分點。 */
+(function(){
+  const TH=5e6, PAGES=6, C={};
+  const tSec=t=>{let x=+t.time||0;if(x>1e15)x=x/1e6;else if(x>1e12)x=x/1e3;return Math.floor(x);};
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  async function fetchBig(sid){
+    const c=C[sid]||(C[sid]={m:new Map(),at:0,full:false,busy:false,err:''});
+    const ttl=(typeof marketOpen==='function'&&marketOpen())?55e3:10*60e3;
+    if(c.busy||Date.now()-c.at<ttl)return c;
+    c.busy=true;
+    try{
+      const pages=c.full?1:PAGES;
+      for(let pg=0;pg<pages;pg++){
+        const r=await fglTradesRaw(sid,pg*1000);
+        if(r.err){c.err=r.err;break;}
+        const tr=r.tr||[];let nw=0;
+        tr.forEach(t=>{const k=[t.serial,t.time,t.price,t.size].join('|');if(!c.m.has(k)){c.m.set(k,t);nw++;}});
+        c.err='';
+        if(tr.length<1000){c.full=true;break;}
+        if(pg>0&&nw===0)break;
+        if(pg<pages-1)await sleep(350);
+      }
+      c.at=Date.now();
+    }catch(e){c.err=String(e).slice(0,40);}
+    finally{c.busy=false;}
+    return c;
+  }
+  function calc(c,day){
+    const mins={};let n=0,tmin=null,tmax=null;
+    for(const t of c.m.values()){
+      const ts=tSec(t);if(!ts||tpDay(ts)!==day)continue;
+      n++;if(tmin==null||ts<tmin)tmin=ts;if(tmax==null||ts>tmax)tmax=ts;
+      const px=+t.price,sz=+t.size;if(!(px>0&&sz>0))continue;
+      const amt=px*sz;if(amt<TH)continue;
+      const bid=+t.bid,ask=+t.ask;let dir=0;
+      if(ask>0&&px>=ask)dir=1;else if(bid>0&&px<=bid)dir=-1;else continue;
+      const m=Math.floor(ts/60)*60+_TZ8;const o=mins[m]||(mins[m]={b:0,s:0,bn:0,sn:0});
+      if(dir>0){o.b+=amt;o.bn++;}else{o.s+=amt;o.sn++;}
+    }
+    return {mins,n,tmin,tmax};
+  }
+  const yi=v=>(v/1e8).toFixed(v>=1e9?1:2);
+  function hm(ts){const d=new Date((ts+8*3600)*1000);return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0');}
+  function apply(ctx,sid){
+    try{
+      const c=C[sid];if(!ctx||!ctx.area||!ctx.ch||!ctx.tset)return;
+      const day=tpDay((ctx.lastT||0)-_TZ8);
+      const box=note(ctx);
+      if(!c||!c.m.size){if(box)box.innerHTML=c&&c.err?`<span class="dim">🐋 盤中大單:逐筆成交暫時抓不到(${c.err})${(typeof fglKey==='function'&&!fglKey())?'——需設定富果':''}</span>`:'<span class="dim">🐋 盤中大單:讀取富果逐筆中…</span>';bkLine(ctx,sid,day);return;}
+      const R=calc(c,day);
+      const keys=Object.keys(R.mins).map(Number).filter(t=>ctx.tset.has(t)).sort((a,b)=>a-b);
+      const all=keys.map(t=>({t,...R.mins[t]}));
+      const topB=new Set(all.filter(x=>x.b>0).sort((a,b)=>b.b-a.b).slice(0,25).map(x=>x.t));
+      const topS=new Set(all.filter(x=>x.s>0).sort((a,b)=>b.s-a.s).slice(0,25).map(x=>x.t));
+      const mx=Math.max(1,...all.map(x=>Math.max(x.b,x.s)));
+      const sz=v=>v>=mx*0.6?2:v>=mx*0.25?1.4:1;
+      const mk=[];
+      all.forEach(x=>{
+        if(topB.has(x.t))mk.push({time:x.t,position:'belowBar',color:'#E5484D',shape:'arrowUp',size:sz(x.b)});
+        if(topS.has(x.t))mk.push({time:x.t,position:'aboveBar',color:'#21A466',shape:'arrowDown',size:sz(x.s)});
+      });
+      try{ctx.area.setMarkers(mk);}catch(e){}
+      // 大單淨買累積線(圖底量柱區,金色)
+      try{
+        if(!ctx.bigS){
+          ctx.bigS=ctx.ch.addLineSeries({priceScaleId:'bnet',color:'#E8B44A',lineWidth:1.5,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,
+            priceFormat:{type:'custom',formatter:v=>(v>=0?'+':'')+(v/1e4).toFixed(2)+'億'}});
+          ctx.ch.priceScale('bnet').applyOptions({scaleMargins:{top:0.78,bottom:0},visible:false});
+        }
+        const times=[...ctx.tset].sort((a,b)=>a-b);let acc=0,started=false;const ld=[];
+        times.forEach(t=>{const o=R.mins[t];if(o){acc+=(o.b-o.s)/1e4;started=true;}ld.push(started?{time:t,value:Math.round(acc)}:{time:t});});
+        if(started)ctx.bigS.setData(ld);
+      }catch(e){}
+      if(box){
+        const B=all.reduce((a,x)=>a+x.b,0),S=all.reduce((a,x)=>a+x.s,0),bn=all.reduce((a,x)=>a+x.bn,0),sn=all.reduce((a,x)=>a+x.sn,0),net=B-S;
+        const cov=R.tmin?`${hm(R.tmin)}~${hm(R.tmax)}`:'';
+        const part=!c.full&&R.tmin&&((R.tmin+8*3600)%86400)/60>545?` <span style="color:var(--amber)">(成交筆數多,只抓到 ${hm(R.tmin)} 之後)</span>`:'';
+        box.innerHTML=`<div class="ib-h">🐋 盤中大單(單筆 ≥500 萬)${cov?`<span class="dim"> · 涵蓋 ${cov}</span>`:''}${part}</div>
+          <div class="ib-row"><span>買 <b style="color:var(--up)">${bn} 筆 ${yi(B)} 億</b></span><span>賣 <b style="color:var(--down)">${sn} 筆 ${yi(S)} 億</b></span><span>淨 <b style="color:${net>=0?'var(--up)':'var(--down)'}">${net>=0?'+':'−'}${yi(Math.abs(net))} 億</b></span></div>
+          <div class="ib-n">圖上 <b style="color:var(--up)">▲紅</b>=大單買(外盤)、<b style="color:var(--down)">▼綠</b>=大單賣(內盤),箭頭越大金額越大;<b style="color:#E8B44A">金色線</b>=大單淨買累積。大單不等於特定大戶,誰買誰賣看下方盤後分點。</div>`;
+      }
+      bkLine(ctx,sid,day);
+    }catch(e){}
+  }
+  async function bkLine(ctx,sid,day,tries){
+    try{
+      const box=note(ctx);if(!box||typeof bkLoad!=='function')return;
+      let el=box.querySelector('.ib-bk');if(!el){el=document.createElement('div');el.className='ib-bk';box.appendChild(el);}
+      const e=await bkLoad(sid);
+      if(!e||!e.d||!e.d.length){
+        if((tries||0)<3){setTimeout(()=>bkLine(ctx,sid,day,(tries||0)+1),1500);return;}   // 分片可能還在下載(bkLoad 下載中會先回 null)
+        el.innerHTML='<span class="dim">🏦 分點:這檔沒有分點資料</span>';return;}
+      const i=e.d.lastIndexOf(day);
+      if(i<0){el.innerHTML=`<span class="dim">🏦 ${day.slice(5).replace('-','/')} 分點:盤後約 17:00 起入庫(目前最新 ${e.d[e.d.length-1].slice(5).replace('-','/')})</span>`;return;}
+      const x=e.s[i]||{};const tb=(x.b||[]).slice(0,3),ts=(x.s||[]).slice(0,3);
+      const f=r=>`${r[0]}${typeof bkTag==='function'?bkTag(r[0]):''} <b>${r[1]>0?'+':''}${(+r[1]).toLocaleString()}</b>`;
+      el.innerHTML=`<div class="ib-h">🏦 ${day.slice(5).replace('-','/')} 盤後分點 · 前 15 大淨額 <b style="color:${(x.m15||0)>=0?'var(--up)':'var(--down)'}">${(x.m15||0)>0?'+':''}${(x.m15||0).toLocaleString()} 張</b></div>
+        ${tb.length?`<div class="ib-bkr"><span style="color:var(--up)">買超</span> ${tb.map(f).join('・')}</div>`:''}
+        ${ts.length?`<div class="ib-bkr"><span style="color:var(--down)">賣超</span> ${ts.map(f).join('・')}</div>`:''}`;
+    }catch(e){}
+  }
+  function note(ctx){
+    const cb=document.getElementById('intraChart');if(!cb)return null;
+    let box=document.getElementById('intraBig');
+    if(!box){box=document.createElement('div');box.id='intraBig';
+      const fl=document.getElementById('intraFlow');(fl&&fl.parentNode?fl.parentNode:cb.parentNode).insertBefore(box,fl?fl:cb.nextSibling);}
+    return box;
+  }
+  if(typeof drawIntraLWC==='function'&&!drawIntraLWC.__big){
+    const _d=drawIntraLWC;
+    drawIntraLWC=function(domId,d){
+      const ctx=_d(domId,d);
+      try{
+        const m=(location.hash||'').match(/^#stock\/(.+)$/);
+        if(ctx&&domId==='intraChart'&&m){
+          const sid=decodeURIComponent(m[1]);const s=((window.DATA||{}).stocks||[]).find(x=>x.id===sid);
+          if(s&&s.market==='TW'){
+            ctx.tset=new Set();(d.t||[]).forEach((x,i)=>{if(d.c[i]!=null)ctx.tset.add(Math.floor(+x)+_TZ8);});
+            apply(ctx,sid);
+            fetchBig(sid).then(()=>{if(RT.intra===ctx||(window.RT&&window.RT.intra===ctx))apply(ctx,sid);else apply(ctx,sid);});
+          }
+        }
+      }catch(e){}
+      return ctx;
+    };
+    drawIntraLWC.__big=1;
+  }
 })();
