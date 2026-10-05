@@ -15,6 +15,54 @@ PEXIT = 0.48; HMIN = 5; TRAIL_OFF = True; ADD_GAIN = 0.10; MAX_LOTS = 2
 NOTIONAL = 100000; FEE_B = 0.001425; FEE_S = 0.001425 + 0.003; START = "2026-10-05"
 
 
+def fetch_divs(T, sids, today, log=print):
+    """r986:持股的除權息(FinMind TaiwanStockDividend)——每天重班抓一次存在 T["divs"],盤中班直接用
+    → {sid: {"t": 抓取日, "ev": [[除權息交易日, 現金股利, 股票股利(元/股)], ...]}}"""
+    import urllib.request, urllib.parse, os, time
+    D = T.setdefault("divs", {}); tok = os.environ.get("FINMIND_TOKEN") or ""
+    y0 = f"{int(today[:4]) - 1}-01-01"
+    for sid in sids:
+        if (D.get(sid) or {}).get("t") == today: continue
+        q = {"dataset": "TaiwanStockDividend", "data_id": sid, "start_date": y0}
+        if tok: q["token"] = tok
+        try:
+            with urllib.request.urlopen("https://api.finmindtrade.com/api/v4/data?" + urllib.parse.urlencode(q), timeout=20) as r:
+                rows = (json.load(r) or {}).get("data") or []
+        except Exception as e:
+            log(f"trader:除權息資料 {sid} 失敗 {e}"); continue
+        ev = {}
+        for x in rows:
+            cash = float(x.get("CashEarningsDistribution") or 0) + float(x.get("CashStatutorySurplus") or 0)
+            stk = float(x.get("StockEarningsDistribution") or 0) + float(x.get("StockStatutorySurplus") or 0)
+            cd = str(x.get("CashExDividendTradingDate") or "")[:10]; sd = str(x.get("StockExDividendTradingDate") or "")[:10]
+            if cash > 0 and len(cd) == 10 and cd > "1990": ev.setdefault(cd, [cd, 0.0, 0.0])[1] += cash
+            if stk > 0 and len(sd) == 10 and sd > "1990": ev.setdefault(sd, [sd, 0.0, 0.0])[2] += stk
+        D[sid] = {"t": today, "ev": sorted(ev.values())}
+        time.sleep(0.3)
+    for k in list(D):
+        if k not in sids: D.pop(k, None)
+
+
+def apply_div(T, p, day, ev_log):
+    """除權息當天:停損價跟著下調(否則除息跳空會被誤判成跌破停損),並記錄領到的現金股利/配股
+    停損新價 =(原停損 − 現金股利)÷(1 + 股票股利/10)"""
+    for dd, cash, stk in ((T.get("divs") or {}).get(p["id"]) or {}).get("ev") or []:
+        if dd != day or dd <= p["fill"] or dd in (p.get("exd") or []): continue
+        f = 1 + stk / 10
+        for k in ("stop0", "stop"):
+            p[k] = round((p[k] - cash) / f, 2)
+        p["cash"] = round((p.get("cash") or 0) + cash * (p.get("fac") or 1), 4)   # 每「原始一股」累積領到的現金
+        p["fac"] = round((p.get("fac") or 1) * f, 6)                                 # 配股後持股倍數
+        p.setdefault("exd", []).append(dd)
+        ev_log.append(f"{dd} 💵 {p['name']} 除權息(現金 {cash} 元" + (f"、配股 {stk} 元" if stk else "") + f")→ 停損下調為 {p['stop']}")
+
+
+def _ret(p, xp):
+    """含股利的報酬:(出場價×配股倍數 + 已領現金)÷ 進場價,扣手續費與證交稅"""
+    val = xp * (p.get("fac") or 1) + (p.get("cash") or 0)
+    return (val - xp * (p.get("fac") or 1) * FEE_S) / (p["entry"] * (1 + FEE_B)) - 1
+
+
 def _prev_close(o, i):
     return o[i - 1][3] if i > 0 and o[i - 1] and o[i - 1][3] else None
 
@@ -121,12 +169,15 @@ def run(A, data, log=print):
                          "stp_src": (LV or {}).get("stp_src"), "dn_med": (LV or {}).get("dn_med")})
         ev.append(f"{d[idx]} {'➕ 加碼' if q.get('add') else '🟢 買進'} {q['name']} 開盤 {op}(停損 {round(float(stp), 2)})")
     T["pend"] = keep
-    # ② 持股:逐根 K 檢查停損 / 移動停利
+    # ② 持股:逐根 K 檢查停損 / 移動停利(除權息日先調整停損)
+    try: fetch_divs(T, sorted({p["id"] for p in T["pos"]}), A.iso(A.TODAY), log)
+    except Exception as e: log(f"trader:除權息資料例外 {e}")
     still = []
     for p in T["pos"]:
         d, o = A.bars_of(p["id"]); out = None
         for i in range(len(d)):
             if d[i] <= p["seen"]: continue
+            apply_div(T, p, d[i], ev)
             b = o[i]; op, h, l = b[0], b[1], b[2]; pc = _prev_close(o, i)
             locked_dn = pc and h == l and op <= pc * 0.905
             if p.get("xsig") and d[i] > p["xsig"] and op and not locked_dn:      # r984:模型預測轉弱 → 訊號隔天開盤賣
@@ -140,7 +191,7 @@ def run(A, data, log=print):
             if not TRAIL_OFF and p["hi"] >= p["entry"] * TRAIL_ON: p["stop"] = round(max(p["stop"], p["hi"] * TRAIL_DD), 2)
             p["seen"] = d[i]
         if out:
-            ret = (out[1] * (1 - FEE_S)) / (p["entry"] * (1 + FEE_B)) - 1
+            ret = _ret(p, out[1])
             T["trades"].append({**{k: p[k] for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
                                 "xd": out[0], "xp": round(float(out[1]), 2), "why": out[2], "ret": round(ret * 100, 2), "hi": p["hi"]})
             T["trades"][-1]["line"] = p["stop"]
@@ -276,8 +327,10 @@ def run_intraday(A, data, hhmm, log=print):
         if px is None or p.get("seen", "") > today or (p["fill"] == today):   # 進場當天不判出場(與回測相同)
             still.append(p); continue
         op, h, l = hl
+        try: apply_div(T, p, today, ev)                                    # r986:除權息日盤中先下調停損
+        except Exception: pass
         if p.get("xsig") and p["xsig"] < today and op:                      # r984:模型轉弱 → 開盤賣(官方開盤價)
-            ret = (op * (1 - FEE_S)) / (p["entry"] * (1 + FEE_B)) - 1
+            ret = _ret(p, op)
             T.setdefault("trades", []).append({**{k: p.get(k) for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
                                                "xd": today, "xt": "09:00", "xp": op, "why": "model", "ret": round(ret * 100, 2), "hi": p["hi"], "line": op, "rt": 1})
             ev.append(f"{today} 09:00 📉 模型轉弱 {p['name']} 開盤 {op}({ret*100:+.2f}%)"); continue
@@ -287,7 +340,7 @@ def run_intraday(A, data, hhmm, log=print):
         if px <= line and l <= line:
             xp = op if op <= line else line
             why = "trail" if line > p["stop0"] else "sl"
-            ret = (xp * (1 - FEE_S)) / (p["entry"] * (1 + FEE_B)) - 1
+            ret = _ret(p, xp)
             T.setdefault("trades", []).append({**{k: p[k] for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
                                                "xd": today, "xt": hhmm, "xp": round(float(xp), 2), "why": why, "ret": round(ret * 100, 2), "hi": p["hi"], "line": line, "rt": 1})
             ev.append(f"{today} {hhmm} {'🔒 移動停利' if why == 'trail' else '🛑 停損'} {p['name']} @{round(float(xp), 2)}({ret*100:+.2f}%)")
