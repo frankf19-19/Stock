@@ -1,4 +1,4 @@
-/* K研所 · build r975 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r976 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r975';
+const APP_BUILD='r976';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1819,7 +1819,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r975</span>');
+  diag.push('<span style="color:var(--dim)">build r976</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21695,7 +21695,7 @@ function renderAIPickCore(){
   const done=live.filter(w=>w.status==='done');
   const st=AIPK.stats||{},sb=AIPK.stats_bt||{};
   let h='';
-  try{if(window.GMKT!=='US')h+=traderHTML();}catch(e){console.warn('trader',e);}   // r975:🤖 AI 交易員(新規則)放最上面
+  try{if(window.GMKT!=='US')h+=traderHTML();}catch(e){console.warn('trader',e);}   // r975:每日交易放最上面
   try{h+=aipStatusHTML();}catch(e){console.warn('aipStatus',e);}
   h+=`<div class="aip-albar"><button class="btn-ghost" id="aipAlTg">${aipAlertOn()?'🔔 買賣提示:開':'🔕 買賣提示:關'}</button><span class="dim-note" style="margin:0">名單裡任何一檔到<b>建議買價</b>、<b>目標價</b>、<b>停損價</b>或<b>到期結算日</b>,都會跳出提示卡與瀏覽器通知(不必加入最愛)</span></div>`;
   let hs=st.weeks?aipStatStrip(st,'實戰戰績(凍結後追蹤)','每週名單一經選出即凍結,用實際 K 線核對;「準確率」= 實際賣出價高於買進價的比例')
