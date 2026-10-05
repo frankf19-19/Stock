@@ -535,7 +535,8 @@ def gen_week(data, buy_week, learn=None, reviews=None, exclude=None):
 #   規則:①新一週選股排除「目前持有中」與「掛單等成交」的股票;②換股時,別的倉位當天正持有的股票不換進。
 #   只影響 EXCL_FROM 之後的決策——已發生的歷史紀錄不回頭改寫。
 EXCL_FROM = "2026-10-05"
-TRADER_FROM = "2026-10-12"          # r975:台股從這一週起不再產生每週名單,新進場全部交給 AI 交易員(既有倉位照舊規則結算到出場)
+TRADER_FROM = "2026-10-12"
+OLD_BUY_END = "2026-10-09"         # r980:舊每週名單最後可成交日;之後未成交的掛單取消、出場不再換股遞補          # r975:台股從這一週起不再產生每週名單,新進場全部交給 AI 交易員(既有倉位照舊規則結算到出場)
 _WEEKS = []
 
 def _held_elsewhere(sid, day, week):
@@ -903,7 +904,7 @@ def evaluate(week):
     #      出場只由訊號決定:到目標 / 觸停損 / 移動停利 / 訊號轉弱(排名掉出前 30% 且跌破月線)
     if not week.get("bt"):
         week["mode"] = "open"
-        bw_end, ew_end = FAR, FAR
+        bw_end, ew_end = OLD_BUY_END, FAR
         buy_week_over = False; eval_over = False
         nw = week.get("_next_ids")                     # 下一週名單出來後,沒進名單的舊掛單取消(排名已掉)
         if nw is not None and TODAY > bw + dt.timedelta(days=6):
@@ -928,7 +929,8 @@ def evaluate(week):
             _run_leg(_apply_weak(p, p["legs"][0]), ew_end, eval_over)
         else:
             p["legs"] = []
-        p["_nofill"] = bool(not fill and (p.pop("_cancel", 0) or (buy_week_over and (bb or TODAY > bw + dt.timedelta(days=9)))))
+        p["_nofill"] = bool(not fill and (p.pop("_cancel", 0) or (buy_week_over and (bb or TODAY > bw + dt.timedelta(days=9)))
+                                          or (not week.get("bt") and iso(TODAY) > OLD_BUY_END)))
 
     # ── 🔄 換股輪動:誰先出場誰先挑候補,次數不設限 ──
     used = {p["id"] for p in picks}
@@ -937,7 +939,7 @@ def evaluate(week):
         pick_slot = None
         for si, p in enumerate(picks):
             lg = p["legs"][-1] if p["legs"] else None
-            if not lg or not lg["xd"] or lg["xw"] == "exp" or lg.get("_rot"): continue
+            if not lg or not lg["xd"] or lg["xw"] == "exp" or lg.get("_rot") or (not week.get("bt") and lg["xd"] > OLD_BUY_END): continue
             key = (lg["xd"], si)
             if pick_slot is None or key < pick_slot[0]: pick_slot = (key, p, lg)
         if not pick_slot: break

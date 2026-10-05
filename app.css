@@ -2353,3 +2353,14 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .trd-rule,.trd-bt{font-size:13px;line-height:1.7;padding:8px 10px;border-radius:10px;background:var(--panel,#16181D);margin:6px 0}
 .trd-bt{color:var(--txt2)}
 .trd-log{font-size:12.5px;line-height:1.7;padding-left:18px;margin:6px 0}
+/* r980:AI Pick 現況總覽 */
+.aov-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 10px}
+.aov-kpi div{background:var(--panel,#16181D);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.aov-kpi i{font-style:normal;font-size:12px;color:var(--dim)}
+.aov-kpi b{font-size:20px;font-family:var(--mono,monospace);line-height:1.2}
+.aov-kpi small{font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis}
+.aov-warn{color:var(--amber);font-size:13px;border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);border-radius:10px;padding:8px 10px;margin-bottom:8px}
+.aov-tag{font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;border:1px solid}
+.aov-tag.new{color:var(--gold,#E8B44A)}.aov-tag.old{color:var(--dim)}
+.aip-old>summary{font-weight:800}
+@media(max-width:640px){.aov-kpi{grid-template-columns:repeat(2,1fr)}}
