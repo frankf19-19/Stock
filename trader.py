@@ -10,7 +10,7 @@
   紀錄——每筆都是官方日 K 可驗證的成交;每檔名目 NT$100,000(10 檔 = 100 萬)
 """
 import json, os, datetime as dt
-FILE = "trader.json"; SLOTS = 20; PMIN = 0.54; MAX_SECTOR = 2; GAP_MAX = 0.03; TRAIL_ON = 1.10; TRAIL_DD = 0.85
+FILE = "trader.json"; SLOTS = 20; PMIN = 0.54; MAX_SECTOR = 999   # r995:取消「同產業最多 2 檔」(回測沒有這條;由模型、產業強弱、營收自行判斷); GAP_MAX = 0.03; TRAIL_ON = 1.10; TRAIL_DD = 0.85
 PEXIT = 0.48; HMIN = 5; TRAIL_OFF = True; ADD_GAIN = 0.10; MAX_LOTS = 2
 NOTIONAL = 100000; FEE_B = 0.001425; FEE_S = 0.001425 + 0.003; START = "2026-10-05"
 
