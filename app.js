@@ -1,4 +1,4 @@
-/* K研所 · build r997 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r998 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r997';
+const APP_BUILD='r998';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1819,7 +1819,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r997</span>');
+  diag.push('<span style="color:var(--dim)">build r998</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21600,6 +21600,25 @@ function aitMount(mk){const box=document.getElementById('aipickBox');if(!box||!(
   const put=()=>{if(!document.getElementById('aipickBox'))return;box.querySelectorAll('.ait-card,.brn-card').forEach(x=>x.remove());const sc=box.querySelector('.aip-status');if(sc)sc.insertAdjacentHTML('afterend',aitHTML(mk)+brainHTML());else box.insertAdjacentHTML('afterbegin',aitHTML(mk)+brainHTML());aitChart(mk);
     if(!BRAIN)brainLoad().then(b=>{if(b&&!box.querySelector('.brn-card')){const a=box.querySelector('.ait-card');if(a)a.insertAdjacentHTML('afterend',brainHTML());}});};
   if(AIT)put();else aitLoad().then(()=>{if((window.GMKT==='US'?'US':'TW')===mk)put();});}
+/* ══ r998:🇺🇸 美股即時報價共用層(Finnhub,金鑰存本機)——抽屜最愛、AI Pick 美股、個股頁共用;每 30 秒輪詢,累積當日走勢 ══ */
+const USRT={q:{},ticks:{},t:{},busy:false};
+function usFhSetup(){const k=prompt('貼上 Finnhub API key(finnhub.io 免費註冊後在 Dashboard 複製)');if(k&&k.trim()){try{localStorage.setItem('fh_key',k.trim());}catch(e){}location.reload();}}
+function usRtGet(id){const q=USRT.q[id];return q&&Date.now()-q._at<10*60e3&&q.c>0?q:null;}
+function usRtPts(id){const T=USRT.ticks[id]||[];if(T.length<2)return null;const t0=T[0][0];return T.map(x=>[(x[0]-t0)/60000,x[1]]);}
+async function usRtPoll2(ids,cb){
+  if(typeof fhKey!=='function'||!fhKey())return;
+  const need=[...new Set(ids)].filter(id=>!USRT.t[id]||Date.now()-USRT.t[id]>30e3);
+  if(!need.length||USRT.busy)return;USRT.busy=true;
+  try{for(const id of need.slice(0,30)){
+      try{const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(id)}&token=${fhKey()}`,8000);
+        if(r&&r.ok){const j=await r.json();if(j&&j.c>0){USRT.q[id]=Object.assign(j,{_at:Date.now()});USRT.t[id]=Date.now();
+          const T=USRT.ticks[id]||(USRT.ticks[id]=[]);const ts=(j.t||0)*1000||Date.now();if(!T.length||ts>T[T.length-1][0])T.push([ts,j.c]);if(T.length>800)T.shift();
+          try{if(typeof USAIP_RT!=='undefined')USAIP_RT.q[id]={c:j.c,h:j.h,l:j.l,o:j.o,pc:j.pc,t:j.t};}catch(e){}}}}catch(e){}
+      await new Promise(r=>setTimeout(r,220));}}
+  finally{USRT.busy=false;}
+  let keep=false;try{keep=cb?cb()!==false:false;}catch(e){}
+  if(keep){clearTimeout(USRT.timer);USRT.timer=setTimeout(()=>{try{usRtPoll2(ids,cb);}catch(e){}},30e3);}   // 只留一條輪詢;畫面關掉就停
+}
 /* ══ r997:🇺🇸 美股 AI Pick 版面齊全——現況總覽/持股卡片/關注清單/戰績(與台股同格式);規則維持每週名單(美股回測舊規則較穩)
    盤中:有設 Finnhub 金鑰時每分鐘抓持股與掛單的即時價,顯示「盤中觸價(待收盤日 K 確認)」;正式成交仍以官方日 K 判定 ══ */
 const USAIP_RT={q:{},t:0,busy:false};
@@ -21682,7 +21701,7 @@ function aipOldHoldList(){
   const out=[];if(!AIPK)return out;
   (AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='skip').forEach(w=>(w.picks||[]).forEach(p=>{
     const legs=aipLegs(p),cur=legs.length?legs[legs.length-1]:null;
-    if(!cur||cur.xd||cur.xfer)return;                                  // r997:已移交每日交易的不重複列
+    if(!cur||cur.xd||cur.xfer)return;                                  // r998:已移交每日交易的不重複列
     const st=(DATA.stocks||[]).find(x=>x.id===cur.id),px=st&&st.price>0?+st.price:null;
     const hi=Math.max(cur.hi||0,px||0),trail=hi>=cur.entry*1.08?Math.round(hi*0.94*100)/100:null;
     out.push({src:'週',id:cur.id,name:cur.name,fill:cur.fill,entry:cur.entry,px,line:trail&&trail>cur.stop?trail:cur.stop,lineTag:trail&&trail>cur.stop?'🔒 移動停利':'停損',tgt:cur.target,wk:w.buy_week});
@@ -21722,7 +21741,7 @@ function aipOverview(){
   </div>`;
 }
 function aipWatchHTML(T){
-  /* r997:👀 關注清單——①持股要注意(接近出場線/模型勝算偏低/明天要賣/可能加碼)②可能進場(勝算最高的候選,卡在哪個條件) */
+  /* r998:👀 關注清單——①持股要注意(接近出場線/模型勝算偏低/明天要賣/可能加碼)②可能進場(勝算最高的候選,卡在哪個條件) */
   const H=aipNewHoldList(),R=T.rules||{},pe=((R.pexit||0.48)*100),pm=((R.pmin||0.54)*100);
   const hw=[];
   H.forEach(r=>{const m=(r.lineTag||'').match(/模型勝算 <b[^>]*>([\d.]+)%<\/b>/),pb=m?+m[1]:null;const gap=r.px&&r.line?(r.px/r.line-1)*100:null;const ret=r.px?(r.px/r.entry-1)*100:null;
@@ -21743,7 +21762,7 @@ function aipWatchHTML(T){
     <div class="wl-sub">可能進場(勝算最高的候選・${T.watch_d?aipMD(T.watch_d)+' 收盤':''})</div><div class="dim-note" style="margin:0 0 4px">勝算要 ≥ ${pm}%,且產業在月線上、近 3 月營收成長才會買(不限同產業檔數);灰色標籤是目前還卡住的條件。</div>${cand}`;
 }
 function aipUnifiedHold(){
-  /* r997:持股一覽重做——手機改成一檔一張卡(名稱+損益最醒目、出場線距離用進度條),拿掉「原週名單」標籤;桌機表格同步精簡 */
+  /* r998:持股一覽重做——手機改成一檔一張卡(名稱+損益最醒目、出場線距離用進度條),拿掉「原週名單」標籤;桌機表格同步精簡 */
   const L=aipNewHoldList().concat(aipOldHoldList());
   if(!L.length)return '<div class="dim-note">目前沒有持股</div>';
   const fp=v=>v==null?'—':(v>0?'+':'')+v.toFixed(2)+'%',cl=v=>v==null?'':v>0?'var(--up)':v<0?'var(--down)':'inherit';
@@ -23229,7 +23248,9 @@ document.addEventListener('click',e=>{
   }
 
   /* ── 個股列 ── */
-  function stockOf(id){return ((window.DATA||{}).stocks||[]).find(x=>x.id===id)||null;}
+  function stockOf(id){const s0=((window.DATA||{}).stocks||[]).find(x=>x.id===id)||null;
+    if(s0&&s0.market==='US'&&typeof usRtGet==='function'){const q=usRtGet(id);if(q)return Object.assign({},s0,{price:q.c,chg:q.dp,_rt:1});}   // r998:美股即時價(Finnhub)
+    return s0;}
   /* r947:後端 spark 快照常因 GitHub 排程延誤而缺早盤(例:10/02 從 11:12 才開始)
      → 早盤缺口用富果「當日 1 分 K」補整天;排隊抓、每 2.5 秒最多 1 檔,不吃爆富果每分鐘額度 */
   const fgC={};let fgQ=[],fgBusy=false,fgNeed=[],rpT=null;
@@ -23279,8 +23300,8 @@ document.addEventListener('click',e=>{
   }
   function prevOf(s){return (s&&s.price>0&&typeof s.chg==='number'&&s.chg!==-100)?s.price/(1+s.chg/100):null;}
   function rowHTML(s,extra){
-    const pts=isUS(s)?null:stockPts(s.id,s);
-    const chart=pts?lineSVG(pts,prevOf(s),120,34,{h:34,sw:1.4,span:270}):chgBar(s.chg);
+    const pts=isUS(s)?(typeof usRtPts==='function'?usRtPts(s.id):null):stockPts(s.id,s);
+    const chart=pts?lineSVG(pts,prevOf(s),120,34,{h:34,sw:1.4,span:isUS(s)?390:270}):chgBar(s.chg);
     return `<div class="is-row" data-id="${esc(s.id)}">
       <div class="is-nm"><b>${esc(s.name)}</b><span>${esc(s.id)}</span></div>
       <div class="is-sp">${chart}</div>
@@ -23299,6 +23320,7 @@ document.addEventListener('click',e=>{
     const all=favRows();
     if(!all.length){body.innerHTML='<div class="is-empty">還沒有最愛股票<br><small>在個股頁按 ⭐ 加入(需先登入),這裡就會出現即時走勢</small></div>';return;}
     let rows=all.filter(s=>mkt==='us'?isUS(s):!isUS(s));
+    if(mkt==='us'&&typeof usRtPoll2==='function')usRtPoll2(rows.map(r=>r.id),()=>{if(sheetOn()&&tab==='fav'&&mkt==='us'){paintFav(body);return true;}return false;});
     if(favSort==='up')rows.sort((a,b)=>(b.chg||0)-(a.chg||0));
     else if(favSort==='dn')rows.sort((a,b)=>(a.chg||0)-(b.chg||0));
     const v=rows.filter(s=>typeof s.chg==='number');
@@ -23307,7 +23329,7 @@ document.addEventListener('click',e=>{
     body.innerHTML=segHTML()+(rows.length?`<div class="is-sum"><span>漲 <b style="color:var(--up)">${up}</b> / 跌 <b style="color:var(--down)">${dn}</b></span><span>平均 <b style="color:${col(avg)}">${pc(avg)}</b></span>
       <span class="is-sort">${[['my','我的順序'],['up','漲幅'],['dn','跌幅']].map(([k,n])=>`<button data-fs="${k}" class="${favSort===k?'on':''}">${n}</button>`).join('')}</span></div>
       <div class="is-list">${rows.map(s=>rowHTML(s)).join('')}</div>
-      <div class="is-foot">${mkt==='us'?'美股沒有個股分時資料,以今日漲跌條顯示(±10% 滿格)':'走勢:富果全日 1 分 K(沒有時用 5 分鐘快照)+ 即時現價'};點一檔進個股頁</div>`
+      <div class="is-foot">${mkt==='us'?(typeof fhKey==='function'&&fhKey()?'🟢 美股即時:Finnhub 每 30 秒更新現價,走勢線為今天開啟以來的即時紀錄(盤前/盤後顯示上一收盤)':'⚪ 美股目前是收盤價。<a href="javascript:void 0" onclick="usFhSetup()" style="color:var(--gold,#E8B44A);font-weight:800">設定 Finnhub 免費金鑰</a>即可看即時價(finnhub.io 免費註冊,1 分鐘)'):'走勢:富果全日 1 分 K(沒有時用 5 分鐘快照)+ 即時現價'};點一檔進個股頁</div>`
       :`<div class="is-empty">${mkt==='us'?'最愛裡還沒有美股':'最愛裡還沒有台股'}</div>`);
   }
   function aipRows(){
