@@ -11,6 +11,7 @@
 """
 import json, os, datetime as dt
 FILE = "trader.json"; SLOTS = 10; PMIN = 0.54; MAX_SECTOR = 2; GAP_MAX = 0.03; TRAIL_ON = 1.10; TRAIL_DD = 0.85
+PEXIT = 0.48; HMIN = 5; TRAIL_OFF = True
 NOTIONAL = 100000; FEE_B = 0.001425; FEE_S = 0.001425 + 0.003; START = "2026-10-05"
 
 
@@ -69,8 +70,8 @@ def run(A, data, log=print):
     T.setdefault("ver", "r975"); T.setdefault("start", START); T.setdefault("pos", []); T.setdefault("pend", [])
     T.setdefault("trades", []); T.setdefault("log", []); T.setdefault("sig_done", "")
     T["rules"] = {"slots": SLOTS, "pmin": PMIN, "gap_max": GAP_MAX, "trail_on": TRAIL_ON, "trail_dd": TRAIL_DD, "max_sector": MAX_SECTOR, "notional": NOTIONAL}
-    T["rules"]["sector_filter"] = True
-    T["bt"] = {"period": "2019/06~2026/10", "cagr": 19.4, "mdd": -27.3, "trades_y": 36, "win": 27.4, "avg": 5.08,
+    T["rules"]["sector_filter"] = True; T["rules"]["pexit"] = PEXIT; T["rules"]["hmin"] = HMIN; T["rules"]["trail_off"] = TRAIL_OFF
+    T["bt"] = {"period": "2019/06~2026/10", "cagr": 19.3, "mdd": -33.2, "trades_y": 17, "win": 15.0, "avg": 5.2,
                "old": {"cagr": 3.5, "mdd": -28.3, "trades_y": 137, "win": 44.4, "avg": 0.33}}
     byid = {s["id"]: s for s in data.get("stocks", [])}
     bd, _ = A.bars_of(A.BENCH_SID); last = bd[-1] if bd else ""
@@ -125,20 +126,22 @@ def run(A, data, log=print):
             if d[i] <= p["seen"]: continue
             b = o[i]; op, h, l = b[0], b[1], b[2]; pc = _prev_close(o, i)
             locked_dn = pc and h == l and op <= pc * 0.905
+            if p.get("xsig") and d[i] > p["xsig"] and op and not locked_dn:      # r984:模型預測轉弱 → 訊號隔天開盤賣
+                out = (d[i], op, "model"); p["seen"] = d[i]; break
             line = p["stop"]
             if l <= line and not locked_dn:
                 xp = op if op <= line else line
                 why = "trail" if line > p["stop0"] else "sl"
                 out = (d[i], xp, why); p["seen"] = d[i]; break
             p["hi"] = max(p["hi"], h)
-            if p["hi"] >= p["entry"] * TRAIL_ON: p["stop"] = round(max(p["stop"], p["hi"] * TRAIL_DD), 2)
+            if not TRAIL_OFF and p["hi"] >= p["entry"] * TRAIL_ON: p["stop"] = round(max(p["stop"], p["hi"] * TRAIL_DD), 2)
             p["seen"] = d[i]
         if out:
             ret = (out[1] * (1 - FEE_S)) / (p["entry"] * (1 + FEE_B)) - 1
             T["trades"].append({**{k: p[k] for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
                                 "xd": out[0], "xp": round(float(out[1]), 2), "why": out[2], "ret": round(ret * 100, 2), "hi": p["hi"]})
             T["trades"][-1]["line"] = p["stop"]
-            ev.append(f"{out[0]} {'🔒 移動停利' if out[2] == 'trail' else '🛑 停損'} {p['name']} @{round(float(out[1]), 2)}({ret*100:+.2f}%)")
+            ev.append(f"{out[0]} {'🔒 移動停利' if out[2] == 'trail' else '📉 模型轉弱' if out[2] == 'model' else '🛑 停損'} {p['name']} @{round(float(out[1]), 2)}({ret*100:+.2f}%)")
         else: still.append(p)
     T["pos"] = still
     # ③ 收盤決策(每個交易日一次;最新 K 全市場入庫 ≥90% 才做)
@@ -179,6 +182,17 @@ def run(A, data, log=print):
                          "sec_up": (ST.get(s.get("sector")) or {"up": True})["up"]} for pr, s in sc[:15]]
             for p in T["pos"]:
                 try: p["icost"] = inst_cost(A, p["id"]); p["sec_gap"] = (ST.get(p.get("sector")) or {}).get("gap")
+                except Exception: pass
+                # r984:出場改由模型「預測」——每天收盤重算這檔的勝算(技術・法人籌碼・估值・殖利率・相對強弱 20 項),
+                #       持有滿 5 個交易日後勝算跌破 0.48 → 隔天開盤賣;不再用「最高點回落」停利,也不設固定目標
+                try:
+                    s0 = byid.get(p["id"]) or {}; d0, o0 = A.bars_of(p["id"])
+                    pr0 = V.prob(p["id"], s0, d0, o0) if d0 and d0[-1] == last else None
+                    p["prob"] = round(pr0, 4) if pr0 is not None else p.get("prob")
+                    held = sum(1 for x in d0 if x > p["fill"])
+                    if TRAIL_OFF: p["stop"] = p["stop0"]
+                    if pr0 is not None and held >= HMIN and pr0 < PEXIT and not p.get("xsig"):
+                        p["xsig"] = last; ev.append(f"{last} 📉 {p['name']} 模型勝算降到 {pr0*100:.1f}%(< {PEXIT*100:.0f}%),明天開盤賣出")
                 except Exception: pass
             T["sig_done"] = last; T["n_scored"] = len(sc)
             ev.append(f"{last} 🔍 收盤掃描 {len(sc)} 檔,勝算 ≥{PMIN} 有 {sum(1 for x in sc if x[0] >= PMIN)} 檔;" +
@@ -238,8 +252,13 @@ def run_intraday(A, data, hhmm, log=print):
         if px is None or p.get("seen", "") > today or (p["fill"] == today):   # 進場當天不判出場(與回測相同)
             still.append(p); continue
         op, h, l = hl
-        hi_now = max(p["hi"], h)                                           # 移動停利線即時計算(不寫回,收盤日 K 再正式更新)
-        line = round(max(p["stop"], hi_now * TRAIL_DD), 2) if hi_now >= p["entry"] * TRAIL_ON else p["stop"]
+        if p.get("xsig") and p["xsig"] < today and op:                      # r984:模型轉弱 → 開盤賣(官方開盤價)
+            ret = (op * (1 - FEE_S)) / (p["entry"] * (1 + FEE_B)) - 1
+            T.setdefault("trades", []).append({**{k: p.get(k) for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
+                                               "xd": today, "xt": "09:00", "xp": op, "why": "model", "ret": round(ret * 100, 2), "hi": p["hi"], "line": op, "rt": 1})
+            ev.append(f"{today} 09:00 📉 模型轉弱 {p['name']} 開盤 {op}({ret*100:+.2f}%)"); continue
+        hi_now = max(p["hi"], h)
+        line = round(max(p["stop"], hi_now * TRAIL_DD), 2) if (not TRAIL_OFF and hi_now >= p["entry"] * TRAIL_ON) else p["stop"]
         p["line_rt"] = line
         if px <= line and l <= line:
             xp = op if op <= line else line
