@@ -535,7 +535,7 @@ def gen_week(data, buy_week, learn=None, reviews=None, exclude=None):
 #   規則:①新一週選股排除「目前持有中」與「掛單等成交」的股票;②換股時,別的倉位當天正持有的股票不換進。
 #   只影響 EXCL_FROM 之後的決策——已發生的歷史紀錄不回頭改寫。
 EXCL_FROM = "2026-10-05"
-TRADER_FROM = "2099-12-31"          # r981:每週名單照常產生(與每日交易並行;r975 原訂 10/12 起停產,已取消)
+TRADER_FROM = "2026-10-12"          # r983:單一投資組合——10/12 週起不再產生每週名單,持股與新進場全部由每日交易管理
 OLD_BUY_END = "2099-12-31"         # r981:每週名單照常成交與換股遞補(r980 原訂 10/9 截止,已取消)
 _WEEKS = []
 
@@ -1430,7 +1430,13 @@ def main():
     except Exception as e:
         print("aipick:訊號轉弱判斷例外", e)
     globals()["_WEEKS"][:] = weeks                                  # r956:換股去重要看到其他週的持股
+    if not US:                                                       # r983:每週名單持股移交每日交易(只做一次)
+        try:
+            import trader; trader.migrate(sys.modules[__name__], weeks, J)
+        except Exception as e:
+            print("aipick:移交例外", e)
     for w in weeks:
+        if w.get("xfer") and not w.get("bt"): continue                # r983:已移交給每日交易的週次,不再用舊規則結算
         if w.get("status") != "done" or w.get("xv") != XVER:      # r736:舊檔(只有收盤結算)重跑一次,補買賣時間與實現損益
             try: evaluate(w)
             except Exception as e: print("aipick:evaluate 失敗", w.get("buy_week"), e)

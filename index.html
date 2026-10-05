@@ -17,7 +17,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230C111D'/><rect x='10' y='34' width='10' height='19' rx='2.5' fill='%238a6a1f'/><rect x='27' y='23' width='10' height='30' rx='2.5' fill='%23E8B44A'/><rect x='44' y='11' width='10' height='42' rx='2.5' fill='%23E5484D'/></svg>">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
-<meta name="build" content="r982">
+<meta name="build" content="r983">
 <meta name="theme-color" content="#b3402a" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -31,7 +31,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r982">
+<link rel="stylesheet" href="app.css?v=r983">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -193,13 +193,13 @@
   <div class="sec-title" data-sec="aiptoday">📍 現況總覽 <span style="font-weight:400;font-size:13px;letter-spacing:0">一眼看懂:持股幾檔、今天賺賠、今天發生什麼、明天開盤要買什麼</span></div><div class="sec-body" id="sb-aiptoday">
   <div id="aipTodayBox"></div>
   </div>
-  <div class="sec-title" data-sec="aiphold">💼 持股一覽 <span style="font-weight:400;font-size:13px;letter-spacing:0">每日交易 + 每週名單所有在場持股・進場/現價/損益・出場線(停損或移動停利)</span></div><div class="sec-body" id="sb-aiphold">
+  <div class="sec-title" data-sec="aiphold">💼 持股一覽 <span style="font-weight:400;font-size:13px;letter-spacing:0">所有在場持股(含原每週名單移交)・進場/現價/損益・出場線(停損或移動停利)</span></div><div class="sec-body" id="sb-aiphold">
   <div id="aipHoldBox"></div>
   </div>
-  <div class="sec-title" data-sec="aipick">🎯 交易規則 <span style="font-weight:400;font-size:13px;letter-spacing:0">每日交易規則・每週名單(照常運作)收在下方</span></div><div class="sec-body" id="sb-aipick">
+  <div class="sec-title" data-sec="aipick">🎯 交易規則 <span style="font-weight:400;font-size:13px;letter-spacing:0">怎麼選、怎麼買、怎麼賣・原每週名單紀錄收在下方</span></div><div class="sec-body" id="sb-aipick">
   <div id="aipickBox"></div>
   </div>
-  <div class="sec-title" data-sec="aipstat">📊 戰績 <span style="font-weight:400;font-size:13px;letter-spacing:0">每日交易實盤成績・回測對照・每週名單戰績</span></div><div class="sec-body" id="sb-aipstat">
+  <div class="sec-title" data-sec="aipstat">📊 戰績 <span style="font-weight:400;font-size:13px;letter-spacing:0">實盤成績・回測對照・原每週名單戰績</span></div><div class="sec-body" id="sb-aipstat">
   <div id="aipStatBox"></div>
   </div>
   <div class="sec-title" data-sec="aiphist">🕘 歷史紀錄 <span style="font-weight:400;font-size:13px;letter-spacing:0">每一週的名單與實際買賣結果・含 walk-forward 回測週</span></div><div class="sec-body" id="sb-aiphist">
@@ -346,7 +346,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r982"></script>
+<script src="app.js?v=r983"></script>
 <script src="mobile.js?v=r770" defer></script>
 </body>
 </html>

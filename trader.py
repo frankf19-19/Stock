@@ -254,3 +254,43 @@ def run_intraday(A, data, hhmm, log=print):
     for e in ev: T.setdefault("log", []).insert(0, e); log("trader:" + e)
     T["log"] = T.get("log", [])[:300]; T["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M")
     return T
+
+
+def migrate(A, weeks, J, log=print):
+    """r983:單一投資組合——把每週名單「目前還在場內」的持股直接移交給每日交易管理(之後只有一套買賣)
+    移交後:停損沿用原本的個股結構停損;取消固定目標;自進場以來最高價已漲過 10% 的,立刻套用「最高點回落 15%」移動停利線;
+    原每週名單未成交的掛單取消;已結算的歷史紀錄保持不動。"""
+    T = J.get("trader") or {}
+    if T.get("migrated") or A.US: return False
+    bd, _ = A.bars_of(A.BENCH_SID); last = bd[-1] if bd else A.iso(A.TODAY)
+    for k in ("pos", "pend", "log", "trades"): T.setdefault(k, [])
+    have = {p["id"] for p in T["pos"]}; n = c = 0; ev = []
+    for w in weeks:
+        if w.get("bt") or w.get("status") in ("done", "skip"): continue
+        for p in w.get("picks") or []:
+            legs = p.get("legs") or []; cur = legs[-1] if legs else None
+            if cur and not cur.get("xd"):
+                cur["xfer"] = last
+                if cur["id"] in have: continue
+                d, o = A.bars_of(cur["id"]); hi = cur["entry"]
+                for dd, b in zip(d, o):
+                    if dd >= cur["fill"] and b and b[1]: hi = max(hi, b[1])
+                stop0 = round(float(cur.get("stop") or cur["entry"] * 0.92), 2); stop = stop0
+                if hi >= cur["entry"] * TRAIL_ON: stop = max(stop, round(hi * TRAIL_DD, 2))
+                T["pos"].append({"id": cur["id"], "name": cur.get("name"), "sector": cur.get("sector"), "fill": cur["fill"], "ft": cur.get("ft"),
+                                 "entry": cur["entry"], "sh": int(NOTIONAL / cur["entry"]), "stop0": stop0, "stop": stop, "hi": hi,
+                                 "p": None, "sig_d": w["buy_week"], "seen": max(last, cur["fill"]), "src": "週", "wk": w["buy_week"], "ok": 1})
+                have.add(cur["id"]); n += 1
+                ev.append(f"{last} 🔀 移交 {cur.get('name')}(原 {w['buy_week'][5:]} 週名單,{cur['fill'][5:]} 買 {cur['entry']})→ 出場線 {stop}")
+            elif not legs and not (p.get("iv") or {}).get("fill") and not p.get("_nofill"):
+                p["xfer_cancel"] = last; c += 1
+        w["xfer"] = last
+    T["migrated"] = last
+    free = max(0, SLOTS - len(T["pos"])); kept = [q for q in T["pend"] if q["id"] not in have][:free]
+    if len(kept) != len(T["pend"]):
+        ev.append(f"{last} ❎ 取消待買 {len(T['pend']) - len(kept)} 筆(已持有或持股已達 {SLOTS} 檔上限)")
+    T["pend"] = kept
+    ev.append(f"{last} 🔀 合併為單一投資組合:移交 {n} 檔持股、取消 {c} 筆每週名單未成交掛單;之後所有買賣只由每日交易規則決定")
+    for e in ev: T["log"].insert(0, e); log("trader:" + e)
+    J["trader"] = T
+    return True
