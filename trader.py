@@ -20,7 +20,8 @@ def _prev_close(o, i):
 
 def run(A, data, log=print):
     """A = aipick 模組(bars_of / chip_of / stock_levels / rtick / TODAY / NOW)"""
-    try: T = json.load(open(FILE, encoding="utf-8"))
+    # 狀態存在 aipick.json 的 "trader" 欄(update_data 只 commit aipick.json,不會 commit 新檔)
+    try: T = (json.load(open(A.OUT, encoding="utf-8")).get("trader")) or {}
     except Exception: T = {}
     T.setdefault("ver", "r975"); T.setdefault("start", START); T.setdefault("pos", []); T.setdefault("pend", [])
     T.setdefault("trades", []); T.setdefault("log", []); T.setdefault("sig_done", "")
@@ -118,6 +119,5 @@ def run(A, data, log=print):
                   "avg": round(sum(t["ret"] for t in tr_) / len(tr_), 2) if tr_ else None,
                   "realized": round(sum(t["ret"] / 100 * NOTIONAL for t in tr_))}
     T["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M"); T["last_bar"] = last
-    json.dump(T, open(FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     for e in ev: log("trader:" + e)
     return T

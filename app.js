@@ -21600,11 +21600,12 @@ function aitMount(mk){const box=document.getElementById('aipickBox');if(!box||!(
   const put=()=>{if(!document.getElementById('aipickBox'))return;box.querySelectorAll('.ait-card,.brn-card').forEach(x=>x.remove());const sc=box.querySelector('.aip-status');if(sc)sc.insertAdjacentHTML('afterend',aitHTML(mk)+brainHTML());else box.insertAdjacentHTML('afterbegin',aitHTML(mk)+brainHTML());aitChart(mk);
     if(!BRAIN)brainLoad().then(b=>{if(b&&!box.querySelector('.brn-card')){const a=box.querySelector('.ait-card');if(a)a.insertAdjacentHTML('afterend',brainHTML());}});};
   if(AIT)put();else aitLoad().then(()=>{if((window.GMKT==='US'?'US':'TW')===mk)put();});}
-/* ═══ r975:🤖 AI 交易員——任何交易日都可以進出(後端 trader.py,每晚收盤後決策,隔天開盤執行)═══ */
+/* ═══ r975:🎯 AI Pick 每日交易——任何交易日都可以進出(後端 trader.py,每晚收盤後決策,隔天開盤執行)═══ */
 let TRD=null,TRD_T=0;
-async function trdLoad(){try{const r=await fetch('trader.json?t='+Date.now(),{cache:'no-store'});if(r.ok){TRD=await r.json();TRD_T=Date.now();}}catch(e){}return TRD;}
+async function trdLoad(){try{const j=await aipLoad(true);if(j&&j.trader){TRD=j.trader;TRD_T=Date.now();}}catch(e){}return TRD;}
 function traderHTML(){
-  if(!TRD){if(!window.__trdL){window.__trdL=1;trdLoad().then(j=>{if(j)try{renderAIPick();}catch(e){}});}return '<div class="aps-card"><div class="dim-note">⏳ 讀取 AI 交易員…</div></div>';}
+  if(!TRD&&AIPK&&AIPK.trader){TRD=AIPK.trader;TRD_T=Date.now();}
+  if(!TRD){if(window.__trdL&&AIPK)return '';if(!window.__trdL){window.__trdL=1;trdLoad().then(j=>{if(j)try{renderAIPick();}catch(e){}});}return '<div class="aps-card"><div class="dim-note">⏳ 讀取 AI 交易員…</div></div>';}
   if(Date.now()-TRD_T>5*60e3&&!window.__trdL2){window.__trdL2=1;trdLoad().then(()=>{window.__trdL2=0;});}
   const T=TRD,R=T.rules||{},B=T.bt||{},O=B.old||{};
   const pxOf=id=>{const st=(DATA.stocks||[]).find(x=>x.id===id);return st&&st.price>0?+st.price:null;};
@@ -21616,7 +21617,7 @@ function traderHTML(){
   const tr=(T.trades||[]).slice().reverse().slice(0,20).map(t=>`<tr><td>${md(t.xd)}</td><td><a href="#stock/${t.id}">${t.name}</a></td><td>${md(t.fill)} ${t.entry} → ${t.xp}</td><td style="color:${cl(t.ret)};font-weight:800">${fp(t.ret)}</td><td>${W[t.why]||t.why}</td></tr>`).join('');
   const S=T.stats||{};
   return `<div class="aps-card trd">
-    <div class="aps-h">🤖 AI 交易員 <span class="dim">新規則・${md(T.start)} 起實盤・更新 ${T.updated||''}</span></div>
+    <div class="aps-h">🎯 AI Pick 每日交易 <span class="dim">新規則・${md(T.start)} 起實盤・更新 ${T.updated||''}</span></div>
     <div class="trd-rule">任何交易日都能進出、不再一週一次:每天收盤後掃描全市場,v2 模型勝算 ≥ ${(R.pmin*100).toFixed(0)}%(約前 1%)且有空位(上限 ${R.slots} 檔)就<b>隔天開盤買進</b>;沒有好標的就不買。出場:結構停損;<b>不設固定目標</b>,漲超過 ${((R.trail_on-1)*100).toFixed(0)}% 後最高點回落 ${((1-R.trail_dd)*100).toFixed(0)}% 停利。開盤漲停鎖死、跳空 > ${(R.gap_max*100).toFixed(0)}% 不追,跌停鎖死順延——每筆都以官方日 K 可驗證。</div>
     <div class="trd-bt">📊 回測 ${B.period||''}(扣成本・真實成交):<b>新規則 年化 ${B.cagr}%・最大回落 ${B.mdd}%・每年 ${B.trades_y} 筆・勝率 ${B.win}%・每筆 +${B.avg}%</b> vs 舊每週名單 年化 ${O.cagr}%・回落 ${O.mdd}%・每年 ${O.trades_y} 筆・勝率 ${O.win}%・每筆 +${O.avg}%。勝率低但抱得住大波段;同期 006208 買進持有約年化 +27%,新規則仍可能跑輸大盤。</div>
     <div class="aps-title">📋 持股(${(T.pos||[]).length}/${R.slots})</div>${pos?`<div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>進場</th><th>現價/損益</th><th>出場線</th><th>移動停利</th></tr>${pos}</table></div>`:'<div class="dim-note">目前沒有持股</div>'}

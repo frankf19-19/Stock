@@ -1509,14 +1509,18 @@ def main():
     for w in weeks: w.pop("_next_ids", None)                          # r921:暫存欄位(set)不寫入
     out = {"model": MODEL, "updated": NOW.strftime("%Y-%m-%d %H:%M"), "weeks": weeks, "learn": learn,
            "stats": stats_of([w for w in weeks if not w.get("bt")]),        # 實戰(凍結後追蹤)
-           "stats_bt": stats_of([w for w in weeks if w.get("bt")])}         # 回測(首次建檔 walk-forward)
+           "stats_bt": stats_of([w for w in weeks if w.get("bt")]),         # 回測(首次建檔 walk-forward)
+           "trader": J.get("trader")}                                       # r975:每日交易狀態(輕量班也要原樣保留)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
-    if not US and not LIGHT:                                            # r975:🤖 AI 交易員(每日決策)
+    if not US and not LIGHT:                                            # r975:🤖 AI Pick 每日交易(新規則)
         try:
-            import trader; trader.run(sys.modules[__name__], data)
+            import trader
+            out["trader"] = trader.run(sys.modules[__name__], data)
+            with open(OUT, "w", encoding="utf-8") as f:
+                json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
         except Exception as e:
-            print("aipick:AI 交易員例外", e)
+            print("aipick:每日交易例外", e)
     st, sb = out["stats"], out["stats_bt"]
     print(f"aipick:完成 實戰 {st['weeks']} 週 勝率 {st['win_rate']}% 平均 {st['avg_ret']}% | 回測 {sb['weeks']} 週 勝率 {sb['win_rate']}% 平均 {sb['avg_ret']}%")
 
