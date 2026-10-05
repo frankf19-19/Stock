@@ -1,0 +1,41 @@
+{
+ "ver": "r975",
+ "start": "2026-10-05",
+ "pos": [],
+ "pend": [],
+ "trades": [],
+ "log": [],
+ "sig_done": "",
+ "rules": {
+  "slots": 10,
+  "pmin": 0.54,
+  "gap_max": 0.03,
+  "trail_on": 1.1,
+  "trail_dd": 0.85,
+  "max_sector": 2,
+  "notional": 100000
+ },
+ "bt": {
+  "period": "2019/06~2026/10",
+  "cagr": 17.0,
+  "mdd": -31.5,
+  "trades_y": 41,
+  "win": 28.8,
+  "avg": 3.95,
+  "old": {
+   "cagr": 3.5,
+   "mdd": -28.3,
+   "trades_y": 137,
+   "win": 44.4,
+   "avg": 0.33
+  }
+ },
+ "stats": {
+  "closed": 0,
+  "win": null,
+  "avg": null,
+  "realized": 0
+ },
+ "updated": "2026-10-05 14:38",
+ "last_bar": "2026-10-02"
+}

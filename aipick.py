@@ -535,6 +535,7 @@ def gen_week(data, buy_week, learn=None, reviews=None, exclude=None):
 #   規則:①新一週選股排除「目前持有中」與「掛單等成交」的股票;②換股時,別的倉位當天正持有的股票不換進。
 #   只影響 EXCL_FROM 之後的決策——已發生的歷史紀錄不回頭改寫。
 EXCL_FROM = "2026-10-05"
+TRADER_FROM = "2026-10-12"          # r975:台股從這一週起不再產生每週名單,新進場全部交給 AI 交易員(既有倉位照舊規則結算到出場)
 _WEEKS = []
 
 def _held_elsewhere(sid, day, week):
@@ -1330,7 +1331,9 @@ def main():
         weeks = [w for w in weeks if w is not have]; have = None; print("aipick:AIPICK_FORCE 重算本週")
     if not have and LIGHT:
         print("aipick:輕量班不選股,等 update_data 重班產生本週名單")
-    if not have and not LIGHT:
+    if not have and not LIGHT and not US and iso(buy_week) >= TRADER_FROM:
+        print(f"aipick:{iso(buy_week)} 起台股改由 AI 交易員(trader.py)每日決策,不再產生每週名單")
+    elif not have and not LIGHT:
         ok = True
         if buy_week > monday(TODAY):
             # r954:下週名單必須等「上一個交易日的 K」全市場入庫才選。
@@ -1509,6 +1512,11 @@ def main():
            "stats_bt": stats_of([w for w in weeks if w.get("bt")])}         # 回測(首次建檔 walk-forward)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    if not US and not LIGHT:                                            # r975:🤖 AI 交易員(每日決策)
+        try:
+            import trader; trader.run(sys.modules[__name__], data)
+        except Exception as e:
+            print("aipick:AI 交易員例外", e)
     st, sb = out["stats"], out["stats_bt"]
     print(f"aipick:完成 實戰 {st['weeks']} 週 勝率 {st['win_rate']}% 平均 {st['avg_ret']}% | 回測 {sb['weeks']} 週 勝率 {sb['win_rate']}% 平均 {sb['avg_ret']}%")
 

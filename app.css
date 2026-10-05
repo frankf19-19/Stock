@@ -2348,3 +2348,8 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .kbv-sum span{display:flex;flex-direction:column;align-items:center;padding:6px 2px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--panel,#16181D)}
 .kbv-sum span.on{border-color:var(--gold,#E8B44A);background:color-mix(in srgb,var(--gold,#E8B44A) 12%,var(--panel,#16181D))}
 .kbv-sum b{font-size:13px}.kbv-sum small{font-size:10.5px;color:var(--dim)}
+/* r975:AI 交易員 */
+.trd{border:1.5px solid var(--gold,#E8B44A)}
+.trd-rule,.trd-bt{font-size:13px;line-height:1.7;padding:8px 10px;border-radius:10px;background:var(--panel,#16181D);margin:6px 0}
+.trd-bt{color:var(--txt2)}
+.trd-log{font-size:12.5px;line-height:1.7;padding-left:18px;margin:6px 0}
