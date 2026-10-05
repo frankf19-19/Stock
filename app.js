@@ -1,4 +1,4 @@
-/* K研所 · build r998 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r999 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r998';
+const APP_BUILD='r999';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1819,7 +1819,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r998</span>');
+  diag.push('<span style="color:var(--dim)">build r999</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3115,7 +3115,9 @@ function turnEngine(K,lv){
 function turnLiveBar(s){                                  // r466:個股即時價包(RTC 盤中即時 → data.json 最新掃價)
   try{
     if(!s)return null;
-    const r=(typeof RTC!=='undefined')?RTC[s.id]:null;
+    // r999:非交易時段(盤前/盤後/假日)不用 RTC——它可能留著別的時段的舊價(例:10/06 盤前顯示 2,485,實際 10/05 收 2,575)
+    const mo=(typeof marketOpen==='function')?marketOpen():false;
+    const r=(mo&&typeof RTC!=='undefined')?RTC[s.id]:null;
     const px=(r&&+r.c>0)?+r.c:(+s.price>0?+s.price:null);
     if(!(px>0))return null;
     return {px,hi:(r&&+r.h>0)?+r.h:px,lo:(r&&+r.l>0)?+r.l:px,live:!!(r&&+r.c>0)};
@@ -21701,7 +21703,7 @@ function aipOldHoldList(){
   const out=[];if(!AIPK)return out;
   (AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='skip').forEach(w=>(w.picks||[]).forEach(p=>{
     const legs=aipLegs(p),cur=legs.length?legs[legs.length-1]:null;
-    if(!cur||cur.xd||cur.xfer)return;                                  // r998:已移交每日交易的不重複列
+    if(!cur||cur.xd||cur.xfer)return;                                  // r999:已移交每日交易的不重複列
     const st=(DATA.stocks||[]).find(x=>x.id===cur.id),px=st&&st.price>0?+st.price:null;
     const hi=Math.max(cur.hi||0,px||0),trail=hi>=cur.entry*1.08?Math.round(hi*0.94*100)/100:null;
     out.push({src:'週',id:cur.id,name:cur.name,fill:cur.fill,entry:cur.entry,px,line:trail&&trail>cur.stop?trail:cur.stop,lineTag:trail&&trail>cur.stop?'🔒 移動停利':'停損',tgt:cur.target,wk:w.buy_week});
@@ -21741,7 +21743,7 @@ function aipOverview(){
   </div>`;
 }
 function aipWatchHTML(T){
-  /* r998:👀 關注清單——①持股要注意(接近出場線/模型勝算偏低/明天要賣/可能加碼)②可能進場(勝算最高的候選,卡在哪個條件) */
+  /* r999:👀 關注清單——①持股要注意(接近出場線/模型勝算偏低/明天要賣/可能加碼)②可能進場(勝算最高的候選,卡在哪個條件) */
   const H=aipNewHoldList(),R=T.rules||{},pe=((R.pexit||0.48)*100),pm=((R.pmin||0.54)*100);
   const hw=[];
   H.forEach(r=>{const m=(r.lineTag||'').match(/模型勝算 <b[^>]*>([\d.]+)%<\/b>/),pb=m?+m[1]:null;const gap=r.px&&r.line?(r.px/r.line-1)*100:null;const ret=r.px?(r.px/r.entry-1)*100:null;
@@ -21762,7 +21764,7 @@ function aipWatchHTML(T){
     <div class="wl-sub">可能進場(勝算最高的候選・${T.watch_d?aipMD(T.watch_d)+' 收盤':''})</div><div class="dim-note" style="margin:0 0 4px">勝算要 ≥ ${pm}%,且產業在月線上、近 3 月營收成長才會買(不限同產業檔數);灰色標籤是目前還卡住的條件。</div>${cand}`;
 }
 function aipUnifiedHold(){
-  /* r998:持股一覽重做——手機改成一檔一張卡(名稱+損益最醒目、出場線距離用進度條),拿掉「原週名單」標籤;桌機表格同步精簡 */
+  /* r999:持股一覽重做——手機改成一檔一張卡(名稱+損益最醒目、出場線距離用進度條),拿掉「原週名單」標籤;桌機表格同步精簡 */
   const L=aipNewHoldList().concat(aipOldHoldList());
   if(!L.length)return '<div class="dim-note">目前沒有持股</div>';
   const fp=v=>v==null?'—':(v>0?'+':'')+v.toFixed(2)+'%',cl=v=>v==null?'':v>0?'var(--up)':v<0?'var(--down)':'inherit';
