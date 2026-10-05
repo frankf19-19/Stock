@@ -65,11 +65,12 @@ def run(A, data, log=print):
         lo = max(0, idx - 260); oo = o[lo:idx + 1]; dd = d[lo:idx + 1]
         tr = [max(x[1] - x[2], abs(x[1] - y[3]), abs(x[2] - y[3])) for x, y in zip(oo[1:], oo[:-1])]
         a = sum(tr[-14:]) / max(1, len(tr[-14:]))
-        try: _, stp, _ = A.stock_levels(dd, oo, op, a, byid.get(q["id"]))
-        except Exception: stp = op * 0.92
+        try: _, stp, LV = A.stock_levels(dd, oo, op, a, byid.get(q["id"]))
+        except Exception: stp = op * 0.92; LV = {}
         sh = int(NOTIONAL / op)
         T["pos"].append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": d[idx], "entry": op, "sh": sh,
-                         "stop0": round(float(stp), 2), "stop": round(float(stp), 2), "hi": op, "p": q["p"], "sig_d": q["sig_d"], "seen": d[idx]})
+                         "stop0": round(float(stp), 2), "stop": round(float(stp), 2), "hi": op, "p": q["p"], "sig_d": q["sig_d"], "seen": d[idx],
+                         "stp_src": (LV or {}).get("stp_src"), "dn_med": (LV or {}).get("dn_med")})
         ev.append(f"{d[idx]} 🟢 買進 {q['name']} 開盤 {op}(停損 {round(float(stp), 2)})")
     T["pend"] = keep
     # ② 持股:逐根 K 檢查停損 / 移動停利
@@ -171,11 +172,12 @@ def run_intraday(A, data, hhmm, log=print):
         lo = max(0, len(o) - 260); oo = o[lo:]; dd = d[lo:]
         tr = [max(x[1] - x[2], abs(x[1] - y[3]), abs(x[2] - y[3])) for x, y in zip(oo[1:], oo[:-1])]
         a = sum(tr[-14:]) / max(1, len(tr[-14:]))
-        try: _, stp, _ = A.stock_levels(dd, oo, op, a, byid.get(q["id"]))
-        except Exception: stp = op * 0.92
+        try: _, stp, LV = A.stock_levels(dd, oo, op, a, byid.get(q["id"]))
+        except Exception: stp = op * 0.92; LV = {}
         T.setdefault("pos", []).append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": today, "ft": "09:00", "entry": op,
                                         "sh": int(NOTIONAL / op), "stop0": round(float(stp), 2), "stop": round(float(stp), 2), "hi": op,
-                                        "p": q["p"], "sig_d": q["sig_d"], "seen": today, "rt": 1})
+                                        "p": q["p"], "sig_d": q["sig_d"], "seen": today, "rt": 1,
+                                        "stp_src": (LV or {}).get("stp_src"), "dn_med": (LV or {}).get("dn_med")})
         ev.append(f"{today} 09:00 🟢 買進 {q['name']} 官方開盤 {op}(停損 {round(float(stp), 2)})")
     T["pend"] = keep
     still = []
