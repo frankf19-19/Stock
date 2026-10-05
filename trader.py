@@ -18,6 +18,49 @@ def _prev_close(o, i):
     return o[i - 1][3] if i > 0 and o[i - 1] and o[i - 1][3] else None
 
 
+def sector_trend(A, data, last):
+    """r979:產業等權指數(同產業成份股每日平均報酬累乘)是否在自己的 20 日線之上——回測:只買「產業在月線上」的訊號,
+    年化 +17.0% → +19.4%、最大回落 −31.5% → −27.3%;只週三進場的穩健檢查也從 +15.5% → +21.2%(回落 −36.5% → −27.1%)"""
+    rets = {}
+    for s in data.get("stocks", []):
+        if s.get("market") != "TW" or s.get("etf") or not s.get("sector"): continue
+        d, o = A.bars_of(s["id"])
+        if len(d) < 41 or d[-1] != last: continue
+        c = [b[3] for b in o[-41:]]
+        if any(not x for x in c): continue
+        r = [max(-0.11, min(0.11, c[i] / c[i - 1] - 1)) for i in range(1, 41)]
+        rets.setdefault(s["sector"], []).append(r)
+    out = {}
+    for sec, L in rets.items():
+        if len(L) < 3: continue
+        m = [sum(x[i] for x in L) / len(L) for i in range(40)]
+        ix = []; v = 1.0
+        for x in m: v *= 1 + x; ix.append(v)
+        ma20 = sum(ix[-20:]) / 20
+        out[sec] = {"up": ix[-1] >= ma20, "gap": round((ix[-1] / ma20 - 1) * 100, 2), "n": len(L)}
+    return out
+
+
+def has_jump(o, n=260):
+    """r979:近一年有單日漲跌超過 ±11.5%(台股漲跌幅上限 10%)= 未還原的除權/減資/分割(例:緯穎 9/2 7800→2610)
+    → 這檔的均線、報酬等特徵全部失真,模型分數不可信,不進場"""
+    for i in range(max(1, len(o) - n), len(o)):
+        a, b = o[i - 1][3], o[i][3]
+        if a and b and (b / a > 1.115 or b / a < 0.885): return True
+    return False
+
+
+def inst_cost(A, sid):
+    """近 60 個交易日「法人淨買超日」的加權均價(參考用,顯示在持股卡)"""
+    ch = A.chip_of(sid) or {}; d, o = A.bars_of(sid)
+    px = {dd: b[3] for dd, b in zip(d[-60:], o[-60:])}
+    num = den = 0.0
+    for dd, f, t in zip(ch.get("d") or [], ch.get("f") or [], ch.get("t") or []):
+        nb = (f or 0) + (t or 0)
+        if dd in px and nb > 0: num += nb * px[dd]; den += nb
+    return round(num / den, 2) if den else None
+
+
 def run(A, data, log=print):
     """A = aipick 模組(bars_of / chip_of / stock_levels / rtick / TODAY / NOW)"""
     # 狀態存在 aipick.json 的 "trader" 欄(update_data 只 commit aipick.json,不會 commit 新檔)
@@ -26,7 +69,8 @@ def run(A, data, log=print):
     T.setdefault("ver", "r975"); T.setdefault("start", START); T.setdefault("pos", []); T.setdefault("pend", [])
     T.setdefault("trades", []); T.setdefault("log", []); T.setdefault("sig_done", "")
     T["rules"] = {"slots": SLOTS, "pmin": PMIN, "gap_max": GAP_MAX, "trail_on": TRAIL_ON, "trail_dd": TRAIL_DD, "max_sector": MAX_SECTOR, "notional": NOTIONAL}
-    T["bt"] = {"period": "2019/06~2026/10", "cagr": 17.0, "mdd": -31.5, "trades_y": 41, "win": 28.8, "avg": 3.95,
+    T["rules"]["sector_filter"] = True
+    T["bt"] = {"period": "2019/06~2026/10", "cagr": 19.4, "mdd": -27.3, "trades_y": 36, "win": 27.4, "avg": 5.08,
                "old": {"cagr": 3.5, "mdd": -28.3, "trades_y": 137, "win": 44.4, "avg": 0.33}}
     byid = {s["id"]: s for s in data.get("stocks", [])}
     bd, _ = A.bars_of(A.BENCH_SID); last = bd[-1] if bd else ""
@@ -113,10 +157,12 @@ def run(A, data, log=print):
                 if s.get("market") != "TW" or s.get("etf"): continue
                 d, o = A.bars_of(s["id"])
                 if not d or d[-1] != last or not o[-1][3] or o[-1][3] < 10: continue
+                if has_jump(o): continue
                 try: pr = V.prob(s["id"], s, d, o)
                 except Exception: pr = None
                 if pr is not None: sc.append((pr, s))
             sc.sort(key=lambda x: -x[0])
+            ST = sector_trend(A, data, last); T["sectors"] = ST
             held = {p["id"] for p in T["pos"]} | {q["id"] for q in T["pend"]}
             secn = {}
             for p in T["pos"] + T["pend"]: secn[p.get("sector")] = secn.get(p.get("sector"), 0) + 1
@@ -124,10 +170,16 @@ def run(A, data, log=print):
             for pr, s in sc:
                 if free <= 0 or pr < PMIN: break
                 if s["id"] in held or secn.get(s.get("sector"), 0) >= MAX_SECTOR: continue
+                if not (ST.get(s.get("sector")) or {"up": True})["up"]: continue      # r979:產業在月線下 → 不進場
                 d, o = A.bars_of(s["id"])
-                q = {"id": s["id"], "name": s.get("name"), "sector": s.get("sector"), "sig_d": last, "sig_px": o[-1][3], "p": round(pr, 4)}
+                q = {"id": s["id"], "name": s.get("name"), "sector": s.get("sector"), "sig_d": last, "sig_px": o[-1][3], "p": round(pr, 4),
+                     "sec_gap": (ST.get(s.get("sector")) or {}).get("gap"), "icost": inst_cost(A, s["id"])}
                 T["pend"].append(q); new.append(q); held.add(s["id"]); secn[s.get("sector")] = secn.get(s.get("sector"), 0) + 1; free -= 1
-            T["top"] = [{"id": s["id"], "name": s.get("name"), "p": round(pr, 4)} for pr, s in sc[:15]]
+            T["top"] = [{"id": s["id"], "name": s.get("name"), "p": round(pr, 4), "sector": s.get("sector"),
+                         "sec_up": (ST.get(s.get("sector")) or {"up": True})["up"]} for pr, s in sc[:15]]
+            for p in T["pos"]:
+                try: p["icost"] = inst_cost(A, p["id"]); p["sec_gap"] = (ST.get(p.get("sector")) or {}).get("gap")
+                except Exception: pass
             T["sig_done"] = last; T["n_scored"] = len(sc)
             ev.append(f"{last} 🔍 收盤掃描 {len(sc)} 檔,勝算 ≥{PMIN} 有 {sum(1 for x in sc if x[0] >= PMIN)} 檔;" +
                       ("明天開盤買進:" + "、".join(q["name"] for q in new) if new else "沒有新進場(" + ("已滿" if free <= 0 else "沒有夠強的標的") + ")"))
