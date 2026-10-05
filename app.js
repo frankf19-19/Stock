@@ -1,4 +1,4 @@
-/* K研所 · build r976 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r977 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r976';
+const APP_BUILD='r977';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1819,7 +1819,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r976</span>');
+  diag.push('<span style="color:var(--dim)">build r977</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21612,13 +21612,13 @@ function traderHTML(){
   const fp=v=>v==null?'—':(v>0?'+':'')+(+v).toFixed(2)+'%',cl=v=>v==null?'':v>0?'var(--up)':v<0?'var(--down)':'inherit',md=d=>d?d.slice(5).replace('-','/'):'';
   const W={sl:'🛑 停損',trail:'🔒 移動停利'};
   const pos=(T.pos||[]).map(p=>{const px=pxOf(p.id),ret=px?(px/p.entry-1)*100:null;const hi=Math.max(p.hi||0,px||0);const line=hi>=p.entry*(R.trail_on||1.1)?Math.max(p.stop,Math.round(hi*(R.trail_dd||0.85)*100)/100):p.stop;
-    return `<tr><td><a href="#stock/${p.id}"><b>${p.name}</b></a><br><span class="dim">${p.id}</span></td><td>${md(p.fill)}<br>${p.entry}</td><td>${px||'—'}<br><b style="color:${cl(ret)}">${fp(ret)}</b></td><td>${line}<br><span class="dim">${line>p.stop0?'🔒 移動停利':'停損'}</span></td><td>${hi>=p.entry*(R.trail_on||1.1)?'已啟動':'漲 '+(((R.trail_on||1.1)-1)*100).toFixed(0)+'% 啟動'}</td></tr>`;}).join('');
+    return `<tr><td><a href="#stock/${p.id}"><b>${p.name}</b></a><br><span class="dim">${p.id}</span></td><td>${md(p.fill)}${p.ft?' '+p.ft:''}<br>${p.entry}</td><td>${px||'—'}<br><b style="color:${cl(ret)}">${fp(ret)}</b></td><td>${line}<br><span class="dim">${line>p.stop0?'🔒 移動停利':'停損'}</span></td><td>${hi>=p.entry*(R.trail_on||1.1)?'已啟動':'漲 '+(((R.trail_on||1.1)-1)*100).toFixed(0)+'% 啟動'}</td></tr>`;}).join('');
   const pend=(T.pend||[]).map(q=>`<tr><td><a href="#stock/${q.id}"><b>${q.name}</b></a> <span class="dim">${q.id}</span></td><td>${md(q.sig_d)} 收 ${q.sig_px}</td><td>開盤 ≤ ${Math.round(q.sig_px*(1+(R.gap_max||0.03))*100)/100}</td><td>${(q.p*100).toFixed(1)}%</td></tr>`).join('');
-  const tr=(T.trades||[]).slice().reverse().slice(0,20).map(t=>`<tr><td>${md(t.xd)}</td><td><a href="#stock/${t.id}">${t.name}</a></td><td>${md(t.fill)} ${t.entry} → ${t.xp}</td><td style="color:${cl(t.ret)};font-weight:800">${fp(t.ret)}</td><td>${W[t.why]||t.why}</td></tr>`).join('');
+  const tr=(T.trades||[]).slice().reverse().slice(0,20).map(t=>`<tr><td>${md(t.xd)}${t.xt?'<br><span class="dim">'+t.xt+'</span>':''}${t.rt&&!t.ok?'<br><span class="dim">待日K核對</span>':''}</td><td><a href="#stock/${t.id}">${t.name}</a></td><td>${md(t.fill)} ${t.entry} → ${t.xp}</td><td style="color:${cl(t.ret)};font-weight:800">${fp(t.ret)}</td><td>${W[t.why]||t.why}</td></tr>`).join('');
   const S=T.stats||{};
   return `<div class="aps-card trd">
     <div class="aps-h">🎯 AI Pick 每日交易 <span class="dim">新規則・${md(T.start)} 起實盤・更新 ${T.updated||''}</span></div>
-    <div class="trd-rule">任何交易日都能進出、不再一週一次:每天收盤後掃描全市場,v2 模型勝算 ≥ ${(R.pmin*100).toFixed(0)}%(約前 1%)且有空位(上限 ${R.slots} 檔)就<b>隔天開盤買進</b>;沒有好標的就不買。出場:結構停損;<b>不設固定目標</b>,漲超過 ${((R.trail_on-1)*100).toFixed(0)}% 後最高點回落 ${((1-R.trail_dd)*100).toFixed(0)}% 停利。開盤漲停鎖死、跳空 > ${(R.gap_max*100).toFixed(0)}% 不追,跌停鎖死順延——每筆都以官方日 K 可驗證。</div>
+    <div class="trd-rule">任何交易日都能進出、不再一週一次:盤中即時執行:開盤一出來就以官方開盤價成交、跌破出場線當下就賣(晚上再用官方日 K 核對);選股訊號在收盤後掃描全市場產生,v2 模型勝算 ≥ ${(R.pmin*100).toFixed(0)}%(約前 1%)且有空位(上限 ${R.slots} 檔)就<b>隔天開盤買進</b>;沒有好標的就不買。出場:結構停損;<b>不設固定目標</b>,漲超過 ${((R.trail_on-1)*100).toFixed(0)}% 後最高點回落 ${((1-R.trail_dd)*100).toFixed(0)}% 停利。開盤漲停鎖死、跳空 > ${(R.gap_max*100).toFixed(0)}% 不追,跌停鎖死順延——每筆都以官方日 K 可驗證。</div>
     <div class="trd-bt">📊 回測 ${B.period||''}(扣成本・真實成交):<b>新規則 年化 ${B.cagr}%・最大回落 ${B.mdd}%・每年 ${B.trades_y} 筆・勝率 ${B.win}%・每筆 +${B.avg}%</b> vs 舊每週名單 年化 ${O.cagr}%・回落 ${O.mdd}%・每年 ${O.trades_y} 筆・勝率 ${O.win}%・每筆 +${O.avg}%。勝率低但抱得住大波段;同期 006208 買進持有約年化 +27%,新規則仍可能跑輸大盤。</div>
     <div class="aps-title">📋 持股(${(T.pos||[]).length}/${R.slots})</div>${pos?`<div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>進場</th><th>現價/損益</th><th>出場線</th><th>移動停利</th></tr>${pos}</table></div>`:'<div class="dim-note">目前沒有持股</div>'}
     ${pend?`<div class="aps-title">🕘 明天開盤買進(${(T.pend||[]).length})</div><div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>訊號</th><th>條件</th><th>勝算</th></tr>${pend}</table></div>`:''}

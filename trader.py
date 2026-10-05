@@ -32,6 +32,25 @@ def run(A, data, log=print):
     bd, _ = A.bars_of(A.BENCH_SID); last = bd[-1] if bd else ""
     if not last: return T
     ev = []
+    # ⓪ r977:盤中即時成交的「官方日 K 核對」——買進價必須 = 當天官方開盤;出場必須當天最低價真的 ≤ 出場價
+    for p in list(T["pos"]):
+        if not p.get("rt") or p.get("ok"): continue
+        d, o = A.bars_of(p["id"])
+        if p["fill"] not in d: continue
+        b = o[d.index(p["fill"])]
+        if abs(b[0] - p["entry"]) > 1e-6:
+            ev.append(f"{p['fill']} ⚠ 核對:{p['name']} 盤中記錄開盤 {p['entry']} ≠ 官方 {b[0]},以官方為準"); p["entry"] = b[0]; p["hi"] = max(p["hi"], b[0])
+        p["ok"] = 1
+    for t in list(T["trades"]):
+        if not t.get("rt") or t.get("ok"): continue
+        d, o = A.bars_of(t["id"])
+        if t["xd"] not in d: continue
+        b = o[d.index(t["xd"])]
+        if b[2] <= t["xp"] + 1e-6: t["ok"] = 1; continue
+        T["trades"].remove(t)                                              # 官方最低價沒到 → 盤中誤判,撤銷出場
+        T["pos"].append({k: t[k] for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")} |
+                        {"stop": t.get("line", t["stop0"]), "hi": t.get("hi", t["entry"]), "seen": d[d.index(t["xd"]) - 1] if d.index(t["xd"]) > 0 else t["fill"], "ok": 1})
+        ev.append(f"{t['xd']} ↩ 核對:{t['name']} 官方最低 {b[2]} 未觸及出場價 {t['xp']},撤銷盤中出場")
     # ① 待買單:訊號日之後第一根 K 的開盤
     keep = []
     for q in T["pend"]:
@@ -73,6 +92,7 @@ def run(A, data, log=print):
             ret = (out[1] * (1 - FEE_S)) / (p["entry"] * (1 + FEE_B)) - 1
             T["trades"].append({**{k: p[k] for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
                                 "xd": out[0], "xp": round(float(out[1]), 2), "why": out[2], "ret": round(ret * 100, 2), "hi": p["hi"]})
+            T["trades"][-1]["line"] = p["stop"]
             ev.append(f"{out[0]} {'🔒 移動停利' if out[2] == 'trail' else '🛑 停損'} {p['name']} @{round(float(out[1]), 2)}({ret*100:+.2f}%)")
         else: still.append(p)
     T["pos"] = still
@@ -120,4 +140,63 @@ def run(A, data, log=print):
                   "realized": round(sum(t["ret"] / 100 * NOTIONAL for t in tr_))}
     T["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M"); T["last_bar"] = last
     for e in ev: log("trader:" + e)
+    return T
+
+
+def run_intraday(A, data, hhmm, log=print):
+    """r977:盤中即時執行(盤中 5 分鐘輕量班呼叫)——
+    ① 待買單:09:00 開盤一出來就以「官方開盤價」成交(開盤跳空 > +3% 取消;開盤即漲停且還鎖著 → 先等,收盤日 K 再判)
+    ② 持股:真實成交價(MIS z)跌破出場線、且今天官方最低價也 ≤ 出場線 → 當下出場,記下時間
+       移動停利線用今天官方最高價即時上調
+    所有盤中紀錄晚上都會再用官方日 K 核對(run 的 ⓪)"""
+    try: T = (json.load(open(A.OUT, encoding="utf-8")).get("trader")) or {}
+    except Exception: return None
+    if not T or not ("09:00" <= hhmm <= "13:30"): return T
+    today = A.iso(A.TODAY); byid = {s["id"]: s for s in data.get("stocks", [])}
+    def live(sid):
+        s = byid.get(sid) or {}
+        ok = s.get("pz") == 1 and str(s.get("pt") or "")[:10] == today and s.get("dhd") == today and s.get("dhl")
+        return (float(s["price"]), s["dhl"]) if ok else (None, None)
+    ev = []; keep = []
+    for q in T.get("pend") or []:
+        if q["sig_d"] >= today: keep.append(q); continue
+        px, hl = live(q["id"])
+        if not hl: keep.append(q); continue
+        op, h, l = hl
+        d, o = A.bars_of(q["id"]); pc = o[-1][3] if o and d and d[-1] < today else q["sig_px"]
+        if op > q["sig_px"] * (1 + GAP_MAX) and not (h == l and op >= pc * 1.095):
+            ev.append(f"{today} {hhmm} ❎ {q['name']} 開盤 {op} 跳空 > +3% 不追,取消"); continue
+        if h == l and op >= pc * 1.095: keep.append(q); continue          # 漲停鎖著:收盤後日 K 判定
+        if len(T.get("pos") or []) >= SLOTS: ev.append(f"{today} {hhmm} ❎ {q['name']} 已滿 {SLOTS} 檔,取消"); continue
+        lo = max(0, len(o) - 260); oo = o[lo:]; dd = d[lo:]
+        tr = [max(x[1] - x[2], abs(x[1] - y[3]), abs(x[2] - y[3])) for x, y in zip(oo[1:], oo[:-1])]
+        a = sum(tr[-14:]) / max(1, len(tr[-14:]))
+        try: _, stp, _ = A.stock_levels(dd, oo, op, a, byid.get(q["id"]))
+        except Exception: stp = op * 0.92
+        T.setdefault("pos", []).append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": today, "ft": "09:00", "entry": op,
+                                        "sh": int(NOTIONAL / op), "stop0": round(float(stp), 2), "stop": round(float(stp), 2), "hi": op,
+                                        "p": q["p"], "sig_d": q["sig_d"], "seen": today, "rt": 1})
+        ev.append(f"{today} 09:00 🟢 買進 {q['name']} 官方開盤 {op}(停損 {round(float(stp), 2)})")
+    T["pend"] = keep
+    still = []
+    for p in T.get("pos") or []:
+        px, hl = live(p["id"])
+        if px is None or p.get("seen", "") > today or (p["fill"] == today):   # 進場當天不判出場(與回測相同)
+            still.append(p); continue
+        op, h, l = hl
+        hi_now = max(p["hi"], h)                                           # 移動停利線即時計算(不寫回,收盤日 K 再正式更新)
+        line = round(max(p["stop"], hi_now * TRAIL_DD), 2) if hi_now >= p["entry"] * TRAIL_ON else p["stop"]
+        p["line_rt"] = line
+        if px <= line and l <= line:
+            xp = op if op <= line else line
+            why = "trail" if line > p["stop0"] else "sl"
+            ret = (xp * (1 - FEE_S)) / (p["entry"] * (1 + FEE_B)) - 1
+            T.setdefault("trades", []).append({**{k: p[k] for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
+                                               "xd": today, "xt": hhmm, "xp": round(float(xp), 2), "why": why, "ret": round(ret * 100, 2), "hi": p["hi"], "line": line, "rt": 1})
+            ev.append(f"{today} {hhmm} {'🔒 移動停利' if why == 'trail' else '🛑 停損'} {p['name']} @{round(float(xp), 2)}({ret*100:+.2f}%)")
+            continue
+        still.append(p)
+    T["pos"] = still
+    for e in ev: T.setdefault("log", []).insert(0, e); log("trader:" + e)
+    T["log"] = T.get("log", [])[:300]; T["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M")
     return T

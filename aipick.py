@@ -1521,6 +1521,18 @@ def main():
                 json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
         except Exception as e:
             print("aipick:每日交易例外", e)
+    elif not US and LIGHT:                                              # r977:盤中即時執行(開盤成交/即時停損停利)
+        try:
+            import trader
+            snap = str(data.get("intraday") or NOW.strftime("%H:%M"))[:5]
+            if TODAY.weekday() < 5 and str(data.get("updated") or "")[:10] == iso(TODAY):
+                t2 = trader.run_intraday(sys.modules[__name__], data, snap)
+                if t2:
+                    out["trader"] = t2
+                    with open(OUT, "w", encoding="utf-8") as f:
+                        json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+        except Exception as e:
+            print("aipick:盤中每日交易例外", e)
     st, sb = out["stats"], out["stats_bt"]
     print(f"aipick:完成 實戰 {st['weeks']} 週 勝率 {st['win_rate']}% 平均 {st['avg_ret']}% | 回測 {sb['weeks']} 週 勝率 {sb['win_rate']}% 平均 {sb['avg_ret']}%")
 
