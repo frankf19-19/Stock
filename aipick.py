@@ -38,6 +38,8 @@ OUT = "aipick_us.json" if US else "aipick.json"
 MODEL = "v2"
 XVER = 4                      # r921:無期限模式;r738:結算版本(換股輪動;版本一變舊檔自動重跑)
 N_PICK = 5
+US_SLOTS = 20                      # r1003:美股改「持股上限 20 檔、有空位才補」(滾動驗證 年化 +21.8%→+22.8%、回落 −38.8%→−33.8%)
+_NP = [N_PICK]                     # 本次選股要選幾檔(台股固定 5;美股 = 20 − 目前持有/掛單)
 BENCH_N = 15                  # r738:候補名單長度——倉位出場後依序遞補,前端盤中可立刻提示換股
 MAX_PER_SECTOR = 2
 KEEP_WEEKS = 80
@@ -498,14 +500,14 @@ def gen_week(data, buy_week, learn=None, reviews=None, exclude=None):
     for sc, s, why, meta in cands:
         if s["id"] in exclude: continue                                    # r956:已持有/掛單中 → 不重複入選(只擋入選,不動排名與 cand_top)
         sec = s.get("sector") or "其他"
-        if per.get(sec, 0) >= MAX_PER_SECTOR: continue
+        if not US and per.get(sec, 0) >= MAX_PER_SECTOR: continue      # r1003:美股不限同產業檔數(回測也沒有這條)
         per[sec] = per.get(sec, 0) + 1
         picks.append({"id": s["id"], "name": s.get("name") or s["id"], "sector": sec,
                       "score": round(sc, 1), "why": why, **meta,
                       "fill": None, "entry": None, "hi": None, "lo": None, "last": None, "last_day": None,
                       "ret": None, "ret_c": None, "hit_tp": False, "hit_sl": False, "result": "pending",
                       "xd": None, "xp": None, "xw": None, "hold": None})
-        if len(picks) >= N_PICK: break
+        if len(picks) >= _NP[0]: break
     # 🔄 r738:候補名單(名次接在正選之後)——倉位出場後依序遞補,產業上限在遞補當下才檢查
     pid = {p["id"] for p in picks}
     bench = []
@@ -1364,7 +1366,13 @@ def main():
                     print(f"aipick:K 入庫 {bl} 覆蓋 {hit}/{tot}({cov:.0%})" + (",已過寬限,照現有資料選" if cov < 0.90 else ""))
         if ok:
             L = build_learn(data, buy_week, amax=amax)
-            w = gen_week(data, buy_week, L, exclude=held_now(weeks))
+            hn = held_now(weeks)
+            _NP[0] = max(0, US_SLOTS - len(hn)) if US else N_PICK
+            if US: print(f"aipick:美股持有/掛單 {len(hn)} 檔,上限 {US_SLOTS} → 本週最多選 {_NP[0]} 檔")
+            w = gen_week(data, buy_week, L, exclude=hn)
+            _NP[0] = N_PICK
+            if US and not w.get("picks") and w.get("status") != "skip" and len(hn) >= US_SLOTS:
+                w["status"] = "skip"; w["skip"] = f"持股已滿 {US_SLOTS} 檔,出場後才補"
             if w.get("status") == "skip":
                 weeks.append(w); print("aipick:本週空手(" + w.get("skip", "") + ")")
             elif w["picks"]:
