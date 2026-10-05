@@ -63,6 +63,42 @@ def _ret(p, xp):
     return (val - xp * (p.get("fac") or 1) * FEE_S) / (p["entry"] * (1 + FEE_B)) - 1
 
 
+def _rinit(A, p):
+    """r989:R 倍數基礎——R = 進場價 − 初始停損(每股願意賠的錢);補上自進場以來最低/最高(算最大浮虧 MAE、最大浮盈 MFE)"""
+    if not p.get("r0"):
+        r0 = p["entry"] - (p.get("stop0") or p["entry"] * 0.92)
+        p["r0"] = round(r0 if r0 > 0 else p["entry"] * 0.05, 4)
+    if p.get("lo") is None:
+        d, o = A.bars_of(p["id"]); lo = p["entry"]; hi = p.get("hi") or p["entry"]
+        for dd, b in zip(d, o):
+            if dd > p["fill"] and dd <= p.get("seen", dd) and b and b[2]: lo = min(lo, b[2]); hi = max(hi, b[1])
+        p["lo"] = lo; p["hi"] = hi
+
+
+def _rstat(p, xp=None):
+    """目前(或出場)的 R、最大浮虧 MAE(R)、最大浮盈 MFE(R)"""
+    r0 = p.get("r0") or p["entry"] * 0.05
+    val = None if xp is None else xp * (p.get("fac") or 1) + (p.get("cash") or 0)
+    return {"r": round((val - p["entry"]) / r0, 2) if val is not None else None,
+            "mae": round((min(p.get("lo") or p["entry"], p["entry"]) - p["entry"]) / r0, 2),
+            "mfe": round((max(p.get("hi") or p["entry"], p["entry"]) - p["entry"]) / r0, 2)}
+
+
+def journal(T):
+    """交易檢討:期望值、獲利因子、平均賺/賠 R、贏家的最大浮虧、賺過 1R 又虧損出場的比例"""
+    tr = [t for t in T.get("trades") or [] if t.get("R") is not None]
+    if not tr: return {"n": 0}
+    R = [t["R"] for t in tr]; W = [x for x in R if x > 0]; L = [x for x in R if x <= 0]
+    win_mae = sorted(t["mae"] for t in tr if t["R"] > 0)
+    gave = [t for t in tr if t.get("mfe", 0) >= 1 and t["R"] <= 0]
+    days = sorted(t.get("days") or 0 for t in tr)
+    return {"n": len(tr), "exp": round(sum(R) / len(R), 2), "pf": round(sum(W) / abs(sum(L)), 2) if L and sum(L) else None,
+            "avg_w": round(sum(W) / len(W), 2) if W else None, "avg_l": round(sum(L) / len(L), 2) if L else None,
+            "best": max(R), "worst": min(R), "win_mae_med": win_mae[len(win_mae) // 2] if win_mae else None,
+            "gave_back": round(100 * len(gave) / len(tr), 1), "days_med": days[len(days) // 2],
+            "by_why": {w: {"n": sum(1 for t in tr if t["why"] == w), "avgR": round(sum(t["R"] for t in tr if t["why"] == w) / max(1, sum(1 for t in tr if t["why"] == w)), 2)} for w in sorted({t["why"] for t in tr})}}
+
+
 def _prev_close(o, i):
     return o[i - 1][3] if i > 0 and o[i - 1] and o[i - 1][3] else None
 
@@ -174,6 +210,8 @@ def run(A, data, log=print):
     except Exception as e: log(f"trader:除權息資料例外 {e}")
     still = []
     for p in T["pos"]:
+        try: _rinit(A, p)
+        except Exception: pass
         d, o = A.bars_of(p["id"]); out = None
         for i in range(len(d)):
             if d[i] <= p["seen"]: continue
@@ -187,7 +225,7 @@ def run(A, data, log=print):
                 xp = op if op <= line else line
                 why = "trail" if line > p["stop0"] else "sl"
                 out = (d[i], xp, why); p["seen"] = d[i]; break
-            p["hi"] = max(p["hi"], h)
+            p["hi"] = max(p["hi"], h); p["lo"] = min(p.get("lo") or p["entry"], l)
             if not TRAIL_OFF and p["hi"] >= p["entry"] * TRAIL_ON: p["stop"] = round(max(p["stop"], p["hi"] * TRAIL_DD), 2)
             p["seen"] = d[i]
         if out:
@@ -195,6 +233,9 @@ def run(A, data, log=print):
             T["trades"].append({**{k: p[k] for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
                                 "xd": out[0], "xp": round(float(out[1]), 2), "why": out[2], "ret": round(ret * 100, 2), "hi": p["hi"]})
             T["trades"][-1]["line"] = p["stop"]
+            if out[2] == "sl": p["lo"] = min(p.get("lo") or p["entry"], out[1])
+            T["trades"][-1].update({**{k: v for k, v in _rstat(p, out[1]).items() if k != "r"}, "R": _rstat(p, out[1])["r"], "r0": p.get("r0"),
+                                    "days": sum(1 for x in d if p["fill"] < x <= out[0])})
             ev.append(f"{out[0]} {'🔒 移動停利' if out[2] == 'trail' else '📉 模型轉弱' if out[2] == 'model' else '🛑 停損'} {p['name']} @{round(float(out[1]), 2)}({ret*100:+.2f}%)")
         else: still.append(p)
     T["pos"] = still
@@ -277,6 +318,12 @@ def run(A, data, log=print):
     T["stats"] = {"closed": len(tr_), "win": round(100 * sum(1 for t in tr_ if t["ret"] > 0) / len(tr_), 1) if tr_ else None,
                   "avg": round(sum(t["ret"] for t in tr_) / len(tr_), 2) if tr_ else None,
                   "realized": round(sum(t["ret"] / 100 * NOTIONAL for t in tr_))}
+    try:
+        T["journal"] = journal(T)
+        for p in T["pos"]:
+            _rinit(A, p); d0, o0 = A.bars_of(p["id"]); px = o0[-1][3] if o0 else None
+            if px: p.update({"R": _rstat(p, px)["r"], "mae": _rstat(p)["mae"], "mfe": _rstat(p)["mfe"]})
+    except Exception as e: log(f"trader:交易檢討例外 {e}")
     T["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M"); T["last_bar"] = last
     for e in ev: log("trader:" + e)
     return T
@@ -333,6 +380,8 @@ def run_intraday(A, data, hhmm, log=print):
             ret = _ret(p, op)
             T.setdefault("trades", []).append({**{k: p.get(k) for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
                                                "xd": today, "xt": "09:00", "xp": op, "why": "model", "ret": round(ret * 100, 2), "hi": p["hi"], "line": op, "rt": 1})
+            try: _rinit(A, p); rs = _rstat(p, op); T["trades"][-1].update({"R": rs["r"], "mae": rs["mae"], "mfe": rs["mfe"], "r0": p.get("r0")})
+            except Exception: pass
             ev.append(f"{today} 09:00 📉 模型轉弱 {p['name']} 開盤 {op}({ret*100:+.2f}%)"); continue
         hi_now = max(p["hi"], h)
         line = round(max(p["stop"], hi_now * TRAIL_DD), 2) if (not TRAIL_OFF and hi_now >= p["entry"] * TRAIL_ON) else p["stop"]
@@ -343,6 +392,10 @@ def run_intraday(A, data, hhmm, log=print):
             ret = _ret(p, xp)
             T.setdefault("trades", []).append({**{k: p[k] for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
                                                "xd": today, "xt": hhmm, "xp": round(float(xp), 2), "why": why, "ret": round(ret * 100, 2), "hi": p["hi"], "line": line, "rt": 1})
+            try:
+                _rinit(A, p); p["lo"] = min(p.get("lo") or p["entry"], l); rs = _rstat(p, xp)
+                T["trades"][-1].update({"R": rs["r"], "mae": rs["mae"], "mfe": rs["mfe"], "r0": p.get("r0")})
+            except Exception: pass
             ev.append(f"{today} {hhmm} {'🔒 移動停利' if why == 'trail' else '🛑 停損'} {p['name']} @{round(float(xp), 2)}({ret*100:+.2f}%)")
             continue
         still.append(p)

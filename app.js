@@ -1,4 +1,4 @@
-/* K研所 · build r988 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r989 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r988';
+const APP_BUILD='r989';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1819,7 +1819,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r988</span>');
+  diag.push('<span style="color:var(--dim)">build r989</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21605,7 +21605,7 @@ function aipOldHoldList(){
   const out=[];if(!AIPK)return out;
   (AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='skip').forEach(w=>(w.picks||[]).forEach(p=>{
     const legs=aipLegs(p),cur=legs.length?legs[legs.length-1]:null;
-    if(!cur||cur.xd||cur.xfer)return;                                  // r988:已移交每日交易的不重複列
+    if(!cur||cur.xd||cur.xfer)return;                                  // r989:已移交每日交易的不重複列
     const st=(DATA.stocks||[]).find(x=>x.id===cur.id),px=st&&st.price>0?+st.price:null;
     const hi=Math.max(cur.hi||0,px||0),trail=hi>=cur.entry*1.08?Math.round(hi*0.94*100)/100:null;
     out.push({src:'週',id:cur.id,name:cur.name,fill:cur.fill,entry:cur.entry,px,line:trail&&trail>cur.stop?trail:cur.stop,lineTag:trail&&trail>cur.stop?'🔒 移動停利':'停損',tgt:cur.target,wk:w.buy_week});
@@ -21616,7 +21616,7 @@ function aipNewHoldList(){
   const T=TRD||(AIPK&&AIPK.trader);if(!T)return [];const R=T.rules||{};
   return (T.pos||[]).map(p=>{const st=(DATA.stocks||[]).find(x=>x.id===p.id),px=st&&st.price>0?+st.price:null;
     const hi=Math.max(p.hi||0,px||0),on=!R.trail_off&&hi>=p.entry*(R.trail_on||1.1),line=on?Math.max(p.stop,Math.round(hi*(R.trail_dd||0.85)*100)/100):p.stop;
-    return {src:p.src==='週'?'移':'新',wk:p.wk,add:p.add,id:p.id,name:p.name,fill:p.fill,ft:p.ft,entry:p.entry,px,line,lineTag:(line>p.stop0?'🔒 移動停利':'停損'+(p.stp_src?'・'+p.stp_src:''))+(p.prob!=null?`<br>模型勝算 <b style="color:${p.prob<(R.pexit||0.48)?'var(--down)':p.prob>=0.54?'var(--up)':'inherit'}">${(p.prob*100).toFixed(1)}%</b>`:'')+(p.xsig?'<br><b style="color:var(--amber)">📉 明天開盤賣</b>':''),icost:p.icost,sec:p.sec_gap};});
+    return {src:p.src==='週'?'移':'新',wk:p.wk,add:p.add,R:p.R,mae:p.mae,mfe:p.mfe,r0:p.r0,id:p.id,name:p.name,fill:p.fill,ft:p.ft,entry:p.entry,px,line,lineTag:(line>p.stop0?'🔒 移動停利':'停損'+(p.stp_src?'・'+p.stp_src:''))+(p.prob!=null?`<br>模型勝算 <b style="color:${p.prob<(R.pexit||0.48)?'var(--down)':p.prob>=0.54?'var(--up)':'inherit'}">${(p.prob*100).toFixed(1)}%</b>`:'')+(p.xsig?'<br><b style="color:var(--amber)">📉 明天開盤賣</b>':''),icost:p.icost,sec:p.sec_gap};});
 }
 function aipOverview(){
   const T=TRD||(AIPK&&AIPK.trader)||{};const today=aipIso(aipTpDate());
@@ -21650,7 +21650,7 @@ function aipUnifiedHold(){
   const fp=v=>v==null?'—':(v>0?'+':'')+v.toFixed(2)+'%',cl=v=>v==null?'':v>0?'var(--up)':v<0?'var(--down)':'inherit';
   L.forEach(r=>{r.ret=r.px?(r.px/r.entry-1)*100:null;r.gap=r.px&&r.line?(r.px/r.line-1)*100:null;});
   L.sort((a,b)=>(a.gap??99)-(b.gap??99));
-  return `<div class="dim-note" style="margin:0 0 6px">依「離出場線多遠」排序,最需要注意的在最上面。</div><div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>規則</th><th>進場</th><th>現價/損益</th><th>出場線</th></tr>${L.map(r=>`<tr><td><a href="#stock/${r.id}"><b>${r.name}</b></a><br><span class="dim">${r.id}</span></td><td><span class="aov-tag ${r.src==='週'?'old':'new'}">${r.src==='新'?'每日交易':r.src==='移'?'原週名單'+(r.wk?' '+aipMD(r.wk):''):'每週名單'}${r.add?'<br><b style="color:var(--gold,#E8B44A)">➕ 加碼第 '+r.add+' 筆</b>':''}</span></td><td>${aipMD(r.fill)}${r.ft?' '+r.ft:''}<br>${r.entry}</td><td>${r.px||'—'}<br><b style="color:${cl(r.ret)}">${fp(r.ret)}</b></td><td>${r.line}<br><span class="dim">${r.lineTag}${r.gap!=null?'・距 '+r.gap.toFixed(1)+'%':''}</span>${r.icost?`<br><span class="dim">法人成本 ${r.icost}</span>`:''}${r.tgt?`<br><span class="dim">目標 ${r.tgt}</span>`:''}</td></tr>`).join('')}</table></div>`;
+  return `<div class="dim-note" style="margin:0 0 6px">依「離出場線多遠」排序,最需要注意的在最上面。</div><div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>規則</th><th>進場</th><th>現價/損益</th><th>出場線</th></tr>${L.map(r=>`<tr><td><a href="#stock/${r.id}"><b>${r.name}</b></a><br><span class="dim">${r.id}</span></td><td><span class="aov-tag ${r.src==='週'?'old':'new'}">${r.src==='新'?'每日交易':r.src==='移'?'原週名單'+(r.wk?' '+aipMD(r.wk):''):'每週名單'}${r.add?'<br><b style="color:var(--gold,#E8B44A)">➕ 加碼第 '+r.add+' 筆</b>':''}</span></td><td>${aipMD(r.fill)}${r.ft?' '+r.ft:''}<br>${r.entry}</td><td>${r.px||'—'}<br><b style="color:${cl(r.ret)}">${fp(r.ret)}</b></td><td>${r.line}<br><span class="dim">${r.lineTag}${r.gap!=null?'・距 '+r.gap.toFixed(1)+'%':''}</span>${r.icost?`<br><span class="dim">法人成本 ${r.icost}</span>`:''}${r.r0?`<br><span class="dim">1R=${(+r.r0).toFixed(2)}・現在 <b style="color:${(r.px?((r.px-r.entry)/r.r0):0)>=0?'var(--up)':'var(--down)'}">${r.px?((r.px-r.entry)/r.r0).toFixed(2):'—'}R</b>・浮虧最深 ${r.mae??'—'}R・浮盈最高 ${r.mfe??'—'}R</span>`:''}${r.tgt?`<br><span class="dim">目標 ${r.tgt}</span>`:''}</td></tr>`).join('')}</table></div>`;
 }
 function aipStatsNew(){
   const T=TRD||(AIPK&&AIPK.trader)||{};const S=T.stats||{},B=T.bt||{},O=B.old||{};
@@ -21658,7 +21658,17 @@ function aipStatsNew(){
   const tr=(T.trades||[]).slice().reverse();
   return `<div class="aps-title">🎯 每日交易實盤(${aipMD(T.start)} 起)</div>
     <div class="aov-kpi"><div><i>已出場</i><b>${S.closed||0}</b><small>筆</small></div><div><i>勝率</i><b>${S.win??'—'}${S.win!=null?'%':''}</b><small>預期約 27%</small></div><div><i>平均每筆</i><b>${fp(S.avg)}</b><small>預期約 +5%</small></div><div><i>已實現</i><b>${(S.realized||0).toLocaleString()}</b><small>元(每檔 10 萬・上限 ${(T.rules||{}).slots||20} 檔)</small></div></div>
-    ${tr.length?`<div class="ait-tw"><table class="aps-tb"><tr><th>出場</th><th>股票</th><th>買 → 賣</th><th>損益</th><th>原因</th></tr>${tr.slice(0,20).map(t=>`<tr><td>${aipMD(t.xd)}${t.xt?' '+t.xt:''}</td><td><a href="#stock/${t.id}">${t.name}</a></td><td>${t.entry} → ${t.xp}</td><td style="color:${t.ret>0?'var(--up)':'var(--down)'};font-weight:800">${fp(t.ret)}</td><td>${t.why==='trail'?'🔒 移動停利':t.why==='model'?'📉 模型轉弱':'🛑 停損'}</td></tr>`).join('')}</table></div>`:'<div class="dim-note">還沒有出場紀錄。新規則勝率約 3 成、靠少數大波段獲利,要累積數十筆才看得出成效。</div>'}
+    ${tr.length?`<div class="ait-tw"><table class="aps-tb"><tr><th>出場</th><th>股票</th><th>買 → 賣</th><th>損益</th><th>原因</th></tr>${tr.slice(0,20).map(t=>`<tr><td>${aipMD(t.xd)}${t.xt?' '+t.xt:''}</td><td><a href="#stock/${t.id}">${t.name}</a></td><td>${t.entry} → ${t.xp}</td><td style="color:${t.ret>0?'var(--up)':'var(--down)'};font-weight:800">${fp(t.ret)}${t.R!=null?`<br><span class="dim">${t.R>0?'+':''}${t.R}R・浮虧 ${t.mae}R・浮盈 ${t.mfe}R</span>`:''}</td><td>${t.why==='trail'?'🔒 移動停利':t.why==='model'?'📉 模型轉弱':'🛑 停損'}${t.days!=null?'<br><span class="dim">'+t.days+' 天</span>':''}</td></tr>`).join('')}</table></div>`:'<div class="dim-note">還沒有出場紀錄。新規則勝率約 3 成、靠少數大波段獲利,要累積數十筆才看得出成效。</div>'}
+    ${(()=>{const J=T.journal||{};const W={sl:'🛑 停損',model:'📉 模型轉弱',trail:'🔒 移動停利'};
+      const tip=[];if(J.n>=10){if(J.exp<0)tip.push('期望值為負:目前每筆平均是賠錢的,要檢查進場條件。');
+        if(J.gave_back>=25)tip.push(`有 ${J.gave_back}% 的交易曾經賺到 1R 以上、最後卻虧損出場——出場可能太慢,值得研究「賺到 1R 後把停損拉到成本」。`);
+        if(J.win_mae_med!=null&&J.win_mae_med>-0.3)tip.push(`賺錢的單,持有期間最深只浮虧 ${J.win_mae_med}R——停損可能可以收緊。`);
+        if(J.win_mae_med!=null&&J.win_mae_med<-0.8)tip.push(`賺錢的單常常先浮虧到 ${J.win_mae_med}R 才回升——停損不宜再收緊。`);}
+      return `<div class="aps-title">📒 交易檢討(R 倍數)</div>
+      <div class="dim-note" style="margin:0 0 6px">R = 進場價 − 初始停損,也就是每股願意賠的錢。+2R = 賺到願意賠的 2 倍;停損出場約 −1R。用 R 看,不受每筆金額大小影響,才看得出系統真正的期望值。</div>
+      ${J.n?`<div class="aov-kpi"><div><i>期望值</i><b style="color:${J.exp>=0?'var(--up)':'var(--down)'}">${J.exp>0?'+':''}${J.exp}R</b><small>每筆平均</small></div><div><i>獲利因子</i><b>${J.pf??'—'}</b><small>總賺 R ÷ 總賠 R</small></div><div><i>平均賺 / 賠</i><b>${J.avg_w??'—'} / ${J.avg_l??'—'}</b><small>R</small></div><div><i>賺過 1R 又虧損</i><b>${J.gave_back}%</b><small>持有中位 ${J.days_med} 天</small></div></div>
+      <div class="dim-note">出場方式:${Object.entries(J.by_why||{}).map(([k,v])=>`${W[k]||k} ${v.n} 筆・平均 ${v.avgR>0?'+':''}${v.avgR}R`).join(';')}${J.win_mae_med!=null?`;賺錢的單持有期間最深浮虧中位 ${J.win_mae_med}R`:''}</div>
+      ${tip.length?`<div class="aov-warn">🔍 ${tip.join('<br>🔍 ')}</div>`:(J.n<10?'<div class="dim-note">樣本少於 10 筆,先累積,之後會自動給出檢討建議。</div>':'')}`:'<div class="dim-note">還沒有出場紀錄。每筆出場後會自動記錄 R 倍數、持有期間最深浮虧與最高浮盈。</div>'}`;})()}
     <div class="aps-title">📊 回測對照(${B.period||''},扣成本・真實成交)</div>
     <div class="ait-tw"><table class="aps-tb"><tr><th></th><th>年化</th><th>最大回落</th><th>每年交易</th><th>勝率</th><th>每筆</th></tr>
       <tr><td><b>新規則</b><br><span class="dim">模型用全部資料訓練(偏樂觀)</span></td><td><b>${B.cagr}%</b></td><td>${B.mdd}%</td><td>${B.trades_y}</td><td>${B.win}%</td><td>+${B.avg}%</td></tr>
