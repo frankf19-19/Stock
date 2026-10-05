@@ -63,6 +63,30 @@ def _ret(p, xp):
     return (val - xp * (p.get("fac") or 1) * FEE_S) / (p["entry"] * (1 + FEE_B)) - 1
 
 
+_REV = {}
+def rev3_yoy(sid, day):
+    """r990:近 3 個月營收合計年增率(day 當天已公布的最新月份;M 月營收 M+1 月 11 日起才算公開;資料晚到就用最新可得月份)"""
+    import gzip
+    k = sid[:3] if sid[:2] == "00" else sid[:2]
+    if k not in _REV:
+        try: _REV[k] = json.load(gzip.open(f"archive/rev/tw/{k}.json.gz", "rt"))
+        except Exception: _REV[k] = {}
+    e = _REV[k].get(sid) or {}; R = dict(zip(e.get("m") or [], e.get("r") or []))
+    if not R: return None
+    y, m = int(day[:4]), int(day[5:7]); m -= 1 if int(day[8:10]) >= 11 else 2
+    while m <= 0: m += 12; y -= 1
+    lim = f"{y}-{m:02d}"; ms = sorted(x for x in R if x <= lim)
+    if len(ms) < 1: return None
+    ly, lm = int(ms[-1][:4]), int(ms[-1][5:7]); cur = prev = 0.0
+    for i in range(3):
+        mm, yy = lm - i, ly
+        while mm <= 0: mm += 12; yy -= 1
+        a = R.get(f"{yy}-{mm:02d}"); b = R.get(f"{yy-1}-{mm:02d}")
+        if not a or not b: return None
+        cur += a; prev += b
+    return cur / prev - 1 if prev > 0 else None
+
+
 def _rinit(A, p):
     """r989:R 倍數基礎——R = 進場價 − 初始停損(每股願意賠的錢);補上自進場以來最低/最高(算最大浮虧 MAE、最大浮盈 MFE)"""
     if not p.get("r0"):
@@ -154,8 +178,8 @@ def run(A, data, log=print):
     T.setdefault("ver", "r975"); T.setdefault("start", START); T.setdefault("pos", []); T.setdefault("pend", [])
     T.setdefault("trades", []); T.setdefault("log", []); T.setdefault("sig_done", "")
     T["rules"] = {"slots": SLOTS, "pmin": PMIN, "gap_max": GAP_MAX, "trail_on": TRAIL_ON, "trail_dd": TRAIL_DD, "max_sector": MAX_SECTOR, "notional": NOTIONAL}
-    T["rules"]["sector_filter"] = True; T["rules"]["pexit"] = PEXIT; T["rules"]["hmin"] = HMIN; T["rules"]["trail_off"] = TRAIL_OFF; T["rules"]["add_gain"] = ADD_GAIN; T["rules"]["max_lots"] = MAX_LOTS
-    T["bt"] = {"period": "2019/06~2026/10", "cagr": 17.6, "mdd": -34.0, "trades_y": 21, "win": 15.9, "avg": 6.33, "wf": {"cagr": 14.3, "mdd": -28.7, "trades_y": 40, "win": 21.2, "avg": 6.48},
+    T["rules"]["sector_filter"] = True; T["rules"]["pexit"] = PEXIT; T["rules"]["hmin"] = HMIN; T["rules"]["trail_off"] = TRAIL_OFF; T["rules"]["add_gain"] = ADD_GAIN; T["rules"]["max_lots"] = MAX_LOTS; T["rules"]["rev3_min"] = 0
+    T["bt"] = {"period": "2019/06~2026/10", "cagr": 17.6, "mdd": -34.0, "trades_y": 21, "win": 15.9, "avg": 6.33, "wf": {"cagr": 16.1, "mdd": -30.6, "trades_y": 37, "win": 21.7, "avg": 8.79},
                "old": {"cagr": 3.5, "mdd": -28.3, "trades_y": 137, "win": 44.4, "avg": 0.33}}
     byid = {s["id"]: s for s in data.get("stocks", [])}
     bd, _ = A.bars_of(A.BENCH_SID); last = bd[-1] if bd else ""
@@ -269,9 +293,11 @@ def run(A, data, log=print):
                 if free <= 0 or pr < PMIN: break
                 if s["id"] in held or secn.get(s.get("sector"), 0) >= MAX_SECTOR: continue
                 if not (ST.get(s.get("sector")) or {"up": True})["up"]: continue      # r979:產業在月線下 → 不進場
+                ry = rev3_yoy(s["id"], last)                               # r990:近 3 月營收年增 < 0 → 不進場(滾動驗證 +14.3% → +16.1%)
+                if ry is None or ry < 0: continue
                 d, o = A.bars_of(s["id"])
                 q = {"id": s["id"], "name": s.get("name"), "sector": s.get("sector"), "sig_d": last, "sig_px": o[-1][3], "p": round(pr, 4),
-                     "sec_gap": (ST.get(s.get("sector")) or {}).get("gap"), "icost": inst_cost(A, s["id"])}
+                     "sec_gap": (ST.get(s.get("sector")) or {}).get("gap"), "icost": inst_cost(A, s["id"]), "rev3": round(ry * 100, 1)}
                 T["pend"].append(q); new.append(q); held.add(s["id"]); secn[s.get("sector")] = secn.get(s.get("sector"), 0) + 1; free -= 1
             T["top"] = [{"id": s["id"], "name": s.get("name"), "p": round(pr, 4), "sector": s.get("sector"),
                          "sec_up": (ST.get(s.get("sector")) or {"up": True})["up"]} for pr, s in sc[:15]]
