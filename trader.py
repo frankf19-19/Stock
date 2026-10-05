@@ -11,7 +11,7 @@
 """
 import json, os, datetime as dt
 FILE = "trader.json"; SLOTS = 10; PMIN = 0.54; MAX_SECTOR = 2; GAP_MAX = 0.03; TRAIL_ON = 1.10; TRAIL_DD = 0.85
-PEXIT = 0.48; HMIN = 5; TRAIL_OFF = True
+PEXIT = 0.48; HMIN = 5; TRAIL_OFF = True; ADD_GAIN = 0.10; MAX_LOTS = 2
 NOTIONAL = 100000; FEE_B = 0.001425; FEE_S = 0.001425 + 0.003; START = "2026-10-05"
 
 
@@ -70,8 +70,8 @@ def run(A, data, log=print):
     T.setdefault("ver", "r975"); T.setdefault("start", START); T.setdefault("pos", []); T.setdefault("pend", [])
     T.setdefault("trades", []); T.setdefault("log", []); T.setdefault("sig_done", "")
     T["rules"] = {"slots": SLOTS, "pmin": PMIN, "gap_max": GAP_MAX, "trail_on": TRAIL_ON, "trail_dd": TRAIL_DD, "max_sector": MAX_SECTOR, "notional": NOTIONAL}
-    T["rules"]["sector_filter"] = True; T["rules"]["pexit"] = PEXIT; T["rules"]["hmin"] = HMIN; T["rules"]["trail_off"] = TRAIL_OFF
-    T["bt"] = {"period": "2019/06~2026/10", "cagr": 19.3, "mdd": -33.2, "trades_y": 17, "win": 15.0, "avg": 5.2,
+    T["rules"]["sector_filter"] = True; T["rules"]["pexit"] = PEXIT; T["rules"]["hmin"] = HMIN; T["rules"]["trail_off"] = TRAIL_OFF; T["rules"]["add_gain"] = ADD_GAIN; T["rules"]["max_lots"] = MAX_LOTS
+    T["bt"] = {"period": "2019/06~2026/10", "cagr": 22.5, "mdd": -34.8, "trades_y": 11, "win": 20.3, "avg": 9.76,
                "old": {"cagr": 3.5, "mdd": -28.3, "trades_y": 137, "win": 44.4, "avg": 0.33}}
     byid = {s["id"]: s for s in data.get("stocks", [])}
     bd, _ = A.bars_of(A.BENCH_SID); last = bd[-1] if bd else ""
@@ -113,10 +113,13 @@ def run(A, data, log=print):
         try: _, stp, LV = A.stock_levels(dd, oo, op, a, byid.get(q["id"]))
         except Exception: stp = op * 0.92; LV = {}
         sh = int(NOTIONAL / op)
-        T["pos"].append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": d[idx], "entry": op, "sh": sh,
+        if q.get("add"):
+            b0 = [x for x in T["pos"] if x["id"] == q["id"]]
+            if b0: stp = min(x["stop0"] for x in b0); LV = {"stp_src": "沿用第一筆停損"}
+        T["pos"].append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": d[idx], "entry": op, "sh": sh, "add": q.get("add"),
                          "stop0": round(float(stp), 2), "stop": round(float(stp), 2), "hi": op, "p": q["p"], "sig_d": q["sig_d"], "seen": d[idx],
                          "stp_src": (LV or {}).get("stp_src"), "dn_med": (LV or {}).get("dn_med")})
-        ev.append(f"{d[idx]} 🟢 買進 {q['name']} 開盤 {op}(停損 {round(float(stp), 2)})")
+        ev.append(f"{d[idx]} {'➕ 加碼' if q.get('add') else '🟢 買進'} {q['name']} 開盤 {op}(停損 {round(float(stp), 2)})")
     T["pend"] = keep
     # ② 持股:逐根 K 檢查停損 / 移動停利
     still = []
@@ -194,6 +197,24 @@ def run(A, data, log=print):
                     if pr0 is not None and held >= HMIN and pr0 < PEXIT and not p.get("xsig"):
                         p["xsig"] = last; ev.append(f"{last} 📉 {p['name']} 模型勝算降到 {pr0*100:.1f}%(< {PEXIT*100:.0f}%),明天開盤賣出")
                 except Exception: pass
+            # r985:加碼——第一筆帳面賺 ≥10%、模型今天仍看好(勝算 ≥ 0.54)、這檔還不到 2 筆、還有空位 → 明天開盤再買一筆
+            #       回測:年化 +19.3% → +22.5%(最大回落 −33.2% → −34.8%);賣出後條件符合也會重新買回(不限次數)
+            try:
+                lots = {}
+                for p in T["pos"]: lots.setdefault(p["id"], []).append(p)
+                pend_ids = [q["id"] for q in T["pend"]]
+                for sid0, L in lots.items():
+                    if len(T["pos"]) + len(T["pend"]) >= SLOTS: break
+                    base = min(L, key=lambda x: x["fill"])
+                    if len(L) + pend_ids.count(sid0) >= MAX_LOTS or base.get("xsig"): continue
+                    d0, o0 = A.bars_of(sid0)
+                    if not d0 or d0[-1] != last: continue
+                    c0 = o0[-1][3]; pr0 = base.get("prob")
+                    if pr0 is not None and pr0 >= PMIN and c0 >= base["entry"] * (1 + ADD_GAIN):
+                        q = {"id": sid0, "name": base["name"], "sector": base.get("sector"), "sig_d": last, "sig_px": c0, "p": pr0, "add": len(L) + 1}
+                        T["pend"].append(q); pend_ids.append(sid0)
+                        ev.append(f"{last} ➕ 加碼訊號 {base['name']}(帳面 {(c0/base['entry']-1)*100:+.1f}%、勝算 {pr0*100:.1f}%),明天開盤加買第 {len(L)+1} 筆")
+            except Exception as ex: log(f"trader:加碼判斷例外 {ex}")
             T["sig_done"] = last; T["n_scored"] = len(sc)
             ev.append(f"{last} 🔍 收盤掃描 {len(sc)} 檔,勝算 ≥{PMIN} 有 {sum(1 for x in sc if x[0] >= PMIN)} 檔;" +
                       ("明天開盤買進:" + "、".join(q["name"] for q in new) if new else "沒有新進場(" + ("已滿" if free <= 0 else "沒有夠強的標的") + ")"))
@@ -240,11 +261,14 @@ def run_intraday(A, data, hhmm, log=print):
         a = sum(tr[-14:]) / max(1, len(tr[-14:]))
         try: _, stp, LV = A.stock_levels(dd, oo, op, a, byid.get(q["id"]))
         except Exception: stp = op * 0.92; LV = {}
-        T.setdefault("pos", []).append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": today, "ft": "09:00", "entry": op,
+        if q.get("add"):
+            b0 = [x for x in T.get("pos") or [] if x["id"] == q["id"]]
+            if b0: stp = min(x["stop0"] for x in b0); LV = {"stp_src": "沿用第一筆停損"}
+        T.setdefault("pos", []).append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": today, "ft": "09:00", "entry": op, "add": q.get("add"),
                                         "sh": int(NOTIONAL / op), "stop0": round(float(stp), 2), "stop": round(float(stp), 2), "hi": op,
                                         "p": q["p"], "sig_d": q["sig_d"], "seen": today, "rt": 1,
                                         "stp_src": (LV or {}).get("stp_src"), "dn_med": (LV or {}).get("dn_med")})
-        ev.append(f"{today} 09:00 🟢 買進 {q['name']} 官方開盤 {op}(停損 {round(float(stp), 2)})")
+        ev.append(f"{today} 09:00 {'➕ 加碼' if q.get('add') else '🟢 買進'} {q['name']} 官方開盤 {op}(停損 {round(float(stp), 2)})")
     T["pend"] = keep
     still = []
     for p in T.get("pos") or []:
