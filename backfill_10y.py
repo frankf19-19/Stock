@@ -233,4 +233,8 @@ def save_state(st):
 TODAY = (dt.datetime.utcnow() + dt.timedelta(hours=8)).date().isoformat()
 
 if __name__ == "__main__":
+    try:                                                     # r1002:美股歷史季報(SEC frames)先抓,最多 25 分鐘
+        import us_fund_hist; us_fund_hist.main(budget_sec=1500)
+    except Exception as e:
+        print("us_fund_hist 例外", e, flush=True)
     main()
