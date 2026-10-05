@@ -1430,9 +1430,13 @@ def main():
     weeks = weeks[-KEEP_WEEKS:]
     # r787:盤中當下記(只在交易時段;時間用報價快照的時間)
     try:
-        if (not US) and TODAY.weekday() < 5 and 9 * 60 <= hm <= 13 * 60 + 35:
+        snap = str(data.get("intraday") or NOW.strftime("%H:%M"))[:5]
+        snap_day = str(data.get("updated") or "")[:10]
+        # r973:報價快照本身也要在 09:00 之後、而且是今天——08:5x 的快照是開盤前「試撮」價,不是成交
+        #       (10/05 鴻海/緯創/創見被記成 08:56 成交,就是 09:0x 跑的這輪拿到 08:56 的試撮快照)
+        if (not US) and TODAY.weekday() < 5 and 9 * 60 <= hm <= 13 * 60 + 35 and "09:00" <= snap <= "13:30" and snap_day == iso(TODAY):
             prices = {s["id"]: float(s["price"]) for s in data.get("stocks") or [] if s.get("price")}
-            ni = intraday_watch(weeks, prices, data.get("intraday") or NOW.strftime("%H:%M"))
+            ni = intraday_watch(weeks, prices, snap)
             if ni: print(f"aipick:盤中記錄 {ni} 筆觸發(買價/目標/停損)")
     except Exception as e:
         print(f"aipick:盤中記錄失敗 {e}")
