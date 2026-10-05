@@ -10,7 +10,7 @@
   紀錄——每筆都是官方日 K 可驗證的成交;每檔名目 NT$100,000(10 檔 = 100 萬)
 """
 import json, os, datetime as dt
-FILE = "trader.json"; SLOTS = 10; PMIN = 0.54; MAX_SECTOR = 2; GAP_MAX = 0.03; TRAIL_ON = 1.10; TRAIL_DD = 0.85
+FILE = "trader.json"; SLOTS = 20; PMIN = 0.54; MAX_SECTOR = 2; GAP_MAX = 0.03; TRAIL_ON = 1.10; TRAIL_DD = 0.85
 PEXIT = 0.48; HMIN = 5; TRAIL_OFF = True; ADD_GAIN = 0.10; MAX_LOTS = 2
 NOTIONAL = 100000; FEE_B = 0.001425; FEE_S = 0.001425 + 0.003; START = "2026-10-05"
 
@@ -119,7 +119,7 @@ def run(A, data, log=print):
     T.setdefault("trades", []); T.setdefault("log", []); T.setdefault("sig_done", "")
     T["rules"] = {"slots": SLOTS, "pmin": PMIN, "gap_max": GAP_MAX, "trail_on": TRAIL_ON, "trail_dd": TRAIL_DD, "max_sector": MAX_SECTOR, "notional": NOTIONAL}
     T["rules"]["sector_filter"] = True; T["rules"]["pexit"] = PEXIT; T["rules"]["hmin"] = HMIN; T["rules"]["trail_off"] = TRAIL_OFF; T["rules"]["add_gain"] = ADD_GAIN; T["rules"]["max_lots"] = MAX_LOTS
-    T["bt"] = {"period": "2019/06~2026/10", "cagr": 22.5, "mdd": -34.8, "trades_y": 11, "win": 20.3, "avg": 9.76, "wf": {"cagr": 12.9, "mdd": -33.2, "trades_y": 16, "win": 17.9, "avg": 0.95},
+    T["bt"] = {"period": "2019/06~2026/10", "cagr": 17.6, "mdd": -34.0, "trades_y": 21, "win": 15.9, "avg": 6.33, "wf": {"cagr": 14.3, "mdd": -28.7, "trades_y": 40, "win": 21.2, "avg": 6.48},
                "old": {"cagr": 3.5, "mdd": -28.3, "trades_y": 137, "win": 44.4, "avg": 0.33}}
     byid = {s["id"]: s for s in data.get("stocks", [])}
     bd, _ = A.bars_of(A.BENCH_SID); last = bd[-1] if bd else ""
