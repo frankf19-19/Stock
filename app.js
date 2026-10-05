@@ -1,4 +1,4 @@
-/* K研所 · build r991 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r992 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r991';
+const APP_BUILD='r992';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1819,7 +1819,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r991</span>');
+  diag.push('<span style="color:var(--dim)">build r992</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21605,7 +21605,7 @@ function aipOldHoldList(){
   const out=[];if(!AIPK)return out;
   (AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='skip').forEach(w=>(w.picks||[]).forEach(p=>{
     const legs=aipLegs(p),cur=legs.length?legs[legs.length-1]:null;
-    if(!cur||cur.xd||cur.xfer)return;                                  // r991:已移交每日交易的不重複列
+    if(!cur||cur.xd||cur.xfer)return;                                  // r992:已移交每日交易的不重複列
     const st=(DATA.stocks||[]).find(x=>x.id===cur.id),px=st&&st.price>0?+st.price:null;
     const hi=Math.max(cur.hi||0,px||0),trail=hi>=cur.entry*1.08?Math.round(hi*0.94*100)/100:null;
     out.push({src:'週',id:cur.id,name:cur.name,fill:cur.fill,entry:cur.entry,px,line:trail&&trail>cur.stop?trail:cur.stop,lineTag:trail&&trail>cur.stop?'🔒 移動停利':'停損',tgt:cur.target,wk:w.buy_week});
@@ -21645,12 +21645,26 @@ function aipOverview(){
   </div>`;
 }
 function aipUnifiedHold(){
+  /* r992:持股一覽重做——手機改成一檔一張卡(名稱+損益最醒目、出場線距離用進度條),拿掉「原週名單」標籤;桌機表格同步精簡 */
   const L=aipNewHoldList().concat(aipOldHoldList());
   if(!L.length)return '<div class="dim-note">目前沒有持股</div>';
   const fp=v=>v==null?'—':(v>0?'+':'')+v.toFixed(2)+'%',cl=v=>v==null?'':v>0?'var(--up)':v<0?'var(--down)':'inherit';
-  L.forEach(r=>{r.ret=r.px?(r.px/r.entry-1)*100:null;r.gap=r.px&&r.line?(r.px/r.line-1)*100:null;});
+  L.forEach(r=>{r.ret=r.px?(r.px/r.entry-1)*100:null;r.gap=r.px&&r.line?(r.px/r.line-1)*100:null;r.Rnow=r.px&&r.r0?(r.px-r.entry)/r.r0:null;});
   L.sort((a,b)=>(a.gap??99)-(b.gap??99));
-  return `<div class="dim-note" style="margin:0 0 6px">依「離出場線多遠」排序,最需要注意的在最上面。</div><div class="ait-tw"><table class="aps-tb"><tr><th>股票</th><th>規則</th><th>進場</th><th>現價/損益</th><th>出場線</th></tr>${L.map(r=>`<tr><td><a href="#stock/${r.id}"><b>${r.name}</b></a><br><span class="dim">${r.id}</span></td><td><span class="aov-tag ${r.src==='週'?'old':'new'}">${r.src==='新'?'每日交易':r.src==='移'?'原週名單'+(r.wk?' '+aipMD(r.wk):''):'每週名單'}${r.add?'<br><b style="color:var(--gold,#E8B44A)">➕ 加碼第 '+r.add+' 筆</b>':''}</span></td><td>${aipMD(r.fill)}${r.ft?' '+r.ft:''}<br>${r.entry}</td><td>${r.px||'—'}<br><b style="color:${cl(r.ret)}">${fp(r.ret)}</b></td><td>${r.line}<br><span class="dim">${r.lineTag}${r.gap!=null?'・距 '+r.gap.toFixed(1)+'%':''}</span>${r.icost?`<br><span class="dim">法人成本 ${r.icost}</span>`:''}${r.r0?`<br><span class="dim">1R=${(+r.r0).toFixed(2)}・現在 <b style="color:${(r.px?((r.px-r.entry)/r.r0):0)>=0?'var(--up)':'var(--down)'}">${r.px?((r.px-r.entry)/r.r0).toFixed(2):'—'}R</b>・浮虧最深 ${r.mae??'—'}R・浮盈最高 ${r.mfe??'—'}R</span>`:''}${r.tgt?`<br><span class="dim">目標 ${r.tgt}</span>`:''}</td></tr>`).join('')}</table></div>`;
+  const tag=r=>(r.lineTag||'').split('<br>')[0];
+  const prob=r=>{const m=(r.lineTag||'').match(/模型勝算 <b[^>]*>([\d.]+)%<\/b>/);return m?+m[1]:null;};
+  const sell=r=>/明天開盤賣/.test(r.lineTag||'');
+  const bar=g=>{const w=Math.max(4,Math.min(100,(g??0)/10*100));const c=g==null?'var(--dim)':g<3?'var(--down)':g<6?'var(--amber)':'var(--up)';return `<div class="hc-bar"><i style="width:${w}%;background:${c}"></i></div>`;};
+  const cards=L.map(r=>{const pb=prob(r);return `<div class="hc${sell(r)?' hc-sell':''}">
+    <div class="hc-h"><a href="#stock/${r.id}"><b>${r.name}</b></a><span class="dim">${r.id}</span>${r.add?`<span class="hc-add">➕ 加碼第 ${r.add} 筆</span>`:''}<b class="hc-ret" style="color:${cl(r.ret)}">${fp(r.ret)}</b></div>
+    <div class="hc-g"><div><i>進場</i><b>${r.entry}</b><small>${aipMD(r.fill)}</small></div><div><i>現價</i><b>${r.px||'—'}</b><small>${r.Rnow!=null?(r.Rnow>0?'+':'')+r.Rnow.toFixed(2)+'R':''}</small></div><div><i>出場線</i><b>${r.line}</b><small>${tag(r)}</small></div></div>
+    <div class="hc-gap"><span>距出場線 <b style="color:${r.gap!=null&&r.gap<3?'var(--down)':'inherit'}">${r.gap!=null?r.gap.toFixed(1)+'%':'—'}</b></span>${bar(r.gap)}${pb!=null?`<span>勝算 <b style="color:${pb<48?'var(--down)':pb>=54?'var(--up)':'inherit'}">${pb}%</b></span>`:''}</div>
+    ${sell(r)?'<div class="hc-alert">📉 模型轉弱,明天開盤賣出</div>':''}
+  </div>`;}).join('');
+  const rows=L.map(r=>{const pb=prob(r);return `<tr><td><a href="#stock/${r.id}"><b>${r.name}</b></a> <span class="dim">${r.id}</span>${r.add?'<br><span class="hc-add">➕ 加碼第 '+r.add+' 筆</span>':''}</td><td>${aipMD(r.fill)}<br>${r.entry}</td><td>${r.px||'—'}<br><b style="color:${cl(r.ret)}">${fp(r.ret)}</b></td><td>${r.line}<br><span class="dim">${tag(r)}・距 ${r.gap!=null?r.gap.toFixed(1)+'%':'—'}</span></td><td>${pb!=null?pb+'%':'—'}${sell(r)?'<br><b style="color:var(--amber)">明天開盤賣</b>':''}</td><td>${r.Rnow!=null?(r.Rnow>0?'+':'')+r.Rnow.toFixed(2)+'R':'—'}<br><span class="dim">${r.mae??'—'} / ${r.mfe??'—'}R</span></td></tr>`;}).join('');
+  return `<div class="dim-note" style="margin:0 0 8px">共 ${L.length} 檔・依「離出場線多遠」排序,越上面越要注意。進度條越短越接近出場線。</div>
+    <div class="aps-mob">${cards}</div>
+    <div class="aps-desk ait-tw"><table class="aps-tb"><tr><th>股票</th><th>進場</th><th>現價/損益</th><th>出場線</th><th>模型勝算</th><th>R(浮虧/浮盈極值)</th></tr>${rows}</table></div>`;
 }
 function aipStatsNew(){
   const T=TRD||(AIPK&&AIPK.trader)||{};const S=T.stats||{},B=T.bt||{},O=B.old||{};
