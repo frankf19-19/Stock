@@ -264,7 +264,8 @@ def run(A, data, log=print):
         else: still.append(p)
     T["pos"] = still
     # ③ 收盤決策(每個交易日一次;最新 K 全市場入庫 ≥90% 才做)
-    if last >= START and T["sig_done"] < last:
+    do_sig = last >= START and T["sig_done"] < last
+    if do_sig or (last >= START and T.get("watch_d") != last):          # r993:關注清單——就算今天已做過決策,也要補算
         tot = hit = 0; lo = (dt.date.fromisoformat(last) - dt.timedelta(days=10)).isoformat()
         for s in data.get("stocks", []):
             if s.get("market") != "TW" or s.get("etf"): continue
@@ -288,7 +289,7 @@ def run(A, data, log=print):
             held = {p["id"] for p in T["pos"]} | {q["id"] for q in T["pend"]}
             secn = {}
             for p in T["pos"] + T["pend"]: secn[p.get("sector")] = secn.get(p.get("sector"), 0) + 1
-            free = SLOTS - len(T["pos"]) - len(T["pend"]); new = []
+            free = (SLOTS - len(T["pos"]) - len(T["pend"])) if do_sig else 0; new = []
             for pr, s in sc:
                 if free <= 0 or pr < PMIN: break
                 if s["id"] in held or secn.get(s.get("sector"), 0) >= MAX_SECTOR: continue
@@ -299,6 +300,23 @@ def run(A, data, log=print):
                 q = {"id": s["id"], "name": s.get("name"), "sector": s.get("sector"), "sig_d": last, "sig_px": o[-1][3], "p": round(pr, 4),
                      "sec_gap": (ST.get(s.get("sector")) or {}).get("gap"), "icost": inst_cost(A, s["id"]), "rev3": round(ry * 100, 1)}
                 T["pend"].append(q); new.append(q); held.add(s["id"]); secn[s.get("sector")] = secn.get(s.get("sector"), 0) + 1; free -= 1
+            # r993:👀 關注清單——勝算最高的 25 檔(不含已持有),逐項列出卡在哪個條件,讓人知道誰快要進場
+            W = []; secc = {}
+            for p in T["pos"] + T["pend"]: secc[p.get("sector")] = secc.get(p.get("sector"), 0) + 1
+            for pr, s in sc:
+                if len(W) >= 25: break
+                if s["id"] in {p["id"] for p in T["pos"]}: continue
+                d1, o1 = A.bars_of(s["id"]); ry1 = rev3_yoy(s["id"], last); su = (ST.get(s.get("sector")) or {"up": True})
+                why = []
+                if pr < PMIN: why.append(f"勝算差 {(PMIN - pr) * 100:.1f}%")
+                if not su["up"]: why.append("產業在月線下")
+                if ry1 is None: why.append("缺營收資料")
+                elif ry1 < 0: why.append("近3月營收衰退")
+                if secc.get(s.get("sector"), 0) >= MAX_SECTOR and not any(q["id"] == s["id"] for q in T["pend"]): why.append("同產業已 2 檔")
+                st_ = "明天開盤買" if any(q["id"] == s["id"] for q in T["pend"]) else ("符合但已滿" if not why else "觀察中")
+                W.append({"id": s["id"], "name": s.get("name"), "sector": s.get("sector"), "p": round(pr, 4), "px": o1[-1][3] if o1 else None,
+                          "sec_gap": su.get("gap"), "rev3": round(ry1 * 100, 1) if ry1 is not None else None, "why": why, "st": st_})
+            T["watch"] = W; T["watch_d"] = last
             T["top"] = [{"id": s["id"], "name": s.get("name"), "p": round(pr, 4), "sector": s.get("sector"),
                          "sec_up": (ST.get(s.get("sector")) or {"up": True})["up"]} for pr, s in sc[:15]]
             for p in T["pos"]:
@@ -333,8 +351,9 @@ def run(A, data, log=print):
                         T["pend"].append(q); pend_ids.append(sid0)
                         ev.append(f"{last} ➕ 加碼訊號 {base['name']}(帳面 {(c0/base['entry']-1)*100:+.1f}%、勝算 {pr0*100:.1f}%),明天開盤加買第 {len(L)+1} 筆")
             except Exception as ex: log(f"trader:加碼判斷例外 {ex}")
-            T["sig_done"] = last; T["n_scored"] = len(sc)
-            ev.append(f"{last} 🔍 收盤掃描 {len(sc)} 檔,勝算 ≥{PMIN} 有 {sum(1 for x in sc if x[0] >= PMIN)} 檔;" +
+            T["n_scored"] = len(sc)
+            if do_sig: T["sig_done"] = last
+            if do_sig: ev.append(f"{last} 🔍 收盤掃描 {len(sc)} 檔,勝算 ≥{PMIN} 有 {sum(1 for x in sc if x[0] >= PMIN)} 檔;" +
                       ("明天開盤買進:" + "、".join(q["name"] for q in new) if new else "沒有新進場(" + ("已滿" if free <= 0 else "沒有夠強的標的") + ")"))
         else:
             log(f"trader:{last} K 入庫 {hit}/{tot} 未達 90%,本班不做收盤決策")
