@@ -783,7 +783,8 @@ def _minutes(sid, date):
 # 盤中 5 分鐘迴圈每輪拿 data.json 的即時價:第一次碰到買價/追價區/目標/停損,就把「日期・時間・價格」記進
 # p["iv"](intraday)。收盤後日 K 結算出同一天的成交/出場時,直接沿用這個時間;沒記到的(網站沒跑那輪)
 # 才退回查富果 1 分 K。這樣時間是「當下」的,結算價仍以日 K 為準(凍結不動)。
-def intraday_watch(weeks, prices, hhmm):
+def intraday_watch(weeks, prices, hhmm, hl=None):
+    hl = hl or {}
     n = 0
     today = iso(TODAY)
     for w in weeks:
@@ -799,15 +800,17 @@ def intraday_watch(weeks, prices, hhmm):
             if not px: continue
             if not cur:                                                 # 等買進:限價/追價第一次碰到
                 if (w.get("mode") == "open" and (today < bw or iv.get("fill") or p.get("result") == "nofill")) or (w.get("mode") != "open" and (not (bw <= today <= bw_end) or iv.get("fill"))): continue
-                if px <= p["buy"]:
+                lo = (hl.get(sid) or [None, None, None])[2]
+                if px <= p["buy"] and (lo is None or lo <= p["buy"]):
                     iv["fill"] = {"d": today, "t": hhmm, "px": p["buy"], "how": "limit"}; n += 1
-                elif px <= p.get("buy_hi", p["buy"]):
+                elif p["buy"] < px <= p.get("buy_hi", p["buy"]):
                     iv["fill"] = {"d": today, "t": hhmm, "px": px, "how": "chase"}; n += 1
             else:                                                       # 持有中:目標/停損第一次碰到
                 if iv.get("exit") and iv["exit"].get("leg") == len(legs) - 1: continue
-                if px >= cur["target"]:
+                _o, _h, _l = (hl.get(sid) or [None, None, None])
+                if px >= cur["target"] and (_h is None or _h >= cur["target"]):
                     iv["exit"] = {"d": today, "t": hhmm, "px": cur["target"], "w": "tp", "leg": len(legs) - 1, "id": sid}; n += 1
-                elif px <= cur["stop"]:
+                elif px <= cur["stop"] and (_l is None or _l <= cur["stop"]):
                     iv["exit"] = {"d": today, "t": hhmm, "px": cur["stop"], "w": "sl", "leg": len(legs) - 1, "id": sid}; n += 1
     return n
 
@@ -1435,8 +1438,13 @@ def main():
         # r973:報價快照本身也要在 09:00 之後、而且是今天——08:5x 的快照是開盤前「試撮」價,不是成交
         #       (10/05 鴻海/緯創/創見被記成 08:56 成交,就是 09:0x 跑的這輪拿到 08:56 的試撮快照)
         if (not US) and TODAY.weekday() < 5 and 9 * 60 <= hm <= 13 * 60 + 35 and "09:00" <= snap <= "13:30" and snap_day == iso(TODAY):
-            prices = {s["id"]: float(s["price"]) for s in data.get("stocks") or [] if s.get("price")}
-            ni = intraday_watch(weeks, prices, snap)
+            # r974:只用「今天、09:00 後、真的成交」的價格(update_quotes 標 pz=1、pt=時間);另帶今天官方最低/最高價,
+            #       限價成交必須「今天最低價真的 ≤ 買價」、停損必須「最低價 ≤ 停損」、到目標必須「最高價 ≥ 目標」
+            tday = iso(TODAY)
+            prices = {s["id"]: float(s["price"]) for s in data.get("stocks") or []
+                      if s.get("price") and s.get("pz") == 1 and str(s.get("pt") or "")[:10] == tday and str(s.get("pt") or "")[11:16] >= "09:00"}
+            hl = {s["id"]: s["dhl"] for s in data.get("stocks") or [] if s.get("dhd") == tday and s.get("dhl")}
+            ni = intraday_watch(weeks, prices, snap, hl)
             if ni: print(f"aipick:盤中記錄 {ni} 筆觸發(買價/目標/停損)")
     except Exception as e:
         print(f"aipick:盤中記錄失敗 {e}")

@@ -76,13 +76,21 @@ def main():
             s = by_id.get(sid)
             if not s:
                 continue
-            last = px(m, "z") or px(m, "b") or px(m, "y")   # 成交→買一→昨收
+            # r974:只認「真的成交價」z。原本 z 缺就退回 買一 b → 昨收 y:
+            #   漲停鎖死、或兩次撮合之間 z 會是 "-",價格就被寫成昨收(10/05 華通漲停 248.5 被記成 226 → AI Pick 誤判成交)
+            #   現在 z 缺就沿用上一筆真實成交價、不寫進走勢快照;另外記下今天官方開高低(o/h/l)與「真實成交」標記
+            last = px(m, "z")
             prev = px(m, "y")
+            o_, h_, l_ = px(m, "o"), px(m, "h"), px(m, "l")
+            if o_ and h_ and l_:
+                s["dhl"] = [round(o_, 2), round(h_, 2), round(l_, 2)]; s["dhd"] = now.strftime("%Y-%m-%d")
             if not last:
+                s["pz"] = 0
                 continue
             s["price"] = round(last, 2)
             if prev:
                 s["chg"] = round((last - prev) / prev * 100, 2)
+            s["pz"] = 1; s["pt"] = now.strftime("%Y-%m-%d %H:%M")
             quotes[sid] = round(last, 2)
             n += 1
         time.sleep(0.4)
