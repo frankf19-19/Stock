@@ -369,6 +369,18 @@ def run(A, data, log=print):
             _rinit(A, p); d0, o0 = A.bars_of(p["id"]); px = o0[-1][3] if o0 else None
             if px: p.update({"R": _rstat(p, px)["r"], "mae": _rstat(p)["mae"], "mfe": _rstat(p)["mfe"]})
     except Exception as e: log(f"trader:交易檢討例外 {e}")
+    # r1006:每日淨值曲線(累計損益,元)——已實現 + 持股未實現(含股利),與 006208 同期漲跌對照
+    try:
+        unreal = 0.0
+        for p in T["pos"]:
+            d0, o0 = A.bars_of(p["id"]); c0 = o0[-1][3] if o0 else None
+            if c0: unreal += (c0 * (p.get("fac") or 1) + (p.get("cash") or 0) - p["entry"]) * p.get("sh", 0)
+        real = sum(t["ret"] / 100 * NOTIONAL for t in T["trades"])
+        e8d, e8o = A.bars_of("006208"); e8 = e8o[-1][3] if e8o and e8d and e8d[-1] == last else None
+        nav = [x for x in (T.get("nav") or []) if x[0] != last]
+        nav.append([last, round(real + unreal), len(T["pos"]), e8])
+        T["nav"] = nav[-400:]
+    except Exception as e: log(f"trader:淨值曲線例外 {e}")
     T["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M"); T["last_bar"] = last
     for e in ev: log("trader:" + e)
     return T

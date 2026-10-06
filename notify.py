@@ -614,6 +614,18 @@ def collect_events(aip, prices):
                        + (f";突破 @{str(x.get('brk_at'))[5:16].replace('T',' ')}" if x.get("brk_at") else "") + f",現價 {x['last']}"))
     except Exception:
         pass
+    # r1006:AI Pick 每日交易(trader)的買賣——成交/出場=一級事實,收盤決策(明天要買/要賣)=二級行動
+    try:
+        import hashlib
+        for x in ((aip.get("trader") or {}).get("log") or [])[:40]:
+            if not x.startswith(today): continue
+            body = x[11:]
+            lvl = 1 if any(k in body for k in ("🟢 買進", "➕ 加碼", "🛑 停損", "🔒 移動停利", "📉 模型轉弱", "💵")) else 2 if any(k in body for k in ("明天開盤", "➕ 加碼訊號")) else 0
+            if not lvl: continue
+            if "收盤掃描" in body and "明天開盤買進" not in body: continue
+            ev.append((f"tr|{today}|{hashlib.md5(body.encode()).hexdigest()[:10]}", lvl, f"🎯 <b>AI Pick 每日交易</b>\n{body}"))
+    except Exception:
+        pass
     return ev
 
 
