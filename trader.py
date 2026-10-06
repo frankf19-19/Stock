@@ -517,6 +517,35 @@ def run_intraday(A, data, hhmm, log=print):
             continue
         still.append(p)
     T["pos"] = still
+    # r1012:盤中即時「賣出評估」——用現價當作今天收盤,重算持股的模型分數(v2 勝算、樹模型全市場排名)
+    #       只做預估顯示;正式賣出仍在收盤後用官方日 K 判定(回測驗證的方式)。今日量未完整 → 量用近 20 日均量代替
+    try:
+        from aipick_v2 import V2Scorer
+        V = V2Scorer(A.bars_of, A.chip_of, data, mkt="TW")
+        def lb(sid):
+            d, o = A.bars_of(sid)
+            if not d: return d, o
+            if d[-1] >= today: return d, o
+            px, hl = live(sid)
+            if px is None: return d, o
+            va = sum(b[4] for b in o[-20:]) / max(1, len(o[-20:]))
+            return d + [today], o + [[hl[0], max(hl[1], px), min(hl[2], px), px, va]]
+        gs = {}
+        for s0 in data.get("stocks", []):
+            if s0.get("market") != "TW" or s0.get("etf"): continue
+            d, o = lb(s0["id"])
+            if not d or not o[-1][3] or o[-1][3] < 10: continue
+            try: gs[s0["id"]] = gbt_prob(V.feats(s0["id"], s0, d, o))
+            except Exception: pass
+        order = sorted((g, k) for k, g in gs.items() if g is not None)[::-1]; RK = {k: i for i, (g, k) in enumerate(order)}; NN = len(order)
+        for p in T["pos"]:
+            d, o = lb(p["id"]); e = {"t": hhmm}
+            try: e["prob"] = round(V.prob(p["id"], byid.get(p["id"]) or {}, d, o), 4)
+            except Exception: pass
+            if p["id"] in RK: e["grank"] = RK[p["id"]] + 1; e["gn"] = NN
+            p["est"] = e
+    except Exception as ex:
+        log(f"trader:盤中評估例外 {ex}")
     for e in ev: T.setdefault("log", []).insert(0, e); log("trader:" + e)
     T["log"] = T.get("log", [])[:300]; T["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M")
     return T
