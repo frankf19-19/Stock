@@ -1,4 +1,4 @@
-/* K研所 · build r1004 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1005 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1004';
+const APP_BUILD='r1005';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1819,7 +1819,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1004</span>');
+  diag.push('<span style="color:var(--dim)">build r1005</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3071,7 +3071,10 @@ function turnEngine(K,lv){
     const c=K.c,n=c.length;
     if(n<60)return null;
     const px=c[n-1],F2=x=>(+x).toLocaleString(undefined,{maximumFractionDigits:2});
-    const zz=fwZigzag(K,4);
+    // r1005:波段結構只用「已收盤」的日K(盤中那根不參與轉折點判定與波段極值)——
+    //        否則盤中每創一個新低/新高,起跌點、低點、0.382/0.5/0.618 全部跟著跳;現價仍用即時價評估位置
+    const KC=lvInfo&&n>61?{o:K.o.slice(0,n-1),h:K.h.slice(0,n-1),l:K.l.slice(0,n-1),c:K.c.slice(0,n-1),d:K.d?K.d.slice(0,n-1):null,t:K.t?K.t.slice(0,n-1):null}:K;
+    const zz=fwZigzag(KC,4);
     if(zz.length<4)return null;
     const rec=zz.slice(-8);
     // 轉折列表(新→舊)
@@ -3095,7 +3098,7 @@ function turnEngine(K,lv){
     // 目前這一段 + 近端費波價位
     const upLeg=last.t===-1;
     const legBase=last.px;
-    const legExt=upLeg?Math.max(...K.h.slice(last.i)):Math.min(...K.l.slice(last.i));
+    const legExt=upLeg?Math.max(...KC.h.slice(last.i)):Math.min(...KC.l.slice(last.i));   // r1005:已收盤日K的波段極值
     const legRng=Math.abs(legExt-legBase);
     const prev2=zz[zz.length-2];
     const prevLegLen=prev2?Math.abs(last.px-prev2.px):legRng;
@@ -4645,7 +4648,7 @@ async function usFundBlock(s){                        // 📊 r530:美股財報�
   if(!box||!s||s.market!=='US'||s.etf)return;
   try{
     const u=await usfData();
-    const AL={GOOGL:'GOOG',GOOG:'GOOGL',FOXA:'FOX',FOX:'FOXA',NWSA:'NWS',NWS:'NWSA',BRK_B:'BRK.B'};   // r1004:同公司多股別共用財報
+    const AL={GOOGL:'GOOG',GOOG:'GOOGL',FOXA:'FOX',FOX:'FOXA',NWSA:'NWS',NWS:'NWSA',BRK_B:'BRK.B'};   // r1005:同公司多股別共用財報
     const sid=String(s.id).toUpperCase();const e=u&&u.s&&(u.s[sid]||u.s[AL[sid]]);
     if(location.hash!=='#stock/'+s.id)return;
     if(!e||!Array.isArray(e.q)||e.q.length<4){
@@ -4662,8 +4665,8 @@ async function usFundBlock(s){                        // 📊 r530:美股財報�
     const t3=rise(gm)&&rise(om)&&rise(nm);
     const sgn=v=>v==null?'—':(v>0?'+':'')+v+'%';
     const cls=v=>v==null?'flat':v>=0?'pos':'neg';
-    const bn=v=>v==null?'—':v>=100?(v/100).toFixed(v>=10000?0:1)+' 億':v.toFixed(0)+' 百萬';   // r1004:單位是百萬美元,1 億 = 100 百萬(原本誤除 1000,NVDA 962 億顯示成 96 億)
-    // r1004:估值——近四季 EPS、本益比、市值、股價營收比
+    const bn=v=>v==null?'—':v>=100?(v/100).toFixed(v>=10000?0:1)+' 億':v.toFixed(0)+' 百萬';   // r1005:單位是百萬美元,1 億 = 100 百萬(原本誤除 1000,NVDA 962 億顯示成 96 億)
+    // r1005:估值——近四季 EPS、本益比、市值、股價營收比
     const px=+s.price||null,eps4=e.eps.slice(-4).every(x=>x!=null)?e.eps.slice(-4).reduce((a,b)=>a+b,0):null,rev4=e.rev.slice(-4).every(x=>x!=null)?e.rev.slice(-4).reduce((a,b)=>a+b,0):null;
     const pe=px&&eps4>0?px/eps4:null,mcap=px&&e.sh?px*e.sh:null,ps=mcap&&rev4?mcap/rev4:null;
     const ni4=e.ni.slice(-4).every(x=>x!=null)?e.ni.slice(-4).reduce((a,b)=>a+b,0):null;
@@ -13824,7 +13827,7 @@ async function showDetail(id){
     try{window.wireSegRelocate&&window.wireSegRelocate();}catch(e){}   // r701:11164 行在定義載入前被呼叫(hoisting 陷阱)——安全化
   },2500);}catch(e){}
   try{usEarnBlock(s);}catch(e){}
-  setTimeout(()=>{try{usInsiderBlock(s);}catch(e){}},1600);   // r1004:美股內部人買賣(籌碼章)
+  setTimeout(()=>{try{usInsiderBlock(s);}catch(e){}},1600);   // r1005:美股內部人買賣(籌碼章)
   try{usFundBlock(s);}catch(e){}   // r530:美股財報速覽(SEC XBRL)
   try{const fb=document.getElementById('rptFull');if(fb)fb.onclick=()=>rptFullRun(s);}catch(e12){}   // r790:一鍵完整分析
   window.__costR=null;
@@ -18375,11 +18378,11 @@ function cfRoutes(es,goal,blend){
   const capHi=yGoal/(hiDy/100), capTR=yGoal/(WD/100);
   const capMix=(yGoal/2)/(hiDy/100)+(yGoal/2)/(WD/100);
   const F=w=>w>=10000?(w/10000).toFixed(2)+' 億':Math.round(w).toLocaleString()+' 萬';
-  const per1004=r=>(1000*r/100/12).toFixed(1);
+  const per1005=r=>(1000*r/100/12).toFixed(1);
   const card=(t,cap,src2,trade,rate)=>`<div style="flex:1;min-width:250px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 16px">
     <div style="font-weight:900;font-size:14.5px">${t}</div>
     <div style="font-family:var(--mono);font-weight:900;font-size:21px;color:var(--amber);margin:5px 0 2px">${F(cap)}</div>
-    <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">每 1,000 萬 ≈ 月領 ${per1004(rate)} 萬</div>
+    <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">每 1,000 萬 ≈ 月領 ${per1005(rate)} 萬</div>
     <div style="font-size:12.5px;color:var(--txt2);line-height:1.65">💰 ${src2}</div>
     <div style="font-size:12.5px;color:var(--mut);line-height:1.65;margin-top:4px">⚖️ ${trade}</div></div>`;
   return `<div style="margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px 14px">
@@ -21671,7 +21674,7 @@ async function usRtPoll2(ids,cb){
   let keep=false;try{keep=cb?cb()!==false:false;}catch(e){}
   if(keep){clearTimeout(USRT.timer);USRT.timer=setTimeout(()=>{try{usRtPoll2(ids,cb);}catch(e){}},30e3);}   // 只留一條輪詢;畫面關掉就停
 }
-/* ══ r1004:🇺🇸 美股籌碼——內部人買賣(Finnhub:Form 4 交易明細 + 內部人情緒指數 MSPR,需本機 Finnhub 金鑰)══ */
+/* ══ r1005:🇺🇸 美股籌碼——內部人買賣(Finnhub:Form 4 交易明細 + 內部人情緒指數 MSPR,需本機 Finnhub 金鑰)══ */
 async function usInsiderBlock(s){
   if(!s||s.market!=='US'||s.etf)return;
   let box=document.getElementById('usInsBox');
@@ -21706,7 +21709,7 @@ async function usInsiderBlock(s){
     ${rows?`<div class="ait-tw" style="margin-top:8px"><table class="aps-tb"><tr><th>日期</th><th>內部人</th><th>買賣</th><th>股數</th><th>價格</th></tr>${rows}</table></div>`:'<div class="dim-note">近一年沒有公開市場買賣紀錄</div>'}
     <div class="dim-note">研究普遍發現:內部人「買進」(尤其多人同時買)比「賣出」更有資訊量。資料:Finnhub 整理之 SEC Form 4。</div></div>`;
 }
-/* ══ r1004:🇺🇸 美股交易檢討(R 倍數)——由每週名單的每一段持股計算:R = 進場 − 停損 ══ */
+/* ══ r1005:🇺🇸 美股交易檢討(R 倍數)——由每週名單的每一段持股計算:R = 進場 − 停損 ══ */
 function usJournalHTML(){
   const J=AIPK_US||{};const T=[];
   (J.weeks||[]).filter(w=>!w.bt).forEach(w=>(w.picks||[]).forEach(p=>aipLegs(p).forEach(L=>{
@@ -21803,7 +21806,7 @@ function aipOldHoldList(){
   const out=[];if(!AIPK)return out;
   (AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='skip').forEach(w=>(w.picks||[]).forEach(p=>{
     const legs=aipLegs(p),cur=legs.length?legs[legs.length-1]:null;
-    if(!cur||cur.xd||cur.xfer)return;                                  // r1004:已移交每日交易的不重複列
+    if(!cur||cur.xd||cur.xfer)return;                                  // r1005:已移交每日交易的不重複列
     const st=(DATA.stocks||[]).find(x=>x.id===cur.id),px=st&&st.price>0?+st.price:null;
     const hi=Math.max(cur.hi||0,px||0),trail=hi>=cur.entry*1.08?Math.round(hi*0.94*100)/100:null;
     out.push({src:'週',id:cur.id,name:cur.name,fill:cur.fill,entry:cur.entry,px,line:trail&&trail>cur.stop?trail:cur.stop,lineTag:trail&&trail>cur.stop?'🔒 移動停利':'停損',tgt:cur.target,wk:w.buy_week});
@@ -21843,7 +21846,7 @@ function aipOverview(){
   </div>`;
 }
 function aipWatchHTML(T){
-  /* r1004:👀 關注清單——①持股要注意(接近出場線/模型勝算偏低/明天要賣/可能加碼)②可能進場(勝算最高的候選,卡在哪個條件) */
+  /* r1005:👀 關注清單——①持股要注意(接近出場線/模型勝算偏低/明天要賣/可能加碼)②可能進場(勝算最高的候選,卡在哪個條件) */
   const H=aipNewHoldList(),R=T.rules||{},pe=((R.pexit||0.48)*100),pm=((R.pmin||0.54)*100);
   const hw=[];
   H.forEach(r=>{const m=(r.lineTag||'').match(/模型勝算 <b[^>]*>([\d.]+)%<\/b>/),pb=m?+m[1]:null;const gap=r.px&&r.line?(r.px/r.line-1)*100:null;const ret=r.px?(r.px/r.entry-1)*100:null;
@@ -21864,7 +21867,7 @@ function aipWatchHTML(T){
     <div class="wl-sub">可能進場(勝算最高的候選・${T.watch_d?aipMD(T.watch_d)+' 收盤':''})</div><div class="dim-note" style="margin:0 0 4px">勝算要 ≥ ${pm}%,且產業在月線上、近 3 月營收成長才會買(不限同產業檔數);灰色標籤是目前還卡住的條件。</div>${cand}`;
 }
 function aipUnifiedHold(){
-  /* r1004:持股一覽重做——手機改成一檔一張卡(名稱+損益最醒目、出場線距離用進度條),拿掉「原週名單」標籤;桌機表格同步精簡 */
+  /* r1005:持股一覽重做——手機改成一檔一張卡(名稱+損益最醒目、出場線距離用進度條),拿掉「原週名單」標籤;桌機表格同步精簡 */
   const L=aipNewHoldList().concat(aipOldHoldList());
   if(!L.length)return '<div class="dim-note">目前沒有持股</div>';
   const fp=v=>v==null?'—':(v>0?'+':'')+v.toFixed(2)+'%',cl=v=>v==null?'':v>0?'var(--up)':v<0?'var(--down)':'inherit';
