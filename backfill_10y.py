@@ -237,4 +237,8 @@ if __name__ == "__main__":
         import us_fund_hist; us_fund_hist.main(budget_sec=1500)
     except Exception as e:
         print("us_fund_hist 例外", e, flush=True)
+    try:                                                     # r1008:台股除權息還原因子,最多 25 分鐘
+        import tw_adj; tw_adj.main(budget_sec=1500)
+    except Exception as e:
+        print("tw_adj 例外", e, flush=True)
     main()
