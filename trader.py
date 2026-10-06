@@ -11,6 +11,7 @@
 """
 import json, os, datetime as dt
 FILE = "trader.json"; SLOTS = 20; PMIN = 0.54; MAX_SECTOR = 999; GAP_MAX = 0.03; TRAIL_ON = 1.10; TRAIL_DD = 0.85   # r996:取消「同產業最多 2 檔」(回測沒有這條)——r995 誤把註解放在行中間,後面三個參數被註解掉導致例外
+GTOPK = 15; GXPCT = 0.50
 PEXIT = 0.48; HMIN = 5; TRAIL_OFF = True; ADD_GAIN = 0.10; MAX_LOTS = 2
 NOTIONAL = 100000; FEE_B = 0.001425; FEE_S = 0.001425 + 0.003; START = "2026-10-05"
 
@@ -150,6 +151,29 @@ def sector_trend(A, data, last):
     return out
 
 
+_GBT = {}
+def gbt_prob(x):
+    """r1009:梯度提升樹(aipick_gbt_model.json,sklearn 匯出,純 Python 推論,與 sklearn 結果完全一致)"""
+    if "m" not in _GBT:
+        try: _GBT["m"] = json.load(open("aipick_gbt_model.json", encoding="utf-8"))
+        except Exception: _GBT["m"] = None
+    M = _GBT["m"]
+    if not M or x is None: return None
+    z = M["base"]
+    for t in M["trees"]:
+        i = 0
+        while not t[i][4]:
+            f, th, l, r, _, _, mg = t[i]; v = x[f]
+            i = l if (mg if v != v else v <= th) else r
+        z += t[i][5]
+    import math
+    return 1 / (1 + math.exp(-max(-30, min(30, z))))
+
+
+def _sl(x): return "g" if x.get("sleeve") == "g" else "v"
+def _cnt(T, sl): return sum(1 for p in T["pos"] if _sl(p) == sl) + sum(1 for q in T["pend"] if _sl(q) == sl)
+
+
 def has_jump(o, n=260):
     """r979:近一年有單日漲跌超過 ±11.5%(台股漲跌幅上限 10%)= 未還原的除權/減資/分割(例:緯穎 9/2 7800→2610)
     → 這檔的均線、報酬等特徵全部失真,模型分數不可信,不進場"""
@@ -178,8 +202,9 @@ def run(A, data, log=print):
     T.setdefault("ver", "r975"); T.setdefault("start", START); T.setdefault("pos", []); T.setdefault("pend", [])
     T.setdefault("trades", []); T.setdefault("log", []); T.setdefault("sig_done", "")
     T["rules"] = {"slots": SLOTS, "pmin": PMIN, "gap_max": GAP_MAX, "trail_on": TRAIL_ON, "trail_dd": TRAIL_DD, "max_sector": MAX_SECTOR, "notional": NOTIONAL}
-    T["rules"]["sector_filter"] = True; T["rules"]["pexit"] = PEXIT; T["rules"]["hmin"] = HMIN; T["rules"]["trail_off"] = TRAIL_OFF; T["rules"]["add_gain"] = ADD_GAIN; T["rules"]["max_lots"] = MAX_LOTS; T["rules"]["rev3_min"] = 0
+    T["rules"]["sector_filter"] = True; T["rules"]["pexit"] = PEXIT; T["rules"]["hmin"] = HMIN; T["rules"]["trail_off"] = TRAIL_OFF; T["rules"]["add_gain"] = ADD_GAIN; T["rules"]["max_lots"] = MAX_LOTS; T["rules"]["rev3_min"] = 0; T["rules"]["gbt"] = {"topk": GTOPK, "xpct": GXPCT, "slots": SLOTS}
     T["bt"] = {"period": "2019/06~2026/10", "cagr": 17.6, "mdd": -34.0, "trades_y": 21, "win": 15.9, "avg": 6.33, "wf": {"cagr": 16.1, "mdd": -30.6, "trades_y": 37, "win": 21.7, "avg": 8.79},
+               "wf_g": {"cagr": 14.0, "mdd": -20.5, "sharpe": 1.04}, "wf_mix": {"cagr": 15.3, "mdd": -21.5, "sharpe": 1.14, "worst12": -12.9},
                "old": {"cagr": 3.5, "mdd": -28.3, "trades_y": 137, "win": 44.4, "avg": 0.33}}
     byid = {s["id"]: s for s in data.get("stocks", [])}
     bd, _ = A.bars_of(A.BENCH_SID); last = bd[-1] if bd else ""
@@ -214,7 +239,7 @@ def run(A, data, log=print):
         if not op or op <= 0: ev.append(f"{d[idx]} ❎ {q['name']} 當天無成交,取消"); continue
         if pc and b[1] == b[2] and op >= pc * 1.095: ev.append(f"{d[idx]} ❎ {q['name']} 開盤漲停鎖死買不到,取消"); continue
         if op > q["sig_px"] * (1 + GAP_MAX): ev.append(f"{d[idx]} ❎ {q['name']} 開盤 {op} 跳空 > +3% 不追,取消"); continue
-        if len(T["pos"]) >= SLOTS: ev.append(f"{d[idx]} ❎ {q['name']} 已滿 {SLOTS} 檔,取消"); continue
+        if sum(1 for x in T["pos"] if _sl(x) == _sl(q)) >= SLOTS: ev.append(f"{d[idx]} ❎ {q['name']} 已滿 {SLOTS} 檔,取消"); continue
         lo = max(0, idx - 260); oo = o[lo:idx + 1]; dd = d[lo:idx + 1]
         tr = [max(x[1] - x[2], abs(x[1] - y[3]), abs(x[2] - y[3])) for x, y in zip(oo[1:], oo[:-1])]
         a = sum(tr[-14:]) / max(1, len(tr[-14:]))
@@ -224,7 +249,7 @@ def run(A, data, log=print):
         if q.get("add"):
             b0 = [x for x in T["pos"] if x["id"] == q["id"]]
             if b0: stp = min(x["stop0"] for x in b0); LV = {"stp_src": "沿用第一筆停損"}
-        T["pos"].append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": d[idx], "entry": op, "sh": sh, "add": q.get("add"),
+        T["pos"].append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": d[idx], "entry": op, "sh": sh, "add": q.get("add"), "sleeve": q.get("sleeve"),
                          "stop0": round(float(stp), 2), "stop": round(float(stp), 2), "hi": op, "p": q["p"], "sig_d": q["sig_d"], "seen": d[idx],
                          "stp_src": (LV or {}).get("stp_src"), "dn_med": (LV or {}).get("dn_med")})
         ev.append(f"{d[idx]} {'➕ 加碼' if q.get('add') else '🟢 買進'} {q['name']} 開盤 {op}(停損 {round(float(stp), 2)})")
@@ -275,21 +300,23 @@ def run(A, data, log=print):
         if tot and hit / tot >= 0.9:
             from aipick_v2 import V2Scorer
             V = V2Scorer(A.bars_of, A.chip_of, data, mkt="TW")
-            sc = []
+            sc = []; GP = {}
             for s in data.get("stocks", []):
                 if s.get("market") != "TW" or s.get("etf"): continue
                 d, o = A.bars_of(s["id"])
                 if not d or d[-1] != last or not o[-1][3] or o[-1][3] < 10: continue
                 if has_jump(o): continue
-                try: pr = V.prob(s["id"], s, d, o)
-                except Exception: pr = None
-                if pr is not None: sc.append((pr, s))
+                try: pr = V.prob(s["id"], s, d, o); gp = gbt_prob(V.feats(s["id"], s, d, o))
+                except Exception: pr = gp = None
+                if pr is not None: sc.append((pr, s)); GP[s["id"]] = gp
             sc.sort(key=lambda x: -x[0])
+            gsc = sorted([(g, sid) for sid, g in GP.items() if g is not None], reverse=True)
+            GR = {sid: i for i, (g, sid) in enumerate(gsc)}; NG = len(gsc)
             ST = sector_trend(A, data, last); T["sectors"] = ST
             held = {p["id"] for p in T["pos"]} | {q["id"] for q in T["pend"]}
             secn = {}
             for p in T["pos"] + T["pend"]: secn[p.get("sector")] = secn.get(p.get("sector"), 0) + 1
-            free = (SLOTS - len(T["pos"]) - len(T["pend"])) if do_sig else 0; new = []
+            free = (SLOTS - _cnt(T, "v")) if do_sig else 0; new = []
             for pr, s in sc:
                 if free <= 0 or pr < PMIN: break
                 if s["id"] in held or secn.get(s.get("sector"), 0) >= MAX_SECTOR: continue
@@ -300,6 +327,23 @@ def run(A, data, log=print):
                 q = {"id": s["id"], "name": s.get("name"), "sector": s.get("sector"), "sig_d": last, "sig_px": o[-1][3], "p": round(pr, 4),
                      "sec_gap": (ST.get(s.get("sector")) or {}).get("gap"), "icost": inst_cost(A, s["id"]), "rev3": round(ry * 100, 1)}
                 T["pend"].append(q); new.append(q); held.add(s["id"]); secn[s.get("sector")] = secn.get(s.get("sector"), 0) + 1; free -= 1
+            # r1009:🌲 樹模型組(另 20 檔)——每天全市場「樹模型排名前 15」且產業在月線上、近3月營收成長 → 明天開盤買
+            gnew = []
+            if do_sig and GR:
+                gfree = SLOTS - _cnt(T, "g")
+                for g, sid in gsc[:GTOPK]:
+                    if gfree <= 0: break
+                    s1 = byid.get(sid) or {}
+                    if sid in held: continue
+                    if not (ST.get(s1.get("sector")) or {"up": True})["up"]: continue
+                    ry = rev3_yoy(sid, last)
+                    if ry is None or ry < 0: continue
+                    d1, o1 = A.bars_of(sid)
+                    q = {"id": sid, "name": s1.get("name"), "sector": s1.get("sector"), "sig_d": last, "sig_px": o1[-1][3], "p": round(g, 4),
+                         "sleeve": "g", "grank": GR[sid] + 1, "sec_gap": (ST.get(s1.get("sector")) or {}).get("gap"), "icost": inst_cost(A, sid), "rev3": round(ry * 100, 1)}
+                    T["pend"].append(q); gnew.append(q); held.add(sid); gfree -= 1
+                if gnew: ev.append(f"{last} 🌲 樹模型組:明天開盤買進 " + "、".join(f"{q['name']}(第 {q['grank']} 名)" for q in gnew))
+            T["gtop"] = [{"id": sid, "name": (byid.get(sid) or {}).get("name"), "p": round(g, 4), "r": i + 1} for i, (g, sid) in enumerate(gsc[:20])]
             # r993:👀 關注清單——勝算最高的 25 檔(不含已持有),逐項列出卡在哪個條件,讓人知道誰快要進場
             W = []; secc = {}
             for p in T["pos"] + T["pend"]: secc[p.get("sector")] = secc.get(p.get("sector"), 0) + 1
@@ -328,9 +372,13 @@ def run(A, data, log=print):
                     s0 = byid.get(p["id"]) or {}; d0, o0 = A.bars_of(p["id"])
                     pr0 = V.prob(p["id"], s0, d0, o0) if d0 and d0[-1] == last else None
                     p["prob"] = round(pr0, 4) if pr0 is not None else p.get("prob")
-                    held = sum(1 for x in d0 if x > p["fill"])
+                    hd = sum(1 for x in d0 if x > p["fill"])
                     if TRAIL_OFF: p["stop"] = p["stop0"]
-                    if pr0 is not None and held >= HMIN and pr0 < PEXIT and not p.get("xsig"):
+                    if _sl(p) == "g":                                    # r1009:樹模型組——排名跌出前 50% 才賣
+                        gr = GR.get(p["id"]); p["grank"] = (gr + 1) if gr is not None else None; p["gn"] = NG
+                        if gr is not None and hd >= HMIN and gr > NG * GXPCT and not p.get("xsig"):
+                            p["xsig"] = last; ev.append(f"{last} 📉 🌲{p['name']} 樹模型排名掉到第 {gr+1}/{NG} 名(後半),明天開盤賣出")
+                    elif pr0 is not None and hd >= HMIN and pr0 < PEXIT and not p.get("xsig"):
                         p["xsig"] = last; ev.append(f"{last} 📉 {p['name']} 模型勝算降到 {pr0*100:.1f}%(< {PEXIT*100:.0f}%),明天開盤賣出")
                 except Exception: pass
             # r985:加碼——第一筆帳面賺 ≥10%、模型今天仍看好(勝算 ≥ 0.54)、這檔還不到 2 筆、還有空位 → 明天開盤再買一筆
@@ -340,14 +388,15 @@ def run(A, data, log=print):
                 for p in T["pos"]: lots.setdefault(p["id"], []).append(p)
                 pend_ids = [q["id"] for q in T["pend"]]
                 for sid0, L in lots.items():
-                    if len(T["pos"]) + len(T["pend"]) >= SLOTS: break
                     base = min(L, key=lambda x: x["fill"])
+                    if _cnt(T, _sl(base)) >= SLOTS: continue
                     if len(L) + pend_ids.count(sid0) >= MAX_LOTS or base.get("xsig"): continue
                     d0, o0 = A.bars_of(sid0)
                     if not d0 or d0[-1] != last: continue
                     c0 = o0[-1][3]; pr0 = base.get("prob")
-                    if pr0 is not None and pr0 >= PMIN and c0 >= base["entry"] * (1 + ADD_GAIN):
-                        q = {"id": sid0, "name": base["name"], "sector": base.get("sector"), "sig_d": last, "sig_px": c0, "p": pr0, "add": len(L) + 1}
+                    ok_add = (GR.get(sid0, 9e9) < GTOPK) if _sl(base) == "g" else (pr0 is not None and pr0 >= PMIN)
+                    if ok_add and c0 >= base["entry"] * (1 + ADD_GAIN):
+                        q = {"id": sid0, "name": base["name"], "sector": base.get("sector"), "sig_d": last, "sig_px": c0, "p": pr0, "add": len(L) + 1, "sleeve": base.get("sleeve")}
                         T["pend"].append(q); pend_ids.append(sid0)
                         ev.append(f"{last} ➕ 加碼訊號 {base['name']}(帳面 {(c0/base['entry']-1)*100:+.1f}%、勝算 {pr0*100:.1f}%),明天開盤加買第 {len(L)+1} 筆")
             except Exception as ex: log(f"trader:加碼判斷例外 {ex}")
@@ -410,7 +459,7 @@ def run_intraday(A, data, hhmm, log=print):
         if op > q["sig_px"] * (1 + GAP_MAX) and not (h == l and op >= pc * 1.095):
             ev.append(f"{today} {hhmm} ❎ {q['name']} 開盤 {op} 跳空 > +3% 不追,取消"); continue
         if h == l and op >= pc * 1.095: keep.append(q); continue          # 漲停鎖著:收盤後日 K 判定
-        if len(T.get("pos") or []) >= SLOTS: ev.append(f"{today} {hhmm} ❎ {q['name']} 已滿 {SLOTS} 檔,取消"); continue
+        if sum(1 for x in T.get("pos") or [] if _sl(x) == _sl(q)) >= SLOTS: ev.append(f"{today} {hhmm} ❎ {q['name']} 已滿 {SLOTS} 檔,取消"); continue
         lo = max(0, len(o) - 260); oo = o[lo:]; dd = d[lo:]
         tr = [max(x[1] - x[2], abs(x[1] - y[3]), abs(x[2] - y[3])) for x, y in zip(oo[1:], oo[:-1])]
         a = sum(tr[-14:]) / max(1, len(tr[-14:]))
@@ -419,7 +468,7 @@ def run_intraday(A, data, hhmm, log=print):
         if q.get("add"):
             b0 = [x for x in T.get("pos") or [] if x["id"] == q["id"]]
             if b0: stp = min(x["stop0"] for x in b0); LV = {"stp_src": "沿用第一筆停損"}
-        T.setdefault("pos", []).append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": today, "ft": "09:00", "entry": op, "add": q.get("add"),
+        T.setdefault("pos", []).append({"id": q["id"], "name": q["name"], "sector": q.get("sector"), "fill": today, "ft": "09:00", "entry": op, "add": q.get("add"), "sleeve": q.get("sleeve"),
                                         "sh": int(NOTIONAL / op), "stop0": round(float(stp), 2), "stop": round(float(stp), 2), "hi": op,
                                         "p": q["p"], "sig_d": q["sig_d"], "seen": today, "rt": 1,
                                         "stp_src": (LV or {}).get("stp_src"), "dn_med": (LV or {}).get("dn_med")})
