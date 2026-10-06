@@ -384,6 +384,9 @@ def run(A, data, log=print):
                         ch0 = A.chip_of(p["id"]) or {}; f5 = sum(((ch0.get("f") or [])[-5:] or [0])) + sum(((ch0.get("t") or [])[-5:] or [0])); p["f5"] = round(f5)
                         c0 = o0[-1][3] if o0 else None
                         if c0: p["ma20"] = round(sum(b[3] for b in o0[-20:]) / min(20, len(o0)), 2); p["px"] = c0
+                        tr_ = [max(x[1] - x[2], abs(x[1] - y[3]), abs(x[2] - y[3])) for x, y in zip(o0[-15:], o0[-16:-1])]
+                        at_ = sum(tr_) / max(1, len(tr_))
+                        p["atr"] = round(at_, 2); p["reclaim"] = round(p["stop0"] + at_, 2)   # r1013:跌破防守後「站回價」= 原支撐 + 0.5 ATR(停損 = 支撐 − 0.5 ATR)
                     except Exception: pass
                     if _sl(p) == "g":                                    # r1009:樹模型組——排名跌出前 50% 才賣
                         gr = GR.get(p["id"]); p["grank"] = (gr + 1) if gr is not None else None; p["gn"] = NG

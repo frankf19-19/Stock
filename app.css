@@ -2406,3 +2406,9 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .hc-l>span:first-child{color:var(--dim);font-weight:800}
 .hc-tags{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
 .hc-tags span{border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:12px}
+/* r1013:防守價 */
+.def-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+.def-row div{display:flex;flex-direction:column;background:var(--panel,#16181D);border-radius:10px;padding:8px 10px;min-width:0}
+.def-row i{font-style:normal;font-size:12px;color:var(--dim)}
+.def-row b{font-family:var(--mono,monospace);font-size:19px}
+.def-row small{font-size:11px;color:var(--dim)}
