@@ -2412,3 +2412,9 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .def-row i{font-style:normal;font-size:12px;color:var(--dim)}
 .def-row b{font-family:var(--mono,monospace);font-size:19px}
 .def-row small{font-size:11px;color:var(--dim)}
+/* r1014:卡片防守價列 */
+.fav-def{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:12.5px;align-items:center}
+.fav-def span{border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.fav-def b{font-family:var(--mono,monospace)}
+.fav-def em{font-style:normal;font-size:11.5px;margin-left:2px}
+.fav-def .fd-c{border:none;color:var(--dim);font-size:11.5px;padding:3px 2px}
