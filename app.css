@@ -2397,3 +2397,12 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 #chapSub button.cs-2{font-weight:600}
 #chapSub button.cs-x{color:var(--dim);border-style:dashed}
 #chapSub button.on{background:var(--gold,#E8B44A);color:#111;border-color:var(--gold,#E8B44A)}
+/* r1011:賣出評估 */
+.hc-ev{margin-top:8px;border-top:1px dashed var(--line);padding-top:6px}
+.hc-ev summary{cursor:pointer;font-size:13px;list-style:none}
+.hc-ev summary::-webkit-details-marker{display:none}
+.hc-evb{font-size:12.5px;margin-top:6px}
+.hc-l{display:grid;grid-template-columns:52px 1fr auto;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+.hc-l>span:first-child{color:var(--dim);font-weight:800}
+.hc-tags{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.hc-tags span{border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:12px}

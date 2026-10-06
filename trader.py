@@ -376,6 +376,15 @@ def run(A, data, log=print):
                     p["prob"] = round(pr0, 4) if pr0 is not None else p.get("prob")
                     hd = sum(1 for x in d0 if x > p["fill"])
                     if TRAIL_OFF: p["stop"] = p["stop0"]
+                    # r1011:賣出評估資料——每天記錄分數走勢、產業、營收、法人 5 日、持有天數,前端逐檔說明「為什麼續抱/何時會賣」
+                    try:
+                        gr0 = GR.get(p["id"]); sc0 = round(1 - gr0 / max(1, NG), 3) if (_sl(p) == "g" and gr0 is not None) else (round(pr0, 4) if pr0 is not None else None)
+                        ph = [x for x in (p.get("ph") or []) if x[0] != last]; ph.append([last, sc0]); p["ph"] = ph[-15:]
+                        p["hd"] = hd; p["sec_up"] = (ST.get(p.get("sector")) or {}).get("up"); p["rev3"] = (lambda v: round(v * 100, 1) if v is not None else None)(rev3_yoy(p["id"], last))
+                        ch0 = A.chip_of(p["id"]) or {}; f5 = sum(((ch0.get("f") or [])[-5:] or [0])) + sum(((ch0.get("t") or [])[-5:] or [0])); p["f5"] = round(f5)
+                        c0 = o0[-1][3] if o0 else None
+                        if c0: p["ma20"] = round(sum(b[3] for b in o0[-20:]) / min(20, len(o0)), 2); p["px"] = c0
+                    except Exception: pass
                     if _sl(p) == "g":                                    # r1009:樹模型組——排名跌出前 50% 才賣
                         gr = GR.get(p["id"]); p["grank"] = (gr + 1) if gr is not None else None; p["gn"] = NG
                         if gr is not None and hd >= HMIN and gr > NG * GXPCT and not p.get("xsig"):
