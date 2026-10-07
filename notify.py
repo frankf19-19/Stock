@@ -729,9 +729,7 @@ def main():
         daily[lk] = n_lead
         head = f"🤖 <b>K研所 AI Pick</b> {NOW.strftime('%m/%d %H:%M')}"
         text = f"{head}\n\n" + "\n\n".join(t for _, _, t in new) + f"\n\n{SITE}#aipick"
-        new_tg = [e for e in new if not str(e[0]).startswith("tr|")]          # r1007:每日交易只走手機推播,不發 Telegram/LINE
-        text = f"{head}\n\n" + "\n\n".join(t for _, _, t in new_tg) + f"\n\n{SITE}#aipick" if new_tg else ""
-        ok_tg = send_tg_to(rc["chat"], text) if (rc["chat"] and new_tg) else False
+        # r1015:先試手機推播;推播成功 → 每日交易不再重複發 Telegram;沒訂閱/推播失敗 → 每日交易照發 Telegram(避免整個沒通知)
         ok_push = False
         if rc.get("subs"):
             plain = re.sub(r"</?b>", "", "\n\n".join(t for _, _, t in new))
@@ -749,12 +747,16 @@ def main():
                 else:
                     push_report_dead(dead)
                 log(f"  清掉 {len(dead)} 個失效推播訂閱")
+        new_tg = [e for e in new if not (ok_push and str(e[0]).startswith("tr|"))]
+        text = f"{head}\n\n" + "\n\n".join(t for _, _, t in new_tg) + f"\n\n{SITE}#aipick" if new_tg else ""
+        ok_tg = send_tg_to(rc["chat"], text) if (rc["chat"] and new_tg) else False
+        if not ok_push and rc.get("subs"): log(f"  {rc['key']} 手機推播 {len(rc['subs'])} 個訂閱全部失敗,改走 Telegram")
+        if not rc.get("subs"): log(f"  {rc['key']} 沒有手機推播訂閱(App 內按 🔔 開啟),每日交易改走 Telegram")
         ok_line = False
         if rc.get("line") and LINE_TOKEN and LINE_USER and text:
             if month.get(YM, 0) < LINE_MONTHLY_MAX: ok_line = send_line(text)
         if not (ok_tg or ok_line or ok_push): continue
         for k, _, _ in new:
-            if str(k).startswith("tr|") and not ok_push: continue            # 每日交易沒推到手機就不記為已送,下次再試
             sent_u[k] = TODAY
         daily[dk] = daily.get(dk, 0) + 1
         if ok_line: month[YM] = month.get(YM, 0) + 1
