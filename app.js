@@ -1,4 +1,4 @@
-/* K研所 · build r1021 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1022 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1021';
+const APP_BUILD='r1022';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -640,6 +640,35 @@ function vPlanHTML(V,px){
   if(!V.sells.length)h+='<div style="color:var(--dim)">🔴 下方沒有驗證過的賣出價位(季線/年線都在現價之上)</div>';
   return h+'</div>';
 }
+/* ══ r1022:📊 以個股自己為主的價位統計——每檔 2012 年起自己的歷史:站上/跌破各價位後 20 個交易日的表現,
+   和「這檔平常任一天買進」對照(不跟大盤比)。註:依各檔歷史挑價位,樣本外(2020 後)並不準 → 只當股性參考 ══ */
+let LVS=null,LVS_P=null;
+function lvLoad(){if(LVS)return Promise.resolve(LVS);if(!LVS_P)LVS_P=fT('lvstat.json?v='+kv(),15000).then(r=>r&&r.ok?r.json():null).then(j=>{LVS=(j&&j.s)||{};return LVS;}).catch(()=>{LVS={};return LVS;});return LVS_P;}
+const LV_DEF={h20:['站上 20 日高','b'],h60:['站上 60 日高','b'],h120:['站上半年高','b'],h250:['站上一年高','b'],u20:['站上月線','b'],u60:['站上季線','b'],
+  d20d:['跌破月線(月線下彎時)','s'],d60:['跌破季線','s'],d120:['跌破半年線','s'],d240:['跌破年線','s'],l20:['跌破 20 日低','s'],l60:['跌破 60 日低','s']};
+function lvLevels(o){
+  if(!o||o.length<20)return {};const n=o.length,H=o.map(b=>b[1]),L=o.map(b=>b[2]),C=o.map(b=>b[3]);
+  const mx=k=>n>=k?Math.max(...H.slice(-k)):null,mn=k=>n>=k?Math.min(...L.slice(-k)):null,avg=k=>n>=k?C.slice(-k).reduce((x,y)=>x+y,0)/k:null;
+  const tk=v=>{if(v==null)return null;const t=v<10?0.01:v<50?0.05:v<100?0.1:v<500?0.5:v<1000?1:5;return +(Math.round(v/t)*t).toFixed(2);};
+  return {h20:tk(mx(20)),h60:tk(mx(60)),h120:tk(mx(120)),h250:tk(mx(250)),u20:tk(avg(20)),u60:tk(avg(60)),d20d:tk(avg(20)),d60:tk(avg(60)),d120:tk(avg(120)),d240:tk(avg(240)),l20:tk(mn(20)),l60:tk(mn(60))};
+}
+function lvHTML(o,id,px,full){
+  const st=(LVS||{})[id];const lv=lvLevels(o);px=+px||(o&&o.length?o[o.length-1][3]:0);if(!st||!px)return '';
+  const b=st.b,g=v=>{const r=(v/px-1)*100;return `${r>=0?'+':''}${r.toFixed(1)}%`;};
+  const row=(k,v)=>{const x=st[k];if(!x)return '';const [cnt,avg,win]=x,d=avg-b[0];
+    const col=d<=-1?'var(--down)':d>=1?'var(--up)':'var(--dim)',tag=d<=-1?'比平常差':d>=1?'比平常好':'跟平常差不多';
+    return `<div style="line-height:1.5">${LV_DEF[k][1]==='b'?'🟢':'🛡'} <b>${LV_DEF[k][0]} ${v}</b> <em>${g(v)}</em><br><span style="color:var(--dim);font-size:12px">　過去 ${cnt} 次 → 20 日後平均 <b style="color:${col}">${avg>=0?'+':''}${avg}%</b>、上漲機率 ${win}%(<b style="color:${col}">${tag}</b>)</span></div>`;};
+  const ks=Object.keys(LV_DEF).filter(k=>lv[k]!=null&&st[k]);
+  const up=ks.filter(k=>LV_DEF[k][1]==='b'&&lv[k]>px).sort((a,c)=>lv[a]-lv[c]);
+  const dn=ks.filter(k=>LV_DEF[k][1]==='s'&&lv[k]<px).sort((a,c)=>lv[c]-lv[a]);
+  const dd=a=>{const m=new Map();a.forEach(k=>m.set(lv[k],k));return [...m.values()];};   // 同一價位只留一條(取週期較長者)
+  const U0=dd(up),D0=dd(dn),U=full?U0:U0.slice(0,2),D=full?D0:D0.slice(0,3);
+  return `<div class="lvst" style="margin:6px 0;font-size:13px;display:flex;flex-direction:column;gap:5px">
+    <div style="color:var(--dim);font-size:12px">📊 這檔自己的歷史(${st.y0} 年起):平常任一天買進,20 個交易日後平均 <b>${b[0]>=0?'+':''}${b[0]}%</b>、上漲機率 ${b[1]}%</div>
+    ${U.map(k=>row(k,lv[k])).join('')}${D.map(k=>row(k,lv[k])).join('')}
+    ${!U.length&&!D.length?'<div style="color:var(--dim)">附近沒有可統計的價位</div>':''}
+    <div style="color:var(--dim);font-size:11.5px">⚠ 這是股性統計,不是預測:回測顯示依各檔歷史挑出的價位,換到 2020 年後並不準。</div></div>`;
+}
 function aiPickVerdict(id,own){
   const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||null;if(!T)return null;
   const R=T.rules||{},PMIN=R.pmin||0.54,PEX=R.pexit||0.48,GK=(R.gbt&&R.gbt.topk)||15,GX=(R.gbt&&R.gbt.xpct)||0.5,GAP=R.gap_max||0.03;
@@ -729,7 +758,7 @@ async function favStateFill(){
         if(P&&P.entry&&px0){own=true;const r=(px0/P.entry-1)*100;plan+=`<div class="fav-pnl" style="font-size:13px;margin:6px 0 2px">💼 持股成本 <b>${P.entry}</b>・損益 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b></div>`;}}catch(e){}
       const av=aiPickVerdict(id,own);
       if(av&&av.act)plan+=av.act;
-      try{plan+=vPlanHTML(vPlan(k.ohlc),s.price);}catch(e){}   // r1020:驗證過的買賣價位
+      try{await lvLoad();plan+=lvHTML(k.ohlc,id,s.price,false);}catch(e){}   // r1022:以個股自己歷史為主的價位統計
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
       FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:av?av.txt:'🤖 AI Pick 資料載入中',plan};
       favStPaint(id);
@@ -1893,7 +1922,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1021</span>');
+  diag.push('<span style="color:var(--dim)">build r1022</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21766,9 +21795,9 @@ function defPlanRow(D,px){
 }
 async function vBox(s){
   try{if(!s||s.etf)return;const k=await loadK(s);if(!k||!k.ohlc)return;if(location.hash!=='#stock/'+s.id)return;
-    const V=vPlan(k.ohlc);if(!V)return;let box=document.getElementById('vBox');
-    if(!box){const sb=document.getElementById('sb-stk_k');if(!sb)return;box=document.createElement('div');box.id='vBox';box.dataset.jumpname='✅ 買賣價位';sb.prepend(box);}
-    box.innerHTML=`<div class="dim-block" style="border-left:4px solid var(--amber)"><div style="font-weight:900;margin-bottom:4px">✅ 買賣價位(回測驗證過)</div>${vPlanHTML(V,s.price)}<div class="dim-note">依 2012~2026 年 1,899 檔回測:只列出「之後 20 日報酬明顯優於/劣於大盤、15 年中至少 14 年成立」的價位規則。回檔買進區、防守價、停利壓力等未通過驗證,不列出。</div></div>`;
+    await lvLoad();const h=lvHTML(k.ohlc,s.id,s.price,true);if(!h)return;let box=document.getElementById('vBox');
+    if(!box){const sb=document.getElementById('sb-stk_k');if(!sb)return;box=document.createElement('div');box.id='vBox';box.dataset.jumpname='📊 買賣價位';sb.prepend(box);}
+    box.innerHTML=`<div class="dim-block" style="border-left:4px solid var(--amber)"><div style="font-weight:900;margin-bottom:4px">📊 買賣價位・這檔自己的歷史表現</div>${h}</div>`;
   }catch(e){}
 }
 async function defBox(s){
