@@ -345,6 +345,8 @@ def run(A, data, log=print):
                          "sleeve": "g", "grank": GR[sid] + 1, "sec_gap": (ST.get(s1.get("sector")) or {}).get("gap"), "icost": inst_cost(A, sid), "rev3": round(ry * 100, 1)}
                     T["pend"].append(q); gnew.append(q); held.add(sid); gfree -= 1
                 if gnew: ev.append(f"{last} 🌲 樹模型組:明天開盤買進 " + "、".join(f"{q['name']}(第 {q['grank']} 名)" for q in gnew))
+            # r1019:每檔的模型評分(驗證過的唯一選股依據)給前端卡片用:[v2 勝算, 樹模型名次]
+            T["allp"] = {s["id"]: [round(pr, 4), (GR.get(s["id"], -1) + 1) or None] for pr, s in sc}; T["allp_n"] = NG; T["allp_d"] = last
             T["gtop"] = [{"id": sid, "name": (byid.get(sid) or {}).get("name"), "p": round(g, 4), "r": i + 1} for i, (g, sid) in enumerate(gsc[:20])]
             # r993:👀 關注清單——勝算最高的 25 檔(不含已持有),逐項列出卡在哪個條件,讓人知道誰快要進場
             W = []; secc = {}

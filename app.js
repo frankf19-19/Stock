@@ -1,4 +1,4 @@
-/* K研所 · build r1018 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1019 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1018';
+const APP_BUILD='r1019';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -608,19 +608,37 @@ function showFavPage(){
   try{renderFavAlertBar();}catch(e){}
   renderFav();
 }
-/* ══ r1015:卡片簡化——只把「驗證過」的放在最前面:🤖 AI Pick 判斷(滾動驗證)+ 🛡 防守/站回 + 持股損益;
+/* ══ r1015→r1019:卡片只放驗證過的:🤖 AI Pick 判斷與進出場規則(滾動驗證)+ 持股損益;
    其他規則訊號(突破/出場線/停利停損/蓄勢待發/分點)14 年回測或實盤追蹤沒有穩定優勢 → 收進預設摺疊的「參考」 ══ */
-function aiPickVerdict(id){
+/* r1019:卡片只顯示「驗證過」的東西——AI Pick 模型(十年滾動驗證)與它的進出場規則。
+   防守價/買進區/停利/關鍵分點/綜合分數經 2012~2026 回測(1,899 檔、61 萬筆)都沒有預測力,不再顯示 */
+function aiPickVerdict(id,own){
   const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||null;if(!T)return null;
-  const pc=v=>v!=null?(v*100).toFixed(1)+'%':'—';
+  const R=T.rules||{},PMIN=R.pmin||0.54,PEX=R.pexit||0.48,GK=(R.gbt&&R.gbt.topk)||15,GX=(R.gbt&&R.gbt.xpct)||0.5,GAP=R.gap_max||0.03;
+  const pc=v=>v!=null?(v*100).toFixed(1)+'%':'—',md=x=>String(x||'').slice(5).replace('-','/');
+  const A=(T.allp||{})[id],NG=T.allp_n||null,ln=t=>`<div class="aiv-ln" style="font-size:13px;margin:5px 0;line-height:1.5">${t}</div>`;
+  const rk=gr=>gr&&NG?`樹模型第 <b>${gr}</b>/${NG} 名`:'';
   const p=(T.pos||[]).find(x=>x.id===id);
-  if(p){const pr=(p.est&&p.est.prob!=null)?p.est.prob:p.prob;
-    if(p.xsig)return {cls:'fst-weak',txt:`<span>🤖 AI Pick:<b>明天開盤賣出</b>(模型轉弱・勝算 ${pc(pr)})</span>`};
-    return {cls:'fst-up',txt:`<span>🤖 AI Pick:<b>持有中</b>・${String(p.fill||'').slice(5).replace('-','/')} 買 ${p.entry}・模型勝算 ${pc(pr)}</span>`};}
-  if((T.pend||[]).some(x=>x.id===id))return {cls:'fst-brk',txt:'<span>🤖 AI Pick:<b>明天開盤買進</b></span>'};
-  const g=(T.gtop||[]).find(x=>x.id===id);if(g)return {cls:'fst-gem',txt:`<span>🤖 AI Pick:樹模型排名第 ${g.r} 名(前段・可留意)</span>`};
-  const w=(T.watch||[]).find(x=>x.id===id);if(w)return {cls:'fst-gem',txt:`<span>🤖 AI Pick:關注中・勝算 ${pc(w.p)}(${w.st||'觀察中'})</span>`};
-  return {cls:'fst-wait',txt:'<span>🤖 AI Pick:沒有買進訊號(不在模型前段名單)</span>'};
+  if(p){const g=p.sleeve==='g',pr=(p.est&&p.est.prob!=null)?p.est.prob:p.prob,gr=p.est&&p.est.grank,gn=p.est&&p.est.gn;
+    const rule=g?`樹模型掉到後半(第 ${gn?Math.round(gn*GX):'—'} 名以後)→ 隔天開盤賣`:`模型勝算 < ${(PEX*100).toFixed(0)}% → 隔天開盤賣`;
+    const now=g?(gr&&gn?`目前第 ${gr}/${gn} 名`:''):`目前勝算 ${pc(pr)}`;
+    const act=ln(`🛑 系統停損 <b>${p.stop}</b>:盤中跌破就賣`)+ln(`📤 出場規則:${rule}${now?`・${now}`:''}`);
+    if(p.xsig)return {cls:'fst-weak',txt:`<span>🤖 AI Pick:<b>明天開盤賣出</b>(模型轉弱)</span>`,act};
+    return {cls:'fst-up',txt:`<span>🤖 AI Pick:<b>持有中</b>・${md(p.fill)} 買 ${p.entry}</span>`,act};}
+  const q=(T.pend||[]).find(x=>x.id===id);
+  if(q){const lim=q.sig_px?+(q.sig_px*(1+GAP)).toFixed(2):null;
+    return {cls:'fst-brk',txt:'<span>🤖 AI Pick:<b>明天開盤買進</b></span>',
+      act:ln(`🟢 買進價:明天 9:00 開盤價${lim?`・開盤高於 <b>${lim}</b>(漲 3% 以上)就不追`:''}・漲停鎖死不買`)};}
+  if(A){const [pr,gr]=A,meta=[`模型勝算 <b>${pc(pr)}</b>`,rk(gr)].filter(Boolean).join('・');
+    if(own){const weak=pr<PEX;
+      return {cls:weak?'fst-weak':'fst-up',txt:`<span>🤖 AI Pick:${weak?'<b>模型轉弱,依規則應賣出</b>':'<b>續抱</b>(模型未轉弱)'}</span>`,
+        act:ln(`${meta}・勝算低於 ${(PEX*100).toFixed(0)}% 才算轉弱`)};}
+    const near=pr>=PMIN-0.01||(gr&&gr<=GK*2);
+    return {cls:near?'fst-gem':'fst-wait',txt:`<span>🤖 AI Pick:${near?'接近買進門檻,留意':'沒有買進訊號'}</span>`,
+      act:ln(`${meta}・買進門檻:勝算 ≥ ${(PMIN*100).toFixed(0)}% 或樹模型前 ${GK} 名(且產業在月線上、近 3 月營收成長)`)};}
+  if(own)return {cls:'fst-wait',txt:'<span>🤖 AI Pick:等下次收盤評分</span>',act:ln('收盤評分後會顯示這檔的模型勝算,並依 AI Pick 出場規則判斷續抱或賣出')};
+  const w=(T.watch||[]).find(x=>x.id===id);if(w)return {cls:'fst-gem',txt:`<span>🤖 AI Pick:關注中・勝算 ${pc(w.p)}(${w.st||'觀察中'})</span>`,act:''};
+  return {cls:'fst-wait',txt:'<span>🤖 AI Pick:沒有買進訊號</span>',act:ln('下次收盤評分後會顯示這檔的勝算與名次')};
 }
 function favKbSplit(html,id){   // r1017:關鍵分點拿出摺疊區,直接顯示在卡片上
   const i=(html||'').indexOf('<div class="fav-kb" data-favkb=');
@@ -678,18 +696,13 @@ async function favStateFill(){
       if(!k||k.demo||!k.ohlc||!k.ohlc.length){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— K 線資料暫缺,無法判讀狀態',plan:null};favStPaint(id);continue;}
       const st=favState(s,k.ohlc);
       try{await aipLoad();}catch(e){}
-      const av=aiPickVerdict(id);
-      let fut='';
-      try{const v=aiVerdict(s);if(v&&v.tier)fut=`<span class="fav-fut">未來性:${v.tier}</span>`;}catch(e){}
-      let ref='';try{ref=favPlanHtml(s,k.ohlc,k.dates);}catch(e){}   // r702 關鍵價位列 → r1015 收進「參考」
-      let plan='';
-      try{const P=favPlanOf(s,k.ohlc,k.dates),px0=+s.price||0;   // r1015:持股損益(有設進場價才顯示)
-        if(P&&P.entry&&px0){const r=(px0/P.entry-1)*100;plan+=`<div class="fav-pnl" style="font-size:13px;margin:6px 0 2px">💼 持股成本 <b>${P.entry}</b>・損益 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b></div>`;}}catch(e){}
-      try{const D=typeof defPlan==='function'?defPlan(k.ohlc):null;   // r1014:最愛卡片也顯示防守價/站回價
-        if(D){const px=+s.price>0?+s.price:D.px,br=px<D.def,g=(px/D.def-1)*100;
-          plan=(plan||'')+`<div class="fav-def"><span class="fd-a" style="border-color:${br?'var(--down)':'#5FB37A'}">🛡 防守 <b>${D.def}</b> <em style="color:${br?'var(--down)':g<3?'var(--amber)':'var(--dim)'}">${br?'已跌破':(g>=0?'+':'')+g.toFixed(1)+'%'}</em></span><span class="fd-b">↩ 跌破後站回 <b>${D.reclaim}</b> 再買</span><span class="fd-c">${D.src} ${D.sup}</span></div>`+defPlanRow(D,px);}}catch(e){}
-      const [ref2,kbh]=favKbSplit(ref,id);plan+=kbh+favRefWrap(ref2,st.txt+fut);
-      FAVST[id]={t:Date.now(),cls:av?av.cls:st.cls,html:av?av.txt:(st.txt+fut),plan};
+      let plan='',own=false;
+      try{const P=favPlanOf(s,k.ohlc,k.dates),px0=+s.price||0;   // 持股損益(有設進場價才顯示)——事實,不是預測
+        if(P&&P.entry&&px0){own=true;const r=(px0/P.entry-1)*100;plan+=`<div class="fav-pnl" style="font-size:13px;margin:6px 0 2px">💼 持股成本 <b>${P.entry}</b>・損益 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b></div>`;}}catch(e){}
+      const av=aiPickVerdict(id,own);
+      if(av&&av.act)plan+=av.act;
+      plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
+      FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:av?av.txt:'🤖 AI Pick 資料載入中',plan};
       favStPaint(id);
     }catch(e){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— 狀態判讀失敗,稍後自動重試',plan:null};FAVST[id].t-=4*60e3;favStPaint(id);}
     await new Promise(r=>setTimeout(r,80));
@@ -711,9 +724,9 @@ function renderFav(){
       <span class="r-name"><span class="fav-tg on" data-fav="${s.id}" title="移除收藏">★</span> ${s.name} <span class="c-code">${s.id}</span>
         <span class="pxpill ${s.chg>0?'up':s.chg<0?'dn':''}" data-pxp="${s.id}"><b class="rpx" data-ppx="${s.id}">${s.price??'—'}</b><span class="pxchg" data-pch="${s.id}">${chgHtml(s.chg)}</span></span><span class="mini-candle" data-candle="${s.id}"></span></span>
       <span class="r-desc">${s.etf?`${(s.perf&&s.perf.q!=null)?`近3月 ${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%`:'ETF'}${s.hold&&s.hold.dy?` · 殖利率 ${s.hold.dy.toFixed(2)}%`:''}${s.hold&&s.hold.aum?` · 規模 ${(s.hold.aum/1e8).toFixed(0)} 億`:''}`
-        :`綜合 ${total(s)} 分|基本 ${s.f.score} · 籌碼 ${s.c.score} · 技術 ${s.t.score}${s.sig&&s.sig.length?` · <b style="color:var(--amber)">${s.sig.map(x=>x.label).join('+')}</b>`:''}`}</span>
+        :`${s.sector||s.industry||''}`}</span>
       ${s.etf?'':(FAVST[s.id]?`<span class="fav-st ${FAVST[s.id].cls}">${FAVST[s.id].html}</span>`:'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>')}
-      ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:(()=>{try{const [r,k]=favKbSplit(favPlanHtml(s,null,null),s.id);return k+favRefWrap(r,'');}catch(e){return '';}})()}</div>`:''}
+      ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:''}</div>`:''}
     </div>`;
   };
   const g={tw:[],us:[],etf:[],etfUS:[],other:[]};
@@ -1851,7 +1864,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1018</span>');
+  diag.push('<span style="color:var(--dim)">build r1019</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13860,7 +13873,7 @@ async function showDetail(id){
   },2500);}catch(e){}
   try{usEarnBlock(s);}catch(e){}
   setTimeout(()=>{try{usInsiderBlock(s);}catch(e){}},1600);   // r1014:美股內部人買賣(籌碼章)
-  setTimeout(()=>{try{defBox(s);}catch(e){}},1200);            // r1013:防守價與站回價
+  // r1019:防守價區塊下架——2012~2026 回測跌破防守價後 20 日超額報酬 +0.07%,沒有預測力
   try{usFundBlock(s);}catch(e){}   // r530:美股財報速覽(SEC XBRL)
   try{const fb=document.getElementById('rptFull');if(fb)fb.onclick=()=>rptFullRun(s);}catch(e12){}   // r790:一鍵完整分析
   window.__costR=null;
@@ -22002,7 +22015,7 @@ function aipUnifiedHold(){
     <div class="hc-h"><a href="#stock/${r.id}"><b>${r.name}</b></a><span class="dim">${r.id}</span>${r.sleeve==='g'?`<span class="hc-add" style="color:#5FB37A">🌲 樹模型${r.grank?'・第 '+r.grank+' 名':''}</span>`:''}${r.add?`<span class="hc-add">➕ 加碼第 ${r.add} 筆</span>`:''}<b class="hc-ret" style="color:${cl(r.ret)}">${fp(r.ret)}</b></div>
     <div class="hc-g"><div><i>進場</i><b>${r.entry}</b><small>${aipMD(r.fill)}</small></div><div><i>現價</i><b>${r.px||'—'}</b><small>${r.Rnow!=null?(r.Rnow>0?'+':'')+r.Rnow.toFixed(2)+'R':''}</small></div><div><i>出場線</i><b>${r.line}</b><small>${tag(r)}</small></div></div>
     <div class="hc-gap"><span>距出場線 <b style="color:${r.gap!=null&&r.gap<3?'var(--down)':'inherit'}">${r.gap!=null?r.gap.toFixed(1)+'%':'—'}</b></span>${bar(r.gap)}${pb!=null?`<span>勝算 <b style="color:${pb<48?'var(--down)':pb>=54?'var(--up)':'inherit'}">${pb}%</b></span>`:''}</div>
-    ${r.P&&(r.P.stop||r.P.reclaim)?`<div class="fav-def"><span class="fd-a" style="border-color:${r.px&&r.px<r.P.stop?'var(--down)':'#5FB37A'}">🛡 防守 <b>${r.P.stop}</b>${r.gap!=null?` <em style="color:${r.gap<0?'var(--down)':r.gap<3?'var(--amber)':'var(--dim)'}">${r.gap<0?'已跌破':'+'+r.gap.toFixed(1)+'%'}</em>`:''}</span>${r.P.reclaim?`<span class="fd-b">↩ 跌破後站回 <b>${r.P.reclaim}</b> 再買</span>`:''}${r.P.stp_src?`<span class="fd-c">${r.P.stp_src}</span>`:''}</div>`:''}
+    ${r.P&&(r.P.stop||r.P.reclaim)?`<div class="fav-def"><span class="fd-a" style="border-color:${r.px&&r.px<r.P.stop?'var(--down)':'#5FB37A'}">🛑 系統停損 <b>${r.P.stop}</b>${r.gap!=null?` <em style="color:${r.gap<0?'var(--down)':r.gap<3?'var(--amber)':'var(--dim)'}">${r.gap<0?'已跌破':'+'+r.gap.toFixed(1)+'%'}</em>`:''}</span>${r.P.stp_src?`<span class="fd-c">${r.P.stp_src}</span>`:''}</div>`:''}
     ${sell(r)?'<div class="hc-alert">📉 模型轉弱,明天開盤賣出</div>':''}
     ${r.P?aipSellEval(r):''}
   </div>`;}).join('');
