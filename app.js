@@ -1,4 +1,4 @@
-/* K研所 · build r1016 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1017 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1016';
+const APP_BUILD='r1017';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -622,6 +622,11 @@ function aiPickVerdict(id){
   const w=(T.watch||[]).find(x=>x.id===id);if(w)return {cls:'fst-gem',txt:`🤖 AI Pick:關注中・勝算 ${pc(w.p)}(${w.st||'觀察中'})`};
   return {cls:'fst-wait',txt:'🤖 AI Pick:沒有買進訊號(不在模型前段名單)'};
 }
+function favKbSplit(html,id){   // r1017:關鍵分點拿出摺疊區,直接顯示在卡片上
+  const i=(html||'').indexOf('<div class="fav-kb" data-favkb=');
+  const kb=`<div class="fav-kb" data-favkb="${id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])||''}</div>`;
+  return [i>=0?html.slice(0,i):(html||''),kb];
+}
 function favRefWrap(inner,badge){
   if(!inner&&!badge)return '';
   return `<details class="fav-ref" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px;margin-top:6px">📎 參考訊號(未經驗證,僅供參考)</summary>${badge?`<div style="font-size:12.5px;color:var(--txt2);margin:6px 0">${badge}</div>`:''}${inner||''}</details>`;
@@ -657,7 +662,7 @@ function favStPaint(id){
   const c=FAVST[id];if(!c)return;
   const card=document.querySelector(`#favBox .r-card[data-id="${id}"]`);if(!card)return;
   const el=card.querySelector('.fav-st');if(el){el.className='fav-st '+c.cls;el.innerHTML=c.html;}
-  if(c.plan!=null){const sl=card.querySelector('.fav-plan-slot');if(sl&&sl.innerHTML!==c.plan)sl.innerHTML=c.plan;}
+  if(c.plan!=null){const sl=card.querySelector('.fav-plan-slot');if(sl&&sl.dataset.p!==c.plan){sl.innerHTML=c.plan;sl.dataset.p=c.plan;}const kbe=sl&&sl.querySelector('[data-favkb]');if(kbe&&!kbe.innerHTML.trim()&&typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])kbe.innerHTML=FAVKB_HTML[id];}
 }
 async function favStateFill(){
   const ids=favList();
@@ -683,7 +688,7 @@ async function favStateFill(){
       try{const D=typeof defPlan==='function'?defPlan(k.ohlc):null;   // r1014:最愛卡片也顯示防守價/站回價
         if(D){const px=+s.price>0?+s.price:D.px,br=px<D.def,g=(px/D.def-1)*100;
           plan=(plan||'')+`<div class="fav-def"><span class="fd-a" style="border-color:${br?'var(--down)':'#5FB37A'}">🛡 防守 <b>${D.def}</b> <em style="color:${br?'var(--down)':g<3?'var(--amber)':'var(--dim)'}">${br?'已跌破':(g>=0?'+':'')+g.toFixed(1)+'%'}</em></span><span class="fd-b">↩ 跌破後站回 <b>${D.reclaim}</b> 再買</span><span class="fd-c">${D.src} ${D.sup}</span></div>`+defPlanRow(D,px);}}catch(e){}
-      plan+=favRefWrap(ref,st.txt+fut);
+      const [ref2,kbh]=favKbSplit(ref,id);plan+=kbh+favRefWrap(ref2,st.txt+fut);
       FAVST[id]={t:Date.now(),cls:av?av.cls:st.cls,html:av?av.txt:(st.txt+fut),plan};
       favStPaint(id);
     }catch(e){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— 狀態判讀失敗,稍後自動重試',plan:null};FAVST[id].t-=4*60e3;favStPaint(id);}
@@ -708,7 +713,7 @@ function renderFav(){
       <span class="r-desc">${s.etf?`${(s.perf&&s.perf.q!=null)?`近3月 ${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%`:'ETF'}${s.hold&&s.hold.dy?` · 殖利率 ${s.hold.dy.toFixed(2)}%`:''}${s.hold&&s.hold.aum?` · 規模 ${(s.hold.aum/1e8).toFixed(0)} 億`:''}`
         :`綜合 ${total(s)} 分|基本 ${s.f.score} · 籌碼 ${s.c.score} · 技術 ${s.t.score}${s.sig&&s.sig.length?` · <b style="color:var(--amber)">${s.sig.map(x=>x.label).join('+')}</b>`:''}`}</span>
       ${s.etf?'':(FAVST[s.id]?`<span class="fav-st ${FAVST[s.id].cls}">${FAVST[s.id].html}</span>`:'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>')}
-      ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:(()=>{try{return favRefWrap(favPlanHtml(s,null,null),'');}catch(e){return '';}})()}</div>`:''}
+      ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:(()=>{try{const [r,k]=favKbSplit(favPlanHtml(s,null,null),s.id);return k+favRefWrap(r,'');}catch(e){return '';}})()}</div>`:''}
     </div>`;
   };
   const g={tw:[],us:[],etf:[],etfUS:[],other:[]};
@@ -1846,7 +1851,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1016</span>');
+  diag.push('<span style="color:var(--dim)">build r1017</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -22672,9 +22677,9 @@ async function favKbFill(root){
       if(ns>=2)parts.push(`<span class="fkb fkb-hot fkb-hot-s">🔥 ${ns} 家關鍵分點同日出場</span>`);
       const szTxt=h=>h.effLots!=null?`${Math.abs(h.lots)>=h.effLots?'≥':'<'} 門檻 ${h.effLots.toLocaleString()} 張`:`佔成交 ${h.share}%${h.med!=null?`(平常 ${h.med}%)`:''}`;
       const tmTxt=h=>h.dPeak?`・通常第 ${h.dStart??'—'} 天發動、第 ${h.dPeak} 天到${h.side==='b'?'高':'低'}點`:'';
-      hit.filter(h=>h.side==='b'&&!h.flip).forEach(h=>parts.push(h.big?`<span class="fkb fkb-b">🎯 關鍵分點大買 <b>${h.name}</b>${bkTag(h.name)} <em>${md(h.d)} +${h.lots.toLocaleString()} 張 @${h.px}・${szTxt(h)}</em> <small>門檻以上 ${h.nb} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・漲 ${h.w10}%${tmTxt(h)}</small></span>`
+      hit.filter(h=>h.side==='b'&&!h.flip).forEach(h=>parts.push(h.big?`<span class="fkb fkb-b">🎯 關鍵分點大買 <b>${h.name}</b>${bkTag(h.name)} <em>${md(h.d)} +${h.lots.toLocaleString()} 張 @${h.px}・${szTxt(h)}</em> <small>門檻以上 ${h.nb} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・漲 ${h.w10}%${tmTxt(h)}${h.nb<10?`・<b style="color:var(--amber)">樣本只有 ${h.nb} 次,僅供參考</b>`:''}</small></span>`
         :`<span class="fkb" style="color:var(--txt2);border-color:var(--line);opacity:.8">關鍵分點小量買 <b>${h.name}</b> <em>+${h.lots.toLocaleString()} 張・${szTxt(h)}</em><small>量不到它平常水準,參考就好</small></span>`));
-      hit.filter(h=>h.side==='s'&&!h.flip).forEach(h=>parts.push(h.big?`<span class="fkb fkb-s">🎯 關鍵分點大賣 <b>${h.name}</b>${bkTag(h.name)} <em>${md(h.d)} ${h.lots.toLocaleString()} 張 @${h.px}・${szTxt(h)}</em> <small>門檻以上 ${h.nb} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・跌 ${h.w10}%${tmTxt(h)}</small></span>`
+      hit.filter(h=>h.side==='s'&&!h.flip).forEach(h=>parts.push(h.big?`<span class="fkb fkb-s">🎯 關鍵分點大賣 <b>${h.name}</b>${bkTag(h.name)} <em>${md(h.d)} ${h.lots.toLocaleString()} 張 @${h.px}・${szTxt(h)}</em> <small>門檻以上 ${h.nb} 次後 10 日 ${(h.a10>=0?'+':'')+h.a10}%・跌 ${h.w10}%${tmTxt(h)}${h.nb<10?`・<b style="color:var(--amber)">樣本只有 ${h.nb} 次,僅供參考</b>`:''}</small></span>`
         :`<span class="fkb" style="color:var(--txt2);border-color:var(--line);opacity:.8">關鍵分點小量賣 <b>${h.name}</b> <em>${h.lots.toLocaleString()} 張・${szTxt(h)}</em></span>`));
       (R.runB||[]).filter(x=>x.key||x.days>=5).slice(0,2).forEach(x=>parts.push(`<span class="fkb ${x.key?'fkb-b':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連買 ${x.days} 日 <small>累計 ${(x.lots>=0?'+':'')+x.lots.toLocaleString()} 張</small></span>`));
       (R.runS||[]).filter(x=>x.key||x.days>=5).slice(0,2).forEach(x=>parts.push(`<span class="fkb ${x.key?'fkb-s':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連賣 ${x.days} 日 <small>累計 ${x.lots.toLocaleString()} 張</small></span>`));
