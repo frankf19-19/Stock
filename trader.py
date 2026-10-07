@@ -292,7 +292,7 @@ def run(A, data, log=print):
     T["pos"] = still
     # ③ 收盤決策(每個交易日一次;最新 K 全市場入庫 ≥90% 才做)
     do_sig = last >= START and T["sig_done"] < last
-    if do_sig or (last >= START and T.get("watch_d") != last):          # r993:關注清單——就算今天已做過決策,也要補算
+    if do_sig or (last >= START and (T.get("watch_d") != last or T.get("allp_d") != last)):          # r993/r1024:關注清單、每檔評分——今天已決策過也要補算
         tot = hit = 0; lo = (dt.date.fromisoformat(last) - dt.timedelta(days=10)).isoformat()
         for s in data.get("stocks", []):
             if s.get("market") != "TW" or s.get("etf"): continue
