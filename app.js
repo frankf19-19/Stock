@@ -1,4 +1,4 @@
-/* K研所 · build r1020 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1021 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1020';
+const APP_BUILD='r1021';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -625,17 +625,18 @@ function vPlan(o){
   const buy=up[0]||null,atHigh=!buy&&buys.length?buys[buys.length-1]:null;
   const sells=[];
   for(const [k,w,ex] of [[60,0.20,1.2],[40,0.15,1.1],[20,0.10,0.8]]){const hi=mx(H,k),lo=mn(L,k);if((hi-lo)/px<=w&&lo<px){sells.push({v:tk(lo),lab:`${k} 日整理區下緣`,ex,cond:'收盤跌破'});break;}}
+  const m20=avg(20),m20p=avg(20,3);if(m20&&m20<px)sells.push({v:tk(m20),lab:'月線',ex:0.4,weak:1,cond:m20<m20p?'收盤跌破(月線已下彎)':'收盤跌破且月線轉下彎'});   // r1021:月線且下彎 −0.38%,15 年中 14 年成立(效果較小)
   const m60=avg(60),m60p=avg(60,5);if(m60&&m60<px)sells.push({v:tk(m60),lab:'季線',ex:0.6,cond:m60<m60p?'收盤跌破(季線已下彎)':'收盤跌破且季線轉下彎'});
   const m240=n>=240?avg(240):null;if(m240&&m240<px)sells.push({v:tk(m240),lab:'年線',ex:0.6,cond:'收盤跌破'});
   sells.sort((a,b)=>b.v-a.v);
-  return {px,buy,atHigh,sells:sells.filter(x=>x.v>=px*0.7).slice(0,2)};
+  return {px,buy,atHigh,sells:sells.filter(x=>x.v>=px*0.7).slice(0,3)};
 }
 function vPlanHTML(V,px){
   if(!V)return '';px=+px||V.px;const g=v=>{const r=(v/px-1)*100;return `<em>${r>=0?'+':''}${r.toFixed(1)}%</em>`;};
   let h='<div class="vplan" style="margin:6px 0;display:flex;flex-direction:column;gap:5px;font-size:13px">';
   if(V.buy)h+=`<div>🟢 <b>買進價 ${V.buy.v}</b> ${g(V.buy.v)}<span style="color:var(--dim)">・收盤站上${V.buy.lab}才買(歷史上之後 20 日平均贏大盤 +${V.buy.ex}%)</span></div>`;
   else if(V.atHigh)h+=`<div>🟢 <b>已站上${V.atHigh.lab}</b><span style="color:var(--dim)">・創新高區屬強勢(歷史上之後 20 日平均贏大盤 +${V.atHigh.ex}%)</span></div>`;
-  V.sells.forEach(x=>{h+=`<div>🔴 <b>賣出價 ${x.v}</b> ${g(x.v)}<span style="color:var(--dim)">・${x.cond}${x.lab}(歷史上之後 20 日平均輸大盤 −${x.ex}%)</span></div>`;});
+  V.sells.forEach((x,i)=>{h+=`<div>${i?'🔴 <b>賣出價':'🛡 <b>防守價'} ${x.v}</b> ${g(x.v)}<span style="color:var(--dim)">・${x.cond}${x.lab}(歷史上之後 20 日平均輸大盤 −${x.ex}%${x.weak?',效果較小':''})</span></div>`;});
   if(!V.sells.length)h+='<div style="color:var(--dim)">🔴 下方沒有驗證過的賣出價位(季線/年線都在現價之上)</div>';
   return h+'</div>';
 }
@@ -1892,7 +1893,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1020</span>');
+  diag.push('<span style="color:var(--dim)">build r1021</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
