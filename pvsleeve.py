@@ -80,12 +80,13 @@ def _bar(A, sid, day):
 def run(A, data, T, last, log=print):
     """收盤班呼叫:① 以今天日K成交上一輪訊號的進出(開盤價)② 盤中停損/停利(用今天最高最低)③ 每 5 個交易日重排前 20 名"""
     S = T.setdefault("pv", {"pos": [], "pend": [], "trades": [], "log": [], "nav": [], "picks": [], "last_rb": None, "start": last})
-    if S.get("done") == last: return S
+    if S.get("done") == last and S.get("rank_d") == last: return S
+    fresh = S.get("done") != last
     ev = []; byid = {s["id"]: s for s in data.get("stocks", [])}
     # ① 開盤成交(訊號日 < 今天)
     keep = []
     for q in S["pend"]:
-        if q["sig_d"] >= last: keep.append(q); continue
+        if q["sig_d"] >= last or not fresh: keep.append(q); continue
         b, pb = _bar(A, q["id"], last)
         if not b or not b[0]: keep.append(q) if q.get("tries", 0) < 2 else None; q["tries"] = q.get("tries", 0) + 1; continue
         op = b[0]
@@ -103,7 +104,7 @@ def run(A, data, T, last, log=print):
             ev.append(f"{last} 🟢 買進 量價組 {q['name']} 開盤 {op}(停損 {stp}、停利 {tp})")
     S["pend"] = keep
     # ② 停損/停利(含今天剛買的)
-    for p in list(S["pos"]):
+    for p in (list(S["pos"]) if fresh else []):
         b, _ = _bar(A, p["id"], last)
         if not b: continue
         o_, h_, l_ = b[0], b[1], b[2]; xp = why = None
@@ -116,7 +117,7 @@ def run(A, data, T, last, log=print):
     # ③ 重排(每 5 個交易日)
     d0, _ = A.bars_of("2330"); cal = [x for x in d0 if x <= last]
     due = (not S.get("last_rb")) or (S["last_rb"] in cal and len(cal) - 1 - cal.index(S["last_rb"]) >= REB) or (S["last_rb"] not in cal)
-    if due and model():
+    if (due or S.get("rank_d") != last) and model():
         sc = []
         for s in data.get("stocks", []):
             if s.get("market") != "TW" or s.get("etf") or not str(s.get("id", "")).isdigit() or len(str(s["id"])) != 4: continue
@@ -131,7 +132,9 @@ def run(A, data, T, last, log=print):
             z = score(x)
             if z is not None: sc.append((z, s, float(row["atr_abs"])))
         sc.sort(key=lambda t: -t[0])
-        if len(sc) >= 100:
+        if len(sc) >= 100:                                  # r1029:每檔量價排名 + ATR(個股頁/卡片算停損用)
+            S["rank_all"] = {s["id"]: [i+1, round(at, 4)] for i, (z, s, at) in enumerate(sc)}; S["rank_d"] = last; S["n_scored"] = len(sc)
+        if len(sc) >= 100 and due and fresh:
             top = sc[:TOPK]; ids = {s["id"] for _, s, _ in top}
             S["picks"] = [{"id": s["id"], "name": s.get("name"), "sector": s.get("sector"), "z": round(z, 4), "rank": i+1, "px": (A.bars_of(s["id"])[1] or [[0,0,0,0]])[-1][3]} for i, (z, s, _) in enumerate(top)]
             S["picks_d"] = last; S["n_scored"] = len(sc)

@@ -1,4 +1,4 @@
-/* K研所 · build r1028 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1029 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1028';
+const APP_BUILD='r1029';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -672,6 +672,27 @@ function lvHTML(o,id,px,full){
     <div style="color:var(--dim);font-size:11.5px">✅ = 全市場 1,899 檔、15 年回測年年成立的價位(突破 60 日/半年/一年高、跌破季線且季線下彎、跌破年線)。每檔自己的次數與平均只是股性參考,不是預測。</div></div>`;
 }
 /* ══ r1027:📋 行動計畫——把「什麼時候買/賣」整理成一句一條件,只用驗證過的規則 ══ */
+/* ══ r1029:📈 量價+技術交易計畫(量價組規則套用到單一個股;全部經 2016~2026 滾動回測) ══ */
+function pvPlanHTML(id,px,cost){
+  const S=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader&&AIPK.trader.pv)||null;if(!S||!S.rank_all)return '';
+  const R=S.rules||{},K=R.topk||20,SR=R.sell_rank||100,SA=R.stop_atr||3,TP=R.tp||0.25;
+  const x=S.rank_all[id],n=S.n_scored||'—';px=+px;if(!px)return '';
+  const tk=v=>{const t=v<10?0.01:v<50?0.05:v<100?0.1:v<500?0.5:v<1000?1:5;return +(Math.round(v/t)*t).toFixed(2);};
+  const g=v=>{const r=(v/px-1)*100;return `${r>=0?'+':''}${r.toFixed(1)}%`;};
+  const held=(S.pos||[]).find(p=>p.id===id),pend=(S.pend||[]).find(q=>q.id===id);
+  if(!x)return `<div class="pvp" style="margin:8px 0;padding:10px 12px;border:1px solid #6FA8DC55;border-radius:10px;font-size:13px">📈 <b>量價+技術</b>:這檔成交值太小或資料不足,沒有排名(量價組只做日均成交值 ≥ 2,000 萬的股票)</div>`;
+  const [rk,atr]=x,base=held?held.entry:(cost||px),stop=held?held.stop:tk(base-SA*atr),tp=held?held.tp:tk(base*(1+TP));
+  const now=held?(rk>SR?`掉出前 ${SR} 名 → 明天開盤賣`:'量價組持有中,續抱'):pend&&pend.act==='buy'?'量價組已排定明天開盤買':rk<=K?`在前 ${K} 名,可以買`:`第 ${rk} 名,還沒進前 ${K} 名`;
+  const col=/賣/.test(now)?'var(--down)':/買/.test(now)?'var(--up)':'var(--amber)';
+  return `<div class="pvp" style="margin:8px 0;padding:10px 12px;border:1px solid #6FA8DC88;border-radius:10px;font-size:13.5px;line-height:1.6">
+    <div style="font-weight:900">📈 量價+技術:<span style="color:${col}">${now}</span> <span style="font-weight:400;color:var(--dim);font-size:12px">(排名 ${rk}/${n},${String(S.rank_d||'').slice(5).replace('-','/')} 收盤)</span></div>
+    <div>🟢 <b>買點</b>:排名進入前 ${K} 名 → 隔天 9:00 開盤價買(漲停鎖死不買)</div>
+    <div>🛑 <b>停損</b>:<b>${stop}</b>(${g(stop)})= ${held?'進場價':cost?'你的成本':'現價'} ${base} − ${SA}×ATR(${(+atr).toFixed(2)}),盤中碰到就賣</div>
+    <div>🎯 <b>停利</b>:<b>${tp}</b>(${g(tp)})= ${held?'進場價':cost?'你的成本':'現價'} +${Math.round(TP*100)}%,盤中碰到就賣</div>
+    <div>🔄 <b>賣點</b>:排名掉出前 ${SR} 名 → 隔天開盤賣(現在第 ${rk} 名)</div>
+    <div>➕ <b>加碼</b>:<span style="color:var(--dim)">不建議——回測「獲利 5%/10% 且仍在前 20 名就加碼」11 年中只有 5~6 年比較好,沒有穩定效果</span></div>
+    <div style="color:var(--dim);font-size:11.5px">量價組回測 2016~2026:年化 +30.7%、最大回落 −41.7%(0050 +25.4%)。停損讓大跌時虧得少,停利 +25% 幾乎不影響報酬。</div></div>`;
+}
 function actionPlan(o,id,px,own){
   const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||{};const R=T.rules||{},PMIN=R.pmin||0.54,PEX=R.pexit||0.48,GK=(R.gbt&&R.gbt.topk)||15;
   const lv=lvLevels(o);px=+px||(o&&o.length?o[o.length-1][3]:0);if(!px)return '';
@@ -789,7 +810,7 @@ async function favStateFill(){
       try{const P=favPlanOf(s,k.ohlc,k.dates),px0=+s.price||0;   // 持股損益(有設進場價才顯示)——事實,不是預測
         if(P&&P.entry&&px0){own=true;const r=(px0/P.entry-1)*100;plan+=`<div class="fav-pnl" style="font-size:13px;margin:6px 0 2px">💼 持股成本 <b>${P.entry}</b>・損益 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b></div>`;}}catch(e){}
       const av=aiPickVerdict(id,own);
-      try{await lvLoad();plan+=actionPlan(k.ohlc,id,s.price,own);const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
+      try{await lvLoad();plan+=actionPlan(k.ohlc,id,s.price,own);try{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=pvPlanHTML(id,s.price,cst);}catch(e){}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
       FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:av?av.txt:'🤖 AI Pick 資料載入中',plan};
       favStPaint(id);
@@ -1953,7 +1974,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1028</span>');
+  diag.push('<span style="color:var(--dim)">build r1029</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21826,9 +21847,10 @@ function defPlanRow(D,px){
 }
 async function vBox(s){
   try{if(!s||s.etf)return;const k=await loadK(s);if(!k||!k.ohlc)return;if(location.hash!=='#stock/'+s.id)return;
-    await lvLoad();const h=lvHTML(k.ohlc,s.id,s.price,true);if(!h)return;let box=document.getElementById('vBox');
-    if(!box){const sb=document.getElementById('sb-stk_k');if(!sb)return;box=document.createElement('div');box.id='vBox';box.dataset.jumpname='📊 買賣價位';sb.prepend(box);}
-    box.innerHTML=`<div class="dim-block" style="border-left:4px solid var(--amber)"><div style="font-weight:900;margin-bottom:4px">📊 買賣價位・這檔自己的歷史表現</div>${h}</div>`;
+    await lvLoad();try{await aipLoad();}catch(e){}const h=lvHTML(k.ohlc,s.id,s.price,true);if(!h)return;let box=document.getElementById('vBox');
+    if(!box){const sb=document.getElementById('sb-stk_k');if(!sb)return;box=document.createElement('div');box.id='vBox';box.dataset.jumpname='📋 買賣計畫';sb.prepend(box);}
+    let ap='',pp='';try{ap=actionPlan(k.ohlc,s.id,s.price,false);pp=pvPlanHTML(s.id,s.price,null);}catch(e){}
+    box.innerHTML=`<div class="dim-block" style="border-left:4px solid var(--amber)"><div style="font-weight:900;margin-bottom:4px">📋 買賣計畫(驗證過的規則)</div>${ap}${pp}<details class="aip-fold"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔自己的歷史表現(股性參考)</summary>${h}</details></div>`;
   }catch(e){}
 }
 async function defBox(s){
