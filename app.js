@@ -1,4 +1,4 @@
-/* K研所 · build r1017 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1018 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1017';
+const APP_BUILD='r1018';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -615,12 +615,12 @@ function aiPickVerdict(id){
   const pc=v=>v!=null?(v*100).toFixed(1)+'%':'—';
   const p=(T.pos||[]).find(x=>x.id===id);
   if(p){const pr=(p.est&&p.est.prob!=null)?p.est.prob:p.prob;
-    if(p.xsig)return {cls:'fst-weak',txt:`🤖 AI Pick:<b>明天開盤賣出</b>(模型轉弱・勝算 ${pc(pr)})`};
-    return {cls:'fst-up',txt:`🤖 AI Pick:<b>持有中</b>・${String(p.fill||'').slice(5).replace('-','/')} 買 ${p.entry}・模型勝算 ${pc(pr)}`};}
-  if((T.pend||[]).some(x=>x.id===id))return {cls:'fst-brk',txt:'🤖 AI Pick:<b>明天開盤買進</b>'};
-  const g=(T.gtop||[]).find(x=>x.id===id);if(g)return {cls:'fst-gem',txt:`🤖 AI Pick:樹模型排名第 ${g.r} 名(前段・可留意)`};
-  const w=(T.watch||[]).find(x=>x.id===id);if(w)return {cls:'fst-gem',txt:`🤖 AI Pick:關注中・勝算 ${pc(w.p)}(${w.st||'觀察中'})`};
-  return {cls:'fst-wait',txt:'🤖 AI Pick:沒有買進訊號(不在模型前段名單)'};
+    if(p.xsig)return {cls:'fst-weak',txt:`<span>🤖 AI Pick:<b>明天開盤賣出</b>(模型轉弱・勝算 ${pc(pr)})</span>`};
+    return {cls:'fst-up',txt:`<span>🤖 AI Pick:<b>持有中</b>・${String(p.fill||'').slice(5).replace('-','/')} 買 ${p.entry}・模型勝算 ${pc(pr)}</span>`};}
+  if((T.pend||[]).some(x=>x.id===id))return {cls:'fst-brk',txt:'<span>🤖 AI Pick:<b>明天開盤買進</b></span>'};
+  const g=(T.gtop||[]).find(x=>x.id===id);if(g)return {cls:'fst-gem',txt:`<span>🤖 AI Pick:樹模型排名第 ${g.r} 名(前段・可留意)</span>`};
+  const w=(T.watch||[]).find(x=>x.id===id);if(w)return {cls:'fst-gem',txt:`<span>🤖 AI Pick:關注中・勝算 ${pc(w.p)}(${w.st||'觀察中'})</span>`};
+  return {cls:'fst-wait',txt:'<span>🤖 AI Pick:沒有買進訊號(不在模型前段名單)</span>'};
 }
 function favKbSplit(html,id){   // r1017:關鍵分點拿出摺疊區,直接顯示在卡片上
   const i=(html||'').indexOf('<div class="fav-kb" data-favkb=');
@@ -1851,7 +1851,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1017</span>');
+  diag.push('<span style="color:var(--dim)">build r1018</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
