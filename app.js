@@ -1,4 +1,4 @@
-/* K研所 · build r1027 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1028 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1027';
+const APP_BUILD='r1028';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -687,15 +687,18 @@ function actionPlan(o,id,px,own){
   if((own||sys)&&lv.d240&&lv.d240<px&&lv.d240>=px*0.7) sells.push(`收盤跌破年線 <b>${lv.d240}</b>(${g(lv.d240)})`);
   if(pend) buys.push('AI Pick 已排定 <b>明天 9:00 開盤買進</b>');
   else if(!sys){buys.push(`AI Pick 出現買進訊號(勝算 ≥ ${(PMIN*100).toFixed(0)}% 或樹模型前 ${GK} 名;現在 ${pr!=null?pc(pr):'—'}${gr?`、第 ${gr} 名`:''})`);}
+  const PV=T.pv||{},pk=(PV.picks||[]).find(x=>x.id===id),pvh=(PV.pos||[]).find(x=>x.id===id);
+  if(!pend) buys.push(pvh?`📈 量價組已持有(${String(pvh.fill||'').slice(5).replace('-','/')} 買 ${pvh.entry})`:pk?`📈 量價組排名第 <b>${pk.rank}</b> 名(前 20 名有空位就隔天開盤買)`:'📈 進入量價組前 20 名');
   const up=['h60','h120','h250'].filter(k=>lv[k]&&lv[k]>px).sort((a,b)=>lv[a]-lv[b]);
   if(up.length) buys.push(`收盤站上 <b>${lv[up[0]]}</b>(${g(lv[up[0]])},${LV_DEF[up[0]][0].replace('站上 ','').replace('站上','')})`);
   else buys.push('已在一年新高區(強勢,不追高也可續抱)');
-  const now=sys?(sys&&T.pos.find(x=>x.id===id&&x.xsig)?'明天開盤賣出':'續抱'):own?(pr!=null&&pr<PEX?'依規則應賣出':'續抱'):pend?'明天開盤買進':'先觀望,等買進條件';
+  const now=sys?(sys&&T.pos.find(x=>x.id===id&&x.xsig)?'明天開盤賣出':'續抱'):own?(pr!=null&&pr<PEX?'依規則應賣出':'續抱'):pend?'明天開盤買進':pk&&!pvh?'可以買(量價組前 20 名)':'先觀望,還沒到買點';
   const col=/賣/.test(now)?'var(--down)':/買/.test(now)?'var(--up)':'var(--amber)';
   return `<div class="actp" style="margin:8px 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;line-height:1.6">
     <div style="font-size:15px;font-weight:900;margin-bottom:4px">📋 現在:<span style="color:${col}">${now}</span></div>
     <div style="font-weight:800;color:var(--down)">🔴 什麼時候賣(任一條成立)</div>${sells.length?sells.map(x=>`<div>・${x}</div>`).join(''):'<div style="color:var(--dim)">・沒有持有,不適用</div>'}
-    <div style="font-weight:800;color:var(--up);margin-top:4px">🟢 什麼時候${own||sys?'加碼':'買'}(任一條成立)</div>${buys.map(x=>`<div>・${x}</div>`).join('')}
+    <div style="font-weight:800;color:var(--up);margin-top:4px">🟢 什麼時候可以買${own||sys?'/加碼(賣掉後要買回也看這裡)':''}</div>${buys.map(x=>`<div>・${x}</div>`).join('')}
+    <div style="font-size:12.5px;margin-top:2px">👉 任一條成立 → <b>隔天 9:00 用開盤價買</b>;開盤漲超過 3% 或漲停鎖死就不追</div>
     <div style="color:var(--dim);font-size:11.5px;margin-top:4px">以上都是 1,899 檔、15 年回測驗證過的規則。</div></div>`;
 }
 function aiPickVerdict(id,own){
@@ -1950,7 +1953,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1027</span>');
+  diag.push('<span style="color:var(--dim)">build r1028</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
