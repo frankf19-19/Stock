@@ -1,4 +1,4 @@
-/* K研所 · build r1025 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1026 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1025';
+const APP_BUILD='r1026';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -659,7 +659,7 @@ function lvHTML(o,id,px,full){
   const row=(k,v)=>{const x=st[k];if(!x)return '';const [cnt,avg,win]=x,d=avg-b[0];
     const col=d<=-1?'var(--down)':d>=1?'var(--up)':'var(--dim)',tag=d<=-1?'比平常差':d>=1?'比平常好':'跟平常差不多';
     const ok=['h60','h120','h250','d240'].includes(k)||(k==='d60'&&lv._m60dn);   // 全市場 15 年驗證通過的價位
-    return `<div style="line-height:1.5">${LV_DEF[k][1]==='b'?'🟢':'🛡'} <b>${LV_DEF[k][0]} ${v}</b> <em>${g(v)}</em>${ok?' <span style="font-size:11px;padding:1px 6px;border-radius:8px;background:rgba(95,179,122,.18);color:#5FB37A;font-weight:900">✅ 全市場驗證</span>':''}<br><span style="color:var(--dim);font-size:12px">　過去 ${cnt} 次 → 20 日後平均 <b style="color:${col}">${avg>=0?'+':''}${avg}%</b>、上漲機率 ${win}%(<b style="color:${col}">${tag}</b>)</span></div>`;};
+    return `<div style="line-height:1.5">${LV_DEF[k][1]==='b'?'🟢':'🛡'} <b>${LV_DEF[k][0]} ${v}</b> <em>${g(v)}</em>${ok?` <span style="font-size:11px;padding:1px 6px;border-radius:8px;background:rgba(95,179,122,.18);color:#5FB37A;font-weight:900">✅ 全市場:${LV_DEF[k][1]==='b'?'突破後偏強':'跌破後偏弱'}</span>${(LV_DEF[k][1]==='b'?d<=-1:d>=1)?' <span style="font-size:11px;color:var(--amber)">⚠ 這檔歷史相反</span>':''}`:''}<br><span style="color:var(--dim);font-size:12px">　過去 ${cnt} 次 → 20 日後平均 <b style="color:${col}">${avg>=0?'+':''}${avg}%</b>、上漲機率 ${win}%(<b style="color:${col}">${tag}</b>)</span></div>`;};
   const ks=Object.keys(LV_DEF).filter(k=>lv[k]!=null&&st[k]);
   const up=ks.filter(k=>LV_DEF[k][1]==='b'&&lv[k]>px).sort((a,c)=>lv[a]-lv[c]);
   const dn=ks.filter(k=>LV_DEF[k][1]==='s'&&lv[k]<px).sort((a,c)=>lv[c]-lv[a]);
@@ -1924,7 +1924,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1025</span>');
+  diag.push('<span style="color:var(--dim)">build r1026</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
