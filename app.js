@@ -1,4 +1,4 @@
-/* K研所 · build r1024 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1025 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1024';
+const APP_BUILD='r1025';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1924,7 +1924,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1024</span>');
+  diag.push('<span style="color:var(--dim)">build r1025</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21999,21 +21999,21 @@ function pvHTML(){
   const recent=(S.log||[]).slice(0,8).map(x=>`<div style="font-size:12.5px;line-height:1.6">${x}</div>`).join('');
   return `<div class="dim-block pv-blk" style="margin-top:16px;border-left:4px solid #6FA8DC">
     <div style="font-weight:900;font-size:16px">📈 量價組・只看價格與成交量的選股</div>
-    <div class="dim-note" style="margin:4px 0 8px">38 項量價指標(漲幅、離高點距離、均線乖離與斜率、波動、量比、成交值、漲停次數、RSI/KD…),不用營收/法人/本益比。每 ${R.reb||5} 個交易日重排,買分數前 ${R.topk||20} 名;獨立模擬帳戶,每檔 10 萬,不影響原本 AI Pick。</div>
+    <div class="dim-note" style="margin:4px 0 8px">38 項量價指標(漲幅、離高點距離、均線乖離與斜率、波動、量比、成交值、漲停次數、RSI/KD…),不用營收/法人/本益比。每天收盤重新排名,盤中即時執行;獨立模擬帳戶,最多 ${R.topk||20} 檔、每檔 10 萬,不影響原本 AI Pick。</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px;font-size:13px">
-      <div>🟢 <b>買入價</b>:訊號隔天開盤價(漲停開出不買)</div><div>🛑 <b>停損價</b>:進場價 − ${R.stop_atr||3}×ATR(盤中觸及就賣)</div>
-      <div>🎯 <b>停利價</b>:進場價 +${Math.round((R.tp||0.25)*100)}%(盤中觸及就賣)</div><div>🔄 <b>換股</b>:掉出前 ${R.topk||20} 名,隔天開盤賣</div></div>
+      <div>🟢 <b>買入價</b>:新進前 ${R.topk||20} 名 → 隔天 9:00 官方開盤價(漲停鎖死不買)</div><div>🛑 <b>停損價</b>:進場價 − ${R.stop_atr||3}×ATR(盤中即時,碰到就賣)</div>
+      <div>🎯 <b>停利價</b>:進場價 +${Math.round((R.tp||0.25)*100)}%(盤中即時,碰到就賣)</div><div>🔄 <b>換股</b>:每天收盤檢查,掉出前 ${R.sell_rank||100} 名 → 隔天開盤賣</div></div>
     ${pend.length||sell.length?`<div style="font-size:13px;margin-bottom:8px">⏭ 明天開盤:${pend.length?`買進 <b>${pend.map(q=>q.name).join('、')}</b>`:''}${sell.length?`${pend.length?';':''}賣出 <b>${sell.map(q=>q.name).join('、')}</b>`:''}</div>`:''}
     <div style="font-weight:800;margin:6px 0">持股 ${(S.pos||[]).length} 檔${lastN?`・累計損益 <span style="color:${cl(lastN[1])}">${lastN[1]>=0?'+':''}${(lastN[1]||0).toLocaleString()} 元</span>`:''}${st.closed?`・已出場 ${st.closed} 筆、勝率 ${st.win}%、平均 ${fp(st.avg)}`:''}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">${pos||'<div class="dim-note">尚無持股(第一份名單產生後,隔天開盤買進)</div>'}</div>
-    ${picks?`<div style="margin-top:10px"><div style="font-weight:800;margin-bottom:4px">本週名單(${md(S.picks_d)} 排名・共評分 ${S.n_scored||'—'} 檔)</div>${picks}</div>`:''}
+    ${picks?`<div style="margin-top:10px"><div style="font-weight:800;margin-bottom:4px">最新排名(${md(S.picks_d)} 收盤・共評分 ${S.n_scored||'—'} 檔)</div>${picks}</div>`:''}
     ${recent?`<details class="aip-fold" style="margin-top:10px"><summary>📜 最近交易紀錄</summary>${recent}</details>`:''}
     <details class="aip-fold" style="margin-top:8px"><summary>🧪 回測驗證(${B.range||''},每年只用過去資料訓練)</summary>
       <div style="font-size:13px;margin:6px 0">採用規則年化 <b>${fp(B.cagr)}</b>、最大回落 ${fp(B.mdd)}|同期 0050 ${fp(B.b0050)}、最大回落 ${fp(B.bmdd0050)}|全市場等權 ${fp(B.mkt)}</div>
       <table class="mini-tbl" style="font-size:12.5px;width:100%"><tr><th>年度</th><th>量價組</th><th>0050</th></tr>${yrs}</table>
       <div style="font-weight:800;margin:8px 0 4px">買賣規則比較(同一回測)</div>
       <table class="mini-tbl" style="font-size:12.5px;width:100%"><tr><th>規則</th><th>年化</th><th>最大回落</th></tr>${vars}</table>
-      <div class="dim-note" style="margin-top:6px">停損 3ATR 讓年化少約 1.9%,但最大回落從 −37.7% 降到 −30.6%;停利 +25% 幾乎不影響報酬,保留以鎖住大漲。固定 −8% 停損、+15% 停利、收盤破月線停損都讓結果變差,不採用。歷史資料可能未含已下市股票,回測偏樂觀。</div></details>
+      <div class="dim-note" style="margin-top:6px">每天換股若「掉出前 20 就賣」會因頻繁進出把報酬吃光(−1.2%);改成「新進前 20 才買、掉出前 100 才賣」年化最高、交易次數最少,但最大回落比每週換股深(−41.7% vs −35.3%)。停損 3ATR 讓最大回落明顯變小;停利 +25% 幾乎不影響報酬。固定 −8% 停損、+15% 停利、收盤破月線停損都讓結果變差。歷史資料可能未含已下市股票,回測偏樂觀。</div></details>
   </div>`;
 }
 function aipOverview(){

@@ -554,6 +554,9 @@ def run_intraday(A, data, hhmm, log=print):
             p["est"] = e
     except Exception as ex:
         log(f"trader:盤中評估例外 {ex}")
+    try:                                                   # r1025:📈 量價組盤中(開盤成交、即時停損停利)
+        import pvsleeve; pvsleeve.intraday(A, data, T, today, hhmm, live, log)
+    except Exception as ex: log(f"trader:量價組盤中例外 {ex}")
     for e in ev: T.setdefault("log", []).insert(0, e); log("trader:" + e)
     T["log"] = T.get("log", [])[:300]; T["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M")
     return T

@@ -5,14 +5,16 @@
   買入價  = 訊號隔天開盤價(漲停開出買不到就放棄;跳空濾網回測無益,不用)
   停損價  = 進場價 − 3×ATR(14)  → 盤中觸及即出場(回測:年化 −1.9%,最大回落 −37.7% → −30.6%)
   停利價  = 進場價 × 1.25        → 盤中觸及即出場(回測:中性略正)
-  換股    = 每 5 個交易日重排,掉出前 20 名的隔天開盤賣出
+  換股    = r1025 每天收盤重排:新進前 20 名 → 隔天開盤買(有空位才買);持股掉出前 100 名 → 隔天開盤賣
+            (回測:每天但掉出前 20 就賣 −1.2%;前 40 +23.3%;前 100 +30.7%,交易次數最少)
+  盤中    = 09:00 用官方開盤價成交;停損/停利用即時成交價+官方最高最低確認,碰到就出場
 狀態存 aipick.json → trader.pv"""
 import json, math
 import numpy as np, pandas as pd
 
 FEATS = ['r5','r20','r60','r120','r250','r250x20','dh20','dh60','dh250','dl60','b5','b20','b60','b120','b240','s20','s60','m20_60','m60_240',
          'atr','vol20','vol60','vr5','vr20','lval','lim60','lim250','rsi','kd','gap','body20','upday20','nh20','dsh','skew60','maxr20','minr20','cv']
-TOPK = 20; REB = 5; STOP_ATR = 3.0; TP = 0.25; NOTIONAL = 100000; LIQ = 2e7
+TOPK = 20; REB = 1; SELL_RANK = 100; STOP_ATR = 3.0; TP = 0.25; NOTIONAL = 100000; LIQ = 2e7
 FEE_B = 0.001425; FEE_S = 0.001425 + 0.003
 _M = {}
 
@@ -133,13 +135,18 @@ def run(A, data, T, last, log=print):
             top = sc[:TOPK]; ids = {s["id"] for _, s, _ in top}
             S["picks"] = [{"id": s["id"], "name": s.get("name"), "sector": s.get("sector"), "z": round(z, 4), "rank": i+1, "px": (A.bars_of(s["id"])[1] or [[0,0,0,0]])[-1][3]} for i, (z, s, _) in enumerate(top)]
             S["picks_d"] = last; S["n_scored"] = len(sc)
-            held = {p["id"] for p in S["pos"]}
+            held = {p["id"] for p in S["pos"]}; RK = {s["id"]: i+1 for i, (z, s, _) in enumerate(sc)}
+            S["pend"] = [q for q in S["pend"] if q["sig_d"] >= last]
             for p in S["pos"]:
-                if p["id"] not in ids: S["pend"].append({"id": p["id"], "name": p["name"], "act": "sell", "sig_d": last})
+                p["rank"] = RK.get(p["id"])
+                if RK.get(p["id"], 10**6) > SELL_RANK: S["pend"].append({"id": p["id"], "name": p["name"], "act": "sell", "sig_d": last, "rank": RK.get(p["id"])})
+            slots = TOPK - len(S["pos"]) + sum(1 for q in S["pend"] if q["act"] == "sell" and q["sig_d"] == last)
             for i, (z, s, at) in enumerate(top):
-                if s["id"] not in held: S["pend"].append({"id": s["id"], "name": s.get("name"), "act": "buy", "sig_d": last, "atr": at, "rank": i+1})
+                if slots <= 0: break
+                if s["id"] in held: continue
+                S["pend"].append({"id": s["id"], "name": s.get("name"), "act": "buy", "sig_d": last, "atr": at, "rank": i+1}); slots -= 1
             nb = [q["name"] for q in S["pend"] if q["act"] == "buy" and q["sig_d"] == last]; ns = [q["name"] for q in S["pend"] if q["act"] == "sell" and q["sig_d"] == last]
-            ev.append(f"{last} 📈 量價組每週重排:明天開盤買進 {'、'.join(nb) or '無'};明天開盤換股賣出 {'、'.join(ns) or '無'}")
+            if nb or ns: ev.append(f"{last} 📈 量價組收盤重排:明天開盤買進 {'、'.join(nb) or '無'};明天開盤換股賣出 {'、'.join(ns) or '無'}")
             S["last_rb"] = last
     # 淨值
     real = sum(t["ret"]/100*NOTIONAL for t in S["trades"]); unreal = 0.0
@@ -151,15 +158,53 @@ def run(A, data, T, last, log=print):
     tr_ = S["trades"]
     S["stats"] = {"closed": len(tr_), "win": round(100*sum(1 for t in tr_ if t["ret"] > 0)/len(tr_), 1) if tr_ else None,
                   "avg": round(sum(t["ret"] for t in tr_)/len(tr_), 2) if tr_ else None, "realized": round(real)}
-    S["rules"] = {"topk": TOPK, "reb": REB, "stop_atr": STOP_ATR, "tp": TP, "liq": LIQ}
+    S["rules"] = {"topk": TOPK, "reb": REB, "sell_rank": SELL_RANK, "stop_atr": STOP_ATR, "tp": TP, "liq": LIQ}
     S["bt"] = BT
     for e in ev: S["log"].insert(0, e)
     S["log"] = S["log"][:200]; S["done"] = last; S["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M")
     for e in ev: T.setdefault("log", []).insert(0, e); log("pv:" + e)   # 也寫進主交易紀錄 → 手機推播
     return S
 
-BT = {"range": "2016-01~2026-09", "cagr": 28.8, "mdd": -30.6, "b0050": 25.4, "bmdd0050": -32.6, "mkt": 16.2,
-      "years": {"2016": [13.7, 26.3], "2017": [30.8, 18.5], "2018": [2.5, -8.6], "2019": [28.1, 34.1], "2020": [71.6, 42.7], "2021": [70.8, 14.5],
-                "2022": [-4.4, -18.9], "2023": [29.1, 21.8], "2024": [11.5, 57.5], "2025": [12.6, 40.2], "2026": [55.5, 60.7]},
-      "variants": [["每週換股、開盤買(無停損停利)", 30.4, -37.7], ["+ 停損 3ATR", 28.5, -30.6], ["+ 停損 3ATR + 停利 25%(採用)", 28.8, -30.6],
-                   ["停損 −8%", 21.5, -35.0], ["停利 +15%", 27.2, -37.5], ["收盤破月線停損", 2.1, -38.4], ["移動停利 高點−3ATR", 25.6, -28.9]]}
+def intraday(A, data, T, today, hhmm, live, log=print):
+    """盤中(5 分鐘一班):09:00 官方開盤價成交待辦;持股即時檢查停損/停利(即時成交價 + 官方最高/最低確認)"""
+    S = T.get("pv")
+    if not S: return
+    ev = []; keep = []
+    for q in S.get("pend") or []:
+        if q["sig_d"] >= today: keep.append(q); continue
+        px, hl = live(q["id"])
+        if not hl: keep.append(q); continue
+        op, h, l = hl
+        if q["act"] == "sell":
+            p = next((x for x in S["pos"] if x["id"] == q["id"]), None)
+            if p:
+                ret = (op*(1-FEE_S))/(p["entry"]*(1+FEE_B))-1
+                S["trades"].append({**p, "xd": today, "xt": "09:00", "xp": op, "why": "rot", "ret": round(ret*100, 2)}); S["pos"].remove(p)
+                ev.append(f"{today} 09:00 🔄 量價組換股賣出 {p['name']} 官方開盤 {op}({ret*100:+.1f}%)")
+            continue
+        d, o = A.bars_of(q["id"]); pc = o[-1][3] if o and d and d[-1] < today else None
+        if pc and h == l and op >= pc*1.095: ev.append(f"{today} 09:00 ❎ 量價組 {q['name']} 漲停鎖死買不到,放棄"); continue
+        if any(x["id"] == q["id"] for x in S["pos"]) or len(S["pos"]) >= TOPK: continue
+        stp = round(op - STOP_ATR*q["atr"], 2); tp = round(op*(1+TP), 2)
+        S["pos"].append({"id": q["id"], "name": q["name"], "fill": today, "ft": "09:00", "entry": op, "sh": int(NOTIONAL/op), "stop": stp, "tp": tp, "rank": q.get("rank"), "sig_d": q["sig_d"]})
+        ev.append(f"{today} 09:00 🟢 買進 量價組 {q['name']} 官方開盤 {op}(停損 {stp}、停利 {tp})")
+    S["pend"] = keep
+    for p in list(S["pos"]):
+        px, hl = live(p["id"])
+        if px is None or not hl: continue
+        op, h, l = hl; xp = why = None
+        if l <= p["stop"]: xp, why = min(op, p["stop"]), "sl"
+        elif h >= p["tp"]: xp, why = max(op, p["tp"]), "tp"
+        if xp:
+            ret = (xp*(1-FEE_S))/(p["entry"]*(1+FEE_B))-1
+            S["trades"].append({**p, "xd": today, "xt": hhmm, "xp": xp, "why": why, "ret": round(ret*100, 2)}); S["pos"].remove(p)
+            ev.append(f"{today} {hhmm} {'🛑 停損' if why=='sl' else '🎯 停利'} 量價組 {p['name']} {xp}({ret*100:+.1f}%)")
+        else: p["px"] = px
+    for e in ev: S["log"].insert(0, e); T.setdefault("log", []).insert(0, e); log("pv:" + e)
+
+BT = {"range": "2016-01~2026-09", "cagr": 30.7, "mdd": -41.7, "b0050": 25.4, "bmdd0050": -32.6, "mkt": 16.2,
+      "years": {"2016": [20.8, 26.3], "2017": [28.0, 18.5], "2018": [9.7, -8.6], "2019": [29.9, 34.1], "2020": [32.0, 42.7], "2021": [58.4, 14.5],
+                "2022": [2.1, -18.9], "2023": [48.4, 21.8], "2024": [42.8, 57.5], "2025": [21.4, 40.2], "2026": [36.5, 60.7]},
+      "variants": [["每週換股(原設計)", 27.4, -35.3], ["每天換股、掉出前 20 就賣", -1.2, -64.5], ["每天、掉出前 40 才賣", 23.3, -43.1],
+                   ["每天、掉出前 60 才賣", 29.5, -43.6], ["每天、掉出前 100 才賣(採用)", 30.7, -41.7],
+                   ["(每週版)不設停損停利", 30.4, -37.7], ["(每週版)停損 −8%", 21.5, -35.0], ["(每週版)停利 +15%", 27.2, -37.5], ["(每週版)收盤破月線停損", 2.1, -38.4]]}
