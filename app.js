@@ -1,4 +1,4 @@
-/* K研所 · build r1029 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1030 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1029';
+const APP_BUILD='r1030';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -675,23 +675,23 @@ function lvHTML(o,id,px,full){
 /* ══ r1029:📈 量價+技術交易計畫(量價組規則套用到單一個股;全部經 2016~2026 滾動回測) ══ */
 function pvPlanHTML(id,px,cost){
   const S=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader&&AIPK.trader.pv)||null;if(!S||!S.rank_all)return '';
-  const R=S.rules||{},K=R.topk||20,SR=R.sell_rank||100,SA=R.stop_atr||3,TP=R.tp||0.25;
+  const R=S.rules||{},K=R.topk||20,SR=R.sell_rank||200,SA=R.stop_atr,TP=R.tp||0.25;
   const x=S.rank_all[id],n=S.n_scored||'—';px=+px;if(!px)return '';
   const tk=v=>{const t=v<10?0.01:v<50?0.05:v<100?0.1:v<500?0.5:v<1000?1:5;return +(Math.round(v/t)*t).toFixed(2);};
   const g=v=>{const r=(v/px-1)*100;return `${r>=0?'+':''}${r.toFixed(1)}%`;};
   const held=(S.pos||[]).find(p=>p.id===id),pend=(S.pend||[]).find(q=>q.id===id);
-  if(!x)return `<div class="pvp" style="margin:8px 0;padding:10px 12px;border:1px solid #6FA8DC55;border-radius:10px;font-size:13px">📈 <b>量價+技術</b>:這檔成交值太小或資料不足,沒有排名(量價組只做日均成交值 ≥ 2,000 萬的股票)</div>`;
-  const [rk,atr]=x,base=held?held.entry:(cost||px),stop=held?held.stop:tk(base-SA*atr),tp=held?held.tp:tk(base*(1+TP));
+  if(!x)return `<div class="pvp" style="margin:8px 0;padding:10px 12px;border:1px solid #6FA8DC55;border-radius:10px;font-size:13px">📈 <b>量價籌碼</b>:這檔成交值太小或資料不足,沒有排名(量價組只做日均成交值 ≥ 2,000 萬的股票)</div>`;
+  const [rk,atr]=x,base=held?held.entry:(cost||px),stop=SA?(held?held.stop:tk(base-SA*atr)):null,tp=held?held.tp:tk(base*(1+TP));
   const now=held?(rk>SR?`掉出前 ${SR} 名 → 明天開盤賣`:'量價組持有中,續抱'):pend&&pend.act==='buy'?'量價組已排定明天開盤買':rk<=K?`在前 ${K} 名,可以買`:`第 ${rk} 名,還沒進前 ${K} 名`;
   const col=/賣/.test(now)?'var(--down)':/買/.test(now)?'var(--up)':'var(--amber)';
   return `<div class="pvp" style="margin:8px 0;padding:10px 12px;border:1px solid #6FA8DC88;border-radius:10px;font-size:13.5px;line-height:1.6">
-    <div style="font-weight:900">📈 量價+技術:<span style="color:${col}">${now}</span> <span style="font-weight:400;color:var(--dim);font-size:12px">(排名 ${rk}/${n},${String(S.rank_d||'').slice(5).replace('-','/')} 收盤)</span></div>
+    <div style="font-weight:900">📈 量價籌碼(量價+技術+乖離+法人+融資):<span style="color:${col}">${now}</span> <span style="font-weight:400;color:var(--dim);font-size:12px">(排名 ${rk}/${n},${String(S.rank_d||'').slice(5).replace('-','/')} 收盤)</span></div>
     <div>🟢 <b>買點</b>:排名進入前 ${K} 名 → 隔天 9:00 開盤價買(漲停鎖死不買)</div>
-    <div>🛑 <b>停損</b>:<b>${stop}</b>(${g(stop)})= ${held?'進場價':cost?'你的成本':'現價'} ${base} − ${SA}×ATR(${(+atr).toFixed(2)}),盤中碰到就賣</div>
+    <div>🛑 <b>停損</b>:${stop?`<b>${stop}</b>(${g(stop)})= ${held?'進場價':cost?'你的成本':'現價'} ${base} − ${SA}×ATR,盤中碰到就賣`:`排名掉出前 <b>${SR}</b> 名 → 隔天開盤賣(現在第 ${rk} 名)。<span style="color:var(--dim)">價格停損回測反而變差,所以用排名停損</span>`}</div>
     <div>🎯 <b>停利</b>:<b>${tp}</b>(${g(tp)})= ${held?'進場價':cost?'你的成本':'現價'} +${Math.round(TP*100)}%,盤中碰到就賣</div>
-    <div>🔄 <b>賣點</b>:排名掉出前 ${SR} 名 → 隔天開盤賣(現在第 ${rk} 名)</div>
+    <div>🔄 <b>賣點</b>:排名掉出前 ${SR} 名,或碰到停利價</div>
     <div>➕ <b>加碼</b>:<span style="color:var(--dim)">不建議——回測「獲利 5%/10% 且仍在前 20 名就加碼」11 年中只有 5~6 年比較好,沒有穩定效果</span></div>
-    <div style="color:var(--dim);font-size:11.5px">量價組回測 2016~2026:年化 +30.7%、最大回落 −41.7%(0050 +25.4%)。停損讓大跌時虧得少,停利 +25% 幾乎不影響報酬。</div></div>`;
+    <div style="color:var(--dim);font-size:11.5px">量價籌碼組回測 2016~2026:年化 +43.7%、最大回落 −31.2%(0050 +25.4%/−32.6%),11 年中 8 年贏 0050。回測偏樂觀,實際以模擬帳戶為準。</div></div>`;
 }
 function actionPlan(o,id,px,own){
   const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||{};const R=T.rules||{},PMIN=R.pmin||0.54,PEX=R.pexit||0.48,GK=(R.gbt&&R.gbt.topk)||15;
@@ -709,11 +709,11 @@ function actionPlan(o,id,px,own){
   if(pend) buys.push('AI Pick 已排定 <b>明天 9:00 開盤買進</b>');
   else if(!sys){buys.push(`AI Pick 出現買進訊號(勝算 ≥ ${(PMIN*100).toFixed(0)}% 或樹模型前 ${GK} 名;現在 ${pr!=null?pc(pr):'—'}${gr?`、第 ${gr} 名`:''})`);}
   const PV=T.pv||{},pk=(PV.picks||[]).find(x=>x.id===id),pvh=(PV.pos||[]).find(x=>x.id===id);
-  if(!pend) buys.push(pvh?`📈 量價組已持有(${String(pvh.fill||'').slice(5).replace('-','/')} 買 ${pvh.entry})`:pk?`📈 量價組排名第 <b>${pk.rank}</b> 名(前 20 名有空位就隔天開盤買)`:'📈 進入量價組前 20 名');
+  if(!pend) buys.push(pvh?`📈 量價籌碼組已持有(${String(pvh.fill||'').slice(5).replace('-','/')} 買 ${pvh.entry})`:pk?`📈 量價籌碼組排名第 <b>${pk.rank}</b> 名(前 20 名有空位就隔天開盤買)`:'📈 進入量價籌碼組前 20 名');
   const up=['h60','h120','h250'].filter(k=>lv[k]&&lv[k]>px).sort((a,b)=>lv[a]-lv[b]);
   if(up.length) buys.push(`收盤站上 <b>${lv[up[0]]}</b>(${g(lv[up[0]])},${LV_DEF[up[0]][0].replace('站上 ','').replace('站上','')})`);
   else buys.push('已在一年新高區(強勢,不追高也可續抱)');
-  const now=sys?(sys&&T.pos.find(x=>x.id===id&&x.xsig)?'明天開盤賣出':'續抱'):own?(pr!=null&&pr<PEX?'依規則應賣出':'續抱'):pend?'明天開盤買進':pk&&!pvh?'可以買(量價組前 20 名)':'先觀望,還沒到買點';
+  const now=sys?(sys&&T.pos.find(x=>x.id===id&&x.xsig)?'明天開盤賣出':'續抱'):own?(pr!=null&&pr<PEX?'依規則應賣出':'續抱'):pend?'明天開盤買進':pk&&!pvh?'可以買(量價籌碼組前 20 名)':'先觀望,還沒到買點';
   const col=/賣/.test(now)?'var(--down)':/買/.test(now)?'var(--up)':'var(--amber)';
   return `<div class="actp" style="margin:8px 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;line-height:1.6">
     <div style="font-size:15px;font-weight:900;margin-bottom:4px">📋 現在:<span style="color:${col}">${now}</span></div>
@@ -1974,7 +1974,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1029</span>');
+  diag.push('<span style="color:var(--dim)">build r1030</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -22049,11 +22049,11 @@ function pvHTML(){
   const vars=(B.variants||[]).map(v=>`<tr><td>${v[0]}</td><td>${fp(v[1])}</td><td>${fp(v[2])}</td></tr>`).join('');
   const recent=(S.log||[]).slice(0,8).map(x=>`<div style="font-size:12.5px;line-height:1.6">${x}</div>`).join('');
   return `<div class="dim-block pv-blk" style="margin-top:16px;border-left:4px solid #6FA8DC">
-    <div style="font-weight:900;font-size:16px">📈 量價組・只看價格與成交量的選股</div>
-    <div class="dim-note" style="margin:4px 0 8px">38 項量價指標(漲幅、離高點距離、均線乖離與斜率、波動、量比、成交值、漲停次數、RSI/KD…),不用營收/法人/本益比。每天收盤重新排名,盤中即時執行;獨立模擬帳戶,最多 ${R.topk||20} 檔、每檔 10 萬,不影響原本 AI Pick。</div>
+    <div style="font-weight:900;font-size:16px">📈 量價籌碼組・量價+技術+乖離+法人+融資</div>
+    <div class="dim-note" style="margin:4px 0 8px">38 項量價技術指標(漲幅、離高點距離、均線乖離與斜率、波動、量比、成交值、漲停次數、RSI/KD…)+ 籌碼(外資、投信 5/20 日買超佔均量、融資 20 日增減),不用營收/本益比。分點與大戶持股歷史還不夠長(約 1 年/15 週),累積到可驗證後再加入。每天收盤重新排名,盤中即時執行;獨立模擬帳戶,最多 ${R.topk||20} 檔、每檔 10 萬,不影響原本 AI Pick。</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px;font-size:13px">
-      <div>🟢 <b>買入價</b>:新進前 ${R.topk||20} 名 → 隔天 9:00 官方開盤價(漲停鎖死不買)</div><div>🛑 <b>停損價</b>:進場價 − ${R.stop_atr||3}×ATR(盤中即時,碰到就賣)</div>
-      <div>🎯 <b>停利價</b>:進場價 +${Math.round((R.tp||0.25)*100)}%(盤中即時,碰到就賣)</div><div>🔄 <b>換股</b>:每天收盤檢查,掉出前 ${R.sell_rank||100} 名 → 隔天開盤賣</div></div>
+      <div>🟢 <b>買入價</b>:新進前 ${R.topk||20} 名 → 隔天 9:00 官方開盤價(漲停鎖死不買)</div><div>🛑 <b>停損</b>:${R.stop_atr?`進場價 − ${R.stop_atr}×ATR`:`排名掉出前 ${R.sell_rank||200} 名就賣(不用價格停損:回測加了 4ATR 停損反而年化 −4.7%、回落更深)`}</div>
+      <div>🎯 <b>停利價</b>:進場價 +${Math.round((R.tp||0.25)*100)}%(盤中即時,碰到就賣)</div><div>🔄 <b>換股</b>:每天收盤檢查,掉出前 ${R.sell_rank||200} 名 → 隔天開盤賣</div></div>
     ${pend.length||sell.length?`<div style="font-size:13px;margin-bottom:8px">⏭ 明天開盤:${pend.length?`買進 <b>${pend.map(q=>q.name).join('、')}</b>`:''}${sell.length?`${pend.length?';':''}賣出 <b>${sell.map(q=>q.name).join('、')}</b>`:''}</div>`:''}
     <div style="font-weight:800;margin:6px 0">持股 ${(S.pos||[]).length} 檔${lastN?`・累計損益 <span style="color:${cl(lastN[1])}">${lastN[1]>=0?'+':''}${(lastN[1]||0).toLocaleString()} 元</span>`:''}${st.closed?`・已出場 ${st.closed} 筆、勝率 ${st.win}%、平均 ${fp(st.avg)}`:''}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">${pos||'<div class="dim-note">尚無持股(第一份名單產生後,隔天開盤買進)</div>'}</div>
@@ -22064,7 +22064,7 @@ function pvHTML(){
       <table class="mini-tbl" style="font-size:12.5px;width:100%"><tr><th>年度</th><th>量價組</th><th>0050</th></tr>${yrs}</table>
       <div style="font-weight:800;margin:8px 0 4px">買賣規則比較(同一回測)</div>
       <table class="mini-tbl" style="font-size:12.5px;width:100%"><tr><th>規則</th><th>年化</th><th>最大回落</th></tr>${vars}</table>
-      <div class="dim-note" style="margin-top:6px">每天換股若「掉出前 20 就賣」會因頻繁進出把報酬吃光(−1.2%);改成「新進前 20 才買、掉出前 100 才賣」年化最高、交易次數最少,但最大回落比每週換股深(−41.7% vs −35.3%)。停損 3ATR 讓最大回落明顯變小;停利 +25% 幾乎不影響報酬。固定 −8% 停損、+15% 停利、收盤破月線停損都讓結果變差。歷史資料可能未含已下市股票,回測偏樂觀。</div></details>
+      <div class="dim-note" style="margin-top:6px">加入籌碼後選股明顯變好(同規則年化 +30.7% → +35.0%)。賣出門檻放寬到「掉出前 200 名」、只留 +25% 停利、不用價格停損,年化最高、最大回落也最小;價格停損(3/4/6ATR)在這套規則下都讓結果變差。每天且掉出前 20 就賣會因頻繁進出把報酬吃光。注意:試了多種設定後取最佳,實際表現可能比回測低;歷史資料可能未含已下市股票,回測偏樂觀。</div></details>
   </div>`;
 }
 function aipOverview(){

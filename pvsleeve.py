@@ -1,4 +1,4 @@
-"""r1024:📈 量價組——只用價格與成交量的選股模型(38 項量價特徵,HistGradientBoosting,純 Python 推論)
+"""r1024:📈 量價籌碼組——只用價格與成交量的選股模型(38 項量價特徵,HistGradientBoosting,純 Python 推論)
 回測(2016~2026 滾動驗證,每年只用過去資料訓練):每週換前 20 名、含成本,年化 +28.8%、最大回落 −30.6%
 (同期 0050 +25.4%/−32.6%;全市場等權 +16.2%)。
 規則(皆經同一回測驗證):
@@ -13,14 +13,15 @@ import json, math
 import numpy as np, pandas as pd
 
 FEATS = ['r5','r20','r60','r120','r250','r250x20','dh20','dh60','dh250','dl60','b5','b20','b60','b120','b240','s20','s60','m20_60','m60_240',
-         'atr','vol20','vol60','vr5','vr20','lval','lim60','lim250','rsi','kd','gap','body20','upday20','nh20','dsh','skew60','maxr20','minr20','cv']
-TOPK = 20; REB = 1; SELL_RANK = 100; STOP_ATR = 3.0; TP = 0.25; NOTIONAL = 100000; LIQ = 2e7
+         'atr','vol20','vol60','vr5','vr20','lval','lim60','lim250','rsi','kd','gap','body20','upday20','nh20','dsh','skew60','maxr20','minr20','cv',
+         'x_f5','x_t5','x_f20','x_t20','x_mb']   # r1030:籌碼(外資/投信 5、20 日買超佔均量、融資 20 日變化)
+TOPK = 20; REB = 1; SELL_RANK = 200; STOP_ATR = None; TP = 0.25; MODEL_VER = 'pvc1'; NOTIONAL = 100000; LIQ = 2e7
 FEE_B = 0.001425; FEE_S = 0.001425 + 0.003
 _M = {}
 
 def model():
     if "m" not in _M:
-        try: _M["m"] = json.load(open("aipick_pv_model.json", encoding="utf-8"))
+        try: _M["m"] = json.load(open("aipick_pvc_model.json", encoding="utf-8"))
         except Exception: _M["m"] = None
     return _M["m"]
 
@@ -36,7 +37,7 @@ def score(x):
         z += t[i][5]
     return z
 
-def feats_df(o):
+def feats_df(o, ch=None):
     """o = [[開,高,低,收,量(張)],...](由舊到新);回傳與訓練完全相同定義的特徵表"""
     df = pd.DataFrame([b[:5] for b in o], columns=['O','H','L','C','V'], dtype=float)
     C,O,H,L,V = df.C,df.O,df.H,df.L,df.V
@@ -60,14 +61,30 @@ def feats_df(o):
      'nh20':(C>=C.rolling(20).max()).rolling(20).sum(),'dsh':(H.rolling(20).max().diff()!=0).rolling(20).sum(),
      'skew60':r.rolling(60).skew(),'maxr20':r.rolling(20).max(),'minr20':r.rolling(20).min(),
      'cv':(val/val.rolling(20).mean())})
+    vv = V.rolling(20).mean().replace(0, np.nan)
+    if ch is not None:
+        f = pd.Series(ch.get('f'), dtype=float).fillna(0); t = pd.Series(ch.get('t'), dtype=float).fillna(0)
+        F['x_f5'] = f.rolling(5).sum()/vv; F['x_t5'] = t.rolling(5).sum()/vv; F['x_f20'] = f.rolling(20).sum()/vv; F['x_t20'] = t.rolling(20).sum()/vv
+        mb = pd.Series(ch.get('mb'), dtype=float).ffill(); F['x_mb'] = mb/mb.shift(20)-1
+    else:
+        for c in ('x_f5','x_t5','x_f20','x_t20','x_mb'): F[c] = np.nan
     F['liq'] = val.rolling(20).median(); F['atr_abs'] = tr.rolling(14).mean()
     return F
 
-def feats_last(o):
+def chip_aligned(A, sid, d):
+    """把法人(c/ 分片 d/f/t)與融資(cd/mf)對齊到日K日期;沒有的日子法人記 0、融資沿用前值"""
+    ch = A.chip_of(sid) or {}
+    fm = dict(zip(ch.get("d") or [], ch.get("f") or [])); tm = dict(zip(ch.get("d") or [], ch.get("t") or []))
+    mm = dict(zip(ch.get("cd") or [], ch.get("mf") or []))
+    if not fm: return None
+    return {"f": [fm.get(x, 0) or 0 for x in d], "t": [tm.get(x, 0) or 0 for x in d], "mb": [mm.get(x) for x in d]}
+
+def feats_last(o, ch=None):
     if not o or len(o) < 262: return None, None
-    F = feats_df(o[-300:]); row = F.iloc[-1]
+    if ch is not None: ch = {k: v[-300:] for k, v in ch.items()}
+    F = feats_df(o[-300:], ch); row = F.iloc[-1]
     x = [float(row[f]) if row[f] == row[f] else float('nan') for f in FEATS]
-    if sum(1 for v in x if v != v) > 3: return None, None
+    if sum(1 for v in x if v != v) > 4: return None, None
     return x, row
 
 def _bar(A, sid, day):
@@ -80,6 +97,9 @@ def _bar(A, sid, day):
 def run(A, data, T, last, log=print):
     """收盤班呼叫:① 以今天日K成交上一輪訊號的進出(開盤價)② 盤中停損/停利(用今天最高最低)③ 每 5 個交易日重排前 20 名"""
     S = T.setdefault("pv", {"pos": [], "pend": [], "trades": [], "log": [], "nav": [], "picks": [], "last_rb": None, "start": last})
+    if S.get("ver") != MODEL_VER:                          # r1030:換成量價籌碼模型 → 舊名單作廢、尚未成交的待辦取消,以新模型重排
+        S["pend"] = []; S["picks"] = []; S["last_rb"] = None; S["rank_d"] = None; S["ver"] = MODEL_VER
+        for p in S["pos"]: p["stop"] = None
     if S.get("done") == last and S.get("rank_d") == last: return S
     fresh = S.get("done") != last
     ev = []; byid = {s["id"]: s for s in data.get("stocks", [])}
@@ -95,25 +115,25 @@ def run(A, data, T, last, log=print):
             if p:
                 ret = (op*(1-FEE_S))/(p["entry"]*(1+FEE_B))-1
                 S["trades"].append({**p, "xd": last, "xp": op, "why": "rot", "ret": round(ret*100, 2)}); S["pos"].remove(p)
-                ev.append(f"{last} 🔄 量價組換股賣出 {p['name']} 開盤 {op}({ret*100:+.1f}%)")
+                ev.append(f"{last} 🔄 量價籌碼組換股賣出 {p['name']} 開盤 {op}({ret*100:+.1f}%)")
         else:
-            if pb and pb[3] and op >= pb[3]*1.095: ev.append(f"{last} ❎ 量價組 {q['name']} 漲停開出買不到,放棄"); continue
+            if pb and pb[3] and op >= pb[3]*1.095: ev.append(f"{last} ❎ 量價籌碼組 {q['name']} 漲停開出買不到,放棄"); continue
             if any(x["id"] == q["id"] for x in S["pos"]): continue
-            stp = round(op - STOP_ATR*q["atr"], 2); tp = round(op*(1+TP), 2)
+            stp = round(op - STOP_ATR*q["atr"], 2) if STOP_ATR else None; tp = round(op*(1+TP), 2)
             S["pos"].append({"id": q["id"], "name": q["name"], "fill": last, "entry": op, "sh": int(NOTIONAL/op), "stop": stp, "tp": tp, "rank": q.get("rank"), "sig_d": q["sig_d"]})
-            ev.append(f"{last} 🟢 買進 量價組 {q['name']} 開盤 {op}(停損 {stp}、停利 {tp})")
+            ev.append(f"{last} 🟢 買進 量價籌碼組 {q['name']} 開盤 {op}(停利 {tp}{f"、停損 {stp}" if stp else ""})")
     S["pend"] = keep
     # ② 停損/停利(含今天剛買的)
     for p in (list(S["pos"]) if fresh else []):
         b, _ = _bar(A, p["id"], last)
         if not b: continue
         o_, h_, l_ = b[0], b[1], b[2]; xp = why = None
-        if l_ and l_ <= p["stop"]: xp, why = min(o_, p["stop"]), "sl"
+        if l_ and p.get("stop") and l_ <= p["stop"]: xp, why = min(o_, p["stop"]), "sl"
         elif h_ and h_ >= p["tp"]: xp, why = max(o_, p["tp"]), "tp"
         if xp:
             ret = (xp*(1-FEE_S))/(p["entry"]*(1+FEE_B))-1
             S["trades"].append({**p, "xd": last, "xp": xp, "why": why, "ret": round(ret*100, 2)}); S["pos"].remove(p)
-            ev.append(f"{last} {'🛑 停損' if why=='sl' else '🎯 停利'} 量價組 {p['name']} {xp}({ret*100:+.1f}%)")
+            ev.append(f"{last} {'🛑 停損' if why=='sl' else '🎯 停利'} 量價籌碼組 {p['name']} {xp}({ret*100:+.1f}%)")
     # ③ 重排(每 5 個交易日)
     d0, _ = A.bars_of("2330"); cal = [x for x in d0 if x <= last]
     due = (not S.get("last_rb")) or (S["last_rb"] in cal and len(cal) - 1 - cal.index(S["last_rb"]) >= REB) or (S["last_rb"] not in cal)
@@ -127,14 +147,14 @@ def run(A, data, T, last, log=print):
                 from trader import has_jump
                 if has_jump(o): continue
             except Exception: pass
-            x, row = feats_last(o)
+            x, row = feats_last(o, chip_aligned(A, s["id"], d))
             if x is None or not (row["liq"] >= LIQ): continue
             z = score(x)
             if z is not None: sc.append((z, s, float(row["atr_abs"])))
         sc.sort(key=lambda t: -t[0])
         if len(sc) >= 100:                                  # r1029:每檔量價排名 + ATR(個股頁/卡片算停損用)
             S["rank_all"] = {s["id"]: [i+1, round(at, 4)] for i, (z, s, at) in enumerate(sc)}; S["rank_d"] = last; S["n_scored"] = len(sc)
-        if len(sc) >= 100 and due and fresh:
+        if len(sc) >= 100 and due and (fresh or not S.get("last_rb")):
             top = sc[:TOPK]; ids = {s["id"] for _, s, _ in top}
             S["picks"] = [{"id": s["id"], "name": s.get("name"), "sector": s.get("sector"), "z": round(z, 4), "rank": i+1, "px": (A.bars_of(s["id"])[1] or [[0,0,0,0]])[-1][3]} for i, (z, s, _) in enumerate(top)]
             S["picks_d"] = last; S["n_scored"] = len(sc)
@@ -149,7 +169,7 @@ def run(A, data, T, last, log=print):
                 if s["id"] in held: continue
                 S["pend"].append({"id": s["id"], "name": s.get("name"), "act": "buy", "sig_d": last, "atr": at, "rank": i+1}); slots -= 1
             nb = [q["name"] for q in S["pend"] if q["act"] == "buy" and q["sig_d"] == last]; ns = [q["name"] for q in S["pend"] if q["act"] == "sell" and q["sig_d"] == last]
-            if nb or ns: ev.append(f"{last} 📈 量價組收盤重排:明天開盤買進 {'、'.join(nb) or '無'};明天開盤換股賣出 {'、'.join(ns) or '無'}")
+            if nb or ns: ev.append(f"{last} 📈 量價籌碼組收盤重排:明天開盤買進 {'、'.join(nb) or '無'};明天開盤換股賣出 {'、'.join(ns) or '無'}")
             S["last_rb"] = last
     # 淨值
     real = sum(t["ret"]/100*NOTIONAL for t in S["trades"]); unreal = 0.0
@@ -183,31 +203,31 @@ def intraday(A, data, T, today, hhmm, live, log=print):
             if p:
                 ret = (op*(1-FEE_S))/(p["entry"]*(1+FEE_B))-1
                 S["trades"].append({**p, "xd": today, "xt": "09:00", "xp": op, "why": "rot", "ret": round(ret*100, 2)}); S["pos"].remove(p)
-                ev.append(f"{today} 09:00 🔄 量價組換股賣出 {p['name']} 官方開盤 {op}({ret*100:+.1f}%)")
+                ev.append(f"{today} 09:00 🔄 量價籌碼組換股賣出 {p['name']} 官方開盤 {op}({ret*100:+.1f}%)")
             continue
         d, o = A.bars_of(q["id"]); pc = o[-1][3] if o and d and d[-1] < today else None
-        if pc and h == l and op >= pc*1.095: ev.append(f"{today} 09:00 ❎ 量價組 {q['name']} 漲停鎖死買不到,放棄"); continue
+        if pc and h == l and op >= pc*1.095: ev.append(f"{today} 09:00 ❎ 量價籌碼組 {q['name']} 漲停鎖死買不到,放棄"); continue
         if any(x["id"] == q["id"] for x in S["pos"]) or len(S["pos"]) >= TOPK: continue
-        stp = round(op - STOP_ATR*q["atr"], 2); tp = round(op*(1+TP), 2)
+        stp = round(op - STOP_ATR*q["atr"], 2) if STOP_ATR else None; tp = round(op*(1+TP), 2)
         S["pos"].append({"id": q["id"], "name": q["name"], "fill": today, "ft": "09:00", "entry": op, "sh": int(NOTIONAL/op), "stop": stp, "tp": tp, "rank": q.get("rank"), "sig_d": q["sig_d"]})
-        ev.append(f"{today} 09:00 🟢 買進 量價組 {q['name']} 官方開盤 {op}(停損 {stp}、停利 {tp})")
+        ev.append(f"{today} 09:00 🟢 買進 量價籌碼組 {q['name']} 官方開盤 {op}(停利 {tp}{f"、停損 {stp}" if stp else ""})")
     S["pend"] = keep
     for p in list(S["pos"]):
         px, hl = live(p["id"])
         if px is None or not hl: continue
         op, h, l = hl; xp = why = None
-        if l <= p["stop"]: xp, why = min(op, p["stop"]), "sl"
+        if p.get("stop") and l <= p["stop"]: xp, why = min(op, p["stop"]), "sl"
         elif h >= p["tp"]: xp, why = max(op, p["tp"]), "tp"
         if xp:
             ret = (xp*(1-FEE_S))/(p["entry"]*(1+FEE_B))-1
             S["trades"].append({**p, "xd": today, "xt": hhmm, "xp": xp, "why": why, "ret": round(ret*100, 2)}); S["pos"].remove(p)
-            ev.append(f"{today} {hhmm} {'🛑 停損' if why=='sl' else '🎯 停利'} 量價組 {p['name']} {xp}({ret*100:+.1f}%)")
+            ev.append(f"{today} {hhmm} {'🛑 停損' if why=='sl' else '🎯 停利'} 量價籌碼組 {p['name']} {xp}({ret*100:+.1f}%)")
         else: p["px"] = px
     for e in ev: S["log"].insert(0, e); T.setdefault("log", []).insert(0, e); log("pv:" + e)
 
-BT = {"range": "2016-01~2026-09", "cagr": 30.7, "mdd": -41.7, "b0050": 25.4, "bmdd0050": -32.6, "mkt": 16.2,
-      "years": {"2016": [20.8, 26.3], "2017": [28.0, 18.5], "2018": [9.7, -8.6], "2019": [29.9, 34.1], "2020": [32.0, 42.7], "2021": [58.4, 14.5],
-                "2022": [2.1, -18.9], "2023": [48.4, 21.8], "2024": [42.8, 57.5], "2025": [21.4, 40.2], "2026": [36.5, 60.7]},
-      "variants": [["每週換股(原設計)", 27.4, -35.3], ["每天換股、掉出前 20 就賣", -1.2, -64.5], ["每天、掉出前 40 才賣", 23.3, -43.1],
-                   ["每天、掉出前 60 才賣", 29.5, -43.6], ["每天、掉出前 100 才賣(採用)", 30.7, -41.7],
-                   ["(每週版)不設停損停利", 30.4, -37.7], ["(每週版)停損 −8%", 21.5, -35.0], ["(每週版)停利 +15%", 27.2, -37.5], ["(每週版)收盤破月線停損", 2.1, -38.4]]}
+BT = {"range": "2016-01~2026-09", "cagr": 43.7, "mdd": -31.2, "b0050": 25.4, "bmdd0050": -32.6, "mkt": 16.2,
+      "years": {"2016": [43.6, 26.3], "2017": [43.7, 18.5], "2018": [11.2, -8.6], "2019": [25.1, 34.1], "2020": [68.2, 42.7], "2021": [49.3, 14.5],
+                "2022": [27.1, -18.9], "2023": [53.7, 21.8], "2024": [34.5, 57.5], "2025": [33.8, 40.2], "2026": [75.4, 60.7]},
+      "variants": [["純量價(不含籌碼)、每天、前100賣、停損3ATR", 30.7, -41.7], ["量價+籌碼、每週換股", 30.5, -33.5], ["量價+籌碼、每天、前100賣、停損3ATR+停利25%", 35.0, -39.4],
+                   ["量價+籌碼、每天、前100賣、不設停損停利", 39.6, -35.8], ["量價+籌碼、每天、前150賣、停利25%", 44.5, -33.8],
+                   ["量價+籌碼、每天、前200賣、停利25%(採用)", 43.7, -31.2], ["同上+停損4ATR", 39.0, -36.5], ["同上+停損6ATR", 42.9, -35.3], ["前300賣、停利25%", 38.9, -32.0]]}
