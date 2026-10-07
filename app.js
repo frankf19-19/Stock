@@ -1,4 +1,4 @@
-/* K研所 · build r1019 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1020 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1019';
+const APP_BUILD='r1020';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -612,6 +612,33 @@ function showFavPage(){
    其他規則訊號(突破/出場線/停利停損/蓄勢待發/分點)14 年回測或實盤追蹤沒有穩定優勢 → 收進預設摺疊的「參考」 ══ */
 /* r1019:卡片只顯示「驗證過」的東西——AI Pick 模型(十年滾動驗證)與它的進出場規則。
    防守價/買進區/停利/關鍵分點/綜合分數經 2012~2026 回測(1,899 檔、61 萬筆)都沒有預測力,不再顯示 */
+/* ══ r1020:✅ 驗證過的買賣價位(2012~2026、1,899 檔回測,訊號後 20 日超額報酬,15 年中 ≥14 年方向正確)
+   買:收盤站上 60 日高 +1.0% / 半年高 +1.4% / 一年高 +1.7%
+   賣:整理區(60 日寬≤20%、40 日≤15%、20 日≤10%)跌破下緣 −0.8~−1.2%;跌破季線且季線下彎 −0.6%;跌破年線 −0.6%
+   (回檔買進區、防守價、停利壓力、跌破 10/20 日低 → 回測無效,不使用) ══ */
+function vPlan(o){
+  if(!o||o.length<60)return null;const n=o.length,H=o.map(b=>b[1]),L=o.map(b=>b[2]),C=o.map(b=>b[3]),px=C[n-1];
+  const mx=(a,k)=>Math.max(...a.slice(-k)),mn=(a,k)=>Math.min(...a.slice(-k)),avg=(k,e)=>{const a=C.slice(n-k-(e||0),n-(e||0));return a.length===k?a.reduce((x,y)=>x+y,0)/k:null;};
+  const tk=v=>{const t=v<10?0.01:v<50?0.05:v<100?0.1:v<500?0.5:v<1000?1:5;return +(Math.round(v/t)*t).toFixed(2);};
+  const buys=[[60,'60 日高',1.0],[120,'半年高',1.4],[250,'一年高',1.7]].filter(x=>n>=x[0]).map(([k,lab,ex])=>({v:tk(mx(H,k)),lab,ex,k}));
+  const up=buys.filter(b=>b.v>px).sort((a,b)=>a.v-b.v);
+  const buy=up[0]||null,atHigh=!buy&&buys.length?buys[buys.length-1]:null;
+  const sells=[];
+  for(const [k,w,ex] of [[60,0.20,1.2],[40,0.15,1.1],[20,0.10,0.8]]){const hi=mx(H,k),lo=mn(L,k);if((hi-lo)/px<=w&&lo<px){sells.push({v:tk(lo),lab:`${k} 日整理區下緣`,ex,cond:'收盤跌破'});break;}}
+  const m60=avg(60),m60p=avg(60,5);if(m60&&m60<px)sells.push({v:tk(m60),lab:'季線',ex:0.6,cond:m60<m60p?'收盤跌破(季線已下彎)':'收盤跌破且季線轉下彎'});
+  const m240=n>=240?avg(240):null;if(m240&&m240<px)sells.push({v:tk(m240),lab:'年線',ex:0.6,cond:'收盤跌破'});
+  sells.sort((a,b)=>b.v-a.v);
+  return {px,buy,atHigh,sells:sells.filter(x=>x.v>=px*0.7).slice(0,2)};
+}
+function vPlanHTML(V,px){
+  if(!V)return '';px=+px||V.px;const g=v=>{const r=(v/px-1)*100;return `<em>${r>=0?'+':''}${r.toFixed(1)}%</em>`;};
+  let h='<div class="vplan" style="margin:6px 0;display:flex;flex-direction:column;gap:5px;font-size:13px">';
+  if(V.buy)h+=`<div>🟢 <b>買進價 ${V.buy.v}</b> ${g(V.buy.v)}<span style="color:var(--dim)">・收盤站上${V.buy.lab}才買(歷史上之後 20 日平均贏大盤 +${V.buy.ex}%)</span></div>`;
+  else if(V.atHigh)h+=`<div>🟢 <b>已站上${V.atHigh.lab}</b><span style="color:var(--dim)">・創新高區屬強勢(歷史上之後 20 日平均贏大盤 +${V.atHigh.ex}%)</span></div>`;
+  V.sells.forEach(x=>{h+=`<div>🔴 <b>賣出價 ${x.v}</b> ${g(x.v)}<span style="color:var(--dim)">・${x.cond}${x.lab}(歷史上之後 20 日平均輸大盤 −${x.ex}%)</span></div>`;});
+  if(!V.sells.length)h+='<div style="color:var(--dim)">🔴 下方沒有驗證過的賣出價位(季線/年線都在現價之上)</div>';
+  return h+'</div>';
+}
 function aiPickVerdict(id,own){
   const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||null;if(!T)return null;
   const R=T.rules||{},PMIN=R.pmin||0.54,PEX=R.pexit||0.48,GK=(R.gbt&&R.gbt.topk)||15,GX=(R.gbt&&R.gbt.xpct)||0.5,GAP=R.gap_max||0.03;
@@ -701,6 +728,7 @@ async function favStateFill(){
         if(P&&P.entry&&px0){own=true;const r=(px0/P.entry-1)*100;plan+=`<div class="fav-pnl" style="font-size:13px;margin:6px 0 2px">💼 持股成本 <b>${P.entry}</b>・損益 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b></div>`;}}catch(e){}
       const av=aiPickVerdict(id,own);
       if(av&&av.act)plan+=av.act;
+      try{plan+=vPlanHTML(vPlan(k.ohlc),s.price);}catch(e){}   // r1020:驗證過的買賣價位
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
       FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:av?av.txt:'🤖 AI Pick 資料載入中',plan};
       favStPaint(id);
@@ -724,7 +752,7 @@ function renderFav(){
       <span class="r-name"><span class="fav-tg on" data-fav="${s.id}" title="移除收藏">★</span> ${s.name} <span class="c-code">${s.id}</span>
         <span class="pxpill ${s.chg>0?'up':s.chg<0?'dn':''}" data-pxp="${s.id}"><b class="rpx" data-ppx="${s.id}">${s.price??'—'}</b><span class="pxchg" data-pch="${s.id}">${chgHtml(s.chg)}</span></span><span class="mini-candle" data-candle="${s.id}"></span></span>
       <span class="r-desc">${s.etf?`${(s.perf&&s.perf.q!=null)?`近3月 ${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%`:'ETF'}${s.hold&&s.hold.dy?` · 殖利率 ${s.hold.dy.toFixed(2)}%`:''}${s.hold&&s.hold.aum?` · 規模 ${(s.hold.aum/1e8).toFixed(0)} 億`:''}`
-        :`${s.sector||s.industry||''}`}</span>
+        :`綜合 ${total(s)} 分(≥70 驗證有效・≤45 偏弱)`}</span>
       ${s.etf?'':(FAVST[s.id]?`<span class="fav-st ${FAVST[s.id].cls}">${FAVST[s.id].html}</span>`:'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>')}
       ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:''}</div>`:''}
     </div>`;
@@ -1864,7 +1892,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1019</span>');
+  diag.push('<span style="color:var(--dim)">build r1020</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13874,6 +13902,7 @@ async function showDetail(id){
   try{usEarnBlock(s);}catch(e){}
   setTimeout(()=>{try{usInsiderBlock(s);}catch(e){}},1600);   // r1014:美股內部人買賣(籌碼章)
   // r1019:防守價區塊下架——2012~2026 回測跌破防守價後 20 日超額報酬 +0.07%,沒有預測力
+  setTimeout(()=>{try{vBox(s);}catch(e){}},1200);            // r1020:驗證過的買賣價位
   try{usFundBlock(s);}catch(e){}   // r530:美股財報速覽(SEC XBRL)
   try{const fb=document.getElementById('rptFull');if(fb)fb.onclick=()=>rptFullRun(s);}catch(e12){}   // r790:一鍵完整分析
   window.__costR=null;
@@ -21733,6 +21762,13 @@ function defPlanRow(D,px){
   return `<div class="fav-def fav-bt"><span class="fd-a" style="border-color:var(--amber)">🎯 買進區 <b>${D.bz[0]}~${D.bz[1]}</b> <em style="color:${D.inBz?'var(--up)':'var(--dim)'}">${D.inBz?'現價在區內':px>D.bz[1]?'等回檔':'已跌破'}</em></span>`
     +`<span class="fd-a" style="border-color:var(--up)">💰 停利 <b>${D.tp1}</b> ${g(D.tp1)}${D.tp2?` → <b>${D.tp2}</b> ${g(D.tp2)}`:''}</span>`
     +`<span class="fd-c">停利依據:${D.tp1src}${/估/.test(D.tp1src)?'':'(上方壓力)'}${D.rr!=null?`・區內買進報酬風險比 ${D.rr}:1`:''}</span></div>`;
+}
+async function vBox(s){
+  try{if(!s||s.etf)return;const k=await loadK(s);if(!k||!k.ohlc)return;if(location.hash!=='#stock/'+s.id)return;
+    const V=vPlan(k.ohlc);if(!V)return;let box=document.getElementById('vBox');
+    if(!box){const sb=document.getElementById('sb-stk_k');if(!sb)return;box=document.createElement('div');box.id='vBox';box.dataset.jumpname='✅ 買賣價位';sb.prepend(box);}
+    box.innerHTML=`<div class="dim-block" style="border-left:4px solid var(--amber)"><div style="font-weight:900;margin-bottom:4px">✅ 買賣價位(回測驗證過)</div>${vPlanHTML(V,s.price)}<div class="dim-note">依 2012~2026 年 1,899 檔回測:只列出「之後 20 日報酬明顯優於/劣於大盤、15 年中至少 14 年成立」的價位規則。回檔買進區、防守價、停利壓力等未通過驗證,不列出。</div></div>`;
+  }catch(e){}
 }
 async function defBox(s){
   try{
