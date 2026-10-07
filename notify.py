@@ -620,7 +620,7 @@ def collect_events(aip, prices):
         for x in ((aip.get("trader") or {}).get("log") or [])[:40]:
             if not x.startswith(today): continue
             body = x[11:]
-            lvl = 1 if any(k in body for k in ("🟢 買進", "➕ 加碼", "🛑 停損", "🔒 移動停利", "📉 模型轉弱", "💵")) else 2 if any(k in body for k in ("明天開盤", "➕ 加碼訊號")) else 0
+            lvl = 1 if any(k in body for k in ("🟢 買進", "➕ 加碼", "🛑 停損", "🔒 移動停利", "📉 模型轉弱", "💵", "🎯 停利", "🔄 量價組換股")) else 2 if any(k in body for k in ("明天開盤", "➕ 加碼訊號")) else 0
             if not lvl: continue
             if "收盤掃描" in body and "明天開盤買進" not in body: continue
             ev.append((f"tr|{today}|{hashlib.md5(body.encode()).hexdigest()[:10]}", lvl, f"🎯 <b>AI Pick 每日交易</b>\n{body}"))

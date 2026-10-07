@@ -446,6 +446,9 @@ def run(A, data, log=print):
         nav.append([last, round(real + unreal), len(T["pos"]), e8])
         T["nav"] = nav[-400:]
     except Exception as e: log(f"trader:淨值曲線例外 {e}")
+    try:                                                   # r1024:📈 量價組(純量價模型,獨立模擬帳戶)
+        import pvsleeve; pvsleeve.run(A, data, T, last, log)
+    except Exception as e: log(f"trader:量價組例外 {e}")
     T["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M"); T["last_bar"] = last
     for e in ev: log("trader:" + e)
     return T
