@@ -1,4 +1,4 @@
-/* K研所 · build r1015 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1016 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1015';
+const APP_BUILD='r1016';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -682,7 +682,7 @@ async function favStateFill(){
         if(P&&P.entry&&px0){const r=(px0/P.entry-1)*100;plan+=`<div class="fav-pnl" style="font-size:13px;margin:6px 0 2px">💼 持股成本 <b>${P.entry}</b>・損益 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b></div>`;}}catch(e){}
       try{const D=typeof defPlan==='function'?defPlan(k.ohlc):null;   // r1014:最愛卡片也顯示防守價/站回價
         if(D){const px=+s.price>0?+s.price:D.px,br=px<D.def,g=(px/D.def-1)*100;
-          plan=(plan||'')+`<div class="fav-def"><span class="fd-a" style="border-color:${br?'var(--down)':'#5FB37A'}">🛡 防守 <b>${D.def}</b> <em style="color:${br?'var(--down)':g<3?'var(--amber)':'var(--dim)'}">${br?'已跌破':(g>=0?'+':'')+g.toFixed(1)+'%'}</em></span><span class="fd-b">↩ 跌破後站回 <b>${D.reclaim}</b> 再買</span><span class="fd-c">${D.src} ${D.sup}</span></div>`;}}catch(e){}
+          plan=(plan||'')+`<div class="fav-def"><span class="fd-a" style="border-color:${br?'var(--down)':'#5FB37A'}">🛡 防守 <b>${D.def}</b> <em style="color:${br?'var(--down)':g<3?'var(--amber)':'var(--dim)'}">${br?'已跌破':(g>=0?'+':'')+g.toFixed(1)+'%'}</em></span><span class="fd-b">↩ 跌破後站回 <b>${D.reclaim}</b> 再買</span><span class="fd-c">${D.src} ${D.sup}</span></div>`+defPlanRow(D,px);}}catch(e){}
       plan+=favRefWrap(ref,st.txt+fut);
       FAVST[id]={t:Date.now(),cls:av?av.cls:st.cls,html:av?av.txt:(st.txt+fut),plan};
       favStPaint(id);
@@ -1846,7 +1846,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1015</span>');
+  diag.push('<span style="color:var(--dim)">build r1016</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21697,7 +21697,24 @@ function defPlan(o){
   for(const [v,lab] of sup){const v2=v-0.5*a;if(v2>=smax&&v2<=smin){st=v2;src=lab;sv=v;break;}}
   if(st==null){st=smin;src='1.5 倍 ATR';sv=st+0.5*a;}
   const tk=v=>{const t=v<10?0.01:v<50?0.05:v<100?0.1:v<500?0.5:v<1000?1:5;return Math.round(v/t)*t;};
-  return {px,atr:a,def:+tk(st).toFixed(2),src,sup:+tk(sv).toFixed(2),reclaim:+tk(sv+0.5*a).toFixed(2)};
+  // r1016:買進區 = 支撐 ~ 支撐 + 0.5 ATR(離防守價最近、風險最小的位置);停利 = 上方最近的壓力(波段高/60 日高/一年高),至少高於現價 1 ATR
+  const res=[];const addR=(v,lab)=>{if(v&&v>=px+a)res.push([v,lab]);};
+  for(let i=Math.max(3,n-250);i<n-3;i++){const w=H.slice(i-3,i+4);if(H[i]===Math.max(...w))addR(H[i],'波段高');}
+  addR(Math.max(...H.slice(-60)),'60 日高');addR(Math.max(...H.slice(-250)),'一年高');
+  res.sort((x,y)=>x[0]-y[0]);
+  let tp1=null,tp1src='',tp2=null;
+  if(res.length){tp1=res[0][0];tp1src=res[0][1];const r2=res.find(r=>r[0]>=tp1+a);if(r2)tp2=r2[0];}
+  else{tp1=px+3*a;tp1src='創高區・3 ATR 估';}
+  const bzLo=+tk(sv).toFixed(2),bzHi=+tk(sv+0.5*a).toFixed(2),mid=(bzLo+bzHi)/2,dv=+tk(st).toFixed(2);
+  const rr=mid>dv?+(((tp1-mid)/(mid-dv))).toFixed(1):null;
+  return {px,atr:a,def:dv,src,sup:bzLo,reclaim:bzHi,bz:[bzLo,bzHi],inBz:px>=dv&&px<=bzHi,tp1:+tk(tp1).toFixed(2),tp1src,tp2:tp2?+tk(tp2).toFixed(2):null,rr};
+}
+/* r1016:買進區/停利列(卡片與個股頁共用) */
+function defPlanRow(D,px){
+  if(!D||!D.bz)return '';const g=v=>{const r=(v/px-1)*100;return `<em>${r>=0?'+':''}${r.toFixed(1)}%</em>`;};
+  return `<div class="fav-def fav-bt"><span class="fd-a" style="border-color:var(--amber)">🎯 買進區 <b>${D.bz[0]}~${D.bz[1]}</b> <em style="color:${D.inBz?'var(--up)':'var(--dim)'}">${D.inBz?'現價在區內':px>D.bz[1]?'等回檔':'已跌破'}</em></span>`
+    +`<span class="fd-a" style="border-color:var(--up)">💰 停利 <b>${D.tp1}</b> ${g(D.tp1)}${D.tp2?` → <b>${D.tp2}</b> ${g(D.tp2)}`:''}</span>`
+    +`<span class="fd-c">停利依據:${D.tp1src}${/估/.test(D.tp1src)?'':'(上方壓力)'}${D.rr!=null?`・區內買進報酬風險比 ${D.rr}:1`:''}</span></div>`;
 }
 async function defBox(s){
   try{
@@ -21711,7 +21728,7 @@ async function defBox(s){
       <div class="def-row"><div><i>🛡 防守價</i><b>${D.def}</b><small>${D.src} ${D.sup} 下方 0.5 ATR</small></div>
         <div><i>現價距離</i><b style="color:${broke?'var(--down)':g<3?'var(--amber)':'var(--up)'}">${broke?'已跌破':(g>=0?'+':'')+g.toFixed(1)+'%'}</b><small>現價 ${live}</small></div>
         <div><i>↩ 跌破後站回</i><b>${D.reclaim}</b><small>收盤站回才建議再買</small></div></div>
-      <div class="dim-note">${broke?`⚠ 現價已跌破防守價 ${D.def}:建議先出場或不進場。之後要<b>收盤站回 ${D.reclaim}</b>(原支撐 ${D.sup} + 0.5 ATR,確認不是假跌破)才建議重新買進;站不回就等新的支撐成形。`:`收盤跌破 <b>${D.def}</b> 代表「${D.src} ${D.sup}」這道支撐失守,建議出場;跌破後要<b>收盤站回 ${D.reclaim}</b> 才建議重新買進。`}防守價依這檔自己的結構計算(不緊於 1.5 ATR、不寬於 2.5 ATR 或 10%),ATR ≈ ${D.atr.toFixed(2)}。</div></div>`;
+      <div class="dim-note">${broke?`⚠ 現價已跌破防守價 ${D.def}:建議先出場或不進場。之後要<b>收盤站回 ${D.reclaim}</b>(原支撐 ${D.sup} + 0.5 ATR,確認不是假跌破)才建議重新買進;站不回就等新的支撐成形。`:`收盤跌破 <b>${D.def}</b> 代表「${D.src} ${D.sup}」這道支撐失守,建議出場;跌破後要<b>收盤站回 ${D.reclaim}</b> 才建議重新買進。`}防守價依這檔自己的結構計算(不緊於 1.5 ATR、不寬於 2.5 ATR 或 10%),ATR ≈ ${D.atr.toFixed(2)}。</div>${defPlanRow(D,live)}</div>`;
   }catch(e){}
 }
 /* ══ r998:🇺🇸 美股即時報價共用層(Finnhub,金鑰存本機)——抽屜最愛、AI Pick 美股、個股頁共用;每 30 秒輪詢,累積當日走勢 ══ */
