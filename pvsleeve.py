@@ -121,7 +121,7 @@ def run(A, data, T, last, log=print):
             if any(x["id"] == q["id"] for x in S["pos"]): continue
             stp = round(op - STOP_ATR*q["atr"], 2) if STOP_ATR else None; tp = round(op*(1+TP), 2)
             S["pos"].append({"id": q["id"], "name": q["name"], "fill": last, "entry": op, "sh": int(NOTIONAL/op), "stop": stp, "tp": tp, "rank": q.get("rank"), "sig_d": q["sig_d"]})
-            ev.append(f"{last} 🟢 買進 量價籌碼組 {q['name']} 開盤 {op}(停利 {tp}{f"、停損 {stp}" if stp else ""})")
+            ev.append(f"{last} 🟢 買進 量價籌碼組 {q['name']} 開盤 {op}(停利 {tp}{('、停損 ' + str(stp)) if stp else ''})")
     S["pend"] = keep
     # ② 停損/停利(含今天剛買的)
     for p in (list(S["pos"]) if fresh else []):
@@ -210,7 +210,7 @@ def intraday(A, data, T, today, hhmm, live, log=print):
         if any(x["id"] == q["id"] for x in S["pos"]) or len(S["pos"]) >= TOPK: continue
         stp = round(op - STOP_ATR*q["atr"], 2) if STOP_ATR else None; tp = round(op*(1+TP), 2)
         S["pos"].append({"id": q["id"], "name": q["name"], "fill": today, "ft": "09:00", "entry": op, "sh": int(NOTIONAL/op), "stop": stp, "tp": tp, "rank": q.get("rank"), "sig_d": q["sig_d"]})
-        ev.append(f"{today} 09:00 🟢 買進 量價籌碼組 {q['name']} 官方開盤 {op}(停利 {tp}{f"、停損 {stp}" if stp else ""})")
+        ev.append(f"{today} 09:00 🟢 買進 量價籌碼組 {q['name']} 官方開盤 {op}(停利 {tp}{('、停損 ' + str(stp)) if stp else ''})")
     S["pend"] = keep
     for p in list(S["pos"]):
         px, hl = live(p["id"])
