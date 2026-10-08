@@ -1,4 +1,4 @@
-/* K研所 · build r1032 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1033 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1032';
+const APP_BUILD='r1033';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -815,7 +815,7 @@ function favStPaint(id){
   const c=FAVST[id];if(!c)return;
   const card=document.querySelector(`#favBox .r-card[data-id="${id}"]`);if(!card)return;
   const el=card.querySelector('.fav-st');if(el){el.className='fav-st '+c.cls;el.innerHTML=c.html;}
-  if(c.plan!=null){const sl=card.querySelector('.fav-plan-slot');if(sl&&sl.dataset.p!==c.plan){sl.innerHTML=c.plan;sl.dataset.p=c.plan;}const kbe=sl&&sl.querySelector('[data-favkb]');if(kbe&&!kbe.innerHTML.trim()&&typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])kbe.innerHTML=FAVKB_HTML[id];}
+  if(c.plan!=null){const sl=card.querySelector('.fav-plan-slot');if(sl&&sl.dataset.p!==c.plan){sl.innerHTML=c.plan;sl.dataset.p=c.plan;sl.style.minHeight='';}const kbe=sl&&sl.querySelector('[data-favkb]');if(kbe&&!kbe.innerHTML.trim()&&typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])kbe.innerHTML=FAVKB_HTML[id];}
 }
 async function favStateFill(){
   const ids=favList();
@@ -843,10 +843,14 @@ async function favStateFill(){
     await new Promise(r=>setTimeout(r,80));
   }}finally{window.__favStRun=0;}
 }
-function renderFav(){
+function renderFav(force){
   const box=document.getElementById('favBox');
   if(!box)return;
   const ids=favList();
+  // r1033:清單沒變就不整頁重建(定時刷新只原地更新價格與卡片內容)——整頁重建是畫面跳來跳去的主因
+  const fkey=(window.GMKT||'TW')+'|'+ids.join(',');
+  if(!force&&box.dataset.fkey===fkey&&box.querySelector('.r-card')){clearTimeout(window.__favStT);window.__favStT=setTimeout(()=>{try{favStateFill();}catch(e){}},800);return;}
+  box.dataset.fkey=fkey;
   if(!ids.length){
     box.innerHTML='<div class="fav-empty">還沒有收藏——到任何個股頁點名稱旁的 ☆,或在選股清單卡片點星星,收藏後回到這裡就看得到。</div>';
     return;
@@ -861,7 +865,7 @@ function renderFav(){
       <span class="r-desc">${s.etf?`${(s.perf&&s.perf.q!=null)?`近3月 ${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%`:'ETF'}${s.hold&&s.hold.dy?` · 殖利率 ${s.hold.dy.toFixed(2)}%`:''}${s.hold&&s.hold.aum?` · 規模 ${(s.hold.aum/1e8).toFixed(0)} 億`:''}`
         :''}</span>
       ${s.etf?'':(FAVST[s.id]?`<span class="fav-st ${FAVST[s.id].cls}">${FAVST[s.id].html}</span>`:'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>')}
-      ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:''}</div>`:''}
+      ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}" style="min-height:${(FAVST[s.id]&&FAVST[s.id].plan)?0:190}px">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:''}</div>`:''}
     </div>`;
   };
   const g={tw:[],us:[],etf:[],etfUS:[],other:[]};
@@ -1999,7 +2003,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1032</span>');
+  diag.push('<span style="color:var(--dim)">build r1033</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -21278,7 +21282,7 @@ function sbModePaint(mode){
     sbTgPaint(); sbPushPaint('sbPush',true);
     document.getElementById('sbOut').onclick=async()=>{ const c=sbInit(); if(c)await c.auth.signOut();
       SB_USER=null; ['fav_ids','port1','pxAlerts','sb_dirty','favAlertSeen','favAlertLog'].forEach(k=>{try{localStorage.removeItem(k);}catch(e){}});   // r860:登出即清本機個人資料
-      sbBtnPaint(); sbModePaint(); try{renderFav();}catch(e){} try{if(typeof renderPort==='function')renderPort();}catch(e){} sbToast('已登出,這台裝置上的最愛/持股/提醒已清除(資料仍在你的帳號裡)'); };
+      sbBtnPaint(); sbModePaint(); try{renderFav(true);}catch(e){} try{if(typeof renderPort==='function')renderPort();}catch(e){} sbToast('已登出,這台裝置上的最愛/持股/提醒已清除(資料仍在你的帳號裡)'); };
     document.getElementById('sbDel').onclick=async()=>{
       if(!confirm('確定刪除雲端資料?本機的最愛與持股會保留,但雲端備份會清空,且無法復原。'))return;
       const c=sbInit(); if(!c)return;
@@ -21342,7 +21346,7 @@ async function sbBoot(){
   try{ hasSession=Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k)); }catch(e){}
   if(!hasSession){                                      // r861:沒有登入 session 就把瀏覽器上殘留的個人資料清掉(帳號制)
     let had=false;['fav_ids','port1','pxAlerts','sb_dirty','favAlertSeen','favAlertLog'].forEach(k=>{try{if(localStorage.getItem(k)!=null){had=true;localStorage.removeItem(k);}}catch(e){}});
-    if(had){try{renderFav();}catch(e){} try{renderPort();}catch(e){}}
+    if(had){try{renderFav(true);}catch(e){} try{renderPort();}catch(e){}}
     return;}
   try{ await sbLoadSDK(); }catch(e){ return; }
   const c=sbInit(); if(!c)return;
@@ -22896,7 +22900,7 @@ document.addEventListener('click',e=>{
   try{if('Notification' in window&&Notification.permission==='default')Notification.requestPermission();}catch(x){}
   try{const d=alSeen();Object.keys(d.k).filter(k=>k.startsWith('fav|'+id+'|tp')||k.startsWith('fav|'+id+'|sl')).forEach(k=>delete d.k[k]);localStorage.setItem('al_seen',JSON.stringify(d));}catch(x){}
   toastLite(o.entry?`已設定 ${s.name} 進場 ${o.entry}・停利 +${o.tp||15}%・停損 −${o.sl||7}%`:`已清除 ${s.name} 自設進場價`);
-  try{renderFav();}catch(x){}
+  try{renderFav(true);}catch(x){}
 },true);
 try{if(Array.isArray(SYNC_KEYS)&&!SYNC_KEYS.includes(FAV_PLAN_KEY))SYNC_KEYS.push(FAV_PLAN_KEY);}catch(e){}
 
