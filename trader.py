@@ -195,6 +195,61 @@ def inst_cost(A, sid):
     return round(num / den, 2) if den else None
 
 
+def _tk(v):
+    t = 0.01 if v < 10 else 0.05 if v < 50 else 0.1 if v < 100 else 0.5 if v < 500 else 1 if v < 1000 else 5
+    return round(round(v / t) * t, 2)
+
+
+def pxmap(A, data, V, sc, gsc, NG, T, last):
+    """r1031:每檔(最愛/持股/AI Pick 相關)算出:
+       v_sell = 收盤跌到這個價,v2 勝算會低於 PEXIT(模型轉弱)
+       g_sell = 收盤跌到這個價,樹模型名次會掉到後半段
+       buy    = 收盤到這個價(往上或往下找最近的),會符合買進門檻(勝算 ≥ PMIN 或樹模型前 GTOPK 名)"""
+    byid = {s["id"]: s for s in data.get("stocks", [])}
+    try: prio = set(json.load(open("bk/_prio_users.json", encoding="utf-8")))
+    except Exception: prio = set()
+    ids = prio | {p["id"] for p in T.get("pos") or []} | {q["id"] for q in T.get("pend") or []} | {x["id"] for x in (T.get("watch") or [])[:25]}
+    gs = sorted([g for g, _ in gsc], reverse=True)
+    import bisect
+    neg = [-x for x in gs]
+    def grank(g, own):
+        r = bisect.bisect_left(neg, -g) + 1
+        return r - (1 if own is not None and own > g else 0)
+    out = {}
+    for sid in ids:
+        s = byid.get(sid)
+        if not s or s.get("market") != "TW" or s.get("etf"): continue
+        d, o = A.bars_of(sid)
+        if not d or d[-1] != last or len(o) < 60: continue
+        b = o[-1]; px = b[3]
+        try: own_g = gbt_prob(V.feats(sid, s, d, o))
+        except Exception: own_g = None
+        def at(p):
+            o2 = o[:-1] + [[b[0], max(b[1], p), min(b[2], p), p] + list(b[4:])]
+            try: pr = V.prob(sid, s, d, o2); g = gbt_prob(V.feats(sid, s, d, o2))
+            except Exception: return None, None
+            return pr, (grank(g, own_g) if g is not None else None)
+        r = {"px": px}
+        for k in range(1, 31):                       # 往下找:模型轉弱的價
+            p = _tk(px * (1 - 0.01 * k)); pr, gr = at(p)
+            if pr is None: break
+            if "v_sell" not in r and pr < PEXIT: r["v_sell"] = p
+            if "g_sell" not in r and gr and gr > NG * GXPCT: r["g_sell"] = p
+            if "v_sell" in r and "g_sell" in r: break
+        pr0, gr0 = at(px)
+        if pr0 is not None and (pr0 >= PMIN or (gr0 and gr0 <= GTOPK)): r["buy_now"] = 1
+        else:
+            for k in range(1, 21):                   # 往上、往下找最近會進入買進門檻的價
+                hit = None
+                for p in (_tk(px * (1 + 0.01 * k)), _tk(px * (1 - 0.01 * k)) if k <= 15 else None):
+                    if p is None: continue
+                    pr, gr = at(p)
+                    if pr is not None and (pr >= PMIN or (gr and gr <= GTOPK)): hit = p; break
+                if hit: r["buy"] = hit; break
+        out[sid] = r
+    return out
+
+
 def run(A, data, log=print):
     """A = aipick 模組(bars_of / chip_of / stock_levels / rtick / TODAY / NOW)"""
     # 狀態存在 aipick.json 的 "trader" 欄(update_data 只 commit aipick.json,不會 commit 新檔)
@@ -347,6 +402,10 @@ def run(A, data, log=print):
                 if gnew: ev.append(f"{last} 🌲 樹模型組:明天開盤買進 " + "、".join(f"{q['name']}(第 {q['grank']} 名)" for q in gnew))
             # r1019:每檔的模型評分(驗證過的唯一選股依據)給前端卡片用:[v2 勝算, 樹模型名次]
             T["allp"] = {s["id"]: [round(pr, 4), (GR.get(s["id"], -1) + 1) or None] for pr, s in sc}; T["allp_n"] = NG; T["allp_d"] = last
+            # r1031:把「模型轉弱/買進門檻」換算成價格——假設今天收盤改成某個價,重算這檔的分數(其他股票不變),找出觸發的價位
+            try:
+                T["pxmap"] = pxmap(A, data, V, sc, gsc, NG, T, last)
+            except Exception as e: log(f"trader:價位換算例外 {e}")
             T["gtop"] = [{"id": sid, "name": (byid.get(sid) or {}).get("name"), "p": round(g, 4), "r": i + 1} for i, (g, sid) in enumerate(gsc[:20])]
             # r993:👀 關注清單——勝算最高的 25 檔(不含已持有),逐項列出卡在哪個條件,讓人知道誰快要進場
             W = []; secc = {}

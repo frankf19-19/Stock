@@ -10,7 +10,7 @@
   盤中    = 09:00 用官方開盤價成交;停損/停利用即時成交價+官方最高最低確認,碰到就出場
 狀態存 aipick.json → trader.pv"""
 import json, math
-import numpy as np, pandas as pd
+# r1031:盤中班(update_quotes)沒裝 pandas → pandas/numpy 改在需要算特徵時才載入,盤中成交/停利不受影響
 
 FEATS = ['r5','r20','r60','r120','r250','r250x20','dh20','dh60','dh250','dl60','b5','b20','b60','b120','b240','s20','s60','m20_60','m60_240',
          'atr','vol20','vol60','vr5','vr20','lval','lim60','lim250','rsi','kd','gap','body20','upday20','nh20','dsh','skew60','maxr20','minr20','cv',
@@ -38,6 +38,7 @@ def score(x):
     return z
 
 def feats_df(o, ch=None):
+    import numpy as np, pandas as pd
     """o = [[開,高,低,收,量(張)],...](由舊到新);回傳與訓練完全相同定義的特徵表"""
     df = pd.DataFrame([b[:5] for b in o], columns=['O','H','L','C','V'], dtype=float)
     C,O,H,L,V = df.C,df.O,df.H,df.L,df.V
@@ -93,6 +94,50 @@ def _bar(A, sid, day):
     try: i = d.index(day)
     except ValueError: return None, None
     return o[i], o[i-1] if i > 0 else None
+
+def _tk(v):
+    t = 0.01 if v < 10 else 0.05 if v < 50 else 0.1 if v < 100 else 0.5 if v < 500 else 1 if v < 1000 else 5
+    return round(round(v / t) * t, 2)
+
+def pxmap(A, S, sc, last):
+    """假設今天收盤改成某個價,重算這檔分數(其他股票不變):
+       sell = 收盤跌到這價會掉出前 SELL_RANK 名(→ 隔天開盤賣)
+       buy  = 收盤到這價會進入前 TOPK 名(→ 隔天開盤買);buy_lo = 現在已在前 TOPK 時,跌到這價以下就不在了"""
+    import bisect
+    try: prio = set(json.load(open("bk/_prio_users.json", encoding="utf-8")))
+    except Exception: prio = set()
+    ids = prio | {p["id"] for p in S.get("pos") or []} | {q["id"] for q in S.get("pend") or []} | {x["id"] for x in S.get("picks") or []}
+    neg = sorted([-z for z, _, _ in sc]); own = {s["id"]: z for z, s, _ in sc}
+    def rank(z, sid):
+        r = bisect.bisect_left(neg, -z) + 1
+        return r - (1 if own.get(sid, -9e9) > z else 0)
+    out = {}
+    for sid in ids:
+        if sid not in own: continue
+        d, o = A.bars_of(sid)
+        if not d or d[-1] != last: continue
+        ch = chip_aligned(A, sid, d); b = o[-1]; px = b[3]
+        def at(p):
+            o2 = o[:-1] + [[b[0], max(b[1], p), min(b[2], p), p] + list(b[4:])]
+            x, _ = feats_last(o2, ch); z = score(x) if x else None
+            return rank(z, sid) if z is not None else None
+        r = {"px": px}; r0 = rank(own[sid], sid)
+        for k in range(1, 31):
+            p = _tk(px * (1 - 0.01 * k)); rk = at(p)
+            if rk and rk > SELL_RANK: r["sell"] = p; break
+        if r0 <= TOPK:
+            for k in range(1, 21):
+                p = _tk(px * (1 - 0.01 * k)); rk = at(p)
+                if rk and rk > TOPK: r["buy_lo"] = p; break
+        else:
+            for k in range(1, 16):
+                hit = None
+                for p in (_tk(px * (1 + 0.01 * k)), _tk(px * (1 - 0.01 * k))):
+                    rk = at(p)
+                    if rk and rk <= TOPK: hit = p; break
+                if hit: r["buy"] = hit; break
+        out[sid] = r
+    return out
 
 def run(A, data, T, last, log=print):
     """收盤班呼叫:① 以今天日K成交上一輪訊號的進出(開盤價)② 盤中停損/停利(用今天最高最低)③ 每 5 個交易日重排前 20 名"""
@@ -154,6 +199,8 @@ def run(A, data, T, last, log=print):
         sc.sort(key=lambda t: -t[0])
         if len(sc) >= 100:                                  # r1029:每檔量價排名 + ATR(個股頁/卡片算停損用)
             S["rank_all"] = {s["id"]: [i+1, round(at, 4)] for i, (z, s, at) in enumerate(sc)}; S["rank_d"] = last; S["n_scored"] = len(sc)
+            try: S["pxmap"] = pxmap(A, S, sc, last)          # r1031:排名門檻換算成價格
+            except Exception as e: log(f"pv:價位換算例外 {e}")
         if len(sc) >= 100 and due and (fresh or not S.get("last_rb")):
             top = sc[:TOPK]; ids = {s["id"] for _, s, _ in top}
             S["picks"] = [{"id": s["id"], "name": s.get("name"), "sector": s.get("sector"), "z": round(z, 4), "rank": i+1, "px": (A.bars_of(s["id"])[1] or [[0,0,0,0]])[-1][3]} for i, (z, s, _) in enumerate(top)]
