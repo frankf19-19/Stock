@@ -1,4 +1,4 @@
-/* K研所 · build r1031 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1032 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1031';
+const APP_BUILD='r1032';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -719,18 +719,33 @@ function actionPlan(o,id,px,own,cost){
                  else if(PM.buy) B.push([PM.buy,`收盤${PM.buy>px?'站上':'跌到'}這個價 → 隔天 9:00 開盤買`,'量價籌碼']); }
   const up=['h60','h120','h250'].filter(k=>lv[k]&&lv[k]>px).sort((a,b)=>lv[a]-lv[b]);
   if(up.length) B.push([lv[up[0]],`收盤站上${LV_DEF[up[0]][0].replace('站上 ','').replace('站上','')} → 隔天 9:00 開盤買`,'技術突破']);
-  const tag=t=>`<span style="font-size:11px;padding:1px 6px;border-radius:8px;border:1px solid var(--line);color:var(--dim);margin-left:4px">${t}</span>`;
-  const row=(x,c)=>`<div>・${x[0]!=null?`<b style="color:${c}">${x[0]}</b>(${g(x[0])})`:''}${x[0]!=null?':':''}${x[1]}${tag(x[2])}</div>`;
+  /* r1032:白話版——只講 4 件事:目前狀況、哪個價格範圍可以買、停損價、停利價 */
+  const fmt=v=>(+v).toLocaleString(),pct=v=>{const r=(v/px-1)*100;return `${r>=0?'+':''}${r.toFixed(1)}%`;};
   const sellNow=hold&&S.some(x=>x[0]>=px);
-  const now=sellNow?'已跌破賣出價,依規則該賣':sys&&sys.xsig?'明天開盤賣出':hold?'續抱':(pend||(pvq&&pvq.act==='buy')||M.buy_now||PM.buy_lo)?'可以買':'先觀望,價格還沒到買點';
-  const col=/賣/.test(now)?'var(--down)':/買/.test(now)?'var(--up)':'var(--amber)';
-  return `<div class="actp" style="margin:8px 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;line-height:1.65">
-    <div style="font-size:15px;font-weight:900;margin-bottom:4px">📋 現在:<span style="color:${col}">${now}</span><span style="font-weight:400;font-size:12px;color:var(--dim)">(現價 ${px})</span></div>
-    ${hold?`<div style="font-weight:800;color:var(--down)">🔴 賣出價(由近到遠,碰到任一個就賣)</div>${S.length?S.map(x=>row(x,'var(--down)')).join(''):'<div style="color:var(--dim)">・下跌 30% 內沒有賣出價</div>'}
-    ${tp?`<div style="font-weight:800;color:var(--up);margin-top:4px">🎯 停利價</div><div>・<b>${tp}</b>(${g(tp)}):${pvh?'進場價':'你的成本'} ${base} +${Math.round(TP*100)}%,盤中碰到就賣${tag('量價籌碼')}</div>`:''}`:''}
-    <div style="font-weight:800;color:var(--up);margin-top:4px">🟢 買進價${hold?'(加碼/賣掉後買回)':''}</div>${B.length?B.map(x=>row(x,'var(--up)')).join(''):'<div style="color:var(--dim)">・上下 15% 內沒有買進價</div>'}
-    <div style="font-size:12px;color:var(--dim);margin-top:3px">買進一律隔天 9:00 開盤價;開盤漲超過 3% 或漲停鎖死就不追。加碼:回測沒有穩定好處,不建議。</div>
-    <div style="color:var(--dim);font-size:11.5px">模型的價位是「假設收盤在這個價,重算分數」換算出來的,每天收盤後更新;全部規則都經 1,899 檔、10 年以上回測。</div></div>`;
+  const pend2=pend||(pvq&&pvq.act==='buy'),nowOK=pend2||M.buy_now||PM.buy_lo;
+  const trig=B.filter(x=>x[0]!=null).sort((a,b)=>Math.abs(a[0]-px)-Math.abs(b[0]-px))[0];
+  const stopCand=S.filter(x=>x[0]<px);let stop=stopCand.length?stopCand[0][0]:null;
+  if(!hold){const ref=trig&&trig[0]?trig[0]:px;const c=[lv.d60,lv.d240].filter(v=>v&&v<ref&&v>=ref*0.7);stop=c.length?Math.max(...c):null;}   // 還沒買:買進後的停損(季線/年線)
+  const entry=sys?sys.entry:pvh?pvh.entry:cost||null;
+  const tpx=tp||(entry?tk(entry*(1+TP)):trig&&trig[0]>px?tk(trig[0]*(1+TP)):tk(px*(1+TP)));
+  let buyTxt;
+  if(nowOK) buyTxt=`現在就可以買:明天 9:00 開盤價,<b>${fmt(tk(px*1.03))} 以下</b>才買(漲超過 3% 不追)`;
+  else if(trig&&trig[0]>px) buyTxt=`收盤站上 <b>${fmt(trig[0])}</b> 後,隔天開盤在 <b>${fmt(trig[0])}~${fmt(tk(trig[0]*1.03))}</b> 之間買(還差 ${pct(trig[0])})`;
+  else if(trig) buyTxt=`跌到 <b>${fmt(trig[0])}</b> 附近(收盤 ≤ ${fmt(trig[0])})隔天開盤買(現在差 ${pct(trig[0])})`;
+  else buyTxt='上下 15% 內都還沒有買點,先觀望';
+  const pnl=entry?(px/entry-1)*100:null;
+  let st;
+  if(sellNow) st=`已跌破停損價,<b style="color:var(--down)">依規則該賣</b>`;
+  else if(sys&&sys.xsig) st=`模型轉弱,<b style="color:var(--down)">明天開盤賣</b>`;
+  else if(hold) st=`${pnl!=null?`比成本 <b style="color:${pnl>=0?'var(--up)':'var(--down)'}">${pnl>=0?'+':''}${pnl.toFixed(1)}%</b>,`:''}還沒碰到停損,<b>續抱</b>`;
+  else st=nowOK?'<b style="color:var(--up)">已到買點</b>':'<b>還沒到買點</b>,先觀望';
+  const L=(ic,lab,txt)=>`<div style="display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><div style="min-width:64px;font-weight:900">${ic} ${lab}</div><div>${txt}</div></div>`;
+  return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
+    <div style="padding:2px 0 6px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
+    ${L('🟢','買進',buyTxt)}
+    ${L('🛑','停損',stop?`${hold?'':'買進後,'}跌破 <b style="color:var(--down)">${fmt(stop)}</b> 就賣(${pct(stop)})`:'下跌 30% 內沒有停損價')}
+    ${L('🎯','停利',`漲到 <b style="color:var(--up)">${fmt(tpx)}</b> 就賣(${pct(tpx)})`)}
+  </div>`;
 }
 function aiPickVerdict(id,own){
   const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||null;if(!T)return null;
@@ -844,7 +859,7 @@ function renderFav(){
       <span class="r-name"><span class="fav-tg on" data-fav="${s.id}" title="移除收藏">★</span> ${s.name} <span class="c-code">${s.id}</span>
         <span class="pxpill ${s.chg>0?'up':s.chg<0?'dn':''}" data-pxp="${s.id}"><b class="rpx" data-ppx="${s.id}">${s.price??'—'}</b><span class="pxchg" data-pch="${s.id}">${chgHtml(s.chg)}</span></span><span class="mini-candle" data-candle="${s.id}"></span></span>
       <span class="r-desc">${s.etf?`${(s.perf&&s.perf.q!=null)?`近3月 ${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%`:'ETF'}${s.hold&&s.hold.dy?` · 殖利率 ${s.hold.dy.toFixed(2)}%`:''}${s.hold&&s.hold.aum?` · 規模 ${(s.hold.aum/1e8).toFixed(0)} 億`:''}`
-        :`綜合 ${total(s)} 分(≥70 驗證有效・≤45 偏弱)`}</span>
+        :''}</span>
       ${s.etf?'':(FAVST[s.id]?`<span class="fav-st ${FAVST[s.id].cls}">${FAVST[s.id].html}</span>`:'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>')}
       ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:''}</div>`:''}
     </div>`;
@@ -1984,7 +1999,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1031</span>');
+  diag.push('<span style="color:var(--dim)">build r1032</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
