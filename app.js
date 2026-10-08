@@ -1,4 +1,4 @@
-/* K研所 · build r1034 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1035 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1034';
+const APP_BUILD='r1035';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2013,7 +2013,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1034</span>');
+  diag.push('<span style="color:var(--dim)">build r1035</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -22080,7 +22080,8 @@ function pvHTML(){
   const pos=(S.pos||[]).map(p=>{const r=p.px?(p.px/p.entry-1)*100:null;return `<div class="r-card" data-id="${p.id}" style="padding:10px 12px">
     <div style="display:flex;justify-content:space-between;gap:8px"><b>${p.name} <span class="c-code">${p.id}</span></b><b style="color:${cl(r)}">${fp(r)}</b></div>
     <div style="font-size:12.5px;color:var(--txt2);margin-top:4px">${md(p.fill)} 開盤買 <b>${p.entry}</b>・現價 ${p.px??'—'}</div>
-    <div style="font-size:12.5px;margin-top:3px">🛑 停損 <b>${p.stop}</b> <em style="color:var(--dim)">${p.px?fp((p.stop/p.px-1)*100):''}</em>・🎯 停利 <b>${p.tp}</b> <em style="color:var(--dim)">${p.px?fp((p.tp/p.px-1)*100):''}</em></div></div>`;}).join('');
+    <div style="font-size:12.5px;margin-top:3px">${(()=>{const tk=v=>{const t=v<10?0.01:v<50?0.05:v<100?0.1:v<500?0.5:v<1000?1:5;return +(Math.round(v/t)*t).toFixed(2);};const sl=p.stop||((S.pxmap||{})[p.id]||{}).sell;const tp=tk(p.tp);
+      return `🛑 停損 ${sl?`<b>${sl}</b> <em style="color:var(--dim)">${p.px?fp((sl/p.px-1)*100):''}</em>`:'<span style="color:var(--dim)">下跌 30% 內不會觸發</span>'}・🎯 停利 <b>${tp}</b> <em style="color:var(--dim)">${p.px?fp((tp/p.px-1)*100):''}</em>`;})()}</div></div>`;}).join('');
   const pend=(S.pend||[]).filter(q=>q.act==='buy'),sell=(S.pend||[]).filter(q=>q.act==='sell');
   const picks=(S.picks||[]).map(x=>`<span class="pv-pk" style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;border:1px solid var(--line);border-radius:9px;font-size:12.5px">${x.rank}. ${x.name}</span>`).join('');
   const st=S.stats||{};const nav=S.nav||[];const lastN=nav.length?nav[nav.length-1]:null;
