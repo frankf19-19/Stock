@@ -1,4 +1,4 @@
-/* K研所 · build r1033 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1034 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1033';
+const APP_BUILD='r1034';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -739,9 +739,19 @@ function actionPlan(o,id,px,own,cost){
   else if(sys&&sys.xsig) st=`模型轉弱,<b style="color:var(--down)">明天開盤賣</b>`;
   else if(hold) st=`${pnl!=null?`比成本 <b style="color:${pnl>=0?'var(--up)':'var(--down)'}">${pnl>=0?'+':''}${pnl.toFixed(1)}%</b>,`:''}還沒碰到停損,<b>續抱</b>`;
   else st=nowOK?'<b style="color:var(--up)">已到買點</b>':'<b>還沒到買點</b>,先觀望';
+  /* r1034:這檔的技術/量能/籌碼現況(白話一句) */
+  let diagTxt='';
+  try{const so=(DATA.stocks||[]).find(x=>x.id===id)||{},cr=(so.c&&so.c.raw)||{};
+    const m20=avg(20),m60=avg(60),V=o.map(b=>b[4]||0),v5=V.slice(-5).reduce((a,b)=>a+b,0)/5,v20=V.slice(-20).reduce((a,b)=>a+b,0)/20;
+    const tr=m20&&m60?(px>m20&&m20>m60?'多頭走勢(站上月線、季線)':px<m20&&m20<m60?'空頭走勢(跌破月線、季線)':px>=m60?'整理中(季線之上)':'偏弱整理(季線之下)'):'';
+    const vr=v20?v5/v20:1,vt=vr>=1.3?'量能放大':vr<=0.7?'量能萎縮':'量能普通';
+    const z=v=>{v=+v||0;return `${v>=0?'買超':'賣超'} ${Math.abs(v).toLocaleString()} 張`;};
+    const ch=[cr.f5!=null?`外資 5 日${z(cr.f5)}`:'',cr.t5!=null&&cr.t5!==0?`投信${z(cr.t5)}`:'',cr.bigw?`大戶持股週${cr.bigw>0?'增':'減'} ${Math.abs(cr.bigw).toFixed(2)}%`:''].filter(Boolean).join('、');
+    diagTxt=[tr,vt,ch].filter(Boolean).join(';');}catch(e){}
   const L=(ic,lab,txt)=>`<div style="display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><div style="min-width:64px;font-weight:900">${ic} ${lab}</div><div>${txt}</div></div>`;
   return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
-    <div style="padding:2px 0 6px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
+    <div style="padding:2px 0 2px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
+    ${diagTxt?`<div style="padding:0 0 6px;font-size:13px;color:var(--txt2)">${diagTxt}</div>`:''}
     ${L('🟢','買進',buyTxt)}
     ${L('🛑','停損',stop?`${hold?'':'買進後,'}跌破 <b style="color:var(--down)">${fmt(stop)}</b> 就賣(${pct(stop)})`:(hold?'下跌 30% 內沒有停損價':'買點下方沒有合適的停損價,買進後再看'))}
     ${L('🎯','停利',`${hold?'':'買進後,'}漲到 <b style="color:var(--up)">${fmt(tpx)}</b> 就賣(${pct(tpx)})`)}
@@ -2003,7 +2013,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1033</span>');
+  diag.push('<span style="color:var(--dim)">build r1034</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
