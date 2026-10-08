@@ -727,7 +727,7 @@ function actionPlan(o,id,px,own,cost){
   const stopCand=S.filter(x=>x[0]<px);let stop=stopCand.length?stopCand[0][0]:null;
   if(!hold){const ref=trig&&trig[0]?trig[0]:px;const c=[lv.d60,lv.d240].filter(v=>v&&v<ref&&v>=ref*0.7);stop=c.length?Math.max(...c):null;}   // 還沒買:買進後的停損(季線/年線)
   const entry=sys?sys.entry:pvh?pvh.entry:cost||null;
-  const tpx=tp||(entry?tk(entry*(1+TP)):trig&&trig[0]>px?tk(trig[0]*(1+TP)):tk(px*(1+TP)));
+  const tpx=tp||(entry?tk(entry*(1+TP)):(!nowOK&&trig)?tk(trig[0]*(1+TP)):tk(px*(1+TP)));   // 還沒買:以買進價 +25%
   let buyTxt;
   if(nowOK) buyTxt=`現在就可以買:明天 9:00 開盤價,<b>${fmt(tk(px*1.03))} 以下</b>才買(漲超過 3% 不追)`;
   else if(trig&&trig[0]>px) buyTxt=`收盤站上 <b>${fmt(trig[0])}</b> 後,隔天開盤在 <b>${fmt(trig[0])}~${fmt(tk(trig[0]*1.03))}</b> 之間買(還差 ${pct(trig[0])})`;
@@ -743,8 +743,8 @@ function actionPlan(o,id,px,own,cost){
   return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
     <div style="padding:2px 0 6px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
     ${L('🟢','買進',buyTxt)}
-    ${L('🛑','停損',stop?`${hold?'':'買進後,'}跌破 <b style="color:var(--down)">${fmt(stop)}</b> 就賣(${pct(stop)})`:'下跌 30% 內沒有停損價')}
-    ${L('🎯','停利',`漲到 <b style="color:var(--up)">${fmt(tpx)}</b> 就賣(${pct(tpx)})`)}
+    ${L('🛑','停損',stop?`${hold?'':'買進後,'}跌破 <b style="color:var(--down)">${fmt(stop)}</b> 就賣(${pct(stop)})`:(hold?'下跌 30% 內沒有停損價':'買點下方沒有合適的停損價,買進後再看'))}
+    ${L('🎯','停利',`${hold?'':'買進後,'}漲到 <b style="color:var(--up)">${fmt(tpx)}</b> 就賣(${pct(tpx)})`)}
   </div>`;
 }
 function aiPickVerdict(id,own){
