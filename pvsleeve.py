@@ -16,6 +16,7 @@ FEATS = ['r5','r20','r60','r120','r250','r250x20','dh20','dh60','dh250','dl60','
          'atr','vol20','vol60','vr5','vr20','lval','lim60','lim250','rsi','kd','gap','body20','upday20','nh20','dsh','skew60','maxr20','minr20','cv',
          'x_f5','x_t5','x_f20','x_t20','x_mb']   # r1030:籌碼(外資/投信 5、20 日買超佔均量、融資 20 日變化)
 TOPK = 20; REB = 1; SELL_RANK = 200; STOP_ATR = None; TP = 0.25; MODEL_VER = 'pvc1'; NOTIONAL = 100000; LIQ = 2e7
+IVC = 0.03; WMIN = 0.67; WMAX = 1.5   # r1048:依波動分配金額(每檔 = 平均金額 × 0.67~1.5 倍;波動大的少買)——回測年化 43.7%→39.1%、最大回落 −31.2%→−24.3%
 FEE_B = 0.001425; FEE_S = 0.001425 + 0.003
 _M = {}
 
@@ -139,6 +140,21 @@ def pxmap(A, S, sc, last):
         out[sid] = r
     return out
 
+def _wr(px, atr):
+    try: return round(min(WMAX, max(WMIN, IVC * float(px) / float(atr))), 3) if atr and px else 1.0
+    except Exception: return 1.0
+
+
+def _size(S, q, op):
+    """r1048:這檔買多少——原始倍數 wr(依波動)÷ 目前持股平均倍數,總投入不超過 TOPK × NOTIONAL"""
+    wr = q.get("wr") or _wr(op, q.get("atr"))
+    ws = [p.get("wr", 1.0) for p in S.get("pos") or []] + [wr]
+    w = min(2.5, max(0.4, wr / (sum(ws) / len(ws))))
+    used = sum(p.get("w", 1.0) for p in S.get("pos") or [])
+    w = round(max(0.0, min(w, TOPK - used)), 3)
+    return wr, w
+
+
 def run(A, data, T, last, log=print):
     """收盤班呼叫:① 以今天日K成交上一輪訊號的進出(開盤價)② 盤中停損/停利(用今天最高最低)③ 每 5 個交易日重排前 20 名"""
     S = T.setdefault("pv", {"pos": [], "pend": [], "trades": [], "log": [], "nav": [], "picks": [], "last_rb": None, "start": last})
@@ -165,8 +181,10 @@ def run(A, data, T, last, log=print):
             if pb and pb[3] and op >= pb[3]*1.095: ev.append(f"{last} ❎ 量價籌碼組 {q['name']} 漲停開出買不到,放棄"); continue
             if any(x["id"] == q["id"] for x in S["pos"]): continue
             stp = round(op - STOP_ATR*q["atr"], 2) if STOP_ATR else None; tp = round(op*(1+TP), 2)
-            S["pos"].append({"id": q["id"], "name": q["name"], "fill": last, "entry": op, "sh": int(NOTIONAL/op), "stop": stp, "tp": tp, "rank": q.get("rank"), "sig_d": q["sig_d"]})
-            ev.append(f"{last} 🟢 買進 量價籌碼組 {q['name']} 開盤 {op}(停利 {tp}{('、停損 ' + str(stp)) if stp else ''})")
+            wr, w = _size(S, q, op)
+            if w < 0.1: ev.append(f"{last} ❎ 量價籌碼組 {q['name']} 資金已用完,放棄"); continue
+            S["pos"].append({"id": q["id"], "name": q["name"], "fill": last, "entry": op, "sh": int(NOTIONAL*w/op), "amt": round(NOTIONAL*w), "w": w, "wr": wr, "stop": stp, "tp": tp, "rank": q.get("rank"), "sig_d": q["sig_d"]})
+            ev.append(f"{last} 🟢 買進 量價籌碼組 {q['name']} 開盤 {op}(金額 {w:.2f} 倍、停利 {tp}{('、停損 ' + str(stp)) if stp else ''})")
     S["pend"] = keep
     # ② 停損/停利(含今天剛買的)
     for p in (list(S["pos"]) if fresh else []):
@@ -214,12 +232,13 @@ def run(A, data, T, last, log=print):
             for i, (z, s, at) in enumerate(top):
                 if slots <= 0: break
                 if s["id"] in held: continue
-                S["pend"].append({"id": s["id"], "name": s.get("name"), "act": "buy", "sig_d": last, "atr": at, "rank": i+1}); slots -= 1
+                _px = (A.bars_of(s["id"])[1] or [[0, 0, 0, 0]])[-1][3]
+                S["pend"].append({"id": s["id"], "name": s.get("name"), "act": "buy", "sig_d": last, "atr": at, "rank": i+1, "wr": _wr(_px, at)}); slots -= 1
             nb = [q["name"] for q in S["pend"] if q["act"] == "buy" and q["sig_d"] == last]; ns = [q["name"] for q in S["pend"] if q["act"] == "sell" and q["sig_d"] == last]
             if nb or ns: ev.append(f"{last} 📈 量價籌碼組收盤重排:明天開盤買進 {'、'.join(nb) or '無'};明天開盤換股賣出 {'、'.join(ns) or '無'}")
             S["last_rb"] = last
     # 淨值
-    real = sum(t["ret"]/100*NOTIONAL for t in S["trades"]); unreal = 0.0
+    real = sum(t["ret"]/100*(t.get("amt") or NOTIONAL) for t in S["trades"]); unreal = 0.0
     for p in S["pos"]:
         d, o = A.bars_of(p["id"]); c = o[-1][3] if o else None
         if c: unreal += (c - p["entry"])*p["sh"]; p["px"] = c
@@ -228,7 +247,7 @@ def run(A, data, T, last, log=print):
     tr_ = S["trades"]
     S["stats"] = {"closed": len(tr_), "win": round(100*sum(1 for t in tr_ if t["ret"] > 0)/len(tr_), 1) if tr_ else None,
                   "avg": round(sum(t["ret"] for t in tr_)/len(tr_), 2) if tr_ else None, "realized": round(real)}
-    S["rules"] = {"topk": TOPK, "reb": REB, "sell_rank": SELL_RANK, "stop_atr": STOP_ATR, "tp": TP, "liq": LIQ}
+    S["rules"] = {"topk": TOPK, "reb": REB, "sell_rank": SELL_RANK, "stop_atr": STOP_ATR, "tp": TP, "liq": LIQ, "size": "ivol", "wmin": WMIN, "wmax": WMAX, "notional": NOTIONAL}
     S["bt"] = BT
     for e in ev: S["log"].insert(0, e)
     S["log"] = S["log"][:200]; S["done"] = last; S["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M")
@@ -256,8 +275,10 @@ def intraday(A, data, T, today, hhmm, live, log=print):
         if pc and h == l and op >= pc*1.095: ev.append(f"{today} 09:00 ❎ 量價籌碼組 {q['name']} 漲停鎖死買不到,放棄"); continue
         if any(x["id"] == q["id"] for x in S["pos"]) or len(S["pos"]) >= TOPK: continue
         stp = round(op - STOP_ATR*q["atr"], 2) if STOP_ATR else None; tp = round(op*(1+TP), 2)
-        S["pos"].append({"id": q["id"], "name": q["name"], "fill": today, "ft": "09:00", "entry": op, "sh": int(NOTIONAL/op), "stop": stp, "tp": tp, "rank": q.get("rank"), "sig_d": q["sig_d"]})
-        ev.append(f"{today} 09:00 🟢 買進 量價籌碼組 {q['name']} 官方開盤 {op}(停利 {tp}{('、停損 ' + str(stp)) if stp else ''})")
+        wr, w = _size(S, q, op)
+        if w < 0.1: ev.append(f"{today} 09:00 ❎ 量價籌碼組 {q['name']} 資金已用完,放棄"); continue
+        S["pos"].append({"id": q["id"], "name": q["name"], "fill": today, "ft": "09:00", "entry": op, "sh": int(NOTIONAL*w/op), "amt": round(NOTIONAL*w), "w": w, "wr": wr, "stop": stp, "tp": tp, "rank": q.get("rank"), "sig_d": q["sig_d"]})
+        ev.append(f"{today} 09:00 🟢 買進 量價籌碼組 {q['name']} 官方開盤 {op}(金額 {w:.2f} 倍、停利 {tp}{('、停損 ' + str(stp)) if stp else ''})")
     S["pend"] = keep
     for p in list(S["pos"]):
         px, hl = live(p["id"])
@@ -272,9 +293,13 @@ def intraday(A, data, T, today, hhmm, live, log=print):
         else: p["px"] = px
     for e in ev: S["log"].insert(0, e); T.setdefault("log", []).insert(0, e); log("pv:" + e)
 
-BT = {"range": "2016-01~2026-09", "cagr": 43.7, "mdd": -31.2, "b0050": 25.4, "bmdd0050": -32.6, "mkt": 16.2,
-      "years": {"2016": [43.6, 26.3], "2017": [43.7, 18.5], "2018": [11.2, -8.6], "2019": [25.1, 34.1], "2020": [68.2, 42.7], "2021": [49.3, 14.5],
-                "2022": [27.1, -18.9], "2023": [53.7, 21.8], "2024": [34.5, 57.5], "2025": [33.8, 40.2], "2026": [75.4, 60.7]},
-      "variants": [["純量價(不含籌碼)、每天、前100賣、停損3ATR", 30.7, -41.7], ["量價+籌碼、每週換股", 30.5, -33.5], ["量價+籌碼、每天、前100賣、停損3ATR+停利25%", 35.0, -39.4],
-                   ["量價+籌碼、每天、前100賣、不設停損停利", 39.6, -35.8], ["量價+籌碼、每天、前150賣、停利25%", 44.5, -33.8],
-                   ["量價+籌碼、每天、前200賣、停利25%(採用)", 43.7, -31.2], ["同上+停損4ATR", 39.0, -36.5], ["同上+停損6ATR", 42.9, -35.3], ["前300賣、停利25%", 38.9, -32.0]]}
+BT = {"range": "2016-01~2026-09", "cagr": 39.1, "mdd": -24.3, "b0050": 25.4, "bmdd0050": -32.6, "mkt": 16.2, "sharpe": 1.95,
+      "years": {"2016": [35.5, 26.3], "2017": [34.2, 18.5], "2018": [15.9, -8.6], "2019": [21.5, 34.1], "2020": [58.0, 42.7], "2021": [52.6, 14.5],
+                "2022": [26.0, -18.9], "2023": [44.9, 21.8], "2024": [31.3, 57.5], "2025": [32.9, 40.2], "2026": [61.4, 60.7]},
+      "variants": [["純量價(不含籌碼)、每天、前100賣、停損3ATR", 30.7, -41.7], ["量價+籌碼、每週換股", 30.5, -33.5], ["量價+籌碼、每天、前100賣、不設停損停利", 39.6, -35.8],
+                   ["前200賣、停利25%、每檔一樣多(10/9 前)", 43.7, -31.2], ["同上、依波動分配 0.67~1.5 倍(採用)", 39.1, -24.3], ["同上、依波動分配 0.5~2 倍", 36.3, -20.8],
+                   ["同上+停損4ATR", 39.0, -36.5], ["前300賣、停利25%", 38.9, -32.0]],
+      "research": [["主力比較:量價籌碼組", 43.7, -31.2, "✅ 最好"], ["主力比較:樹模型組(同期重建)", 24.6, -27.1, "較弱"], ["量價 70% + 樹 30% 混合", 37.9, -29.6, "沒有比較好"],
+                   ["進場:費半昨晚漲 ≥1.5% 當天不買", 44.1, -32.2, "差異在誤差內,不改"], ["進場:改掛昨收 +2% 限價", 44.5, -31.2, "前後兩段不一致,不改"], ["進場:開盤跳空 >3% 不買", 43.7, -31.3, "沒差,不改"],
+                   ["新資料:加月營收重訓", 43.5, -34.6, "前後兩段不一致,不改"], ["新資料:加營收+本益比/殖利率", 39.8, -34.7, "變差"], ["風控:同產業最多 4 檔", 42.8, -31.4, "沒幫助"],
+                   ["風控:0050 跌破年線只持 10 檔", 38.3, -29.1, "最差一年變 −4%,不用"], ["風控:依波動分配金額 0.67~1.5 倍", 39.1, -24.3, "✅ 採用"]]}
