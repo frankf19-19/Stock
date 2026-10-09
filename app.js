@@ -1,4 +1,4 @@
-/* K研所 · build r1042 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1043 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1042';
+const APP_BUILD='r1043';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2021,7 +2021,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1042</span>');
+  diag.push('<span style="color:var(--dim)">build r1043</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5770,8 +5770,8 @@ function wireTempDocs(){
 setInterval(wireTempDocs,3000);
 setTimeout(wireTempDocs,7000);
 
-/* r1042:首頁 AI Pick 摘要卡已移除(使用者:AI Pick 不用在首頁出現) */
-setTimeout(()=>{try{const p=document.getElementById('sb-macro');if(p)applySecOrder(p);}catch(e){}},1500);   // r1042:首頁預設排版
+/* r1043:首頁 AI Pick 摘要卡已移除(使用者:AI Pick 不用在首頁出現) */
+setTimeout(()=>{try{const p=document.getElementById('sb-macro');if(p)applySecOrder(p);}catch(e){}},1500);   // r1043:首頁預設排版
 function tldrCard(){
   const box=document.getElementById('tldrBox');
   if(!box)return;
@@ -6836,7 +6836,7 @@ function renderMacroAlerts(){
     `<a class="alert-pill alert-${x.lv}" href="${x.l}" target="_blank" rel="noopener"><span class="ico">${x.lv==='red'?'🚨':'📰'}</span><span>${x.lv==='red'?'重大外電:':'外電訊號:'}${x.t}${x.tags.length?` <b>→ ${x.tags.join('/')}</b>`:''}<span style="color:var(--dim);font-weight:600"> · ${x.ago} ↗</span></span></a>`).join('');
   el.style.display='';
   el.innerHTML=(A.length||news)
-    ?A.map(a=>{const hd=false;   /* r1042:首頁頭部七腳印區已隱藏,提醒列不再連過去 */return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).join('')+news
+    ?A.map(a=>{const hd=false;   /* r1043:首頁頭部七腳印區已隱藏,提醒列不再連過去 */return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).join('')+news
     :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>風險溫度計與外電目前無特別警示</span></span>';
 }
 setTimeout(()=>{try{renderMacroAlerts();}catch(e){}},4500);
@@ -11079,7 +11079,7 @@ function aipTdBanner(){
   return '';
 }
 
-/* r1042:🌙 美股昨晚收盤 → 台股隔天進場評估(AI Pick 頁最上面)
+/* r1043:🌙 美股昨晚收盤 → 台股隔天進場評估(AI Pick 頁最上面)
    資料:aipick.json 的 usc(後端每 20 分鐘抓 Yahoo:費半/那斯達克/S&P/台積電ADR)。
    判斷:us_overnight_stat.json——2012~2026 共 3598 個台股交易日實測,三段期間(12~18/19~22/23~26)分開驗證,
    只有三段都同方向的才給「建議」,其餘寫「影響小,照原計畫」。 */
@@ -16612,6 +16612,101 @@ function gaClean(html){                           // 描述 → 純文字(保留
   d.innerHTML=String(html||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n');
   return (d.textContent||'').replace(/\n{3,}/g,'\n\n').trim();
 }
+/* r1043:🎯 股癌提到的個股與產業——特別標示
+   ① 摘要最上面一張「本集提到的個股與產業」卡:個股晶片(現價・漲跌・他偏多/偏空)、產業晶片、他怎麼說的一句話
+   ② 摘要內文裡的個股名(可點進個股頁)與產業關鍵字直接上色
+   比對來源:站內 2256 檔台股 + 547 檔美股名稱/代號/中文名;中文兩字名稱容易撞到一般用詞(世界、統一、可成…),只收常見大型股白名單 */
+const GA_W2=new Set('鴻海 廣達 緯創 緯穎 華碩 技嘉 微星 仁寶 和碩 宏碁 聯電 長榮 陽明 萬海 中鋼 台塑 南亞 台化 智邦 奇鋐 欣興 健鼎 瑞昱 聯詠 華通 旺宏 群光 億光 研華 致茂 上銀 川湖 穩懋 聯茂 台燿 雙鴻 嘉澤 勤誠 營邦 神達 華城 士電 東元 亞力 信驊 祥碩 世芯 貿聯 譜瑞 力成 頎邦 南電 景碩 臻鼎 聯亞 光聖 眾達 上詮 聯鈞 建準 台達 光寶 日月光 中華電 遠傳 華航 裕隆 儒鴻 聚陽 豐泰 寶成 中租 美時 保瑞 智原 力旺 矽力 原相 義隆 聯陽 天鈺 新唐 群聯 威剛 十銓 宇瞻 旭隼 鈊象 兆豐 玉山 中信 國泰 富邦 元大 台新 開發 永豐 京元電 晶技 嘉晶 環球晶 精材 弘塑 辛耘 萬潤 均華 家登 帆宣 漢唐 亞翔 聖暉 樺漢 圓剛 英業達 神基 定穎 金像電 台光電 健策 高力 雙鴻 超眾 泰碩 力致 尼得科 崇越 大聯大 文曄 華新 大亞 華榮 中興電 亞德客 正崴 鴻準 可寧衛 長榮航 星宇 台灣高鐵 中鋼構 東和鋼鐵 大成鋼 聯發科 南亞科 華邦電 力積電 台積電 大立光 玉晶光 宏達電 統一超'.split(' '));
+const GA_BAD=new Set('台灣大 新天地 創業家 新零售 太空梭 一零四 大台北 雲嘉南 地心引力 新復興 大學光 夠麻吉 美而快 全國電 先進光 世界健身'.split(' '));
+const GA_TBAD=new Set('ALL NOW LOW KEY ARE HAS CAT DAY BALL TECH FAST POOL COST PEAK TAP BRO BEN MAS WELL DOW FOX NWS ON IT EPS CEO ETF GDP CPI FED USD NEW EASY'.split(' '));
+const GA_US_ALIAS={NVIDIA:'NVDA',Google:'GOOGL',Alphabet:'GOOGL',谷歌:'GOOGL',Facebook:'META',臉書:'META',Meta:'META',Tesla:'TSLA',特斯拉:'TSLA',Amazon:'AMZN',Apple:'AAPL',Microsoft:'MSFT',Broadcom:'AVGO',Intel:'INTC',英特爾:'INTC',Micron:'MU',Oracle:'ORCL',甲骨文:'ORCL',Supermicro:'SMCI',美超微:'SMCI',Palantir:'PLTR',Qualcomm:'QCOM',Netflix:'NFLX',Costco:'COST',好市多:'COST',AMD:'AMD',CoreWeave:'CRWV',Arm:'ARM'};
+const GA_IND=[['AI伺服器','AI伺服器|伺服器'],['GPU/AI晶片','GPU|AI晶片|AI 晶片|顯卡'],['AI','AI|人工智慧'],['CPU/處理器','CPU|處理器'],['記憶體','記憶體|DRAM|NAND|HBM|DDR5|快閃記憶體'],
+  ['晶圓代工','晶圓代工'],['先進封裝','CoWoS|先進封裝|SoIC'],['封測','封測'],['半導體設備','半導體設備'],['IC設計','IC設計|ASIC'],['半導體','半導體'],
+  ['PCB/載板','PCB|載板|ABF|銅箔基板|CCL'],['被動元件','被動元件|MLCC'],['散熱','散熱|水冷|液冷'],['電源','電源供應器|BBU'],['矽光子/CPO','矽光子|CPO|共同封裝光學'],
+  ['光通訊','光通訊|光模組|光收發'],['網通','網通|交換器|乙太網'],['低軌衛星','低軌衛星|衛星|Starlink|星鏈'],['太空','太空|火箭'],['機器人','機器人'],['電動車','電動車'],
+  ['重電/電力','重電|電網|電力設備|變壓器|缺電'],['核能','核能|核電|SMR'],['綠能/儲能','綠能|太陽能|風電|儲能'],['生技醫療','生技|新藥|醫材|製藥|減重藥|GLP-1'],
+  ['金融','金控|銀行股|壽險|金融股'],['航運','航運|貨櫃|散裝|航空股'],['原物料','鋼鐵|原物料|銅價|鋁價|塑化|石化'],['營建','營建|房地產|建商|房市'],['軍工/無人機','軍工|國防|無人機'],
+  ['面板','面板'],['手機','智慧型手機|手機|iPhone'],['雲端/資料中心','雲端|資料中心|CSP|New Cloud|Neocloud'],['軟體','軟體股|SaaS'],['零組件','零組件'],
+  ['美債/債券','美債|公債|債券|股債'],['加密貨幣','比特幣|加密貨幣|虛擬貨幣'],['黃金','黃金|金價'],['油價/能源','油價|原油|天然氣']];
+let GA_IX=null;
+function gaIndex(){
+  if(GA_IX&&GA_IX.n===(DATA&&DATA.stocks||[]).length&&GA_IX.cd===!!__cdCache)return GA_IX;
+  const al={},S=(DATA&&DATA.stocks)||[];const lat=s=>/^[A-Za-z0-9 .&'-]+$/.test(s);
+  const put=(a,id,force)=>{a=String(a||'').trim();if(!a||al[a.toLowerCase()])return;
+    if(!force){if(GA_BAD.has(a))return;if(!lat(a)&&a.length<3&&!GA_W2.has(a))return;if(lat(a)&&a.length<4&&!/^[A-Z]{3}$/.test(a))return;}
+    al[a.toLowerCase()]=id;};
+  S.forEach(s=>{if(!s||!s.id||s.sector==='ETF')return;
+    if(s.market==='TW'){const n=String(s.name||'');const b=n.replace(/[-*].*$/,'').replace(/(投控|控股)$/,'');put(n,s.id);if(b!==n)put(b,s.id);if(n==='京元電子')put('京元電',s.id);if(n==='台灣大')put('台灣大哥大',s.id,1);}
+    else{ if(/^[A-Z]{3,5}$/.test(s.id)&&!GA_TBAD.has(s.id))put(s.id,s.id);
+      const nm=String(s.name||'').replace(/,? (Inc|Corp|Corporation|Company|Co|Ltd|plc|Holdings|Group)\.?$/i,'');if(nm.length>=4&&!GA_TBAD.has(nm.toUpperCase()))put(nm,s.id);
+      const c=__cdCache&&__cdCache[s.id];if(c){const z=String(c).split(/[,\uFF0C(\uFF08]/)[0].trim();if(/^[一-鿿]{2,8}$/.test(z))put(z,s.id);}}});
+  Object.entries(GA_US_ALIAS).forEach(([a,id])=>{if(S.find(s=>s.id===id))put(a,id,1);});
+  const ind={};GA_IND.forEach(([lab,p])=>p.split('|').forEach(w=>{if(!ind[w.toLowerCase()])ind[w.toLowerCase()]=lab;}));
+  const esc=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const wrap=x=>/^[A-Za-z]/.test(x)?`(?<![A-Za-z])${esc(x)}(?![A-Za-z])`:esc(x);
+  const keys=[...new Set([...Object.keys(al),...Object.keys(ind)])].sort((a,b)=>b.length-a.length);
+  const codeRe='(?<![0-9])[1-9][0-9]{3}(?![0-9年點元萬億%kK])';
+  GA_IX={n:S.length,cd:!!__cdCache,al,ind,re:new RegExp(keys.map(wrap).join('|')+'|'+codeRe,'gi'),byId:Object.fromEntries(S.map(s=>[s.id,s]))};
+  return GA_IX;
+}
+function gaHit(m){const X=gaIndex(),k=m.toLowerCase();
+  if(/^[1-9]\d{3}$/.test(m))return X.byId[m]&&X.byId[m].sector!=='ETF'?{id:m}:null;
+  if(X.al[k])return {id:X.al[k]};if(X.ind[k])return {ind:X.ind[k]};return null;}
+function gaStance(t){const m=String(t).match(/偏多|偏空|中性/);return m?m[0]:'';}   // 只認節目整理明寫的多空,不自己猜
+function gaMentions(s){
+  const X=gaIndex();const body=String(s).replace(/\n[^\n]*AI 聆聽全集整理[^\n]*$/,'').replace(/AI 聆聽全集整理[^\n]*$/,'');
+  const L=body.split('\n');const items=[];let inSec=false,cur=null;
+  for(const ln of L){
+    const isHead=/^\s*#{1,4}\s/.test(ln)||/^\s*\*\*[^*]+\*\*\s*$/.test(ln);
+    if(isHead){inSec=/提及|個股與族群|提到的個股/.test(ln);cur=null;continue;}
+    if(!inSec)continue;
+    const b=ln.match(/^\s*[-*•]\s+(.*)$/);
+    if(b){const h=b[1].match(/^\*\*(.+?)\*\*\s*[:\uFF1A]?\s*(.*)$/);cur={h:h?h[1].replace(/[:\uFF1A]$/,''):b[1].slice(0,20),t:h?h[2]:b[1]};items.push(cur);}
+    else if(cur&&ln.trim())cur.t+=ln.trim();
+  }
+  const stk=new Map(),inds=new Map(),oth=new Map(),notes=[];
+  items.forEach(it=>{
+    let id=null;String(it.h).replace(X.re,m=>{const h=gaHit(m);if(h&&h.id&&!id)id=h.id;return m;});
+    if(!id){const S=(DATA&&DATA.stocks)||[];const hh=String(it.h);const f=S.find(x=>x.market==='TW'&&x.sector!=='ETF'&&x.name&&x.name.length>=2&&hh.includes(x.name.replace(/[-*].*$/,'')));if(f)id=f.id;}
+    const st=gaStance(it.t);
+    if(id){if(!stk.has(id))stk.set(id,{st,src:1});}
+    else if(/族群|產業|類股|概念|板塊|供應鏈|股$/.test(it.h)){let lab=null;String(it.h).replace(X.re,m=>{const h=gaHit(m);if(h&&h.ind&&!lab)lab=h.ind;return m;});inds.set(lab||it.h,{st,src:1});}
+    else{const pn=(String(it.h).match(/[(\uFF08]\s*([A-Za-z][\w .&-]{1,30})\s*[)\uFF09]/)||[])[1];oth.set(pn||String(it.h).replace(/[(\uFF08].*$/,'').trim(),{st,src:1});}
+    notes.push({h:it.h,id,st,t:(String(it.t).replace(/^[\s:\uFF1A|]+/,'').match(/^[^。]*。?/)||[''])[0].slice(0,140)});
+  });
+  body.replace(X.re,m=>{const h=gaHit(m);if(!h)return m;if(h.id){if(!stk.has(h.id))stk.set(h.id,{st:'',src:0});}else if(!inds.has(h.ind))inds.set(h.ind,{st:'',src:0});return m;});
+  return {stk:[...stk.entries()],inds:[...inds.entries()],oth:[...oth.entries()],notes};
+}
+function gaStChip(st){return st?`<span style="font-size:11px;padding:0 5px;border-radius:6px;margin-left:4px;background:${st==='偏多'?'rgba(229,72,77,.18)':st==='偏空'?'rgba(48,164,108,.18)':'rgba(150,150,150,.2)'};color:${st==='偏多'?'var(--up)':st==='偏空'?'var(--down)':'var(--dim)'}">他${st}</span>`:'';}
+function gaMentionCard(s){
+  try{const M=gaMentions(s),X=gaIndex();if(!M.stk.length&&!M.inds.length&&!M.oth.length)return '';
+    const chip=([id,o])=>{const x=X.byId[id];if(!x)return '';const p=x.price!=null?`<span style="font-weight:400;margin-left:5px">${(+x.price).toLocaleString()}</span>`:'';
+      const c=x.chg!=null?`<span style="font-weight:400;margin-left:4px;color:${x.chg>=0?'var(--up)':'var(--down)'}">${x.chg>=0?'+':''}${(+x.chg).toFixed(2)}%</span>`:'';
+      const cn=x.market==='US'&&__cdCache&&__cdCache[id]?String(__cdCache[id]).split(/[,\uFF0C(\uFF08]/)[0]:'';const nm=x.market==='US'&&/^[一-鿿]{2,8}$/.test(cn)?cn:x.name;
+      return `<a class="ga-chip" href="#stock/${id}" style="${o.src?'border-color:var(--amber)':''}"><b>${nm}</b> <span style="color:var(--dim)">${id}</span>${p}${c}${gaStChip(o.st)}</a>`;};
+    const stks=M.stk.sort((a,b)=>b[1].src-a[1].src).map(chip).join('')+(M.oth||[]).map(([k,o])=>`<span class="ga-chip" style="border-color:var(--amber)"><b>${aiEsc(k)}</b><span style="font-size:11px;color:var(--dim);margin-left:4px">站內無報價</span>${gaStChip(o.st)}</span>`).join('');
+    const inds=M.inds.map(([k,o])=>`<span class="ga-chip ga-ichip">${aiEsc(k)}${gaStChip(o.st)}</span>`).join('');
+    const notes=M.notes.length?`<div style="margin-top:8px;font-size:13.5px;line-height:1.7">${M.notes.map(n=>`<div>▸ <b>${n.id?`<a href="#stock/${n.id}" class="ga-hl">${aiEsc(n.h)}</a>`:aiEsc(n.h)}</b>${gaStChip(n.st)}:${aiEsc(n.t)}</div>`).join('')}</div>`:'';
+    return `<div class="ga-mcard"><div style="font-weight:800;font-size:15px;margin-bottom:6px">🎯 本集提到的個股與產業</div>
+      ${stks?`<div style="margin-bottom:4px"><span style="font-size:12px;color:var(--dim);margin-right:4px">個股</span>${stks}</div>`:''}
+      ${inds?`<div><span style="font-size:12px;color:var(--dim);margin-right:4px">產業</span>${inds}</div>`:''}
+      ${notes}
+      <div style="font-size:11px;color:var(--dim);margin-top:6px">金框=節目明確點名;其他是內文提到。價格為站內最新報價,點個股看完整分析。</div></div>`;
+  }catch(e){return '';}
+}
+function gaHL(html){
+  try{const X=gaIndex();
+    return String(html).split(/(<[^>]+>)/).map(seg=>seg.startsWith('<')?seg:seg.replace(X.re,m=>{const h=gaHit(m);if(!h)return m;
+      return h.id?`<a class="ga-hl" href="#stock/${h.id}">${m}</a>`:`<span class="ga-ind">${m}</span>`;})).join('');
+  }catch(e){return html;}
+}
+function gaCss(){if(document.getElementById('gaCss'))return;const st=document.createElement('style');st.id='gaCss';
+  st.textContent=`.ga-mcard{background:color-mix(in srgb,var(--amber) 9%,var(--panel));border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);border-radius:10px;padding:10px 12px;margin:2px 0 10px}
+  .ga-chip{display:inline-flex;align-items:center;gap:2px;margin:3px 5px 3px 0;padding:3px 9px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);font-size:13.5px;color:var(--txt);text-decoration:none;white-space:nowrap}
+  .ga-ichip{background:rgba(111,168,220,.14);border-color:rgba(111,168,220,.45);color:#9fc5e8;font-weight:700}
+  a.ga-hl{color:var(--amber);font-weight:800;text-decoration:none;background:rgba(232,180,74,.15);border-radius:4px;padding:0 3px}
+  .ga-ind{color:#9fc5e8;font-weight:700;background:rgba(111,168,220,.16);border-radius:4px;padding:0 3px}`;document.head.appendChild(st);}
+function gaBody(s,head){gaCss();return gaMentionCard(s)+head+'<div style="margin-top:3px">'+gaHL(mdLite(s))+'</div>';}
 function gaCodes(txt){                            // 描述中的台股代號 → chips
   const ids=[...new Set((String(txt).match(/\b[1-9]\d{3}\b/g)||[]))]
     .filter(id=>DATA&&DATA.stocks&&DATA.stocks.find(s=>s.id===id)).slice(0,8);
@@ -16753,7 +16848,7 @@ async function gaSummarize(i,fromQueue){
   if(!e||!box)return true;
   const ck=gaKey(e.t);
   try{const c=JSON.parse(localStorage.getItem(ck)||'null');
-    if(c&&c.exp>Date.now()&&c.s){box.innerHTML='📌 <b>本集重點(AI)</b><div style="margin-top:3px">'+mdLite(c.s)+'</div>';return true;}}catch(err){}
+    if(c&&c.exp>Date.now()&&c.s){box.innerHTML=gaBody(c.s,'📌 <b>本集重點(AI)</b>');return true;}}catch(err){}
   box.innerHTML='<span style="color:var(--dim)">📌 AI 正在整理本集重點…(上網搜尋中)</span>';
   const ep=(e.t.match(/EP\s?(\d+)/i)||[])[1];
   try{
@@ -16764,7 +16859,7 @@ async function gaSummarize(i,fromQueue){
 輸出用繁體中文,直接條列不要開場白;最後一行固定:AI 整理${ep?'(EP'+ep+')':''},非官方摘要,推測項僅供參考,非投資建議。`);
     if(!s)throw new Error('空回應');
     try{localStorage.setItem(ck,JSON.stringify({exp:Date.now()+7*864e5,s}));}catch(err){}
-    box.innerHTML='📌 <b>本集重點(AI)</b><div style="margin-top:3px">'+mdLite(s)+'</div>';
+    box.innerHTML=gaBody(s,'📌 <b>本集重點(AI)</b>');
     return true;
   }catch(err){
     const m=String(err.message||err);
@@ -16820,7 +16915,7 @@ async function gaListen(i){
   if(!e||!box)return;
   const ck='ga_lsn_'+gaKey(e.t);
   try{const c=JSON.parse(localStorage.getItem(ck)||'null');
-    if(c&&c.exp>Date.now()&&c.s){box.innerHTML='🎧 <b>本集重點(AI 聽完全集)</b><div style="margin-top:3px">'+mdLite(c.s)+'</div>';return;}}catch(err){}
+    if(c&&c.exp>Date.now()&&c.s){box.innerHTML=gaBody(c.s,'🎧 <b>本集重點(AI 聽完全集)</b>');return;}}catch(err){}
   box.innerHTML='<span style="color:var(--dim)">🎧 尋找本集 YouTube 版…</span>';
   let yt=null;
   try{yt=await gaYtUrl(e.t);}catch(err){}
@@ -16835,11 +16930,11 @@ async function gaListen(i){
     const s=await gaAiOnce(null,[
       {file_data:{file_uri:yt}},
       {text:`請完整聽完這一集台股 Podcast「股癌」(${e.t}),用繁體中文寫一份「聽完可以不用再聽」等級的詳細整理,總長 800~1500 字,直接開始不要開場白。
-格式:依節目順序每主題一段——**小標**+他實際講了什麼(3~5句,含具體例子/數字/公司名/比喻)+他的結論;市場/總經觀點要含他給的理由;提及個股(有講才寫):股名+代號+他怎麼說+多空+邏輯;值得追蹤的後續(有才寫)。
+格式:依節目順序每主題一段——**小標**+他實際講了什麼(3~5句,含具體例子/數字/公司名/比喻)+他的結論;市場/總經觀點要含他給的理由;提及的個股與族群(有講才寫,用「**提及的個股與族群**」當標題):每檔一項 * **股名(代號)**:偏多/偏空/中性。他怎麼說+邏輯;產業/族群也各列一項並標多空;只舉例沒表態標「中性(舉例)」;值得追蹤的後續(有才寫)。
 規則:閒聊哏一句帶過、業配跳過、沒講的不腦補。最後一行固定:AI 聆聽全集整理,觀點屬節目主持人,非投資建議。`}],true,8192);
     if(!s)throw new Error('空回應');
     try{localStorage.setItem(ck,JSON.stringify({exp:Date.now()+30*864e5,s}));}catch(err){}
-    box.innerHTML='🎧 <b>本集重點(AI 聽完全集)</b><div style="margin-top:3px">'+mdLite(s)+'</div>';
+    box.innerHTML=gaBody(s,'🎧 <b>本集重點(AI 聽完全集)</b>');
   }catch(err){
     const m=String(err.message||err);
     box.innerHTML=`<span style="color:var(--dim)">🎧 聆聽失敗(${m.slice(0,60)})${m.startsWith('429')?' — 免費額度限流,稍後再試':''}</span>
@@ -16852,6 +16947,7 @@ let GA_QRUN=false;
 async function gaQueueRun(){
   if(GA_QRUN)return;
   GA_QRUN=true;
+  try{await Promise.race([coDescData(),new Promise(r=>setTimeout(r,3000))]);}catch(e){}
   const eps=window.__gaEps||[];
   // 後台預整理檔:最新集重點已在 repo,秒開零等待
   let pre=null;
@@ -16862,13 +16958,13 @@ async function gaQueueRun(){
     if(!b)continue;
     const epNo=(eps[i].t.match(/EP\s?(\d+)/i)||[])[1];
     if(pre&&pre.s&&((pre.t&&pre.t===eps[i].t)||(epNo&&pre.ep&&String(pre.ep)===String(epNo)))){
-      b.innerHTML='🎧 <b>本集重點(AI 聽完全集)</b><div style="margin-top:3px">'+mdLite(pre.s)+'</div>';
+      b.innerHTML=gaBody(pre.s,'🎧 <b>本集重點(AI 聽完全集)</b>');
       continue;
     }
     let lsn=null;
     try{lsn=JSON.parse(localStorage.getItem('ga_lsn_'+gaKey(eps[i].t))||'null');}catch(e){}
     if(lsn&&lsn.exp>Date.now()&&lsn.s){
-      b.innerHTML='🎧 <b>本集重點(AI 聽完全集)</b><div style="margin-top:3px">'+mdLite(lsn.s)+'</div>';
+      b.innerHTML=gaBody(lsn.s,'🎧 <b>本集重點(AI 聽完全集)</b>');
       continue;
     }
     b.innerHTML=(i===0
@@ -23245,7 +23341,7 @@ const SORT_KEY='secOrder';
 function secOrderGet(pane){try{return (JSON.parse(localStorage.getItem(SORT_KEY)||'{}')[pane])||null;}catch(e){return null;}}
 function secOrderSet(pane,arr){let o={};try{o=JSON.parse(localStorage.getItem(SORT_KEY)||'{}');}catch(e){}o[pane]=arr;try{localStorage.setItem(SORT_KEY,JSON.stringify(o));}catch(e){}}
 function paneKey(p){return p.id||p.dataset.tab||'main';}
-const SEC_DEFAULT={'sb-macro':['mk_idx','mk_risk','mk_rot','mk_temp','mk_bias','mk_head','mk_fut','mk_hist','mk_cmd','mk_earn','mk_conf']};   // r1042:首頁預設排版——先看大盤與資金,再看溫度/位置,最後國際與行事曆(自訂排序優先)
+const SEC_DEFAULT={'sb-macro':['mk_idx','mk_risk','mk_rot','mk_temp','mk_bias','mk_head','mk_fut','mk_hist','mk_cmd','mk_earn','mk_conf']};   // r1043:首頁預設排版——先看大盤與資金,再看溫度/位置,最後國際與行事曆(自訂排序優先)
 function applySecOrder(pane){
   let ord=secOrderGet(paneKey(pane));if(!ord||!ord.length)ord=SEC_DEFAULT[paneKey(pane)];if(!ord||!ord.length)return;
   ord.forEach(k=>{const t=pane.querySelector(`:scope > .sec-title[data-sec="${k}"]`),b=document.getElementById('sb-'+k);
