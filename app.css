@@ -2418,3 +2418,6 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .fav-def b{font-family:var(--mono,monospace)}
 .fav-def em{font-style:normal;font-size:11.5px;margin-left:2px}
 .fav-def .fd-c{border:none;color:var(--dim);font-size:11.5px;padding:3px 2px}
+
+/* r1042:使用者要求隱藏的首頁區塊(程式照跑,只是不顯示) */
+.sec-off{display:none!important}

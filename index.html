@@ -17,7 +17,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230C111D'/><rect x='10' y='34' width='10' height='19' rx='2.5' fill='%238a6a1f'/><rect x='27' y='23' width='10' height='30' rx='2.5' fill='%23E8B44A'/><rect x='44' y='11' width='10' height='42' rx='2.5' fill='%23E5484D'/></svg>">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
-<meta name="build" content="r1041">
+<meta name="build" content="r1042">
 <meta name="theme-color" content="#b3402a" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -31,7 +31,7 @@
 <link rel="dns-prefetch" href="https://s3.tradingview.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="app.css?v=r1041">
+<link rel="stylesheet" href="app.css?v=r1042">
 <style id="navColors">/* r553:導覽配色內嵌保險——repo 的 app.css 多次未成功更新,顏色規則改由 index.html 直帶,保證生效 */
 @media(min-width:641px){.mob-jump{flex-wrap:wrap!important;overflow:visible!important}}
 .sec-title{margin:18px 0 8px!important;font-size:16.5px!important}
@@ -39,6 +39,7 @@
 @media(max-width:640px){.sec-title{font-size:15px!important;margin:13px 0 6px!important}.sec-title span{display:none}}
 </style>
 <link rel="stylesheet" href="mobile.css?v=r770">
+<style>.sec-off{display:none!important}</style>
 </head>
 <body>
 
@@ -161,7 +162,7 @@
   <div id="futTab"></div>
   <div class="fx-note" id="macroNote">總經判讀載入中…</div>
   </div>
-  <div class="sec-title tap" data-sec="mk_head" style="margin-top:14px">🔺 頭部七腳印 <span style="font-weight:400;font-size:13px;letter-spacing:0">打頭打七吋・大盤+櫃買做頭進度・全市場個股掃描</span></div><div class="sec-body" id="sb-mk_head">
+  <div class="sec-title tap sec-off" data-sec="mk_head" style="margin-top:14px">🔺 頭部七腳印 <span style="font-weight:400;font-size:13px;letter-spacing:0">打頭打七吋・大盤+櫃買做頭進度・全市場個股掃描</span></div><div class="sec-body sec-off" id="sb-mk_head">
   <div id="headMacro"><div class="dim-note">大盤日線判讀中…</div></div>
   <div style="font-weight:900;font-size:15px;margin:16px 0 6px">🔄 轉折點分析|加權指數・節奏預估・近端價位</div>
   <div id="fwMacro"><div class="dim-note">判讀中…</div></div>
@@ -340,7 +341,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-<script src="app.js?v=r1041"></script>
+<script src="app.js?v=r1042"></script>
 <script src="mobile.js?v=r770" defer></script>
 </body>
 </html>
