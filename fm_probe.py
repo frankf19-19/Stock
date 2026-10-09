@@ -18,11 +18,18 @@ def q(url, **p):
                 "loc": r.headers.get("Location", "")[:80], "len": len(r.content), "body": __import__("re").sub(r'"token_tail":"[^"]*"', '', r.text[:300])}
     except Exception as e:
         return {"err": str(e)[:200]}
-for y in ("2016", "2018", "2020", "2021", "2022", "2023", "2024", "2025"):
-    out[f"agg_2330_{y}-03"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", data_id="2330", start_date=f"{y}-03-01", end_date=f"{y}-03-31")
-    time.sleep(1)
-out["agg_2330_2025_full_year"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", data_id="2330", start_date="2025-01-01", end_date="2025-12-31")
-out["agg_6214_2024_2026"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", data_id="6214", start_date="2024-01-01", end_date="2026-10-08")
+# 券商清單(免費資料)→ 挑幾家測「依券商 × 日期區間」
+try:
+    r = requests.get(f"{API}/data", params={"dataset": "TaiwanSecuritiesTraderInfo", "token": T}, timeout=60).json().get("data") or []
+    out["brokers_n"] = len(r); ids = [x.get("securities_trader_id") for x in r][:400]
+    out["brokers_sample"] = [(x.get("securities_trader_id"), x.get("securities_trader")) for x in r[:5]]
+except Exception as e: ids = []; out["brokers_err"] = str(e)[:100]
+big = [i for i in ids if i in ("9800", "9A00", "1020", "5920", "9600")] or ids[:2]
+for bid in big[:2]:
+    for y in ("2016", "2019", "2021", "2023", "2025"):
+        out[f"agg_{bid}_{y}-03"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", securities_trader_id=bid, start_date=f"{y}-03-01", end_date=f"{y}-03-31"); time.sleep(1)
+    out[f"agg_{bid}_2025_year"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", securities_trader_id=bid, start_date="2025-01-01", end_date="2025-12-31")
+    out[f"agg_{bid}_2330_2024_2026"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", securities_trader_id=bid, data_id="2330", start_date="2024-01-01", end_date="2026-10-08")
 for y in ("2019", "2021", "2023", "2025"):
     out[f"data_agg_2330_{y}-03"] = q(f"{API}/data", dataset="TaiwanStockTradingDailyReportSecIdAgg", data_id="2330", start_date=f"{y}-03-01", end_date=f"{y}-03-31")
 out["data_daily_2330_2021"] = q(f"{API}/data", dataset="TaiwanStockTradingDailyReport", data_id="2330", start_date="2021-03-02", end_date="2021-03-02")
