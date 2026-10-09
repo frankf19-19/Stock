@@ -172,6 +172,40 @@ def gbt_prob(x):
 
 
 def _sl(x): return "g" if x.get("sleeve") == "g" else "v"
+
+
+_HOLI = None
+def _tw_open(day):
+    """r1047:台股這天有沒有開盤(週末/holidays.json 國定假日 → 沒開)。10/9 國慶休市時,盤中班拿到 MIS 的 10/8 舊報價當成今天開盤,誤買 4 檔"""
+    global _HOLI
+    try:
+        if _HOLI is None:
+            try: _HOLI = (json.load(open("holidays.json", encoding="utf-8")).get("tw") or {})
+            except Exception: _HOLI = {}
+        d = dt.date.fromisoformat(str(day)[:10])
+        return d.weekday() < 5 and str(day)[:10] not in _HOLI
+    except Exception: return True
+
+
+def _heal_closed_days(A, T, ev):
+    """r1047:把「休市日」記下的盤中成交退回——買進退回待買(隔一個真的交易日開盤再買)、出場撤銷(持股放回)"""
+    pend_ids = {q["id"] for q in T.get("pend") or []}
+    for p in list(T.get("pos") or []):
+        if not p.get("rt") or p.get("ok") or _tw_open(p.get("fill", "")): continue
+        T["pos"].remove(p)
+        if p["id"] in pend_ids: continue
+        d, o = A.bars_of(p["id"]); spx = None
+        if d and p.get("sig_d") in d: spx = o[d.index(p["sig_d"])][3]
+        q = {"id": p["id"], "name": p["name"], "sector": p.get("sector"), "sig_d": p.get("sig_d"), "sig_px": spx or p["entry"], "p": p.get("p"), "sleeve": p.get("sleeve")}
+        if p.get("add"): q["add"] = p["add"]
+        T.setdefault("pend", []).append(q); pend_ids.add(p["id"])
+        ev.append(f"{p['fill']} ↩ 核對:{p['fill']} 台股休市,{p['name']} 的盤中買進是舊報價誤判 → 撤銷,改在下一個交易日開盤買")
+    for t in list(T.get("trades") or []):
+        if not t.get("rt") or t.get("ok") or _tw_open(t.get("xd", "")): continue
+        T["trades"].remove(t)
+        T.setdefault("pos", []).append({k: t[k] for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d") if k in t} |
+                                       {"stop": t.get("line", t.get("stop0")), "hi": t.get("hi", t.get("entry")), "seen": t.get("fill"), "ok": 1, "sleeve": t.get("sleeve")})
+        ev.append(f"{t['xd']} ↩ 核對:{t['xd']} 台股休市,{t['name']} 的盤中出場是舊報價誤判 → 撤銷")
 def _cnt(T, sl): return sum(1 for p in T["pos"] if _sl(p) == sl) + sum(1 for q in T["pend"] if _sl(q) == sl)
 
 
@@ -267,6 +301,8 @@ def run(A, data, log=print):
     bd, _ = A.bars_of(A.BENCH_SID); last = bd[-1] if bd else ""
     if not last: return T
     ev = []
+    try: _heal_closed_days(A, T, ev)                                       # r1047:休市日的盤中成交一律撤銷
+    except Exception as e: log(f"trader:休市核對例外 {e}")
     # ⓪ r977:盤中即時成交的「官方日 K 核對」——買進價必須 = 當天官方開盤;出場必須當天最低價真的 ≤ 出場價
     for p in list(T["pos"]):
         if not p.get("rt") or p.get("ok"): continue
@@ -523,6 +559,7 @@ def run_intraday(A, data, hhmm, log=print):
     except Exception: return None
     if not T or not ("09:00" <= hhmm <= "13:30"): return T
     today = A.iso(A.TODAY); byid = {s["id"]: s for s in data.get("stocks", [])}
+    if not _tw_open(today): return None                                    # r1047:台股休市 → 盤中班什麼都不做(MIS 會回前一個交易日的舊報價)
     def live(sid):
         s = byid.get(sid) or {}
         ok = s.get("pz") == 1 and str(s.get("pt") or "")[:10] == today and s.get("dhd") == today and s.get("dhl")

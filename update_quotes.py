@@ -79,6 +79,10 @@ def main():
             # r974:只認「真的成交價」z。原本 z 缺就退回 買一 b → 昨收 y:
             #   漲停鎖死、或兩次撮合之間 z 會是 "-",價格就被寫成昨收(10/05 華通漲停 248.5 被記成 226 → AI Pick 誤判成交)
             #   現在 z 缺就沿用上一筆真實成交價、不寫進走勢快照;另外記下今天官方開高低(o/h/l)與「真實成交」標記
+            md = str(m.get("d") or "").strip()                # r1047:MIS 報價日期(YYYYMMDD)——休市日/開盤前 MIS 回的是前一個交易日的資料,不能當成今天
+            if md and md != now.strftime("%Y%m%d"):
+                s["pz"] = 0
+                continue
             last = px(m, "z") or px(m, "pz")                 # r1005:z 常在兩次撮合之間是 "-";pz(前一筆成交價)也是真實成交
             prev = px(m, "y")
             o_, h_, l_ = px(m, "o"), px(m, "h"), px(m, "l")
@@ -103,6 +107,9 @@ def main():
         for m in arr:
             last, prev = px(m, "z") or px(m, "b"), px(m, "y")
             if not (last and prev):
+                continue
+            md = str(m.get("d") or "").strip()
+            if md and md != now.strftime("%Y%m%d"):           # r1047:休市日 MIS 回舊資料 → 不覆寫
                 continue
             name = "加權指數" if "t00" in str(m.get("ch", "")) else "櫃買指數"
             it = next((x for x in idx if name in x.get("name", "")), None)
