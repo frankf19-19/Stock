@@ -1,0 +1,335 @@
+{
+ "brokers_n": 1044,
+ "brokers_sample": [
+  [
+   "075T",
+   "第一銀行"
+  ],
+  [
+   "076T",
+   "國泰世華銀"
+  ],
+  [
+   "087T",
+   "臺灣銀行"
+  ],
+  [
+   "1020",
+   "合庫"
+  ],
+  [
+   "1021",
+   "合庫-台中"
+  ]
+ ],
+ "agg_1020_2016-03": {
+  "code": 400,
+  "sec": 0.6,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_1020_2019-03": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_1020_2021-03": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_1020_2023-03": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_1020_2025-03": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_1020_2025_year": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_1020_2330_2024_2026": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "agg_5920_2016-03": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_5920_2019-03": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_5920_2021-03": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_5920_2023-03": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_5920_2025-03": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_5920_2025_year": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 130,
+  "body": "{\"msg\":\"parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset\",\"status\":400,}"
+ },
+ "agg_5920_2330_2024_2026": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "data_agg_2330_2019-03": {
+  "code": 422,
+  "sec": 0.5,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 6531,
+  "body": "{\"detail\":[{\"type\":\"enum\",\"loc\":[\"query\",\"dataset\"],\"msg\":\"Input should be 'CnnFearGreedIndex', 'CrudeOilPrices', 'EuropeStockInfo', 'EuropeStockPrice', 'ExchangeRate', 'GoldPrice', 'GovernmentBondsYield', 'InterestRate', 'JapanStockInfo', 'JapanStockPrice', 'TaiwanAssetSwapFixedIncomeDaily', 'Taiwa"
+ },
+ "data_agg_2330_2021-03": {
+  "code": 422,
+  "sec": 0.5,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 6531,
+  "body": "{\"detail\":[{\"type\":\"enum\",\"loc\":[\"query\",\"dataset\"],\"msg\":\"Input should be 'CnnFearGreedIndex', 'CrudeOilPrices', 'EuropeStockInfo', 'EuropeStockPrice', 'ExchangeRate', 'GoldPrice', 'GovernmentBondsYield', 'InterestRate', 'JapanStockInfo', 'JapanStockPrice', 'TaiwanAssetSwapFixedIncomeDaily', 'Taiwa"
+ },
+ "data_agg_2330_2023-03": {
+  "code": 422,
+  "sec": 0.5,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 6531,
+  "body": "{\"detail\":[{\"type\":\"enum\",\"loc\":[\"query\",\"dataset\"],\"msg\":\"Input should be 'CnnFearGreedIndex', 'CrudeOilPrices', 'EuropeStockInfo', 'EuropeStockPrice', 'ExchangeRate', 'GoldPrice', 'GovernmentBondsYield', 'InterestRate', 'JapanStockInfo', 'JapanStockPrice', 'TaiwanAssetSwapFixedIncomeDaily', 'Taiwa"
+ },
+ "data_agg_2330_2025-03": {
+  "code": 422,
+  "sec": 0.4,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 6531,
+  "body": "{\"detail\":[{\"type\":\"enum\",\"loc\":[\"query\",\"dataset\"],\"msg\":\"Input should be 'CnnFearGreedIndex', 'CrudeOilPrices', 'EuropeStockInfo', 'EuropeStockPrice', 'ExchangeRate', 'GoldPrice', 'GovernmentBondsYield', 'InterestRate', 'JapanStockInfo', 'JapanStockPrice', 'TaiwanAssetSwapFixedIncomeDaily', 'Taiwa"
+ },
+ "data_daily_2330_2021": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "data_daily_2330_2019": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "daily_2330_2020": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "obj_2026-10-08": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "obj_2021-03-02": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "user": {
+  "msg": "success",
+  "status": 200,
+  "email_verify": true,
+  "level": 1,
+  "end_date": "",
+  "user_count": 1,
+  "api_request_limit": 600,
+  "api_request_limit_hour": 600,
+  "api_request_limit_day": 600,
+  "level_title": "Free",
+  "BackerInfo": {
+   "subscription_begin_date": "",
+   "subscription_expired_date": "",
+   "api_request_limit": 0,
+   "msg": "",
+   "status_code": 200
+  },
+  "SponsorInfo": {
+   "subscription_begin_date": "2026-09-08",
+   "subscription_expired_date": "2026-10-08",
+   "api_request_limit": 6000,
+   "msg": "已到期",
+   "status_code": 410
+  },
+  "SponsorProInfo": {
+   "subscription_begin_date": "",
+   "subscription_expired_date": "",
+   "api_request_limit": 0,
+   "msg": "",
+   "status_code": 200
+  }
+ },
+ "token_len": 195
+}
