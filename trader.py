@@ -544,6 +544,9 @@ def run(A, data, log=print):
     try:                                                   # r1024:📈 量價組(純量價模型,獨立模擬帳戶)
         import pvsleeve; pvsleeve.run(A, data, T, last, log)
     except Exception as e: log(f"trader:量價組例外 {e}")
+    try:                                                   # r1049:🎯 錯殺低接 實戰追蹤 + 營收品質旗標
+        import strat_os; strat_os.run(A, data, T, last, log)
+    except Exception as e: log(f"trader:錯殺低接例外 {e}")
     T["updated"] = A.NOW.strftime("%Y-%m-%d %H:%M"); T["last_bar"] = last
     for e in ev: log("trader:" + e)
     return T

@@ -1,4 +1,4 @@
-/* K研所 · build r1048 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1049 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1048';
+const APP_BUILD='r1049';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -643,7 +643,7 @@ function vPlanHTML(V,px){
 /* ══ r1022:📊 以個股自己為主的價位統計——每檔 2012 年起自己的歷史:站上/跌破各價位後 20 個交易日的表現,
    和「這檔平常任一天買進」對照(不跟大盤比)。註:依各檔歷史挑價位,樣本外(2020 後)並不準 → 只當股性參考 ══ */
 let LVS=null,LVS_P=null;
-function lvLoad(){try{tvLoad();}catch(e){}if(LVS)return (TVS_P||Promise.resolve()).then(()=>LVS);if(!LVS_P)LVS_P=Promise.all([fT('lvstat.json?v='+kv(),15000),(typeof tvLoad==='function'?tvLoad():null)]).then(a=>a[0]).then(r=>r&&r.ok?r.json():null).then(j=>{LVS=(j&&j.s)||{};return LVS;}).catch(()=>{LVS={};return LVS;});return LVS_P;}
+function lvLoad(){try{tvLoad();oslLoad();}catch(e){}if(LVS)return (TVS_P||Promise.resolve()).then(()=>LVS);if(!LVS_P)LVS_P=Promise.all([fT('lvstat.json?v='+kv(),15000),(typeof tvLoad==='function'?tvLoad():null),(typeof oslLoad==='function'?oslLoad():null)]).then(a=>a[0]).then(r=>r&&r.ok?r.json():null).then(j=>{LVS=(j&&j.s)||{};return LVS;}).catch(()=>{LVS={};return LVS;});return LVS_P;}
 const LV_DEF={h20:['站上 20 日高','b'],h60:['站上 60 日高','b'],h120:['站上半年高','b'],h250:['站上一年高','b'],u20:['站上月線','b'],u60:['站上季線','b'],
   d20d:['跌破月線(月線下彎時)','s'],d60:['跌破季線','s'],d120:['跌破半年線','s'],d240:['跌破年線','s'],l20:['跌破 20 日低','s'],l60:['跌破 60 日低','s']};
 function lvLevels(o){
@@ -693,7 +693,7 @@ function pvPlanHTML(id,px,cost){
     <div>➕ <b>加碼</b>:<span style="color:var(--dim)">不建議——回測「獲利 5%/10% 且仍在前 20 名就加碼」11 年中只有 5~6 年比較好,沒有穩定效果</span></div>
     <div style="color:var(--dim);font-size:11.5px">量價籌碼組回測 2016~2026:年化 +43.7%、最大回落 −31.2%(0050 +25.4%/−32.6%),11 年中 8 年贏 0050。回測偏樂觀,實際以模擬帳戶為準。</div></div>`;
 }
-/* ══ r1048:🔄 轉折價位+黃金防守價(白話)——價格靠近時說明;每檔附「自己過去碰到這價位之後」的統計+全市場 14 年驗證(turnstat.json) ══
+/* ══ r1049:🔄 轉折價位+黃金防守價(白話)——價格靠近時說明;每檔附「自己過去碰到這價位之後」的統計+全市場 14 年驗證(turnstat.json) ══
    驗證結論(2012~2026 全市場 1,899 檔、網站同款 zigzag):碰到黃金價(0.618)後 20 天內守住只有約 16%;
    碰到/跌破/站上這些價位之後,20 天表現跟大盤只差 0.1~0.3% → 只當「位置參考」,真正的停損以 🛑(季線/年線/模型)為準 */
 let TVS=null,TVS_P=null;
@@ -760,7 +760,7 @@ function tvStatTable(r){
       <div style="margin-top:4px">👉 <b>結論</b>:全市場碰到黃金價(0.618)後,20 天內守住只有 ${(TVS.m.U618||[])[4]||'—'}%;碰到、跌破或站上這些價位之後,表現跟大盤只差 0.1~0.3%——<b>不是可靠的支撐/壓力</b>,只當「現在在這波的哪個位置」的參考。轉折時間窗的驗證也沒有效果。</div></div>`;
   }catch(e){return '';}
 }
-/* ══ r1048:📈 技術、📊 量價 白話評估——只用「驗證過」的意義下結論(2012~2026 全市場流動股、之後 20 個交易日比大盤)
+/* ══ r1049:📈 技術、📊 量價 白話評估——只用「驗證過」的意義下結論(2012~2026 全市場流動股、之後 20 個交易日比大盤)
    ✅ 通過:均線全多 +0.76%(15/15年)、均線全空 −0.67%、季線之上但季線下彎 −0.64%、年線之下 −0.77%、KD≥80 +0.97%、RSI≥70 +1.20%、
            帶量突破 20 日高 +0.54%、投信 5 日買超 +0.52%
    🟡 弱效:年線之上 +0.36%、K≤20 −0.39%、近 5 日價跌量增 −0.39%
@@ -813,6 +813,60 @@ function vtVolLine(o){
     const verdict=sc>0?'<b style="color:var(--up)">量價偏多</b>':sc<0?'<b style="color:var(--down)">量價偏弱</b>':'<b>量價中性</b>';
     return `${verdict}:${s}${T.length?'<br>'+T.join('<br>'):''}`;
   }catch(e){return '';}
+}
+/* ══ r1049:🧭 每檔的「AI Pick 建議做法」——波段 / 箱型 / 錯殺低接,三種都先回測(2012~2026)再下結論 ══
+   🌊 波段 = 量價籌碼組(✅ 年化 39%);📦 箱型低買高賣 ❌(4 種設定都輸隨機買,箱底買 55% 被停損);跌破整理箱底才是有效賣訊 ✅
+   🎯 錯殺低接 ✅:離 60 日高跌 ≥30% 的第一天 → 隔天開盤買,停利 +20%、停損 −15%、最多 60 天(營收好 4,933 次、勝率 55%、平均 +3.2%;隨機 +0.6%) */
+let OSL=null,OSL_P=null;
+function oslLoad(){if(OSL)return Promise.resolve(OSL);if(!OSL_P)OSL_P=fT('oslstat.json?v='+kv(),15000).then(r=>r&&r.ok?r.json():null).then(j=>{OSL=j||{m:{},s:{}};return OSL;}).catch(()=>{OSL={m:{},s:{}};return OSL;});return OSL_P;}
+function stratLine(o,id,px){
+  try{if(!o||o.length<61||!(px>0))return '';
+    const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||{},PV=T.pv||{},PM=(PV.pxmap||{})[id]||{},OS=T.os||{};
+    const fmt=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:v<50?2:v<500?1:0}),pct=v=>{const d=(v/px-1)*100;return `${d>=0?'+':''}${d.toFixed(1)}%`;};
+    const tk=v=>{const t=v<10?0.01:v<50?0.05:v<100?0.1:v<500?0.5:v<1000?1:5;return +(Math.round(v/t)*t).toFixed(2);};
+    const dim=t=>`<span style="font-size:11.5px;color:var(--dim)">${t}</span>`;
+    const R=[];
+    // 🌊 波段(量價籌碼組)
+    {const h=(PV.pos||[]).find(x=>x.id===id),q=(PV.pend||[]).find(x=>x.id===id);let t;
+      if(h)t=`持有中(${String(h.fill||'').slice(5).replace('-','/')} 買 ${h.entry});${PM.sell?`收盤跌到 <b>${fmt(PM.sell)}</b>(${pct(PM.sell)})會掉出名單 → 隔天開盤賣`:'下跌 30% 內不會掉出名單'};漲到 <b>${fmt(h.tp)}</b> 停利`;
+      else if(q&&q.act==='buy')t=`<b style="color:var(--up)">明天 9:00 開盤買進</b>`;
+      else if(PM.buy_lo)t=`<b style="color:var(--up)">現在就在買進名單內</b>;收盤守在 ${fmt(PM.buy_lo)} 以上 → 隔天開盤買`;
+      else if(PM.buy)t=`收盤${PM.buy>px?'站上':'跌到'} <b>${fmt(PM.buy)}</b>(${pct(PM.buy)})會進入買進名單 → 隔天開盤買`;
+      else t='目前不在買進名單,價格上下 15% 內都進不去';
+      R.push(`🌊 <b>波段</b> ✅:${t} ${dim('(量價籌碼組,回測年化 39%)')}`);}
+    // 📦 箱型(20 日整理箱)
+    {const n=o.length,H=o.slice(n-21,n-1).map(b=>b[1]),Lw=o.slice(n-21,n-1).map(b=>b[2]);const hi=Math.max(...H),lo=Math.min(...Lw),w=(hi/lo-1)*100;
+      if(w<=10){
+        if(px<lo)R.push(`📦 <b>箱型</b>:<b style="color:var(--down)">已跌破整理箱底 ${fmt(lo)}</b> ✅ 偏弱 ${dim('(實測跌破後 20 天比大盤差 0.86%;有持股依停損賣)')}`);
+        else R.push(`📦 <b>箱型</b>:在 ${fmt(lo)}~${fmt(hi)} 整理(寬 ${w.toFixed(1)}%)。<b>收盤跌破 ${fmt(lo)}</b>(${pct(lo)})是有效賣訊 ✅;${dim('箱底買、箱頂賣實測不划算 ❌(輸隨機買,箱底買進一半以上會被停損)')}`);
+      }else R.push(`📦 <b>箱型</b>:${dim('目前沒有在整理箱裡(近 20 天高低差 '+w.toFixed(0)+'%);箱底買箱頂賣實測不划算 ❌,不建議')}`);}
+    // 🎯 錯殺低接
+    {const hi60=Math.max(...o.slice(-60).map(b=>b[1])),dd=(px/hi60-1)*100,q=(OS.rq||{})[id],good=q&&(q[0]||q[1]);
+      const qt=q?(good?`營收${q[0]?'連 3 月成長':''}${q[0]&&q[1]?'、':''}${q[1]?'創 13 個月新高':''}(有未來性)`:'營收沒有成長'):'';
+      const st=(OSL&&OSL.s||{})[id],M=(OSL&&OSL.m)||{},mm=good?M.any:M.bad;
+      const hist=st&&st[0]>=3?`這檔過去 ${st[0]} 次:平均 ${st[1]>=0?'+':''}${st[1]}%、勝率 ${st[2]}%`:(mm?`全市場${good?'營收好':'營收不好'} ${mm[0].toLocaleString()} 次:平均 +${mm[1]}%、勝率 ${mm[2]}%(隨機買 +${(M.rand||[])[1]||0.59}%)`:'');
+      const p=(OS.pend||[]).find(x=>x.id===id),op=(OS.open||[]).find(x=>x.id===id);let t;
+      if(p)t=`<b style="color:var(--up)">今天符合!明天 9:00 開盤買</b>,停利 +20%(約 ${fmt(tk(px*1.2))})、停損 −15%(約 ${fmt(tk(px*0.85))})、最多抱 60 天`;
+      else if(op)t=`實戰追蹤中:${String(op.fill).slice(5).replace('-','/')} 開盤買 ${op.entry},停利 <b>${op.tp}</b>、停損 <b>${op.sl}</b>`;
+      else if(dd<=-30)t=`已離 60 日高 ${dd.toFixed(1)}%(錯殺區);規則是跌破 −30% 的<b>第一天</b>買,之後不追加`;
+      else if(dd<=-10)t=`離 60 日高 ${dd.toFixed(1)}%;跌到 <b>${fmt(tk(hi60*0.7))}</b>(${pct(hi60*0.7)})以下才符合錯殺低接`;
+      else t=`離 60 日高只有 ${dd.toFixed(1)}%,還沒跌深,不適用`;
+      R.push(`🎯 <b>錯殺低接</b> ✅:${t}${qt?`。${qt}`:''} ${hist?dim('('+hist+')'):''}`);}
+    return R.join('<br>')+`<div style="font-size:11.5px;color:var(--dim);margin-top:2px">錯殺低接的回測不含已下市股票,可能偏樂觀;務必照停損執行。</div>`;
+  }catch(e){return '';}
+}
+function osHTML(){
+  try{const OS=(AIPK&&AIPK.trader&&AIPK.trader.os)||null;if(!OS)return '';const st=OS.stats||{},R=OS.rules||{},bt=R.bt||{};
+    const md=x=>String(x||'').slice(5).replace('-','/'),fp=v=>v==null?'—':(v>0?'+':'')+(+v).toFixed(1)+'%';
+    const pend=(OS.pend||[]).map(q=>`<a href="#stock/${q.id}" class="wl-chip" style="color:var(--up);border-color:var(--up)">${q.name} ${q.dd}%${q.q?'・營收好':''}</a>`).join(' ');
+    const open=(OS.open||[]).map(p=>{const r=p.px?(p.px/p.entry-1)*100:null;return `<div style="font-size:12.5px"><a href="#stock/${p.id}"><b>${p.name}</b></a> ${md(p.fill)} 買 ${p.entry}・停利 ${p.tp}・停損 ${p.sl}${r!=null?`・<b style="color:${r>=0?'var(--up)':'var(--down)'}">${fp(r)}</b>`:''}</div>`;}).join('');
+    return `<div class="dim-block" style="margin-top:16px;border-left:4px solid #E06666">
+      <div style="font-weight:900;font-size:16px">🎯 錯殺低接・實戰追蹤 <span style="font-weight:400;font-size:13px;color:var(--dim)">離 60 日高跌 ≥30% 的第一天 → 隔天開盤買</span></div>
+      <div class="dim-note" style="margin:4px 0 8px">停利 +20%、停損 −15%、最多抱 60 天。回測 ${bt.range||'2012~2026'}:營收好 ${((bt.good||[])[0]||0).toLocaleString()} 次、勝率 ${(bt.good||[])[2]}%、平均 +${(bt.good||[])[1]}%;營收不好平均 +${(bt.bad||[])[1]}%;隨機買同規則 +${(bt.rand||[])[1]}%;${bt.years||''} 年勝過隨機。歷史資料不含已下市股票,可能偏樂觀——所以這裡用每天的實際訊號持續追蹤成績。</div>
+      <div style="font-size:13px;margin-bottom:6px">📊 實戰:已出場 ${st.closed||0} 筆${st.closed?`、勝率 ${st.win}%、平均 ${fp(st.avg)}`:''}・追蹤中 ${st.open||0} 檔</div>
+      ${pend?`<div style="font-size:13px;margin-bottom:6px">⏭ 明天開盤買:${pend}</div>`:''}
+      ${open?`<details class="aip-fold"><summary>追蹤中的 ${(OS.open||[]).length} 檔</summary>${open}</details>`:''}
+    </div>`;}catch(e){return '';}
 }
 function actionPlan(o,id,px,own,cost){
   /* r1031:全部用「價格」表達——模型門檻(AI Pick 勝算/名次、量價籌碼排名)都換算成「收盤到哪個價會觸發」 */
@@ -872,6 +926,7 @@ function actionPlan(o,id,px,own,cost){
   const L=(ic,lab,txt)=>`<div style="display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><div style="min-width:64px;font-weight:900">${ic} ${lab}</div><div>${txt}</div></div>`;
   return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
     <div style="padding:2px 0 2px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
+    ${(()=>{const t=stratLine(o,id,px);return t?L('🧭','做法',t):'';})()}
     ${(()=>{const t=vtTechLine(o);return t?L('📈','技術',t):'';})()}
     ${(()=>{const t=vtVolLine(o);return t?L('📊','量價',t):'';})()}
     ${diagTxt?L('💰','籌碼',diagTxt):''}
@@ -2145,7 +2200,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1048</span>');
+  diag.push('<span style="color:var(--dim)">build r1049</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3140,7 +3195,7 @@ setTimeout(loadInst,7000);
 setInterval(loadInst,15*60*1000); // 每15分鐘檢查(15:00後會自動換上今日)
 
 
-const HIDE_HEAD=true;   // r1048:使用者要求——頭部七腳印/頭部機率相關顯示全部隱藏(大盤+個股+持股);引擎照算,改 false 即恢復
+const HIDE_HEAD=true;   // r1049:使用者要求——頭部七腳印/頭部機率相關顯示全部隱藏(大盤+個股+持股);引擎照算,改 false 即恢復
 /* ══ 🔺 頭部七腳印|「打頭打七吋」規則化引擎(大盤+個股共用) ══
    七個腳印:①指標背離 ②高檔跳空缺口不補 ③破支撐趨勢線 ④破末升低 ⑤反彈不創高 ⑥再破前低 ⑦走空頭浪
    前段(1~3)=警告早但不可靠(可能假跌破);後段(4~7)=證據強但價格更便宜──紀律執行 */
@@ -5896,8 +5951,8 @@ function wireTempDocs(){
 setInterval(wireTempDocs,3000);
 setTimeout(wireTempDocs,7000);
 
-/* r1048:首頁 AI Pick 摘要卡已移除(使用者:AI Pick 不用在首頁出現) */
-setTimeout(()=>{try{const p=document.getElementById('sb-macro');if(p)applySecOrder(p);}catch(e){}},1500);   // r1048:首頁預設排版
+/* r1049:首頁 AI Pick 摘要卡已移除(使用者:AI Pick 不用在首頁出現) */
+setTimeout(()=>{try{const p=document.getElementById('sb-macro');if(p)applySecOrder(p);}catch(e){}},1500);   // r1049:首頁預設排版
 function tldrCard(){
   const box=document.getElementById('tldrBox');
   if(!box)return;
@@ -6962,7 +7017,7 @@ function renderMacroAlerts(){
     `<a class="alert-pill alert-${x.lv}" href="${x.l}" target="_blank" rel="noopener"><span class="ico">${x.lv==='red'?'🚨':'📰'}</span><span>${x.lv==='red'?'重大外電:':'外電訊號:'}${x.t}${x.tags.length?` <b>→ ${x.tags.join('/')}</b>`:''}<span style="color:var(--dim);font-weight:600"> · ${x.ago} ↗</span></span></a>`).join('');
   el.style.display='';
   el.innerHTML=(A.length||news)
-    ?A.map(a=>{const hd=false;   /* r1048:首頁頭部七腳印區已隱藏,提醒列不再連過去 */return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).join('')+news
+    ?A.map(a=>{const hd=false;   /* r1049:首頁頭部七腳印區已隱藏,提醒列不再連過去 */return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).join('')+news
     :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>風險溫度計與外電目前無特別警示</span></span>';
 }
 setTimeout(()=>{try{renderMacroAlerts();}catch(e){}},4500);
@@ -11205,7 +11260,7 @@ function aipTdBanner(){
   return '';
 }
 
-/* r1048:🌙 美股昨晚收盤 → 台股隔天進場評估(AI Pick 頁最上面)
+/* r1049:🌙 美股昨晚收盤 → 台股隔天進場評估(AI Pick 頁最上面)
    資料:aipick.json 的 usc(後端每 20 分鐘抓 Yahoo:費半/那斯達克/S&P/台積電ADR)。
    判斷:us_overnight_stat.json——2012~2026 共 3598 個台股交易日實測,三段期間(12~18/19~22/23~26)分開驗證,
    只有三段都同方向的才給「建議」,其餘寫「影響小,照原計畫」。 */
@@ -16738,7 +16793,7 @@ function gaClean(html){                           // 描述 → 純文字(保留
   d.innerHTML=String(html||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n');
   return (d.textContent||'').replace(/\n{3,}/g,'\n\n').trim();
 }
-/* r1048:🎯 股癌提到的個股與產業——特別標示
+/* r1049:🎯 股癌提到的個股與產業——特別標示
    ① 摘要最上面一張「本集提到的個股與產業」卡:個股晶片(現價・漲跌・他偏多/偏空)、產業晶片、他怎麼說的一句話
    ② 摘要內文裡的個股名(可點進個股頁)與產業關鍵字直接上色
    比對來源:站內 2256 檔台股 + 547 檔美股名稱/代號/中文名;中文兩字名稱容易撞到一般用詞(世界、統一、可成…),只收常見大型股白名單 */
@@ -22693,7 +22748,7 @@ function renderAIPickCore(){
   else box.innerHTML=h;
   const tBox=document.getElementById('aipTodayBox');
   if(tBox){try{tBox.innerHTML=TWNEW?(aipTdBanner()+usCloseHTML()+aipTdFix(aipOverview())):USNEW?usOverview():aipToday();}catch(e){tBox.innerHTML='';}}
-  {const hBox=document.getElementById('aipHoldBox');if(hBox){try{hBox.innerHTML=TWNEW?aipTdFix((()=>{try{return pvHTML();}catch(e){return '';}})()+aipUnifiedHold()):USNEW?usHold():aipHold();}catch(e){hBox.innerHTML='';}}}   // r769:持股一覽          // r749:今日操作
+  {const hBox=document.getElementById('aipHoldBox');if(hBox){try{hBox.innerHTML=TWNEW?aipTdFix((()=>{try{return pvHTML();}catch(e){return '';}})()+(()=>{try{return osHTML();}catch(e){return '';}})()+aipUnifiedHold()):USNEW?usHold():aipHold();}catch(e){hBox.innerHTML='';}}}   // r769:持股一覽          // r749:今日操作
   const sBox=document.getElementById('aipStatBox');if(sBox&&USNEW){try{sBox.innerHTML=usStats()+`<details class="aip-fold aps-fold"><summary>📂 美股每週名單完整戰績</summary>${hs}</details>`;}catch(e){sBox.innerHTML=hs;}}else if(sBox)sBox.innerHTML=TWNEW?(aipStatsNew()+`<details class="aip-fold aps-fold"><summary>📂 原每週名單戰績與模型學習</summary>${hs}</details>`):hs;                       // r744:戰績自成一區
   const hBox=document.getElementById('aipHistBox');
   if(hBox)hBox.innerHTML=hh||'<div class="dim-note">還沒有已結算的週次——第一週結算後就會出現。</div>';   // r744:歷史自成一區
@@ -23479,7 +23534,7 @@ const SORT_KEY='secOrder';
 function secOrderGet(pane){try{return (JSON.parse(localStorage.getItem(SORT_KEY)||'{}')[pane])||null;}catch(e){return null;}}
 function secOrderSet(pane,arr){let o={};try{o=JSON.parse(localStorage.getItem(SORT_KEY)||'{}');}catch(e){}o[pane]=arr;try{localStorage.setItem(SORT_KEY,JSON.stringify(o));}catch(e){}}
 function paneKey(p){return p.id||p.dataset.tab||'main';}
-const SEC_DEFAULT={'sb-macro':['mk_idx','mk_risk','mk_rot','mk_temp','mk_bias','mk_head','mk_fut','mk_hist','mk_cmd','mk_earn','mk_conf']};   // r1048:首頁預設排版——先看大盤與資金,再看溫度/位置,最後國際與行事曆(自訂排序優先)
+const SEC_DEFAULT={'sb-macro':['mk_idx','mk_risk','mk_rot','mk_temp','mk_bias','mk_head','mk_fut','mk_hist','mk_cmd','mk_earn','mk_conf']};   // r1049:首頁預設排版——先看大盤與資金,再看溫度/位置,最後國際與行事曆(自訂排序優先)
 function applySecOrder(pane){
   let ord=secOrderGet(paneKey(pane));if(!ord||!ord.length)ord=SEC_DEFAULT[paneKey(pane)];if(!ord||!ord.length)return;
   ord.forEach(k=>{const t=pane.querySelector(`:scope > .sec-title[data-sec="${k}"]`),b=document.getElementById('sb-'+k);
