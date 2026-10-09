@@ -284,6 +284,8 @@ def build_full(ALL, log=print):
                 if br: today[side].append({"id": sid, "px": C[last_j], "br": br[:3]})
         elif S.get(k, {}).get(sid) is not None: S[k][sid].pop("sw", None)
 
+    if nst < 500 or not ev:                                   # 全券商資料還不夠(回補中)→ 先保留前 15 大版本
+        log(f"  🕵️ 全券商資料還不夠:{nst} 檔有 {MIN_DAYS} 天以上、驗證事件 {sum(len(v) for g in ev.values() for v in g.values())} 筆 → 先不覆蓋"); return {"stocks": nst, "ready": False}
     def agg(a):
         if not a: return None
         return {"n": len(a), "avg": round(sum(a) / len(a) * 100, 2), "med": round(st.median(a) * 100, 2), "up": round(sum(1 for x in a if x > 0) / len(a) * 100, 1)}

@@ -3,8 +3,7 @@
 資料來源(FinMind Sponsor):
   ① 每天:fetch_broker.py 抓到的「每檔每天全部券商明細」→ 這裡彙總成每家券商的 買張/賣張/買均價/賣均價,
      先寫進 bkraw/days/<日期>.tsv.gz(跟著 bkraw 快取),夜間班再併進每檔檔案。
-  ② 歷史:TaiwanStockTradingDailyReportSecIdAgg(當日券商分點統計表)——要帶 securities_trader_id、可帶日期區間,
-     一次拿「一家券商在一段期間、每天、每檔」的買賣張數與均價。全台約 900 家分點 × 每月一次 → 一個月歷史約 900 次。
+  ② 歷史:同一份每日明細逐檔逐日往回補(分點統計表要同時指定股票+券商,不適合補全市場)。
 存放:bkall/<股票>.tsv.gz,每列:日期 \t 券商 \t 買張 \t 賣張 \t 買均價 \t 賣均價(Actions 快取 bkall-*,不進 repo)
 夜間班(bkall.yml):python bkall.py → 併每日檔 → 在時間/額度內往回補歷史 → 用全量資料重算 🕵️ 波段主力分點與驗證
 """
@@ -95,16 +94,28 @@ def merge_days():
                 buf.setdefault(sid, {})[(day, nm)] = (float(b), float(s), float(bp), float(sp)); n += 1
         except Exception as e: log(f"  {p} 讀取失敗 {e}")
     if buf: merge(buf)
+    try:                                                         # 每日檔有 9 成股票以上 → 這天算補齊(回補不用重抓)
+        st_p = os.path.join(ALL, "_state.json")
+        try: st = json.load(open(st_p, encoding="utf-8"))
+        except Exception: st = {}
+        nid = max(1, len(stock_ids())); cnt = {}
+        for sid, rows in buf.items():
+            for (d, nm) in rows: cnt.setdefault(d, set()).add(sid)
+        add = [d for d, ss in cnt.items() if len(ss) >= 0.9 * nid]
+        if add: st["days"] = sorted(set(st.get("days") or []) | set(add)); json.dump(st, open(st_p, "w", encoding="utf-8"))
+    except Exception: pass
     log(f"每日全券商併入:{n:,} 列、{len(buf)} 檔")
 
 
-# ── ② 歷史回補:分點統計表(依券商 × 月)──
-def fm(path, **p):
-    p = {**p, "token": TOKEN}
-    r = requests.get(f"{API}/{path}", params=p, timeout=120)
+# ── ② 歷史回補:每檔每天全部券商明細(TaiwanStockTradingDailyReport,Sponsor)──
+#   分點統計表(SecIdAgg)要同時指定股票+券商,不能拿來補全市場;所以用每日明細逐檔逐日補(一天約 1,925 次)。
+#   Sponsor 6,000 次/小時 → 一小時約補 2.8 個交易日;一天兩班(凌晨、白天)約 30 天 → 兩年約兩週、三年約三週。
+def fm(dataset, **p):
+    p = {"dataset": dataset, **p, "token": TOKEN}
+    r = requests.get(f"{API}/data", params=p, timeout=90)
     try: j = r.json()
     except Exception: j = {}
-    if r.status_code != 200:
+    if r.status_code != 200 or (j.get("status") not in (200, None) and j.get("msg") != "success"):
         raise RuntimeError(f"{r.status_code} {str(j.get('msg') or j.get('detail') or r.text)[:160]}")
     return j.get("data") or []
 
@@ -113,83 +124,114 @@ def sponsor_ok():
     try:
         j = requests.get("https://api.web.finmindtrade.com/v2/user_info", params={"token": TOKEN}, timeout=30).json()
         si = j.get("SponsorInfo") or {}; sp = j.get("SponsorProInfo") or {}
-        ok = si.get("status_code") == 200 and si.get("subscription_expired_date") or sp.get("status_code") == 200 and sp.get("subscription_expired_date")
-        return bool(ok and (j.get("level") or 0) >= 2), j
+        ok = (si.get("status_code") == 200 and si.get("subscription_expired_date")) or (sp.get("status_code") == 200 and sp.get("subscription_expired_date"))
+        return bool(ok), j
     except Exception as e:
         return False, {"err": str(e)[:100]}
 
 
-def brokers():
-    """全部券商分點代號:先試 TaiwanSecuritiesTraderInfo,失敗就用每日明細累積到的代號"""
-    p = os.path.join(ALL, "_brokers.json")
-    try: B = json.load(open(p, encoding="utf-8"))
-    except Exception: B = {}
-    if not B or time.time() - B.get("_t", 0) > 30 * 86400:
+def calendar():
+    """交易日:台積電歷史收盤(archive/k ∪ hist ∪ k)"""
+    try:
+        import bk_swing, importlib.util
+        spec = importlib.util.spec_from_file_location("fb", "fetch_broker.py"); fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
+        ds, _ = bk_swing._closes_all("2330", fb.closes_of, since="2015-01-01")
+        return ds
+    except Exception: return []
+
+
+def stock_ids():
+    try:
+        d = json.load(open("data.json", encoding="utf-8"))
+        return sorted(s["id"] for s in d.get("stocks") or [] if s.get("market") == "TW" and not s.get("etf") and str(s["id"]).isdigit() and len(str(s["id"])) == 4)
+    except Exception: return []
+
+
+def have_days():
+    """全券商資料裡,每天有幾檔(用來判斷哪天已補齊)"""
+    cnt = {}
+    for p in glob.glob(os.path.join(ALL, "*.tsv.gz")):
+        seen = set()
         try:
-            rows = fm("data", dataset="TaiwanSecuritiesTraderInfo")
-            for r in rows:
-                i = str(r.get("securities_trader_id") or "").strip()
-                if i: B[i] = r.get("securities_trader") or i
-            B["_t"] = time.time()
-            os.makedirs(ALL, exist_ok=True); json.dump(B, open(p, "w", encoding="utf-8"), ensure_ascii=False)
-        except Exception as e: log(f"  券商清單失敗:{e}")
-    return {k: v for k, v in B.items() if not k.startswith("_")}
-
-
-def months_back(n):
-    t = dt.date.today().replace(day=1); out = []
-    for _ in range(n):
-        last = (t + dt.timedelta(days=32)).replace(day=1) - dt.timedelta(days=1)
-        out.append((t.isoformat(), min(last, dt.date.today()).isoformat())); t = (t - dt.timedelta(days=1)).replace(day=1)
-    return out
+            for ln in gzip.open(p, "rt", encoding="utf-8"):
+                d = ln[:10]
+                if d not in seen: seen.add(d); cnt[d] = cnt.get(d, 0) + 1
+        except Exception: pass
+    return cnt
 
 
 def backfill(t_end):
+    from concurrent.futures import ThreadPoolExecutor
     st_p = os.path.join(ALL, "_state.json")
     try: st = json.load(open(st_p, encoding="utf-8"))
     except Exception: st = {}
-    done = set(st.get("done") or []); bad = st.get("bad") or {}
-    B = brokers()
-    if not B: log("沒有券商清單,略過回補"); return st
-    log(f"券商分點 {len(B)} 家;已完成 {len(done):,} 組(券商×月)")
-    calls = 0; rows_n = 0; buf = {}; last_flush = time.time()
-    split = st.get("split") or {}                              # 某券商某月太大 → 改用半月
-    for m0, m1 in months_back(12 * KEEP_YEARS)[1:]:            # 本月由每日資料負責,從上個月往回補
-        for bid in sorted(B):
-            key = f"{bid}:{m0[:7]}"
-            if key in done or bad.get(key, 0) >= 3: continue
-            if time.time() > t_end: break
-            parts = [(m0, m1)] if not split.get(key) else [(m0, m0[:8] + "15"), (m0[:8] + "16", m1)]
-            ok = True
-            for a, b in parts:
-                try:
-                    rows = fm("taiwan_stock_trading_daily_report_secid_agg", securities_trader_id=bid, start_date=a, end_date=b); calls += 1
-                except Exception as e:
-                    msg = str(e); calls += 1
-                    if "too large" in msg or "413" in msg or "size" in msg:
-                        split[key] = 1; ok = False; break
-                    if "402" in msg or "limit" in msg.lower() or "level" in msg:
-                        log(f"  額度/權限:{msg[:120]} → 停止回補"); st.update(done=sorted(done), bad=bad, split=split); return st
-                    bad[key] = bad.get(key, 0) + 1; ok = False; time.sleep(2); break
-                for r in rows:
-                    sid = str(r.get("stock_id") or ""); d = str(r.get("date") or "")[:10]
-                    if not sid or not d: continue
-                    bv = float(r.get("buy_volume") or 0) / 1000; sv = float(r.get("sell_volume") or 0) / 1000
-                    buf.setdefault(sid, {})[(d, str(r.get("securities_trader") or B.get(bid) or bid))] = (round(bv, 3), round(sv, 3), float(r.get("buy_price") or 0), float(r.get("sell_price") or 0))
-                    rows_n += 1
-                time.sleep(SLEEP)
-            if ok: done.add(key)
-            if rows_n > 3_000_000 or time.time() - last_flush > 1800:   # 定期落地,避免記憶體爆掉、被砍時白做
-                merge(buf); buf = {}; rows_n = 0; last_flush = time.time()
-                st.update(done=sorted(done), bad=bad, split=split); json.dump(st, open(st_p, "w", encoding="utf-8"))
-                log(f"  落地:{len(done):,} 組完成,本班 {calls} 次")
-        else:
-            continue
-        break
-    if buf: merge(buf)
-    st.update(done=sorted(done), bad=bad, split=split, last=dt.datetime.now(TZ).strftime("%Y-%m-%d %H:%M"))
-    json.dump(st, open(st_p, "w", encoding="utf-8"))
-    log(f"歷史回補:本班 {calls} 次 API;累計 {len(done):,} 組(券商×月)")
+    ids = stock_ids(); cal = calendar()
+    if not ids or not cal: log("沒有股票清單或交易日曆,略過回補"); return st
+    lo = (dt.date.today() - dt.timedelta(days=365 * KEEP_YEARS)).isoformat()
+    done = set(st.get("days") or [])
+    if not done:                                                # 第一次:看既有檔案哪些天已齊
+        for d, c in have_days().items():
+            if c >= 0.9 * len(ids): done.add(d)
+    todo = [d for d in reversed(cal) if lo <= d < dt.date.today().isoformat() and d not in done]
+    log(f"歷史回補:目標 {KEEP_YEARS} 年;已補齊 {len(done)} 個交易日,待補 {len(todo)} 個(由近到遠)")
+    THREADS, SL = 3, 1.9                                       # 3 線程 × 每 1.9 秒 ≈ 5,700 次/小時
+    calls = 0; quota_hit = False; BUF = {}; nbuf = 0; PEND = []
+    def flush():
+        """落地:資料先寫進每檔檔案,寫完才把這些天記成完成(被砍掉也不會漏)"""
+        nonlocal BUF, nbuf, PEND
+        if BUF: merge(BUF); log(f"  落地 {nbuf} 個交易日")
+        for d0, g0 in PEND:
+            p0 = os.path.join(ALL, "_partial", f"{d0}.json")
+            if len(g0) >= 0.97 * len(ids):
+                done.add(d0)
+                try: os.remove(p0)
+                except Exception: pass
+            else:
+                os.makedirs(os.path.dirname(p0), exist_ok=True); json.dump(sorted(g0), open(p0, "w"))
+        st.update(days=sorted(done), last=dt.datetime.now(TZ).strftime("%Y-%m-%d %H:%M")); json.dump(st, open(st_p, "w", encoding="utf-8"))
+        BUF = {}; nbuf = 0; PEND = []
+    for day in todo:
+        if time.time() > t_end or quota_hit: break
+        have = set()
+        p_day = os.path.join(ALL, "_partial", f"{day}.json")
+        try: have = set(json.load(open(p_day)))
+        except Exception: pass
+        need = [s for s in ids if s not in have]
+        got = set(have)
+        def one(sid):
+            try:
+                rows = fm("TaiwanStockTradingDailyReport", data_id=sid, start_date=day, end_date=day); time.sleep(SL); return sid, rows, None
+            except Exception as e:
+                time.sleep(2); return sid, None, e
+        with ThreadPoolExecutor(max_workers=THREADS) as ex:
+            futs = []; it = iter(need)
+            for _ in range(THREADS):
+                try: futs.append(ex.submit(one, next(it)))
+                except StopIteration: pass
+            while futs:
+                f = futs.pop(0); sid, rows, err = f.result(); calls += 1
+                if err is not None:
+                    m = str(err)
+                    if "402" in m or "upper limit" in m or "level" in m:
+                        quota_hit = True; log(f"  額度/權限:{m[:100]}")
+                else:
+                    got.add(sid)
+                    agg = {}
+                    for r in rows or []:
+                        nm = str(r.get("securities_trader") or r.get("securities_trader_id") or "?")
+                        b = float(r.get("buy") or 0); s_ = float(r.get("sell") or 0); px = float(r.get("price") or 0)
+                        a = agg.setdefault(nm, [0.0, 0.0, 0.0, 0.0]); a[0] += b; a[1] += s_; a[2] += b * px; a[3] += s_ * px
+                    if agg:
+                        BUF.setdefault(sid, {}).update({(day, nm): (round(b / 1000, 3), round(s2 / 1000, 3), round(bm / b, 2) if b else 0, round(sm / s2, 2) if s2 else 0)
+                                    for nm, (b, s2, bm, sm) in agg.items()})
+                if not quota_hit and time.time() <= t_end:
+                    try: futs.append(ex.submit(one, next(it)))
+                    except StopIteration: pass
+        nbuf += 1; PEND.append((day, got))
+        log(f"  {day}:{len(got)}/{len(ids)} 檔(本班 {calls} 次)")
+        if nbuf >= 8 or time.time() > t_end or quota_hit: flush()   # 8 天落地一次(每次落地要重寫每檔檔案)
+    flush()
+    log(f"歷史回補:本班 {calls} 次 API;累計補齊 {len(done)} 個交易日")
     return st
 
 
@@ -212,11 +254,13 @@ def main():
     ok, info = sponsor_ok()
     status = {"t": dt.datetime.now(TZ).strftime("%Y-%m-%d %H:%M"), "sponsor": ok,
               "sponsor_expired": ((info.get("SponsorInfo") or {}).get("subscription_expired_date")), "level": info.get("level_title")}
-    if ok and TOKEN: status["backfill"] = {k: (len(v) if isinstance(v, list) else v) for k, v in backfill(t_end - 1200).items() if k in ("done", "last")}
+    if ok and TOKEN: status["backfill"] = {k: (len(v) if isinstance(v, list) else v) for k, v in backfill(t_end - 1500).items() if k in ("days", "last")}
     else: log("FinMind 贊助未啟用/已到期 → 只併每日資料,不回補歷史")
-    cov = coverage(); vals = sorted(cov.values())
-    status["coverage"] = {"stocks": len(cov), "median_days": vals[len(vals) // 2] if vals else 0, "max_days": vals[-1] if vals else 0}
-    log(f"全券商資料:{len(cov)} 檔,中位 {status['coverage']['median_days']} 個交易日")
+    try: stt = json.load(open(os.path.join(ALL, "_state.json"), encoding="utf-8"))
+    except Exception: stt = {}
+    dd = sorted(stt.get("days") or [])
+    status["coverage"] = {"stocks": len(glob.glob(os.path.join(ALL, "*.tsv.gz"))), "days": len(dd), "from": dd[0] if dd else None, "to": dd[-1] if dd else None}
+    log(f"全券商資料:{status['coverage']}")
     try:
         import bk_swing; status["swing"] = bk_swing.build_full(ALL, log)
     except Exception as e:
