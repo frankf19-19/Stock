@@ -863,7 +863,7 @@ function osHTML(){
     return `<div class="dim-block" style="margin-top:16px;border-left:4px solid #E06666">
       <div style="font-weight:900;font-size:16px">🎯 錯殺低接・實戰追蹤 <span style="font-weight:400;font-size:13px;color:var(--dim)">離 60 日高跌 ≥30% 的第一天 → 隔天開盤買</span></div>
       <div class="dim-note" style="margin:4px 0 8px">停利 +20%、停損 −15%、最多抱 60 天。回測 ${bt.range||'2012~2026'}:營收好 ${((bt.good||[])[0]||0).toLocaleString()} 次、勝率 ${(bt.good||[])[2]}%、平均 +${(bt.good||[])[1]}%;營收不好平均 +${(bt.bad||[])[1]}%;隨機買同規則 +${(bt.rand||[])[1]}%;${bt.years||''} 年勝過隨機。歷史資料不含已下市股票,可能偏樂觀——所以這裡用每天的實際訊號持續追蹤成績。</div>
-      <div style="font-size:13px;margin-bottom:6px">📊 實戰:已出場 ${st.closed||0} 筆${st.closed?`、勝率 ${st.win}%、平均 ${fp(st.avg)}`:''}・追蹤中 ${st.open||0} 檔</div>
+      <div style="font-size:13px;margin-bottom:6px">📊 實戰:已出場 ${st.closed||0} 筆${st.closed?`、勝率 ${st.win}%、平均 ${fp(st.avg)}`:''}・追蹤中 ${st.open||0} 檔${(st.closed||0)<20?`<span style="color:var(--dim)">(累積 20 筆後跟回測每筆 +${(bt.all||[])[1]||3.1}% 比較)</span>`:st.avg<0?`<b style="color:var(--down)"> ⚠ 實戰明顯落後回測,規則需要重新檢討</b>`:st.avg<((bt.all||[])[1]||3.1)/2?`<span style="color:var(--amber)"> 實戰低於回測一半,持續觀察</span>`:`<span style="color:var(--up)"> 實戰符合回測</span>`}</div>
       ${pend?`<div style="font-size:13px;margin-bottom:6px">⏭ 明天開盤買:${pend}</div>`:''}
       ${open?`<details class="aip-fold"><summary>追蹤中的 ${(OS.open||[]).length} 檔</summary>${open}</details>`:''}
     </div>`;}catch(e){return '';}
