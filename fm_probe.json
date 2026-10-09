@@ -1,0 +1,152 @@
+{
+ "agg_2330_2016-03": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 106
+ },
+ "agg_2330_2018-03": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 106
+ },
+ "agg_2330_2020-03": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 106
+ },
+ "agg_2330_2021-03": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 106
+ },
+ "agg_2330_2022-03": {
+  "code": 400,
+  "sec": 0.5,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 106
+ },
+ "agg_2330_2023-03": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 106
+ },
+ "agg_2330_2024-03": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 106
+ },
+ "agg_2330_2025-03": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 106
+ },
+ "agg_2330_2025_full_year": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 106
+ },
+ "agg_6214_2024_2026": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": null,
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 106
+ },
+ "daily_2330_2020": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175
+ },
+ "obj_2026-10-08": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175
+ },
+ "obj_2021-03-02": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175
+ },
+ "user": {
+  "level": 1,
+  "level_title": "Free",
+  "api_request_limit": 600,
+  "api_request_limit_hour": 600,
+  "user_count": 0
+ }
+}
