@@ -88,6 +88,9 @@ def main():
     try: data = json.load(open("data.json", encoding="utf-8"))
     except Exception: log("沒有 data.json"); return
     R = fb.raw_load(); S = fb.load_shards()
+    try:                                                     # r1051c:🕵️ 波段主力分點先算(抓資料前)——收尾的後處理常被 timeout 砍掉
+        import bk_swing; bk_swing.build(R, S, fb.closes_of, log); fb.save_shards(S)
+    except Exception as ex0: log(f"  波段主力分點失敗:{ex0}")
     ids_all = set(priority_ids(data))
     # r839:不信狀態檔,直接看 raw 覆蓋率——某天有 ≥90% 的股票才算補齊(舊狀態把優先股完成誤記成全市場完成)
     if os.environ.get("BKH_ALL") == "1":

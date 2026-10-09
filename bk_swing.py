@@ -45,23 +45,29 @@ def _is_swing(p):
 
 
 def _signals(rows, ds, vol, lo_j, hi_j):
-    """回傳 [(j, 'acc'|'dist', 淨張)]:第 j 天(lo_j<=j<hi_j)出現吃貨/出貨訊號(第一天)"""
+    """回傳 [(j, 'acc'|'dist', 淨張)]:第 j 天(lo_j<=j<hi_j)出現吃貨/出貨訊號(第一天);前綴和 O(n)"""
     if not vol: return []
-    by = {}
-    for r in rows: by[r[1]] = by.get(r[1], 0) + r[2]
-    pp = {r[1]: r[4] for r in rows}
+    by = {}; pp = {}
+    for r in rows:
+        by[r[1]] = by.get(r[1], 0) + r[2]; pp[r[1]] = r[4]
+    act = sorted(j for j in by if lo_j <= j < hi_j)
+    if not act: return []
+    base = lo_j - WIN; n = hi_j - base + 1
+    net = [0.0] * n; pos = [0] * n; neg = [0] * n
+    for j, v in by.items():
+        if base <= j < hi_j:
+            net[j - base] = v; pos[j - base] = 1 if v > 0 else 0; neg[j - base] = 1 if v < 0 else 0
+    cn = [0.0]; cp = [0]; cg = [0]
+    for i in range(n): cn.append(cn[-1] + net[i]); cp.append(cp[-1] + pos[i]); cg.append(cg[-1] + neg[i])
     out = []; last = {"acc": -99, "dist": -99}
-    js = sorted(by)
-    for j in range(lo_j, hi_j):
-        win = [k for k in js if j - WIN < k <= j]
-        if not win or j not in by: continue
-        net = sum(by[k] for k in win); nbd = sum(1 for k in win if by[k] > 0); nsd = sum(1 for k in win if by[k] < 0)
-        p = pp.get(j, 0.5)
-        if net >= 0.2 * vol and nbd >= 3 and p <= 0.5:
-            if j - last["acc"] > WIN: out.append((j, "acc", net))
+    for j in act:
+        i1 = j - base + 1; i0 = max(0, i1 - WIN)
+        w = cn[i1] - cn[i0]; nb = cp[i1] - cp[i0]; ns = cg[i1] - cg[i0]; p = pp.get(j, 0.5)
+        if w >= 0.2 * vol and nb >= 3 and p <= 0.5:
+            if j - last["acc"] > WIN: out.append((j, "acc", w))
             last["acc"] = j
-        if -net >= 0.2 * vol and nsd >= 3 and p >= 0.5:
-            if j - last["dist"] > WIN: out.append((j, "dist", net))
+        if -w >= 0.2 * vol and ns >= 3 and p >= 0.5:
+            if j - last["dist"] > WIN: out.append((j, "dist", w))
             last["dist"] = j
     return out
 

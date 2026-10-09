@@ -360,6 +360,9 @@ def main():
     except Exception: log("沒有 data.json"); return
     ids = [s["id"] for s in data.get("stocks") or [] if s.get("market") == "TW" and not s.get("etf")]
     S = load_shards(); R = raw_load()
+    try:                                                     # r1051c:🕵️ 波段主力分點先算(抓資料前)——收尾的後處理常被 timeout 砍掉
+        import bk_swing; bk_swing.build(R, S, closes_of, log); save_shards(S)
+    except Exception as ex0: log(f"  波段主力分點失敗:{ex0}")
     t0 = time.time(); n = 0; empty = 0; fail = 0
     # ── 八大行庫(當天一次)──
     if st.get("gov_day") != day and not (st.get("date") == day and st.get("gov")):
