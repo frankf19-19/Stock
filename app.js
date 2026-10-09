@@ -1,4 +1,4 @@
-/* K研所 · build r1044 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1045 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1044';
+const APP_BUILD='r1045';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -643,7 +643,7 @@ function vPlanHTML(V,px){
 /* ══ r1022:📊 以個股自己為主的價位統計——每檔 2012 年起自己的歷史:站上/跌破各價位後 20 個交易日的表現,
    和「這檔平常任一天買進」對照(不跟大盤比)。註:依各檔歷史挑價位,樣本外(2020 後)並不準 → 只當股性參考 ══ */
 let LVS=null,LVS_P=null;
-function lvLoad(){if(LVS)return Promise.resolve(LVS);if(!LVS_P)LVS_P=fT('lvstat.json?v='+kv(),15000).then(r=>r&&r.ok?r.json():null).then(j=>{LVS=(j&&j.s)||{};return LVS;}).catch(()=>{LVS={};return LVS;});return LVS_P;}
+function lvLoad(){try{tvLoad();}catch(e){}if(LVS)return (TVS_P||Promise.resolve()).then(()=>LVS);if(!LVS_P)LVS_P=Promise.all([fT('lvstat.json?v='+kv(),15000),(typeof tvLoad==='function'?tvLoad():null)]).then(a=>a[0]).then(r=>r&&r.ok?r.json():null).then(j=>{LVS=(j&&j.s)||{};return LVS;}).catch(()=>{LVS={};return LVS;});return LVS_P;}
 const LV_DEF={h20:['站上 20 日高','b'],h60:['站上 60 日高','b'],h120:['站上半年高','b'],h250:['站上一年高','b'],u20:['站上月線','b'],u60:['站上季線','b'],
   d20d:['跌破月線(月線下彎時)','s'],d60:['跌破季線','s'],d120:['跌破半年線','s'],d240:['跌破年線','s'],l20:['跌破 20 日低','s'],l60:['跌破 60 日低','s']};
 function lvLevels(o){
@@ -692,6 +692,73 @@ function pvPlanHTML(id,px,cost){
     <div>🔄 <b>賣點</b>:排名掉出前 ${SR} 名,或碰到停利價</div>
     <div>➕ <b>加碼</b>:<span style="color:var(--dim)">不建議——回測「獲利 5%/10% 且仍在前 20 名就加碼」11 年中只有 5~6 年比較好,沒有穩定效果</span></div>
     <div style="color:var(--dim);font-size:11.5px">量價籌碼組回測 2016~2026:年化 +43.7%、最大回落 −31.2%(0050 +25.4%/−32.6%),11 年中 8 年贏 0050。回測偏樂觀,實際以模擬帳戶為準。</div></div>`;
+}
+/* ══ r1045:🔄 轉折價位+黃金防守價(白話)——價格靠近時說明;每檔附「自己過去碰到這價位之後」的統計+全市場 14 年驗證(turnstat.json) ══
+   驗證結論(2012~2026 全市場 1,899 檔、網站同款 zigzag):碰到黃金價(0.618)後 20 天內守住只有約 16%;
+   碰到/跌破/站上這些價位之後,20 天表現跟大盤只差 0.1~0.3% → 只當「位置參考」,真正的停損以 🛑(季線/年線/模型)為準 */
+let TVS=null,TVS_P=null;
+function tvLoad(){if(TVS)return Promise.resolve(TVS);if(!TVS_P)TVS_P=fT('turnstat.json?v='+kv(),15000).then(r=>r&&r.ok?r.json():null).then(j=>{TVS=j||{m:{},s:{}};return TVS;}).catch(()=>{TVS={m:{},s:{}};return TVS;});return TVS_P;}
+const TV_C={};
+function tvTurn(o,id){   // 這一波:取網站轉折引擎最後一段;若這段已被收復/跌破(結構結束)或幅度 <3%(太小,沒驗證),改用前一個轉折點起算的那一波
+  try{if(!o||o.length<60)return null;const n=o.length,key=id+':'+n+':'+o[n-1][3];if(TV_C[id]&&TV_C[id].k===key)return TV_C[id].r;
+    const H=o.map(b=>b[1]),Lw=o.map(b=>b[2]),C=o.map(b=>b[3]);
+    let r=turnEngine({o:o.map(b=>b[0]),h:H,l:Lw,c:C});
+    if(r&&r.zz&&r.zz.length>=2){const px=C[n-1];
+      const broke=(r.upLeg&&px<r.legBase)||(!r.upLeg&&px>r.legBase),tiny=r.legRng/r.legBase<0.03;
+      if(broke||tiny){const p=r.zz[r.zz.length-2],up=p.t===-1;
+        const ext=up?Math.max(...H.slice(p.i)):Math.min(...Lw.slice(p.i)),rng=Math.abs(ext-p.px);
+        if(rng/p.px>=0.03)r={...r,upLeg:up,legBase:p.px,legExt:ext,legRng:rng,near:[0.382,0.5,0.618].map(x=>({r:x,px:up?ext-rng*x:ext+rng*x})),alt:1};}}
+    TV_C[id]={k:key,r};return r;}catch(e){return null;}
+}
+function tvLvls(r){const g=x=>(r.near.find(z=>z.r===x)||{}).px;
+  return r.upLeg?[['U618','黃金防守價',g(0.618)],['U382','回檔 1/3 價',g(0.382)],['U500','回檔一半價',g(0.5)],['UbrkBase','起漲點',r.legBase],[null,'這波高點',r.legExt]]
+               :[['D618','黃金壓力價',g(0.618)],['D382','反彈 1/3 價',g(0.382)],['D500','反彈一半價',g(0.5)],['DupBase','起跌點',r.legBase],[null,'這波低點',r.legExt]];}
+function tvStatTxt(id,k){
+  if(!k)return '';const M=(TVS&&TVS.m||{})[k],S=((TVS&&TVS.s||{})[id]||{})[k],B=(typeof LVS!=='undefined'&&LVS&&LVS[id]&&LVS[id].b)||null;
+  const brk=/^Ubrk|^Dup/.test(k),verb=k==='UbrkBase'?'跌破':k==='DupBase'?'站上':/^U/.test(k)?'回檔碰到':'反彈碰到';
+  const hold=k==='U618'?'20 天內守住':k==='D618'?'20 天內沒站上':'';
+  if(S&&S[0]>=5)return `${brk?`如果${verb},`:''}這檔過去${brk?'':verb+'這價位'} ${S[0]} 次${brk?'之後':'後'}:20 天上漲機率 <b>${S[2]}%</b>、平均 <b>${S[1]>=0?'+':''}${S[1]}%</b>${hold&&S[3]!=null?`、${hold} <b>${S[3]}%</b>`:''}${B?`(這檔平常任一天買進:平均 ${B[0]>=0?'+':''}${B[0]}%、上漲 ${B[1]}%)`:''}`;
+  if(M)return `這檔次數太少;全市場${brk?verb+'後':verb+'這價位後'}:20 天上漲機率 ${M[3]}%、比大盤 ${M[2]>=0?'+':''}${M[2]}%${hold?`、${hold} ${M[4]}%`:''}`;
+  return '';
+}
+function tvPlanLine(o,id,px){
+  try{const r=tvTurn(o,id);if(!r||!(r.legRng>0)||!(px>0))return '';
+    const fmt=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:2}),pct=v=>{const d=(v/px-1)*100;return `${d>=0?'+':''}${d.toFixed(1)}%`;};
+    const L=tvLvls(r),up=r.upLeg,g=L[0][2],base=r.legBase;if(!g)return '';
+    let head=up?`這一波從 ${fmt(base)} 漲到 ${fmt(r.legExt)};<b style="color:var(--amber)">黃金防守價 ${fmt(g)}</b>(${pct(g)},回檔 6 成的位置)`
+               :`這一波從 ${fmt(base)} 跌到 ${fmt(r.legExt)};<b style="color:var(--amber)">黃金壓力價 ${fmt(g)}</b>(${pct(g)},反彈 6 成的位置)`;
+    let state='';
+    if(up&&px<base)state=`已跌破起漲點 ${fmt(base)}:這一波上漲已經結束,等新的轉折出現再重算`;
+    else if(up&&px<g)state=`已跌破黃金防守價;下一個是起漲點 <b>${fmt(base)}</b>(${pct(base)})`;
+    else if(!up&&px>base)state=`已站上起跌點 ${fmt(base)}:這一波下跌已經結束,等新的轉折出現再重算`;
+    else if(!up&&px>g)state=`已站上黃金壓力價;上面是起跌點 <b>${fmt(base)}</b>(${pct(base)})`;
+    const near=L.filter(x=>x[2]>0&&Math.abs(x[2]/px-1)<=0.03).sort((a,b)=>Math.abs(a[2]-px)-Math.abs(b[2]-px))[0];
+    let nt='';
+    if(near&&!(state&&/起(漲|跌)點/.test(near[1])&&((up&&px<base)||(!up&&px>base)))){
+      nt=`📍 現價接近 <b>${near[1]} ${fmt(near[2])}</b>(${pct(near[2])})`;
+      const st=tvStatTxt(id,near[0]);if(st)nt+=`:${st}`;
+      else if(!near[0])nt+=up?`:站上就是這波新高`:`:跌破就是這波新低`;
+    }
+    const M=TVS&&TVS.m&&TVS.m[up?'U618':'D618'];
+    const note=M?(up?`全市場 14 年實測:回檔碰到黃金防守價後,20 天內守得住只有 ${M[4]}%,碰到或跌破之後的表現跟大盤差不多 → 只當位置參考,要不要賣看 🛑 停損`
+                    :`全市場 14 年實測:反彈碰到黃金壓力價後,20 天內擋得住只有 ${M[4]}%,站上或站不上之後的表現跟大盤差不多 → 只當位置參考`):'';
+    return `${head}${state?`<br>${state}`:''}${nt?`<br>${nt}`:''}${note?`<div style="font-size:12px;color:var(--dim);margin-top:2px">${note}</div>`:''}`;
+  }catch(e){return '';}
+}
+function tvStatTable(r){
+  try{if(!TVS){tvLoad().then(()=>{try{const el=document.getElementById('tvTbl');if(el&&TVS)el.outerHTML=tvStatTable(r);}catch(e){}});return '<div id="tvTbl"></div>';}const id=(location.hash.match(/^#stock\/([^/?]+)/)||[])[1];const L=tvLvls(r).filter(x=>x[0]);
+    const S=(id&&TVS.s[id])||{},B=id&&typeof LVS!=='undefined'&&LVS&&LVS[id]&&LVS[id].b;
+    const row=([k,nm])=>{const s=S[k],m=TVS.m[k];const hold=k==='U618'||k==='D618';
+      return `<tr><td>${k==='UbrkBase'?'跌破':k==='DupBase'?'站上':''}${nm}</td><td>${s&&s[0]>=5?`${s[0]} 次・上漲 ${s[2]}%・平均 ${s[1]>=0?'+':''}${s[1]}%${hold?`・${k==='U618'?'守住':'擋住'} ${s[3]}%`:''}`:'<span style="color:var(--dim)">次數太少</span>'}</td>
+        <td>${m?`上漲 ${m[3]}%・比大盤 ${m[2]>=0?'+':''}${m[2]}%${hold?`・${k==='U618'?'守住':'擋住'} ${m[4]}%`:''}`:'—'}</td></tr>`;};
+    const verb=r.upLeg?['碰到','跌破起漲點']:['碰到','站上起跌點'];
+    return `<div style="margin:8px 0;padding:8px 11px;background:var(--panel2);border-radius:9px;font-size:12.5px;line-height:1.6">
+      <b>📊 這些價位準不準?(2012~2026 實測,之後 20 個交易日)</b>
+      <table style="width:100%;border-collapse:collapse;margin-top:4px;font-size:12px"><tr style="color:var(--dim)"><td>價位</td><td>這檔自己</td><td>全市場</td></tr>
+      ${L.map(row).join('')}</table>
+      ${B?`<div style="color:var(--dim);margin-top:3px">對照:這檔平常任一天買進,20 天平均 ${B[0]>=0?'+':''}${B[0]}%、上漲 ${B[1]}%</div>`:''}
+      <div style="margin-top:4px">👉 <b>結論</b>:全市場碰到黃金價(0.618)後,20 天內守住只有 ${(TVS.m.U618||[])[4]||'—'}%;碰到、跌破或站上這些價位之後,表現跟大盤只差 0.1~0.3%——<b>不是可靠的支撐/壓力</b>,只當「現在在這波的哪個位置」的參考。轉折時間窗的驗證也沒有效果。</div></div>`;
+  }catch(e){return '';}
 }
 function actionPlan(o,id,px,own,cost){
   /* r1031:全部用「價格」表達——模型門檻(AI Pick 勝算/名次、量價籌碼排名)都換算成「收盤到哪個價會觸發」 */
@@ -752,6 +819,7 @@ function actionPlan(o,id,px,own,cost){
   return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
     <div style="padding:2px 0 2px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
     ${diagTxt?`<div style="padding:0 0 6px;font-size:13px;color:var(--txt2)">${diagTxt}</div>`:''}
+    ${(()=>{const t=tvPlanLine(o,id,px);return t?L('🔄','轉折',t):'';})()}
     ${L('🟢','買進',buyTxt)}
     ${L('🛑','停損',stop?`${hold?'':'買進後,'}跌破 <b style="color:var(--down)">${fmt(stop)}</b> 就賣(${pct(stop)})`:(hold?'下跌 30% 內沒有停損價':'買點下方沒有合適的停損價,買進後再看'))}
     ${L('🎯','停利',`${hold?'':'買進後,'}漲到 <b style="color:var(--up)">${fmt(tpx)}</b> 就賣(${pct(tpx)})`)}
@@ -2021,7 +2089,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1044</span>');
+  diag.push('<span style="color:var(--dim)">build r1045</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3016,7 +3084,7 @@ setTimeout(loadInst,7000);
 setInterval(loadInst,15*60*1000); // 每15分鐘檢查(15:00後會自動換上今日)
 
 
-const HIDE_HEAD=true;   // r1044:使用者要求——頭部七腳印/頭部機率相關顯示全部隱藏(大盤+個股+持股);引擎照算,改 false 即恢復
+const HIDE_HEAD=true;   // r1045:使用者要求——頭部七腳印/頭部機率相關顯示全部隱藏(大盤+個股+持股);引擎照算,改 false 即恢復
 /* ══ 🔺 頭部七腳印|「打頭打七吋」規則化引擎(大盤+個股共用) ══
    七個腳印:①指標背離 ②高檔跳空缺口不補 ③破支撐趨勢線 ④破末升低 ⑤反彈不創高 ⑥再破前低 ⑦走空頭浪
    前段(1~3)=警告早但不可靠(可能假跌破);後段(4~7)=證據強但價格更便宜──紀律執行 */
@@ -3249,7 +3317,7 @@ function turnPills(r,add,scope){                          // 🔔 轉折提醒:�
     else if(r.due)add('amb','⏱',atag('轉折')+`${scope}距上次轉折 ${r.since} 個交易日,已達平均週期 ${r.avg.toFixed(0)} 天——隨時留意反轉`);
     else if(r.winLo<=2)add('ok','⏱',atag('轉折')+`${scope}預估轉折窗口 ${Math.max(1,r.winLo)}~${r.winHi} 個交易日內開啟(約 ${tpFutureDate(Math.max(1,r.winLo))}~${tpFutureDate(r.winHi)})`);
     const hit=(r.near||[]).find(o=>Math.abs(r.px-o.px)/r.px<=0.008);
-    if(hit)add(hit.r===0.618?'amb':'ok','🛡',atag('轉折')+`${scope}正回測 ${hit.r} ${r.upLeg?'回檔支撐':'反彈壓力'} ${F2(hit.px)}${hit.r===0.618?'——黃金口袋,守住/跌破定波段生死':''}`);
+    if(hit)add(hit.r===0.618?'amb':'ok','🛡',atag('轉折')+`${scope}正回測 ${hit.r} ${r.upLeg?'回檔支撐':'反彈壓力'} ${F2(hit.px)}${hit.r===0.618?'——黃金防守價(實測碰到後只有約 16% 守得住,只當參考)':''}`);
   }catch(e){}
 }
 
@@ -3347,9 +3415,9 @@ function turnLiveHtml(r){                                 // r466:📡 依即時
     if(retr<=0){zone=up?'現價正在創<b>這一波的新高</b>——漲得完全沒回頭,是上升趨勢最強的狀態':'現價正在破<b>這一波的新低</b>——跌得完全沒反彈,是下跌趨勢最弱的狀態';zcol=up?'var(--up)':'var(--down)';}
     else if(retr<0.382){zone=up?`這波漲幅只吐回 <b>${rp}%</b>(連三分之一都不到)——<b>強勢洗盤</b>,漲勢沒受傷`:`這波跌幅只彈回 <b>${rp}%</b>(連三分之一都不到)——反彈無力,<b>空方還在主導</b>`;zcol='var(--txt2)';}
     else if(retr<0.5){zone=up?`這波漲幅已吐回 <b>${rp}%</b>(超過三分之一)——還算正常的回檔深度,接下來看 <b>${F2(s500)}</b>(吐回一半的位置)有沒有人接`:`這波跌幅已彈回 <b>${rp}%</b>(超過三分之一)——反彈有力道,接下來看 <b>${F2(s500)}</b>(彈回一半的位置)擋不擋得住`;zcol='var(--amber)';}
-    else if(retr<0.618){zone=up?`這波漲幅已吐回<b>超過一半(${rp}%)</b>——逼近 <b>${F2(s618)} 的「黃金口袋」</b>(=吐回約六成的位置):歷史上很多回檔跌到這附近就止跌回升,所以它被當成<b>多方最後防線</b>——守住多半只是洗盤,跌破就把這波漲勢當作結束`:`這波跌幅已彈回<b>超過一半(${rp}%)</b>——逼近 <b>${F2(s618)}</b>(彈回約六成的位置),這是<b>空方最後一道壓力</b>:站上它,跌勢很可能反轉;站不上就只是跌深反彈`;zcol='var(--amber)';}
+    else if(retr<0.618){zone=up?`這波漲幅已吐回<b>超過一半(${rp}%)</b>——逼近 <b>${F2(s618)} 的「黃金口袋」</b>(=吐回約六成的位置):很多人把它當成<b>多方最後防線(黃金防守價)</b>;不過全市場 14 年實測,碰到這裡之後 20 天內守得住的只有約 16%,不要把它當成一定會止跌的地方`:`這波跌幅已彈回<b>超過一半(${rp}%)</b>——逼近 <b>${F2(s618)}</b>(彈回約六成的位置),很多人把它當成<b>反彈的黃金壓力價</b>;實測上站上它之後只比大盤好一點點,不代表跌勢一定反轉`;zcol='var(--amber)';}
     else if(retr>=1){zone=up?`這波漲幅已<b>全數回吐(${rp}%)並跌破起漲點</b>——這一段上漲正式蓋棺,現價已落入前一段波段的價格區間,支撐改看歷史轉折低點`:`這波跌幅已<b>全數收復(${rp}%)並突破起跌點</b>——這一段下跌正式終結,壓力改看歷史轉折高點`;zcol=up?TONE.green:TONE.red;}
-    else{zone=up?`這波漲幅已吐回 <b>${rp}%</b>(超過六成、跌破黃金口袋)——上漲結構<b>實質被破壞</b>,「漲完了、開始走跌」的機率很高`:`這波跌幅已彈回 <b>${rp}%</b>(超過六成、站上關鍵壓力)——空方結構鬆動,<b>由跌轉漲</b>的機率大增`;zcol=up?'var(--down)':'var(--up)';}
+    else{zone=up?`這波漲幅已吐回 <b>${rp}%</b>(超過六成、跌破黃金口袋)——實測上跌破之後 20 天平均只比大盤差約 0.3%,差距不大——要不要賣以 🛑 停損價為準`:`這波跌幅已彈回 <b>${rp}%</b>(超過六成、站上關鍵壓力)——實測上站上之後 20 天平均只比大盤好約 0.2%,不代表一定轉漲`;zcol=up?'var(--down)':'var(--up)';}
     // ② 價格階梯(所有關鍵價位 vs 現價距離)
     const rowsL=[];
     if(up){
@@ -3405,31 +3473,32 @@ function turnLiveHtml(r){                                 // r466:📡 依即時
                :`現價在 <b>${F2(r.legExt)}</b>(下)與 <b>${F2(s382)}</b>(上)之間屬低檔震盪——反彈未站回關鍵價前,以觀望為主。`;
     // ④ 綜合判定
     const timing=r.due
-      ?`<b style="color:var(--t-red)">時間面已達平均週期</b>(已走 ${r.since} 天 > 平均 ${r.avg.toFixed(0)} 天),轉折隨時可能發生`
+      ?`<b style="color:var(--t-red)">時間面已達平均週期</b>(已走 ${r.since} 天 > 平均 ${r.avg.toFixed(0)} 天;實測時間窗沒有預測力,只當參考)`
       :`時間面尚在週期內(已走 ${r.since} 天,平均 ${r.avg.toFixed(0)}±${r.sd.toFixed(0)} 天),預估 ${Math.max(0,r.winLo)}~${r.winHi} 個交易日後進入轉折窗口`;
     let verdict;
     if(up){
       verdict=retr<=0?`價格面仍在創高、${timing}——<b>時間有風險、價格還沒轉</b>:續抱可,但跌破 ${F2(s382)} 就是第一時間的減碼訊號。`
         :retr<0.382?`價格面回檔尚淺、${timing}——${r.due?'<b>時間到了+開始回檔</b>,這裡最需要盯 '+F2(s382)+':守住=強勢整理,跌破=轉折啟動。':'結構健康,回檔到 '+F2(s382)+' 附近反而是觀察承接的位置。'}`
-        :retr<0.618?`價格面已回檔到中段、${timing}——多空拉鋸區:<b>${F2(s618)}(黃金口袋)就是這波的生死線</b>——收盤守住,回檔當洗盤看、醞釀再攻;收盤跌破,直接把這波漲勢當結束、按紀律退出。`
-        :`價格面已跌破 0.618、${timing}——<b>轉折大概率已確立</b>,反彈至 ${F2(s500)}~${F2(s382)} 屬逃命波性質,下一個支撐看起漲點 ${F2(r.legBase)}。`;
+        :retr<0.618?`價格面已回檔到中段、${timing}——多空拉鋸區:<b>${F2(s618)}(黃金防守價)</b>是大家盯的位置,但實測不是可靠防守(碰到後只有約 16% 守得住);要不要賣以 🛑 停損價為準。`
+        :`價格面已跌破 0.618、${timing}——實測上跌破 0.618 後只比大盤差約 0.3%,不代表一定續跌;下一個位置是起漲點 ${F2(r.legBase)},停損以 🛑 為準。`;
     }else{
       verdict=retr<=0?`價格面仍在破底、${timing}——弱勢中不猜底,站回 ${F2(s382)} 之前都以觀望為主。`
         :retr<0.618?`價格面開始反彈、${timing}——反彈能否站上 <b>${F2(s618)}</b> 是轉多與否的分水嶺,站不上就只是跌深反彈。`
-        :`價格面已站上 0.618、${timing}——<b>向上轉折機率大增</b>,回測 ${F2(s500)}~${F2(s382)} 不破可視為轉多確認。`;
+        :`價格面已站上 0.618、${timing}——實測上站上 0.618 後只比大盤好約 0.2%,不代表一定轉多;上面的位置是起跌點 ${F2(r.legBase)}。`;
     }
     const src=r.lvInfo?(r.lvInfo.live?'<b style="color:var(--up)">盤中即時價</b>':'最新收盤/掃描價'):'最近日K收盤價';
     return `<div style="border:1.5px solid ${zcol};border-radius:12px;padding:11px 13px;margin:9px 0;line-height:1.7;font-size:13.5px">
       <div style="font-weight:900;font-size:14.5px;margin-bottom:5px">📡 依即時價評估接下來走勢
         <span style="font-size:12px;font-weight:400;color:var(--dim)">計算基準:現價 <b style="font-family:var(--mono);color:var(--txt)">${F2(px)}</b>(${src},已即時併入轉折運算)</span></div>
       <div style="margin-bottom:7px"><b>① 現在位置</b>:<span style="color:${zcol}">${zone}</span>。</div>
-      <div style="margin:0 0 8px;padding:7px 11px;background:var(--panel2);border-radius:9px;font-size:12.5px;line-height:1.7;color:var(--txt2)">📖 <b>看不懂 0.382/0.5/0.618?白話版</b>:把${up?`這波從 <b>${F2(r.legBase)}</b> 漲到 <b>${F2(r.legExt)}</b> 的漲幅`:`這波從 <b>${F2(r.legBase)}</b> 跌到 <b>${F2(r.legExt)}</b> 的跌幅`}想成 100 分${up?'的樓梯,回檔就是往下退幾階':'的樓梯,反彈就是往上爬幾階'}:${s382?`<b>${F2(s382)}</b>=退回約 1/3(0.382)、`:''}${s500?`<b>${F2(s500)}</b>=退回一半(0.5)、`:''}${s618?`<b style="color:var(--amber)">${F2(s618)}</b>=退回約 6 成(0.618)`:''}。<b style="color:var(--amber)">「黃金口袋」就是 0.618 這一帶</b>——名字來自黃金比例 61.8%,全球交易者都盯著同一個位置,${up?'歷史上大量回檔在這裡止跌,所以視為「多方最後防線」:守住=洗盤結束再攻,跌破=這波漲勢正式收工':'是空方回補與多方試單的密集區:站上=跌勢可能反轉,站不上=只是跌深反彈'}。</div>
+      <div style="margin:0 0 8px;padding:7px 11px;background:var(--panel2);border-radius:9px;font-size:12.5px;line-height:1.7;color:var(--txt2)">📖 <b>看不懂 0.382/0.5/0.618?白話版</b>:把${up?`這波從 <b>${F2(r.legBase)}</b> 漲到 <b>${F2(r.legExt)}</b> 的漲幅`:`這波從 <b>${F2(r.legBase)}</b> 跌到 <b>${F2(r.legExt)}</b> 的跌幅`}想成 100 分${up?'的樓梯,回檔就是往下退幾階':'的樓梯,反彈就是往上爬幾階'}:${s382?`<b>${F2(s382)}</b>=退回約 1/3(0.382)、`:''}${s500?`<b>${F2(s500)}</b>=退回一半(0.5)、`:''}${s618?`<b style="color:var(--amber)">${F2(s618)}</b>=退回約 6 成(0.618)`:''}。<b style="color:var(--amber)">「黃金口袋」就是 0.618 這一帶</b>——名字來自黃金比例 61.8%,全球交易者都盯著同一個位置,${up?'很多人把它當「多方最後防線」;但全市場 14 年實測,碰到後只有約 16% 守得住,守住或跌破之後的表現都跟大盤差不多,所以只當位置參考':'很多人把它當成反彈的關卡;實測上站上或站不上,之後表現都跟大盤差不多,只當位置參考'}。</div>
       <div style="margin-bottom:7px"><b>② 關鍵價位階梯(距現價%)</b>:
         <div style="margin-top:4px;background:var(--panel2);border-radius:9px;padding:5px 3px">${ladHtml}</div></div>
       <div style="margin-bottom:4px"><b>③ 接下來三種走法(附預估幅度/時間)</b>:</div>
       <div style="border-left:3.5px solid var(--up);background:var(--panel2);border-radius:0 9px 9px 0;padding:7px 11px;margin:5px 0">🔺 <b>${up?'續漲不轉折':'向上轉折(止跌)'}</b><br>${scUp}</div>
       <div style="border-left:3.5px solid var(--down);background:var(--panel2);border-radius:0 9px 9px 0;padding:7px 11px;margin:5px 0">🔻 <b>${up?'向下轉折(漲勢結束)':'續跌不轉折'}</b><br>${scDn}</div>
       <div style="border-left:3.5px solid ${_stB?TONE.red:'var(--line)'};background:var(--panel2);border-radius:0 9px 9px 0;padding:7px 11px;margin:5px 0">${_stB?'⚠ <b>結構已破・上方反壓區</b>':_stP?'⛑ <b>最後緩衝區</b>':'↔ <b>區間震盪</b>'}<br>${flat}</div>
+      ${tvStatTable(r)}
       <div style="margin-top:7px;padding:8px 11px;background:var(--panel2);border-radius:9px"><b>④ 綜合判定</b>:${verdict}</div>
       <div class="dim-note" style="margin-top:6px">幅度以「本檔歷史平均波段」與費波納契等距推算、時間以「近 ${r.rows.length} 次轉折節奏」統計——皆為規則化估計,盤中每分鐘隨即時價自動重算;非投資建議。</div></div>`;
   }catch(e){return '';}
@@ -3450,11 +3519,11 @@ function turnHtml(r){
       至今${r.upLeg?'最高到':'最低到'} <b>${F2(r.legExt)}</b>(這一段${legPct!=null?(legPct>0?'漲':'跌')+Math.abs(legPct).toFixed(1)+'%':''});現價 <b>${F2(r.px)}</b>${r.lvInfo?`<span style="font-size:11px;color:${r.lvInfo.live?'var(--up)':'var(--dim)'}">(${r.lvInfo.live?'盤中即時':'最新報價'})</span>`:''},距離這段${r.upLeg?'高點':'低點'} ${fromExt!=null?(fromExt>0?'高':'低')+Math.abs(fromExt).toFixed(1)+'%':'—'}。<br>
       <b>💡 轉折之後會到哪</b>:
       ${r.upLeg
-        ?`若<b>向下轉折</b>(漲勢結束),第一個可能停下來的位置是 <b style="color:var(--down)">${F2(s1)}</b>(吐回約 1/3),再破就看 <b style="color:var(--amber)">${F2(s618)}</b>(吐回約 6 成=黃金口袋,守住是洗盤、跌破算翻空);
+        ?`若<b>向下轉折</b>(漲勢結束),第一個可能停下來的位置是 <b style="color:var(--down)">${F2(s1)}</b>(吐回約 1/3),再破就看 <b style="color:var(--amber)">${F2(s618)}</b>(吐回約 6 成=黃金防守價;實測碰到後只有約 16% 守得住);
           若<b>續漲不轉折</b>,上方測量目標約 <b style="color:var(--up)">${F2(t1)}</b>(以上一段波幅等距推算)。`
-        :`若<b>向上轉折</b>(跌勢結束),第一個壓力在 <b style="color:var(--up)">${F2(s1)}</b>(反彈 0.382),過了看 <b style="color:var(--amber)">${F2(s618)}</b>(0.618,站回才算轉強);
+        :`若<b>向上轉折</b>(跌勢結束),第一個壓力在 <b style="color:var(--up)">${F2(s1)}</b>(反彈 0.382),過了看 <b style="color:var(--amber)">${F2(s618)}</b>(0.618 黃金壓力價;實測站上後只比大盤好一點點);
           若<b>續跌不轉折</b>,下方測量目標約 <b style="color:var(--down)">${F2(t1)}</b>。`}<br>
-      <b>⏱ 什麼時候可能轉</b>:${r.due?`已經走了 ${r.since} 天,<b style="color:var(--t-red)">超過平均週期 ${r.avg.toFixed(0)} 天,隨時可能轉折</b>`:`已走 ${r.since} 天,平均 ${r.avg.toFixed(0)} 天一轉,<b>預估還有 ${Math.max(0,r.winLo)}~${r.winHi} 個交易日</b>進入轉折窗口`}——時間到了<u>不代表一定會轉</u>,要等價格真的跌破/突破關鍵價位才算數。</div>`);
+      <b>⏱ 什麼時候可能轉</b>:${r.due?`已經走了 ${r.since} 天,<b style="color:var(--t-red)">超過平均週期 ${r.avg.toFixed(0)} 天,隨時可能轉折</b>`:`已走 ${r.since} 天,平均 ${r.avg.toFixed(0)} 天一轉,<b>預估還有 ${Math.max(0,r.winLo)}~${r.winHi} 個交易日</b>進入轉折窗口`}——時間到了<u>不代表一定會轉</u>(實測:進入轉折時間窗之後,表現跟平常沒有差別),只當參考。</div>`);
   }
   head.push(turnLiveHtml(r));                              // r466:📡 依即時價評估接下來走勢
   head.push(`<div style="display:flex;gap:9px;margin:5px 0;line-height:1.55"><span style="font-size:16px">⏱</span>
@@ -5274,9 +5343,9 @@ const FOLD_CFG=[
     try{
       const pocket=t.near&&t.near[2]&&t.near[2].px;
       if(t.upLeg&&t.px<t.legBase)leg='<b>上漲段結構已破・轉折進行中</b>';
-      else if(t.upLeg&&pocket&&t.px<pocket)leg='上漲段・<b>已破黃金口袋</b>';
+      else if(t.upLeg&&pocket&&t.px<pocket)leg='上漲段・<b>已破黃金防守價</b>';
       else if(!t.upLeg&&t.px>t.legBase)leg='<b>下跌段結構已破・轉折進行中</b>';
-      else if(!t.upLeg&&pocket&&t.px>pocket)leg='下跌段・<b>已突破黃金口袋</b>';
+      else if(!t.upLeg&&pocket&&t.px>pocket)leg='下跌段・<b>已站上黃金壓力價</b>';
     }catch(x){}
     return `${leg} · ${t.due?'已達轉折週期⚠':`轉折窗 ${Math.max(0,t.winLo)}~${t.winHi} 日`}`;}],
   ['turtleBox',()=>'點開看進出檢核'],
@@ -5771,8 +5840,8 @@ function wireTempDocs(){
 setInterval(wireTempDocs,3000);
 setTimeout(wireTempDocs,7000);
 
-/* r1044:首頁 AI Pick 摘要卡已移除(使用者:AI Pick 不用在首頁出現) */
-setTimeout(()=>{try{const p=document.getElementById('sb-macro');if(p)applySecOrder(p);}catch(e){}},1500);   // r1044:首頁預設排版
+/* r1045:首頁 AI Pick 摘要卡已移除(使用者:AI Pick 不用在首頁出現) */
+setTimeout(()=>{try{const p=document.getElementById('sb-macro');if(p)applySecOrder(p);}catch(e){}},1500);   // r1045:首頁預設排版
 function tldrCard(){
   const box=document.getElementById('tldrBox');
   if(!box)return;
@@ -6837,7 +6906,7 @@ function renderMacroAlerts(){
     `<a class="alert-pill alert-${x.lv}" href="${x.l}" target="_blank" rel="noopener"><span class="ico">${x.lv==='red'?'🚨':'📰'}</span><span>${x.lv==='red'?'重大外電:':'外電訊號:'}${x.t}${x.tags.length?` <b>→ ${x.tags.join('/')}</b>`:''}<span style="color:var(--dim);font-weight:600"> · ${x.ago} ↗</span></span></a>`).join('');
   el.style.display='';
   el.innerHTML=(A.length||news)
-    ?A.map(a=>{const hd=false;   /* r1044:首頁頭部七腳印區已隱藏,提醒列不再連過去 */return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).join('')+news
+    ?A.map(a=>{const hd=false;   /* r1045:首頁頭部七腳印區已隱藏,提醒列不再連過去 */return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).join('')+news
     :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>風險溫度計與外電目前無特別警示</span></span>';
 }
 setTimeout(()=>{try{renderMacroAlerts();}catch(e){}},4500);
@@ -11080,7 +11149,7 @@ function aipTdBanner(){
   return '';
 }
 
-/* r1044:🌙 美股昨晚收盤 → 台股隔天進場評估(AI Pick 頁最上面)
+/* r1045:🌙 美股昨晚收盤 → 台股隔天進場評估(AI Pick 頁最上面)
    資料:aipick.json 的 usc(後端每 20 分鐘抓 Yahoo:費半/那斯達克/S&P/台積電ADR)。
    判斷:us_overnight_stat.json——2012~2026 共 3598 個台股交易日實測,三段期間(12~18/19~22/23~26)分開驗證,
    只有三段都同方向的才給「建議」,其餘寫「影響小,照原計畫」。 */
@@ -16613,7 +16682,7 @@ function gaClean(html){                           // 描述 → 純文字(保留
   d.innerHTML=String(html||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n');
   return (d.textContent||'').replace(/\n{3,}/g,'\n\n').trim();
 }
-/* r1044:🎯 股癌提到的個股與產業——特別標示
+/* r1045:🎯 股癌提到的個股與產業——特別標示
    ① 摘要最上面一張「本集提到的個股與產業」卡:個股晶片(現價・漲跌・他偏多/偏空)、產業晶片、他怎麼說的一句話
    ② 摘要內文裡的個股名(可點進個股頁)與產業關鍵字直接上色
    比對來源:站內 2256 檔台股 + 547 檔美股名稱/代號/中文名;中文兩字名稱容易撞到一般用詞(世界、統一、可成…),只收常見大型股白名單 */
@@ -23342,7 +23411,7 @@ const SORT_KEY='secOrder';
 function secOrderGet(pane){try{return (JSON.parse(localStorage.getItem(SORT_KEY)||'{}')[pane])||null;}catch(e){return null;}}
 function secOrderSet(pane,arr){let o={};try{o=JSON.parse(localStorage.getItem(SORT_KEY)||'{}');}catch(e){}o[pane]=arr;try{localStorage.setItem(SORT_KEY,JSON.stringify(o));}catch(e){}}
 function paneKey(p){return p.id||p.dataset.tab||'main';}
-const SEC_DEFAULT={'sb-macro':['mk_idx','mk_risk','mk_rot','mk_temp','mk_bias','mk_head','mk_fut','mk_hist','mk_cmd','mk_earn','mk_conf']};   // r1044:首頁預設排版——先看大盤與資金,再看溫度/位置,最後國際與行事曆(自訂排序優先)
+const SEC_DEFAULT={'sb-macro':['mk_idx','mk_risk','mk_rot','mk_temp','mk_bias','mk_head','mk_fut','mk_hist','mk_cmd','mk_earn','mk_conf']};   // r1045:首頁預設排版——先看大盤與資金,再看溫度/位置,最後國際與行事曆(自訂排序優先)
 function applySecOrder(pane){
   let ord=secOrderGet(paneKey(pane));if(!ord||!ord.length)ord=SEC_DEFAULT[paneKey(pane)];if(!ord||!ord.length)return;
   ord.forEach(k=>{const t=pane.querySelector(`:scope > .sec-title[data-sec="${k}"]`),b=document.getElementById('sb-'+k);
