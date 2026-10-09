@@ -1,4 +1,4 @@
-/* K研所 · build r1035 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1036 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1035';
+const APP_BUILD='r1036';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -845,7 +845,7 @@ async function favStateFill(){
       try{const P=favPlanOf(s,k.ohlc,k.dates),px0=+s.price||0;   // 持股損益(有設進場價才顯示)——事實,不是預測
         if(P&&P.entry&&px0){own=true;const r=(px0/P.entry-1)*100;plan+=`<div class="fav-pnl" style="font-size:13px;margin:6px 0 2px">💼 持股成本 <b>${P.entry}</b>・損益 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b></div>`;}}catch(e){}
       const av=aiPickVerdict(id,own);
-      try{await lvLoad();{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=actionPlan(k.ohlc,id,s.price,own,cst);}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
+      try{await lvLoad();{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=aipTdFix(actionPlan(k.ohlc,id,s.price,own,cst).replace(/隔天 9:00/g,'明天 9:00'));}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
       FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:av?av.txt:'🤖 AI Pick 資料載入中',plan};
       favStPaint(id);
@@ -1388,6 +1388,10 @@ function rtIdxStale(){          // 即時值超過 90 秒沒進來 → 卡片標
     }else if(tag)tag.remove();
   });
 }
+let CAPC=null;(async()=>{try{const r=await fetch('cap.json?v='+Date.now().toString().slice(0,7));if(r.ok)CAPC=(await r.json()).c||null;}catch(e){}})();
+function exTsmcW(){   // 台積電佔加權市值權重(股本×即時股價),抓不到時用 41%
+  try{if(CAPC&&DATA&&DATA.stocks){let t=0,a=0;const P={};DATA.stocks.forEach(x=>P[x.id]=x.price);for(const k in CAPC){const p=+P[k];if(p>0){t+=CAPC[k]*p;if(k==='2330')a=CAPC[k]*p;}}const w=a/t;if(w>0.2&&w<0.7)return w;}}catch(e){}
+  return 0.41;}
 function renderMacro(){
   try{rtIdxApply();}catch(e){}   // r738:先把即時值蓋回去,再重畫
   const m=DATA.macro||{};
@@ -1401,6 +1405,10 @@ function renderMacro(){
     const k=mkKeyIdx(i.name);
     if(k&&_skipUS[k])return '';
     return `<div class="idx-card"${k?` data-mk="${k}"`:''}><div class="nm">${i.name}</div><div class="vl">${Number(i.val).toLocaleString()}</div><div class="ch">${chgHtml(i.chg??0)}</div></div>`;}).filter(Boolean);
+  try{const tw=(m.idx||[]).find(i=>/加權/.test(i.name||'')),ts=(DATA.stocks||[]).find(x=>x.id==='2330');   // r1036:加權扣除台積電
+    if(tw&&tw.chg!=null&&ts&&ts.chg!=null){const w=exTsmcW();const ex=(tw.chg-w*ts.chg)/(1-w);
+      const card=`<div class="idx-card" data-mk="extsmc"><div class="nm">加權扣除台積電</div><div class="vl" style="font-size:18px">${chgHtml(+ex.toFixed(2))}</div><div class="ch" style="font-size:11.5px;color:var(--dim)">台積電 ${ts.chg>0?'+':''}${(+ts.chg).toFixed(2)}%・權重 ${Math.round(w*100)}%</div></div>`;
+      const i=_cards.findIndex(c=>/加權/.test(c));_cards.splice(i>=0?i+1:0,0,card);}}catch(e){}
   document.getElementById('idxRow').innerHTML=_cards.length?_cards.join('')
     :'<div class="idx-card" id="idxEmpty"><div class="nm">台股指數載入中…</div></div>';
   try{ensureUsTvCards();}catch(e){}
@@ -2013,7 +2021,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1035</span>');
+  diag.push('<span style="color:var(--dim)">build r1036</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -11056,6 +11064,22 @@ let HOLI=null;
 const _isoIn=tz=>{const t=new Date(new Date().toLocaleString('en-US',{timeZone:tz}));return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;};
 function holiTW(iso){return HOLI&&HOLI.tw&&HOLI.tw[iso||_isoIn('Asia/Taipei')]||null;}
 function holiUS(iso){return HOLI&&HOLI.us&&HOLI.us[iso||_isoIn('America/New_York')]||null;}
+/* r1036:台股交易日——週末 + holidays.json 休市日 */
+function twTradeDay(iso){const d=new Date(iso+'T12:00:00+08:00'),w=d.getUTCDay();return w!==0&&w!==6&&!holiTW(iso);}
+function twNextTD(iso){let d=new Date((iso||_isoIn('Asia/Taipei'))+'T12:00:00+08:00');for(let i=0;i<15;i++){d=new Date(d.getTime()+864e5);const k=d.toISOString().slice(0,10);if(twTradeDay(k))return k;}return null;}
+function twTDLabel(iso){if(!iso)return '';const d=new Date(iso+'T12:00:00+08:00');return `${iso.slice(5).replace('-','/')}(${'日一二三四五六'[d.getUTCDay()]})`;}
+function twTomorrowIso(){return new Date(new Date(_isoIn('Asia/Taipei')+'T12:00:00+08:00').getTime()+864e5).toISOString().slice(0,10);}
+function aipTdBanner(){
+  const t=_isoIn('Asia/Taipei'),nx=twNextTD(t),h=holiTW(t),wk=!twTradeDay(t);
+  if(wk) return `<div class="aip-td" style="margin:8px 0;padding:10px 12px;border-radius:10px;background:rgba(232,180,74,.12);border:1px solid #E8B44A88;font-size:14px">🛑 <b>今天台股休市</b>${h?`(${h})`:'(週末)'}:AI Pick 今天不交易,排定的買賣會在 <b>${twTDLabel(nx)} 9:00 開盤</b>執行。</div>`;
+  const tm=twTomorrowIso();
+  if(nx&&nx!==tm) return `<div class="aip-td" style="margin:8px 0;padding:10px 12px;border-radius:10px;background:rgba(232,180,74,.12);border:1px solid #E8B44A88;font-size:14px">📅 <b>明天台股休市</b>${holiTW(tm)?`(${holiTW(tm)})`:'(週末)'}:今天收盤後排定的買賣,會在 <b>${twTDLabel(nx)} 9:00 開盤</b>執行。</div>`;
+  return '';
+}
+function aipTdFix(html){   // 「明天開盤」遇到休市 → 改成下一個交易日
+  try{const nx=twNextTD(_isoIn('Asia/Taipei'));if(!nx||nx===twTomorrowIso()&&twTradeDay(_isoIn('Asia/Taipei')))return html;
+    const L=twTDLabel(nx);return String(html).replace(/明天(\s*9:00)?\s*開盤/g,`${L} 9:00 開盤`).replace(/今天\/明天 9:00 開盤/g,`${L} 9:00 開盤`);}catch(e){return html;}
+}
 function holiNext(mk){const H=HOLI&&HOLI[mk];if(!H)return null;const t=_isoIn(mk==='us'?'America/New_York':'Asia/Taipei');const k=Object.keys(H).sort().find(x=>x>t);return k?[k,H[k]]:null;}
 function holiPaint(){try{const b=document.getElementById('holiChip')||(()=>{const sl=document.querySelector('.statline');if(!sl)return null;const e=document.createElement('span');e.id='holiChip';e.className='badge';sl.prepend(e);return e;})();if(!b)return;
   const us=window.GMKT==='US',today=us?holiUS():holiTW(),nx=holiNext(us?'us':'tw');
@@ -22386,8 +22410,8 @@ function renderAIPickCore(){
   if(TWNEW){try{box.innerHTML=traderHTML('rules')+`<details class="aip-fold aps-fold aip-old"><summary>📂 原每週名單完整紀錄(持股已移交每日交易管理・歷史保留)</summary>${h}</details>`;}catch(e){box.innerHTML=h;}}
   else box.innerHTML=h;
   const tBox=document.getElementById('aipTodayBox');
-  if(tBox){try{tBox.innerHTML=TWNEW?aipOverview():USNEW?usOverview():aipToday();}catch(e){tBox.innerHTML='';}}
-  {const hBox=document.getElementById('aipHoldBox');if(hBox){try{hBox.innerHTML=TWNEW?(aipUnifiedHold()+(()=>{try{return pvHTML();}catch(e){return '';}})()):USNEW?usHold():aipHold();}catch(e){hBox.innerHTML='';}}}   // r769:持股一覽          // r749:今日操作
+  if(tBox){try{tBox.innerHTML=TWNEW?(aipTdBanner()+aipTdFix(aipOverview())):USNEW?usOverview():aipToday();}catch(e){tBox.innerHTML='';}}
+  {const hBox=document.getElementById('aipHoldBox');if(hBox){try{hBox.innerHTML=TWNEW?aipTdFix(aipUnifiedHold()+(()=>{try{return pvHTML();}catch(e){return '';}})()):USNEW?usHold():aipHold();}catch(e){hBox.innerHTML='';}}}   // r769:持股一覽          // r749:今日操作
   const sBox=document.getElementById('aipStatBox');if(sBox&&USNEW){try{sBox.innerHTML=usStats()+`<details class="aip-fold aps-fold"><summary>📂 美股每週名單完整戰績</summary>${hs}</details>`;}catch(e){sBox.innerHTML=hs;}}else if(sBox)sBox.innerHTML=TWNEW?(aipStatsNew()+`<details class="aip-fold aps-fold"><summary>📂 原每週名單戰績與模型學習</summary>${hs}</details>`):hs;                       // r744:戰績自成一區
   const hBox=document.getElementById('aipHistBox');
   if(hBox)hBox.innerHTML=hh||'<div class="dim-note">還沒有已結算的週次——第一週結算後就會出現。</div>';   // r744:歷史自成一區
@@ -22535,7 +22559,7 @@ function renderFutx(){
     ${(S.tags||[]).length?`<div class="fut-tags">${S.tags.map(t=>`<div>⚑ ${t}</div>`).join('')}</div>`:'<div class="dim-note" style="margin-top:6px">目前沒有極端值。</div>'}
     <div class="dim-note" style="margin-top:6px">資料:期交所三大法人期貨、P/C ratio、大額交易人未沖銷部位。非投資建議。</div>`;
 }
-lazyRun('#futBox',()=>{futxLoad().then(()=>renderFutx());},30*60*1000);
+/* r1036:期貨籌碼分位下架(無歷史可驗證,結論容易誤導) */
 /* ═══ r802:🏛️ 八大行庫買賣(fetch_broker.py → gov.json)═══ */
 let GOV=null;
 async function govLoad(){try{const r=await fT('gov.json?v='+kv(),15000,{cache:'no-store'});if(r&&r.ok)GOV=await r.json();}catch(e){}return GOV;}
