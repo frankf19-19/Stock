@@ -24,7 +24,7 @@
  ],
  "agg_1020_2016-03": {
   "code": 400,
-  "sec": 0.6,
+  "sec": 0.4,
   "rows": null,
   "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
   "first": null,
@@ -36,7 +36,7 @@
  },
  "agg_1020_2019-03": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
   "first": null,
@@ -48,7 +48,7 @@
  },
  "agg_1020_2021-03": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
   "first": null,
@@ -60,7 +60,7 @@
  },
  "agg_1020_2023-03": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
   "first": null,
@@ -72,7 +72,7 @@
  },
  "agg_1020_2025-03": {
   "code": 400,
-  "sec": 0.4,
+  "sec": 0.5,
   "rows": null,
   "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
   "first": null,
@@ -84,7 +84,7 @@
  },
  "agg_1020_2025_year": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
   "first": null,
@@ -96,7 +96,7 @@
  },
  "agg_1020_2330_2024_2026": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
   "first": null,
@@ -108,7 +108,7 @@
  },
  "agg_5920_2016-03": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
   "first": null,
@@ -120,7 +120,7 @@
  },
  "agg_5920_2019-03": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
   "first": null,
@@ -144,7 +144,7 @@
  },
  "agg_5920_2023-03": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
   "first": null,
@@ -180,7 +180,7 @@
  },
  "agg_5920_2330_2024_2026": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
   "first": null,
@@ -192,7 +192,7 @@
  },
  "data_agg_2330_2019-03": {
   "code": 422,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": null,
   "first": null,
@@ -204,7 +204,7 @@
  },
  "data_agg_2330_2021-03": {
   "code": 422,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": null,
   "first": null,
@@ -216,7 +216,7 @@
  },
  "data_agg_2330_2023-03": {
   "code": 422,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": null,
   "first": null,
@@ -238,7 +238,43 @@
   "len": 6531,
   "body": "{\"detail\":[{\"type\":\"enum\",\"loc\":[\"query\",\"dataset\"],\"msg\":\"Input should be 'CnnFearGreedIndex', 'CrudeOilPrices', 'EuropeStockInfo', 'EuropeStockPrice', 'ExchangeRate', 'GoldPrice', 'GovernmentBondsYield', 'InterestRate', 'JapanStockInfo', 'JapanStockPrice', 'TaiwanAssetSwapFixedIncomeDaily', 'Taiwa"
  },
- "data_daily_2330_2021": {
+ "data_daily_2330_2016-03-02": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "data_daily_2330_2018-03-02": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "data_daily_2330_2020-03-02": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "data_daily_2330_2021-03-02": {
   "code": 400,
   "sec": 0.5,
   "rows": null,
@@ -250,9 +286,81 @@
   "len": 175,
   "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
  },
+ "data_daily_2330_2021-07-01": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "data_daily_2330_2022-03-02": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "data_daily_2330_2023-03-02": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "data_daily_2330_2024-03-04": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "data_daily_2330_2026-10-08": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
+ "data_daily_2330_range": {
+  "code": 400,
+  "sec": 0.4,
+  "rows": null,
+  "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
+  "first": null,
+  "dmin": null,
+  "dmax": null,
+  "loc": "",
+  "len": 175,
+  "body": "{\"msg\":\"Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor\",\"status\":400,}"
+ },
  "data_daily_2330_2019": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
   "first": null,
@@ -276,7 +384,7 @@
  },
  "obj_2026-10-08": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "Your level is register. Please update your user level. Detail information:https://finmindtrade.com/analysis/#/Sponsor/sponsor",
   "first": null,
@@ -304,7 +412,7 @@
   "email_verify": true,
   "level": 1,
   "end_date": "",
-  "user_count": 1,
+  "user_count": 2,
   "api_request_limit": 600,
   "api_request_limit_hour": 600,
   "api_request_limit_day": 600,
