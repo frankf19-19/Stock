@@ -439,6 +439,9 @@ def main():
     try:                                                     # r969:🔍 關鍵分點 walk-forward 驗證
         import kb_validate; kb_validate.build(R, S, closes_of, log)
     except Exception as ex4: log(f"  關鍵分點驗證失敗:{ex4}")
+    try:                                                     # r1051:🕵️ 波段主力分點(低檔吃貨、高檔出貨)+ walk-forward 驗證
+        import bk_swing; bk_swing.build(R, S, closes_of, log)
+    except Exception as ex5: log(f"  波段主力分點失敗:{ex5}")
     save_shards(S)
     try: kb_today(S, day)
     except Exception as e: log(f"  kb_today 失敗:{e}")
