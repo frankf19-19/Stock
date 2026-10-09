@@ -1527,6 +1527,11 @@ def main():
            "stats": stats_of([w for w in weeks if not w.get("bt")]),        # 實戰(凍結後追蹤)
            "stats_bt": stats_of([w for w in weeks if w.get("bt")]),         # 回測(首次建檔 walk-forward)
            "trader": J.get("trader")}                                       # r975:每日交易狀態(輕量班也要原樣保留)
+    if not US:                                                           # r1041:🌙 美股昨晚收盤 → 隔天台股評估
+        try:
+            import usclose; out["usc"] = usclose.get(J.get("usc"))
+        except Exception as e:
+            print("aipick:美股收盤例外", e); out["usc"] = J.get("usc")
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     if not US and not LIGHT:                                            # r975:🤖 AI Pick 每日交易(新規則)
