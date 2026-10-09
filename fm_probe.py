@@ -15,7 +15,7 @@ def q(url, **p):
         return {"code": r.status_code, "sec": round(time.time() - t0, 1), "rows": len(d) if isinstance(d, list) else None,
                 "msg": (j or {}).get("msg") if isinstance(j, dict) else r.text[:200], "first": d[0] if d else None,
                 "dmin": min(x.get("date") for x in d) if d else None, "dmax": max(x.get("date") for x in d) if d else None,
-                "loc": r.headers.get("Location", "")[:80], "len": len(r.content), "body": r.text[:300]}
+                "loc": r.headers.get("Location", "")[:80], "len": len(r.content), "body": __import__("re").sub(r'"token_tail":"[^"]*"', '', r.text[:300])}
     except Exception as e:
         return {"err": str(e)[:200]}
 for y in ("2016", "2018", "2020", "2021", "2022", "2023", "2024", "2025"):
