@@ -15,7 +15,7 @@ def q(url, **p):
         return {"code": r.status_code, "sec": round(time.time() - t0, 1), "rows": len(d) if isinstance(d, list) else None,
                 "msg": (j or {}).get("msg") if isinstance(j, dict) else r.text[:200], "first": d[0] if d else None,
                 "dmin": min(x.get("date") for x in d) if d else None, "dmax": max(x.get("date") for x in d) if d else None,
-                "loc": r.headers.get("Location", "")[:80], "len": len(r.content)}
+                "loc": r.headers.get("Location", "")[:80], "len": len(r.content), "body": r.text[:300]}
     except Exception as e:
         return {"err": str(e)[:200]}
 for y in ("2016", "2018", "2020", "2021", "2022", "2023", "2024", "2025"):
@@ -32,7 +32,8 @@ out["obj_2026-10-08"] = q(f"{API}/storage_objects", dataset="TaiwanStockTradingD
 out["obj_2021-03-02"] = q(f"{API}/storage_objects", dataset="TaiwanStockTradingDailyReport", date="2021-03-02")
 try:
     r = requests.get("https://api.web.finmindtrade.com/v2/user_info", params={"token": T}, timeout=30); j = r.json()
-    out["user"] = {k: j.get(k) for k in ("level", "level_title", "api_request_limit", "api_request_limit_hour", "user_count") if k in j}
+    out["user"] = {k: v for k, v in j.items() if k not in ("token", "email", "user_id", "username", "name")}
+    out["token_len"] = len(T)
 except Exception as e: out["user"] = str(e)[:100]
 json.dump(out, open("fm_probe.json", "w"), ensure_ascii=False, indent=1, default=str)
 print(json.dumps(out, ensure_ascii=False, indent=1, default=str)[:4000])
