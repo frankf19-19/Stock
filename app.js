@@ -1,4 +1,4 @@
-/* K研所 · build r1051 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1052 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1051';
+const APP_BUILD='r1052';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2223,7 +2223,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1051</span>');
+  diag.push('<span style="color:var(--dim)">build r1052</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10015,7 +10015,8 @@ async function swHTML(sw,s){
     const head=now.length?`👉 <b style="color:var(--up)">${now.map(b=>b.n).join('、')} 最近又開始低檔吃貨</b>`:out.length?`👉 <b style="color:var(--down)">${out.map(b=>b.n).join('、')} 最近在高檔出貨</b>`:'👉 這些分點最近都沒有明顯動作';
     return `<div class="dim-block" style="margin:8px 0;border-left:4px solid #8E7CC3">
       <div style="font-weight:900;font-size:15px">🕵️ 波段主力分點<span style="font-weight:400;font-size:12.5px;color:var(--dim);margin-left:6px">低檔慢慢吃貨、高檔出貨的券商分點・近 ${sw.days} 個交易日</span></div>
-      <div style="font-size:13.5px;margin:6px 0">${head}</div>${rows}
+      <div style="font-size:13.5px;margin:6px 0">${head}</div>
+      ${V&&V.res&&!V.pass_acc?`<div style="font-size:12.5px;margin:4px 0;padding:6px 10px;border-radius:8px;background:rgba(232,180,74,.12)">⚠ 實測提醒:全市場這類「過去低吃高賣」的分點,之後再吃貨,股價並沒有比較會漲(20 天比大盤 ${sg(a&&a.avg)},一般分點 ${sg(c&&c.avg)})。下面是它們<b>過去</b>的操作紀錄,只當參考,不能當買進訊號。</div>`:''}${rows}
       <div class="dim-note" style="margin-top:6px">怎麼找的:這家分點在這檔「買進的日子」大多落在近 60 日價格的低檔(≤40% 位置)、「賣出的日子」大多在高檔(≥60%),分批買 ≥5 天、賣 ≥3 天,賣出均價比買進均價高 ≥5%,張數夠大(≥半天成交量)。只看得到每天前 15 大買賣分點,小量分批的會漏掉。</div>
       ${val}</div>`;
   }catch(e){return '';}
@@ -14646,8 +14647,8 @@ const STRATS=[
   ['fgo','🌊 外資連買·成長股'],
   ['price','🔥 漲價/缺料'],
   ['theme','🧠 潛在漲價(研究)'],
-  ['swacc','🕵️ 波段主力吃貨中'],
-  ['swdist','🕵️ 波段主力出貨中'],
+  ['swacc','🕵️ 波段主力吃貨中(實測不準)'],
+  ['swdist','🕵️ 波段主力出貨中(實測不準)'],
   ['kbuy','🎯 關鍵分點大買(未驗證)'],
   ['ksell','🎯 關鍵分點大賣(未驗證)'],
 ];
