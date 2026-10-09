@@ -1,4 +1,4 @@
-/* K研所 · build r1039 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1040 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1039';
+const APP_BUILD='r1040';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2021,7 +2021,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1039</span>');
+  diag.push('<span style="color:var(--dim)">build r1040</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -5770,6 +5770,35 @@ function wireTempDocs(){
 setInterval(wireTempDocs,3000);
 setTimeout(wireTempDocs,7000);
 
+/* r1040:首頁「🤖 AI Pick 今日」摘要卡——今天買了什麼、賣了什麼、持股與損益,點了去 AI Pick */
+async function homeAipCard(){
+  try{
+    const tb=document.getElementById('tldrBox');if(!tb)return;
+    let box=document.getElementById('homeAip');
+    if(!box){box=document.createElement('div');box.id='homeAip';box.className='idx-card';box.style.cssText='margin:10px 0 2px;cursor:pointer;border-left:4px solid #6FA8DC';tb.parentNode.insertBefore(box,tb);
+      box.onclick=()=>{const b=document.querySelector('#homeTabs [data-tab="aipick"]');if(b){b.click();window.scrollTo({top:0,behavior:'smooth'});}};}
+    if((window.GMKT||'TW')!=='TW'){box.style.display='none';return;}
+    await aipLoad();const T=(AIPK&&AIPK.trader)||null;if(!T){box.style.display='none';return;}box.style.display='';
+    const today=_isoIn('Asia/Taipei'),last=(T.log||[]).map(x=>x.slice(0,10)).sort().pop()||today;
+    const day=(T.log||[]).some(x=>x.startsWith(today))?today:last;
+    const ev=(T.log||[]).filter(x=>x.startsWith(day)).map(x=>x.slice(11));
+    const nm=re=>ev.filter(x=>re.test(x)).map(x=>(x.match(/(?:買進|賣出|停損|移動停利|模型轉弱|停利|換股賣出)\s*(?:量價籌碼組\s*)?(\S+?)\s/)||[])[1]).filter(Boolean);
+    const buys=[...new Set(nm(/🟢 買進/))],sells=[...new Set(nm(/🛑|📉 模型轉弱|🔒|🎯 停利|🔄/))];
+    const plan=ev.filter(x=>/明天開盤買進|收盤重排/.test(x)).length;
+    const nav=(T.nav||[]),L=nav.length?nav[nav.length-1]:null,PV=T.pv||{},PL=(PV.nav||[]).length?PV.nav[PV.nav.length-1]:null;
+    const f=v=>`<b style="color:${v>=0?'var(--up)':'var(--down)'}">${v>=0?'+':''}${Math.round(v).toLocaleString()} 元</b>`;
+    const ban=(typeof aipTdBanner==='function')?aipTdBanner():'';
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:16px">🤖 AI Pick ${day===today?'今天':day.slice(5).replace('-','/')}</b><span style="font-size:12px;color:var(--dim)">點這裡看全部 →</span></div>
+      ${ban?`<div style="font-size:13px;margin-top:4px">${ban.replace(/<[^>]+>/g,'')}</div>`:''}
+      <div style="font-size:14px;line-height:1.7;margin-top:4px">
+        <div>🟢 買進 ${buys.length} 檔:${buys.length?buys.slice(0,8).join('、')+(buys.length>8?` 等`:''):'無'}</div>
+        <div>🔴 賣出 ${sells.length} 檔:${sells.length?sells.slice(0,8).join('、')+(sells.length>8?` 等`:''):'無'}</div>
+        <div>💼 每日交易持股 ${(T.pos||[]).length} 檔${L?`・累計 ${f(L[1])}`:''}${PV.pos?`|📈 量價籌碼組 ${(PV.pos||[]).length} 檔${PL?`・累計 ${f(PL[1])}`:''}`:''}</div>
+      </div>`;
+  }catch(e){}
+}
+setTimeout(homeAipCard,4000);setInterval(homeAipCard,120000);
+setTimeout(()=>{try{const p=document.getElementById('sb-macro');if(p)applySecOrder(p);}catch(e){}},1500);   // r1040:首頁預設排版
 function tldrCard(){
   const box=document.getElementById('tldrBox');
   if(!box)return;
@@ -23197,8 +23226,9 @@ const SORT_KEY='secOrder';
 function secOrderGet(pane){try{return (JSON.parse(localStorage.getItem(SORT_KEY)||'{}')[pane])||null;}catch(e){return null;}}
 function secOrderSet(pane,arr){let o={};try{o=JSON.parse(localStorage.getItem(SORT_KEY)||'{}');}catch(e){}o[pane]=arr;try{localStorage.setItem(SORT_KEY,JSON.stringify(o));}catch(e){}}
 function paneKey(p){return p.id||p.dataset.tab||'main';}
+const SEC_DEFAULT={'sb-macro':['mk_idx','mk_risk','mk_rot','mk_temp','mk_bias','mk_head','mk_fut','mk_hist','mk_cmd','mk_earn','mk_conf']};   // r1040:首頁預設排版——先看大盤與資金,再看溫度/位置,最後國際與行事曆(自訂排序優先)
 function applySecOrder(pane){
-  const ord=secOrderGet(paneKey(pane));if(!ord||!ord.length)return;
+  let ord=secOrderGet(paneKey(pane));if(!ord||!ord.length)ord=SEC_DEFAULT[paneKey(pane)];if(!ord||!ord.length)return;
   ord.forEach(k=>{const t=pane.querySelector(`:scope > .sec-title[data-sec="${k}"]`),b=document.getElementById('sb-'+k);
     if(t){pane.appendChild(t);if(b)pane.appendChild(b);}});
 }
