@@ -1,4 +1,4 @@
-/* K研所 · build r1043 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1044 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1043';
+const APP_BUILD='r1044';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2021,7 +2021,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1043</span>');
+  diag.push('<span style="color:var(--dim)">build r1044</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -3016,6 +3016,7 @@ setTimeout(loadInst,7000);
 setInterval(loadInst,15*60*1000); // 每15分鐘檢查(15:00後會自動換上今日)
 
 
+const HIDE_HEAD=true;   // r1044:使用者要求——頭部七腳印/頭部機率相關顯示全部隱藏(大盤+個股+持股);引擎照算,改 false 即恢復
 /* ══ 🔺 頭部七腳印|「打頭打七吋」規則化引擎(大盤+個股共用) ══
    七個腳印:①指標背離 ②高檔跳空缺口不補 ③破支撐趨勢線 ④破末升低 ⑤反彈不創高 ⑥再破前低 ⑦走空頭浪
    前段(1~3)=警告早但不可靠(可能假跌破);後段(4~7)=證據強但價格更便宜──紀律執行 */
@@ -5351,7 +5352,7 @@ async function renderHeadStock(s){
     box.innerHTML=headHtml(hp,s.name||s.id);
     try{                                                    // 頁首警示條:目前趨勢常駐;頭部機率≥50%升級警告
       const al=document.getElementById('stkAlerts');
-      if(al&&hp&&location.hash==='#stock/'+s.id&&!al.querySelector('[data-hd]')){
+      if(!HIDE_HEAD&&al&&hp&&location.hash==='#stock/'+s.id&&!al.querySelector('[data-hd]')){
         const lv=hp.prob>=70?'red':hp.prob>=50?'amb':'ok';
         const pill=document.createElement('span');
         pill.className='alert-pill alert-'+lv;pill.dataset.hd='1';
@@ -5728,7 +5729,7 @@ const TEMP_DOC={
   twFng:['🌡️ 台股恐懼貪婪指數(站內合成)',`
     <b>這是什麼</b>:把五個市場情緒指標合成 0~100 的溫度計。0=極度恐懼(人人想逃)、100=極度貪婪(人人搶進)。<br><br>
     <b>五個因子</b>:<br>①<b>即時漲跌家數</b>——當下有幾成股票在漲(盤中跳動)<br>②<b>市場廣度</b>——多少股票站在季線之上<br>③<b>融資動能</b>——散戶借錢買股的增減速度<br>④<b>外資期貨</b>——外資期貨部位在過去一年的相對位置<br>⑤<b>VIX外溢</b>——美股恐慌指數的外溢效應<br><br>
-    <b>怎麼用</b>:情緒是<u>反向指標</u>——極度恐懼(&lt;25)常是長線買點,極度貪婪(&gt;75)要留意追高風險。但<b>它不是進出訊號</b>:恐懼可以更恐懼,一定要搭配頭部七腳印(結構)與防守價位(紀律)使用。<br><br>
+    <b>怎麼用</b>:情緒是<u>反向指標</u>——極度恐懼(&lt;25)常是長線買點,極度貪婪(&gt;75)要留意追高風險。但<b>它不是進出訊號</b>:恐懼可以更恐懼,一定要搭配防守價位(紀律)使用。<br><br>
     <b>小白重點</b>:數字低=大家在怕→機會可能在醞釀;數字高=大家很嗨→這時進場代價高。看變化方向比看絕對值更有用。`],
   volTemp:['💧 大盤量能溫度計',`
     <b>這是什麼</b>:今天的成交金額 ÷ 近 20 日平均成交金額。100% 代表跟平常一樣,超過就是量增、低於就是量縮。盤中會用「目前累計金額÷時間進度」推估全日量。<br><br>
@@ -5770,8 +5771,8 @@ function wireTempDocs(){
 setInterval(wireTempDocs,3000);
 setTimeout(wireTempDocs,7000);
 
-/* r1043:首頁 AI Pick 摘要卡已移除(使用者:AI Pick 不用在首頁出現) */
-setTimeout(()=>{try{const p=document.getElementById('sb-macro');if(p)applySecOrder(p);}catch(e){}},1500);   // r1043:首頁預設排版
+/* r1044:首頁 AI Pick 摘要卡已移除(使用者:AI Pick 不用在首頁出現) */
+setTimeout(()=>{try{const p=document.getElementById('sb-macro');if(p)applySecOrder(p);}catch(e){}},1500);   // r1044:首頁預設排版
 function tldrCard(){
   const box=document.getElementById('tldrBox');
   if(!box)return;
@@ -5796,7 +5797,7 @@ function tldrCard(){
     }catch(e){}
     // 3 頭部風險
     try{
-      const hs=Object.values(window.__headIdx||{});
+      const hs=HIDE_HEAD?[]:Object.values(window.__headIdx||{});
       if(hs.length){
         const t=hs[0];
         L.push(['🔺','做頭風險',`${t.nm}目前<b>${t.trend}</b>,頭部機率 <b>${t.prob}%</b>——`
@@ -5899,7 +5900,7 @@ async function twFngCard(){
       <div style="height:7px;background:linear-gradient(90deg,var(--t-green),var(--t-gold),var(--t-red));border-radius:4px;position:relative;margin:6px 2px 8px">
         <div style="position:absolute;left:calc(${sc}% - 2px);top:-3px;width:4px;height:13px;background:var(--txt);border-radius:2px;box-shadow:0 0 0 1.5px var(--panel)"></div></div>
       <div style="font-size:11px;color:var(--dim);line-height:1.55">${comp.map(x=>`${x[0]} ${x[1]}`).join(' · ')}(0=極恐,100=極貪)${liveN?' · 含即時因子,盤中跟著報價變動':' · 收盤後日更因子'}</div>
-      <div style="font-size:11px;color:var(--dim);margin-top:3px">情緒是溫度計不是進出訊號;極端值請配合頭部七腳印與防守線使用。</div>`;
+      <div style="font-size:11px;color:var(--dim);margin-top:3px">情緒是溫度計不是進出訊號;極端值請配合防守線使用。</div>`;
   }catch(e){box.style.display='none';}
 }
 setTimeout(twFngCard,5500);
@@ -6799,7 +6800,7 @@ function renderMacroAlerts(){
     const b=document.getElementById('sb-mk_head'),t=document.querySelector('.sec-title[data-sec="mk_head"]');
     if(t)t.classList.remove('closed');if(b)b.classList.remove('closed');
     setTimeout(()=>{try{(t||b).scrollIntoView({behavior:'smooth',block:'start'});}catch(e2){}},120);}catch(e){}};   // r889:切到大盤分頁、打開收合、再捲過去
-  Object.values(window.__headIdx||{}).forEach(x=>{           // 🔺 大盤/櫃買趨勢與頭部機率(常駐;≥50%升級為警告)
+  if(!HIDE_HEAD)Object.values(window.__headIdx||{}).forEach(x=>{           // 🔺 大盤/櫃買趨勢與頭部機率(常駐;≥50%升級為警告)
     const lv=x.prob>=70?'red':x.prob>=50?'amb':'ok';
     const ico=x.prob>=50?'🔺':'📈';
     add(lv,ico,atag('頭部')+`${x.nm}趨勢:${x.trend} · 頭部機率 ${x.prob}%${x.prob>=70?'——證據齊備,紀律減碼':x.prob>=50?'——頭部風險偏高,反彈保守以對':''}`);
@@ -6836,7 +6837,7 @@ function renderMacroAlerts(){
     `<a class="alert-pill alert-${x.lv}" href="${x.l}" target="_blank" rel="noopener"><span class="ico">${x.lv==='red'?'🚨':'📰'}</span><span>${x.lv==='red'?'重大外電:':'外電訊號:'}${x.t}${x.tags.length?` <b>→ ${x.tags.join('/')}</b>`:''}<span style="color:var(--dim);font-weight:600"> · ${x.ago} ↗</span></span></a>`).join('');
   el.style.display='';
   el.innerHTML=(A.length||news)
-    ?A.map(a=>{const hd=false;   /* r1043:首頁頭部七腳印區已隱藏,提醒列不再連過去 */return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).join('')+news
+    ?A.map(a=>{const hd=false;   /* r1044:首頁頭部七腳印區已隱藏,提醒列不再連過去 */return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).join('')+news
     :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>風險溫度計與外電目前無特別警示</span></span>';
 }
 setTimeout(()=>{try{renderMacroAlerts();}catch(e){}},4500);
@@ -6933,7 +6934,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
       if(dv){const b=mkSec('stk_div','💵 股利與除權息','配息紀錄・殖利率・發放率・除權息日');if(b&&dv.parentNode!==b)b.appendChild(dv);}
       const ids=['turtleBox','zt8Box','boxHead7','boxTurn'];
       const els=ids.map(id=>document.getElementById(id)).filter(Boolean);
-      if(els.length){const b=mkSec('stk_tp','🧪 技術型態檢核','海龜法則・漲停 8 招・頭部七腳印・轉折點');if(b)els.forEach(el=>{if(el.parentNode!==b)b.appendChild(el);});}
+      if(els.length){const b=mkSec('stk_tp','🧪 技術型態檢核',HIDE_HEAD?'海龜法則・漲停 8 招・轉折點':'海龜法則・漲停 8 招・頭部七腳印・轉折點');if(b)els.forEach(el=>{if(el.parentNode!==b)b.appendChild(el);});}
       if(typeof wireDetailSecs==='function')wireDetailSecs();
     }catch(e){}
     const GROUPS=[
@@ -7123,7 +7124,7 @@ function renderStkAlerts(s,k,tt){
   const A=[];const add=(lv,ico,txt)=>A.push({lv,ico,txt});
   try{window.__lastStkAlertArgs=[...arguments];}catch(e){}
   try{const hc=window.__headStkC;                            // 🔺 七腳印趨勢/機率:重繪也常駐
-    if(hc&&hc.id===s.id){
+    if(!HIDE_HEAD&&hc&&hc.id===s.id){
       const lv=hc.prob>=70?'red':hc.prob>=50?'amb':'ok';
       add(lv,hc.prob>=50?'🔺':'📈',atag('頭部')+`趨勢:${hc.trend} · 頭部機率 ${hc.prob}%${hc.prob>=70?'——證據齊備,紀律減碼/停損':hc.prob>=50?'——做頭風險偏高,反彈視為減碼機會':''}`);
     }}catch(e){}
@@ -11079,7 +11080,7 @@ function aipTdBanner(){
   return '';
 }
 
-/* r1043:🌙 美股昨晚收盤 → 台股隔天進場評估(AI Pick 頁最上面)
+/* r1044:🌙 美股昨晚收盤 → 台股隔天進場評估(AI Pick 頁最上面)
    資料:aipick.json 的 usc(後端每 20 分鐘抓 Yahoo:費半/那斯達克/S&P/台積電ADR)。
    判斷:us_overnight_stat.json——2012~2026 共 3598 個台股交易日實測,三段期間(12~18/19~22/23~26)分開驗證,
    只有三段都同方向的才給「建議」,其餘寫「影響小,照原計畫」。 */
@@ -13918,7 +13919,7 @@ async function showDetail(id){
     ${s.etf?'':'<div id="turtleBox"></div>'}
     ${(s.etf||s.market!=='TW')?'':'<div id="zt8Box"></div>'}
     ${s.etf?'':'<div id="gemBox"></div>'}
-    <div class="chart-box" id="boxHead7" data-jumpname="🔺 頭部七腳印"><h3>🔺 頭部七腳印<span class="ds">打頭打七吋 · 賣在起跌點的七步辨識</span></h3><div id="headStk"><div class="dim-note">判讀中…</div></div></div>
+    <div class="chart-box${HIDE_HEAD?' sec-off':''}" id="boxHead7" data-jumpname="🔺 頭部七腳印"><h3>🔺 頭部七腳印<span class="ds">打頭打七吋 · 賣在起跌點的七步辨識</span></h3><div id="headStk"><div class="dim-note">判讀中…</div></div></div>
     <div class="chart-box" id="boxTurn" data-jumpname="🔄 轉折點分析"><h3>🔄 轉折點分析<span class="ds">歷史轉折 · 節奏預估下次轉折日 · 近端支撐/目標價</span></h3><div id="fwStk"><div class="dim-note">判讀中…</div></div></div>
     </div>
     <div class="sec-title" data-sec="stk_dna">🧬 股性分析 <span style="font-weight:400;font-size:13px;letter-spacing:0">這檔的脾氣・什麼條件容易漲、什麼條件容易跌</span></div><div class="sec-body" id="sb-stk_dna">
@@ -14827,7 +14828,7 @@ function setupSections(){
 function buildJumpBar(root){
   if(!root)return;
   [...root.children].filter(c=>c.classList&&c.classList.contains('mob-jump')).forEach(c=>c.remove());
-  const walk=[...root.querySelectorAll('.grp-band,.sec-title[data-sec],[data-jumpname]')];   // r701:依 DOM 順序走訪——章節帶變成分組標籤,分類更細更好找
+  const walk=[...root.querySelectorAll('.grp-band,.sec-title[data-sec],[data-jumpname]')].filter(x=>!x.classList.contains('sec-off'));   // r701:依 DOM 順序走訪——章節帶變成分組標籤,分類更細更好找
   const secs=walk.filter(x=>x.classList.contains('sec-title'));
   const named=walk.filter(x=>x.dataset&&x.dataset.jumpname);
   if(secs.length+named.length<2)return;
@@ -16612,7 +16613,7 @@ function gaClean(html){                           // 描述 → 純文字(保留
   d.innerHTML=String(html||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n');
   return (d.textContent||'').replace(/\n{3,}/g,'\n\n').trim();
 }
-/* r1043:🎯 股癌提到的個股與產業——特別標示
+/* r1044:🎯 股癌提到的個股與產業——特別標示
    ① 摘要最上面一張「本集提到的個股與產業」卡:個股晶片(現價・漲跌・他偏多/偏空)、產業晶片、他怎麼說的一句話
    ② 摘要內文裡的個股名(可點進個股頁)與產業關鍵字直接上色
    比對來源:站內 2256 檔台股 + 547 檔美股名稱/代號/中文名;中文兩字名稱容易撞到一般用詞(世界、統一、可成…),只收常見大型股白名單 */
@@ -18815,7 +18816,7 @@ async function portHeadRisk(){
     anchor.parentNode.insertBefore(box,anchor);
   }
   const hold=portGet().map(p=>p.id);
-  if(!hold.length){box.style.display='none';return;}
+  if(HIDE_HEAD||!hold.length){box.style.display='none';return;}
   box.style.display='';
   box.innerHTML='<b>🔺 持股頭部風險體檢</b><div class="dim-note">七腳印引擎逐檔判讀中…</div>';
   const rows=[];
@@ -23341,7 +23342,7 @@ const SORT_KEY='secOrder';
 function secOrderGet(pane){try{return (JSON.parse(localStorage.getItem(SORT_KEY)||'{}')[pane])||null;}catch(e){return null;}}
 function secOrderSet(pane,arr){let o={};try{o=JSON.parse(localStorage.getItem(SORT_KEY)||'{}');}catch(e){}o[pane]=arr;try{localStorage.setItem(SORT_KEY,JSON.stringify(o));}catch(e){}}
 function paneKey(p){return p.id||p.dataset.tab||'main';}
-const SEC_DEFAULT={'sb-macro':['mk_idx','mk_risk','mk_rot','mk_temp','mk_bias','mk_head','mk_fut','mk_hist','mk_cmd','mk_earn','mk_conf']};   // r1043:首頁預設排版——先看大盤與資金,再看溫度/位置,最後國際與行事曆(自訂排序優先)
+const SEC_DEFAULT={'sb-macro':['mk_idx','mk_risk','mk_rot','mk_temp','mk_bias','mk_head','mk_fut','mk_hist','mk_cmd','mk_earn','mk_conf']};   // r1044:首頁預設排版——先看大盤與資金,再看溫度/位置,最後國際與行事曆(自訂排序優先)
 function applySecOrder(pane){
   let ord=secOrderGet(paneKey(pane));if(!ord||!ord.length)ord=SEC_DEFAULT[paneKey(pane)];if(!ord||!ord.length)return;
   ord.forEach(k=>{const t=pane.querySelector(`:scope > .sec-title[data-sec="${k}"]`),b=document.getElementById('sb-'+k);
