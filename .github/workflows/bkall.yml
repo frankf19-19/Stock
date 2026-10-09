@@ -2,8 +2,9 @@ name: 全部券商分點・多年歷史(夜間)
 
 on:
   schedule:
-    - cron: "20 17 * * *"        # 台北 01:20(分點每日抓取已結束、FinMind 額度空著)
-    - cron: "20 2 * * *"         # 台北 10:20(白天空檔;16:40 每日分點開始前收工)
+    - cron: "40 15 * * *"        # 台北 23:40(每日分點抓完之後)
+    - cron: "20 21 * * *"        # 台北 05:20
+    - cron: "0 3 * * *"          # 台北 11:00(16:40 每日分點開始前收工)
   workflow_dispatch:
 
 concurrency:
@@ -16,11 +17,11 @@ permissions:
 jobs:
   bkall:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    timeout-minutes: 350
     env:
       FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
       TZ: Asia/Taipei
-      BKALL_BUDGET_SEC: "19000"
+      BKALL_BUDGET_SEC: "18600"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -46,7 +47,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python archive_bk.py restore || true
       - name: 併每日資料 → 回補歷史 → 重算波段主力分點
-        run: timeout 19200 python bkall.py || echo "::warning::bkall 未完成(下一班接著做)"
+        run: timeout 19000 python bkall.py || echo "::warning::bkall 未完成(下一班接著做)"
       - name: 保存全券商歷史快取
         if: always()
         uses: actions/cache/save@v4

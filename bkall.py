@@ -4,7 +4,7 @@
   ① 每天:fetch_broker.py 抓到的「每檔每天全部券商明細」→ 這裡彙總成每家券商的 買張/賣張/買均價/賣均價,
      先寫進 bkraw/days/<日期>.tsv.gz(跟著 bkraw 快取),夜間班再併進每檔檔案。
   ② 歷史:同一份每日明細逐檔逐日往回補(分點統計表要同時指定股票+券商,不適合補全市場)。
-存放:bkall/<股票>.tsv.gz,每列:日期 \t 券商 \t 買張 \t 賣張 \t 買均價 \t 賣均價(Actions 快取 bkall-*,不進 repo)
+存放:bkall/<股票>/<年>.tsv.gz(只附加),每列:日期 \t 券商 \t 買張 \t 賣張 \t 買均價 \t 賣均價(Actions 快取 bkall-*,不進 repo)
 夜間班(bkall.yml):python bkall.py → 併每日檔 → 在時間/額度內往回補歷史 → 用全量資料重算 🕵️ 波段主力分點與驗證
 """
 import os, io, gzip, json, time, glob, datetime as dt
@@ -13,7 +13,8 @@ import requests
 TOKEN = os.environ.get("FINMIND_TOKEN", "").strip()
 API = "https://api.finmindtrade.com/api/v4"
 ALL = "bkall"; DAYS = os.path.join("bkraw", "days")
-KEEP_YEARS = int(os.environ.get("BKALL_YEARS", "5"))
+KEEP_YEARS = int(os.environ.get("BKALL_YEARS", "6"))
+FROM = os.environ.get("BKALL_FROM", "2021-07-01")              # FinMind 分點每日明細最早到 2021-07(實測 2021-03 以前是空的)
 BUDGET = int(os.environ.get("BKALL_BUDGET_SEC", str(4 * 3600)))
 SLEEP = float(os.environ.get("BKALL_SLEEP", "0.65"))       # ≈ 5,500 次/小時(Sponsor 6,000)
 TZ = dt.timezone(dt.timedelta(hours=8))
@@ -56,55 +57,71 @@ def flush_days(keep=12):
         except Exception: pass
 
 
-# ── 每檔檔案讀寫 ──
-def load_stock(sid):
-    p = os.path.join(ALL, f"{sid}.tsv.gz"); out = {}
-    if not os.path.exists(p): return out
-    try:
-        for ln in gzip.open(p, "rt", encoding="utf-8"):
-            d, nm, b, s, bp, sp = ln.rstrip("\n").split("\t")
-            out[(d, nm)] = (float(b), float(s), float(bp), float(sp))
-    except Exception: pass
+# ── 每檔檔案讀寫:bkall/<股票>/<年>.tsv.gz,只「附加」不重寫(gzip 多段串接;讀的時候同日同券商以後寫的為準)──
+def _lo():
+    return max(FROM, (dt.date.today() - dt.timedelta(days=365 * KEEP_YEARS + 10)).isoformat())
+
+
+def load_stock(sid, years=None):
+    out = {}
+    for p in sorted(glob.glob(os.path.join(ALL, sid, "*.tsv.gz"))):
+        if years and os.path.basename(p)[:4] not in years: continue
+        try:
+            for ln in gzip.open(p, "rt", encoding="utf-8"):
+                t = ln.rstrip("\n").split("\t")
+                if len(t) == 6: out[(t[0], t[1])] = (float(t[2]), float(t[3]), float(t[4]), float(t[5]))
+        except Exception: pass                                   # 被砍斷的最後一段讀不到就算了
     return out
 
 
-def save_stock(sid, rec):
-    os.makedirs(ALL, exist_ok=True)
-    lo = (dt.date.today() - dt.timedelta(days=365 * KEEP_YEARS + 10)).isoformat()
-    with gzip.open(os.path.join(ALL, f"{sid}.tsv.gz"), "wt", encoding="utf-8") as f:
-        for (d, nm) in sorted(rec):
-            if d < lo: continue
-            b, s, bp, sp = rec[(d, nm)]
-            f.write(f"{d}\t{nm}\t{b:g}\t{s:g}\t{bp:g}\t{sp:g}\n")
-
-
 def merge(buf):
-    """buf = {sid: {(日期, 券商): (買張, 賣張, 買均價, 賣均價)}} 併進每檔檔案(同日同券商以新資料為準)"""
+    """buf = {sid: {(日期, 券商): (買張, 賣張, 買均價, 賣均價)}} → 依年份附加到每檔檔案"""
+    lo = _lo()
     for sid, rows in buf.items():
-        rec = load_stock(sid); rec.update(rows); save_stock(sid, rec)
+        by = {}
+        for (d, nm), v in rows.items():
+            if d >= lo: by.setdefault(d[:4], []).append((d, nm, v))
+        if not by: continue
+        os.makedirs(os.path.join(ALL, sid), exist_ok=True)
+        for y, lst in by.items():
+            lst.sort()
+            with gzip.open(os.path.join(ALL, sid, f"{y}.tsv.gz"), "at", encoding="utf-8") as f:
+                f.writelines(f"{d}\t{nm}\t{v[0]:g}\t{v[1]:g}\t{v[2]:g}\t{v[3]:g}\n" for d, nm, v in lst)
+
+
+def compact(sid):
+    """重寫一檔(去重、排序);每週一次"""
+    for p in glob.glob(os.path.join(ALL, sid, "*.tsv.gz")):
+        rec = load_stock(sid, years={os.path.basename(p)[:4]})
+        tmp = p + ".tmp"
+        with gzip.open(tmp, "wt", encoding="utf-8") as f:
+            for (d, nm) in sorted(rec):
+                v = rec[(d, nm)]; f.write(f"{d}\t{nm}\t{v[0]:g}\t{v[1]:g}\t{v[2]:g}\t{v[3]:g}\n")
+        os.replace(tmp, p)
 
 
 def merge_days():
-    n = 0; buf = {}
+    """bkraw/days 的每日全券商檔 → 附加到每檔(已併過且沒變的跳過)"""
+    st_p = os.path.join(ALL, "_state.json")
+    try: st = json.load(open(st_p, encoding="utf-8"))
+    except Exception: st = {}
+    seen = st.get("merged") or {}; n = 0; buf = {}; cnt = {}
     for p in sorted(glob.glob(os.path.join(DAYS, "*.tsv.gz"))):
-        day = os.path.basename(p)[:10]
+        day = os.path.basename(p)[:10]; sig = f"{os.path.getsize(p)}"
+        if seen.get(day) == sig: continue
         try:
             for ln in gzip.open(p, "rt", encoding="utf-8"):
-                sid, nm, b, s, bp, sp = ln.rstrip("\n").split("\t")
-                buf.setdefault(sid, {})[(day, nm)] = (float(b), float(s), float(bp), float(sp)); n += 1
+                sid, nm, b, s_, bp, sp = ln.rstrip("\n").split("\t")
+                buf.setdefault(sid, {})[(day, nm)] = (float(b), float(s_), float(bp), float(sp)); n += 1; cnt.setdefault(day, set()).add(sid)
+            seen[day] = sig
         except Exception as e: log(f"  {p} 讀取失敗 {e}")
     if buf: merge(buf)
-    try:                                                         # 每日檔有 9 成股票以上 → 這天算補齊(回補不用重抓)
-        st_p = os.path.join(ALL, "_state.json")
-        try: st = json.load(open(st_p, encoding="utf-8"))
-        except Exception: st = {}
-        nid = max(1, len(stock_ids())); cnt = {}
-        for sid, rows in buf.items():
-            for (d, nm) in rows: cnt.setdefault(d, set()).add(sid)
-        add = [d for d, ss in cnt.items() if len(ss) >= 0.9 * nid]
-        if add: st["days"] = sorted(set(st.get("days") or []) | set(add)); json.dump(st, open(st_p, "w", encoding="utf-8"))
-    except Exception: pass
-    log(f"每日全券商併入:{n:,} 列、{len(buf)} 檔")
+    nid = max(1, len(stock_ids()))
+    add = [d for d, ss in cnt.items() if len(ss) >= 0.9 * nid]
+    st["merged"] = dict(sorted(seen.items())[-40:])
+    if add: st["days"] = sorted(set(st.get("days") or []) | set(add))
+    os.makedirs(ALL, exist_ok=True); json.dump(st, open(st_p, "w", encoding="utf-8"))
+    log(f"每日全券商併入:{n:,} 列、{len(buf)} 檔;新增補齊日 {len(add)}")
 
 
 # ── ② 歷史回補:每檔每天全部券商明細(TaiwanStockTradingDailyReport,Sponsor)──
@@ -150,13 +167,14 @@ def stock_ids():
 def have_days():
     """全券商資料裡,每天有幾檔(用來判斷哪天已補齊)"""
     cnt = {}
-    for p in glob.glob(os.path.join(ALL, "*.tsv.gz")):
+    for sd in glob.glob(os.path.join(ALL, "[0-9]*")):
         seen = set()
-        try:
-            for ln in gzip.open(p, "rt", encoding="utf-8"):
-                d = ln[:10]
-                if d not in seen: seen.add(d); cnt[d] = cnt.get(d, 0) + 1
-        except Exception: pass
+        for p in glob.glob(os.path.join(sd, "*.tsv.gz")):
+            try:
+                for ln in gzip.open(p, "rt", encoding="utf-8"):
+                    d = ln[:10]
+                    if d not in seen: seen.add(d); cnt[d] = cnt.get(d, 0) + 1
+            except Exception: pass
     return cnt
 
 
@@ -167,14 +185,14 @@ def backfill(t_end):
     except Exception: st = {}
     ids = stock_ids(); cal = calendar()
     if not ids or not cal: log("沒有股票清單或交易日曆,略過回補"); return st
-    lo = (dt.date.today() - dt.timedelta(days=365 * KEEP_YEARS)).isoformat()
+    lo = _lo()
     done = set(st.get("days") or [])
     if not done:                                                # 第一次:看既有檔案哪些天已齊
         for d, c in have_days().items():
             if c >= 0.9 * len(ids): done.add(d)
     todo = [d for d in reversed(cal) if lo <= d < dt.date.today().isoformat() and d not in done]
     log(f"歷史回補:目標 {KEEP_YEARS} 年;已補齊 {len(done)} 個交易日,待補 {len(todo)} 個(由近到遠)")
-    THREADS, SL = 3, 1.9                                       # 3 線程 × 每 1.9 秒 ≈ 5,700 次/小時
+    THREADS, SL = 3, 2.1                                       # 3 線程 × 每 2.1 秒 ≈ 5,100 次/小時(留額度給其他排程)
     calls = 0; quota_hit = False; BUF = {}; nbuf = 0; PEND = []
     def flush():
         """落地:資料先寫進每檔檔案,寫完才把這些天記成完成(被砍掉也不會漏)"""
@@ -212,8 +230,12 @@ def backfill(t_end):
                 f = futs.pop(0); sid, rows, err = f.result(); calls += 1
                 if err is not None:
                     m = str(err)
-                    if "402" in m or "upper limit" in m or "level" in m:
-                        quota_hit = True; log(f"  額度/權限:{m[:100]}")
+                    if "level" in m:
+                        quota_hit = True; log(f"  權限不足:{m[:100]}")
+                    elif "402" in m or "upper limit" in m:
+                        log(f"  額度用完,等 10 分鐘:{m[:80]}"); time.sleep(600)
+                        if time.time() < t_end: futs.append(ex.submit(one, sid))   # 這檔重抓
+                        continue
                 else:
                     got.add(sid)
                     agg = {}
@@ -229,22 +251,10 @@ def backfill(t_end):
                     except StopIteration: pass
         nbuf += 1; PEND.append((day, got))
         log(f"  {day}:{len(got)}/{len(ids)} 檔(本班 {calls} 次)")
-        if nbuf >= 8 or time.time() > t_end or quota_hit: flush()   # 8 天落地一次(每次落地要重寫每檔檔案)
+        if nbuf >= 4 or time.time() > t_end or quota_hit: flush()   # 4 天落地一次(附加寫入,很快)
     flush()
     log(f"歷史回補:本班 {calls} 次 API;累計補齊 {len(done)} 個交易日")
     return st
-
-
-def coverage():
-    """每檔有幾個交易日的全券商資料"""
-    out = {}
-    for p in glob.glob(os.path.join(ALL, "*.tsv.gz")):
-        sid = os.path.basename(p).split(".")[0]; ds = set()
-        try:
-            for ln in gzip.open(p, "rt", encoding="utf-8"): ds.add(ln[:10])
-        except Exception: pass
-        out[sid] = len(ds)
-    return out
 
 
 def main():
@@ -259,7 +269,7 @@ def main():
     try: stt = json.load(open(os.path.join(ALL, "_state.json"), encoding="utf-8"))
     except Exception: stt = {}
     dd = sorted(stt.get("days") or [])
-    status["coverage"] = {"stocks": len(glob.glob(os.path.join(ALL, "*.tsv.gz"))), "days": len(dd), "from": dd[0] if dd else None, "to": dd[-1] if dd else None}
+    status["coverage"] = {"stocks": len(glob.glob(os.path.join(ALL, "[0-9]*"))), "days": len(dd), "from": dd[0] if dd else None, "to": dd[-1] if dd else None}
     log(f"全券商資料:{status['coverage']}")
     try:
         import bk_swing; status["swing"] = bk_swing.build_full(ALL, log)

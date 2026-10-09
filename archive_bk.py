@@ -81,7 +81,7 @@ def bkall_days():
 
 def backup(force=False):
     """bkall/ 每週備份(依代號前兩碼分包)"""
-    files = sorted(glob.glob("bkall/*.tsv.gz"))
+    files = sorted(glob.glob("bkall/[0-9]*/*.tsv.gz"))
     if not files: return None
     st_p = "bkall/_backup.json"
     try: st = json.load(open(st_p))
@@ -89,12 +89,12 @@ def backup(force=False):
     if not force and time.time() - st.get("t", 0) < 6.5 * 86400: return st
     ensure("bkall-backup", "全部券商分點歷史備份")
     os.makedirs(f"{TMP}/bak", exist_ok=True); groups = {}
-    for p in files: groups.setdefault(os.path.basename(p)[:2], []).append(p)
+    for p in files: groups.setdefault(os.path.basename(os.path.dirname(p))[:2], []).append(p)
     up = []
     for g, ps in groups.items():
         t = f"{TMP}/bak/bkall_{g}.tar"
         with tarfile.open(t, "w") as tf:
-            for p in ps: tf.add(p, arcname=os.path.basename(p))
+            for p in ps: tf.add(p, arcname=os.path.relpath(p, "bkall"))
         up.append(t)
     for extra in ("bkall/_state.json", "bkall/_brokers.json"):
         if os.path.exists(extra): up.append(extra)
@@ -106,7 +106,7 @@ def backup(force=False):
 
 def restore():
     """bkall/ 不見了(快取被清)→ 從 bkall-backup 還原"""
-    if glob.glob("bkall/*.tsv.gz"): return False
+    if glob.glob("bkall/[0-9]*/*.tsv.gz"): return False
     if subprocess.run(["gh", "release", "view", "bkall-backup", "-R", REPO], capture_output=True).returncode != 0: return False
     os.makedirs(f"{TMP}/rest", exist_ok=True); os.makedirs("bkall", exist_ok=True)
     gh("release", "download", "bkall-backup", "-D", f"{TMP}/rest", "--clobber")

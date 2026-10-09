@@ -202,8 +202,17 @@ def _closes_all(sid, closes_of, since="2019-01-01"):
 def build_full(ALL, log=print):
     import gzip, glob, importlib.util
     spec = importlib.util.spec_from_file_location("fb", "fetch_broker.py"); fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
-    files = sorted(glob.glob(os.path.join(ALL, "*.tsv.gz")))
+    files = sorted(d for d in glob.glob(os.path.join(ALL, "[0-9]*")) if os.path.isdir(d))     # bkall/<股票>/<年>.tsv.gz
     if not files: log("  全券商資料還沒有"); return None
+    def lines(sd):
+        seen = {}
+        for p in sorted(glob.glob(os.path.join(sd, "*.tsv.gz"))):
+            try:
+                for ln in gzip.open(p, "rt", encoding="utf-8"):
+                    t = ln.rstrip("\n").split("\t")
+                    if len(t) == 6: seen[(t[0], t[1])] = t
+            except Exception: pass
+        return seen.values()
     # 收盤與全市場同日平均
     px = {}; mk = {10: {}, 20: {}}
     for p in files:
@@ -223,8 +232,8 @@ def build_full(ALL, log=print):
         ds, C = px[sid]; pos = {d: i for i, d in enumerate(ds)}
         B = {}; vold = {}
         try:
-            for ln in gzip.open(p, "rt", encoding="utf-8"):
-                d, nm, b, s, bp, sp = ln.rstrip("\n").split("\t"); b = float(b); s = float(s)
+            for t in lines(p):
+                d, nm, b, s, bp, sp = t; b = float(b); s = float(s)
                 j = pos.get(d)
                 if j is None or not C[j]: continue
                 vold[d] = vold.get(d, 0) + b
