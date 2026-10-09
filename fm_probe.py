@@ -6,7 +6,8 @@ out = {}
 def q(url, **p):
     t0 = time.time()
     try:
-        r = requests.get(url, params=p, headers=H, timeout=120, allow_redirects=False)
+        p = {**p, "token": T}
+        r = requests.get(url, params=p, timeout=120, allow_redirects=False)
         j = None
         try: j = r.json()
         except Exception: pass
@@ -22,6 +23,10 @@ for y in ("2016", "2018", "2020", "2021", "2022", "2023", "2024", "2025"):
     time.sleep(1)
 out["agg_2330_2025_full_year"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", data_id="2330", start_date="2025-01-01", end_date="2025-12-31")
 out["agg_6214_2024_2026"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", data_id="6214", start_date="2024-01-01", end_date="2026-10-08")
+for y in ("2019", "2021", "2023", "2025"):
+    out[f"data_agg_2330_{y}-03"] = q(f"{API}/data", dataset="TaiwanStockTradingDailyReportSecIdAgg", data_id="2330", start_date=f"{y}-03-01", end_date=f"{y}-03-31")
+out["data_daily_2330_2021"] = q(f"{API}/data", dataset="TaiwanStockTradingDailyReport", data_id="2330", start_date="2021-03-02", end_date="2021-03-02")
+out["data_daily_2330_2019"] = q(f"{API}/data", dataset="TaiwanStockTradingDailyReport", data_id="2330", start_date="2019-03-04", end_date="2019-03-04")
 out["daily_2330_2020"] = q(f"{API}/taiwan_stock_trading_daily_report", data_id="2330", date="2020-03-02")
 out["obj_2026-10-08"] = q(f"{API}/storage_objects", dataset="TaiwanStockTradingDailyReport", date="2026-10-08")
 out["obj_2021-03-02"] = q(f"{API}/storage_objects", dataset="TaiwanStockTradingDailyReport", date="2021-03-02")
