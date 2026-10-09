@@ -81,7 +81,7 @@ def build(R, S, closes_of, log=print, shard_key=None):
             except Exception: pass
     mkm = {h: {d: sum(v) / len(v) for d, v in mk[h].items() if len(v) >= 50} for h in mk}
     ev = {g: {h: [] for h in (10, 20)} for g in ("acc_sw", "acc_ctl", "dist_sw", "dist_ctl")}
-    nst = 0; nsw = 0
+    nst = 0; nsw = 0; today = {"acc": [], "dist": []}
     for k, sh in R.items():
         for sid, e in sh.items():
             if sid not in px or len(e.get("d") or []) < MIN_DAYS: continue
@@ -119,6 +119,9 @@ def build(R, S, closes_of, log=print, shard_key=None):
             out.sort(key=lambda x: (-(x["st"] == "吃貨中"), -x["spread"] * x["bl"]))
             if out:
                 nsw += 1
+                for side, tag in (("acc", "吃貨中"), ("dist", "出貨中")):
+                    br = [[b["n"], b["n10"], b["bv"], b["sv"], b["spread"], b["nb"], b["ns"]] for b in out if b["st"] == tag]
+                    if br: today[side].append({"id": sid, "px": C[last_j], "br": br[:3]})
                 if S.get(k, {}).get(sid) is not None:
                     S[k][sid]["sw"] = {"u": ds[last_j], "vol": round(vol), "days": len(dd), "b": out[:8]}
             elif S.get(k, {}).get(sid) is not None:
@@ -135,6 +138,8 @@ def build(R, S, closes_of, log=print, shard_key=None):
     V["pass_dist"] = bool(a2 and c2 and a2["n"] >= 200 and c2["avg"] - a2["avg"] >= 1.0 and a2["up"] < c2["up"])
     os.makedirs("bk", exist_ok=True)
     json.dump(V, open("bk/_swing_validation.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    for side in today: today[side].sort(key=lambda x: -sum(abs(b[1]) for b in x["br"]))
+    json.dump({"d": max((e.get("d") or [""])[-1] for sh in R.values() for e in sh.values()), **today}, open("bk/_swing_today.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     log(f"  🕵️ 波段主力分點:{nst} 檔可算、{nsw} 檔有;驗證 吃貨 {a} vs 對照 {c};出貨 {a2} vs 對照 {c2}")
     return V
 

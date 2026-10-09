@@ -14646,6 +14646,8 @@ const STRATS=[
   ['fgo','🌊 外資連買·成長股'],
   ['price','🔥 漲價/缺料'],
   ['theme','🧠 潛在漲價(研究)'],
+  ['swacc','🕵️ 波段主力吃貨中'],
+  ['swdist','🕵️ 波段主力出貨中'],
   ['kbuy','🎯 關鍵分點大買(未驗證)'],
   ['ksell','🎯 關鍵分點大賣(未驗證)'],
 ];
@@ -14658,6 +14660,9 @@ async function kbTodayLoad(){
       const desc=r.br.slice(0,3).map(x=>`${x[0]} ${word} ${Math.abs(x[1]).toLocaleString()} 張(佔成交 ${x[2]}%${x[3]!=null?`,平常 ${x[3]}%`:''})・過去 ${x[4]} 次後 10 日 ${f(x[5])}%・${type==='kbuy'?'漲':'跌'} ${x[6]}%`).join(';');
       return {id:r.id,g:{type,label:(multi?`🔥 ${r.br.length} 家`:'')+label,desc:`${md} `+desc}};});
     window.__KBT=[...mk(J.buy||[],'kbuy','關鍵分點大買','買超'),...mk(J.sell||[],'ksell','關鍵分點大賣','賣超')];
+    try{const r2=await fT('bk/_swing_today.json?v='+kv(),12000,{cache:'no-store'});if(r2&&r2.ok){const W=await r2.json();const md2=(W.d||'').slice(5).replace('-','/');   // r1051:🕵️ 波段主力分點
+      const m2=(rows,type,label)=>rows.map(r=>({id:r.id,g:{type,label,desc:`${md2} `+r.br.map(b=>type==='swacc'?`${b[0]} 近 10 天低檔吃 ${Math.abs(b[1]).toLocaleString()} 張(它過去低檔均價 ${b[2]}、高檔賣 ${b[3]},價差 +${b[4]}%)`:`${b[0]} 近 10 天高檔出 ${Math.abs(b[1]).toLocaleString()} 張(它過去低檔買 ${b[2]}、高檔賣 ${b[3]})`).join(';')}}));
+      window.__KBT=window.__KBT.concat(m2(W.acc||[],'swacc','🕵️ 波段主力吃貨'),m2(W.dist||[],'swdist','🕵️ 波段主力出貨'));}}catch(e3){}
     try{renderRadar();}catch(e){}
   }catch(e){}
 }
