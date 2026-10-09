@@ -84,7 +84,7 @@
  },
  "agg_1020_2025_year": {
   "code": 400,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": null,
   "msg": "parameter data_id can't be none on TaiwanStockTradingDailyReportSecIdAgg dataset",
   "first": null,
@@ -96,7 +96,7 @@
  },
  "agg_1020_2330_2024_2026": {
   "code": 200,
-  "sec": 0.7,
+  "sec": 0.5,
   "rows": 670,
   "msg": "success",
   "first": {
@@ -189,7 +189,7 @@
  },
  "agg_5920_2330_2024_2026": {
   "code": 200,
-  "sec": 0.5,
+  "sec": 0.4,
   "rows": 506,
   "msg": "success",
   "first": {
@@ -282,7 +282,7 @@
  },
  "data_daily_2330_2020-03-02": {
   "code": 200,
-  "sec": 0.4,
+  "sec": 0.5,
   "rows": 0,
   "msg": "success",
   "first": null,
@@ -294,7 +294,7 @@
  },
  "data_daily_2330_2021-03-02": {
   "code": 200,
-  "sec": 0.6,
+  "sec": 0.4,
   "rows": 0,
   "msg": "success",
   "first": null,
@@ -326,7 +326,7 @@
  },
  "data_daily_2330_2022-03-02": {
   "code": 200,
-  "sec": 0.7,
+  "sec": 0.6,
   "rows": 4651,
   "msg": "success",
   "first": {
@@ -418,7 +418,7 @@
  },
  "data_daily_2330_2019": {
   "code": 200,
-  "sec": 0.6,
+  "sec": 0.4,
   "rows": 0,
   "msg": "success",
   "first": null,
@@ -470,7 +470,7 @@
   "email_verify": true,
   "level": 3,
   "end_date": "",
-  "user_count": 5,
+  "user_count": 455,
   "api_request_limit": 6000,
   "api_request_limit_hour": 6000,
   "api_request_limit_day": "-",
