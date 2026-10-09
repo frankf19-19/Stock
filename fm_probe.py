@@ -1,0 +1,33 @@
+"""FinMind 分點資料能力探測(r1053):分點統計表(可帶日期區間)多早有資料、一次能拿多長;整日 parquet 物件能不能下載"""
+import os, json, time, requests
+T = os.environ.get("FINMIND_TOKEN", "").strip(); H = {"Authorization": f"Bearer {T}"}
+API = "https://api.finmindtrade.com/api/v4"
+out = {}
+def q(url, **p):
+    t0 = time.time()
+    try:
+        r = requests.get(url, params=p, headers=H, timeout=120, allow_redirects=False)
+        j = None
+        try: j = r.json()
+        except Exception: pass
+        d = (j or {}).get("data") if isinstance(j, dict) else None
+        return {"code": r.status_code, "sec": round(time.time() - t0, 1), "rows": len(d) if isinstance(d, list) else None,
+                "msg": (j or {}).get("msg") if isinstance(j, dict) else r.text[:200], "first": d[0] if d else None,
+                "dmin": min(x.get("date") for x in d) if d else None, "dmax": max(x.get("date") for x in d) if d else None,
+                "loc": r.headers.get("Location", "")[:80], "len": len(r.content)}
+    except Exception as e:
+        return {"err": str(e)[:200]}
+for y in ("2016", "2018", "2020", "2021", "2022", "2023", "2024", "2025"):
+    out[f"agg_2330_{y}-03"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", data_id="2330", start_date=f"{y}-03-01", end_date=f"{y}-03-31")
+    time.sleep(1)
+out["agg_2330_2025_full_year"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", data_id="2330", start_date="2025-01-01", end_date="2025-12-31")
+out["agg_6214_2024_2026"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", data_id="6214", start_date="2024-01-01", end_date="2026-10-08")
+out["daily_2330_2020"] = q(f"{API}/taiwan_stock_trading_daily_report", data_id="2330", date="2020-03-02")
+out["obj_2026-10-08"] = q(f"{API}/storage_objects", dataset="TaiwanStockTradingDailyReport", date="2026-10-08")
+out["obj_2021-03-02"] = q(f"{API}/storage_objects", dataset="TaiwanStockTradingDailyReport", date="2021-03-02")
+try:
+    r = requests.get("https://api.web.finmindtrade.com/v2/user_info", params={"token": T}, timeout=30); j = r.json()
+    out["user"] = {k: j.get(k) for k in ("level", "level_title", "api_request_limit", "api_request_limit_hour", "user_count") if k in j}
+except Exception as e: out["user"] = str(e)[:100]
+json.dump(out, open("fm_probe.json", "w"), ensure_ascii=False, indent=1, default=str)
+print(json.dumps(out, ensure_ascii=False, indent=1, default=str)[:4000])
