@@ -32,7 +32,9 @@ for bid in big[:2]:
     out[f"agg_{bid}_2330_2024_2026"] = q(f"{API}/taiwan_stock_trading_daily_report_secid_agg", securities_trader_id=bid, data_id="2330", start_date="2024-01-01", end_date="2026-10-08")
 for y in ("2019", "2021", "2023", "2025"):
     out[f"data_agg_2330_{y}-03"] = q(f"{API}/data", dataset="TaiwanStockTradingDailyReportSecIdAgg", data_id="2330", start_date=f"{y}-03-01", end_date=f"{y}-03-31")
-out["data_daily_2330_2021"] = q(f"{API}/data", dataset="TaiwanStockTradingDailyReport", data_id="2330", start_date="2021-03-02", end_date="2021-03-02")
+for d0 in ("2016-03-02", "2018-03-02", "2020-03-02", "2021-03-02", "2021-07-01", "2022-03-02", "2023-03-02", "2024-03-04", "2026-10-08"):
+    out[f"data_daily_2330_{d0}"] = q(f"{API}/data", dataset="TaiwanStockTradingDailyReport", data_id="2330", start_date=d0, end_date=d0); time.sleep(0.5)
+out["data_daily_2330_range"] = q(f"{API}/data", dataset="TaiwanStockTradingDailyReport", data_id="2330", start_date="2026-10-01", end_date="2026-10-08")
 out["data_daily_2330_2019"] = q(f"{API}/data", dataset="TaiwanStockTradingDailyReport", data_id="2330", start_date="2019-03-04", end_date="2019-03-04")
 out["daily_2330_2020"] = q(f"{API}/taiwan_stock_trading_daily_report", data_id="2330", date="2020-03-02")
 out["obj_2026-10-08"] = q(f"{API}/storage_objects", dataset="TaiwanStockTradingDailyReport", date="2026-10-08")
