@@ -41,6 +41,10 @@ jobs:
           key: bkall-${{ github.run_id }}
           restore-keys: |
             bkall-
+      - name: 快取被清掉時從永久備份還原
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python archive_bk.py restore || true
       - name: 併每日資料 → 回補歷史 → 重算波段主力分點
         run: timeout 19200 python bkall.py || echo "::warning::bkall 未完成(下一班接著做)"
       - name: 保存全券商歷史快取
@@ -49,6 +53,10 @@ jobs:
         with:
           path: bkall
           key: bkall-${{ github.run_id }}
+      - name: 分點紀錄永久保存(GitHub Releases)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: timeout 1800 python archive_bk.py || echo "::warning::永久保存未完成"
       - name: 提交結果
         run: |
           git config user.name "kyansuo-bot"; git config user.email "bot@kyansuo"

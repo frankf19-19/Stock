@@ -13,7 +13,7 @@ permissions:
 jobs:
   swing:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,6 +31,10 @@ jobs:
         run: |
           ls bkraw | head -3 || true
           timeout 1800 python bk_swing.py bkraw || echo "::warning::bk_swing 失敗"
+      - name: 分點紀錄永久保存(GitHub Releases)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: timeout 1800 python archive_bk.py || echo "::warning::永久保存未完成"
       - name: 提交
         run: |
           git config user.name "kyansuo-bot"; git config user.email "bot@kyansuo"
