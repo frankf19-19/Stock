@@ -1,0 +1,40 @@
+name: 波段主力分點(單獨重算)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: swing
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  swing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests
+      - name: 還原分點原始資料快取(bkraw)
+        uses: actions/cache/restore@v4
+        with:
+          path: bkraw
+          key: bkraw-${{ github.run_id }}
+          restore-keys: |
+            bkraw-
+      - name: 計算
+        run: |
+          ls bkraw | head -3 || true
+          timeout 1800 python bk_swing.py bkraw || echo "::warning::bk_swing 失敗"
+      - name: 提交
+        run: |
+          git config user.name "kyansuo-bot"; git config user.email "bot@kyansuo"
+          git add bk/ 2>/dev/null || true
+          if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
+          git commit -m "swing: 波段主力分點 $(TZ=Asia/Taipei date +'%m-%d %H:%M')" -q
+          for i in 1 2 3; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 15; done

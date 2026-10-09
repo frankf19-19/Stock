@@ -150,8 +150,18 @@ def build(R, S, closes_of, log=print, shard_key=None):
     return V
 
 
-if __name__ == "__main__":                                     # 本機測試:用 bk/ 60 日(門檻自動放寬不適用,只測程式)
-    import importlib.util, sys
+if __name__ == "__main__":                                     # 獨立執行:python bk_swing.py [raw 目錄,預設 bkraw](swing.yml 用)
+    import importlib.util, sys, traceback
     spec = importlib.util.spec_from_file_location("fb", "fetch_broker.py"); fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
-    R = fb.load_shards(sys.argv[1] if len(sys.argv) > 1 else "bkraw"); S = fb.load_shards()
-    build(R, S, fb.closes_of)
+    try:
+        R = fb.load_shards(sys.argv[1] if len(sys.argv) > 1 else "bkraw")
+        if not R: R = fb.load_shards("bk")
+        S = fb.load_shards()
+        n = sum(len(sh) for sh in R.values()); dmax = max((len(e.get("d") or []) for sh in R.values() for e in sh.values()), default=0)
+        print(f"raw 股票 {n} 檔,最長 {dmax} 天", flush=True)
+        build(R, S, fb.closes_of)
+        if os.environ.get("SW_SAVE", "1") == "1": fb.save_shards(S)
+    except Exception:
+        os.makedirs("bk", exist_ok=True)
+        json.dump({"error": traceback.format_exc()[-3000:]}, open("bk/_swing_status.json", "w", encoding="utf-8"), ensure_ascii=False)
+        raise
