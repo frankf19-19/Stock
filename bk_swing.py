@@ -9,7 +9,7 @@
 驗證:每檔前 60% 交易日找分點,後 40% 看它們再出現吃貨/出貨訊號後 10、20 日股價(減全市場同日平均),
       對照組 = 同樣訊號、但不是波段主力的分點。 → bk/_swing_validation.json;每檔 → "sw"
 """
-import json, os, statistics as st
+import json, os, statistics as st, datetime as dt
 
 TRAIN = 0.6; WIN = 10; MIN_DAYS = int(os.environ.get("SW_MIN_DAYS", "120"))
 
@@ -73,6 +73,9 @@ def _signals(rows, ds, vol, lo_j, hi_j):
 
 
 def build(R, S, closes_of, log=print, shard_key=None):
+    try:                                                    # r1053:已經有「全部券商」版本就不用前 15 大版本覆蓋
+        if json.load(open("bk/_swing_validation.json", encoding="utf-8")).get("src") == "全部券商": return None
+    except Exception: pass
     # 全市場同日平均(10、20 日後)
     px = {}; mk = {10: {}, 20: {}}
     for k, sh in R.items():
@@ -165,3 +168,138 @@ if __name__ == "__main__":                                     # 獨立執行:py
         os.makedirs("bk", exist_ok=True)
         json.dump({"error": traceback.format_exc()[-3000:]}, open("bk/_swing_status.json", "w", encoding="utf-8"), ensure_ascii=False)
         raise
+
+
+# ═══ r1053:全券商、多年版本(bkall/<股票>.tsv.gz)═══
+_ARC = {}
+def _closes_all(sid, closes_of, since="2019-01-01"):
+    """收盤:archive/k(多年,分片快取)∪ hist ∪ k(較新者優先)"""
+    import gzip, glob
+    m = {}
+    try:
+        k = sid[:3] if sid[:2] == "00" else sid[:2]
+        if k not in _ARC:
+            _ARC[k] = {}
+            for p in sorted(glob.glob(f"archive/k/tw/*/{k}.json.gz")):
+                if os.path.basename(os.path.dirname(p)) < since[:4]: continue
+                try:
+                    for s2, e in (json.load(gzip.open(p, "rt", encoding="utf-8")) or {}).items():
+                        dd = _ARC[k].setdefault(s2, {})
+                        for d, o in zip(e.get("d") or [], e.get("o") or []):
+                            if o and len(o) >= 4 and o[3]: dd[d] = o[3]
+                except Exception: pass
+        m.update(_ARC[k].get(sid) or {})
+    except Exception: pass
+    try:
+        idx, C = closes_of(sid)
+        for d, i in idx.items():
+            if C[i]: m[d] = C[i]
+    except Exception: pass
+    ds = sorted(m)
+    return ds, [m[d] for d in ds]
+
+
+def build_full(ALL, log=print):
+    import gzip, glob, importlib.util
+    spec = importlib.util.spec_from_file_location("fb", "fetch_broker.py"); fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
+    files = sorted(glob.glob(os.path.join(ALL, "*.tsv.gz")))
+    if not files: log("  全券商資料還沒有"); return None
+    # 收盤與全市場同日平均
+    px = {}; mk = {10: {}, 20: {}}
+    for p in files:
+        sid = os.path.basename(p).split(".")[0]
+        ds, C = _closes_all(sid, fb.closes_of)
+        if len(C) < 80: continue
+        px[sid] = (ds, C)
+        for h in (10, 20):
+            for i in range(len(C) - h):
+                if C[i] and C[i + h]: mk[h].setdefault(ds[i], []).append(C[i + h] / C[i] - 1)
+    mkm = {h: {d: sum(v) / len(v) for d, v in mk[h].items() if len(v) >= 50} for h in mk}
+    ev = {}; nst = 0; nsw = 0; today = {"acc": [], "dist": []}; per = {}; span = [None, None]
+    S = fb.load_shards()
+    for p in files:
+        sid = os.path.basename(p).split(".")[0]
+        if sid not in px: continue
+        ds, C = px[sid]; pos = {d: i for i, d in enumerate(ds)}
+        B = {}; vold = {}
+        try:
+            for ln in gzip.open(p, "rt", encoding="utf-8"):
+                d, nm, b, s, bp, sp = ln.rstrip("\n").split("\t"); b = float(b); s = float(s)
+                j = pos.get(d)
+                if j is None or not C[j]: continue
+                vold[d] = vold.get(d, 0) + b
+                net = b - s
+                if abs(net) < 1: continue
+                B.setdefault(nm, []).append([d, j, net, (float(bp) if net > 0 else float(sp)) or C[j], None])
+        except Exception: continue
+        if len(vold) < MIN_DAYS: continue
+        vol = st.median(vold.values()) if vold else None
+        if not vol: continue
+        nst += 1
+        dd = sorted(pos[d] for d in vold)
+        span[0] = min(span[0] or ds[dd[0]], ds[dd[0]]); span[1] = max(span[1] or ds[dd[-1]], ds[dd[-1]])
+        ppos = {}
+        for j in dd:
+            w = [x for x in C[max(0, j - 59):j + 1] if x]; lo, hi = min(w), max(w); ppos[j] = (C[j] - lo) / (hi - lo) if hi > lo else 0.5
+        for rows in B.values():
+            for r in rows: r[4] = ppos.get(r[1], 0.5)
+        years = sorted({ds[j][:4] for j in dd})
+        # ── 逐年 walk-forward:用前兩年(只看過去)找分點,當年驗證 ──
+        for y in years[1:]:
+            y0 = next((j for j in dd if ds[j][:4] == y), None)
+            if y0 is None: continue
+            tr_lo = next((j for j in dd if ds[j] >= f"{int(y) - 2}-01-01"), dd[0])
+            y1 = next((j for j in dd if ds[j][:4] > y), len(C))
+            if sum(1 for j in dd if tr_lo <= j < y0) < 120: continue
+            for nm, rows in B.items():
+                tr = [r for r in rows if tr_lo <= r[1] < y0]
+                pr = _profile(tr, vol)
+                if not pr or pr["nb"] < 3: continue
+                sw = _is_swing(pr)
+                for j, kind, net in _signals(rows, ds, vol, y0, y1):
+                    for h in (10, 20):
+                        if j + h < len(C) and C[j] and C[j + h] and ds[j] in mkm[h]:
+                            ex = (C[j + h] / C[j] - 1) - mkm[h][ds[j]]
+                            ev.setdefault(f"{kind}_{'sw' if sw else 'ctl'}", {}).setdefault(h, []).append(ex)
+                            per.setdefault(y, {}).setdefault(f"{kind}_{'sw' if sw else 'ctl'}", []).append(ex) if h == 20 else None
+        # ── 目前狀態(最近兩年)──
+        last_j = dd[-1]; lo2 = next((j for j in dd if ds[j] >= f"{int(ds[last_j][:4]) - 2}{ds[last_j][4:]}"), dd[0])
+        out = []
+        for nm, rows in B.items():
+            rr = [r for r in rows if r[1] >= lo2]
+            pr = _profile(rr, vol)
+            if not _is_swing(pr): continue
+            n10 = sum(r[2] for r in rr if r[1] > last_j - 10)
+            bd10 = sum(1 for r in rr if r[1] > last_j - 10 and r[2] > 0); sd10 = sum(1 for r in rr if r[1] > last_j - 10 and r[2] < 0)
+            st_ = "吃貨中" if n10 >= 0.2 * vol and bd10 >= 3 else "出貨中" if -n10 >= 0.2 * vol and sd10 >= 3 else "觀望"
+            out.append({"n": nm, **{x: pr[x] for x in ("nb", "ns", "bl", "sl", "bv", "sv", "spread", "bpos", "spos")}, "st": st_,
+                        "n10": round(n10), "n20": round(sum(r[2] for r in rr if r[1] > last_j - 20)), "held": round(sum(r[2] for r in rr)), "last": max(r[0] for r in rr)})
+        out.sort(key=lambda x: (-(x["st"] == "吃貨中"), -x["spread"] * x["bl"]))
+        k = fb.shard_key(sid)
+        if out:
+            nsw += 1
+            if S.get(k, {}).get(sid) is not None: S[k][sid]["sw"] = {"u": ds[last_j], "vol": round(vol), "days": len(dd), "all": 1, "b": out[:8]}
+            for side, tag in (("acc", "吃貨中"), ("dist", "出貨中")):
+                br = [[b["n"], b["n10"], b["bv"], b["sv"], b["spread"], b["nb"], b["ns"]] for b in out if b["st"] == tag]
+                if br: today[side].append({"id": sid, "px": C[last_j], "br": br[:3]})
+        elif S.get(k, {}).get(sid) is not None: S[k][sid].pop("sw", None)
+
+    def agg(a):
+        if not a: return None
+        return {"n": len(a), "avg": round(sum(a) / len(a) * 100, 2), "med": round(st.median(a) * 100, 2), "up": round(sum(1 for x in a if x > 0) / len(a) * 100, 1)}
+    V = {"updated": dt.datetime.now().strftime("%Y-%m-%d %H:%M"), "src": "全部券商", "span": span, "stocks": nst, "with_swing": nsw,
+         "rule": "逐年 walk-forward:用前兩年找分點、當年驗證;報酬 = 訊號日收盤後 h 日 − 全市場同日平均",
+         "res": {g: {str(h): agg(v) for h, v in hv.items()} for g, hv in ev.items()},
+         "years": {y: {g: agg(v) for g, v in gv.items()} for y, gv in sorted(per.items())}}
+    a = (V["res"].get("acc_sw") or {}).get("20") or {}; c = (V["res"].get("acc_ctl") or {}).get("20") or {}
+    ys = [y for y, gv in V["years"].items() if gv.get("acc_sw") and gv.get("acc_ctl") and gv["acc_sw"]["n"] >= 30]
+    yw = sum(1 for y in ys if V["years"][y]["acc_sw"]["avg"] > V["years"][y]["acc_ctl"]["avg"])
+    V["pass_acc"] = bool(a and c and a["n"] >= 200 and a["avg"] - c["avg"] >= 1.0 and a["up"] > c["up"] and (not ys or yw >= 0.7 * len(ys)))
+    a2 = (V["res"].get("dist_sw") or {}).get("20") or {}; c2 = (V["res"].get("dist_ctl") or {}).get("20") or {}
+    V["pass_dist"] = bool(a2 and c2 and a2["n"] >= 200 and c2["avg"] - a2["avg"] >= 1.0 and a2["up"] < c2["up"])
+    json.dump(V, open("bk/_swing_validation.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    for side in today: today[side].sort(key=lambda x: -sum(abs(b[1]) for b in x["br"]))
+    json.dump({"d": span[1], "all": 1, **today}, open("bk/_swing_today.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    fb.save_shards(S)
+    log(f"  🕵️ 全券商波段主力分點:{nst} 檔、{nsw} 檔有;吃貨 {a} vs {c}")
+    return {"stocks": nst, "with_swing": nsw, "pass_acc": V["pass_acc"], "pass_dist": V["pass_dist"]}

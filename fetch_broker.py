@@ -412,6 +412,9 @@ def main():
             if fail <= 3: log(f"  {sid}@{d} 失敗:{err}")
             if fail >= 20: log("  連續失敗太多,停"); break
             continue
+        try:                                                     # r1053:全部券商(不只前 15 大)→ bkraw/days/
+            import bkall; bkall.put_day(sid, d, rows)
+        except Exception: pass
         summ = summarize(rows, prev_summ(R, sid, d))
         if summ is None:
             empty += 1; tries[d][sid] = tries[d].get(sid, 0) + 1          # 有成交卻沒資料 → 下一班再試
@@ -420,12 +423,16 @@ def main():
         n += 1
         if n % 200 == 0:
             st["tries"] = tries; json.dump(st, open(st_p, "w"), ensure_ascii=False); save_shards(R, RAW)
+            try: import bkall; bkall.flush_days()
+            except Exception: pass
             log(f"  進度 {n}/{len(tasks)}({int(time.time()-t0)}s)")
     ex.shutdown(wait=False)
     st.update({"date": day, "tries": tries, "cov": {d: cov[d] + got.get(d, 0) for d in cov}, "ids": len(ids)})
     st.pop("done", None)
     json.dump(st, open(st_p, "w"), ensure_ascii=False)
     save_shards(R, RAW); raw_to_display(R, S)
+    try: import bkall; bkall.flush_days()
+    except Exception as e0: log(f"  全券商暫存失敗:{e0}")
     # r804:關鍵分點(有 15 天以上才算);r838:用 raw 250 日算,寫進 repo 的 60 日分片
     nk = 0
     for k, sh in R.items():

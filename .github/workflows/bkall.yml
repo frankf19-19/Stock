@@ -1,0 +1,57 @@
+name: 全部券商分點・多年歷史(夜間)
+
+on:
+  schedule:
+    - cron: "20 17 * * *"        # 台北 01:20(分點每日抓取已結束、FinMind 額度空著)
+  workflow_dispatch:
+
+concurrency:
+  group: bkall
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  bkall:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+      TZ: Asia/Taipei
+      BKALL_BUDGET_SEC: "16200"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests
+      - name: 還原分點原始資料快取(bkraw:每日全券商暫存在 bkraw/days)
+        uses: actions/cache/restore@v4
+        with:
+          path: bkraw
+          key: bkraw-${{ github.run_id }}
+          restore-keys: |
+            bkraw-
+      - name: 還原全券商歷史快取(bkall)
+        uses: actions/cache/restore@v4
+        with:
+          path: bkall
+          key: bkall-${{ github.run_id }}
+          restore-keys: |
+            bkall-
+      - name: 併每日資料 → 回補歷史 → 重算波段主力分點
+        run: timeout 19200 python bkall.py || echo "::warning::bkall 未完成(下一班接著做)"
+      - name: 保存全券商歷史快取
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: bkall
+          key: bkall-${{ github.run_id }}
+      - name: 提交結果
+        run: |
+          git config user.name "kyansuo-bot"; git config user.email "bot@kyansuo"
+          git add bk/ 2>/dev/null || true
+          if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
+          git commit -m "bkall: 全券商分點 $(date +'%m-%d %H:%M')" -q
+          for i in 1 2 3; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 15; done
