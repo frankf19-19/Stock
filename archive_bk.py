@@ -152,6 +152,25 @@ def restore():
     return True
 
 
+def restore_bk15():
+    """r1061:bkraw(前 15 大分點 250 日)快取不見了 → 從 Releases bk15-<年> 每日檔重建"""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("fb", "fetch_broker.py"); fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
+    y = dt.date.today().year; n = 0; R = {}
+    for tag in (f"bk15-{y - 1}", f"bk15-{y}"):
+        if subprocess.run(["gh", "release", "view", tag, "-R", REPO], capture_output=True).returncode != 0: continue
+        os.makedirs(f"{TMP}/b15/{tag}", exist_ok=True)
+        gh("release", "download", tag, "-D", f"{TMP}/b15/{tag}", "--clobber")
+        for p in sorted(glob.glob(f"{TMP}/b15/{tag}/*.json.gz")):
+            day = os.path.basename(p)[:10]
+            try:
+                for sid, summ in json.load(gzip.open(p, "rt", encoding="utf-8")).items(): fb.raw_put(R, sid, day, summ)
+                n += 1
+            except Exception as e: log(f"  {p} 讀取失敗:{e}")
+    if R: fb.save_shards(R, fb.RAW)
+    log(f"從永久紀錄還原 bkraw:{n} 天、{sum(len(s) for s in R.values())} 檔"); return n
+
+
 def main():
     st = {"t": dt.datetime.now().strftime("%Y-%m-%d %H:%M")}
     try: st["bk15"] = bk15()
@@ -177,4 +196,5 @@ def main():
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "restore": restore()
+    elif len(sys.argv) > 1 and sys.argv[1] == "restore_bk15": restore_bk15()
     else: main()

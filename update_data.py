@@ -863,6 +863,24 @@ def append_tdcc(chips, tdcc, date):
         if len(bd) > BIG_WEEKS:
             e["bd"], e["bp"] = bd[-BIG_WEEKS:], bp[-BIG_WEEKS:]
 
+def clean_rev(chips):
+    """r1061:修正既有月營收——同月重複只留一筆;某月的 YoY 與營收跟上個月完全一樣(舊版 FinMind 備援標錯月)→ 刪掉那個月"""
+    n = 0
+    for sid, e in chips.items():
+        rm = e.get("rm") or []
+        if not rm: continue
+        ry, ra = e.get("ry") or [], e.get("ra") or []
+        mp = {}
+        for i, m_ in enumerate(rm):
+            if m_ not in mp: mp[m_] = (ry[i] if i < len(ry) else None, ra[i] if i < len(ra) else None)
+        ks = sorted(mp); out = []
+        for k in ks:
+            if out and mp[k][1] is not None and mp[k] == mp[out[-1]]: n += 1; continue
+            out.append(k)
+        if out != rm:
+            e["rm"], e["ry"], e["ra"] = out, [mp[k][0] for k in out], [mp[k][1] for k in out]
+    if n: print(f"  月營收清理:刪除 {n} 筆標錯月份的重複資料")
+
 def append_rev(chips, rev_bulk):
     """月營收:每月附加一筆(同月覆蓋),保留 REV_MONTHS 個月。"""
     for sid, v in rev_bulk.items():
@@ -872,11 +890,10 @@ def append_rev(chips, rev_bulk):
         e = chips.setdefault(sid, {})
         rm, ry, ra = e.setdefault("rm", []), e.setdefault("ry", []), e.setdefault("ra", [])
         while len(ra) < len(rm): ra.append(None)
-        if rm and rm[-1] == ym:
-            ry[-1] = yoy; ra[-1] = amt; continue
-        rm.append(ym); ry.append(yoy); ra.append(amt)
-        if len(rm) > REV_MONTHS:
-            e["rm"], e["ry"], e["ra"] = rm[-REV_MONTHS:], ry[-REV_MONTHS:], ra[-REV_MONTHS:]
+        mp = {m_: (y_, a_) for m_, y_, a_ in zip(rm, ry, ra)}          # r1061:依月份合併(同月覆蓋)、排序,不會重複
+        mp[ym] = (yoy, amt)
+        ks = sorted(mp)[-REV_MONTHS:]
+        e["rm"], e["ry"], e["ra"] = ks, [mp[k][0] for k in ks], [mp[k][1] for k in ks]
 
 
 _FM_REV_CACHE = {}
@@ -1781,9 +1798,12 @@ def fetch_rev_finmind_bulk():
     y, m = (now.year, now.month - 1) if now.month > 1 else (now.year - 1, 12)
 
     def _month(yy, mm2):
+        # r1061:FinMind 的 date 是「公布那個月」(8 月營收 date=9/1)→ 查「下個月」的 date,再用 revenue_year/revenue_month 核對,
+        #        舊版查同月 date 會把 8 月營收標成 9 月,造成網站月營收重複、9 月=8 月的錯誤
+        ny, nm2 = (yy, mm2 + 1) if mm2 < 12 else (yy + 1, 1)
         params = {"dataset": "TaiwanStockMonthRevenue",
-                  "start_date": f"{yy}-{mm2:02d}-01",
-                  "end_date": f"{yy}-{mm2:02d}-28"}
+                  "start_date": f"{ny}-{nm2:02d}-01",
+                  "end_date": f"{ny}-{nm2:02d}-28"}
         tok = os.environ.get("FINMIND_TOKEN", "")
         if tok: params["token"] = tok
         j = get_json("https://api.finmindtrade.com/api/v4/data", params=params, timeout=60)
@@ -1792,6 +1812,9 @@ def fetch_rev_finmind_bulk():
         for r in rows or []:
             sid = str(r.get("stock_id", "")).strip()
             rv = numf(r.get("revenue"))
+            try:
+                if r.get("revenue_month") is not None and (int(r.get("revenue_year")), int(r.get("revenue_month"))) != (yy, mm2): continue
+            except Exception: pass
             if sid and rv:
                 d[sid] = rv
         return d
@@ -4409,6 +4432,7 @@ def main():
     tdcc, tdcc_date = fetch_tdcc_bulk()
     append_tdcc(chips, tdcc, tdcc_date)     # 大戶逐週,保留 26 週
     seed_tdcc_history(chips)                # 由 tdcc.json 整段回灌大戶週歷史(分片歸零後可立即恢復)
+    clean_rev(chips)                        # r1061:先清掉舊版標錯月份造成的重複
     append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
     backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
     if UD_WEEKEND: backfill_perstock(chips, comps, rev_n=800, q_n=800, cf_n=600)   # r831:週末大量磨補(季報/現金流每季才變)

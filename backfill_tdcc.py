@@ -173,6 +173,17 @@ def main():
         log(f"  最新週:{date},{len(data)} 檔")
         try: hist_append(txt)                                  # r1057:多年歷史接上(先寫,absorb 會一起提交)
         except Exception as e2: log(f"  多年集保歷史失敗:{e2}")
+        try:                                                   # r1061:官方 CSV 原檔(15 級距全部)永久存 GitHub Releases tdcc-<年>
+            import gzip as _gz
+            if date:
+                fn = f"/tmp/tdcc_{date}.csv.gz"
+                with _gz.open(fn, "wt", encoding="utf-8") as f: f.write(txt)
+                tag = f"tdcc-{date[:4]}"
+                if subprocess.run(["gh", "release", "view", tag], capture_output=True).returncode != 0:
+                    subprocess.run(["gh", "release", "create", tag, "--title", f"集保股權分散表原檔 {date[:4]}", "--notes", "K研所 每週集保 CSV 原檔(自動保存,請勿刪除)", "--latest=false"], capture_output=True)
+                r_ = subprocess.run(["gh", "release", "upload", tag, fn, "--clobber"], capture_output=True, text=True)
+                log(f"  集保原檔保存:{'成功' if r_.returncode == 0 else '失敗 ' + r_.stderr[:120]}")
+        except Exception as e3: log(f"  集保原檔保存失敗:{e3}")
         if not absorb("官方最新", date, data): commit_push(f"TDCC 多年歷史 {date}")
     except Exception as e:
         log(f"⚠ 官方 CSV 下載失敗:{e}(繼續嘗試歷史快照)")

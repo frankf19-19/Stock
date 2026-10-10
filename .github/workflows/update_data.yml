@@ -56,6 +56,11 @@ jobs:
           key: bkraw-${{ github.run_id }}
           restore-keys: |
             bkraw-
+      - name: 分點快取被清掉 → 從網站自己的永久紀錄(GitHub Releases bk15)還原 250 日(r1061)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ls bkraw/tw*.json >/dev/null 2>&1; then echo "bkraw 快取在"; else timeout 900 python archive_bk.py restore_bk15 || echo "還原失敗,沿用 bk/ 60 日"; fi
       - name: 每日更新(單次或傍晚自迴圈)
         env:
           PYTHONUNBUFFERED: "1"                          # log 即時輸出,不再看起來像卡住
@@ -139,6 +144,7 @@ jobs:
             git add sbl/ 2>/dev/null || true
             for f in taifex.json signal_log.json signal_stats.json gov.json run_log.json kb_today.json broker_tags.json; do [ -f $f ] && git add $f; done
             git add bk/ hist/ 2>/dev/null || true
+            git add archive/hist archive/rev 2>/dev/null || true      # r1061:網站自己的永久紀錄(只增不刪)
             if git diff --cached --quiet; then echo "沒有變更,略過提交"; return 0; fi
             git commit -m "data: $(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M')${1:+ ($1)}"
             for i in 1 2 3; do
@@ -181,6 +187,7 @@ jobs:
             step 推播 timeout 300 python notify.py || echo "推播失敗,不影響主資料"
             step 分數歷史 timeout 120 python score_hist.py || echo "分數歷史失敗"   # r909
             step 大腦 timeout 120 python brain.py || echo "大腦失敗,不影響主資料"   # r905:每輪最後回顧、寫學習日誌
+            step 永久紀錄 timeout 600 python archive_all.py || echo "永久紀錄失敗,下一輪再補"   # r1061:所有只留最近 N 天的資料併進 archive/hist
             commit_push                                                                    # 整輪提交
           }
 
