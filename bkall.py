@@ -126,7 +126,7 @@ def merge_days():
 
 # ── ② 歷史回補:每檔每天全部券商明細(TaiwanStockTradingDailyReport,Sponsor)──
 #   分點統計表(SecIdAgg)要同時指定股票+券商,不能拿來補全市場;所以用每日明細逐檔逐日補(一天約 1,925 次)。
-#   Sponsor 6,000 次/小時 → 一小時約補 2.8 個交易日;一天兩班(凌晨、白天)約 30 天 → 兩年約兩週、三年約三週。
+#   Sponsor 6,000 次/小時 → 一小時約補 2.8 個交易日;r1056 起全天接力(每小時排一班,前一班結束就接上)。
 def fm(dataset, **p):
     p = {"dataset": dataset, **p, "token": TOKEN}
     r = requests.get(f"{API}/data", params=p, timeout=90)
@@ -135,6 +135,30 @@ def fm(dataset, **p):
     if r.status_code != 200 or (j.get("status") not in (200, None) and j.get("msg") != "success"):
         raise RuntimeError(f"{r.status_code} {str(j.get('msg') or j.get('detail') or r.text)[:160]}")
     return j.get("data") or []
+
+
+# r1056:「有空檔就抓」——全天接力跑,依 FinMind 這小時用量自動讓速(大家共用 6,000 次/小時)
+import threading
+_GL = threading.Lock(); _G = {"n": 0, "t": 0.0}
+def _used():
+    try:
+        j = requests.get("https://api.web.finmindtrade.com/v2/user_info", params={"token": TOKEN}, timeout=20).json()
+        return int(j.get("user_count") or 0)
+    except Exception: return None
+def _soft():
+    """這小時總用量的上限:交易日傍晚(每日分點/歷史回補在跑)只用到 3,000,其他時間 5,600(留一點給別的排程)"""
+    now = dt.datetime.now(TZ); hm = now.hour * 60 + now.minute
+    if now.weekday() < 5 and 16 * 60 + 20 <= hm <= 20 * 60 + 30: return int(os.environ.get("BKALL_SOFT_EVE", "3000"))
+    return int(os.environ.get("BKALL_SOFT", "5600"))
+def gov(t_end):
+    with _GL:                                                  # 等待時鎖住 → 所有線程一起暫停
+        _G["n"] += 1
+        if _G["n"] % 50 and time.time() - _G["t"] < 120: return
+        _G["t"] = time.time()
+        while time.time() < t_end:
+            u, lim = _used(), _soft()
+            if u is None or u < lim: return
+            log(f"  讓速:這小時已用 {u} 次(上限 {lim}),等 1 分鐘"); time.sleep(60)
 
 
 def sponsor_ok():
@@ -192,7 +216,7 @@ def backfill(t_end):
             if c >= 0.9 * len(ids): done.add(d)
     todo = [d for d in reversed(cal) if lo <= d < dt.date.today().isoformat() and d not in done]
     log(f"歷史回補:目標 {KEEP_YEARS} 年;已補齊 {len(done)} 個交易日,待補 {len(todo)} 個(由近到遠)")
-    THREADS, SL = 3, 2.1                                       # 3 線程 × 每 2.1 秒 ≈ 5,100 次/小時(留額度給其他排程)
+    THREADS, SL = 3, float(os.environ.get("BKALL_SL", "1.7"))  # 3 線程 × 每 1.7 秒 ≈ 6,000 次/小時上限;實際由 gov() 依總用量讓速
     calls = 0; quota_hit = False; BUF = {}; nbuf = 0; PEND = []
     def flush():
         """落地:資料先寫進每檔檔案,寫完才把這些天記成完成(被砍掉也不會漏)"""
@@ -218,6 +242,7 @@ def backfill(t_end):
         got = set(have)
         def one(sid):
             try:
+                gov(t_end)
                 rows = fm("TaiwanStockTradingDailyReport", data_id=sid, start_date=day, end_date=day); time.sleep(SL); return sid, rows, None
             except Exception as e:
                 time.sleep(2); return sid, None, e
