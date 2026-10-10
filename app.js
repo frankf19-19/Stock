@@ -1,4 +1,4 @@
-/* K研所 · build r1069 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1070 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1069';
+const APP_BUILD='r1070';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2367,7 +2367,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1069</span>');
+  diag.push('<span style="color:var(--dim)">build r1070</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10179,6 +10179,40 @@ async function swHTML(sw,s){
       ${val}${ARC}</div>`;
   }catch(e){return '';}
 }
+/* ══ r1070:🧺 近期吃貨分點(後端 bk_acc.py:全部券商 2021-07 起、最愛/持股)══
+   現在誰在持續吃貨(近 5/10/20 天淨買佔成交 ≥2/2/1%、買的天數 ≥ 一半、賣 ≤ 兩成)+ 每家在這檔過去同樣吃貨後 20 天的實際紀錄
+   + 這檔逐年驗證(前兩年挑 ★ → 當年驗證 vs 其他分點 vs 隨機挑)。研究結論:整體 ❌(只當參考) */
+let ACC=null;async function accLoad(){if(ACC)return ACC;for(let i=0;i<2&&!ACC;i++){try{const r=await fT((i?'https://raw.githubusercontent.com/frankf19-19/Stock/main/':'')+'bk/_acc.json'+(i?'':'?v='+kv()),20000,{cache:'no-store'});if(r&&r.ok)ACC=await r.json();}catch(e){}}return ACC;}
+function accPct(v){return v==null?'—':`${v>=0?'+':''}${(+v).toFixed(1)}%`;}
+function accHist(x){const h=x.h||{};if(!h.n)return '它在這檔過去沒有同樣的吃貨紀錄';
+  return `它在這檔過去 ${h.n} 次這樣吃,之後 20 天比大盤 <b style="color:${h.avg>=0?'var(--up)':'var(--down)'}">${accPct(h.avg)}</b>、漲 ${h.win}%${h.n<5?'(次數少)':''}`;}
+function accPx(x,px){if(!x.px)return '';const d=px?(x.px/px-1)*100:null;return `均價 ${x.px}${d!=null?`(比現價 ${d>=0?'+':''}${d.toFixed(1)}%)`:''}`;}
+function accChip(x,px){
+  return `<span class="fkb fkb-b fkb-acc" title="近 ${x.w} 天:買 ${x.bd} 天、賣 ${x.sd} 天;★ = 近兩年在這檔吃完常漲(≥3 次、平均 ≥+3%、勝率 ≥60%)。實測:過去會漲的分點之後再吃貨不一定準,只當參考">🧺 ${x.new?'🆕 ':''}${x.star?'★ ':''}<b>${x.n}</b>${typeof bkTag==='function'?bkTag(x.n):''} 近 ${x.w} 天吃貨 <em>+${(+x.net).toLocaleString()} 張・佔成交 ${x.sh}%・買 ${x.bd} 天/賣 ${x.sd} 天${x.px?'・'+accPx(x,px):''}</em> <small>${accHist(x)}・參考</small></span>`;}
+function accCardChip(a){   // 最愛卡片:一行帶過(誰、幾張),細節(它過去吃完的表現、驗證)在個股頁
+  const N=a.now||[],ws=[...new Set(N.map(x=>x.w))].sort((x,y)=>x-y);
+  const nm=N.slice(0,3).map(x=>`${x.new?'🆕':''}${x.star?'★':''}<b>${x.n}</b> +${(+x.net).toLocaleString()}`).join('・');
+  return `<span class="fkb fkb-acc" title="近 5/10/20 天持續淨買(買的天數 ≥ 一半、幾乎沒賣)。★ = 近兩年在這檔吃完常漲;實測過去會漲的分點之後不一定準,只當參考">🧺 近 ${ws.join('/')} 天持續吃貨 ${nm} 張${N.length>3?`・另 ${N.length-3} 家`:''} <small>參考・個股頁看它們過去吃完的表現</small></span>`;}
+async function accHTML(s){
+  try{
+    const A=await accLoad();if(!A||!A.s)return '';const a=A.s[s.id],S=A.summary||{};const md=d=>d?d.slice(5).replace('-','/'):'';
+    if(!a)return `<div class="dim-block" style="margin:8px 0;border-left:4px solid var(--line)"><b>🧺 近期吃貨分點</b><div class="dim-note">這檔還沒有「全部券商」多年紀錄。加入<b>最愛</b>或<b>持股</b>後,後端會優先把它從 2021/07 起的全部券商買賣補齊(約 1~2 天),之後每天告訴你哪些券商最近在持續吃貨、它們過去在這檔吃完的表現。</div></div>`;
+    const px=+s.price||null,N=a.now||[],V=a.val;
+    const head=N.length?`👉 <b style="color:var(--up)">${N.slice(0,4).map(x=>x.n).join('、')}</b> 最近持續在買${N.some(x=>x.new)?`(🆕 = ${md(a.d)} 剛開始符合)`:''}`:'👉 最近沒有券商在持續吃貨';
+    const rows=N.map(x=>`<div style="padding:8px 0;border-top:1px solid var(--line);font-size:13.5px;line-height:1.65">${x.new?'🆕 ':''}${x.star?'<b style="color:var(--amber)">★</b> ':''}<b>${x.n}</b>${typeof bkTag==='function'?bkTag(x.n):''}:近 ${x.w} 天買 ${x.bd} 天、賣 ${x.sd} 天,淨買 <b style="color:var(--up)">+${(+x.net).toLocaleString()} 張</b>(佔這段成交 ${x.sh}%)${x.px?'・'+accPx(x,px):''}<span class="dim">・從 ${md(x.since)} 開始符合</span><br>
+      <span style="font-size:12.5px">${accHist(x)}${x.star?'・<b style="color:var(--amber)">★ 近兩年在這檔吃完常漲</b>':''}</span></div>`).join('');
+    let vtxt='';
+    if(V){const yr=(V.years||[]).map(y=>`${y.Y}:★ ${accPct(y.avg)}(${y.n} 次)vs 其他 ${accPct(y.cavg)}`).join('・');
+      vtxt=V.verdict==='有效'?`<div style="font-size:12.5px;margin:6px 0;padding:6px 10px;border-radius:8px;background:rgba(232,180,74,.12)">🟡 這檔逐年驗證(${V.ny} 年):用前兩年挑出「吃完會漲」的 ★ 分點,當年它們再吃貨後 20 天比大盤 <b>${accPct(V.avg)}</b>(${V.n} 次),同檔其他分點 ${accPct(V.oth)};隨機挑同樣家數平均只差 ${accPct(V.rnd)},隨機能贏這麼多的機率 ${Math.round((V.p||0)*100)}% → 這檔<b>挑得出來</b>。但全部 ${S.stocks} 檔裡只有 ${S.ok} 檔這樣,仍可能是運氣,只當參考。</div>`
+        :V.verdict==='樣本少'?`<div style="font-size:12.5px;margin:6px 0;padding:6px 10px;border-radius:8px;background:rgba(232,180,74,.12)">⚠ 這檔驗證樣本太少(★ 分點再吃貨只有 ${V.n} 次),看不出來;下面只是歷史紀錄,只當參考。</div>`
+        :`<div style="font-size:12.5px;margin:6px 0;padding:6px 10px;border-radius:8px;background:rgba(232,180,74,.12)">⚠ 實測:這檔用前兩年挑出「吃完會漲」的分點,之後再吃貨 20 天比大盤 ${accPct(V.avg)}(${V.n} 次),同檔其他分點 ${accPct(V.oth)}、隨機挑也有 ${accPct((V.oth??0)+(V.rnd??0))} 左右 → <b>挑不出來</b>。下面「過去紀錄」只是歷史,不能當買進訊號。</div>`;
+      vtxt+=`<details style="font-size:12px;color:var(--dim);margin:2px 0 4px"><summary>逐年明細・全部最愛一起看</summary>${yr||'—'}<br>全部 ${S.stocks} 檔一起看:★ 分點再吃貨 ${accPct(S.sel)} vs 其他分點 ${accPct(S.oth)}(${(S.n||0).toLocaleString()} 次),有效的只有 ${S.ok} 檔 → 整體 ❌,吃貨紀錄只當參考。</details>`;}
+    return `<div class="dim-block" id="accIn" style="margin:8px 0;border-left:4px solid var(--up)">
+      <div style="font-weight:900;font-size:15px">🧺 近期吃貨分點<span style="font-weight:400;font-size:12.5px;color:var(--dim);margin-left:6px">全部券商・${md(a.d)} 止・${String(a.from||'').slice(0,7).replace('-','/')} 起 ${a.days} 個交易日</span></div>
+      <div style="font-size:13.5px;margin:6px 0">${head}</div>${vtxt}${rows}
+      <div class="dim-note" style="margin-top:6px">怎麼算「持續吃貨」:近 5 天淨買 ≥ 這 5 天成交 2%、或近 10 天 ≥2%、或近 20 天 ≥1%,而且買的天數 ≥ 一半、賣的天數 ≤ 兩成、最近一天也有買;隔日沖券商不算。「比大盤」= 隔天開盤買、第 20 天收盤,減全市場同日平均。每天全部券商資料併進來後重算。</div></div>`;
+  }catch(e){return '';}
+}
 /* ══ r970:🔬 這檔的分點驗證(後端 kb_validate.py:前 70% 挑關鍵分點 → 後 30% 看它們再出手的表現)══ */
 let KBV_SUM=null;
 async function kbvSummary(){if(KBV_SUM)return KBV_SUM;try{const r=await fT('bk/_kb_validation.json?v='+kv(),10000,{cache:'no-store'});if(r&&r.ok)KBV_SUM=await r.json();}catch(e){}return KBV_SUM;}
@@ -14491,6 +14525,7 @@ async function showDetail(id){
   if(s.market!=='US'&&!s.etf){(async()=>{try{window.__bkR=null;await brokerTagsLoad();const e=await bkLoad(s.id);let box=null;for(let i=0;i<30&&!box;i++){box=document.getElementById('bkBox');if(!box)await new Promise(r=>setTimeout(r,700));}
     if(!box)return;const R=bkCalc(e);box.innerHTML=bkHTML(R,s);window.__bkR=R;
     try{const h=await swHTML(e&&e.sw,s);if(h){const d2=document.createElement('div');d2.id='swBox';d2.innerHTML=h;box.insertBefore(d2,box.firstChild);}}catch(e7){}   // r1051:波段主力分點(放最上面)
+    try{const h=await accHTML(s);if(h){const d3=document.createElement('div');d3.id='accBox';d3.innerHTML=h;box.insertBefore(d3,box.firstChild);}}catch(e6){}   // r1070:🧺 近期吃貨分點(最上面)
     try{const h=await kbvHTML(e&&e.kbv,s);if(h){const d1=document.createElement('div');d1.id='kbvBox';d1.innerHTML=h;box.appendChild(d1);}}catch(e8){}   // r970:這檔的分點驗證
     try{const h=await cpHTML(e&&e.cp,s);if(h){const d0=document.createElement('div');d0.id='cpBox';d0.innerHTML=h;box.appendChild(d0);}}catch(e9){}   // r968:主力集中度個性
     if(0)try{const st=kbSchedText(R,false);const strip=document.getElementById('stkAlerts');if(st&&strip&&location.hash==='#stock/'+s.id){document.getElementById('kbPill')?.remove();const sp=document.createElement('span');sp.id='kbPill';sp.className='alert-pill alert-'+st.lv;sp.innerHTML=`<span class="ico">⏰</span><span>${st.txt}</span>`;sp.style.cursor='pointer';sp.onclick=()=>{const h=document.querySelector('[data-sec="stk_bk"]');if(h){h.scrollIntoView({behavior:'smooth',block:'start'});}};strip.prepend(sp);strip.style.display='';}}catch(e20){}   // r844:達標時程膠囊
@@ -21686,12 +21721,13 @@ const PUSH_GROUPS=[
   ['AI Pick',[['fill','已買進 / 換股買進(事實)'],['exit','已出場:到目標 / 停損 / 到期(事實)'],['buy','到買價・可買進'],['chase','進入追價區'],['tp','盤中到目標'],['sl','盤中觸停損'],['exp','今日到期結算提醒']]],
   ['最愛',[['fz','回檔到均線帶'],['fh','突破 20 日高'],['fl','跌破 10 日低'],['fb','跌破均線帶']]],
   ['持股',[['ftp','停利到價'],['fsl','停損到價']]],
-  ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_t1','⏰ 關鍵分點達標後的預期發動日(最愛/持股)'],['kb_t2','⏰ 預期到高點/低點日(最愛/持股)'],['kb_sb','🔁 關鍵分點連買 ≥3 日'],['kb_ss','🔁 關鍵分點連賣 ≥3 日'],['bk_sb','🔁 任一券商連買 ≥5 日'],['bk_ss','🔁 任一券商連賣 ≥5 日'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
+  ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_t1','⏰ 關鍵分點達標後的預期發動日(最愛/持股)'],['kb_t2','⏰ 預期到高點/低點日(最愛/持股)'],['kb_acc','🧺 最愛有券商開始持續吃貨(全部券商・參考)'],['kb_sb','🔁 關鍵分點連買 ≥3 日'],['kb_ss','🔁 關鍵分點連賣 ≥3 日'],['bk_sb','🔁 任一券商連買 ≥5 日'],['bk_ss','🔁 任一券商連賣 ≥5 日'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
   ['市場',[['bias','大盤週乖離進入低檔 / 高檔']]]];
 const PUSH_KINDS=PUSH_GROUPS.flatMap(g=>g[1].map(x=>x[0]));
-const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_t1','kb_t2','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:[],bias:['bias']};
+const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_t1','kb_t2','kb_acc','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:[],bias:['bias']};
 /* r817:舊帳號存的細項名單裡沒有新種類 → 預設補上(新種類預設開) */
-(function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(Array.isArray(a)&&!a.includes('lead')){let ch=false;['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss','kb_t1','kb_t2'].forEach(k=>{if(!a.includes(k)){a.push(k);ch=true;}});if(ch)localStorage.setItem('pushCats',JSON.stringify(a));}}catch(e){}})();
+(function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(Array.isArray(a)&&!a.includes('lead')){let ch=false;['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss','kb_t1','kb_t2'].forEach(k=>{if(!a.includes(k)){a.push(k);ch=true;}});if(ch)localStorage.setItem('pushCats',JSON.stringify(a));}
+  if(Array.isArray(a)&&!a.includes('lead')&&!localStorage.getItem('pushCatsAcc1')){if(!a.includes('kb_acc'))a.push('kb_acc');localStorage.setItem('pushCats',JSON.stringify(a));localStorage.setItem('pushCatsAcc1','1');}}catch(e){}})();   // r1070:🧺 新種類只預設打開一次(之後使用者可關)
 function pushCatsGet(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(!Array.isArray(a))return PUSH_KINDS.slice();
   const out=new Set();a.forEach(x=>{if(PUSH_CAT_KINDS[x])PUSH_CAT_KINDS[x].forEach(k=>out.add(k));else out.add(x);});return [...out];}catch(e){return PUSH_KINDS.slice();}}
 function pushProfile(){
@@ -23460,7 +23496,9 @@ async function favKbFill(root){
     const id=el.dataset.favkb;
     if(FAVKB_HTML[id]!==undefined){if(!el.innerHTML.trim()&&FAVKB_HTML[id])el.innerHTML=FAVKB_HTML[id];continue;}
     try{
-      const e=await bkLoad(id);if(!e||!e.d||!e.d.length){FAVKB_HTML[id]='';continue;}
+      // r1070:🧺 近期吃貨分點(全部券商)——分點分片抓不到也照樣顯示
+      let accParts=[],accD='';try{const A=await accLoad();const a=A&&A.s&&A.s[id];if(a&&(a.now||[]).length){const px=+((DATA.stocks||[]).find(x=>x.id===id)||{}).price||null;accParts=[accCardChip(a)];accD=a.d;}}catch(e0){}
+      const e=await bkLoad(id);if(!e||!e.d||!e.d.length){FAVKB_HTML[id]=accParts.length?`<div class="fav-kb-d">${accD.slice(5).replace('-','/')} 分點</div>${accParts.join('')}`:'';if(FAVKB_HTML[id])el.innerHTML=FAVKB_HTML[id];continue;}
       const R=bkCalc(e);if(!R){FAVKB_HTML[id]='';continue;}
       const hit=R.hit||[];const parts=[];
       const md=d=>d?d.slice(5).replace('-','/'):'';
@@ -23476,6 +23514,7 @@ async function favKbFill(root){
         :`<span class="fkb" style="color:var(--txt2);border-color:var(--line);opacity:.8">關鍵分點小量賣 <b>${h.name}</b> <em>${h.lots.toLocaleString()} 張・${szTxt(h)}</em></span>`));
       (R.runB||[]).filter(x=>x.key||x.days>=5).slice(0,2).forEach(x=>parts.push(`<span class="fkb ${x.key?'fkb-b':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連買 ${x.days} 日 <small>累計 ${(x.lots>=0?'+':'')+x.lots.toLocaleString()} 張</small></span>`));
       (R.runS||[]).filter(x=>x.key||x.days>=5).slice(0,2).forEach(x=>parts.push(`<span class="fkb ${x.key?'fkb-s':''}" style="${x.key?'':'color:var(--txt2);border-color:var(--line)'}">🔁 ${x.key?'★ ':''}${x.name} 連賣 ${x.days} 日 <small>累計 ${x.lots.toLocaleString()} 張</small></span>`));
+      parts.push(...accParts);
       if(!parts.length&&(R.verdict==='主力吃貨'||R.verdict==='主力出貨'))parts.push(`<span class="fkb ${R.verdict==='主力吃貨'?'fkb-b':'fkb-s'}" style="opacity:.85">🏦 分點:${R.verdict} <small>5 日前 15 大 ${(R.c5>=0?'+':'')+R.c5.toLocaleString()} 張</small></span>`);
       FAVKB_HTML[id]=parts.length?`<div class="fav-kb-d">${R.d.slice(5).replace('-','/')} 分點</div>${parts.join('')}`:'';
       if(FAVKB_HTML[id])el.innerHTML=FAVKB_HTML[id];

@@ -38,7 +38,7 @@ LEAD_DAILY_MAX = 3          # r795:主力進出每人每日最多 3 則(最吵�
 # r795:事件鍵前綴 → 類別(使用者可在帳號面板勾選要收哪些)
 CAT_OF = {"fill": "aip", "rot": "aip", "rotbuy": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
           "fz": "fav", "fh": "fav", "fl": "fav", "fb": "fav", "ftp": "port", "fsl": "port",
-          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "bk_sb": "lead", "bk_ss": "lead", "kb_t1": "lead", "kb_t2": "lead", "hs": "h60", "bias": "bias"}
+          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "kb_acc": "lead", "bk_sb": "lead", "bk_ss": "lead", "kb_t1": "lead", "kb_t2": "lead", "hs": "h60", "bias": "bias"}
 CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離"}
 def cat_of(key):
     p = str(key).split("|")[0]
@@ -346,6 +346,13 @@ def lead_signal(sid, nm):
     return out
 
 
+_ACC = None
+def _acc():
+    global _ACC
+    if _ACC is None: _ACC = load("bk/_acc.json", {}) or {}
+    return _ACC
+
+
 def collect_fav_events(data, aip, prices, ud):
     """三級:最愛的六種訊號 + 持股停利/停損。鏡射前端 favSignals 的門檻。"""
     ev = []
@@ -364,6 +371,16 @@ def collect_fav_events(data, aip, prices, ud):
         if not px: continue
         nm = s.get("name") or sid
         try: ev.extend(lead_signal(sid, nm))                     # r779:主力進出(法人日資料)
+        except Exception: pass
+        try:                                                     # r1070:🧺 全部券商——有券商「剛開始」持續吃貨(bk_acc.py)
+            ac = (_acc().get("s") or {}).get(sid) or {}
+            nw = [x for x in (ac.get("now") or []) if x.get("new")]
+            if nw:
+                def _h(x):
+                    h = x.get("h") or {}
+                    return f";它在這檔過去 {h['n']} 次這樣吃,之後 20 天比大盤 {h['avg']:+.1f}%、漲 {h['win']}%" if h.get("n") else ";它在這檔過去沒有同樣紀錄"
+                lines = "\n".join(f"{'★ ' if x.get('star') else ''}{x['n']}:近 {x['w']} 天買 {x['bd']} 天、賣 {x['sd']} 天,淨買 {x['net']:+,} 張(佔成交 {x['sh']}%)" + _h(x) for x in nw[:3])
+                ev.append((f"kb_acc|{ac.get('d')}|{sid}", 3, f"🧺 <b>{nm}</b>({sid})有券商開始持續吃貨({md(ac.get('d'))} 止)\n{lines}\n⚠ 實測:分點過去的成績對之後預測力弱,只當參考"))
         except Exception: pass
         a = s.get("al") or {}
         lv = fav_levels(sid, px) or {}

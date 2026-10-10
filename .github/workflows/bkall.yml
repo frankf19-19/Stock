@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install requests
+      - run: pip install requests numpy
       - name: 還原分點原始資料快取(bkraw:每日全券商暫存在 bkraw/days)
         uses: actions/cache/restore@v4
         with:

@@ -348,6 +348,10 @@ def main():
         import bk_swing; status["swing"] = bk_swing.build_full(ALL, log)
     except Exception as e:
         import traceback; status["swing_err"] = traceback.format_exc()[-1500:]; log(f"波段主力分點(全量)失敗:{e}")
+    try:                                                                # r1070:🧺 最愛個股近期吃貨分點(有新的一天或名單變了才重算)
+        import bk_acc; status["acc"] = bk_acc.main(latest=dd[-1] if dd else None)
+    except Exception as e:
+        import traceback; status["acc_err"] = traceback.format_exc()[-1500:]; log(f"近期吃貨分點失敗:{e}")
     os.makedirs("bk", exist_ok=True)
     json.dump(status, open("bk/_bkall_status.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
     log(f"完成({int(time.time() - t0)}s)")

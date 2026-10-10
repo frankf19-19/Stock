@@ -22,7 +22,7 @@ NOW = dt.datetime.now(TZ); TODAY = NOW.date().isoformat()
 NAMES = {  # 訊號代號 → 白話
     "bk_sb": "分點連買", "bk_ss": "分點連賣", "bk_b": "分點大買", "bk_x": "分點大賣",
     "kb_b": "關鍵分點進場", "kb_x": "關鍵分點出場", "kb_b2": "兩家以上關鍵分點同日進場", "kb_x2": "兩家以上關鍵分點同日出場",
-    "kb_sb": "關鍵分點連買", "kb_ss": "關鍵分點連賣", "kb_t1": "關鍵分點預期發動日", "kb_t2": "關鍵分點預期高點日",
+    "kb_sb": "關鍵分點連買", "kb_acc": "最愛券商持續吃貨", "kb_ss": "關鍵分點連賣", "kb_t1": "關鍵分點預期發動日", "kb_t2": "關鍵分點預期高點日",
     "fill": "AI Pick 成交", "chase": "AI Pick 追價成交", "tp": "AI Pick 停利", "sl": "AI Pick 停損", "exit": "AI Pick 出場", "exp": "AI Pick 到期",
     "fz": "最愛:進入買點帶", "ftp": "持股:到停利", "fh": "最愛:突破", "fl": "最愛:跌破",
     "lead_b": "主力大買", "lead_x": "主力大賣", "lead_s3": "主力開始連買",
