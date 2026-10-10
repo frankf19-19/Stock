@@ -12,6 +12,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write          # r1059:收尾時自己排下一班(GITHUB_TOKEN 觸發 workflow_dispatch 是允許的)
 
 jobs:
   bkall:
@@ -64,3 +65,11 @@ jobs:
           if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
           git commit -m "bkall: 全券商分點 $(date +'%m-%d %H:%M')" -q
           for i in 1 2 3; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 15; done
+      - name: 還沒補完 → 自己接下一班(有空檔就抓)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if python -c "import json,sys;sys.exit(0 if json.load(open('bk/_bkall_status.json')).get('more') else 1)"; then
+            gh workflow run bkall.yml -R "$GITHUB_REPOSITORY" --ref main && echo "已排下一班"
+          else echo "已補完或贊助到期,不再接班"; fi

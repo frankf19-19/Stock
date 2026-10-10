@@ -278,7 +278,8 @@ def backfill(t_end):
         log(f"  {day}:{len(got)}/{len(ids)} 檔(本班 {calls} 次)")
         if nbuf >= 4 or time.time() > t_end or quota_hit: flush()   # 4 天落地一次(附加寫入,很快)
     flush()
-    log(f"歷史回補:本班 {calls} 次 API;累計補齊 {len(done)} 個交易日")
+    st["remain"] = len([d for d in todo if d not in done])          # r1059:還有幾天沒補 → 決定要不要自己接下一班
+    log(f"歷史回補:本班 {calls} 次 API;累計補齊 {len(done)} 個交易日;還剩 {st['remain']} 個")
     return st
 
 
@@ -289,7 +290,10 @@ def main():
     ok, info = sponsor_ok()
     status = {"t": dt.datetime.now(TZ).strftime("%Y-%m-%d %H:%M"), "sponsor": ok,
               "sponsor_expired": ((info.get("SponsorInfo") or {}).get("subscription_expired_date")), "level": info.get("level_title")}
-    if ok and TOKEN: status["backfill"] = {k: (len(v) if isinstance(v, list) else v) for k, v in backfill(t_end - 1500).items() if k in ("days", "last")}
+    if ok and TOKEN:
+        b = backfill(t_end - 1500)
+        status["backfill"] = {k: (len(v) if isinstance(v, list) else v) for k, v in b.items() if k in ("days", "last", "remain")}
+        status["more"] = bool(b.get("remain", 1))                      # 還沒補完 → workflow 收尾時自己排下一班
     else: log("FinMind 贊助未啟用/已到期 → 只併每日資料,不回補歷史")
     try: stt = json.load(open(os.path.join(ALL, "_state.json"), encoding="utf-8"))
     except Exception: stt = {}
