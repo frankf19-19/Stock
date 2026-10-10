@@ -232,14 +232,9 @@ def backfill(t_end):
                 os.makedirs(os.path.dirname(p0), exist_ok=True); json.dump(sorted(g0), open(p0, "w"))
         st.update(days=sorted(done), last=dt.datetime.now(TZ).strftime("%Y-%m-%d %H:%M")); json.dump(st, open(st_p, "w", encoding="utf-8"))
         BUF = {}; nbuf = 0; PEND = []
-    for day in todo:
-        if time.time() > t_end or quota_hit: break
-        have = set()
-        p_day = os.path.join(ALL, "_partial", f"{day}.json")
-        try: have = set(json.load(open(p_day)))
-        except Exception: pass
-        need = [s for s in ids if s not in have]
-        got = set(have)
+    def fetch_day(day, need, got):
+        """抓某一天、某些股票的全部券商明細 → BUF;成功的加進 got"""
+        nonlocal calls, quota_hit
         def one(sid):
             try:
                 gov(t_end)
@@ -274,6 +269,47 @@ def backfill(t_end):
                 if not quota_hit and time.time() <= t_end:
                     try: futs.append(ex.submit(one, next(it)))
                     except StopIteration: pass
+        return got
+    def partial(day):
+        try: return set(json.load(open(os.path.join(ALL, "_partial", f"{day}.json"))))
+        except Exception: return set()
+    # ① r1059:使用者的最愛/持股先補(bk/_prio_users.json,notify.py 產生)——每檔一路往回補到 2021-07,再補全市場
+    idset = set(ids)
+    try: prio = sorted(x for x in json.load(open("bk/_prio_users.json", encoding="utf-8")) if str(x) in idset)
+    except Exception: prio = []
+    up = st.setdefault("prio_upto", {})
+    days_desc = [d for d in reversed(cal) if lo <= d < dt.date.today().isoformat()]
+    oldest = days_desc[-1] if days_desc else lo
+    left = [x for x in prio if not (up.get(x) and up[x] <= oldest)]
+    if left:
+        log(f"最愛/持股優先:{len(prio)} 檔,還沒補完 {len(left)} 檔")
+        broken = set()
+        for day in days_desc:
+            if time.time() > t_end or quota_hit: break
+            cand = [x for x in left if x not in broken and not (up.get(x) and day >= up[x])]
+            if not cand: continue
+            if day in done:
+                for x in cand: up[x] = day
+                continue
+            have = partial(day); got = set(have)
+            need = [x for x in cand if x not in have]
+            if need: fetch_day(day, need, got)
+            for x in cand:
+                if x in got: up[x] = day
+                else: broken.add(x)                                  # 這檔這天沒抓到 → 這班不再往前,下班從這天接
+            nbuf += 1; PEND.append((day, got))
+            if nbuf >= 20: flush(); log(f"  最愛優先:補到 {day}(本班 {calls} 次)")
+        flush()
+        left = [x for x in prio if not (up.get(x) and up[x] <= oldest)]
+    allup = None if (not prio or any(not up.get(x) for x in prio)) else max(up[x] for x in prio)   # 全部最愛都已補到哪一天
+    if prio: log(f"最愛/持股優先:{len(prio)} 檔,還剩 {len(left)} 檔沒補完;全部最愛都已補到 {allup or '—'}")
+    st["prio"] = {"n": len(prio), "done": len(prio) - len(left), "upto": allup}
+    # ② 全市場,由近到遠
+    for day in todo:
+        if time.time() > t_end or quota_hit: break
+        have = partial(day)
+        need = [s for s in ids if s not in have]
+        got = fetch_day(day, need, set(have))
         nbuf += 1; PEND.append((day, got))
         log(f"  {day}:{len(got)}/{len(ids)} 檔(本班 {calls} 次)")
         if nbuf >= 4 or time.time() > t_end or quota_hit: flush()   # 4 天落地一次(附加寫入,很快)
@@ -292,8 +328,8 @@ def main():
               "sponsor_expired": ((info.get("SponsorInfo") or {}).get("subscription_expired_date")), "level": info.get("level_title")}
     if ok and TOKEN:
         b = backfill(t_end - 1500)
-        status["backfill"] = {k: (len(v) if isinstance(v, list) else v) for k, v in b.items() if k in ("days", "last", "remain")}
-        status["more"] = bool(b.get("remain", 1))                      # 還沒補完 → workflow 收尾時自己排下一班
+        status["backfill"] = {k: (len(v) if isinstance(v, list) else v) for k, v in b.items() if k in ("days", "last", "remain", "prio")}
+        status["more"] = bool(b.get("remain", 1)) or (b.get("prio") or {}).get("done", 0) < (b.get("prio") or {}).get("n", 0)   # 還沒補完 → workflow 收尾時自己排下一班
     else: log("FinMind 贊助未啟用/已到期 → 只併每日資料,不回補歷史")
     try: stt = json.load(open(os.path.join(ALL, "_state.json"), encoding="utf-8"))
     except Exception: stt = {}
