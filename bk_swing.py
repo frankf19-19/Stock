@@ -126,14 +126,15 @@ def build(R, S, closes_of, log=print, shard_key=None):
                             "st": st_, "n10": round(n10), "n20": round(n20), "held": round(held),
                             "last": max(r[0] for r in rows)})
             out.sort(key=lambda x: (-(x["st"] == "吃貨中"), -x["spread"] * x["bl"]))
+            full = ((S.get(k, {}).get(sid) or {}).get("sw") or {}).get("all")   # r1066:已有「全部券商、多年」版本 → 不用前 15 大版本蓋掉
             if out:
                 nsw += 1
                 for side, tag in (("acc", "吃貨中"), ("dist", "出貨中")):
                     br = [[b["n"], b["n10"], b["bv"], b["sv"], b["spread"], b["nb"], b["ns"]] for b in out if b["st"] == tag]
                     if br: today[side].append({"id": sid, "px": C[last_j], "br": br[:3]})
-                if S.get(k, {}).get(sid) is not None:
+                if S.get(k, {}).get(sid) is not None and not full:
                     S[k][sid]["sw"] = {"u": ds[last_j], "vol": round(vol), "days": len(dd), "b": out[:8]}
-            elif S.get(k, {}).get(sid) is not None:
+            elif S.get(k, {}).get(sid) is not None and not full:
                 S[k][sid].pop("sw", None)
     def agg(a):
         if not a: return None
@@ -291,10 +292,12 @@ def build_full(ALL, log=print):
             for side, tag in (("acc", "吃貨中"), ("dist", "出貨中")):
                 br = [[b["n"], b["n10"], b["bv"], b["sv"], b["spread"], b["nb"], b["ns"]] for b in out if b["st"] == tag]
                 if br: today[side].append({"id": sid, "px": C[last_j], "br": br[:3]})
-        elif S.get(k, {}).get(sid) is not None: S[k][sid].pop("sw", None)
+        elif S.get(k, {}).get(sid) is not None: S[k][sid]["sw"] = {"u": ds[last_j], "vol": round(vol), "days": len(dd), "all": 1, "from": ds[dd[0]], "b": []}
+        if out and S.get(k, {}).get(sid) is not None: S[k][sid]["sw"]["from"] = ds[dd[0]]
 
-    if nst < 500 or not ev:                                   # 全券商資料還不夠(回補中)→ 先保留前 15 大版本
-        log(f"  🕵️ 全券商資料還不夠:{nst} 檔有 {MIN_DAYS} 天以上、驗證事件 {sum(len(v) for g in ev.values() for v in g.values())} 筆 → 先不覆蓋"); return {"stocks": nst, "ready": False}
+    if nst < 500 or not ev:                                   # 全券商資料還不夠(回補中)→ 全市場驗證先保留前 15 大版本
+        fb.save_shards(S)                                     # r1066:已補齊的個股(最愛/持股)先用全部券商、多年資料顯示
+        log(f"  🕵️ 全券商資料還不夠:{nst} 檔有 {MIN_DAYS} 天以上、驗證事件 {sum(len(v) for g in ev.values() for v in g.values())} 筆 → 全市場驗證先不覆蓋;這 {nst} 檔的個股結果已更新"); return {"stocks": nst, "ready": False}
     def agg(a):
         if not a: return None
         return {"n": len(a), "avg": round(sum(a) / len(a) * 100, 2), "med": round(st.median(a) * 100, 2), "up": round(sum(1 for x in a if x > 0) / len(a) * 100, 1)}

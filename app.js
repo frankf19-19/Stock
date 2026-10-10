@@ -1,4 +1,4 @@
-/* K研所 · build r1065 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1066 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1065';
+const APP_BUILD='r1066';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2319,7 +2319,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1065</span>');
+  diag.push('<span style="color:var(--dim)">build r1066</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -10105,10 +10105,10 @@ async function cpHTML(cp,s){
 }
 
 /* ══ r1051:🕵️ 波段主力分點——這檔「低檔慢慢吃貨、高檔出貨」的分點(後端 bk_swing.py,約 250 個交易日分點紀錄)══ */
-let BKARC=null;async function bkArcLoad(){if(BKARC)return BKARC;try{const r=await fT('bk/_archive_status.json?v='+kv(),8000,{cache:'no-store'});if(r&&r.ok)BKARC=await r.json();}catch(e){}return BKARC;}
+let BKARC=null;async function bkArcLoad(){if(BKARC)return BKARC;for(let i=0;i<2&&!BKARC;i++){try{const r=await fT((i?'https://raw.githubusercontent.com/frankf19-19/Stock/main/':'')+'bk/_archive_status.json'+(i?'':'?v='+kv()),20000,{cache:'no-store'});if(r&&r.ok)BKARC=await r.json();}catch(e){}}return BKARC;}
 function bkArcLine(A){try{if(!A||!A.bk15)return '';const b=A.bk15,md=x=>String(x||'').replace(/-/g,'/');
   return `<div class="dim-note" style="margin-top:4px">🗄 分點紀錄永久保存中:前 15 大摘要 <b>${b.days}</b> 個交易日(${md(b.from)}~${md(b.to)})${A.backup?`・全部券商歷史備份 ${A.backup.files} 檔`:''}${(A.bkall_days||[]).length?`・全部券商每日檔到 ${md(A.bkall_days[A.bkall_days.length-1])}`:''}。</div>`;}catch(e){return '';}}
-let SWV=null;async function swvLoad(){if(SWV)return SWV;try{const r=await fT('bk/_swing_validation.json?v='+kv(),10000,{cache:'no-store'});if(r&&r.ok)SWV=await r.json();}catch(e){}return SWV;}
+let SWV=null;async function swvLoad(){if(SWV)return SWV;for(let i=0;i<2&&!SWV;i++){try{const r=await fT((i?'https://raw.githubusercontent.com/frankf19-19/Stock/main/':'')+'bk/_swing_validation.json'+(i?'':'?v='+kv()),20000,{cache:'no-store'});if(r&&r.ok)SWV=await r.json();}catch(e){}}return SWV;}   // r1066:失敗改從 GitHub 原始檔再試
 async function swHTML(sw,s){
   try{const V=await swvLoad();const ARC=bkArcLine(await bkArcLoad());const fmt=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:v<50?2:v<500?1:0});
     const px=+s.price||null,pc=v=>px?`${((v/px-1)*100>=0?'+':'')}${((v/px-1)*100).toFixed(1)}%`:'';
@@ -10116,7 +10116,7 @@ async function swHTML(sw,s){
     const sg=x=>x==null?'—':`${x>=0?'+':''}${x}%`;
     const yrs=V&&V.years?Object.entries(V.years).filter(([y,g])=>g.acc_sw&&g.acc_ctl&&g.acc_sw.n>=30):[];
     const val=V&&a&&c?`<div class="dim-note" style="margin-top:6px">🔬 全市場驗證(${V.stocks} 檔,${V.src==='全部券商'?`全部券商 ${String((V.span||[])[0]||'').slice(0,7)}~${String((V.span||[])[1]||'').slice(0,7)},每年用前兩年找分點、當年驗證${yrs.length?`;逐年 ${yrs.filter(([y,g])=>g.acc_sw.avg>g.acc_ctl.avg).length}/${yrs.length} 年比一般分點好`:''}`:'每檔前 60% 交易日找出這類分點、後 40% 看它們再出手'}):<b>再吃貨後 20 天</b>比大盤 ${sg(a.avg)}(${a.n} 次、上漲 ${a.up}%),一般分點同樣吃貨 ${sg(c.avg)} → ${V.pass_acc?'✅ 有預測力':'❌ 沒有明顯比較準,只當參考'};${a2&&c2?`<b>出貨後 20 天</b> ${sg(a2.avg)} vs 一般 ${sg(c2.avg)} → ${V.pass_dist?'✅ 有預測力':'❌ 只當參考'}`:''}。更新 ${V.updated}</div>`:'<div class="dim-note" style="margin-top:6px">🔬 全市場驗證計算中(下次分點更新後出現)。</div>';
-    if(!sw||!(sw.b||[]).length)return `<div class="dim-block" style="margin:8px 0;border-left:4px solid #8E7CC3"><b>🕵️ 波段主力分點</b><div class="dim-note">這檔近 ${sw&&sw.days||250} 個交易日沒有找到「低檔分批吃、高檔分批賣、而且有賺」的分點。</div>${val}${ARC}</div>`;
+    if(!sw||!(sw.b||[]).length)return `<div class="dim-block" style="margin:8px 0;border-left:4px solid #8E7CC3"><b>🕵️ 波段主力分點</b><div class="dim-note">${sw&&sw.all?`用<b>全部券商</b>、${String(sw.from||'').slice(0,7).replace('-','/')} 起 ${sw.days} 個交易日的完整紀錄查過:`:`這檔近 ${sw&&sw.days||250} 個交易日(每天前 15 大分點)`}沒有找到「低檔分批吃、高檔分批賣、而且有賺」的分點。</div>${val}${ARC}</div>`;
     const rows=sw.b.map(b=>{const tag=b.st==='吃貨中'?`<b style="color:var(--up)">🟢 最近 10 天在吃貨 +${(b.n10||0).toLocaleString()} 張</b>`:b.st==='出貨中'?`<b style="color:var(--down)">🔴 最近 10 天在出貨 ${(b.n10||0).toLocaleString()} 張</b>`:`<span class="dim">最近沒有明顯動作</span>`;
       return `<div style="padding:8px 0;border-top:1px solid var(--line);font-size:13.5px;line-height:1.65"><b>${b.n}</b>:${tag}<br>
         過去在<b>低檔</b>分 ${b.nb} 天吃進 ${b.bl.toLocaleString()} 張(均價 <b>${fmt(b.bv)}</b>${px?`,現價 ${pc(b.bv)}`:''}),在<b>高檔</b>分 ${b.ns} 天賣出 ${b.sl.toLocaleString()} 張(均價 <b>${fmt(b.sv)}</b>),一買一賣價差 <b style="color:var(--up)">+${b.spread}%</b>。
