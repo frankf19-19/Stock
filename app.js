@@ -1,4 +1,4 @@
-/* K研所 · build r1062 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1063 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1062';
+const APP_BUILD='r1063';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2319,7 +2319,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1062</span>');
+  diag.push('<span style="color:var(--dim)">build r1063</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -9991,9 +9991,13 @@ async function brokerTagsLoad(){if(BROKER_TAGS!==null)return BROKER_TAGS;BROKER_
 const TAG_COL={'外資':'var(--t-blue)','隔日沖':'var(--amber)','短線':'var(--txt2)','波段':'var(--up)','一般':'var(--dim)'};
 function bkTag(name){const t=BROKER_TAGS&&BROKER_TAGS[name];if(!t)return '';return `<span class="bktag" style="color:${TAG_COL[t.tag]||'var(--dim)'};border-color:${TAG_COL[t.tag]||'var(--dim)'}" title="全市場 ${t.n} 次進出・${t.stocks} 檔・隔日沖率 ${t.dt}%・平均連買 ${t.run} 天">${t.tag}</span>`;}
 async function bkLoad(sid){
-  const k=twShardKey(sid);
-  if(BKCACHE[k]===undefined){BKCACHE[k]=null;try{const r=await fT('bk/tw'+k+'.json?v='+kv(),15000,{cache:'no-store'});if(r&&r.ok)BKCACHE[k]=await r.json();}catch(e){}}
-  return (BKCACHE[k]||{})[sid]||null;
+  // r1063:分點分片 2~3MB,手機 15 秒抓不完就整頁顯示「尚無分點資料」而且不再重試 → 改用共用載入器:45 秒、失敗不記死、最多試 3 次、連 2 次失敗改從 GitHub 原始檔抓
+  const sh='bk/tw'+twShardKey(sid)+'.json';
+  for(let i=0;i<3&&!BKCACHE[sh];i++){
+    await loadShard(BKCACHE,sh);
+    if(!BKCACHE[sh]){SHARD_FAIL_T[sh]=0;await new Promise(r=>setTimeout(r,2000));}
+  }
+  return (BKCACHE[sh]||{})[sid]||null;
 }
 function bkCalc(e){
   if(!e||!e.d||!e.d.length)return null;
@@ -14047,8 +14051,8 @@ async function loadShard(cache,sh){                  // r701:失敗不再毒化�
   if(SHARD_INFLIGHT.has(ik))return SHARD_INFLIGHT.get(ik);
   const p=(async()=>{
   try{
-    const alt=(SHARD_FAIL[sh]||0)>=2&&/^(k|c)\//.test(sh);   // r1059:同網域連 2 次失敗 → 改從 GitHub 原始檔抓(另一條線路)
-    const r=await fT(alt?'https://raw.githubusercontent.com/frankf19-19/Stock/main/'+sh:sh+'?v='+kv(),45000,alt?{}:{cache:'default'});
+    const alt=(SHARD_FAIL[sh]||0)>=2&&/^(k|c|bk)\//.test(sh);   // r1059:同網域連 2 次失敗 → 改從 GitHub 原始檔抓(另一條線路)
+    const r=await fT(alt?'https://raw.githubusercontent.com/frankf19-19/Stock/main/'+sh:sh+'?v='+kv(),45000,alt?{}:{cache:/^bk\//.test(sh)?'no-cache':'default'});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const j=await r.json();
     cache[sh]=j;delete SHARD_FAIL[sh];return j;
