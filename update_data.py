@@ -3746,6 +3746,14 @@ def load_prev():
 
 # ═══════════════ 評分與訊號 ═══════════════
 def avg(a): return sum(a) / len(a)
+_ADJ1 = None
+def _adj1():
+    """r1056:近 400 天除權息因子(tw_adj.py 產生)——52 週高要用還原價"""
+    global _ADJ1
+    if _ADJ1 is None:
+        try: _ADJ1 = json.load(open("adj1y.json", encoding="utf-8")).get("s") or {}
+        except Exception: _ADJ1 = {}
+    return _ADJ1
 
 def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
     sid, is_tw = c["id"], c["market"] == "TW"
@@ -3843,14 +3851,41 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
             if last > hi and lo and (hi - lo) / lo < 0.15 and T >= 65:
                 sig.append({"type": "break", "label": "突破整理區",
                     "desc": f"站上平台高點 {hi:.1f},整理區間僅 {(hi-lo)/lo*100:.0f}%,綜合 {T} 分"})
-        h20 = max(c60[-20:]); ma60_v = avg(c60)
-        off = pct(last, h20); d60 = pct(last, ma60_v)
-        if T >= 64 and off <= -7 and -4 <= d60 <= 4:
-            sig.append({"type": "dip", "label": "下殺近關鍵價",
-                "desc": f"自波段高點回檔 {abs(off):.0f}%,回測季線 {ma60_v:.1f} 附近,綜合 {T} 分"})
-        if T >= 78 and last > ma20 and bull:
-            sig.append({"type": "strong", "label": "三力強勢",
-                "desc": f"綜合 {T} 分,多頭排列沿 20MA 推進"})
+    # r1056:🎯 回檔機會、💪 三力強勢 改良版(2012~2026 全市場實測,2012-18 挑規則、2019-26 驗證)
+    #   舊版:回檔機會 −0.33%、三力強勢 +0.32%(之後 20 天比大盤,年份不穩)→ 都沒效果,換成下面兩條
+    #   💪 三力強勢:營收年增 >20% + 外資或投信 5 日買超 + 離 52 週高 ≤5% + 均線多頭 → +1.95%(訓練 +1.84 / 驗證 +2.02,14/14 年;60 天 +4.44%)
+    #   🎯 回檔機會:均線多頭、離 52 週高 5~15%、回到月線 ±3%、營收年增 >20% → +1.04%(訓練 +0.95 / 驗證 +1.11,14/14 年;60 天 +2.81%)
+    if is_tw and n >= 250:
+        try:
+            yoy_ = rv[0] if rv else None
+            AJ = _adj1().get(sid) or []; ds_ = bars.get("d") or []
+            def fa(i):
+                d_ = ds_[i] if i < len(ds_) else None
+                if not d_ or not AJ: return 1.0
+                f_ = 1.0
+                for x_ in AJ:
+                    if d_ < x_[0]: f_ *= x_[1]
+                return f_
+            hi250 = max(o[i][1] * fa(i) for i in range(n - 250, n))
+            phi = max(o[i][1] * fa(i) for i in range(n - 251, n - 1))
+            pth = last / hi250 if hi250 else 0
+            ma240 = avg(closes[-240:]); ma60p = avg(closes[-65:-5])
+            trend = last > ma60 and last > ma240 and ma60 > ma60p
+            b20 = pct(last, ma20); new52 = last > phi
+            inst_ok = c_raw.get("f5", 0) > 0 or c_raw.get("t5", 0) > 0
+            liq_ok = avg(vols[-20:]) * last >= 20000                    # 20 日均成交值 ≥ 2,000 萬(回測同條件)
+            who = "、".join(x for x, k in (("外資", "f5"), ("投信", "t5")) if c_raw.get(k, 0) > 0)
+            if liq_ok and yoy_ is not None and yoy_ > 20 and inst_ok and pth >= 0.95 and trend:
+                sig.append({"type": "strong", "label": "三力強勢" + ("・創52週新高" if new52 else ""),
+                    "desc": f"營收年增 {yoy_:+.0f}%・{who} 5 日買超・離 52 週高 {(pth-1)*100:.1f}%、均線多頭"
+                            + ("・今天創 52 週新高" if new52 else "")
+                            + f"——實測之後 20 天平均比大盤 {'+2.46' if new52 else '+1.95'}%(14/14 年;約一半個股會輸大盤,宜分散)"})
+            if liq_ok and yoy_ is not None and yoy_ > 20 and trend and 0.85 <= pth < 0.95 and abs(b20) <= 3:
+                sig.append({"type": "dip", "label": "回檔機會",
+                    "desc": f"強勢股回到月線 {ma20:.1f}(乖離 {b20:+.1f}%)・離 52 週高 {(pth-1)*100:.1f}%・營收年增 {yoy_:+.0f}%"
+                            + "——實測之後 20 天平均比大盤 +1.04%(14/14 年;約一半個股會輸大盤,宜分散)"})
+        except Exception:
+            pass
     if sig: out["sig"] = sig
     return out
 

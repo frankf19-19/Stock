@@ -1,4 +1,4 @@
-/* K研所 · build r1055 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1057 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1055';
+const APP_BUILD='r1057';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2303,7 +2303,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1055</span>');
+  diag.push('<span style="color:var(--dim)">build r1057</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -14726,8 +14726,8 @@ const STRATS=[
   ['whale','🐋 大戶進場'],
   ['nh52','🏔 創 52 週新高 ✅'],
   ['break','🚀 帶量突破'],
-  ['dip','🎯 回檔機會'],
-  ['strong','💪 三力強勢'],
+  ['dip','🎯 回檔機會 ✅'],
+  ['strong','💪 三力強勢 ✅'],
   ['turtle','🐢 海龜突破'],
   ['zt8','⚡ 漲停8招'],
   ['gem','💎 蓄勢好股'],
@@ -14870,7 +14870,7 @@ function radarItems(){
 }
 /* r1055:雷達每張卡標「📏 離 52 週高」——突破類訊號在高點附近 ✅ 有效、在低位置 ✅ 反而偏弱(2012~2026 實測) */
 function radarPos(s,g){
-  try{const P=s&&s.p52;if(!P||g.type==='nh52')return '';const d=(P.pth-1)*100,z=P.z;
+  try{const P=s&&s.p52;if(!P||g.type==='nh52'||g.type==='strong'||g.type==='dip')return '';const d=(P.pth-1)*100,z=P.z;
     const brk=g.type==='break'||g.type==='turtle';
     const zt=z==='near'?'<b style="color:var(--up)">強勢區</b>':z==='far'?'<b style="color:var(--down)">低位置</b>':'中間區';
     const x=brk?(z==='near'?'高點附近的突破 ✅ 實測 20 天平均比大盤 +1.6%':z==='far'?'⚠ 低位置突破 ✅ 實測 20 天平均比大盤 −1.8%(常是假突破)':'中間區突破 ✅ 實測 20 天平均比大盤 −0.5%')
