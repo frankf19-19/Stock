@@ -221,6 +221,7 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .radar-note{font-size:13px;color:var(--dim);margin-top:8px}
 
 .tg-whale{background:rgba(199,146,234,.12);color:#D9B8F5;border:1px solid rgba(199,146,234,.4)}
+.tg-nh52{background:rgba(229,72,77,.15);color:var(--up);border:1px solid rgba(229,72,77,.4)}
 .tg-turtle{background:rgba(91,217,192,.12);color:var(--down);border:1px solid rgba(91,217,192,.45)}
 .tg-zt8{background:rgba(255,214,102,.12);color:#FFD666;border:1px solid rgba(255,214,102,.45)}
 .tg-gem{background:rgba(199,146,234,.10);color:#C792EA;border:1px solid rgba(199,146,234,.42)}

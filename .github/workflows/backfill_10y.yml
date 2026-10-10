@@ -41,6 +41,6 @@ jobs:
         if: steps.gate.outputs.run == '1'
         run: |
           git config user.name "kyansuo-bot"; git config user.email "bot@users.noreply.github.com"
-          git add archive/ brain_study.json aipick_v2_model.json brain_v2_log.json 2>/dev/null || git add archive/
+          git add archive/ adj1y.json brain_study.json aipick_v2_model.json brain_v2_log.json 2>/dev/null || git add archive/ adj1y.json
           git commit -m "archive: 長期歷史回補 $(date +'%m-%d %H:%M')" -q || exit 0
           for i in 1 2 3 4 5; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 8; done

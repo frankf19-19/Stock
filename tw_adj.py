@@ -35,4 +35,17 @@ def main(budget_sec=1500, log=print):
     os.makedirs("archive", exist_ok=True)
     with gzip.open(OUT, "wt", encoding="utf-8") as f: json.dump(H, f, separators=(",", ":"))
     log(f"tw_adj:本次 {n} 檔,共 {len(S)} 檔有資料,{int(time.time()-t0)} 秒")
-if __name__ == "__main__": main()
+    write_1y(H)
+def write_1y(H=None):
+    """r1055:網站用的「近 400 天除權息因子」小檔 adj1y.json(📏 離 52 週高要用還原價,不然除息後會看起來離高點比較遠)"""
+    if H is None:
+        try: H = json.load(gzip.open(OUT, "rt"))
+        except Exception: return
+    cut = (datetime.date.today() - datetime.timedelta(days=400)).isoformat()
+    s = {sid: [[d, f] for d, f in v if d >= cut] for sid, v in (H.get("s") or {}).items()}
+    s = {k: v for k, v in s.items() if v}
+    with open("adj1y.json", "w", encoding="utf-8") as f: json.dump({"u": H.get("updated"), "s": s}, f, separators=(",", ":"))
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "1y": write_1y()
+    else: main()
