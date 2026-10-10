@@ -1,4 +1,4 @@
-/* K研所 · build r1058 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1059 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1058';
+const APP_BUILD='r1059';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1121,6 +1121,7 @@ async function favStateFill(){
   const ids=favList();
   Object.keys(FAVST).forEach(favStPaint);                       // 先把已算好的補回重繪後的卡片
   if(window.__favStRun)return;window.__favStRun=1;             // 上一輪還在跑就不重複開(它會用最新的元素)
+  let needRetry=false;
   try{for(const id of ids){
     if(!document.getElementById('favBox'))break;             // 已離開頁面
     const s=(DATA.stocks||[]).find(x=>x.id===id);
@@ -1128,7 +1129,11 @@ async function favStateFill(){
     if(FAVST[id]&&Date.now()-FAVST[id].t<5*60e3){favStPaint(id);continue;}
     try{
       const k=await loadK(s);
-      if(!k||k.demo||!k.ohlc||!k.ohlc.length){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— K 線資料暫缺,無法判讀狀態',plan:null};favStPaint(id);continue;}
+      if(!k||k.demo||!k.ohlc||!k.ohlc.length){   // r1059:多半是手機網路慢、K 線分片下載逾時 → 15 秒後自動重試(最多 4 次),不再一直顯示「暫缺」
+        const tries=((FAVST[id]&&FAVST[id].kfail)||0)+1;
+        try{const sh=shardOf(s);SHARD_FAIL_T[sh]=0;}catch(e2){}   // 讓下次重試不被「休息 1 分鐘」擋住;失敗次數保留(≥2 次改走 GitHub 原始檔)
+        FAVST[id]={t:tries<4?Date.now()-(5*60e3-15e3):Date.now(),kfail:tries,cls:'fst-wait',html:tries<4?'⏳ K 線載入中(網路較慢,15 秒後自動重試)':'— K 線讀取失敗,請下拉重新整理',plan:null};
+        favStPaint(id);if(tries<4)needRetry=true;continue;}
       const st=favState(s,k.ohlc);
       try{await aipLoad();}catch(e){}
       let plan='',own=false;
@@ -1141,7 +1146,8 @@ async function favStateFill(){
       favStPaint(id);
     }catch(e){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— 狀態判讀失敗,稍後自動重試',plan:null};FAVST[id].t-=4*60e3;favStPaint(id);}
     await new Promise(r=>setTimeout(r,80));
-  }}finally{window.__favStRun=0;}
+  }}finally{window.__favStRun=0;
+    if(needRetry&&!window.__favRetryT)window.__favRetryT=setTimeout(()=>{window.__favRetryT=0;try{favStateFill();}catch(e){}},15000);}
 }
 function renderFav(force){
   const box=document.getElementById('favBox');
@@ -2311,7 +2317,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1058</span>');
+  diag.push('<span style="color:var(--dim)">build r1059</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -13991,7 +13997,7 @@ const KCACHE={};
 function twShardKey(id){const t=String(id);return t.slice(0,2)==='00'?t.slice(0,3):t.slice(0,2);}
 function shardOf(s){return s.market==='TW'?`k/tw${twShardKey(s.id)}.json`:`k/us_${s.id[0].toLowerCase()}.json`;}
 function chipShardOf(id){return `c/tw${twShardKey(id)}.json`;}
-const SHARD_FAIL={},SHARD_IDX={};
+const SHARD_FAIL={},SHARD_FAIL_T={},SHARD_IDX={};
 async function shardList(dir){                       // r701:分片粒度改由後端 index.json 決定,前端不再寫死 0~9
   if(SHARD_IDX[dir])return SHARD_IDX[dir];
   try{const r=await fT(dir+'/index.json?v='+kv(),15000,{cache:'default'});
@@ -14034,16 +14040,17 @@ function lazyRun(sel,fn,everyMs){
 
 async function loadShard(cache,sh){                  // r701:失敗不再毒化快取,且吃瀏覽器快取(URL 已帶 ?v= 版本號)
   if(cache[sh]&&cache[sh]!=='loading')return cache[sh];
-  if((SHARD_FAIL[sh]||0)>=3)return {};               // 連三次失敗才放棄,不像舊版一次逾時就整場報廢
+  if((SHARD_FAIL[sh]||0)>=3&&Date.now()-(SHARD_FAIL_T[sh]||0)<60e3)return {};   // 連三次失敗 → 先休息 1 分鐘再試(r1059:不再整場放棄)
   const ik=(cache===CCACHE?'c|':'k|')+sh;            // r701:六個掃描器常同時要同一片,去重可省下大量重覆下載
   if(SHARD_INFLIGHT.has(ik))return SHARD_INFLIGHT.get(ik);
   const p=(async()=>{
   try{
-    const r=await fT(sh+'?v='+kv(),45000,{cache:'default'});
+    const alt=(SHARD_FAIL[sh]||0)>=2&&/^(k|c)\//.test(sh);   // r1059:同網域連 2 次失敗 → 改從 GitHub 原始檔抓(另一條線路)
+    const r=await fT(alt?'https://raw.githubusercontent.com/frankf19-19/Stock/main/'+sh:sh+'?v='+kv(),45000,alt?{}:{cache:'default'});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const j=await r.json();
     cache[sh]=j;delete SHARD_FAIL[sh];return j;
-  }catch(e){SHARD_FAIL[sh]=(SHARD_FAIL[sh]||0)+1;return {};}
+  }catch(e){SHARD_FAIL[sh]=(SHARD_FAIL[sh]||0)+1;SHARD_FAIL_T[sh]=Date.now();return {};}
   finally{SHARD_INFLIGHT.delete(ik);}
   })();
   SHARD_INFLIGHT.set(ik,p);
