@@ -101,7 +101,9 @@ def backup(force=False):
     st_p = "bkall/_backup.json"
     try: st = json.load(open(st_p))
     except Exception: st = {}
-    if not force and time.time() - st.get("t", 0) < 6.5 * 86400: return st
+    size = sum(os.path.getsize(p) for p in files)
+    every = 1 if size < 1.5e9 else 6.5                            # r1060:資料還小時每天整包備份;變大後每週(平時靠每班新增 delta)
+    if not force and time.time() - st.get("t", 0) < every * 86400: return st
     ensure("bkall-backup", "全部券商分點歷史備份")
     os.makedirs(f"{TMP}/bak", exist_ok=True); groups = {}
     for p in files: groups.setdefault(os.path.basename(os.path.dirname(p))[:2], []).append(p)
