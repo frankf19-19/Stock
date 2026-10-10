@@ -74,9 +74,17 @@ def load_stock(sid, years=None):
     return out
 
 
-def merge(buf):
-    """buf = {sid: {(日期, 券商): (買張, 賣張, 買均價, 賣均價)}} → 依年份附加到每檔檔案"""
+RUN = os.environ.get("GITHUB_RUN_ID") or dt.datetime.now(TZ).strftime("%Y%m%d%H%M%S")
+def merge(buf, delta=True):
+    """buf = {sid: {(日期, 券商): (買張, 賣張, 買均價, 賣均價)}} → 依年份附加到每檔檔案
+    r1060:同時寫一份「本班新增」到 bkall/_delta/<run>.tsv.gz → 收班時上傳 GitHub Releases(bkall-delta-年-月)永久保存,
+          每一班抓到的都立刻有網站自己的備份,不靠 Actions 快取、也不靠 FinMind"""
     lo = _lo()
+    if delta and buf:
+        os.makedirs(os.path.join(ALL, "_delta"), exist_ok=True)
+        with gzip.open(os.path.join(ALL, "_delta", f"{RUN}.tsv.gz"), "at", encoding="utf-8") as f:
+            for sid, rows in buf.items():
+                f.writelines(f"{sid}\t{d}\t{nm}\t{v[0]:g}\t{v[1]:g}\t{v[2]:g}\t{v[3]:g}\n" for (d, nm), v in sorted(rows.items()) if d >= lo)
     for sid, rows in buf.items():
         by = {}
         for (d, nm), v in rows.items():

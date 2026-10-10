@@ -79,6 +79,21 @@ def bkall_days():
     return out
 
 
+def deltas():
+    """r1060:每班新抓到的全券商分點(bkall/_delta/<run>.tsv.gz)→ Releases bkall-delta-<年-月>,上傳成功才刪本機"""
+    fs = sorted(glob.glob("bkall/_delta/*.tsv.gz"))
+    if not fs: return 0
+    tag = f"bkall-delta-{dt.datetime.now().strftime('%Y-%m')}"
+    ensure(tag, f"全部券商分點・每班新增 {tag[-7:]}")
+    n = 0
+    for p in fs:
+        try:
+            gh("release", "upload", tag, p, "--clobber"); os.remove(p); n += 1
+        except Exception as e: log(f"  每班新增上傳失敗(下班再傳):{e}")
+    log(f"  全券商每班新增:上傳 {n} 檔 → {tag}")
+    return n
+
+
 def backup(force=False):
     """bkall/ 每週備份(依代號前兩碼分包)"""
     files = sorted(glob.glob("bkall/[0-9]*/*.tsv.gz"))
@@ -116,13 +131,31 @@ def restore():
     for extra in ("_state.json", "_brokers.json"):
         p = f"{TMP}/rest/{extra}"
         if os.path.exists(p): os.replace(p, f"bkall/{extra}")
-    log(f"從備份還原全券商歷史:{n} 包"); return True
+    log(f"從備份還原全券商歷史:{n} 包")
+    try:                                                       # r1060:再把每班新增(備份之後抓的)依序補上
+        import bkall
+        tags = sorted(r["tag_name"] for r in json.loads(subprocess.run(["gh", "api", f"repos/{REPO}/releases?per_page=100"], capture_output=True, text=True).stdout or "[]") if str(r.get("tag_name", "")).startswith("bkall-delta-"))
+        k = 0
+        for tag in tags:
+            os.makedirs(f"{TMP}/delta/{tag}", exist_ok=True)
+            gh("release", "download", tag, "-D", f"{TMP}/delta/{tag}", "--clobber")
+            for p in sorted(glob.glob(f"{TMP}/delta/{tag}/*.tsv.gz")):
+                buf = {}
+                for ln in gzip.open(p, "rt", encoding="utf-8"):
+                    x = ln.rstrip("\n").split("\t")
+                    if len(x) == 7: buf.setdefault(x[0], {})[(x[1], x[2])] = tuple(float(v) for v in x[3:])
+                bkall.merge(buf, delta=False); k += 1
+        log(f"  每班新增補回:{k} 檔")
+    except Exception as e: log(f"  每班新增補回失敗:{e}")
+    return True
 
 
 def main():
     st = {"t": dt.datetime.now().strftime("%Y-%m-%d %H:%M")}
     try: st["bk15"] = bk15()
     except Exception as e: st["bk15_err"] = str(e)[:300]; log(f"bk15 失敗:{e}")
+    try: st["delta"] = deltas()
+    except Exception as e: st["delta_err"] = str(e)[:300]; log(f"每班新增失敗:{e}")
     try: st["bkall_days"] = bkall_days()[-5:]
     except Exception as e: st["bkall_err"] = str(e)[:300]; log(f"全券商每日失敗:{e}")
     try:
