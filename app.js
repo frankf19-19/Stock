@@ -1,4 +1,4 @@
-/* K研所 · build r1068 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1069 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1068';
+const APP_BUILD='r1069';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1212,8 +1212,30 @@ function favQuickBar(box,ids,byId){
   if(!q){q=document.createElement('div');q.id='favQuick';box.parentNode.insertBefore(q,box);}
   const kw=(document.getElementById('favQ')||{}).value||'';
   const chip=s=>{const c=+s.chg||0;return `<button type="button" class="fq-chip ${c>0?'up':c<0?'dn':''}" data-fq="${s.id}">${s.name}<small>${c>0?'+':''}${c.toFixed(1)}%</small></button>`;};
-  q.innerHTML=`<input id="favQ" type="search" enterkeyhint="search" autocomplete="off" placeholder="🔍 找最愛:輸入代號或名稱(共 ${list.length} 檔)" value="${kw.replace(/"/g,'&quot;')}">
+  q.innerHTML=`<div class="fq-tt">⚡ 最愛快選 <small>${list.length} 檔 · 點名稱直接跳到那檔</small></div><input id="favQ" type="search" enterkeyhint="search" autocomplete="off" placeholder="🔍 找最愛:輸入代號或名稱(共 ${list.length} 檔)" value="${kw.replace(/"/g,'&quot;')}">
     <div class="fq-row">${list.map(chip).join('')}</div>`;
+  const row=q.querySelector('.fq-row'),side=()=>getComputedStyle(q).position==='fixed';
+  // 電腦版:寬螢幕 = 左側固定清單(跟著最愛區塊頂端、捲動時停在上方,並標出目前看到哪一檔);窄一點的電腦視窗 = 橫列,滑鼠滾輪可直接左右捲
+  row.onwheel=e=>{if(side()||row.scrollWidth<=row.clientWidth||Math.abs(e.deltaX)>Math.abs(e.deltaY))return;row.scrollLeft+=e.deltaY;e.preventDefault();};
+  if(!q.__pos){
+    let raf=0;
+    const pos=()=>{raf=0;
+      if(!document.body.contains(q)){window.removeEventListener('scroll',on);window.removeEventListener('resize',on);return;}
+      const iq=q.querySelector('#favQ'),n=q.querySelectorAll('.fq-chip').length;
+      if(!side()){q.style.removeProperty('--fqTop');if(iq)iq.placeholder=`🔍 找最愛:輸入代號或名稱(共 ${n} 檔)`;return;}
+      if(iq)iq.placeholder='🔍 代號或名稱';
+      q.style.setProperty('--fqTop',Math.max(16,Math.round(box.getBoundingClientRect().top))+'px');
+      const cur=new Set();let t0=null;   // 兩欄排列時,同一列的兩檔都標起來
+      for(const c of box.querySelectorAll('.r-card[data-id]')){if(c.style.display==='none')continue;const r=c.getBoundingClientRect();
+        if(t0===null){if(r.bottom>90){t0=r.top;cur.add(c.dataset.id);}}else if(Math.abs(r.top-t0)<6)cur.add(c.dataset.id);else if(r.top>t0+6)break;}
+      let first=true;
+      q.querySelectorAll('.fq-chip').forEach(b=>{const on=cur.has(b.dataset.fq);b.classList.toggle('fq-on',on);
+        if(on&&first){first=false;const rw=q.querySelector('.fq-row'),bt=b.offsetTop-rw.offsetTop;if(bt<rw.scrollTop||bt+b.offsetHeight>rw.scrollTop+rw.clientHeight)rw.scrollTop=bt-rw.clientHeight/2;}});
+    };
+    const on=()=>{if(!raf)raf=requestAnimationFrame(pos);};
+    window.addEventListener('scroll',on,{passive:true});window.addEventListener('resize',on);q.__pos=on;
+  }
+  setTimeout(q.__pos,0);
   const filt=v=>{v=(v||'').trim().toLowerCase();
     box.querySelectorAll('.r-card[data-id]').forEach(c=>{const s=byId[c.dataset.id]||{};c.style.display=!v||String(c.dataset.id).toLowerCase().includes(v)||String(s.name||'').toLowerCase().includes(v)?'':'none';});
     q.querySelectorAll('.fq-chip').forEach(b=>{const s=byId[b.dataset.fq]||{};b.style.display=!v||b.dataset.fq.toLowerCase().includes(v)||String(s.name||'').toLowerCase().includes(v)?'':'none';});};
@@ -1221,7 +1243,7 @@ function favQuickBar(box,ids,byId){
   q.querySelectorAll('.fq-chip').forEach(b=>b.onclick=()=>{
     const c=box.querySelector(`.r-card[data-id="${b.dataset.fq}"]`);if(!c)return;
     if(c.style.display==='none'){inp.value='';filt('');}
-    const y=c.getBoundingClientRect().top+window.scrollY-(q.offsetHeight+12);
+    const y=c.getBoundingClientRect().top+window.scrollY-(side()?16:q.offsetHeight+12);
     window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
     c.classList.remove('fq-hit');void c.offsetWidth;c.classList.add('fq-hit');setTimeout(()=>c.classList.remove('fq-hit'),1600);
   });
@@ -2345,7 +2367,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1068</span>');
+  diag.push('<span style="color:var(--dim)">build r1069</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
