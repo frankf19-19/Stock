@@ -1,0 +1,45 @@
+name: 📰 每日產業早報
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "今天已產生也重做一次(1=是)"
+        required: false
+        default: "0"
+  schedule:
+    - cron: "35 22 * * *"    # 台北 06:35
+    - cron: "35 23 * * *"    # 台北 07:35(備援;當天已產生就跳過,零成本)
+permissions:
+  contents: write
+concurrency:
+  group: news
+  cancel-in-progress: false
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+      - name: 設定 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 安裝套件
+        run: pip install requests
+      - name: 產生早報
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          FORCE: ${{ github.event.inputs.force }}
+          PYTHONUNBUFFERED: "1"
+        run: python fetch_news.py
+      - name: 提交結果
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add news.json news/ 2>/dev/null || true
+          git commit -m "產業早報更新 [CI Skip]" || { echo "無變更"; exit 0; }
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && break
+            echo "推送失敗,重試 $i"; sleep $((i*7))
+          done
