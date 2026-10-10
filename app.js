@@ -1,4 +1,4 @@
-/* K研所 · build r1064 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1065 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1064';
+const APP_BUILD='r1065';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2319,7 +2319,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1064</span>');
+  diag.push('<span style="color:var(--dim)">build r1065</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -7340,7 +7340,8 @@ function stkReorderSections(s){                            // r501:個股頁資�
           window.__chapGo=go;
           const dv=document.getElementById('detailView');
           if(dv&&!dv.__swipe){dv.__swipe=1;let sx=0,sy=0,ok=false;
-            dv.addEventListener('touchstart',e=>{const t=e.touches[0];sx=t.clientX;sy=t.clientY;ok=!e.target.closest('canvas,.chart-box,[_echarts_instance_],table,.ait-tw,.kseg-row,.chips,.mob-jump,.toolbar,pre,#chapTabs,input,select,textarea');},{passive:true});
+            const hScroll=el=>{for(let n=el;n&&n!==dv;n=n.parentElement){try{const ox=getComputedStyle(n).overflowX;if((ox==='auto'||ox==='scroll')&&n.scrollWidth>n.clientWidth+2)return true;}catch(x){}}return false;};   // r1065:可左右捲動的列(章節小分類等)滑動時不換章
+            dv.addEventListener('touchstart',e=>{const t=e.touches[0];sx=t.clientX;sy=t.clientY;ok=!e.target.closest('canvas,.chart-box,[_echarts_instance_],table,.ait-tw,.kseg-row,.chips,.mob-jump,.toolbar,pre,#chapTabs,#chapSub,input,select,textarea')&&!hScroll(e.target);},{passive:true});
             dv.addEventListener('touchend',e=>{if(!ok)return;const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;if(Math.abs(dx)>70&&Math.abs(dy)<45&&Math.abs(dx)>Math.abs(dy)*2)go(dx<0?1:-1);},{passive:true});}
           const foot=document.getElementById('chapFoot')||document.createElement('div');foot.id='chapFoot';
           const nm=Object.fromEntries(tabs);
