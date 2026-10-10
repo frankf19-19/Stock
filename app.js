@@ -1,4 +1,4 @@
-/* K研所 · build r1057 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1058 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1057';
+const APP_BUILD='r1058';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1025,6 +1025,14 @@ function actionPlan(o,id,px,own,cost,dates){
     const ch=[cr.f5!=null?`外資 5 日${z(cr.f5)}`:'',cr.t5!=null&&cr.t5!==0?`投信${z(cr.t5)}`:'',cr.bigw?`大戶持股週${cr.bigw>0?'增':'減'} ${Math.abs(cr.bigw).toFixed(2)}%`:''].filter(Boolean).join('、');
     diagTxt=[ch,cr.t5>0?`<span style="font-size:11.5px;color:var(--dim)">(投信買超 ✅ 實測之後 20 天平均比大盤 <b style="color:var(--up)">+0.52%</b>)</span>`:''].filter(Boolean).join(' ');}catch(e){}
   const POS=posCalc(o,dates,id,px);   // r1055:📏 離 52 週高(除權息還原)
+  try{const so=(DATA.stocks||[]).find(x=>x.id===id)||{},cr=(so.c&&so.c.raw)||{};   // r1057:集保近 4 週(2015~2026 實測)
+    if(cr.pw4!=null){const z=POS&&POS.z;let v='';
+      if(cr.pw4<=-5)v=` ✅${VT_OK('股東人數 4 週減 ≥5%(籌碼集中)・實測',1.23)}`;
+      else if(cr.pw4>=5)v=` ✅${VT_OK('股東人數 4 週增 ≥5%(散戶湧入)・實測',z==='far'?-0.92:-0.55)}`;
+      else v=VT_OK('人數小幅變化,實測沒有明顯好壞',null);
+      let t=`集保 ${String(cr.tdw||'').slice(5).replace('-','/')}:近 4 週股東人數 <b>${cr.pw4>=0?'+':''}${cr.pw4}%</b>、400 張大戶 ${cr.bw4>=0?'+':''}${cr.bw4} 個百分點${v}`;
+      if(cr.bigw>=0.7&&z==='far')t+=`<br>大戶本週加碼,但位置低(離 52 週高 >20%) ✅${VT_OK('實測',-0.85)}`;
+      diagTxt=(diagTxt?diagTxt+'<br>':'')+t;}}catch(e){}
   const L=(ic,lab,txt)=>`<div style="display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><div style="min-width:64px;font-weight:900">${ic} ${lab}</div><div>${txt}</div></div>`;
   return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
     <div style="padding:2px 0 2px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
@@ -2303,7 +2311,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1057</span>');
+  diag.push('<span style="color:var(--dim)">build r1058</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -14723,7 +14731,7 @@ function renderPulse(){
 let curStrat='all';
 const STRATS=[
   ['all','⭐ 全部'],
-  ['whale','🐋 大戶進場'],
+  ['whale','🐋 大戶進場 ✅'],
   ['nh52','🏔 創 52 週新高 ✅'],
   ['break','🚀 帶量突破'],
   ['dip','🎯 回檔機會 ✅'],
@@ -14870,7 +14878,7 @@ function radarItems(){
 }
 /* r1055:雷達每張卡標「📏 離 52 週高」——突破類訊號在高點附近 ✅ 有效、在低位置 ✅ 反而偏弱(2012~2026 實測) */
 function radarPos(s,g){
-  try{const P=s&&s.p52;if(!P||g.type==='nh52'||g.type==='strong'||g.type==='dip')return '';const d=(P.pth-1)*100,z=P.z;
+  try{const P=s&&s.p52;if(!P||g.type==='nh52'||g.type==='strong'||g.type==='dip'||g.type==='whale')return '';const d=(P.pth-1)*100,z=P.z;
     const brk=g.type==='break'||g.type==='turtle';
     const zt=z==='near'?'<b style="color:var(--up)">強勢區</b>':z==='far'?'<b style="color:var(--down)">低位置</b>':'中間區';
     const x=brk?(z==='near'?'高點附近的突破 ✅ 實測 20 天平均比大盤 +1.6%':z==='far'?'⚠ 低位置突破 ✅ 實測 20 天平均比大盤 −1.8%(常是假突破)':'中間區突破 ✅ 實測 20 天平均比大盤 −0.5%')

@@ -3746,6 +3746,16 @@ def load_prev():
 
 # ═══════════════ 評分與訊號 ═══════════════
 def avg(a): return sum(a) / len(a)
+_TDH = None
+def _tdh():
+    """r1057:集保多年週資料(archive/tdcc_hist.json.gz:≥400 張 %、總人數…)"""
+    global _TDH
+    if _TDH is None:
+        try:
+            import gzip as _gz
+            _TDH = json.load(_gz.open("archive/tdcc_hist.json.gz", "rt")).get("s") or {}
+        except Exception: _TDH = {}
+    return _TDH
 _ADJ1 = None
 def _adj1():
     """r1056:近 400 天除權息因子(tw_adj.py 產生)——52 週高要用還原價"""
@@ -3833,16 +3843,24 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
         off = pct(last, hi130)
         c_kv["距波段高點"] = f"{off:+.1f}%"
         cs += 10 if off > -8 else (-8 if off < -20 else 0)
+    if is_tw:                                                 # r1057:集保近 4 週(400 張大戶 %、股東人數)
+        try:
+            th = _tdh().get(sid)
+            if th and len(th.get("d") or []) >= 5 and th["p"][-5]:
+                import datetime as _dt
+                if (_dt.date.fromisoformat(th["d"][-1]) - _dt.date.fromisoformat(th["d"][-5])).days <= 35:
+                    c_raw["bw4"] = round(th["b4"][-1] - th["b4"][-5], 2)
+                    c_raw["pw4"] = round((th["p"][-1] / th["p"][-5] - 1) * 100, 2)
+                    c_raw["tdw"] = th["d"][-1]
+        except Exception:
+            pass
     out["c"] = {"score": clamp(cs), "kv": c_kv or {"籌碼": "—"}, "raw": c_raw,
                 "note": "籌碼偏多。" if cs >= 68 else "籌碼中性。" if cs >= 45 else "籌碼偏空。"}
 
     # 訊號(伺服器端計算,首頁機會雷達直接使用)
     T = round(out["f"]["score"]*0.40 + out["c"]["score"]*0.35 + out["t"]["score"]*0.25)
     sig = []
-    if c_raw.get("bigw", 0) >= 0.7:
-        sig.append({"type": "whale", "label": "大戶進場",
-            "desc": f"400張大戶持股週增 +{c_raw['bigw']:.2f} 個百分點"
-                    + (",投信同步買超" if c_raw.get("t5", 0) > 0 else "")})
+    # r1057:舊「大戶進場」(400 張大戶週增 ≥0.7 個百分點)實測 +0.41%、前段 +0.07% → 沒效果,改用下面 n≥250 區塊的籌碼集中版
     if n >= 60:
         c60 = closes[-60:]
         prior = c60[-45:-5] if len(c60) >= 45 else c60[:-5]
@@ -3880,6 +3898,13 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
                     "desc": f"營收年增 {yoy_:+.0f}%・{who} 5 日買超・離 52 週高 {(pth-1)*100:.1f}%、均線多頭"
                             + ("・今天創 52 週新高" if new52 else "")
                             + f"——實測之後 20 天平均比大盤 {'+2.46' if new52 else '+1.95'}%(14/14 年;約一半個股會輸大盤,宜分散)"})
+            bw4, pw4 = c_raw.get("bw4"), c_raw.get("pw4")
+            #   🐋 大戶進場(籌碼集中):近 4 週 400 張大戶 +1 個百分點以上、股東人數減 3% 以上、離 52 週高 ≤10%
+            #      → +2.10%(訓練 +1.48 / 驗證 +2.28,12/12 年;60 天 +5.27%)。舊版只看大戶週增 +0.41% 沒效果
+            if liq_ok and bw4 is not None and pw4 is not None and bw4 >= 1 and pw4 <= -3 and pth >= 0.9:
+                sig.append({"type": "whale", "label": "大戶進場",
+                    "desc": f"集保 {str(c_raw.get('tdw',''))[5:].replace('-','/')}:近 4 週 400 張大戶 +{bw4:.1f} 個百分點、股東人數 {pw4:+.1f}%(籌碼集中)・離 52 週高 {(pth-1)*100:.1f}%"
+                            + "——實測之後 20 天平均比大盤 +2.10%(12/12 年;約一半個股會輸大盤,宜分散)"})
             if liq_ok and yoy_ is not None and yoy_ > 20 and trend and 0.85 <= pth < 0.95 and abs(b20) <= 3:
                 sig.append({"type": "dip", "label": "回檔機會",
                     "desc": f"強勢股回到月線 {ma20:.1f}(乖離 {b20:+.1f}%)・離 52 週高 {(pth-1)*100:.1f}%・營收年增 {yoy_:+.0f}%"

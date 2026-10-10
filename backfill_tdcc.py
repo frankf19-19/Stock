@@ -24,13 +24,47 @@ def log(*a): print(*a, flush=True)
 LV9 = {15:0, 14:1, 13:2, 12:3, 11:4, 10:5, 9:6, 8:7,
        1:8, 2:8, 3:8, 4:8, 5:8, 6:8, 7:8}
 
+HIST = "archive/tdcc_hist.json.gz"   # r1057:多年週資料(2012 起由 fetch_tdcc_hist.py 從 FinMind 回補;之後每週由官方 CSV 接上,免費)
+def hist_append(text):
+    """每週集保 CSV → archive/tdcc_hist.json.gz:≥400 張 %(b4)、≥1000 張 %(b10)、≤5 張 %(r5)、總人數(p)"""
+    import gzip
+    rd = csv.reader(io.StringIO(text)); next(rd, None)
+    W, date = {}, None
+    for row in rd:
+        if len(row) < 6: continue
+        sid = row[1].strip()
+        if not (sid.isdigit() and len(sid) == 4): continue
+        try: lv = int(row[2].strip()); pct = float(row[5]); ppl = int(float(str(row[3]).replace(",", "") or 0))
+        except ValueError: continue
+        if date is None:
+            dd = row[0].strip().replace("-", "")
+            if len(dd) >= 8: date = f"{dd[:4]}-{dd[4:6]}-{dd[6:8]}"
+        w = W.setdefault(sid, [0.0, 0.0, 0.0, 0])
+        if 12 <= lv <= 15: w[0] += pct
+        if lv == 15: w[1] += pct
+        if lv in (1, 2): w[2] += pct
+        if lv == 17: w[3] = ppl
+    if not date or not W: return 0
+    try: H = json.load(gzip.open(HIST, "rt"))
+    except Exception: H = {"s": {}}
+    S = H.setdefault("s", {}); n = 0
+    for sid, (b4, b10, r5, p) in W.items():
+        e = S.setdefault(sid, {"d": [], "b4": [], "b10": [], "r5": [], "p": []})
+        if date in e["d"] or (e["d"] and date < e["d"][-1]): continue
+        e["d"].append(date); e["b4"].append(round(b4, 2)); e["b10"].append(round(b10, 2)); e["r5"].append(round(r5, 2)); e["p"].append(p); n += 1
+    if n:
+        H["u"] = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M"); os.makedirs("archive", exist_ok=True)
+        with gzip.open(HIST, "wt", encoding="utf-8") as f: json.dump(H, f, separators=(",", ":"))
+    log(f"  多年集保歷史:{date} 新增 {n} 檔")
+    return n
+
 def git(*args):
     return subprocess.run(["git", *args], capture_output=True, text=True)
 
 def commit_push(msg):
     git("config", "user.name", "bot")
     git("config", "user.email", "bot@users.noreply.github.com")
-    git("add", OUT_FILE, STATE_FILE)
+    git("add", OUT_FILE, STATE_FILE, HIST)
     c = git("commit", "-m", msg + " [CI Skip]")
     if "nothing to commit" in (c.stdout + c.stderr):
         log("  (無變更可提交)"); return
@@ -134,9 +168,12 @@ def main():
     # 1) 官方最新一週
     log("下載集保官方最新 CSV…")
     try:
-        date, data = parse_csv(download(CSV_URL), want)
+        txt = download(CSV_URL)
+        date, data = parse_csv(txt, want)
         log(f"  最新週:{date},{len(data)} 檔")
-        absorb("官方最新", date, data)
+        try: hist_append(txt)                                  # r1057:多年歷史接上(先寫,absorb 會一起提交)
+        except Exception as e2: log(f"  多年集保歷史失敗:{e2}")
+        if not absorb("官方最新", date, data): commit_push(f"TDCC 多年歷史 {date}")
     except Exception as e:
         log(f"⚠ 官方 CSV 下載失敗:{e}(繼續嘗試歷史快照)")
 
