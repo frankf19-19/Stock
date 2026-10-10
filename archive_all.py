@@ -19,6 +19,8 @@ import os, json, gzip, glob, datetime as dt
 
 H = "archive/hist"
 STAT = {}
+SRC = "."                                                          # 讀取來源根目錄(recover_hist.py 會指到舊版快照)
+def P(p): return os.path.join(SRC, p)
 
 
 def log(*a): print(*a, flush=True)
@@ -75,7 +77,7 @@ def aligned(o, skip=("d",)):
 
 
 def etf():
-    for p in glob.glob("e/*.json"):
+    for p in glob.glob(P("e/*.json")):
         e = jload(p)
         if not e or not e.get("d"): continue
         eid = e.get("id") or os.path.basename(p)[:-5]; ds = e["d"]; recs = {}
@@ -91,7 +93,7 @@ def etf():
 
 
 def gov():
-    g = jload("gov.json")
+    g = jload(P("gov.json"))
     if not g: return
     by = {}
     for sid, e in (g.get("s") or {}).items():
@@ -101,19 +103,19 @@ def gov():
 
 def sbl():
     recs = {}
-    for p in glob.glob("sbl/tw*.json"):
+    for p in glob.glob(P("sbl/tw*.json")):
         for sid, e in (jload(p) or {}).items():
             if isinstance(e, dict): recs[sid] = {d: (r.get("v") if list(r) == ["v"] else r) for d, r in aligned(e).items()}
     by_month(f"{H}/sbl", recs, "sbl", nested=True)
 
 
 def taifex():
-    t = jload("taifex.json")
+    t = jload(P("taifex.json"))
     if t: by_month(f"{H}/taifex", t.get("days") or {}, "taifex")
 
 
 def fin_rev():
-    for p in glob.glob("c/tw*.json"):
+    for p in glob.glob(P("c/tw*.json")):
         C = jload(p) or {}; key = os.path.basename(p)[2:-5]
         def fn(A, C=C):
             n = 0
@@ -145,7 +147,7 @@ def fin_rev():
 
 
 def tdcc9():
-    t = jload("tdcc.json")
+    t = jload(P("tdcc.json"))
     if not t or not t.get("d"): return
     by = {}
     for sid, arr in (t.get("s") or {}).items():
@@ -155,10 +157,10 @@ def tdcc9():
 
 
 def market():
-    D = jload("data.json") or {}
+    D = jload(P("data.json")) or {}
     h = ((D.get("macro") or {}).get("credit") or {}).get("h")
     if isinstance(h, dict): by_month(f"{H}/credit", aligned(h), "credit")
-    m = (jload("c/meta.json") or {}).get("mkt")
+    m = (jload(P("c/meta.json")) or {}).get("mkt")
     if isinstance(m, dict): by_month(f"{H}/mkt_inst", aligned(m), "mkt_inst")
     # 新聞標題(大盤 + 個股)
     rows = {}
@@ -172,16 +174,22 @@ def market():
 
 
 def ai_text():
-    g = jload("gooaye.json")
+    g = jload(P("gooaye.json"))
     if g and g.get("ep"):
         upd(f"{H}/gooaye.json.gz", lambda A: put(A, str(g["ep"]), {k: g.get(k) for k in ("t", "dt", "yt", "s")}), "gooaye")
-    c = jload("conf_ai.json")
+    c = jload(P("conf_ai.json"))
     if c and c.get("items"):
         by = {}
         for sid, it in c["items"].items():
             if isinstance(it, dict): by.setdefault(str(it.get("d") or "")[:4] or "x", {})[f"{sid}|{it.get('d')}"] = it
         for y, items in by.items():
             upd(f"{H}/conf_ai/{y}.json.gz", lambda A, items=items: sum(put(A, k, v) for k, v in items.items()), "conf_ai")
+
+
+def run_all(fs=None):
+    for f in (fs or (etf, gov, sbl, taifex, fin_rev, tdcc9, market, ai_text)):
+        try: f()
+        except Exception as e: log(f"  永久紀錄 {f.__name__} 失敗:{e}")
 
 
 def main():

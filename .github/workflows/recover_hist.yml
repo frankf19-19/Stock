@@ -1,0 +1,27 @@
+name: 永久紀錄・從 git 歷史翻出舊資料(一次性)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: recover-hist
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 翻舊版本併進 archive/hist
+        run: timeout 17000 python recover_hist.py
+      - name: 提交
+        run: |
+          git config user.name "kyansuo-bot"; git config user.email "bot@users.noreply.github.com"
+          git add archive/hist archive/rev; git commit -qm "archive: 從 git 歷史翻出舊資料併進永久紀錄 $(date +'%m-%d %H:%M')" || exit 0
+          for i in 1 2 3 4 5; do git pull -q --rebase -X theirs origin main && git push -q && exit 0; sleep 15; done
