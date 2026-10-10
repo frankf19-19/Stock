@@ -1,0 +1,28 @@
+name: FinMind 用量檢查(只讀 user_info,不耗額度)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  u:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 讀用量
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request, urllib.parse, datetime
+          u = "https://api.web.finmindtrade.com/v2/user_info?" + urllib.parse.urlencode({"token": os.environ["FINMIND_TOKEN"]})
+          j = json.load(urllib.request.urlopen(u, timeout=30))
+          out = {"t": (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M"),
+                 "level": j.get("level_title"), "used_this_hour": j.get("user_count"), "limit_hour": j.get("api_request_limit_hour"),
+                 "sponsor_until": (j.get("SponsorInfo") or {}).get("subscription_expired_date")}
+          os.makedirs("bk", exist_ok=True); json.dump(out, open("bk/_fm_usage.json", "w"), ensure_ascii=False); print(out)
+          PY
+      - name: 提交
+        run: |
+          git config user.name "kyansuo-bot"; git config user.email "bot@users.noreply.github.com"
+          git add bk/_fm_usage.json; git commit -qm "FinMind 用量 $(date +'%m-%d %H:%M')" || exit 0
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q && exit 0; sleep 10; done
