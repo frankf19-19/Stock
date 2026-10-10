@@ -1,0 +1,20 @@
+{
+ "t": "2026-10-10 07:18",
+ "sponsor": true,
+ "sponsor_expired": "2026-11-10",
+ "level": "Sponsor",
+ "backfill": {
+  "days": 9,
+  "last": "2026-10-10 12:29"
+ },
+ "coverage": {
+  "stocks": 1916,
+  "days": 9,
+  "from": "2026-09-24",
+  "to": "2026-10-08"
+ },
+ "swing": {
+  "stocks": 0,
+  "ready": false
+ }
+}
