@@ -1,4 +1,4 @@
-/* K研所 · build r1075 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1076 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1075';
+const APP_BUILD='r1076';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -519,8 +519,10 @@ const APP_BUILD='r1075';
 async function boot(){
   if(MINI){const w=setInterval(()=>{if(DATA&&DATA.stocks){clearInterval(w);miniStart();}},500);}   // r866
   try{
-    const r=await fetch('data.json',{cache:'no-cache'});        // r900:改用 ETag 重新驗證——沒更新就回 304、不再每次重抓 2.6MB
-    if(r.ok){ DATA=await r.json(); DATA.source='live'; }
+    let j0=null;try{if(window.__DATA_P){j0=await window.__DATA_P;window.__DATA_P=null;}}catch(e0){}   // r1076:index.html 一開頭就開始下載
+    if(j0&&j0.stocks){DATA=j0;DATA.source='live';}
+    else{const r=await fetch('data.json',{cache:'no-cache'});        // r900:改用 ETag 重新驗證——沒更新就回 304、不再每次重抓 2.6MB
+    if(r.ok){ DATA=await r.json(); DATA.source='live'; }}
   }catch(e){}
   if(!DATA) DATA=DEMO;
   window.DATA=DATA;                                              // r927:DATA 是 let,mobile.js 與開機看門狗要用 window.DATA(之前永遠拿不到 → 指數列永遠「載入中」、看門狗誤報)
@@ -529,7 +531,7 @@ async function boot(){
   /* r949:冷開 App 的空殼修正——今日總覽(指數)、區塊導覽列是 lazyRun:一看到就先跑,常常跑在 data.json 到之前 → 空白要等 60 秒;
      診斷列/官方收盤只在盤中或盤後同步窗自動更新 → 假日、深夜重開永遠是空的,得手動按「更新」。資料到了就各補一次 */
   setTimeout(()=>{try{renderHero();}catch(e){}try{renderSecNav();}catch(e){}try{renderFavAlertBar();}catch(e){}},60);
-  setTimeout(()=>{try{if(!marketOpen())refreshLive(true);}catch(e){}},1500);   // 盤中有每分鐘的自動更新,不重複打
+  setTimeout(()=>{try{if(!marketOpen())refreshLive(true,true);}catch(e){}},1500);   // 盤中有每分鐘的自動更新,不重複打;r1076:data.json 剛抓過,只補官方收盤/匯率
 }
 (function dayRolloverGuard(){                              // r518:換日總清——頁面掛過夜的所有記憶體殘留(RTC昨日開高低/__RTQ舊值/各累積器)一次歸零
   let d0=tpDay(Date.now()/1000);
@@ -559,7 +561,7 @@ function setBadges(extra){
   const _upd=DATA.source==='live'?DATA.updated:'範例';
   let tail='';
   if(DATA.source==='live'){
-    const nowT=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const nowT=tpNow();
     const today=nowT.toISOString().slice(0,10);
     const wd=nowT.getDay(),hm=nowT.getHours()*60+nowT.getMinutes();
     if(String(DATA.updated)<today&&wd>=1&&wd<=5){
@@ -2016,9 +2018,9 @@ function tvMiniQuote(domId,tvsym){                     // r701:懶掛載修正�
           if(es.some(e=>e.isIntersecting)){io.disconnect();host.__tvDone=true;tvMiniQuoteNow(domId,tvsym);}
         },{rootMargin:'300px'});
         io.observe(host);
-        setTimeout(()=>{                                // 保險:3.5 秒後若仍未掛(容器隱藏/量測不到)就直接掛,寧可多載也不要空白
-          try{ if(!host.__tvDone){io.disconnect();host.__tvDone=true;tvMiniQuoteNow(domId,tvsym);} }catch(x){}
-        },3500);
+        setTimeout(()=>{                                // 保險:3.5 秒後若仍未掛(量測不到)就直接掛,寧可多載也不要空白
+          try{ if(!host.__tvDone&&host.getClientRects().length){io.disconnect();host.__tvDone=true;tvMiniQuoteNow(domId,tvsym);} }catch(x){}
+        },3500);                                        // r1076:容器在隱藏的分頁裡(看不到)就不硬掛——切到那個分頁、捲到時才載入,首頁不再被它拖慢
         return;
       }
     }
@@ -2235,6 +2237,8 @@ function tvTape(){                      // 全站即時跑馬燈(首頁最上方
   if(window.__tvTape)return;
   const row=document.getElementById('idxRow');
   if(!row||!row.parentNode)return;
+  if(!row.getClientRects().length&&'IntersectionObserver'in window){   // r1076:大盤分頁沒打開(看不到)→ 等看得到再掛
+    if(row.__tapeIO)return;row.__tapeIO=new IntersectionObserver(es=>{if(es.some(e=>e.isIntersecting)){row.__tapeIO.disconnect();row.__tapeIO=null;tvTape();}},{rootMargin:'300px'});row.__tapeIO.observe(row);return;}
   const tape=document.createElement('div');
   tape.id='tvTape';tape.style.cssText='margin:0 0 8px;border:1px solid var(--line);border-radius:11px;overflow:hidden;height:78px';
   row.parentNode.insertBefore(tape,row);
@@ -2395,15 +2399,16 @@ function kv(){   // r526:分片破快取值——舊制 ?v=日期 一整天不�
   // 加入掃價時戳(intraday 每5~10分變動、晚間主班移除該欄=值再變),官方K一入庫前端就拿得到
   try{return encodeURIComponent((DATA.updated||'')+'_'+(DATA.intraday||''));}catch(e){return encodeURIComponent((DATA&&DATA.updated)||'');}
 }
-async function refreshLive(auto){
+async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓過 data.json,不要馬上再抓、再解析一次(2.5MB)
   const btn=document.getElementById('updBtn');
   if(!auto){ btn.disabled=true; btn.textContent='↻ 更新中'; }
   const diag=[];
-  try{const r=await fetch('data.json',{cache:'no-cache'});         // r907:盤中每分鐘的重整改用 ETag 驗證——資料沒變就 304,不再每分鐘重抓 2.6MB
+  if(skipData&&DATA&&DATA.stocks)diag.push(`<span class="ok">✓</span> 資料 ${DATA.updated||''}`);
+  else try{const r=await fetch('data.json',{cache:'no-cache'});         // r907:盤中每分鐘的重整改用 ETag 驗證——資料沒變就 304,不再每分鐘重抓 2.6MB
       if(r.ok){DATA=await r.json();DATA.source='live';window.DATA=DATA;
         try{snapLoad();}catch(e){}
         try{applyRTQ();}catch(e){}                        // 立刻蓋回最新即時價,不閃舊資料
-        window.__sweepForce=Date.now()+5*60e3;            // 更新後強制再掃一輪矯正
+        window.__sweepForce=Date.now()+20e3;              // 更新後強制再掃一輪矯正(r1076:原本 5 分鐘,收盤/假日也每 6 秒打一次證交所 → 改成約 3 輪)
         try{const mm2=location.hash.match(/^#stock\/(.+)$/);   // r468:回載的最新掃價立刻縫進分線線尾
           if(mm2){const s2=(DATA.stocks||[]).find(x=>x.id===decodeURIComponent(mm2[1]));if(s2)stitchStk(s2);}}catch(e){}
         diag.push(`<span class="ok">✓</span> 資料 ${DATA.updated||''}`);}
@@ -2432,7 +2437,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1075</span>');
+  diag.push('<span style="color:var(--dim)">build r1076</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -3042,7 +3047,7 @@ async function fetchEarnClient(){   // ⛑ 後端 earn 尚未就緒時的前端�
     u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
     u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)];
   const out=[];
-  const base=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const base=tpNow();
   for(let i=-7;i<15;i++){
     const d=new Date(base);d.setDate(d.getDate()+i);
     if(d.getDay()===0||d.getDay()===6)continue;
@@ -3257,7 +3262,7 @@ async function loadFFCal(){
 setTimeout(loadFFCal,15000);   // 延後,不跟首頁資料搶頻寬
 setInterval(loadFFCal,4*3600e3);
 function buildCalendar(){
-  const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const today=tpNow();
   today.setHours(0,0,0,0);
   const horizon=new Date(today);horizon.setDate(horizon.getDate()+35);
   const ev=[];
@@ -3334,7 +3339,7 @@ function buildCalendar(){
 function renderCalendar(){
   const bar=document.getElementById('calBar'),track=document.getElementById('calTrack');
   if(!bar||!track)return;
-  const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const today=tpNow();
   today.setHours(0,0,0,0);
   const ev=buildCalendar().slice(0,14);
   window.__calList=ev;
@@ -3390,7 +3395,7 @@ async function loadInst(){
   const box=document.getElementById('instRow');
   if(!box)return;
   const days=[]; // [{date,f,t,d}] 億元
-  let d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  let d=tpNow();
   for(let tries=0;tries<10&&days.length<5;tries++){
     if(d.getDay()!==0&&d.getDay()!==6){
       const ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
@@ -3626,14 +3631,14 @@ function fwZigzag(K,W){
 function tpApproxDate(barsAgo,ts){        // 交易日→約略日期(有真實時戳用真實;無則跳過週末回推)
   try{
     if(ts)return new Date(ts*1000).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'});
-    let d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})),n=barsAgo;
+    let d=tpNow(),n=barsAgo;
     while(n>0){d.setDate(d.getDate()-1);if(d.getDay()>=1&&d.getDay()<=5)n--;}
     return`約${d.getMonth()+1}/${d.getDate()}`;
   }catch(e){return barsAgo+'個交易日前';}
 }
 function tpFutureDate(bars){
   try{
-    let d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})),n=bars;
+    let d=tpNow(),n=bars;
     while(n>0){d.setDate(d.getDate()+1);if(d.getDay()>=1&&d.getDay()<=5)n--;}
     return`${d.getMonth()+1}/${d.getDate()}`;
   }catch(e){return'+'+bars+'日';}
@@ -3989,7 +3994,7 @@ function rptKV(kv){return Object.entries(kv||{}).map(([k,v])=>`<div><dt>${k}</dt
 function rptHTML(d){
   const g=rptGrade(d.T),F=v=>v==null?'—':(+v).toLocaleString();
   const P=(v,dg)=>v==null?'—':(v>0?'+':'')+(+v).toFixed(dg==null?1:dg)+'%';
-  const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const today=tpNow();
   const dt=`${today.getFullYear()}/${today.getMonth()+1}/${today.getDate()}`;
   const e=d.e||{};
   // ── 規則化「投資重點」五點(帶實際數字,仿券商評等理由結構;不含目標價) ──
@@ -4451,7 +4456,7 @@ async function rptPDF(s){   // r574:完全仿券商版式(封面米色標題帶+
   try{
     const d=await rptData(s);
     const g=rptGrade(d.T), e=d.e||{};
-    const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const today=tpNow();
     const dt=`${today.getFullYear()}/${today.getMonth()+1}/${today.getDate()}`;
     const png=await rptChartPNG(d), pe=await rptPEPNG(d), pxPng=await rptPricePNG(d);
     const tpMid=pe&&pe.eps>0?Math.round(pe.eps*pe.mult[2]):null;     // r576:評價參考(TP)——EPS×歷史本益比分位,純算術
@@ -5905,7 +5910,7 @@ async function weeklyPicks(){
 function paintPicks(p){
   const box=document.getElementById('pickBox');
   if(!box||!p)return;
-  const wd=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).getDay();
+  const wd=tpNow().getDay();
   const title=(wd===5||wd===6||wd===0)?'下週漲停潛力五檔':'近期漲停潛力五檔';
   const medal=['🥇','🥈','🥉','4','5'];
   box.style.display='';
@@ -6332,7 +6337,7 @@ async function volTempCard(){
     const hist=tv.amt;
     const avg20=hist.slice(-20).reduce((a,b)=>a+b,0)/Math.min(20,hist.length);
     let cur=hist[hist.length-1],tag='最新交易日',accV=null,accT='';
-    const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const now=tpNow();
     const mins=now.getHours()*60+now.getMinutes()-540;
     if(typeof RT!=='undefined'&&RT.t00v>0&&now.getDay()>=1&&now.getDay()<=5&&mins>0&&mins<270){
       const pct=cumPct(mins);
@@ -6518,7 +6523,7 @@ async function renderIdxAnalysis(d){
   let volTxt='';
   // r737:移除誤貼自個股版的 spark 回補(此處無 s;且傳進來的 d 已在 drawIdxSel 經 sparkBase('t00'/'o00') 打底)
   const totV=(d.v||[]).reduce((a,b)=>a+(b||0),0);
-  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const now=tpNow();
   const mins=(now.getHours()*60+now.getMinutes())-540;
   const inSession=now.getDay()>=1&&now.getDay()<=5&&mins>0&&mins<270;
   let yV=null;
@@ -6557,9 +6562,10 @@ async function renderIdxAnalysis(d){
 const IDX={sel:'tw',d:{},lv:{},last:{},misD:{},otcSyms:['^TWOII','^TWO']};   // misD:MIS 全日分線快取(t00/o00)
 const TWACC={t:[],c:[],v:[],prev:null};    // 加權分線:即時報價逐點累積(當日持久化)
 const OTCACC={t:[],c:[],v:[],prev:null};   // 櫃買分線:即時報價逐點累積(當日持久化)
-function tpDay(ts){return new Date(new Date(ts*1000).toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);}
+function tpDay(ts){const t=ts*1000;return new Date(t+(480+new Date(t).getTimezoneOffset())*60000).toISOString().slice(0,10);}   // r1076:跟原本 toLocaleString 版完全同結果(台北 UTC+8、沒有夏令時間),但快很多——開首頁時被呼叫上萬次、手機原本卡 0.6 秒
+function tpNow(){const d=new Date();return new Date(d.getTime()+(480+d.getTimezoneOffset())*60000);}   // r1076:「台北現在幾點」(日期欄位=台北時間),取代 new Date(new Date().toLocaleString(...台北))
 function sessDate(){  // 🕗 最近交易時段的日期(台北):00:00~08:29 算前一天;週末回退到週五
-  const d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const d=tpNow();
   if(d.getHours()*60+d.getMinutes()<8*60+30)d.setDate(d.getDate()-1);
   while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()-1);
   d.setHours(0,0,0,0);
@@ -8201,7 +8207,7 @@ function intraStatTxt(s,extra){
   if(mt){                                                  // r422:成交時刻新鮮度檢查——過期就標「延遲/前一場」,不再假裝即時
     let stale=false,mins=null;
     try{
-      const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+      const now=tpNow();
       const hm=String(mt).slice(0,5).split(':');
       if(hm.length===2){
         const qm=+hm[0]*60+ +hm[1], nm=now.getHours()*60+now.getMinutes();
@@ -8214,7 +8220,7 @@ function intraStatTxt(s,extra){
   const vv=(window.__intraVSum||0);                        // 唯一來源:分時量加總(RTC.v 實測為單筆量,棄用)
   let vt='';
   try{
-    const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const now=tpNow();
     const mins=now.getHours()*60+now.getMinutes()-540;
     const open2=typeof marketOpen==='function'&&marketOpen();
     const expct=(window.__v1&&open2&&mins>0)?window.__v1*cumPct(Math.min(mins,270))/100:null;
@@ -8974,7 +8980,7 @@ const AL={on:localStorage.getItem('alert_on')==='1',
           dip:localStorage.getItem('alert_dip')!=='0',
           brk:localStorage.getItem('alert_brk')!=='0',seen:null};
 function alSeen(){
-  const d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);
+  const d=tpNow().toISOString().slice(0,10);
   if(!AL.seen||AL.seen.d!==d){
     try{const s=JSON.parse(localStorage.getItem('al_seen')||'null');
         AL.seen=(s&&s.d===d)?s:{d,k:{}};}catch(e){AL.seen={d,k:{}};}
@@ -8983,7 +8989,7 @@ function alSeen(){
 }
 function alMark(key){const s=alSeen();s.k[key]=1;try{localStorage.setItem('al_seen',JSON.stringify(s));}catch(e){}}
 function alGood(s){return s.market==='TW'&&s.al&&(total(s)>=66||s.thesis);}
-function tpMins(){const d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));return (d.getHours()-9)*60+d.getMinutes();}
+function tpMins(){const d=tpNow();return (d.getHours()-9)*60+d.getMinutes();}
 function alToast(type,s,title,text){
   if(!SB_USER)return;                                        // r882:未登入不跳任何頁內提醒
   const box=document.getElementById('toasts');
@@ -9539,6 +9545,7 @@ async function ensureMiniShards(){            // 依畫面上的股票載入所�
   try{
     const need=new Set();
     document.querySelectorAll('[data-candle]').forEach(el=>{
+      if(!el.getClientRects().length)return;   // r1076:隱藏分頁的卡片不為它下載日K分片(一個分片 0.5~0.7MB)
       const id=el.dataset.candle;
       const st=(DATA.stocks||[]).find(x=>x.id===id);
       if(!st)return;
@@ -9623,6 +9630,7 @@ function candlePaint2(id){
 function paintAllMini(){                            // r527:卡片一律當天K棒;每15秒巡檢,來源只升不降(RTC>官方末棒>spark重建>20日線)
   try{
     document.querySelectorAll('[data-candle]').forEach(el=>{
+      if(!el.getClientRects().length)return;   // r1076:看不到的卡片不畫(切過去時會補)
       const id=el.dataset.candle;
       const cur=el.innerHTML.trim()?parseInt(el.dataset.mini||'-1',10):-1;
       if(cur>=3)return;                                    // 已是盤中即時K棒:不動
@@ -11275,6 +11283,7 @@ function hydrateSparks(){   // 名稱沿用:各區塊渲染後呼叫,補畫/排�
     else{
       const s=(DATA&&DATA.stocks||[]).find(x=>x.id===id);
       // 台股開盤中交給 MIS(幾秒到3分鐘內輪到);美股或收盤時段用 Yahoo 補
+      if(!el.getClientRects().length)return;   // r1076:在隱藏分頁裡的卡片先不抓(切到那個分頁時再補)——首頁一開會對上百張看不到的卡片逐一抓 Yahoo
       if(s&&(s.market==='US'||!marketOpen())&&!pend.has(id)){pend.add(id);CQ.push(id);}
     }
   });
@@ -11623,12 +11632,12 @@ function holiPaint(){try{const b=document.getElementById('holiChip')||(()=>{cons
   else b.style.display='none';}catch(e){}}
 function openish(){
   // 收盤後~19:30 仍持續同步「今日」資料(MIS 收盤快照+Yahoo 回補),不再下午就凍結
-  const t=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const t=tpNow();
   const d=t.getDay(),m=t.getHours()*60+t.getMinutes();
   return d>=1&&d<=5&&!holiTW()&&m>=535&&m<=1170;
 }
 function marketOpen(){
-  const tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const tp=tpNow();
   const d=tp.getDay(), m=tp.getHours()*60+tp.getMinutes();
   return d>=1&&d<=5&&!holiTW()&&m>=535&&m<=820;              // r904:國定假日休市
 }
@@ -14227,7 +14236,7 @@ async function loadK(s){
   //       導致官方當日K已入庫、前端卻整晚看不到 → 15:00 後若分片仍缺今日,直連 repo 重抓(每分片一次)
   if(s.market==='TW'){try{
     const _e0=(KCACHE[sh]||{})[s.id];
-    const _tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+    const _tp=tpNow();
     const _hm=_tp.getHours()*60+_tp.getMinutes(), _wd=_tp.getDay();
     KCACHE.__re=KCACHE.__re||{};
     if(_e0&&Array.isArray(_e0.d)&&_e0.d.length&&_wd>=1&&_wd<=5&&_hm>=900
@@ -17037,7 +17046,7 @@ function showEventsIndex(){
   disposeChipCharts();curChips=null;
   home.style.display='none';dv.style.display='block';
   window.scrollTo({top:0});
-  const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));
+  const today=tpNow();
   today.setHours(0,0,0,0);
   const ev=buildCalendar().slice(0,16);
   window.__calList=ev;
@@ -17972,7 +17981,7 @@ function mkSaveLS(h,skip){
   try{localStorage.setItem('mkt_hist',JSON.stringify(h));
       localStorage.setItem('mkt_skip',JSON.stringify(skip.slice(-140)));}catch(e){}
 }
-function tpNow(){return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));}
+/* r1076:tpNow() 移到前面(快速版,結果相同) */
 function isoOf(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 async function getMktHist(onProg){
   const meta=await loadMMeta();
@@ -18288,7 +18297,7 @@ function renderDivTimeline(s){
     el.innerHTML='<div class="dim-block"><h3>'+(s.etf?'📅 配息紀錄':'📅 除權息與重大時間')+'</h3><div class="dim-note">尚無已公告的除權息資料(新掛牌、不配息或公司尚未公告)。股東會/法說會等其他重大行事曆,請以公開資訊觀測站公告為準。</div></div>';
     return;
   }
-  const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'})).toISOString().slice(0,10);
+  const today=tpNow().toISOString().slice(0,10);
   const px=(s.price&&s.price>0)?s.price:null;
   let divSum='';                                        // 📜 股利政策連續性:連續配息年數+近一年發放率
   try{
@@ -18585,13 +18594,14 @@ function setHomeTab(t){
     if(stale){const b=document.getElementById('gaEps');if(b)b.dataset.done='';}
     gooayeLoad(stale);
   }catch(e){}}
+  setTimeout(()=>{try{hydrateSparks();ensureMiniShards().then(()=>{try{paintAllMini();}catch(e){}});}catch(e){}},300);   // r1076:隱藏時沒抓的迷你 K 棒,切過來再補
   setTimeout(()=>{const p=document.getElementById('tp-'+t);              // 補算被隱藏時初始化的圖表
     if(p&&window.echarts)p.querySelectorAll('div').forEach(el=>{
       try{const ch=echarts.getInstanceByDom(el);if(ch)ch.resize();}catch(e){}});},90);
 }
 window.__etfSub='tw';
 (function waitData(n){                                   // 資料就緒後補渲染 ETF 清單
-  if(typeof DATA!=='undefined'&&DATA&&Array.isArray(DATA.stocks)){try{renderEtf();}catch(e){}return;}
+  if(typeof DATA!=='undefined'&&DATA&&Array.isArray(DATA.stocks)){try{const tp=document.getElementById('tp-etf');if(!tp||tp.style.display!=='none')renderEtf();}catch(e){}return;}   // r1076:ETF 分頁沒開就先不畫
   if(n>0)setTimeout(()=>waitData(n-1),500);
 })(60);
 /* 🤖 AI 幫我搭:條件 chips + 生成組合 */
@@ -19918,7 +19928,7 @@ function renderEtf(){
   if(!window.__dyJ&&!window.__dyLoading){
     window.__dyLoading=1;
     fT('dy.json?'+Math.floor(Date.now()/216e5),8000).then(r=>r.ok?r.json():null)
-      .then(j=>{window.__dyJ=j||{};if(j&&window.__etfSub==='cf')renderEtf();})
+      .then(j=>{window.__dyJ=j||{};const tp=document.getElementById('tp-etf');if(j&&(window.__etfSub==='cf'||(tp&&tp.style.display!=='none')))renderEtf();})   // r1076:ETF 清單改成打開分頁才畫 → 殖利率到了要補畫
       .catch(()=>{window.__dyJ={};});
   }
   const cfDy=s=>{
@@ -22055,7 +22065,7 @@ else setTimeout(sbBoot,600);
 /* ═══════════════════════════════════════════════════════════════════════
    r702:🤖 AI Pick(週選模型・買價・準確率追蹤) + ⭐ 最愛買賣/停利停損提醒
    ═══════════════════════════════════════════════════════════════════════ */
-function aipTpDate(){return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));}
+function aipTpDate(){return tpNow();}
 function aipMonday(d){const x=new Date(d);const wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd);x.setHours(0,0,0,0);return x;}
 function aipIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function aipMD(s){const m=String(s||'').match(/(\d{4})-(\d{2})-(\d{2})/);return m?`${+m[2]}/${+m[3]}`:s;}
@@ -24243,7 +24253,7 @@ document.addEventListener('click',e=>{
   const ETF=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hourCycle:'h23',month:'2-digit',day:'2-digit'});
   const etParts=ts=>{const o={};ETF.formatToParts(new Date(ts*1000)).forEach(p=>o[p.type]=p.value);return o;};
   const etM=ts=>{const o=etParts(ts);return (+o.hour)*60+(+o.minute)-570;};
-  const tpNowM=()=>{const tp=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Taipei'}));return tp.getHours()*60+tp.getMinutes()-540;};
+  const tpNowM=()=>{const tp=tpNow();return tp.getHours()*60+tp.getMinutes()-540;};
   const TW_AX={span:270,grid:[60,120,180,240],lab:[[0,'09'],[60,'10'],[120,'11'],[180,'12'],[240,'13']]};
   const US_AX={span:390,grid:[30,90,150,210,270,330],lab:[[0,'09:30'],[90,'11'],[210,'13'],[330,'15'],[390,'16']]};
   function axisHTML(ax){return `<div class="is-ax">${ax.lab.map(([m,t])=>`<span style="left:${(m/ax.span*100).toFixed(2)}%">${t}</span>`).join('')}</div>`;}
@@ -24884,6 +24894,8 @@ async function newsFetch(date){
   const k=date||'latest';
   const c=window.__newsCache[k];
   if(c&&Date.now()-c.t<10*60e3)return c.j;
+  if(!date&&window.__NEWS_P){const p=window.__NEWS_P;window.__NEWS_P=null;let j0=null;try{j0=await p;}catch(e){}   // r1076:index.html 一開頭就開始抓的早報
+    if(j0&&j0.date){window.__newsCache[k]={t:Date.now(),j:j0};if(j0.dates)window.__newsDates=j0.dates;return j0;}}
   const r=await fT((date?'news/'+date+'.json':'news.json')+'?'+Math.floor(Date.now()/3e5),10000);
   if(!r.ok)throw new Error(r.status);
   const j=await r.json();
