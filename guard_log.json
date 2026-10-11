@@ -1,1 +1,1 @@
-{"items":[{"t":"2026-10-11 20:55","k":"wf:weekend_backfill.yml","label":"週末回補","from":"ok","to":"red","msg":"已執行 518 分鐘,疑似卡住","type":"event"}]}
+{"items":[{"t":"2026-10-11 20:55","k":"wf:weekend_backfill.yml","label":"週末回補","from":"ok","to":"red","msg":"已執行 518 分鐘,疑似卡住","type":"event"},{"t":"2026-10-12 02:06","k":"yext","label":"國際行情","from":"ok","to":"red","msg":"最後更新 40 小時前(已自動重啟排程)","type":"event"},{"t":"2026-10-12 02:06","kind":"dispatch","target":"yext.yml","text":"國際行情:最後更新 40 小時前 → 自動重新啟動 yext.yml","type":"act"}]}
