@@ -1,0 +1,43 @@
+name: 🛡 網站管理員
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "4,34 0-5 * * 1-5"     # 台北 08:04 起每 30 分點火;班內每 5 分鐘巡一輪,一路巡到 13:50(新班接手舊班)
+    - cron: "17 6-23 * * *"        # 其他時間每小時巡一次
+    - cron: "17 0-5 * * 0,6"       # 週末白天每小時
+permissions:
+  contents: write
+  actions: write                  # 要能自動重啟漏跑/失敗的排程
+concurrency:
+  group: guard
+  cancel-in-progress: true
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 380
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests pywebpush
+      - name: 巡邏(盤中每 5 分鐘一輪,其他時間跑一次)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          SB_UID: ${{ secrets.SB_UID }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          while : ; do
+            git pull -q --rebase origin main || git rebase --abort 2>/dev/null || true
+            timeout 240 python site_guard.py || echo "本輪巡邏例外"
+            git add guard.json guard_log.json 2>/dev/null || true
+            git add -u 2>/dev/null || true          # 自動還原的壞檔
+            if ! git diff --cached --quiet; then
+              git commit -q -m "guard: $(TZ=Asia/Taipei date +%m-%d\ %H:%M) [CI Skip]"
+              for i in 1 2 3 4; do git pull -q --rebase origin main && git push -q && break; git rebase --abort 2>/dev/null || true; sleep $((i*5)); done
+            fi
+            DOW=$(TZ=Asia/Taipei date +%u); HM=$((10#$(TZ=Asia/Taipei date +%H%M)))
+            if [ $DOW -le 5 ] && [ $HM -ge 800 ] && [ $HM -lt 1350 ]; then sleep 300; else break; fi
+          done
