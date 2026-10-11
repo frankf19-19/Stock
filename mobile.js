@@ -220,6 +220,7 @@ var NAV_ICON={
   stocks:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
   etf:'<path d="M5 9h14l-1.4 9.1a2 2 0 0 1-2 1.9H8.4a2 2 0 0 1-2-1.9L5 9z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/>',
   gooaye:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  news:'<path d="M5 4h11a2 2 0 0 1 2 2v13a1 1 0 0 0 2 0V8"/><path d="M5 4v15a1 1 0 0 0 1 1h13"/><path d="M8 8h6M8 12h6M8 16h4"/>',
   port:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 12h18"/>',
   __fav:'<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>'
 };

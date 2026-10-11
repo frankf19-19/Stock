@@ -1,4 +1,4 @@
-/* K研所 · build r1070 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1071 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1070';
+const APP_BUILD='r1071';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2367,7 +2367,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1070</span>');
+  diag.push('<span style="color:var(--dim)">build r1071</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -15345,7 +15345,7 @@ function setupMobileNav(){
   if(!document.getElementById('mobNav')){
     const nav=document.createElement('div');
     nav.id='mobNav';
-    const items=[['macro','📊','大盤'],['aipick','🤖','AI'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','股癌'],['port','💼','持股']];
+    const items=[['macro','📊','大盤'],['aipick','🤖','AI'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','股癌'],['news','📰','早報'],['port','💼','持股']];
     nav.innerHTML=items.map(([k,ic,lb])=>`<button data-mn="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('')
       +`<button data-mn="__fav"><span class="mi">⭐</span>最愛</button>`;
     document.body.appendChild(nav);
@@ -18499,7 +18499,7 @@ async function loadCreditTrend(s,e){
 }
 /* ══ 首頁分頁籤:大盤/個股/ETF ══ */
 function setHomeTab(t){
-  ['macro','aipick','stocks','etf','gooaye','port'].forEach(k=>{
+  ['macro','aipick','stocks','etf','gooaye','news','port'].forEach(k=>{
     const p=document.getElementById('tp-'+k);
     if(p)p.style.display=(k===t)?'':'none';
     const b=document.querySelector('#homeTabs [data-tab="'+k+'"]');
@@ -18511,6 +18511,7 @@ function setHomeTab(t){
     try{aipLoad().then(()=>{try{renderAIPick();}catch(e){}});}catch(e){}
     try{setTimeout(aipSweep,600);}catch(e){}},0);}
   if(t==='etf'){try{renderEtf();}catch(e){}}
+  if(t==='news'){setTimeout(()=>{try{newsLoad();}catch(e){}},0);}   // r1071:📰 產業早報
   if(t==='port'){try{renderPort();}catch(e){}try{setTimeout(portHeadRisk,500);}catch(e){}}
   if(t==='gooaye'){try{
     gaDot(false);
@@ -24801,3 +24802,83 @@ document.addEventListener('click',e=>{
     drawIntraLWC.__big=1;
   }
 })();
+
+/* ══ r1071:📰 產業早報分頁(後端 fetch_news.py:每天台北 06:35 由 Google 新聞標題 + AI 整理,news/日期.json 永久保存)══ */
+const NEWS_CAT={'美股':'var(--t-blue)','AI/半導體':'var(--t-gold)','台股':'var(--t-orange)','總經':'var(--t-purple)','政策/地緣':'#3A9CA8','其他產業':'var(--t-grey)'};
+window.__newsCache=window.__newsCache||{};
+function newsEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function newsDay(d){try{const [y,m,dd]=d.split('-').map(Number);const w='日一二三四五六'[new Date(y,m-1,dd).getDay()];return `${m}/${dd}(${w})`;}catch(e){return d;}}
+function newsDot(on){
+  const b=document.querySelector('#homeTabs [data-tab="news"]');if(!b)return;
+  let d=b.querySelector('.ga-dot');
+  if(on&&!d){d=document.createElement('span');d.className='ga-dot';
+    d.style.cssText='display:inline-block;width:8px;height:8px;border-radius:50%;background:#FF5A5F;margin-left:6px;vertical-align:2px';b.appendChild(d);}
+  if(!on&&d)d.remove();
+}
+async function newsFetch(date){
+  const k=date||'latest';
+  const c=window.__newsCache[k];
+  if(c&&Date.now()-c.t<10*60e3)return c.j;
+  const r=await fT((date?'news/'+date+'.json':'news.json')+'?'+Math.floor(Date.now()/3e5),10000);
+  if(!r.ok)throw new Error(r.status);
+  const j=await r.json();
+  window.__newsCache[k]={t:Date.now(),j};
+  if(!date&&j.dates)window.__newsDates=j.dates;
+  return j;
+}
+function newsSrcHtml(x){
+  return `<a href="${newsEsc(x.l)}" target="_blank" rel="noopener" style="color:var(--txt2);text-decoration:none;border-bottom:1px dotted var(--line)">${newsEsc(x.t)}</a>`
+    +` <span style="color:var(--dim);white-space:nowrap">— ${newsEsc(x.s||'')}${x.en?' <span style="font-size:10px;border:1px solid var(--line);border-radius:4px;padding:0 4px">外電</span>':''}${(typeof credBadge==='function')?credBadge(x.s):''}${x.d?' · '+newsEsc(x.d):''}</span>`;
+}
+function newsRender(j){
+  const box=document.getElementById('newsBox');if(!box)return;
+  const dates=window.__newsDates||j.dates||[];
+  const cur=j.date;
+  const chips=dates.slice(0,10).map(x=>`<button class="news-dbtn${x.d===cur?' on':''}" data-nd="${x.d}">${newsDay(x.d)}</button>`).join('')
+    +(dates.length>10?`<select id="newsMore" class="news-dsel"><option value="">更早 ▾</option>${dates.slice(10).map(x=>`<option value="${x.d}"${x.d===cur?' selected':''}>${newsDay(x.d)} ${x.d.slice(0,4)}</option>`).join('')}</select>`:'');
+  const gen=(j.gen||'').slice(11,16);
+  const items=(j.items||[]).map((x,i)=>({x,i})).sort((a,b)=>(b.x.lv-a.x.lv)||(a.i-b.i)).map(o=>o.x);
+  const card=x=>{
+    const col=NEWS_CAT[x.cat]||'var(--t-grey)';
+    const lv=x.lv>=3?'<span class="news-lv" title="重要度高">重要</span>':'';
+    return `<div class="news-card" style="border-left-color:${col}">
+      <div class="news-head"><span class="news-cat" style="color:${col};border-color:${col}">${newsEsc(x.cat)}</span>${lv}<b class="news-ttl">${newsEsc(x.title)}</b></div>
+      <div class="news-what">${newsEsc(x.what)}</div>
+      ${x.why?`<div class="news-why"><b>💡 為什麼重要</b>${newsEsc(x.why)}</div>`:''}
+      ${(x.groups&&x.groups.length)||(x.codes&&x.codes.length)?`<div class="news-tags">${(x.groups||[]).map(g=>`<span class="news-grp">${newsEsc(g)}</span>`).join('')}${(x.codes||[]).map(c=>`<a class="glb-stk" href="#stock/${encodeURIComponent(c.id)}">${newsEsc(c.n)} ${newsEsc(c.id)}</a>`).join('')}</div>`:''}
+      <div class="news-src">${(x.src||[]).map(s=>`<div>📎 ${newsSrcHtml(s)}</div>`).join('')}</div>
+    </div>`;
+  };
+  const watch=(j.watch||[]).length?`<div class="sec-title" style="margin-top:18px">🗓 今天/本週要注意 <span style="font-weight:400;font-size:13px;letter-spacing:0">新聞中提到即將發生的事件</span></div>
+    <div class="news-card" style="border-left-color:var(--amber)">${j.watch.map(w=>`<div class="news-watch">• <b>${newsEsc(w.t)}</b><div class="news-src" style="margin-top:2px">${(w.src||[]).map(s=>`<div>📎 ${newsSrcHtml(s)}</div>`).join('')}</div></div>`).join('')}</div>`:'';
+  box.innerHTML=`<div class="news-dates">${chips}</div>
+    <div class="news-top">
+      <div class="news-date">📰 產業早報|${newsDay(cur)}${cur===dates[0]?.d?' <span style="font-size:12px;font-weight:800;color:var(--amber);border:1px solid var(--amber);border-radius:6px;padding:1px 6px;vertical-align:2px">最新</span>':''}</div>
+      ${j.mood?`<div class="news-mood">${newsEsc(j.mood)}</div>`:''}
+      <div class="news-meta">${items.length} 則重點 · AI 從 ${j.n_in||'—'} 則新聞標題挑選整理${gen?' · '+gen+' 產生':''}</div>
+    </div>
+    <div class="sec-title" style="margin-top:16px">🔑 今日重點 <span style="font-weight:400;font-size:13px;letter-spacing:0">依重要度排序・每則附原始新聞連結</span></div>
+    ${items.map(card).join('')||'<div class="dim-note">這天沒有整理出重點。</div>'}
+    ${watch}`;
+  box.querySelectorAll('[data-nd]').forEach(b=>b.onclick=()=>newsLoad(b.dataset.nd));
+  const sel=document.getElementById('newsMore');if(sel)sel.onchange=()=>{if(sel.value)newsLoad(sel.value);};
+}
+async function newsLoad(date){
+  const box=document.getElementById('newsBox');if(!box)return;
+  if(!box.innerHTML.trim()||box.querySelector('.dim-note.loading'))box.innerHTML='<div class="dim-note loading">早報載入中…</div>';
+  try{
+    if(date&&!window.__newsDates){try{await newsFetch();}catch(e){}}
+    const j=await newsFetch(date);
+    newsRender(j);
+    if(!date){try{localStorage.setItem('news_seen',j.date);}catch(e){}newsDot(false);}
+  }catch(e){
+    box.innerHTML='<div class="dim-note">今天的早報還沒產生(每天台北早上 6:35 左右自動整理),稍後再回來看。</div>';
+  }
+}
+setTimeout(async function newsWatch(){            // 新早報出爐 → 分頁鈕亮紅點
+  try{const j=await newsFetch();let seen='';try{seen=localStorage.getItem('news_seen')||'';}catch(e){}
+    const p=document.getElementById('tp-news');const vis=p&&p.style.display!=='none';
+    if(vis){newsRender(j);try{localStorage.setItem('news_seen',j.date);}catch(e){}}
+    else if(j.date!==seen)newsDot(true);}catch(e){}
+  setTimeout(newsWatch,15*60e3);
+},4000);
