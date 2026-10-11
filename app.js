@@ -1,4 +1,4 @@
-/* K研所 · build r1071 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1072 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1071';
+const APP_BUILD='r1072';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2367,7 +2367,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1071</span>');
+  diag.push('<span style="color:var(--dim)">build r1072</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   setBadges(auto?' · 自動':' ✓');
@@ -15345,7 +15345,7 @@ function setupMobileNav(){
   if(!document.getElementById('mobNav')){
     const nav=document.createElement('div');
     nav.id='mobNav';
-    const items=[['macro','📊','大盤'],['aipick','🤖','AI'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','股癌'],['news','📰','早報'],['port','💼','持股']];
+    const items=[['news','📰','早報'],['macro','📊','大盤'],['aipick','🤖','AI'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','股癌'],['port','💼','持股']];   // r1072:早報=首頁,排第一
     nav.innerHTML=items.map(([k,ic,lb])=>`<button data-mn="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('')
       +`<button data-mn="__fav"><span class="mi">⭐</span>最愛</button>`;
     document.body.appendChild(nav);
@@ -20073,8 +20073,7 @@ function renderEtf(){
   });
   const qi=document.getElementById('etfQ');
   if(qi)qi.oninput=()=>{try{renderEtf();}catch(e){}};
-  let t='stocks';try{t=localStorage.getItem('homeTab')||'stocks';}catch(e){}
-  try{if(window.matchMedia('(max-width:640px)').matches)t='macro';}catch(e){}   // r950:手機冷開一律從「大盤」開始(底部導覽也亮大盤)——之前還原上次分頁,畫面是 AI Pick 卻亮著大盤
+  let t='news';   // r1072:📰 產業早報當首頁——每次打開網站(電腦/手機)都先看早報;之後切到哪個分頁照常   // r950:手機冷開一律從「大盤」開始(底部導覽也亮大盤)——之前還原上次分頁,畫面是 AI Pick 卻亮著大盤
   setHomeTab(t);
 })();
 /* 🧺 r751:個股反查——哪些主動式 ETF 持有這一檔、今天加碼還是減碼(每日快照相減,張數為真實申報值) */
