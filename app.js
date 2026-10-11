@@ -1,4 +1,4 @@
-/* K研所 · build r1074 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1075 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1074';
+const APP_BUILD='r1075';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1139,10 +1139,11 @@ async function favStateFill(){
       let plan='',own=false;
       try{const P=favPlanOf(s,k.ohlc,k.dates),px0=+s.price||0;   // 持股損益(有設進場價才顯示)——事實,不是預測
         if(P&&P.entry&&px0){own=true;const r=(px0/P.entry-1)*100;plan+=`<div class="fav-pnl" style="font-size:13px;margin:6px 0 2px">💼 持股成本 <b>${P.entry}</b>・損益 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b></div>`;}}catch(e){}
-      plan+=`<div class="fav-kb" data-favkb="${id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])||''}</div>`;   // r1062:關鍵分點買賣照舊直接顯示在最愛卡片上
+      if(s.market!=='US')plan+=`<div class="fav-kb" data-favkb="${id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])||''}</div>`;   // r1062:關鍵分點買賣照舊直接顯示在最愛卡片上
       if(s.market==='US'){try{await aitLoad();}catch(e){}}
       const av=s.market==='US'?usPickVerdict(id):aiPickVerdict(id,own);   // r1074:美股不能用台股 AI Pick 判斷
-      try{await lvLoad();{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=aipTdFix(actionPlan(k.ohlc,id,s.price,own,cst,k.dates).replace(/隔天 9:00/g,'明天 9:00'));}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
+      if(s.market==='US'){let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=usPlan(k.ohlc,s,k.dates,own,cst);}   // r1075:美股用美股自己驗證過的
+      else try{await lvLoad();{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=aipTdFix(actionPlan(k.ohlc,id,s.price,own,cst,k.dates).replace(/隔天 9:00/g,'明天 9:00'));}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
       FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:av?av.txt:'🤖 AI Pick 資料載入中',plan};
       favStPaint(id);
@@ -1176,7 +1177,7 @@ function renderFav(force){
       <span class="r-desc">${s.etf?`${(s.perf&&s.perf.q!=null)?`近3月 ${s.perf.q>=0?'+':''}${s.perf.q.toFixed(1)}%`:'ETF'}${s.hold&&s.hold.dy?` · 殖利率 ${s.hold.dy.toFixed(2)}%`:''}${s.hold&&s.hold.aum?` · 規模 ${(s.hold.aum/1e8).toFixed(0)} 億`:''}`
         :''}</span>
       ${s.etf?'':(FAVST[s.id]?`<span class="fav-st ${FAVST[s.id].cls}">${FAVST[s.id].html}</span>`:'<span class="fav-st fst-wait">⏳ 狀態判讀中…</span>')}
-      ${(!s.etf&&s.market==='TW')?`<div class="fav-plan-slot" data-fps="${s.id}" style="min-height:${(FAVST[s.id]&&FAVST[s.id].plan)?0:190}px">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:''}</div>`:''}
+      ${(!s.etf)?`<div class="fav-plan-slot" data-fps="${s.id}" style="min-height:${(FAVST[s.id]&&FAVST[s.id].plan)?0:190}px">${(FAVST[s.id]&&FAVST[s.id].plan!=null)?FAVST[s.id].plan:''}</div>`:''}
     </div>`;
   };
   const g={tw:[],us:[],etf:[],etfUS:[],other:[]};
@@ -1214,6 +1215,49 @@ function favMktBar(box,g){
   mb.querySelectorAll('button').forEach(b=>b.onclick=()=>{const t=b.dataset.fm;if(t===(window.GMKT==='US'?'US':'TW'))return;
     try{setGMKT(t);}catch(e){window.GMKT=t;try{localStorage.setItem('gmkt',t);}catch(e2){}}
     renderFav(true);try{const y=mb.getBoundingClientRect().top+window.scrollY-10;if(window.scrollY>y)window.scrollTo({top:Math.max(0,y)});}catch(e){}});
+}
+/* ══ r1075:🇺🇸 美股最愛的白話計畫——台股那套(位置、均線、KD/RSI、突破、量價、轉折、停損線)是用台股歷史驗證的,美股不能直接套。
+   用美股 2013~2026(540 檔現有 S&P 500 成分股,已還原;隔天開盤買、20 天後比全部美股平均)重新驗證:
+   ❌ 離 52 週高的位置、創新高、均線全多/全空、KD、RSI、帶量突破 20 日高、OBV、價量狀態、站上 60 日/半年/一年高、跌破季線/年線 → 美股都沒有穩定預測力(跟台股不同)
+   ✅ 近 20 天有單日大漲 ≥7%:之後 20 天 +1.14%(t 4.2;成交值前 20% 大型股 +1.16%,也通過)
+   ✅ 跌深低接:第一天離 60 日高跌 ≥25% → 隔天開盤買、停利 +20%、停損 −15%、最多 60 天:7,777 次,每筆平均 +4.34%、勝率 59%;
+      隨機日子買同樣停利停損 +2.43% → 每筆多 +1.91%,14/14 年都勝過隨機(2013-18 +2.47、2019-26 +1.75)
+   ⚠ 歷史只有「目前」的成分股:跌深後沒撐住被剔除的公司不在資料裡,跌深類結果可能偏樂觀 ══ */
+const US_VAL={dd:{th:25,tp:20,sl:15,n:7777,avg:4.34,win:59,rnd:2.43,yrs:'14/14'},jump:{x:1.14,big:1.16}};
+function usPlan(o,s,dates,own,cost){
+  try{if(!o||o.length<61)return '';const n=o.length,px=+s.price||+o[n-1][3];if(!(px>0))return '';
+    const fmt=v=>'$'+(+v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}),pct=v=>{const d=(v/px-1)*100;return `${d>=0?'+':''}${d.toFixed(1)}%`;};
+    const dim=t=>`<span style="font-size:11.5px;color:var(--dim)">${t}</span>`,md=d=>String(d||'').slice(5).replace('-','/');
+    const C=o.map(b=>+b[3]),H=o.map(b=>+b[1]);
+    const hi60=Math.max(...H.slice(-60),px),dd=(px/hi60-1)*100;
+    const hi60p=Math.max(...H.slice(-61,-1)),ddp=(C[n-2]/hi60p-1)*100;          // 前一天收盤時離 60 日高多少(判斷是不是「第一天」)
+    const V=US_VAL.dd,trig=hi60*(1-V.th/100);
+    const P=posCalc(o,dates,null,px),v=vtCalc(o);
+    const L=(ic,lab,txt)=>`<div style="display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><div style="min-width:64px;font-weight:900">${ic} ${lab}</div><div>${txt}</div></div>`;
+    // 現況(事實,不下結論)
+    const ab=k=>v&&v[k]&&px>v[k];
+    const fact=[P?`離 52 週高 <b>${((P.pth-1)*100).toFixed(1)}%</b>(52 週高 ${fmt(P.hi)}${P.hiD?`,${md(P.hiD)}`:''})`:'',
+      v&&v.m60?`月線 ${fmt(v.m20)}${ab('m20')?'之上':'之下'}・季線 ${fmt(v.m60)}${ab('m60')?'之上':'之下'}${v.m240?`・年線 ${fmt(v.m240)}${ab('m240')?'之上':'之下'}`:''}`:'',
+      v?`K ${v.K.toFixed(0)}・RSI ${v.rsi.toFixed(0)}`:''].filter(Boolean).join('<br>');
+    const jump=v&&v.max20>=0.07?`<br>⚡ 近 20 天有單日大漲 <b>${(v.max20*100).toFixed(1)}%</b> ✅${VT_OK('美股實測',US_VAL.jump.x)}${dim('・大型股也成立')}`:'';
+    // 跌深低接
+    let ddTxt,buy,stop,tpx,ready=false;
+    if(dd<=-V.th&&ddp>-V.th){ready=true;ddTxt=`<b style="color:var(--up)">今天是第一天跌到離 60 日高 −${V.th}% 以下(${dd.toFixed(1)}%)→ 明天開盤買</b>`;buy=`<b style="color:var(--up)">明天開盤買</b>(現價 ${fmt(px)} 附近)`;stop=px*(1-V.sl/100);tpx=px*(1+V.tp/100);}
+    else if(dd<=-V.th){ddTxt=`已在跌深區(離 60 日高 ${dd.toFixed(1)}%);規則是跌破 −${V.th}% 的<b>第一天</b>買,之後不追加`;buy='已過第一天,依規則不追;等下一次跌深';}
+    else{ddTxt=`離 60 日高 ${dd.toFixed(1)}%;跌到 <b>${fmt(trig)}</b>(= 60 日高 ${fmt(hi60)} 的 −${V.th}%,比現價 ${pct(trig)})以下的第一天才符合`;buy=`收盤跌到 <b>${fmt(trig)}</b> 以下的第一天 → 隔天開盤買(現在差 ${pct(trig)})`;stop=trig*(1-V.sl/100);tpx=trig*(1+V.tp/100);}
+    const ddRow=`🎯 <b>跌深低接</b> ✅:${ddTxt} ${dim(`(美股回測 ${V.n.toLocaleString()} 次:每筆平均 +${V.avg}%、勝率 ${V.win}%;隨機買同樣停利停損 +${V.rnd}%;${V.yrs} 年勝過隨機)`)}`;
+    const hold=own&&cost>0,pnl=hold?(px/cost-1)*100:null;
+    const st=hold?`比成本 <b style="color:${pnl>=0?'var(--up)':'var(--down)'}">${pnl>=0?'+':''}${pnl.toFixed(1)}%</b>`:(ready?'<b style="color:var(--up)">符合跌深低接</b>':'<b>還沒到美股驗證過的買點</b>,先觀望');
+    return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
+      <div style="padding:2px 0 2px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
+      ${L('🧭','做法',ddRow)}
+      ${L('📏','現況',`${fact}${jump}<div style="font-size:11.5px;color:var(--dim);margin-top:2px">美股實測(2013~2026):離 52 週高的位置、創新高、均線、KD/RSI、帶量突破、量價、站上 N 日高、跌破季線/年線,之後 20 天都<b>沒有穩定好壞</b>(跟台股不同),只當現況參考。</div>`)}
+      ${L('🟢','買進',buy)}
+      ${L('🛑','停損',stop?`買進後跌 ${V.sl}%(約 <b style="color:var(--down)">${fmt(stop)}</b>)就賣`:(hold?`美股的季線、年線實測都不適合當停損線;依跌深低接的規則是買進後 −${V.sl}%(成本 ${fmt(cost)} → <b style="color:var(--down)">${fmt(cost*(1-V.sl/100))}</b>)`:'等出現買點再算'))}
+      ${L('🎯','停利',tpx?`買進後漲 ${V.tp}%(約 <b style="color:var(--up)">${fmt(tpx)}</b>)就賣,或最多抱 60 個交易日`:(hold?`依跌深低接的規則是 +${V.tp}%(<b style="color:var(--up)">${fmt(cost*(1+V.tp/100))}</b>)或抱滿 60 天`:'等出現買點再算'))}
+      <div style="font-size:11.5px;color:var(--dim);margin-top:4px">⚠ 美股歷史只有目前的 S&P 500 成分股,跌深後沒撐住被剔除的公司不在資料裡,跌深類結果可能偏樂觀;務必照停損執行。</div>
+    </div>`;
+  }catch(e){return '';}
 }
 /* r1074:美股最愛的 AI Pick 狀態——原本誤用台股 AI Pick 判斷,美股永遠顯示「沒有買進訊號」。美股 AI Pick 還在實戰驗證(未公開):
    一般使用者顯示「驗證中」;管理員看得到 AI 交易員(美股)目前是否持有 */
@@ -2388,7 +2432,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1074</span>');
+  diag.push('<span style="color:var(--dim)">build r1075</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
