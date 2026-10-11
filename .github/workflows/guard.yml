@@ -32,7 +32,8 @@ jobs:
           while : ; do
             git pull -q --rebase origin main || git rebase --abort 2>/dev/null || true
             timeout 240 python site_guard.py || echo "本輪巡邏例外"
-            git add guard.json guard_log.json 2>/dev/null || true
+            git add guard.json 2>/dev/null || true
+            git add guard_log.json 2>/dev/null || true   # 第一次還沒有事件時檔案不存在,要分開加才不會連 guard.json 一起失敗
             git add -u 2>/dev/null || true          # 自動還原的壞檔
             if ! git diff --cached --quiet; then
               git commit -q -m "guard: $(TZ=Asia/Taipei date +%m-%d\ %H:%M) [CI Skip]"
