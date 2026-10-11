@@ -2479,3 +2479,9 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .guard-sum.guard-red{border-color:#D6544A;color:#D6544A}
 .guard-sum.guard-warn{border-color:#D9A62E;color:#D9A62E}
 .guard-sum.guard-ok{color:#3BAD6C}
+
+/* r1074:最愛頁 台股/美股 切換 */
+#favMkt{display:flex;gap:8px;margin:12px 0 0}
+#favMkt button{flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-weight:800;font-size:14.5px;cursor:pointer}
+#favMkt button small{font-weight:500;color:var(--dim);margin-left:4px}
+#favMkt button.on{border-color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,var(--panel));color:var(--amber)}

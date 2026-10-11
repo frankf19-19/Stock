@@ -1,4 +1,4 @@
-/* K研所 · build r1073 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1074 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1073';
+const APP_BUILD='r1074';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1140,7 +1140,8 @@ async function favStateFill(){
       try{const P=favPlanOf(s,k.ohlc,k.dates),px0=+s.price||0;   // 持股損益(有設進場價才顯示)——事實,不是預測
         if(P&&P.entry&&px0){own=true;const r=(px0/P.entry-1)*100;plan+=`<div class="fav-pnl" style="font-size:13px;margin:6px 0 2px">💼 持股成本 <b>${P.entry}</b>・損益 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b></div>`;}}catch(e){}
       plan+=`<div class="fav-kb" data-favkb="${id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])||''}</div>`;   // r1062:關鍵分點買賣照舊直接顯示在最愛卡片上
-      const av=aiPickVerdict(id,own);
+      if(s.market==='US'){try{await aitLoad();}catch(e){}}
+      const av=s.market==='US'?usPickVerdict(id):aiPickVerdict(id,own);   // r1074:美股不能用台股 AI Pick 判斷
       try{await lvLoad();{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=aipTdFix(actionPlan(k.ohlc,id,s.price,own,cst,k.dates).replace(/隔天 9:00/g,'明天 9:00'));}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
       FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:av?av.txt:'🤖 AI Pick 資料載入中',plan};
@@ -1198,10 +1199,29 @@ function renderFav(force){
     if(st){e.stopPropagation();favToggle(st.dataset.fav);return;}
     location.hash='#stock/'+c.dataset.id;
   });
+  try{favMktBar(box,g);}catch(e7){}                                  // r1074:🇹🇼/🇺🇸 切換(最愛頁看不到首頁的市場切換)
   try{favQuickBar(box,ids,byId);}catch(e8){}                          // r1068:⚡ 快選列
   clearTimeout(window.__favStT);
   window.__favStT=setTimeout(()=>{try{favStateFill();}catch(e){}},800);
   try{setTimeout(()=>favKbFill(document),300);setTimeout(()=>favKbFill(document),3000);}catch(e9){}   // r813/r814:兩次,首輪分片還沒到就等第二次
+}
+/* r1074:最愛頁的 台股/美股 切換(手機最愛頁在獨立頁面,看不到首頁上方的市場切換)——切換 = 全站市場一起換 */
+function favMktBar(box,g){
+  let mb=document.getElementById('favMkt');
+  if(!mb){mb=document.createElement('div');mb.id='favMkt';box.parentNode.insertBefore(mb,box);}
+  const tw=g.tw.length+g.etf.length,us=g.us.length+g.etfUS.length,m=window.GMKT==='US'?'US':'TW';
+  mb.innerHTML=`<button type="button" data-fm="TW" class="${m==='TW'?'on':''}">🇹🇼 台股 <small>${tw} 檔</small></button><button type="button" data-fm="US" class="${m==='US'?'on':''}">🇺🇸 美股 <small>${us} 檔</small></button>`;
+  mb.querySelectorAll('button').forEach(b=>b.onclick=()=>{const t=b.dataset.fm;if(t===(window.GMKT==='US'?'US':'TW'))return;
+    try{setGMKT(t);}catch(e){window.GMKT=t;try{localStorage.setItem('gmkt',t);}catch(e2){}}
+    renderFav(true);try{const y=mb.getBoundingClientRect().top+window.scrollY-10;if(window.scrollY>y)window.scrollTo({top:Math.max(0,y)});}catch(e){}});
+}
+/* r1074:美股最愛的 AI Pick 狀態——原本誤用台股 AI Pick 判斷,美股永遠顯示「沒有買進訊號」。美股 AI Pick 還在實戰驗證(未公開):
+   一般使用者顯示「驗證中」;管理員看得到 AI 交易員(美股)目前是否持有 */
+function usPickVerdict(id){
+  const md=x=>String(x||'').slice(5).replace('-','/');
+  const adm=typeof isAdmin==='function'&&isAdmin(),U=(typeof AIT!=='undefined'&&AIT&&AIT.US)||null,p=U&&U.pos&&U.pos[id];
+  if(adm&&p)return {cls:'fst-up',txt:`<span>🤖 AI 交易員(美股・驗證中・只有管理員看得到):<b>持有中</b>・${md(p.d0)} 買 ${p.entry}・停損 ${p.stop}</span>`};
+  return {cls:'fst-wait',txt:`<span>🤖 美股 AI Pick 還在實戰驗證,尚未開放買賣訊號${adm&&U?'(AI 交易員目前沒有持有這檔)':''}</span>`};
 }
 /* r1068:⚡ 最愛快選——最愛多的時候(≥6 檔):上方固定一列「搜尋框 + 每檔小按鈕(含今日漲跌)」,
    點按鈕直接捲到那張卡片並閃一下;打字即時篩選(代號或名稱) */
@@ -2368,7 +2388,7 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1073</span>');
+  diag.push('<span style="color:var(--dim)">build r1074</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
