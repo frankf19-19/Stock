@@ -1,23 +1,23 @@
 {
- "t": "2026-10-11 08:25",
+ "t": "2026-10-11 13:16",
  "sponsor": true,
  "sponsor_expired": "2026-11-10",
  "level": "Sponsor",
  "backfill": {
-  "days": 50,
-  "last": "2026-10-11 13:10",
+  "days": 61,
+  "last": "2026-10-11 18:02",
   "prio": {
    "n": 23,
    "done": 23,
    "upto": "2021-07-01"
   },
-  "remain": 1233
+  "remain": 1222
  },
  "more": true,
  "coverage": {
-  "stocks": 1919,
-  "days": 50,
-  "from": "2026-07-29",
+  "stocks": 1920,
+  "days": 61,
+  "from": "2026-07-14",
   "to": "2026-10-08"
  },
  "swing": {
