@@ -1,4 +1,4 @@
-/* K研所 · build r1072 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1073 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1072';
+const APP_BUILD='r1073';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2353,6 +2353,7 @@ async function refreshLive(auto){
     diag.push('<span class="ok">✓</span> 匯率');
   }catch(e){diag.push('<span class="bad">✗ 匯率</span> '+e.message)}
   diag.push('<span class="ok">ⓘ</span> 即時:個股6秒·全市場3分·備援5分·本頁60秒');
+  diag.push('<span id="guardChip" class="admin-only" style="cursor:pointer;font-weight:800">🛡 管理員</span>');   // r1073
   diag.push('<span id="hltChip" class="admin-only" style="cursor:pointer;font-weight:800;color:var(--amber)" title="各資料源最後更新與覆蓋率">🩺 資料健康</span>');   // r707
   try{const g=window.__idxDiag||{};
       diag.push(`<span id="diagIdxMis"><span class="ok">ⓘ</span> 指數回補:加權 ${g.tw||'尚未執行'} · 櫃買 ${g.otc||'尚未執行'}</span>`);}catch(e){}
@@ -2367,9 +2368,10 @@ async function refreshLive(auto){
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1072</span>');
+  diag.push('<span style="color:var(--dim)">build r1073</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
+  try{if(typeof guardChip==='function')guardChip();}catch(e){}
   setBadges(auto?' · 自動':' ✓');
   btn.disabled=false; btn.textContent='↻ 更新';
   keepScroll(()=>{renderAll();
@@ -24881,3 +24883,57 @@ setTimeout(async function newsWatch(){            // 新早報出爐 → 分頁�
     else if(j.date!==seen)newsDot(true);}catch(e){}
   setTimeout(newsWatch,15*60e3);
 },4000);
+
+/* ══ r1073:🛡 網站管理員(後端 site_guard.py:盤中每 5 分鐘巡邏、自動重啟漏跑排程、壞檔還原、紅燈推播)══
+   管理員:診斷列「🛡 管理員」看全部燈號與處理紀錄;所有人:重要資料延遲時,分頁上方出現一條白話提示 */
+window.__guard=null;
+async function guardLoad(){
+  try{const r=await fT('guard.json?'+Math.floor(Date.now()/6e4),8000,{cache:'no-store'});if(r&&r.ok)window.__guard=await r.json();}catch(e){}
+  return window.__guard;
+}
+function guardDot(st){return `<span class="hlt-dot hlt-${st==='red'?'bad':st}"></span>`;}
+function guardStrip(){
+  const G=window.__guard;let el=document.getElementById('guardStrip');
+  const pub=G?(G.checks||[]).filter(c=>c.st==='red'&&/盤中|每日資料|AI/.test(c.grp)):[];
+  if(!pub.length){if(el)el.remove();return;}
+  if(!el){el=document.createElement('div');el.id='guardStrip';el.className='guard-strip';
+    const tabs=document.getElementById('homeTabs');if(!tabs)return;tabs.parentNode.insertBefore(el,tabs);}
+  el.innerHTML=`<b>⚠️ 部分資料延遲</b> ${pub.slice(0,3).map(c=>`${c.label}(${c.last?('最新 '+c.last):'暫無'})`).join('、')}${pub.length>3?` 等 ${pub.length} 項`:''}<span class="guard-sub">——系統已自動處理中,畫面上這幾項可能不是最新${G.u?'・檢查於 '+G.u.slice(11):''}</span>`;
+}
+function guardChip(){
+  const G=window.__guard;const dg=document.getElementById('diag');if(!dg)return;
+  let c=document.getElementById('guardChip');
+  if(!c){c=document.createElement('span');c.id='guardChip';c.className='admin-only';c.style.cssText='cursor:pointer;font-weight:800';
+    const first=dg.firstChild;dg.insertBefore(c,first);dg.insertBefore(document.createTextNode(' · '),first);}
+  const st=G?G.st:'warn';
+  c.style.color=st==='red'?'#D6544A':st==='warn'?'#D9A62E':'var(--up)';
+  c.textContent=G?`🛡 管理員 ${st==='ok'?'✓ 正常':st==='red'?'🔴 '+G.n_red+' 項異常':'🟡 '+G.n_warn+' 項注意'}`:'🛡 管理員(等待第一次巡邏)';
+}
+function guardPanel(){
+  let ov=document.getElementById('guardOv');if(ov){ov.remove();return;}
+  const G=window.__guard;
+  ov=document.createElement('div');ov.id='guardOv';ov.className='hlt-ov';
+  if(!G){ov.innerHTML='<div class="hlt-box"><div class="hlt-h">🛡 網站管理員<span class="hlt-x">✕</span></div><div class="dim-note">管理員還沒完成第一次巡邏(guard.json 尚未產生)。</div></div>';}
+  else{
+    const ord={red:0,warn:1,ok:2};
+    const grps=[...new Set((G.checks||[]).map(c=>c.grp))];
+    const sec=grps.map(g=>{const L=(G.checks||[]).filter(c=>c.grp===g).sort((a,b)=>ord[a.st]-ord[b.st]);
+      return `<div class="guard-g">${newsEsc(g)}</div>`+L.map(c=>`<div class="hlt-row">${guardDot(c.st)}<b>${newsEsc(c.label)}</b><span class="hlt-note" style="margin-left:0;text-align:left;flex:1">${newsEsc(c.msg)}</span></div>`).join('');}).join('');
+    const acts=(G.acts||[]).slice(0,10).map(a=>`<div class="hlt-row" style="font-size:12.5px"><span class="hlt-last" style="min-width:92px">${newsEsc(a.t.slice(5))}</span><span style="flex:1">${a.kind==='restore'?'♻️':'🔁'} ${newsEsc(a.text)}</span></div>`).join('')||'<div class="dim-note">最近沒有需要自動處理的事。</div>';
+    const ev=(G.events||[]).slice(0,10).map(e=>`<div class="hlt-row" style="font-size:12.5px"><span class="hlt-last" style="min-width:92px">${newsEsc(e.t.slice(5))}</span>${guardDot(e.to)}<span style="flex:1">${newsEsc(e.label)}:${newsEsc(e.msg)}</span></div>`).join('')||'<div class="dim-note">沒有狀態變化。</div>';
+    ov.innerHTML=`<div class="hlt-box" style="max-width:640px"><div class="hlt-h">🛡 網站管理員 <span class="dim" style="font-weight:400;font-size:13px">${newsEsc(G.u)}・${newsEsc(G.market||'')}</span><span class="hlt-x">✕</span></div>
+      <div class="guard-sum guard-${G.st}">${G.st==='ok'?'🟢 全部正常':G.st==='red'?`🔴 ${G.n_red} 項異常、🟡 ${G.n_warn} 項注意`:`🟡 ${G.n_warn} 項需要注意`}・共巡邏 ${(G.checks||[]).length} 項</div>
+      ${sec}
+      <div class="hlt-h" style="margin-top:14px;font-size:14px">⚙️ 自動處理紀錄</div>${acts}
+      <div class="hlt-h" style="margin-top:14px;font-size:14px">🕘 狀態變化</div>${ev}
+      <div class="hlt-note" style="margin:10px 0 0;text-align:left">盤中每 5 分鐘巡邏一次、其他時間每小時一次。自動處理只做安全動作(重新啟動漏跑/失敗的排程、還原壞掉的資料檔);要改程式的問題會推播通知,並由每天早上的 Claude 巡檢診斷。</div></div>`;
+  }
+  ov.onclick=e=>{if(e.target===ov||e.target.classList.contains('hlt-x')){ov.remove();if(location.hash==='#guard')history.replaceState(null,'',location.pathname+location.search);}};
+  document.body.appendChild(ov);
+}
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='guardChip')guardPanel();});
+async function guardTick(){await guardLoad();try{guardStrip();}catch(e){}try{guardChip();}catch(e){}}
+setTimeout(async function gLoop(){await guardTick();
+  if(location.hash==='#guard'&&!document.getElementById('guardOv')&&typeof isAdmin==='function'&&isAdmin())guardPanel();
+  setTimeout(gLoop,(window.__guard&&window.__guard.market==='盤中'?2:10)*60e3);},3000);
+addEventListener('hashchange',()=>{if(location.hash==='#guard'&&typeof isAdmin==='function'&&isAdmin())guardPanel();});

@@ -2470,3 +2470,12 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .news-src{font-size:12.5px;line-height:1.7;margin-top:6px;color:var(--dim)}
 .news-watch{font-size:14px;line-height:1.7;padding:4px 0}
 .news-watch+.news-watch{border-top:1px dashed var(--line)}
+/* r1073:🛡 網站管理員 */
+.guard-strip{margin:10px 0 4px;padding:9px 14px;border-radius:11px;border:1.5px solid #D9A62E;background:color-mix(in srgb,#D9A62E 12%,transparent);font-size:13.5px;line-height:1.6;color:var(--txt2)}
+.guard-strip b{color:#D9A62E;margin-right:4px}
+.guard-sub{color:var(--dim);font-size:12.5px}
+.guard-g{font-size:12px;font-weight:900;color:var(--mut);letter-spacing:.5px;margin:12px 0 2px;padding-bottom:3px;border-bottom:1px solid var(--line)}
+.guard-sum{font-weight:800;font-size:14px;padding:8px 12px;border-radius:10px;background:var(--panel2);border:1px solid var(--line)}
+.guard-sum.guard-red{border-color:#D6544A;color:#D6544A}
+.guard-sum.guard-warn{border-color:#D9A62E;color:#D9A62E}
+.guard-sum.guard-ok{color:#3BAD6C}
