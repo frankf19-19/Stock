@@ -1,0 +1,29 @@
+name: 🌙 美股收盤卡補算
+# r1082:只重算 AI Pick 頁「美股昨晚收盤 → 台股怎麼看」;由排程保險(cron_guard.py)發現過期時啟動,也可手動跑
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: usc
+  cancel-in-progress: false
+jobs:
+  usc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests
+      - name: 重算並提交(只動 usc 這一欄)
+        run: |
+          git config user.name "bot"; git config user.email "bot@users.noreply.github.com"
+          for i in 1 2 3 4; do
+            git pull -q --rebase origin main || true
+            python usc_refresh.py || exit 0
+            git add aipick.json
+            git commit -qm "usc: 美股收盤卡補算 $(TZ=Asia/Taipei date +'%m-%d %H:%M') [CI Skip]" || exit 0
+            git push -q && exit 0
+            git reset -q --hard origin/main; sleep 6
+          done

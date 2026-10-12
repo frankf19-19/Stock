@@ -36,6 +36,13 @@ if not (trading(d) and (NOW.hour, NOW.minute) >= (21, 45)):
 mu = str((load("margin.json", {}) or {}).get("updated") or "")[:10]
 if mu < d.isoformat():
     log(f"融資融券:最新 {mu or '—'},應有 {d}"); out.append("margin.yml")
+# 🌙 AI Pick「美股昨晚收盤 → 台股怎麼看」:台股開盤前(05:00~09:00),卡片要以「前一個台股交易日」為基準
+if 5 <= NOW.hour < 9:
+    p = TODAY - dt.timedelta(days=1)
+    while not trading(p): p -= dt.timedelta(days=1)
+    tl = str(((load("aipick.json", {}) or {}).get("usc") or {}).get("tw_last") or "")
+    if tl < p.isoformat():
+        log(f"美股收盤卡:台股上次收盤記成 {tl or '—'},應是 {p}"); out.append("usc.yml")
 # 🛡 網站管理員
 gu = str((load("guard.json", {}) or {}).get("u") or "")
 try: gt = dt.datetime.strptime(gu[:16], "%Y-%m-%d %H:%M")

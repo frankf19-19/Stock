@@ -31,6 +31,16 @@ def _stat():
         return None
 
 
+def _tw_last_local():
+    """網站自己的台股日 K(k/tw005.json 的 0050)最後一天"""
+    try:
+        e = (json.load(open("k/tw005.json", encoding="utf-8")) or {}).get("0050") or {}
+        d = e.get("d") or []
+        return d[-1] if d else None
+    except Exception:
+        return None
+
+
 def get(prev=None, max_age=1200):
     now = time.time()
     if prev and prev.get("ts") and now - prev["ts"] < max_age:
@@ -44,6 +54,8 @@ def get(prev=None, max_age=1200):
                 print("usclose:", sym, e)
         tw = B.get("twii") or []
         tw_last = tw[-1][0] if tw else None
+        loc = _tw_last_local()                                          # r1082:Yahoo 的加權日線常漏天(10/12 開盤了它還停在 10/08)
+        if loc and (not tw_last or loc > tw_last): tw_last = loc        #        → 跟網站自己的台股日 K 比,取比較新的
         ny_now = dt.datetime.utcnow() - dt.timedelta(hours=4)          # 美東(夏令);冬令差 1 小時只影響「盤中」判斷邊界
         ny_today, ny_min = ny_now.strftime("%Y-%m-%d"), ny_now.hour * 60 + ny_now.minute
         idx = {}
