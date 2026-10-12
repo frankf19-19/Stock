@@ -1,4 +1,4 @@
-/* K研所 · build r1079 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1083 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1079';
+const APP_BUILD='r1083';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2437,7 +2437,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1079</span>');
+  diag.push('<span style="color:var(--dim)">build r1083</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -23807,7 +23807,11 @@ window.addEventListener('resize',()=>{try{if(MKH.chart)MKH.chart.resize();}catch
 function renderHero(){
   const el=document.getElementById('heroStrip');if(!el)return;
   const m=(window.DATA&&DATA.macro)||{};
-  const pick=n=>((m.idx||[]).find(i=>i.name===n));
+  /* r1082:S&P、VIX 原本用 FRED(美國聯準會,隔天才更新)——台灣早上常還是前前一天的收盤。
+     AI Pick 的「美股收盤」每 20 分鐘從 Yahoo 抓一次,比較新就用它 */
+  const U=(window.AIPK&&AIPK.usc)||null;let fresh=false;try{fresh=!!(U&&U.at&&Date.now()-new Date(U.at.replace(' ','T')+':00+08:00').getTime()<20*3600e3);}catch(e){}
+  const OV={'S&P 500':fresh&&U.idx&&U.idx.gspc,'VIX 恐慌指數':fresh&&U.idx&&U.idx.vix};
+  const pick=n=>{const o=OV[n];if(o&&o.c>0&&o.chg!=null)return {name:n,val:o.c,chg:o.chg};return (m.idx||[]).find(i=>i.name===n);};
   const q=(n,short)=>{const i=pick(n);if(!i)return '';
     const up=i.chg>=0;return `<span class="hero-q"><em>${short}</em><b class="${up?'pos':'neg'}">${Number(i.val).toLocaleString()}</b><i class="${up?'pos':'neg'}">${up?'▲':'▼'}${Math.abs(i.chg)}%</i></span>`;};
   const wk=(window.AIPK&&AIPK.weeks)?AIPK.weeks.filter(w=>!w.bt).slice(-1)[0]:null;

@@ -5,7 +5,7 @@
 import json, time, datetime as dt
 import requests
 
-SYMS = [("^SOX", "sox", "費城半導體"), ("^IXIC", "ixic", "那斯達克"), ("^GSPC", "gspc", "S&P 500"), ("TSM", "tsm", "台積電 ADR"), ("^TWII", "twii", "加權指數")]
+SYMS = [("^SOX", "sox", "費城半導體"), ("^IXIC", "ixic", "那斯達克"), ("^GSPC", "gspc", "S&P 500"), ("TSM", "tsm", "台積電 ADR"), ("^VIX", "vix", "VIX 恐慌指數"), ("^TWII", "twii", "加權指數")]   # r1082:加 VIX(首頁上方用)
 UA = {"User-Agent": "Mozilla/5.0"}
 
 
