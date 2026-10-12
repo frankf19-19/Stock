@@ -1,4 +1,4 @@
-/* K研所 · build r1077 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1079 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1077';
+const APP_BUILD='r1079';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2437,7 +2437,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1077</span>');
+  diag.push('<span style="color:var(--dim)">build r1079</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -15467,6 +15467,32 @@ window.addEventListener('resize',()=>{chipCharts.forEach(c=>{try{c.resize()}catc
 window.addEventListener('resize',setupSections);
 setupMobileNav();
 setTimeout(setupSections,400);
+/* r1079:iPhone「底下那條(大盤指數+分頁鈕)跑到畫面中間」——Safari/主畫面 App 的「版面高度」和「實際看得到的高度」偶爾對不上
+   (鍵盤收起、切回 App、捲動中重繪時),固定在底部的列就卡在中間。做法:隨時量「底欄的底」和「看得到的區域的底」,
+   對不上就把兩條底欄一起移回去;捲動停下時再輕推一次,逼 Safari 重畫。正常時位移 = 0,完全不影響 */
+(function pinBottomBars(){
+  try{
+    const vv=window.visualViewport;if(!vv)return;
+    let dy=0,raf=0,flip=false,endT=0;
+    const bars=()=>['mobNav','mobIdxBar'].map(id=>document.getElementById(id)).filter(e=>e&&e.getClientRects().length);
+    const apply=(eps)=>bars().forEach(e=>{const v=dy+(eps||0);e.style.transform=Math.abs(v)>0.001?`translate3d(0,${v}px,0)`:'';});
+    const fix=()=>{raf=0;try{
+      if(document.body.classList.contains('kb-open'))return;
+      if(vv.scale&&Math.abs(vv.scale-1)>0.01)return;                       // 使用者放大中:不動
+      const nav=document.getElementById('mobNav');if(!nav||!nav.getClientRects().length)return;
+      const off=(vv.offsetTop+vv.height)-nav.getBoundingClientRect().bottom;
+      if(Math.abs(off)>2){dy+=off;if(Math.abs(dy)<2)dy=0;apply();}
+    }catch(e){}};
+    const on=()=>{if(!raf)raf=requestAnimationFrame(fix);};
+    const onScroll=()=>{on();clearTimeout(endT);endT=setTimeout(()=>{flip=!flip;apply(flip?0.01:0);on();},180);};   // 捲動停下:輕推重畫
+    vv.addEventListener('resize',on);vv.addEventListener('scroll',on);
+    window.addEventListener('scroll',onScroll,{passive:true});
+    window.addEventListener('pageshow',()=>setTimeout(on,60));
+    window.addEventListener('orientationchange',()=>setTimeout(on,350));
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden){setTimeout(on,80);setTimeout(on,600);}});
+    setInterval(()=>{if(!document.hidden)on();},2000);
+  }catch(e){}
+})();
 
 /* ══════════════ 籌碼深度追蹤(法人130日/大戶52週/營收40月/信用130日)══════════════ */
 let curChips=null, chipCharts=[];
