@@ -106,7 +106,7 @@ def check_quotes():
     last = dt.datetime.fromtimestamp(ts[-1], TZ) if ts else None
     if in_tw_market():
         age = (NOW - last).total_seconds() / 60 if last else 999
-        st = "ok" if age <= 9 else ("warn" if age <= 16 else "red")
+        st = "ok" if age <= 12 else ("warn" if age <= 20 else "red")   # r1080:快照約 5 分鐘一筆+推送/拉取延遲,9 分鐘就警告會一直閃黃燈
         add("quotes", "盤中", "盤中報價", st, f"最後一筆快照 {ago(last)}" + ("" if st == "ok" else "——報價停了"), last.strftime("%H:%M") if last else None, fix="update_quotes.yml", sec="all")
     elif tw_trading(TODAY) and (NOW.hour, NOW.minute) > (13, 40):
         ok = sp.get("d") == TODAY.isoformat() and len(ts) >= 30
@@ -203,6 +203,25 @@ def check_integrity(state):
     else:
         add("json", "資料完整", "資料檔格式", "ok", "重要資料檔都能正常讀取")
 
+def run_start(r):
+    """r1080:這一班「真正開始跑」的時間——排隊等前一班的時間不算(run_started_at 在排隊時就有值,會把排隊算成卡住)"""
+    try:
+        j = gh(f"/actions/runs/{r['id']}/jobs") or {}
+        ts = [pdate(x.get("started_at")) for x in (j.get("jobs") or []) if x.get("started_at") and x.get("status") != "queued"]
+        ts = [t for t in ts if t]
+        if ts: return min(ts)
+    except Exception: pass
+    return None
+
+
+def run_limit(wf, t0, tmo):
+    """r1080:每日資料更新在平日傍晚是「自迴圈」——14:45~19:00 開始的跑到 19:00、19:00~23:00 開始的跑到 23:00(每小時一輪),不是卡住"""
+    if wf != "update_data.yml" or not t0 or t0.weekday() > 4: return tmo
+    hm = t0.hour * 60 + t0.minute
+    end = 19 * 60 if 14 * 60 + 45 <= hm < 19 * 60 else (23 * 60 if 19 * 60 <= hm < 23 * 60 else None)
+    return tmo if end is None else max(tmo, end - hm + 75)
+
+
 def check_workflows():
     W = [("update_quotes.yml", "盤中報價迴圈", 360), ("update_data.yml", "每日資料更新", 70), ("yext.yml", "國際行情", 15),
          ("news.yml", "產業早報", 25), ("margin.yml", "融資融券", 40), ("etf.yml", "ETF 持股", 40), ("sbl.yml", "借券", 40),
@@ -226,8 +245,11 @@ def check_workflows():
         st, msg = "ok", f"最近一次 {ago(last)}:{({'success':'成功','failure':'失敗','cancelled':'取消'}).get(rs[0].get('conclusion'), '執行中' if rs[0].get('status')!='completed' else rs[0].get('conclusion'))}"
         if fails >= 1: st, msg = ("red" if fails >= 2 else "warn"), f"連續失敗 {fails} 次(最近 {ago(pdate(done[0].get('created_at')))})"
         for r in run_:
-            t0 = pdate(r.get("run_started_at") or r.get("created_at"))
-            if t0 and (NOW - t0).total_seconds() / 60 > tmo + 15:
+            if r.get("status") != "in_progress": continue          # r1080:排隊等前一班不是卡住
+            t0 = run_start(r)
+            if not t0: continue
+            lim = run_limit(wf, t0, tmo)
+            if (NOW - t0).total_seconds() / 60 > lim + 15:
                 st, msg = "red", f"已執行 {int((NOW - t0).total_seconds() // 60)} 分鐘,疑似卡住"
         if canc >= 6 and wf in ("bkall.yml", "weekend_backfill.yml"):
             st, msg = "warn", f"連續 {canc} 次被取消(排隊讓路太多,可能一直跑不完)"
