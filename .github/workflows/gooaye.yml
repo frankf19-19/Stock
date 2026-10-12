@@ -5,6 +5,7 @@ on:
     - cron: "15 */2 * * *"    # r492:每 2 小時(同集已整理直接跳過零成本;上片日延遲減半)
 permissions:
   contents: write
+  actions: write            # r1078:順便當「早報保險」——GitHub 排程常漏跑,早報漏了就由這裡補點火
 jobs:
   digest:
     runs-on: ubuntu-latest
@@ -12,6 +13,17 @@ jobs:
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4
+      - name: 📰 早報保險(台北 06:00 後今天的早報還沒出 → 啟動 news.yml)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY' && gh workflow run news.yml -R "$GITHUB_REPOSITORY" --ref main && echo "已補啟動 news.yml" || echo "早報正常或還沒到時間"
+          import json, datetime as dt, sys
+          now = dt.datetime.utcnow() + dt.timedelta(hours=8)
+          try: d = json.load(open("news.json", encoding="utf-8")).get("date")
+          except Exception: d = None
+          sys.exit(0 if (now.hour >= 6 and d != now.date().isoformat()) else 1)
+          PY
       - name: 設定 Python
         uses: actions/setup-python@v5
         with:
