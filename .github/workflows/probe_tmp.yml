@@ -9,7 +9,7 @@ jobs:
       - run: |
           O="Origin: https://frankf19-19.github.io"
           UA="User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
-          t(){ echo "=================== $1"; curl -sS -m 20 -D /tmp/h -o /tmp/b -H "$O" -H "$UA" "$2"; echo "code: $(head -1 /tmp/h)"; grep -i "access-control\|content-type\|cache-control\|age:" /tmp/h; head -c 700 /tmp/b; echo; }
+          t(){ curl -sS -m 20 -D /tmp/h -o /tmp/b -H "$O" -H "$UA" "$2" 2>/tmp/e; m="$1 | $(head -1 /tmp/h | tr -d '\r') | $(grep -i 'access-control-allow-origin\|content-type\|cache-control' /tmp/h | tr -d '\r' | tr '\n' ' ') | $(cat /tmp/e) | $(head -c 600 /tmp/b | tr -d '\r\n')"; echo "::notice title=$1::${m//%/%25}"; }
           t CNBC "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=.SPX%7C.DJI%7C.IXIC%7C.SOX&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json&events=1"
           t CNBC2 "https://quote.cnbc.com/quote-html-webservice/quote.htm?symbols=.SPX%7C.DJI%7C.IXIC%7C.SOX&partnerId=2&requestMethod=quick&exthrs=1&noform=1&fund=1&output=json"
           t NASDAQ "https://api.nasdaq.com/api/quote/COMP/info?assetclass=index"
