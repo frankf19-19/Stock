@@ -67,9 +67,19 @@ def sb_headers():
 PUSH_HOST = "https://young-term-6fa3.frankccc199.workers.dev"
 GH_TOKEN_ACT = os.environ.get("GITHUB_TOKEN", "").strip()       # r788:Actions 內建 token,Worker 用它驗證後端身分
 
+_PU_CACHE = os.path.join(os.environ.get("RUNNER_TEMP") or "/tmp", "kyansuo_push_users.json")
+_PU_TTL = 1200      # r1084:20 分鐘內重用——盤中每 5 分鐘一輪,原本每輪都讀一次 Cloudflare KV(免費版每天 list 1,000 次、讀 10 萬次)
+
+
 def push_users():
-    """r788:從 Worker KV 拿訂閱與最愛/持股(不經 Supabase service key)。回傳 user_data 相同格式。"""
+    """r788:從 Worker KV 拿訂閱與最愛/持股(不經 Supabase service key)。回傳 user_data 相同格式。
+    r1084:同一台機器 20 分鐘內重用上次結果(訂閱/最愛很少變),大幅減少 KV 讀取與 list 次數"""
     if not GH_TOKEN_ACT: return []
+    try:
+        import time as _t
+        c = json.load(open(_PU_CACHE, encoding="utf-8"))
+        if _t.time() - c.get("t", 0) < _PU_TTL and isinstance(c.get("u"), list): return c["u"]
+    except Exception: pass
     try:
         r = requests.get(f"{PUSH_HOST}/push/all", headers={"Authorization": f"Bearer {GH_TOKEN_ACT}"}, timeout=20)
         if not r.ok: log(f"  Worker /push/all {r.status_code}"); return []
@@ -79,12 +89,23 @@ def push_users():
                                                "pushSubs": json.dumps(u.get("subs") or []), "cats": json.dumps(u.get("cats")) if u.get("cats") is not None else None,
                                                "tgLink": json.dumps(u.get("tgLink")) if u.get("tgLink") else None,           # r819:綁定碼/解綁旗標也從 Worker 來
                                                "tgChat": (u.get("tg") or [None])[0] if u.get("tg") else None}})
+        try:
+            import time as _t
+            json.dump({"t": _t.time(), "u": out}, open(_PU_CACHE, "w", encoding="utf-8"))
+        except Exception: pass
         return out
     except Exception as e:
         log(f"  Worker /push/all 失敗:{e}"); return []
 
 def push_report_dead(endpoints):
     if not GH_TOKEN_ACT or not endpoints: return
+    try:                                                    # r1084:快取裡也拿掉,免得 20 分鐘內一直重送、一直回報
+        c = json.load(open(_PU_CACHE, encoding="utf-8")); dead = set(endpoints)
+        for u in c.get("u") or []:
+            subs = [x for x in json.loads(u["data"].get("pushSubs") or "[]") if x.get("endpoint") not in dead]
+            u["data"]["pushSubs"] = json.dumps(subs)
+        json.dump(c, open(_PU_CACHE, "w", encoding="utf-8"))
+    except Exception: pass
     try: requests.post(f"{PUSH_HOST}/push/dead", headers={"Authorization": f"Bearer {GH_TOKEN_ACT}", "Content-Type": "application/json"},
                        json={"endpoints": endpoints}, timeout=20)
     except Exception: pass
