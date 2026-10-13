@@ -1,0 +1,20 @@
+name: probe_tmp
+on: workflow_dispatch
+permissions: {contents: read}
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          O="Origin: https://frankf19-19.github.io"
+          UA="User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
+          t(){ echo "=================== $1"; curl -sS -m 20 -D /tmp/h -o /tmp/b -H "$O" -H "$UA" "$2"; echo "code: $(head -1 /tmp/h)"; grep -i "access-control\|content-type\|cache-control\|age:" /tmp/h; head -c 700 /tmp/b; echo; }
+          t CNBC "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=.SPX%7C.DJI%7C.IXIC%7C.SOX&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json&events=1"
+          t CNBC2 "https://quote.cnbc.com/quote-html-webservice/quote.htm?symbols=.SPX%7C.DJI%7C.IXIC%7C.SOX&partnerId=2&requestMethod=quick&exthrs=1&noform=1&fund=1&output=json"
+          t NASDAQ "https://api.nasdaq.com/api/quote/COMP/info?assetclass=index"
+          t YAHOO "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=1d&interval=1m"
+          t YAHOO2 "https://query2.finance.yahoo.com/v8/finance/chart/%5EDJI?range=1d&interval=1m"
+          t WSJ "https://api.wsj.net/api/dylan/quotes/v2/comp/quoteByDialect?dialect=official&needed=CompositeTrading&MaxInstrumentMatches=1&accept=application/json&EntitlementToken=cecc4267a0194af89ca343805a3e57af&ckey=cecc4267a0&dialects=Charting&id=Index-US-SPX,Index-US-DJIA"
+          t TVSCAN "https://scanner.tradingview.com/symbol?symbol=SP%3ASPX&fields=close,change,update_mode"
+          date -u
