@@ -1,4 +1,4 @@
-/* K研所 · build r1083 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1085 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1083';
+const APP_BUILD='r1085';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1128,7 +1128,8 @@ async function favStateFill(){
     if(!document.getElementById('favBox'))break;             // 已離開頁面
     const s=(DATA.stocks||[]).find(x=>x.id===id);
     if(!s||s.etf)continue;
-    if(FAVST[id]&&Date.now()-FAVST[id].t<5*60e3){favStPaint(id);continue;}
+    const _ttl=(typeof marketOpen==='function'&&marketOpen())?2*60e3:5*60e3;   // r1085:盤中 2 分鐘重算一次(「目前 X 元」、買賣計畫跟上現價)
+    if(FAVST[id]&&Date.now()-FAVST[id].t<_ttl){favStPaint(id);continue;}
     try{
       const k=await loadK(s);
       if(!k||k.demo||!k.ohlc||!k.ohlc.length){   // r1059:多半是手機網路慢、K 線分片下載逾時 → 15 秒後自動重試(最多 4 次),不再一直顯示「暫缺」
@@ -2437,7 +2438,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1083</span>');
+  diag.push('<span style="color:var(--dim)">build r1085</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -5957,6 +5958,10 @@ setInterval(()=>{                                          // 📶 報價即時:
     document.querySelectorAll('[data-pch]').forEach(ch=>{
       const st=(DATA.stocks||[]).find(x=>x.id===ch.dataset.pch);
       if(st&&st.chg!=null)ch.innerHTML=chgHtml(+st.chg);
+    });
+    document.querySelectorAll('#favQuick .fq-chip[data-fq]').forEach(b=>{   // r1085:最愛快選的漲跌%跟卡片同一個即時來源
+      const st=(DATA.stocks||[]).find(x=>x.id===b.dataset.fq);if(!st||st.chg==null)return;const c=+st.chg;
+      b.classList.toggle('up',c>0);b.classList.toggle('dn',c<0);const sm=b.querySelector('small');const t=`${c>0?'+':''}${c.toFixed(1)}%`;if(sm&&sm.textContent!==t)sm.textContent=t;
     });
     document.querySelectorAll('[data-hspx]').forEach(el=>{      // 頭部掃描/持股體檢:現價+漲跌同步
       const st=(DATA.stocks||[]).find(x=>x.id===el.dataset.hspx);
@@ -9635,7 +9640,7 @@ function paintAllMini(){                            // r527:卡片一律當天K�
       if(!el.getClientRects().length)return;   // r1076:看不到的卡片不畫(切過去時會補)
       const id=el.dataset.candle;
       const cur=el.innerHTML.trim()?parseInt(el.dataset.mini||'-1',10):-1;
-      if(cur>=3)return;                                    // 已是盤中即時K棒:不動
+      if(cur>=3){const[g3,rk3]=dayCandleOf(id);if(g3&&rk3>=3&&el.innerHTML!==g3)el.innerHTML=g3;return;}   // r1085:盤中即時K棒也要跟著最新開高低收重畫(原本畫一次就不動 → 價格跌了K棒還是紅的)
       const[g,rk]=dayCandleOf(id);
       if(g&&rk>(isNaN(cur)?-1:cur)){el.innerHTML=g;el.dataset.mini=String(rk);}
     });
