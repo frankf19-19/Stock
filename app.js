@@ -1,4 +1,4 @@
-/* K研所 · build r1086 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1087 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1086';
+const APP_BUILD='r1087';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2438,7 +2438,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1086</span>');
+  diag.push('<span style="color:var(--dim)">build r1087</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -2565,9 +2565,43 @@ async function yextData0(){
     const r=await fT('yext.json?_='+Math.floor(Date.now()/55000),6000);
     if(!r.ok)return __yextCache;
     __yextCache=await r.json();__yextAt=Date.now();
+    try{cnbcApply();}catch(e){}
   }catch(e){}
+  if(!window.__cnbcPoll)cnbcStart();
   return __yextCache;
 }
+/* r1087:⚡ 美股四大指數秒級即時(CNBC 報價服務:交易所即時、原生 CORS、瀏覽器直連,不經代理/Worker/KV)
+   S&P 500 / 道瓊 / 那斯達克綜合 / 費半 → window.CNBC[sym]={px,ts,prev};盤中每 20 秒更新一次(分頁在前景時)。
+   同時把即時點接到 yext 分線尾端 → 站內用美股指數分線的地方一起變即時;抓不到就維持後端 20 分鐘那份。 */
+const CNBC_SYM={'.SPX':'^GSPC','.DJI':'^DJI','.IXIC':'^IXIC','.SOX':'^SOX'};
+window.CNBC=window.CNBC||{};window.__cnbcTicks=window.__cnbcTicks||{};
+let __cnbcAt=0,__cnbcP=null;
+async function cnbcLoad(force){
+  const live=typeof usSession==='function'&&usSession()==='盤中';
+  if(!force&&Date.now()-__cnbcAt<(live?15000:300000))return window.CNBC;
+  if(__cnbcP)return __cnbcP;
+  __cnbcP=(async()=>{try{
+    const r=await fT('https://quote.cnbc.com/quote-html-webservice/quote.htm?symbols='+encodeURIComponent(Object.keys(CNBC_SYM).join('|'))
+      +'&partnerId=2&requestMethod=quick&exthrs=1&noform=1&fund=1&output=json',7000,{cache:'no-store'});
+    if(!r||!r.ok)return window.CNBC;
+    const j=await r.json();let q=((j||{}).QuickQuoteResult||{}).QuickQuote||[];if(!Array.isArray(q))q=[q];
+    q.forEach(x=>{const sym=CNBC_SYM[x&&x.symbol];const px=parseFloat(String(x&&x.last||'').replace(/,/g,''));const ts=+(x&&x.last_time_msec)||Date.parse(x&&x.last_time||'');
+      if(!sym||!(px>0)||!isFinite(ts))return;
+      window.CNBC[sym]={px,ts,prev:parseFloat(String(x.previous_day_closing||'').replace(/,/g,''))||null,st:x.curmktstatus||''};
+      const tk=window.__cnbcTicks[sym]=window.__cnbcTicks[sym]||[];if(!tk.length||ts>tk[tk.length-1][0])tk.push([ts,px]);if(tk.length>1500)tk.splice(0,tk.length-1500);});
+    __cnbcAt=Date.now();try{cnbcApply();}catch(e){}
+  }catch(e){}return window.CNBC;})().finally(()=>{__cnbcP=null;});
+  return __cnbcP;
+}
+function cnbcApply(){                       // 即時點接到 yext 分線尾端(只接同一個美股交易日、比後端最後一點新的)
+  const Y=__yextCache;if(!Y||!Y.series)return;
+  Object.values(CNBC_SYM).forEach(sym=>{const m=(Y.series[sym]||{}).m,tk=window.__cnbcTicks[sym];
+    if(!m||!Array.isArray(m.t)||!m.t.length||!tk||!tk.length)return;
+    const lastT=m.t[m.t.length-1],day=_etDay(lastT);
+    tk.forEach(([ts,px])=>{const t=Math.floor(ts/1000);if(t>m.t[m.t.length-1]+30&&_etDay(t)===day){m.t.push(t);m.c.push(+px.toFixed(2));}});});
+}
+function cnbcStart(){if(window.__cnbcPoll)return;window.__cnbcPoll=setInterval(()=>{
+  if(document.visibilityState==='visible'&&typeof usSession==='function'&&usSession()==='盤中')cnbcLoad();},20000);cnbcLoad();}
 async function yToday(sym){
   // Yahoo '1d' 有時給前一日 → 改抓 5 日 5 分線,切出「今天」的段落
   const d5=await yChart(sym,'5d','5m');
@@ -23195,6 +23229,8 @@ function biasLivePx(x,uTs){
   const cand=(d,px,ts,src)=>{if(!d||px==null||!isFinite(px)||px<=0||d<x.as_of)return;if(!best||d>best.d||(d===best.d&&ts>best.ts))best={d,px:+px,ts,src};};
   const m=s&&s.m;
   if(m&&m.t&&m.t.length){const i=m.t.length-1;cand(x.mkt==='US'?_etDay(m.t[i]):tpDay(m.t[i]),m.c[i],m.t[i]*1000,'m');}
+  const cq=x.mkt==='US'&&window.CNBC&&window.CNBC[x.sym];
+  if(cq&&cq.px>0)cand(_etDay(cq.ts/1000),cq.px,cq.ts+1,'cnbc');          // r1087:秒級即時(同時間戳時優先)
   if(x.mkt!=='US'){
     const d=s&&s.d;if(d&&d.t&&d.t.length){const i=d.t.length-1;cand(new Date(d.t[i]*1000).toISOString().slice(0,10),d.c[i],d.t[i]*1000,'d');}
     const k=x.sym==='^TWII'?'加權':x.sym==='^TWOII'?'櫃買':null,r=k&&window.RTIDX&&window.RTIDX[k];
@@ -23221,7 +23257,7 @@ function biasLive(x,uTs){
     const b=(L.px/mv-1)*100;ma[k]=Object.assign({},o,{ma:+mv.toFixed(2),bias:+b.toFixed(2),pct:biasPct(o,b)});});
   const mm=ma[String((BIAS&&BIAS.main_ma)||20)];if(!mm)return null;
   const sp=(x.spark||[]).slice();if(same)sp[sp.length-1]=+mm.bias.toFixed(1);else{sp.push(+mm.bias.toFixed(1));sp.shift();}
-  const fresh=Date.now()-L.ts<(x.mkt==='US'?45:15)*60000&&L.src!=='d';
+  const fresh=Date.now()-L.ts<(L.src==='m'&&x.mkt==='US'?45:15)*60000&&L.src!=='d';
   return Object.assign({},x,{last:+L.px.toFixed(2),ma,zone:biasZoneOf(mm.pct),spark:sp,
     live:{d:L.d,ts:L.ts,fresh,src:L.src,offZone:x.zone,offBias:(x.ma[String((BIAS&&BIAS.main_ma)||20)]||{}).bias,offPct:(x.ma[String((BIAS&&BIAS.main_ma)||20)]||{}).pct,offAsOf:x.as_of}});
 }
@@ -23232,12 +23268,12 @@ function renderBias(){
   const zi={'低檔':'🟢 低檔區・歷史上的好買點','偏低':'🟡 偏低・分批區','中性':'⚪ 中性','偏高':'🟠 偏高・不追','高檔':'🔴 高檔區・過熱'};
   const f1=x=>x==null?'—':(x>=0?'+':'')+x.toFixed(1)+'%';
   const uTs=(()=>{const t=Date.parse(String(J.u||'').replace(' ','T')+':00+08:00');return isFinite(t)?t:0;})();
-  const hm=ts=>new Date(ts).toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'}).slice(0,5);
+  const hms=ts=>new Date(ts).toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'}).slice(0,8),hm=ts=>hms(ts).slice(0,5);
   const IDX=(J.idx||[]).map(x=>{try{return biasLive(x,uTs)||x;}catch(e){return x;}});
   const rows=IDX.map(x=>{
     const m=x.ma[String(J.main_ma||20)]||{}, bt=x.low_bt||{}, b8=bt['8'], b13=bt['13'], base8=(x.base||{})['8'];
     const eps=(x.low_eps||[]).slice(-3).reverse(), lv=x.live;
-    const lvTag=lv?(lv.fresh?`<span class="bias-live" title="用最新價把這一週重算;收盤後以正式週收盤為準">⚡ ${hm(lv.ts)} 即時${x.mkt==='US'?'(約 20 分更新)':''}</span>`
+    const lvTag=lv?(lv.fresh?`<span class="bias-live" title="用最新價把這一週重算;收盤後以正式週收盤為準">⚡ ${lv.src==='m'?hm(lv.ts)+' 報價(約 20 分更新)':hms(lv.ts)+' 即時'}</span>`
                           :`<span class="bias-live" style="opacity:.75" title="正式週線還沒重算,先用這天收盤價估">${lv.d.slice(5).replace('-','/')} 收盤估</span>`):'';
     const stale=!lv&&x.as_of&&(Date.now()-Date.parse(x.as_of+'T00:00:00+08:00'))>12*864e5;
     return `<div class="bias-card" style="border-left-color:${zc[x.zone]||'var(--line)'}">
@@ -23254,7 +23290,7 @@ function renderBias(){
       </div></div>
     </div>`;}).join('');
   const lows=IDX.filter(x=>x.zone==='低檔'||x.zone==='偏低');
-  const html=`<div class="dim-note" style="margin-bottom:8px">正式週線 ${J.u} 更新;盤中每分鐘用最新價重算「這一週」(標 ⚡),收盤後以正式週收盤為準。乖離 =(週收 − 20 週均)÷ 20 週均;<b>低檔/高檔不用固定 %</b>,而是每個指數放進它自己十年的乖離分佈:≤10 分位 = 低檔、≥90 = 高檔。灰帶 = 10~90 分位區間,線在灰帶下緣以下就是歷史上罕見的便宜。${lows.length?`<b style="color:var(--up)">現在在低檔/偏低區:${lows.map(x=>x.name).join('、')}</b>`:'現在沒有指數在低檔區。'}</div>
+  const html=`<div class="dim-note" style="margin-bottom:8px">正式週線 ${J.u} 更新;盤中每 20 秒用即時價重算「這一週」(標 ⚡;美股 CNBC 即時報價、台股盤中即時指數),收盤後以正式週收盤為準。乖離 =(週收 − 20 週均)÷ 20 週均;<b>低檔/高檔不用固定 %</b>,而是每個指數放進它自己十年的乖離分佈:≤10 分位 = 低檔、≥90 = 高檔。灰帶 = 10~90 分位區間,線在灰帶下緣以下就是歷史上罕見的便宜。${lows.length?`<b style="color:var(--up)">現在在低檔/偏低區:${lows.map(x=>x.name).join('、')}</b>`:'現在沒有指數在低檔區。'}</div>
     <div class="bias-grid">${rows}</div>
     ${levHTML(J)}
     <div class="dim-note" style="margin-top:8px">「低檔進場回測」= 過去十年每次從上方跌進低檔區的那一週買進,8/13 週後的結果;跟「任意時點」基準比才知道低檔有沒有優勢。乖離低檔是<b>時機</b>不是保證——系統性事件(2020/03、2022)時可以更低。資料:Yahoo 週線(櫃買 Yahoo 停更的部分用櫃買中心官方收盤補)。非投資建議。</div>`;
@@ -23292,8 +23328,8 @@ function levHTML(J){if(!LEV_SHOW&&!isAdmin())return '';const L=(J&&J.lev||[]);if
       </div>
       <div class="dim-note" style="margin-top:8px">判定規則(依上面回測):加權分位 10~25 +2、≤10 +1、≥90 −1;正2 自身 ≤10 −1、≥90 −1;波動 ≥90 +1;年線不計分。≥2 加碼區、1 可小量、0 持有不加碼、負分減碼。資料:FinMind(00631L 日線併週線,分割還原)+ Yahoo(加權週線),2014-10 起。非投資建議。</div>
     </div>`;}).join('');}
-lazyRun('#biasBox',()=>{Promise.all([biasLoad(),yextData()]).then(()=>renderBias());},30*60*1000);
-lazyRun('#biasBox',()=>{if(BIAS)yextData().then(()=>renderBias());},60*1000);   // r1086:盤中每分鐘重算這一週
+lazyRun('#biasBox',()=>{Promise.all([biasLoad(),yextData(),cnbcLoad()]).then(()=>renderBias());},30*60*1000);
+lazyRun('#biasBox',()=>{if(BIAS)Promise.all([yextData(),cnbcLoad()]).then(()=>renderBias());},20*1000);   // r1086/r1087:盤中每 20 秒重算這一週(美股 CNBC 即時、台股盤中即時指數)
 /* ═══ r795:🧭 期貨籌碼(fetch_taifex.py 每日產 taifex.json)═══ */
 let TAIFEX=null   // r795:另一個 renderFut(macro 期貨列)已存在,這裡用 futx 避免撞名;
 async function futxLoad(){try{const r=await fT('taifex.json?v='+kv(),15000,{cache:'no-store'});if(r&&r.ok)TAIFEX=await r.json();}catch(e){}return TAIFEX;}
