@@ -44,6 +44,37 @@ def fetch_weekly(sym):
         log(f"  {sym} 抓取失敗:{e}"); return None
 
 
+def _isow(d):
+    y, w, _ = dt.date.fromisoformat(d).isocalendar(); return (y, w)
+
+
+def yext_daily(sym):
+    """r1086:yext.json 裡的官方日收盤(櫃買/加權來自證交所・櫃買官方;約 130 個交易日)→ [(日期, 收盤)]"""
+    try:
+        d = (json.load(open("yext.json", encoding="utf-8")).get("series", {}).get(sym) or {}).get("d") or {}
+        return [(dt.datetime.fromtimestamp(t, dt.timezone.utc).date().isoformat(), float(c))
+                for t, c in zip(d.get("t") or [], d.get("c") or []) if c is not None]
+    except Exception:
+        return []
+
+
+def splice(wk, extra):
+    """r1086:Yahoo 週線停更(^TWOII 停在 2026-07)→ 用官方日收盤補上之後的週。
+    extra:[(日期, 收盤)] 日線或之前補過的週;同一週取最後一天的收盤。Yahoo 跟得上(同一週)就完全不動。
+    回傳 (合併後週線, 這次補上的週[(日期, 收盤)])"""
+    if not wk or not extra: return wk, []
+    lastw = _isow(wk[-1][0])
+    byw = {}
+    for d, c in sorted(extra):
+        w = _isow(d)
+        if w >= lastw: byw[w] = (d, c)
+    if not byw or max(byw) <= lastw: return wk, []
+    out = list(wk)
+    if lastw in byw: out[-1] = (out[-1][0], byw[lastw][1])     # Yahoo 最後一週可能只到週一 → 用官方週收蓋過
+    add = [byw[w] for w in sorted(byw) if w > lastw]
+    return out + add, add
+
+
 def pct_rank(xs, v):
     """v 在 xs 裡的百分位(0~100)。"""
     if not xs: return None
@@ -75,10 +106,14 @@ def analyze(sym, name, mkt, wk, prev):
         hist = [x for x in b if x is not None]
         cur = b[-1]
         bias_hist[m] = b
+        sh = sorted(hist)
         res["ma"][str(m)] = {"ma": round(C[-1] / (1 + cur / 100), 2), "bias": round(cur, 2), "pct": pct_rank(hist, cur),
-                             "p10": round(sorted(hist)[int(len(hist) * 0.10)], 2), "p25": round(sorted(hist)[int(len(hist) * 0.25)], 2),
-                             "p75": round(sorted(hist)[int(len(hist) * 0.75)], 2), "p90": round(sorted(hist)[int(len(hist) * 0.90)], 2),
-                             "min": round(min(hist), 2), "max": round(max(hist), 2)}
+                             "p10": round(sh[int(len(sh) * 0.10)], 2), "p25": round(sh[int(len(sh) * 0.25)], 2),
+                             "p75": round(sh[int(len(sh) * 0.75)], 2), "p90": round(sh[int(len(sh) * 0.90)], 2),
+                             "min": round(min(hist), 2), "max": round(max(hist), 2),
+                             # r1086:給前端盤中即時估算——十年乖離分佈每 5 分位一點(0~100),以及「換新一週時被擠出均線的那根週收」
+                             "q": [round(sh[min(len(sh) - 1, int(len(sh) * k / 20))], 2) for k in range(21)],
+                             "c_out": round(C[-m], 2)}
     if str(MAIN) not in res["ma"]: return None
     main = res["ma"][str(MAIN)]
     res["zone"] = zone_of(main["pct"])
@@ -297,8 +332,14 @@ def main():
         if not wk:
             if sym in prev: out.append(prev[sym]); log(f"  {name}:抓不到,沿用前值")
             continue
+        add = []
+        if mkt == "TW":                                     # r1086:Yahoo 週線停更 → 官方日收盤補週(補過的週存在 bias.json 永久保留)
+            ext = [tuple(e) for e in ((prev.get(sym) or {}).get("wk_ext") or [])]
+            wk, add = splice(wk, ext + yext_daily(sym))
+            if add: log(f"  {name}:Yahoo 週線只到 {add[0][0]} 之前 → 官方日收盤補 {len(add)} 週(到 {add[-1][0]})")
         r = analyze(sym, name, mkt, wk, prev.get(sym))
         if r:
+            if add: r["wk_ext"] = [[d, round(c, 2)] for d, c in add]
             out.append(r)
             m = r["ma"][str(MAIN)]
             log(f"  {name}:{r['last']}・20週乖離 {m['bias']:+.2f}%(十年分位 {m['pct']})→ {r['zone']}"

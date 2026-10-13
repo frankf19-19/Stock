@@ -180,6 +180,25 @@ def nasdaq_intraday(cands):
         time.sleep(0.6)
     return None
 
+def yahoo_intraday(sym):
+    """r1086:美股指數今日 2 分線(Yahoo,伺服器端);只回「最近一個交易日」的點"""
+    try:
+        j = json.loads(http_get("https://query1.finance.yahoo.com/v8/finance/chart/" + urllib.parse.quote(sym)
+                                + "?range=1d&interval=2m", timeout=15))
+        res = j["chart"]["result"][0]
+        tt, cc = [], []
+        for t, c in zip(res.get("timestamp") or [], (res["indicators"]["quote"][0].get("close") or [])):
+            if c is not None: tt.append(int(t)); cc.append(round(float(c), 2))
+        if len(tt) < 5: return None
+        out = {"t": tt, "c": cc}
+        pv = (res.get("meta") or {}).get("chartPreviousClose")
+        if pv: out["prev"] = round(float(pv), 2)          # 下面有 FRED 日線時會再校正
+        return out
+    except Exception as e:
+        print(f"  {sym} Yahoo 盤中失敗: {e}", file=sys.stderr)
+        return None
+
+
 def mis_intraday(ch, prev=None, sess=None):
     """MIS 分線端點(僅支援個股/ETF 頻道,不支援指數頻道)。
     時間軸錨定「最近交易時段日」09:00 起逐分鐘——深夜執行不會標成未來時間。"""
@@ -303,6 +322,9 @@ def main():
     for fsym, cands in NASDAQ_INTRA.items():
         m = nasdaq_intraday(cands)
         if not m:
+            m = yahoo_intraday(fsym)                 # r1086:Nasdaq 拿不到 S&P/道瓊盤中 → 改用 Yahoo(伺服器端可連)
+            if m: print(f"  {fsym} ← Yahoo 盤中備援({len(m['t'])} 點)")
+        if not m:
             print(f"  {fsym} 盤中分線未取得(機房被擋或休市空檔,略過)")
             continue
         d = (series.get(fsym) or {}).get("d")
@@ -317,7 +339,7 @@ def main():
             else:
                 m["prev"] = d["c"][-1]     # FRED 尚未含當日 → 昨收=最後一根
         series.setdefault(fsym, {})["m"] = m
-        print(f"  {fsym} ← Nasdaq 盤中({len(m['t'])} 點,昨收 {m.get('prev','—')})")
+        print(f"  {fsym} ← 盤中分線({len(m['t'])} 點,昨收 {m.get('prev','—')})")
         time.sleep(0.5)
     # ── 台股指數全日分線(v4):加權=證交所官方每5秒統計、櫃買=006201 ETF 分線×比例換算 ──
     old_series = {}
