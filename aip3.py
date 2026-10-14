@@ -24,7 +24,7 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1095"
+VER = "r1097"
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
 AI_TTL_D = 45       # AI 未來性評分快取天數(選股時 45 天內不重打;每月第一班另外更新持股)
 AI_POOL_N = 12      # 每個市場最多替量化排序前 12 檔候選打 AI 分(每檔一次搜尋約 15~20 秒)
@@ -360,6 +360,84 @@ def ai_industry(p, us=False):
         log(f"  產業分析略過:{e}"); return ""
 
 
+# ═══════════════ 參考價位(r1097)═══════════════
+def _atr14(o):
+    tr = [max(x[1] - x[2], abs(x[1] - y[3]), abs(x[2] - y[3])) for x, y in zip(o[-15:], o[-16:-1])]
+    return sum(tr) / max(1, len(tr))
+
+
+def levels(p, key, us=False, prev=None):
+    """r1097:每檔的參考價位——🛑 停損 / 🎯 停利 / ➕ 加碼 / 🔁 賣出後再買回。給人自己下單用、前端即時比對現價;
+    模型帳仍照各清單規則進出(回測顯示三個清單加價格停損反而變差)。
+    停損 = 短期/中期:個股結構支撐(aipick.stock_levels:20/60 日低、月季線、波段低、量能密集區,留 0.5 ATR;不緊於 1.5 ATR、不寬於 2.5 ATR/10%);長期:季線 −3%(最多 −15%);持有中只上不下
+    停利 = 短期:第一道有意義的壓力(20/60 日高、波段高、量能密集區,賺賠比 ≥1.5);中期:進場 +25%(回測變體);長期:進場 +30%(減碼一半)
+    加碼 = 短期:進場 +5%;中期:進場 +10%(每日交易加碼規則);長期:回到月線附近(月線在進場價之下時),否則進場 +10%
+    再買回 = 停損參考價 + 1 ATR(站回支撐之上就可買回,當天也可以)"""
+    try:
+        import aipick
+        B = bars(p["id"], us)
+        if len(B) < 60: return prev
+        d = [b[0] for b in B]; o = [b[1] for b in B]; C = [x[3] for x in o]
+        buy = p.get("entry") or p.get("sel_px") or C[-1]
+        if not buy or buy <= 0: return prev
+        a = _atr14(o); sinfo = STK.get(p["id"]) or {}
+        old = aipick.US; aipick.US = bool(us)
+        try:
+            tgt, stp, LV = aipick.stock_levels(d, o, buy, a, sinfo)
+            ma20 = sum(C[-20:]) / 20; ma240 = sum(C[-240:]) / 240 if len(C) >= 240 else None
+            if key == "short":
+                sl, sls = stp, f"結構支撐({LV.get('stp_src')})"; tp, tps = tgt, f"第一道壓力({LV.get('tgt_src')})"; add, adds = buy * 1.05, "進場 +5%(走勢證明對了再加)"
+            elif key == "mid":
+                sl, sls = stp, f"結構支撐({LV.get('stp_src')})"; tp, tps = buy * 1.25, "進場 +25%(回測變體)"; add, adds = buy * 1.10, "進場 +10%,且仍在量價前 20 名"
+            else:
+                ma60 = sum(C[-60:]) / 60
+                if ma60 * 0.97 < buy and ma60 * 0.97 >= buy * 0.85: sl, sls = ma60 * 0.97, "季線 −3%(跌破季線代表中期趨勢壞了)"
+                else: sl, sls = max(stp, buy * 0.85), "進場 −15%(長期持股的底線)" if stp < buy * 0.85 else f"結構支撐({LV.get('stp_src')})"
+                tp, tps = buy * 1.30, "進場 +30%(先減碼一半,其餘續抱)"
+                if ma20 and ma20 < buy * 0.995: add, adds = ma20, "回到月線附近(拉回不破月線再加)"
+                else: add, adds = buy * 1.10, "進場 +10%"
+            if prev and prev.get("sl") and p.get("fill_d"): sl = max(sl, prev["sl"]); sls = prev.get("sl_src") if prev["sl"] >= sl else sls
+            if add <= sl * 1.02: add, adds = buy * 1.10, "進場 +10%"               # 加碼價不能貼著停損
+            re_ = sl + 1.0 * a
+            R = lambda v: aipick.rtick(float(v), "near")
+            return {"sl": R(sl), "sl_src": sls, "tp": R(tp), "tp_src": tps, "add": R(add), "add_src": adds, "re": R(re_), "re_src": "停損參考價 + 1 ATR(站回支撐就可買回)",
+                    "atr": round(a, 2), "d": d[-1], "anchor": round(float(buy), 2), "rr": LV.get("rr")}
+        finally: aipick.US = old
+    except Exception as e:
+        log(f"  參考價位略過 {p.get('id')}:{e}"); return prev
+
+
+def hist_levels(T, key, us=False):
+    """已出場的近 15 天內:🔁 再買回參考——停損型出場 = 停損價 + 1 ATR;其他出場(到期/掉出排名/季檢視/停利)= 站回出場價"""
+    try:
+        import aipick
+        cut = (NOW - dt.timedelta(days=15)).strftime("%Y-%m-%d")
+        for h in T["hist"][-15:]:
+            if h.get("re") is not None or not h.get("xd") or h["xd"] < cut: continue
+            B = bars(h["id"], us)
+            if len(B) < 20: continue
+            o = [b[1] for b in B]; a = _atr14(o)
+            old = aipick.US; aipick.US = bool(us)
+            try:
+                lv = h.get("lv") or {}
+                if h.get("xw") == "sl" and lv.get("sl"): h["re"] = aipick.rtick(lv["sl"] + a, "near"); h["re_src"] = "停損參考價 + 1 ATR"
+                else: h["re"] = aipick.rtick(float(h["xp"]), "near"); h["re_src"] = "站回出場價(賣掉後又站回去就買回,當天也可以)"
+            finally: aipick.US = old
+            u = h["xd"]
+            for _ in range(10): u = next_td(u, us) or u                     # 出場後 10 個交易日內有效
+            h["re_until"] = u
+    except Exception as e:
+        log(f"  再買回價位略過:{e}")
+
+
+def tier_levels(T, key, us=False):
+    for p in T["slots"]:
+        if p.get("st") == "done": continue
+        lv = levels(p, key, us, p.get("lv"))
+        if lv: p["lv"] = lv
+    hist_levels(T, key, us)
+
+
 # ═══════════════ 槽位引擎 ═══════════════
 def new_tier(rule, val, note=""):
     return {"rule": rule, "val": val, "note": note, "slots": [], "hist": [], "upd": None, "sel_d": None}
@@ -541,6 +619,8 @@ def main():
     ai_refresh(T, AIC, True)
     for mk in (tw, us):
         for k, T in mk.items():
+            try: tier_levels(T, k, mk is us)                                # r1097:每檔參考價位(停損/停利/加碼/再買回)
+            except Exception as e: log(f"  {k} 參考價位例外 {e}")
             if not (k == "short" and mk is us): perf(T)
             T["upd"] = NOW.strftime("%Y-%m-%d %H:%M")
     cut = (NOW - dt.timedelta(days=120)).strftime("%Y-%m-%d")
