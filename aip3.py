@@ -8,9 +8,11 @@
        回測 2016~2026(含成本):年化 +31.8%、最大回落 −37%、最差年 −25%。訊號 5/10/20 天贏大盤 +0.5/+1.1/+1.5%,14 年全正。
   🌊 中期(波段):量價籌碼模型(主力組同一套)排名前 5 補進空位,下個交易日開盤買;掉出前 200 名 → 隔天開盤賣,不設停利停損。
        回測 2016~2026(含成本):年化 +40.8%、最大回落 −37%、最差年 +9.9%、11 年全正,每年約 39 筆。
-  🏦 長期(有未來性的成長股):每季第一個交易日選:成交值前 40% + 近 3 月營收年增 10~100%(穩定成長、不是暴衝)+ 連 6 個月營收年增為正
-       + 當月營收創 13 個月新高 + 本益比 10~35 + 離 52 週高 ≤15% + 站上年線 → 綜合(6 月營收年增、ROE、離高、成交值)最高 5 檔,持有到下一季。
-       回測 2013~2026:半年比大盤 +13.3%(14 年中 9 年)、一年 +21.9%;季換股年化 +36%、最大回落 −24%、最差年 −9%。候選少(平均 8 檔),不足 5 檔就留空。
+  🏦 長期(有未來性的成長股 + 產業):每季第一個交易日選:成交值前 40% + 近 3 月營收年增 10~100%(穩定成長、不是暴衝)+ 連 6 個月營收年增為正
+       + 近 3 個月營收合計創 13 個月新高 + 本益比 10~35 + 離 52 週高 ≤15% + 站上年線
+       → 綜合(6 月營收年增、ROE、離高、成交值、所屬產業營收成長)最高 5 檔,持有到下一季;每檔另附 AI 產業分析(Google 搜尋,敘述、非驗證)。
+       回測 2013~2026:半年比大盤 +9.0%(13 年中 10 年)、一年 +14.7%(12 年中 10 年);季換股年化 +28%、最大回落 −32%、最差年 −16%。
+       產業面的實證:產業營收成長前 1/3 的股票一年 +1.4%(弱);「產業龍頭」(產業內成交值前 3)一年反而 −2.6~−5.6% → 產業只當排序因子,不獎勵龍頭。
 美股(限制:只有目前 S&P 500 成分股,有倖存者偏差)
   🏃 短期:現有每週模型(walk-forward 驗證,回測 25 週勝率 54%、平均 +1.6%)最新一週前 5 名,成交/出場跟 aipick_us.json 一致。
   🌊 中期(參考・高波動):跌深低接——第一天離 60 日高跌 ≥25% → 隔天開盤買,+20% 停利 / −15% 停損 / 最多 60 天;5 個槽位,沒機會就空著。
@@ -191,21 +193,31 @@ def tw_long_candidates(day):
         ry3 = [x for x in ry_all[-3:] if x is not None]; ry6 = [x for x in ry_all[-6:] if x is not None]
         yoy3 = sum(ry3) / len(ry3) if len(ry3) == 3 else None; yoy6 = sum(ry6) / len(ry6) if len(ry6) == 6 else None
         pos6 = len(ry6) == 6 and all(x > 0 for x in ry6)
-        ra13 = [x for x in ra_all[-13:] if x is not None]; rev13hi = len(ra13) >= 13 and ra13[-1] >= max(ra13)
+        ra15 = ra_all[-15:]; q3 = [sum(ra15[j - 2:j + 1]) for j in range(2, len(ra15)) if all(x is not None for x in ra15[j - 2:j + 1])]
+        rev13hi = len(q3) >= 13 and q3[-1] >= max(q3[-13:])             # 近 3 個月營收合計創 13 個月新高(大型股月營收起伏大,用 3 月合計)
         roe = (pb / pe) if (pe and pb and pe > 0 and pb > 0) else None
         dh = C[i] / max(H[max(0, i - 249):i + 1]) - 1; m240 = sma(C, 240, i)
         rows.append(dict(id=sid, name=s.get("name"), sector=s.get("sector"), liq=liq, pe=pe, dy=dy, roe=roe, yoy3=yoy3, yoy6=yoy6, pos6=pos6, rev13hi=rev13hi,
                          rm=rm_all[-1] if rm_all else None, dh=dh, up=bool(m240 and C[i] > m240), px=C[i]))
     rows.sort(key=lambda r: -r["liq"]); cut = int(len(rows) * 0.4); big = rows[:cut]
+    # 產業層:同產業(池子裡 ≥5 檔)近 3 月營收年增中位數 = 這個產業現在有沒有在成長
+    import statistics as st
+    bysec = {}
+    for r in big:
+        if r["yoy3"] is not None: bysec.setdefault(r["sector"] or "", []).append(r["yoy3"])
+    secg = {k: st.median(v) for k, v in bysec.items() if len(v) >= 5}
+    for r in big: r["sec_g"] = secg.get(r["sector"] or ""); r["sec_n"] = len(bysec.get(r["sector"] or "", []))
     # 百分位排名(在成交值前 40% 的池子裡)
     def prk(key):
         vals = sorted(r[key] for r in big if r.get(key) is not None); n = len(vals)
-        return {r["id"]: (sum(1 for v in vals if v <= r[key]) / n if (r.get(key) is not None and n) else 0.0) for r in big}
-    R = {k: prk(k) for k in ("yoy6", "roe", "dh", "liq")}
+        return {r["id"]: (sum(1 for v in vals if v <= r[key]) / n if (r.get(key) is not None and n) else 0.5) for r in big}
+    R = {k: prk(k) for k in ("yoy6", "roe", "dh", "liq", "sec_g")}
     for r in big:
         if r["pe"] and 10 <= r["pe"] <= 35 and r["yoy3"] is not None and 10 <= r["yoy3"] <= 100 and r["pos6"] and r["rev13hi"] and r["dh"] >= -0.15 and r["up"]:
-            r["comp"] = sum(R[k][r["id"]] for k in ("yoy6", "roe", "dh", "liq")) / 4
-            r["why"] = [f"近 3 月營收年增 {r['yoy3']:+.0f}%", f"連 6 個月營收成長({r['rm']} 創 13 個月新高)", f"本益比 {r['pe']:.1f}" + (f"・ROE 約 {r['roe']*100:.0f}%" if r["roe"] else ""),
+            r["comp"] = sum(R[k][r["id"]] for k in ("yoy6", "roe", "dh", "liq", "sec_g")) / 5
+            r["sec_pct"] = round(R["sec_g"][r["id"]] * 100)
+            r["why"] = [f"近 3 月營收年增 {r['yoy3']:+.0f}%", f"連 6 個月營收成長,近 3 月合計創 13 個月新高({r['rm']})", f"本益比 {r['pe']:.1f}" + (f"・ROE 約 {r['roe']*100:.0f}%" if r["roe"] else ""),
+                        (f"產業「{r['sector']}」營收年增中位數 {r['sec_g']:+.0f}%(同業成長前 {100 - r['sec_pct']}%)" if r.get("sec_g") is not None else f"產業「{r['sector']}」樣本少"),
                         f"離 52 週高 {r['dh']*100:.1f}%", "站上年線", "成交值前 40%"]
             out.append(r)
     out.sort(key=lambda r: -r["comp"])
@@ -276,6 +288,21 @@ def us_dip_candidates(day):
     out.sort(key=lambda r: -r["liq"]); return out
 
 
+def ai_industry(p, us=False):
+    """r1092:長期清單每檔附 AI 產業分析(Gemini + Google 搜尋;敘述,非驗證)。只在新進清單時做一次,存進 slot。"""
+    try:
+        import aipick
+        if not aipick.GEMINI_KEY: return None
+        nm = p.get("name") or p["id"]; sec = p.get("sector") or ""
+        q = (f"你是產業研究員。請用繁體中文、160 字以內、純文字不分段,寫「{nm}({p['id']}){'(美股)' if us else ''}」所屬產業「{sec}」未來 2~3 年的分析:"
+             f"① 這個產業的成長動能是什麼(具體的需求來源或技術趨勢);② 這家公司在產業鏈的位置與優勢;③ 最大的風險一句話。"
+             f"請用網路搜尋最近 3 個月的資訊,只寫有根據的事,不要喊口號,不要用「建議買進」這類字眼,不要用驚嘆號。")
+        txt = aipick._gemini_raw(q, 600, search=True)
+        return (txt or "").strip().replace("\n", " ")[:360]
+    except Exception as e:
+        log(f"  產業分析略過:{e}"); return ""
+
+
 # ═══════════════ 槽位引擎 ═══════════════
 def new_tier(rule, val, note=""):
     return {"rule": rule, "val": val, "note": note, "slots": [], "hist": [], "upd": None, "sel_d": None}
@@ -335,8 +362,8 @@ def main():
                                      "回測 2016~2026 含成本:年化 +31.8%、最大回落 −37%、最差年 −25%;訊號 5/10/20 天贏大盤 +0.5/+1.1/+1.5%,14 年全正", "⚠ 強勢股集中,波動大於中期"))
     tw.setdefault("mid", new_tier("量價籌碼模型前 5 名補進空位,下個交易日開盤買;掉出前 200 名 → 隔天開盤賣,不設停利停損",
                                    "回測 2016~2026 含成本:年化 +40.8%、最大回落 −37%、最差年 +9.9%、11 年全正,每年約 39 筆", "✅ 三個清單裡最穩"))
-    tw.setdefault("long", new_tier("每季第一個交易日:成交值前 40% + 近 3 月營收年增 10~100% + 連 6 個月營收成長 + 當月營收創 13 個月新高 + 本益比 10~35 + 離 52 週高 ≤15% + 站上年線 → 綜合(成長、ROE、離高、成交值)最高 5 檔,持有到下一季;不足 5 檔就留空",
-                                    "回測 2013~2026:半年比大盤 +13.3%(14 年中 9 年)、一年 +21.9%;季換股年化 +36%、最大回落 −24%、最差年 −9%。候選平均只有 8 檔", "✅ 有未來性:營收持續創高的成長股"))
+    tw.setdefault("long", new_tier("每季第一個交易日:成交值前 40% + 近 3 月營收年增 10~100% + 連 6 個月營收成長 + 近 3 個月營收合計創 13 個月新高 + 本益比 10~35 + 離 52 週高 ≤15% + 站上年線 → 綜合(成長、ROE、離高、成交值、所屬產業營收成長)最高 5 檔,持有到下一季;每檔附 AI 產業分析;不足 5 檔就留空",
+                                    "回測 2013~2026:半年比大盤 +9.0%(13 年中 10 年)、一年 +14.7%(12 年中 10 年);季換股年化 +28%、最大回落 −32%、最差年 −16%。候選平均 11 檔", "✅ 有未來性:營收持續創高的成長股 + 產業"))
     us.setdefault("short", new_tier("每週模型(14 年資料、每週 walk-forward)最新一週前 5 名;成交/出場與美股 AI Pick 一致",
                                      "回測 25 週:勝率 54%、平均 +1.6%;實戰自 2026-09-28", "✅ 已驗證"))
     us.setdefault("mid", new_tier("跌深低接:第一天離 60 日高跌 ≥25% → 隔天開盤買;停利 +20% / 停損 −15% / 最多 60 天;5 個槽位,沒機會就空著",
@@ -382,11 +409,17 @@ def main():
         fill_and_track(T, False, exit_close_on={**{p["id"]: twd for p in T["slots"] if p["id"] not in ids and p["fill_d"]}, "_why": "quarter"})
         held = {p["id"] for p in T["slots"]}
         for c in pick:
-            if c["id"] not in held: T["slots"].append(slot(c, twd))
+            if c["id"] not in held: T["slots"].append(slot(c, twd, {"sec_g": c.get("sec_g"), "sec_pct": c.get("sec_pct")}))
         T["sel_d"] = twd; T["cand_n"] = len(cand)
         log(f"  長期:候選 {len(cand)} → {[c['name'] for c in pick]}")
     else:
         fill_and_track(T, False)
+    for p in T["slots"]:                                               # AI 產業分析(新進的補一次;沒金鑰就下次再補)
+        if not p.get("ind") and not p.get("ind_try"):
+            r = ai_industry(p)
+            if r is None: break
+            p["ind"] = r; p["ind_try"] = 1
+            if r: log(f"  產業分析:{p['name']} ✓")
     # ── 美股 短期(鏡射每週模型)──
     T = us["short"]
     AU = load("aipick_us.json", {}) or {}
@@ -428,6 +461,11 @@ def main():
         log(f"  美股長期:{[c['id'] for c in pick]}")
     else:
         fill_and_track(T, True)
+    for p in T["slots"]:
+        if not p.get("ind") and not p.get("ind_try"):
+            r = ai_industry(p, True)
+            if r is None: break
+            p["ind"] = r; p["ind_try"] = 1
     for mk in (tw, us):
         for k, T in mk.items():
             if not (k == "short" and mk is us): perf(T)

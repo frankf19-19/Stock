@@ -1,4 +1,4 @@
-/* K研所 · build r1092 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1093 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1092';
+const APP_BUILD='r1093';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2438,7 +2438,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1092</span>');
+  diag.push('<span style="color:var(--dim)">build r1093</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -15769,8 +15769,8 @@ function renderChipCharts(s,e){
 const LEARN={
  aip3:{t:'AI Pick 三清單怎麼驗證的',tag:'本站方法',one:'短期、中期、長期各 5 檔;每一條規則都用 2012~2026 全市場資料回測過,沒通過的就照實標出來',
   secs:[
-   ['三個清單是三種節奏','<b>🏃 短期(2~3 週)</b>:每週最後一個交易日收盤,挑「離 52 週高 10% 內 × 強勢訊號」(創新高、帶量突破、KD/RSI 高檔、投信外資買超、均線多頭)綜合分最高的 5 檔,下個交易日開盤買,最多持 15 個交易日。<br><b>🌊 中期(波段)</b>:量價籌碼模型(38 項量價技術 + 法人融資)排名前 5,掉出前 200 名才賣,不設停利停損,讓贏家跑。<br><b>🏦 長期(有未來性的成長股)</b>:每季第一個交易日,在成交值前 40% 的股票裡挑「近 3 個月營收年增 10~100%(穩定成長不是暴衝)、連 6 個月營收成長、當月營收創 13 個月新高、本益比 10~35、離 52 週高 15% 內、站上年線」,再依成長、ROE、離高、成交值綜合排序取 5 檔,持有到下一季;符合的不到 5 檔就留空,寧缺勿濫。'],
-   ['台股回測(含手續費與證交稅)','<b>短期</b>:強勢訊號 5 / 10 / 20 天贏大盤 +0.5 / +1.1 / +1.5%,14 年全部正;但「一週就換」會被來回 0.585% 的成本吃光(年化 +13%、最大回落 −56%),持 2~3 週才划算(年化 +32~40%);加停損停利反而更差。<br><b>中期</b>:只持 5 檔、掉出前 200 名賣、不停利:2016~2026 年化 +40.8%、最大回落 −37%、最差的一年 +9.9%、11 年每年都正,一年只換約 39 筆。<br><b>長期</b>:先用「十等分」看一年後哪些條件站得住——「營收創 13 個月新高」一年後比大盤 +2.8%(13 年中 11 年)、營收加速 +0.8%(10 年);但追最強動能、營收暴增(年增 >100%)、高波動、本益比最高的一年後都輸。組合規則半年比大盤 +13.3%(14 年中 9 年)、一年 +21.9%,季換股年化 +36%、最大回落 −24%、最差的一年 −9%;候選平均只有 8 檔,所以清單常不滿 5 檔。另一條「大型高殖利率存股」規則(本益比 8~25、殖利率 ≥3%)一年比大盤 +9.0%(13 年中 10 年),比較穩但不是「未來性」,先不上線。'],
+   ['三個清單是三種節奏','<b>🏃 短期(2~3 週)</b>:每週最後一個交易日收盤,挑「離 52 週高 10% 內 × 強勢訊號」(創新高、帶量突破、KD/RSI 高檔、投信外資買超、均線多頭)綜合分最高的 5 檔,下個交易日開盤買,最多持 15 個交易日。<br><b>🌊 中期(波段)</b>:量價籌碼模型(38 項量價技術 + 法人融資)排名前 5,掉出前 200 名才賣,不設停利停損,讓贏家跑。<br><b>🏦 長期(有未來性的成長股 + 產業)</b>:每季第一個交易日,在成交值前 40% 的股票裡挑「近 3 個月營收年增 10~100%(穩定成長不是暴衝)、連 6 個月營收成長、近 3 個月營收合計創 13 個月新高、本益比 10~35、離 52 週高 15% 內、站上年線」,再依成長、ROE、離高、成交值、<b>所屬產業的營收成長</b>綜合排序取 5 檔,持有到下一季;符合的不到 5 檔就留空。每檔另附 AI 產業分析(用網路搜尋整理這個產業未來 2~3 年的動能、公司位置與風險)——那是敘述,不是驗證過的訊號。'],
+   ['台股回測(含手續費與證交稅)','<b>短期</b>:強勢訊號 5 / 10 / 20 天贏大盤 +0.5 / +1.1 / +1.5%,14 年全部正;但「一週就換」會被來回 0.585% 的成本吃光(年化 +13%、最大回落 −56%),持 2~3 週才划算(年化 +32~40%);加停損停利反而更差。<br><b>中期</b>:只持 5 檔、掉出前 200 名賣、不停利:2016~2026 年化 +40.8%、最大回落 −37%、最差的一年 +9.9%、11 年每年都正,一年只換約 39 筆。<br><b>長期</b>:先用「十等分」看一年後哪些條件站得住——「近 3 個月營收合計創 13 個月新高」一年後比大盤 +2.9%(13 年中 9 年)、營收加速 +0.8%(10 年);但追最強動能、營收暴增(年增 >100%)、高波動、本益比最高的一年後都輸。<b>產業</b>:所屬產業營收成長前 1/3 的股票一年 +1.4%(效果弱,所以只當排序因子);「產業龍頭」(產業內成交值前 3 名)一年反而 −2.6~−5.6%——台積電這種例外是個案,整體看龍頭沒有溢酬,所以規則不獎勵龍頭,台積電要靠自己的營收創高進清單。組合規則半年比大盤 +9.0%(13 年中 10 年)、一年 +14.7%(12 年中 10 年),季換股年化 +28%、最大回落 −32%、最差的一年 −16%;候選平均 11 檔。另一條「大型高殖利率存股」規則(本益比 8~25、殖利率 ≥3%)一年比大盤 +9.0%(13 年中 10 年),比較穩但不是「未來性」,先不上線。'],
    ['美股為什麼標「參考」','美股歷史資料只有<b>目前</b>的 S&P 500 成分股,被剔除的公司不在裡面(倖存者偏差),所以跌深、高波動類策略的回測會偏樂觀。短期用現有每週模型(每週 walk-forward 驗證);中期的跌深低接每筆贏隨機 +1.9%,但 5 檔集中組合最大回落 −48%、2022 年 −39%;長期用「年線上、成交值前 20 的龍頭裡,近一年營收成長最高 5 檔」:一年比大盤 +15.8%,但只有 10 年資料、6 年贏;純龍頭版 +6.7%(13 年中 10 年)。這跟 2013 年以來大型科技股時代有關,標弱驗證。'],
    ['怎麼看成績單','每個清單的進場價一律是「下個交易日開盤價」,網站自己逐日記帳,出場原因(到期、掉出排名、停利、停損、季檢視)都留著,不回頭修改。成績單累積的是真實紀錄,跟回測數字分開看:回測告訴你這套規則「歷史上」如何,成績單告訴你它「上線後」如何。'],
    ['限制','台股歷史不含已下市股票;長期規則是從約 13 個變體裡挑的(每個條件都有十等分獨立支持,但仍有過度配適的可能);三個清單同一檔股票可能同時出現;任何一個清單都不是投資建議。完整研究:專案文件「AI_Pick三期制研究_2026-10-14」。']],
@@ -22574,7 +22574,7 @@ function aip3Tier(key,T,us){
     return `<div class="a3-row"><div class="a3-nm"><a href="#stock/${p.id}">${p.name||p.id}</a><span class="c-code">${p.id}</span>${p.cur&&p.cur!==p.id?`<span class="dim" style="font-size:11px"> → 現持 ${p.cur}</span>`:''}<span class="a3-st" style="color:${stC}">${stT}</span></div>
       <div class="a3-px">${p.entry?`${cur}${(+p.entry).toLocaleString()}<small>進場 ${md(p.fill_d)}</small>`:`${cur}${p.sel_px!=null?(+p.sel_px).toLocaleString():'—'}<small>選股日收盤</small>`}</div>
       <div class="a3-ret" style="color:${cl(ret)}">${p.entry?fp(ret):'—'}<small>${px?`${p.st==='done'?'出場 ':'現價 '}${cur}${(+px).toLocaleString()}${p.st!=='done'&&q.rt?'・'+(q.lab||'即時'):''}`:''}</small></div>
-      <div class="a3-why">${why}</div></div>`;}).join('');
+      <div class="a3-why">${why}</div>${p.ind?`<div class="a3-ind">🏭 <b>產業分析</b>(AI 搜尋整理,敘述非驗證):${p.ind}</div>`:(key==='long'&&p.st!=='done'?'<div class="a3-ind dim">🏭 產業分析:下一班後端補上</div>':'')}</div>`;}).join('');
   const empty=K3-(T.slots||[]).length;
   const emptyRows=empty>0?`<div class="a3-empty">${key==='mid'&&us?`⏳ 還有 ${empty} 個空位,等跌深機會(第一天離 60 日高 ≥25%)`:`⏳ 還有 ${empty} 個空位,${nextLab}時補`}</div>`:'';
   const P=T.perf||{};const hist=(T.hist||[]).slice(-12).reverse();

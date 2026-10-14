@@ -2503,3 +2503,4 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .a3-empty{padding:10px 0;color:var(--mut);font-size:12.5px;border-top:1px solid var(--line)}
 .a3-foot{margin-top:8px;font-size:12px;color:var(--mut);display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}.a3-foot b{color:var(--txt)}
 .a3-hist{font-size:12px;margin-top:6px}.a3-hist li{display:flex;gap:8px;padding:3px 0;border-top:1px dashed var(--line)}.a3-hist li span:last-child{margin-left:auto;font-family:var(--mono,monospace);font-weight:800}
+.a3-ind{grid-column:1/-1;font-size:12px;color:var(--txt2);line-height:1.55;margin-top:4px;border-left:2px solid var(--line);padding-left:8px}
