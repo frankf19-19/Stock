@@ -24,7 +24,8 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1101"
+VER = "r1102"
+NEWS_TTL_D = 7      # Google News RSS 快取天數(免費、不用金鑰)
 PROV_MAX_TD = 3     # 長期清單「暫定」最多等 3 個交易日:AI 評分沒評完(額度 429)就先不成交、下一班再補評;超過就用現有分數成交
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
 AI_TTL_D = 45       # AI 未來性評分快取天數(選股時 45 天內不重打;每月第一班另外更新持股)
@@ -317,29 +318,57 @@ def _claude_raw(prompt, max_tokens=900, search=True):
     return ""
 
 
-def ai_future(p, us=False):
-    """r1095:AI 未來性評分——Claude(有 ANTHROPIC_API_KEY 時)或 Gemini + 搜尋最近 3 個月產業/公司新聞,回 {"score":1~10,"txt":分析,"src":依據,"d":日期};沒金鑰 → None
+def news_rss(query, us=False, n=10):
+    """r1102:Google News RSS(免費、不用金鑰、不占 AI 額度):最近 90 天的新聞 標題/來源/日期/連結"""
+    import urllib.request, urllib.parse, xml.etree.ElementTree as ET, email.utils
+    loc = "hl=en-US&gl=US&ceid=US:en" if us else "hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+    url = "https://news.google.com/rss/search?q=" + urllib.parse.quote(f"{query} when:90d") + "&" + loc
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (kyansuo aip3)"})
+    with urllib.request.urlopen(req, timeout=20) as r: root = ET.fromstring(r.read())
+    out = []
+    for it in root.iter("item"):
+        t = (it.findtext("title") or "").strip(); pub = it.findtext("pubDate") or ""; src = it.find("source"); u = (it.findtext("link") or "").strip()
+        try: d = email.utils.parsedate_to_datetime(pub).strftime("%Y-%m-%d")
+        except Exception: d = ""
+        out.append({"t": t[:120], "d": d, "s": (src.text if src is not None else "")[:30], "u": u[:300]})
+        if len(out) >= n: break
+    return out
+
+
+def ai_future(p, us=False, prev=None):
+    """r1095/r1102:AI 未來性評分——先用 Google News RSS(免費)抓最近 90 天公司新聞,再請 AI(有 ANTHROPIC_API_KEY 用 Claude,否則 Gemini、不開搜尋工具,
+    免費額度比「搜尋 grounding」寬很多)讀新聞給 1~10 分;回 {"score","txt","src","news","d","eng"};沒金鑰 → None
     這是「參考」:沒有歷史新聞可回測,所以只拿來在已驗證的候選池裡排序,不決定候選池本身"""
     try:
         import aipick
         if not aipick.GEMINI_KEY and not os.environ.get("ANTHROPIC_API_KEY", "").strip(): return None
         aipick.AI2_BUDGET = max(aipick.AI2_BUDGET, 60)
         nm = p.get("name") or p["id"]; sec = p.get("sector") or ""
+        news = []; news_d = None
+        try:
+            if prev and prev.get("news") and (NOW.date() - dt.date.fromisoformat(prev.get("news_d") or "2000-01-01")).days <= NEWS_TTL_D:
+                news, news_d = prev["news"], prev["news_d"]
+            else:
+                news = news_rss(f"{nm} {p['id']}" if us else nm, us); news_d = NOW.strftime("%Y-%m-%d")
+                _time.sleep(1.0)
+        except Exception as e:
+            log(f"  新聞 RSS 失敗 {p['id']}:{e}")
+        nl = "\n".join(f"- {x['d']} {x['s']}:{x['t']}" for x in news[:10])
         q = (f"你是產業研究員。請評估「{nm}({p['id']}){'(美股)' if us else '(台股)'}」(產業:{sec})未來 2~3 年的「未來性」。"
-             "先用網路搜尋最近 3 個月的產業與公司新聞(需求、訂單、產能、技術、政策、競爭),只用有根據的事實。"
-             "輸出格式(繁體中文、純文字、三行):"
+             + (f"以下是最近 90 天的新聞標題(日期 來源:標題),請以這些為主要依據,配合你對該產業的知識:\n{nl}\n" if news else "請用網路搜尋最近 3 個月的產業與公司新聞(需求、訂單、產能、技術、政策、競爭),只用有根據的事實。")
+             + "輸出格式(繁體中文、純文字、三行):"
              "第一行「分數:N」,N 是 1~10 的整數——9~10=產業結構性成長、公司是關鍵供應者、能見度到明年以後;7~8=產業成長、公司受惠但競爭多或能見度較短;"
              "5~6=產業持平、靠公司自身努力;3~4=產業成熟或成長明顯放緩;1~2=產業衰退或面臨替代。"
              "第二行「分析:」接 160 字以內一段:①產業未來 2~3 年的成長動能(具體需求來源或技術趨勢)②公司在產業鏈的位置與優勢③最大風險。"
-             "第三行「依據:」寫 1~2 則最近新聞的重點與月份。不要喊口號、不要用「建議買進」這類字眼、不要用驚嘆號。")
-        eng = "claude"; txt = _claude_raw(q, 900, search=True)
-        if txt is None: eng = "gemini"; txt = aipick._gemini_raw(q, 900, search=True) if aipick.GEMINI_KEY else ""
+             "第三行「依據:」寫 1~2 則上面新聞的重點與月份。不要喊口號、不要用「建議買進」這類字眼、不要用驚嘆號。")
+        eng = "claude"; txt = _claude_raw(q, 900, search=not news)
+        if txt is None: eng = "gemini"; txt = aipick._gemini_raw(q, 900, search=not news) if aipick.GEMINI_KEY else ""
         txt = txt or ""
         m = re.search(r"分數[::]\s*(\d+)", txt); sc = int(m.group(1)) if m else None
         if sc is not None: sc = max(1, min(10, sc))
         m2 = re.search(r"分析[::]\s*(.+?)(?=\n\s*依據[::]|$)", txt, re.S); ana = (m2.group(1) if m2 else txt).strip().replace("\n", " ")[:360]
         m3 = re.search(r"依據[::]\s*(.+)", txt, re.S); src = (m3.group(1) if m3 else "").strip().replace("\n", " ")[:220]
-        return {"score": sc, "txt": ana, "src": src, "d": NOW.strftime("%Y-%m-%d"), "eng": eng}
+        return {"score": sc, "txt": ana, "src": src, "d": NOW.strftime("%Y-%m-%d"), "eng": eng, "news": news[:6], "news_d": news_d}
     except Exception as e:
         log(f"  AI 未來性略過:{e}"); return {"score": None, "txt": "", "src": "", "d": NOW.strftime("%Y-%m-%d")}
 
@@ -359,16 +388,22 @@ def ensure_ai(p, cache, us=False, max_age=AI_TTL_D):
     try: age = (NOW.date() - dt.date.fromisoformat((e or {}).get("d") or "2000-01-01")).days
     except Exception: age = 9999
     if not (e and e.get("score") is not None and age <= max_age):
-        if _AI["dead"] or _time.time() - _T0 > AI_BUDGET_SEC: return True   # 額度掛了/時間用完:這檔先不評,下一班再補
-        r = ai_future(p, us)
+        if _AI["dead"] or _time.time() - _T0 > AI_BUDGET_SEC:
+            if e and e.get("news"): p["news"] = e["news"]; p["news_d"] = e.get("news_d")
+            return True                                                     # 額度掛了/時間用完:這檔先不評,下一班再補
+        r = ai_future(p, us, prev=e)
         if r is None: return False
         if r.get("score") is None and not r.get("txt"):
             _AI["fail"] += 1
             if _AI["fail"] >= 2: _AI["dead"] = True; log("  AI 未來性:連續失敗(多半是額度 429),這班不再打,下一班補評")
+            if r.get("news"):                                               # 新聞已抓到:先存起來給前端看,分數下次再補
+                cache[p["id"]] = {**(e or {}), "news": r["news"], "news_d": r.get("news_d"), "score": (e or {}).get("score")}
+                p["news"] = r["news"]; p["news_d"] = r.get("news_d")
             return True                                                     # 這班失敗,下次再試
         _AI["fail"] = 0
         cache[p["id"]] = e = r
     p["ai"] = e.get("score"); p["ai_d"] = e.get("d"); p["ind"] = e.get("txt") or ""; p["ind_src"] = e.get("src") or ""; p["ind_try"] = 1; p["ai_eng"] = e.get("eng")
+    if e.get("news"): p["news"] = e["news"]; p["news_d"] = e.get("news_d")
     if p.get("ai0") is None: p["ai0"] = p["ai"]
     return True
 
@@ -505,7 +540,7 @@ def new_tier(rule, val, note=""):
 def slot(c, day, extra=None):
     x = {"id": c["id"], "name": c.get("name"), "sector": c.get("sector"), "sel_d": day, "sel_px": c.get("px"), "fill_d": None, "entry": None,
          "last": None, "last_d": None, "ret": None, "hi": None, "lo": None, "days": 0, "why": c.get("why") or [], "st": "pend"}
-    for k in ("ai", "ai0", "ai_d", "ind", "ind_src", "ind_try"):                 # r1095:AI 未來性(候選時已算好)帶進槽位
+    for k in ("ai", "ai0", "ai_d", "ind", "ind_src", "ind_try", "ai_eng", "news", "news_d"):   # r1095:AI 未來性(候選時已算好)帶進槽位
         if c.get(k) is not None: x[k] = c[k]
     if extra: x.update(extra)
     return x
@@ -602,7 +637,7 @@ def main():
                      val="回測 2016~2026 含成本:4 ATR 停損 + 停利 +25% 年化 +41.5%、最大回落 −39%、最差年 −4%;只停損不停利 +38.5% / −37% / +10%;緊停損(≤2.5 ATR 或 ≤10%)年化掉到 +20~37%",
                      note="✅ 三個清單裡最穩")
     tw.setdefault("long", new_tier("", ""))
-    tw["long"].update(rule="每季第一個交易日:先用驗證過的量化條件選出候選池(成交值前 40%、近 3 月營收年增 10~100%、連 6 個月營收成長、近 3 個月營收合計創 13 個月新高、本益比 10~35、離 52 週高 ≤15%、站上年線),再由 AI 搜尋最近 3 個月的產業與公司新聞,給每檔「未來性」1~10 分,取最高 5 檔(同產業最多 2 檔)持有到下一季;每月第一班重新評分與更新分析;候選不足 5 檔就留空",
+    tw["long"].update(rule="每季第一個交易日:先用驗證過的量化條件選出候選池(成交值前 40%、近 3 月營收年增 10~100%、連 6 個月營收成長、近 3 個月營收合計創 13 個月新高、本益比 10~35、離 52 週高 ≤15%、站上年線),再抓 Google News 最近 90 天的公司新聞、由 AI 讀新聞給每檔「未來性」1~10 分,取最高 5 檔(同產業最多 2 檔)持有到下一季;每月第一班重新評分與更新分析;候選不足 5 檔就留空",
                       val="候選池回測 2013~2026:一年比大盤 +13.1%(12 年中 9 年)、半年 +9.7%(13 年中 11 年);池內用量化排序取 5 檔一年 +14.7%——優勢來自候選池本身,池內怎麼排影響小。AI 未來性排序沒有歷史新聞可回測,標參考",
                       note="✅ 候選池已驗證・🔮 AI 未來性排序為參考")
     us.setdefault("short", new_tier("每週模型(14 年資料、每週 walk-forward)最新一週前 5 名;成交/出場與美股 AI Pick 一致",
@@ -610,7 +645,7 @@ def main():
     us.setdefault("mid", new_tier("跌深低接:第一天離 60 日高跌 ≥25% → 隔天開盤買;停利 +20% / 停損 −15% / 最多 60 天;5 個槽位,沒機會就空著",
                                    "每筆贏隨機 +1.9%(14/14 年);但 5 檔組合回測年化 +17%、最大回落 −48%、2022 年 −39%", "⚠ 參考・高波動(資料只有現在的成分股,有倖存者偏差)"))
     us.setdefault("long", new_tier("", ""))
-    us["long"].update(rule="每季第一個交易日:年線上、成交值前 20 的龍頭中近一年營收有成長的為候選池,再由 AI 搜尋最近 3 個月新聞給每檔「未來性」1~10 分,取最高 5 檔持有到下一季;每月第一班重新評分",
+    us["long"].update(rule="每季第一個交易日:年線上、成交值前 20 的龍頭中近一年營收有成長的為候選池,再抓 Google News 最近 90 天新聞、由 AI 讀新聞給每檔「未來性」1~10 分,取最高 5 檔持有到下一季;每月第一班重新評分",
                       val="候選池回測 2014~2026:純龍頭版一年比大盤 +6.7%(13 年中 10 年)、營收成長前 5 版 +15.8%(10 年中 6 年);季換股年化 +26%、回落 −35%。AI 排序無法回測",
                       note="🟡 弱驗證:資料短、倖存者偏差・🔮 AI 排序為參考")
     twd = last_day(); usd = last_day(True)

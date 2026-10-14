@@ -2507,6 +2507,7 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .a3-lvi{display:inline-flex;align-items:baseline;gap:4px;padding:2px 7px;border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--txt2);white-space:nowrap}.a3-lvi b{color:var(--txt);font-variant-numeric:tabular-nums}.a3-lvi em{font-style:normal;font-size:11px;color:var(--mut)}.a3-lvi.hit{font-weight:800}
 .a3-lvhit{font-size:12px;font-weight:800}.a3-re{font-size:11.5px;flex-basis:100%;color:var(--txt2)}
 .a3-tech{margin-top:3px}.a3-tech .a3-lvi{border-style:dashed}
+.a3-news a{color:var(--txt2);text-decoration:none;font-size:12px}.a3-news a:hover{text-decoration:underline}
 @media(max-width:640px){.a3-vol{grid-column:1/-1}}
 @media(max-width:640px){.a3-lv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}.a3-lvi{font-size:11.5px;padding:3px 6px;min-width:0}.a3-lvi .l{flex:0 0 auto}.a3-lv .dim,.a3-lvhit{grid-column:1/-1}}
 .a3-hist{font-size:12px;margin-top:6px}.a3-hist li{display:flex;gap:8px;padding:3px 0;border-top:1px dashed var(--line)}.a3-hist li span:last-child{margin-left:auto;font-family:var(--mono,monospace);font-weight:800}
