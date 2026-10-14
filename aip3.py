@@ -19,12 +19,18 @@
        每筆贏隨機 +1.9%(14/14 年),但 5 檔組合回落 −48%、2022 年 −39%。
   🏦 長期(弱驗證):年線上、成交值前 20 的龍頭裡,近一年營收成長最高 5 檔,每季檢視。一年比大盤 +15.8%(10 年中 6 年);純龍頭版 +6.7%(13 年中 10 年)。
 """
-import json, os, glob, datetime as dt
+import json, re, os, glob, datetime as dt
 
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1092"
+VER = "r1095"
+LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
+AI_TTL_D = 45       # AI 未來性評分快取天數(選股時 45 天內不重打;每月第一班另外更新持股)
+AI_POOL_N = 12      # 每個市場最多替量化排序前 12 檔候選打 AI 分(每檔一次搜尋約 15~20 秒)
+AI_BUDGET_SEC = 480 # 整班 AI 呼叫時間上限;超過就不再打,沒評到的候選排在有評分的後面,下一班再補
+import time as _time
+_T0 = _time.time()
 K = 5
 
 
@@ -288,6 +294,57 @@ def us_dip_candidates(day):
     out.sort(key=lambda r: -r["liq"]); return out
 
 
+def ai_future(p, us=False):
+    """r1095:AI 未來性評分——Gemini + Google 搜尋最近 3 個月產業/公司新聞,回 {"score":1~10,"txt":分析,"src":依據,"d":日期};沒金鑰 → None
+    這是「參考」:沒有歷史新聞可回測,所以只拿來在已驗證的候選池裡排序,不決定候選池本身"""
+    try:
+        import aipick
+        if not aipick.GEMINI_KEY: return None
+        aipick.AI2_BUDGET = max(aipick.AI2_BUDGET, 60)
+        nm = p.get("name") or p["id"]; sec = p.get("sector") or ""
+        q = (f"你是產業研究員。請評估「{nm}({p['id']}){'(美股)' if us else '(台股)'}」(產業:{sec})未來 2~3 年的「未來性」。"
+             "先用網路搜尋最近 3 個月的產業與公司新聞(需求、訂單、產能、技術、政策、競爭),只用有根據的事實。"
+             "輸出格式(繁體中文、純文字、三行):"
+             "第一行「分數:N」,N 是 1~10 的整數——9~10=產業結構性成長、公司是關鍵供應者、能見度到明年以後;7~8=產業成長、公司受惠但競爭多或能見度較短;"
+             "5~6=產業持平、靠公司自身努力;3~4=產業成熟或成長明顯放緩;1~2=產業衰退或面臨替代。"
+             "第二行「分析:」接 160 字以內一段:①產業未來 2~3 年的成長動能(具體需求來源或技術趨勢)②公司在產業鏈的位置與優勢③最大風險。"
+             "第三行「依據:」寫 1~2 則最近新聞的重點與月份。不要喊口號、不要用「建議買進」這類字眼、不要用驚嘆號。")
+        txt = aipick._gemini_raw(q, 900, search=True) or ""
+        m = re.search(r"分數[::]\s*(\d+)", txt); sc = int(m.group(1)) if m else None
+        if sc is not None: sc = max(1, min(10, sc))
+        m2 = re.search(r"分析[::]\s*(.+?)(?=\n\s*依據[::]|$)", txt, re.S); ana = (m2.group(1) if m2 else txt).strip().replace("\n", " ")[:360]
+        m3 = re.search(r"依據[::]\s*(.+)", txt, re.S); src = (m3.group(1) if m3 else "").strip().replace("\n", " ")[:220]
+        return {"score": sc, "txt": ana, "src": src, "d": NOW.strftime("%Y-%m-%d")}
+    except Exception as e:
+        log(f"  AI 未來性略過:{e}"); return {"score": None, "txt": "", "src": "", "d": NOW.strftime("%Y-%m-%d")}
+
+
+def ensure_ai(p, cache, us=False, max_age=AI_TTL_D):
+    """把 AI 未來性套到候選/槽位 p(快取夠新就不打);回 False 代表沒金鑰(整班停做)"""
+    e = cache.get(p["id"])
+    try: age = (NOW.date() - dt.date.fromisoformat((e or {}).get("d") or "2000-01-01")).days
+    except Exception: age = 9999
+    if not (e and e.get("score") is not None and age <= max_age):
+        if _time.time() - _T0 > AI_BUDGET_SEC: return True                 # 時間用完:這檔先不評,下一班再補
+        r = ai_future(p, us)
+        if r is None: return False
+        if r.get("score") is None and not r.get("txt"): return True        # 這班失敗,下次再試
+        cache[p["id"]] = e = r
+    p["ai"] = e.get("score"); p["ai_d"] = e.get("d"); p["ind"] = e.get("txt") or ""; p["ind_src"] = e.get("src") or ""; p["ind_try"] = 1
+    if p.get("ai0") is None: p["ai0"] = p["ai"]
+    return True
+
+
+def ai_rank(cand, cache, us=False):
+    """候選池(已驗證)每檔補 AI 未來性分數,依(未來性, 量化綜合)排序;沒金鑰時維持量化排序。回 (有分數的檔數, 是否有金鑰)"""
+    ok = True
+    for c in cand[:AI_POOL_N]:                                             # 量化排序前 12 檔才打分(候選池平均 11 檔)
+        if not ensure_ai(c, cache, us): ok = False; break
+    n = sum(1 for c in cand if c.get("ai") is not None)
+    cand.sort(key=lambda c: (-(c["ai"] if c.get("ai") is not None else -1), -(c.get("comp") if c.get("comp") is not None else (c.get("g") or 0))))
+    return n, ok
+
+
 def ai_industry(p, us=False):
     """r1092:長期清單每檔附 AI 產業分析(Gemini + Google 搜尋;敘述,非驗證)。只在新進清單時做一次,存進 slot。"""
     try:
@@ -311,6 +368,8 @@ def new_tier(rule, val, note=""):
 def slot(c, day, extra=None):
     x = {"id": c["id"], "name": c.get("name"), "sector": c.get("sector"), "sel_d": day, "sel_px": c.get("px"), "fill_d": None, "entry": None,
          "last": None, "last_d": None, "ret": None, "hi": None, "lo": None, "days": 0, "why": c.get("why") or [], "st": "pend"}
+    for k in ("ai", "ai0", "ai_d", "ind", "ind_src", "ind_try"):                 # r1095:AI 未來性(候選時已算好)帶進槽位
+        if c.get(k) is not None: x[k] = c[k]
     if extra: x.update(extra)
     return x
 
@@ -349,6 +408,17 @@ def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None):
     T["slots"] = keep
 
 
+def ai_refresh(T, cache, us=False):
+    """r1095:每月第一班把持股的 AI 未來性分數與分析重新評一次(用最新新聞);其他班只補沒有分析的槽位"""
+    m = NOW.strftime("%Y-%m"); monthly = T.get("ai_m") != m
+    ok = True
+    for p in T["slots"]:
+        if p.get("st") == "done": continue
+        if monthly or not p.get("ind"):
+            if not ensure_ai(p, cache, us, max_age=20 if monthly else AI_TTL_D): ok = False; break
+    if monthly and ok and T["slots"]: T["ai_m"] = m
+
+
 def perf(T):
     H = T["hist"]; r = [h["ret"] for h in H if h.get("ret") is not None]
     T["perf"] = {"n": len(r), "win": round(100 * sum(1 for x in r if x > 0) / len(r)) if r else None, "avg": round(sum(r) / len(r), 2) if r else None,
@@ -362,14 +432,18 @@ def main():
                                      "回測 2016~2026 含成本:年化 +31.8%、最大回落 −37%、最差年 −25%;訊號 5/10/20 天贏大盤 +0.5/+1.1/+1.5%,14 年全正", "⚠ 強勢股集中,波動大於中期"))
     tw.setdefault("mid", new_tier("量價籌碼模型前 5 名補進空位,下個交易日開盤買;掉出前 200 名 → 隔天開盤賣,不設停利停損",
                                    "回測 2016~2026 含成本:年化 +40.8%、最大回落 −37%、最差年 +9.9%、11 年全正,每年約 39 筆", "✅ 三個清單裡最穩"))
-    tw.setdefault("long", new_tier("每季第一個交易日:成交值前 40% + 近 3 月營收年增 10~100% + 連 6 個月營收成長 + 近 3 個月營收合計創 13 個月新高 + 本益比 10~35 + 離 52 週高 ≤15% + 站上年線 → 綜合(成長、ROE、離高、成交值、所屬產業營收成長)最高 5 檔,持有到下一季;每檔附 AI 產業分析;不足 5 檔就留空",
-                                    "回測 2013~2026:半年比大盤 +9.0%(13 年中 10 年)、一年 +14.7%(12 年中 10 年);季換股年化 +28%、最大回落 −32%、最差年 −16%。候選平均 11 檔", "✅ 有未來性:營收持續創高的成長股 + 產業"))
+    tw.setdefault("long", new_tier("", ""))
+    tw["long"].update(rule="每季第一個交易日:先用驗證過的量化條件選出候選池(成交值前 40%、近 3 月營收年增 10~100%、連 6 個月營收成長、近 3 個月營收合計創 13 個月新高、本益比 10~35、離 52 週高 ≤15%、站上年線),再由 AI 搜尋最近 3 個月的產業與公司新聞,給每檔「未來性」1~10 分,取最高 5 檔(同產業最多 2 檔)持有到下一季;每月第一班重新評分與更新分析;候選不足 5 檔就留空",
+                      val="候選池回測 2013~2026:一年比大盤 +13.1%(12 年中 9 年)、半年 +9.7%(13 年中 11 年);池內用量化排序取 5 檔一年 +14.7%——優勢來自候選池本身,池內怎麼排影響小。AI 未來性排序沒有歷史新聞可回測,標參考",
+                      note="✅ 候選池已驗證・🔮 AI 未來性排序為參考")
     us.setdefault("short", new_tier("每週模型(14 年資料、每週 walk-forward)最新一週前 5 名;成交/出場與美股 AI Pick 一致",
                                      "回測 25 週:勝率 54%、平均 +1.6%;實戰自 2026-09-28", "✅ 已驗證"))
     us.setdefault("mid", new_tier("跌深低接:第一天離 60 日高跌 ≥25% → 隔天開盤買;停利 +20% / 停損 −15% / 最多 60 天;5 個槽位,沒機會就空著",
                                    "每筆贏隨機 +1.9%(14/14 年);但 5 檔組合回測年化 +17%、最大回落 −48%、2022 年 −39%", "⚠ 參考・高波動(資料只有現在的成分股,有倖存者偏差)"))
-    us.setdefault("long", new_tier("每季第一個交易日:年線上、成交值前 20 的龍頭裡,近一年營收成長最高 5 檔,持有到下一季",
-                                    "回測 2014~2026:一年比大盤 +15.8%(10 年中 6 年);純龍頭版 +6.7%(13 年中 10 年)。季換股年化 +26%、回落 −35%", "🟡 弱驗證:資料短、倖存者偏差"))
+    us.setdefault("long", new_tier("", ""))
+    us["long"].update(rule="每季第一個交易日:年線上、成交值前 20 的龍頭中近一年營收有成長的為候選池,再由 AI 搜尋最近 3 個月新聞給每檔「未來性」1~10 分,取最高 5 檔持有到下一季;每月第一班重新評分",
+                      val="候選池回測 2014~2026:純龍頭版一年比大盤 +6.7%(13 年中 10 年)、營收成長前 5 版 +15.8%(10 年中 6 年);季換股年化 +26%、回落 −35%。AI 排序無法回測",
+                      note="🟡 弱驗證:資料短、倖存者偏差・🔮 AI 排序為參考")
     twd = last_day(); usd = last_day(True)
     log(f"aip3:台股最後交易日 {twd}、美股 {usd}")
     # ── 台股 短期 ──
@@ -403,23 +477,22 @@ def main():
     else:
         fill_and_track(T, False); log(f"  中期:量價排名日 {rd} 與 K 線 {twd} 不同,今天不換股")
     # ── 台股 長期 ──
-    T = tw["long"]
+    T = tw["long"]; AIC = J.setdefault("ai_cache", {})
+    if T.get("rv") != LONG_RV:                                          # r1095:規則改版(加 AI 未來性排序)——清單還沒成交就重選
+        if not any(p.get("fill_d") for p in T["slots"]): T["slots"] = []; T["sel_d"] = None; log("  長期:規則改版,重新選股")
+        T["rv"] = LONG_RV
     if twd and (q_first(twd) or not T["sel_d"]) and T["sel_d"] != twd:
-        cand = tw_long_candidates(twd); pick = pick_div(cand, K); ids = {c["id"] for c in pick}
+        cand = tw_long_candidates(twd); n_ai, has_key = ai_rank(cand, AIC); pick = pick_div(cand, K); ids = {c["id"] for c in pick}
         fill_and_track(T, False, exit_close_on={**{p["id"]: twd for p in T["slots"] if p["id"] not in ids and p["fill_d"]}, "_why": "quarter"})
         held = {p["id"] for p in T["slots"]}
         for c in pick:
             if c["id"] not in held: T["slots"].append(slot(c, twd, {"sec_g": c.get("sec_g"), "sec_pct": c.get("sec_pct")}))
-        T["sel_d"] = twd; T["cand_n"] = len(cand)
-        log(f"  長期:候選 {len(cand)} → {[c['name'] for c in pick]}")
+        T["sel_d"] = twd; T["cand_n"] = len(cand); T["ai_n"] = n_ai; T["ai_m"] = NOW.strftime("%Y-%m") if (has_key and n_ai) else None
+        T["pool"] = [{"id": c["id"], "name": c.get("name"), "ai": c.get("ai"), "comp": round(c.get("comp") or 0, 3)} for c in cand]
+        log(f"  長期:候選 {len(cand)}、AI 評分 {n_ai} → {[(c['name'], c.get('ai')) for c in pick]}")
     else:
         fill_and_track(T, False)
-    for p in T["slots"]:                                               # AI 產業分析(新進的補一次;沒金鑰就下次再補)
-        if not p.get("ind") and not p.get("ind_try"):
-            r = ai_industry(p)
-            if r is None: break
-            p["ind"] = r; p["ind_try"] = 1
-            if r: log(f"  產業分析:{p['name']} ✓")
+    ai_refresh(T, AIC, False)
     # ── 美股 短期(鏡射每週模型)──
     T = us["short"]
     AU = load("aipick_us.json", {}) or {}
@@ -451,27 +524,28 @@ def main():
         T["sel_d"] = usd
     # ── 美股 長期 ──
     T = us["long"]
+    if T.get("rv") != LONG_RV:
+        if not any(p.get("fill_d") for p in T["slots"]): T["slots"] = []; T["sel_d"] = None; log("  美股長期:規則改版,重新選股")
+        T["rv"] = LONG_RV
     if usd and (q_first(usd, True) or not T["sel_d"]) and T["sel_d"] != usd:
-        cand = us_long_candidates(usd); pick = pick_div(cand, K); ids = {c["id"] for c in pick}
+        cand = us_long_candidates(usd); n_ai, has_key = ai_rank(cand, AIC, True); pick = pick_div(cand, K); ids = {c["id"] for c in pick}
         fill_and_track(T, True, exit_close_on={**{p["id"]: usd for p in T["slots"] if p["id"] not in ids and p["fill_d"]}, "_why": "quarter"})
         held = {p["id"] for p in T["slots"]}
         for c in pick:
             if c["id"] not in held: T["slots"].append(slot(c, usd))
-        T["sel_d"] = usd; T["cand_n"] = len(cand)
-        log(f"  美股長期:{[c['id'] for c in pick]}")
+        T["sel_d"] = usd; T["cand_n"] = len(cand); T["ai_n"] = n_ai; T["ai_m"] = NOW.strftime("%Y-%m") if (has_key and n_ai) else None
+        T["pool"] = [{"id": c["id"], "name": c.get("name"), "ai": c.get("ai"), "g": round((c.get("g") or 0) * 100, 1)} for c in cand]
+        log(f"  美股長期:候選 {len(cand)}、AI 評分 {n_ai} → {[(c['id'], c.get('ai')) for c in pick]}")
     else:
         fill_and_track(T, True)
-    for p in T["slots"]:
-        if not p.get("ind") and not p.get("ind_try"):
-            r = ai_industry(p, True)
-            if r is None: break
-            p["ind"] = r; p["ind_try"] = 1
+    ai_refresh(T, AIC, True)
     for mk in (tw, us):
         for k, T in mk.items():
             if not (k == "short" and mk is us): perf(T)
             T["upd"] = NOW.strftime("%Y-%m-%d %H:%M")
+    cut = (NOW - dt.timedelta(days=120)).strftime("%Y-%m-%d")
     out = {"ver": VER, "u": NOW.strftime("%Y-%m-%d %H:%M"), "tw_day": twd, "us_day": usd, "tw": tw, "us": us,
-           "start": J.get("start") or NOW.strftime("%Y-%m-%d")}
+           "start": J.get("start") or NOW.strftime("%Y-%m-%d"), "ai_cache": {k: v for k, v in (J.get("ai_cache") or {}).items() if (v or {}).get("d", "") >= cut}}
     json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     log("aip3:完成 " + " ".join(f"{m}.{k}={len(T['slots'])}檔" for m, mk in (("tw", tw), ("us", us)) for k, T in mk.items()))
 

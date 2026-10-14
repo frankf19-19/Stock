@@ -1,4 +1,4 @@
-/* K研所 · build r1094 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1095 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1094';
+const APP_BUILD='r1095';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1062,7 +1062,7 @@ function aiPickVerdict(id,own){
   if(tiers.length||pvp){
     const parts=tiers.map(({m,sl})=>sl.st==='pend'?`${m}清單:<b>下一交易日開盤買</b>`:`${m}清單:<b>持有中</b>・${md(sl.fill_d)} 買 ${sl.entry}`);
     if(pvp)parts.push(`🏆 主力 20 檔:持有中・${md(pvp.fill)} 買 ${pvp.entry}`);
-    const act=tiers.map(({k,sl})=>ln(k==='short'?`🏃 短期:最多持 15 個交易日(第 15 天收盤賣),不設停損停利${sl.days!=null?`・已持有 ${sl.days} 天`:''}`:k==='mid'?`🌊 中期:每天收盤看量價籌碼排名${pvr?`(目前第 <b>${pvr[0]}</b> 名)`:''},掉出前 200 名 → 隔天開盤賣,不設停利停損`:`🏦 長期:持有到下一季第一個交易日檢視,不符合成長條件才換`)).join('')+(pvp?ln(`🏆 主力 20 檔:停利 ${pvp.tp||'—'}${pvp.stop?`・停損 ${pvp.stop}`:''}・掉出前 200 名換股`):'');
+    const act=tiers.map(({k,sl})=>ln(k==='short'?`🏃 短期:最多持 15 個交易日(第 15 天收盤賣),不設停損停利${sl.days!=null?`・已持有 ${sl.days} 天`:''}`:k==='mid'?`🌊 中期:每天收盤看量價籌碼排名${pvr?`(目前第 <b>${pvr[0]}</b> 名)`:''},掉出前 200 名 → 隔天開盤賣,不設停利停損`:`🏦 長期:候選池(營收持續成長、估值合理、年線上)由 AI 依最新產業新聞評未來性${sl.ai!=null?`(這檔 ${sl.ai}/10)`:''},持有到下一季第一個交易日重評`)).join('')+(pvp?ln(`🏆 主力 20 檔:停利 ${pvp.tp||'—'}${pvp.stop?`・停損 ${pvp.stop}`:''}・掉出前 200 名換股`):'');
     return {cls:tiers.some(t=>t.sl.st==='pend')||pvq?'fst-brk':'fst-up',txt:`<span>🤖 AI Pick:${parts.join(';')}</span>`,act};}
   if(pvq)return {cls:'fst-brk',txt:`<span>🤖 AI Pick:🏆 主力 20 檔 <b>${pvq.act==='buy'?'下一交易日開盤買進':'下一交易日開盤賣出'}</b></span>`,act:''};
   const p=(T.pos||[]).find(x=>x.id===id);
@@ -2454,7 +2454,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1094</span>');
+  diag.push('<span style="color:var(--dim)">build r1095</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -15785,8 +15785,8 @@ function renderChipCharts(s,e){
 const LEARN={
  aip3:{t:'AI Pick 三清單怎麼驗證的',tag:'本站方法',one:'短期、中期、長期各 5 檔;每一條規則都用 2012~2026 全市場資料回測過,沒通過的就照實標出來',
   secs:[
-   ['三個清單是三種節奏','<b>🏃 短期(2~3 週)</b>:每週最後一個交易日收盤,挑「離 52 週高 10% 內 × 強勢訊號」(創新高、帶量突破、KD/RSI 高檔、投信外資買超、均線多頭)綜合分最高的 5 檔,下個交易日開盤買,最多持 15 個交易日。<br><b>🌊 中期(波段)</b>:量價籌碼模型(38 項量價技術 + 法人融資)排名前 5,掉出前 200 名才賣,不設停利停損,讓贏家跑。<br><b>🏦 長期(有未來性的成長股 + 產業)</b>:每季第一個交易日,在成交值前 40% 的股票裡挑「近 3 個月營收年增 10~100%(穩定成長不是暴衝)、連 6 個月營收成長、近 3 個月營收合計創 13 個月新高、本益比 10~35、離 52 週高 15% 內、站上年線」,再依成長、ROE、離高、成交值、<b>所屬產業的營收成長</b>綜合排序取 5 檔,持有到下一季;符合的不到 5 檔就留空。每檔另附 AI 產業分析(用網路搜尋整理這個產業未來 2~3 年的動能、公司位置與風險)——那是敘述,不是驗證過的訊號。'],
-   ['台股回測(含手續費與證交稅)','<b>短期</b>:強勢訊號 5 / 10 / 20 天贏大盤 +0.5 / +1.1 / +1.5%,14 年全部正;但「一週就換」會被來回 0.585% 的成本吃光(年化 +13%、最大回落 −56%),持 2~3 週才划算(年化 +32~40%);加停損停利反而更差。<br><b>中期</b>:只持 5 檔、掉出前 200 名賣、不停利:2016~2026 年化 +40.8%、最大回落 −37%、最差的一年 +9.9%、11 年每年都正,一年只換約 39 筆。<br><b>長期</b>:先用「十等分」看一年後哪些條件站得住——「近 3 個月營收合計創 13 個月新高」一年後比大盤 +2.9%(13 年中 9 年)、營收加速 +0.8%(10 年);但追最強動能、營收暴增(年增 >100%)、高波動、本益比最高的一年後都輸。<b>產業</b>:所屬產業營收成長前 1/3 的股票一年 +1.4%(效果弱,所以只當排序因子);「產業龍頭」(產業內成交值前 3 名)一年反而 −2.6~−5.6%——台積電這種例外是個案,整體看龍頭沒有溢酬,所以規則不獎勵龍頭,台積電要靠自己的營收創高進清單。組合規則半年比大盤 +9.0%(13 年中 10 年)、一年 +14.7%(12 年中 10 年),季換股年化 +28%、最大回落 −32%、最差的一年 −16%;候選平均 11 檔。另一條「大型高殖利率存股」規則(本益比 8~25、殖利率 ≥3%)一年比大盤 +9.0%(13 年中 10 年),比較穩但不是「未來性」,先不上線。'],
+   ['三個清單是三種節奏','<b>🏃 短期(2~3 週)</b>:每週最後一個交易日收盤,挑「離 52 週高 10% 內 × 強勢訊號」(創新高、帶量突破、KD/RSI 高檔、投信外資買超、均線多頭)綜合分最高的 5 檔,下個交易日開盤買,最多持 15 個交易日。<br><b>🌊 中期(波段)</b>:量價籌碼模型(38 項量價技術 + 法人融資)排名前 5,掉出前 200 名才賣,不設停利停損,讓贏家跑。<br><b>🏦 長期(最有未來性)</b>:不是存股。每季第一個交易日先用驗證過的量化條件圈出<b>候選池</b>——成交值前 40%、近 3 個月營收年增 10~100%(穩定成長不是暴衝)、連 6 個月營收成長、近 3 個月營收合計創 13 個月新高、本益比 10~35、離 52 週高 15% 內、站上年線(平均 11 檔);再由 AI 搜尋<b>最近 3 個月的產業與公司新聞</b>(需求、訂單、產能、技術、政策、競爭),給每檔「未來性」1~10 分(9~10 = 產業結構性成長且公司是關鍵供應者、能見度到明年以後;≤4 = 產業成熟或衰退),取最高 5 檔(同產業最多 2 檔)持有到下一季;每月第一班用最新新聞重新評分、更新分析。候選不到 5 檔就留空。'],
+   ['台股回測(含手續費與證交稅)','<b>短期</b>:強勢訊號 5 / 10 / 20 天贏大盤 +0.5 / +1.1 / +1.5%,14 年全部正;但「一週就換」會被來回 0.585% 的成本吃光(年化 +13%、最大回落 −56%),持 2~3 週才划算(年化 +32~40%);加停損停利反而更差。<br><b>中期</b>:只持 5 檔、掉出前 200 名賣、不停利:2016~2026 年化 +40.8%、最大回落 −37%、最差的一年 +9.9%、11 年每年都正,一年只換約 39 筆。<br><b>長期</b>:先用「十等分」看一年後哪些條件站得住——「近 3 個月營收合計創 13 個月新高」一年後比大盤 +2.9%(13 年中 9 年)、營收加速 +0.8%(10 年);但追最強動能、營收暴增(年增 >100%)、高波動、本益比最高的一年後都輸。<b>產業</b>:所屬產業營收成長前 1/3 的股票一年 +1.4%(效果弱,所以只當排序因子);「產業龍頭」(產業內成交值前 3 名)一年反而 −2.6~−5.6%——台積電這種例外是個案,整體看龍頭沒有溢酬,所以規則不獎勵龍頭,台積電要靠自己的營收創高進清單。候選池整體(平均 11 檔)一年比大盤 +13.1%(12 年中 9 年)、半年 +9.7%(13 年中 11 年);池內用量化綜合分取前 5 是一年 +14.7%、取前 12 是 +13.3%——<b>優勢來自候選池本身,池內怎麼排影響很小</b>,所以池內改交給 AI 依最新產業新聞排「未來性」,不會丟掉驗證過的優勢;但 AI 這一層沒有歷史新聞可以回測,標為參考。季換股年化 +28%、最大回落 −32%、最差的一年 −16%。另一條「大型高殖利率存股」規則(本益比 8~25、殖利率 ≥3%)一年比大盤 +9.0%(13 年中 10 年),比較穩但不是「未來性」,依 Frank 的定義不採用。'],
    ['美股為什麼標「參考」','美股歷史資料只有<b>目前</b>的 S&P 500 成分股,被剔除的公司不在裡面(倖存者偏差),所以跌深、高波動類策略的回測會偏樂觀。短期用現有每週模型(每週 walk-forward 驗證);中期的跌深低接每筆贏隨機 +1.9%,但 5 檔集中組合最大回落 −48%、2022 年 −39%;長期用「年線上、成交值前 20 的龍頭裡,近一年營收成長最高 5 檔」:一年比大盤 +15.8%,但只有 10 年資料、6 年贏;純龍頭版 +6.7%(13 年中 10 年)。這跟 2013 年以來大型科技股時代有關,標弱驗證。'],
    ['怎麼看成績單','每個清單的進場價一律是「下個交易日開盤價」,網站自己逐日記帳,出場原因(到期、掉出排名、停利、停損、季檢視)都留著,不回頭修改。成績單累積的是真實紀錄,跟回測數字分開看:回測告訴你這套規則「歷史上」如何,成績單告訴你它「上線後」如何。'],
    ['為什麼舊的兩組收掉一組','三清單上線前,台股 AI Pick 有兩個帳戶:<b>🏆 主力・量價籌碼組 20 檔</b>(回測年化 +43.7%、最大回落 −31%)與 <b>🌲 副組・每日交易</b>(樹模型 28 檔 + v2 模型 12 檔)。副組的問題:① 樹模型與主力組的每日報酬相關 0.82,等於同一件事做兩次,沒有分散效果;② 回測年化 +24.6%、滾動驗證 +14%,都輸主力組;v2 的選股超額報酬只有每年 +0.4%;③ 實盤 12 筆規則出場,勝率 8%、平均 −5.5%;④ 36 檔持股讓頁面看不清楚。所以 10/14 起副組<b>停止進場、持股在下一個交易日開盤結束清算</b>,紀錄全部留在戰績。主力 20 檔則是 🌊 中期清單的「完整版」(中期取它的前 5 名),繼續運作,收在中期卡片與進階區。'],
@@ -22571,7 +22571,7 @@ function aip3Px(id,us){                                 // 現價:台股=即時�
   const st=(DATA.stocks||[]).find(x=>x.id===id);return st&&st.price>0?{px:+st.price,rt:marketOpen()?1:0,lab:marketOpen()?'即時':'收盤'}:{px:null,rt:0};
 }
 function aip3Tier(key,T,us){
-  const meta={short:{ic:'🏃',nm:'短期',sub:'持 2~3 週',col:'#E8B44A'},mid:{ic:'🌊',nm:'中期',sub:'波段',col:'#5FB37A'},long:{ic:'🏦',nm:'長期',sub:'存股',col:'#6FA8DC'}}[key];
+  const meta={short:{ic:'🏃',nm:'短期',sub:'持 2~3 週',col:'#E8B44A'},mid:{ic:'🌊',nm:'中期',sub:'波段',col:'#5FB37A'},long:{ic:'🏦',nm:'長期',sub:'未來性',col:'#6FA8DC'}}[key];
   const fp=v=>v==null?'—':(v>0?'+':'')+(+v).toFixed(2)+'%',cl=v=>v==null?'var(--mut)':v>0?'var(--up)':v<0?'var(--down)':'var(--txt2)';
   const md=d=>d?String(d).slice(5).replace('-','/'):'—';const cur=us?'$':'';
   const nextLab=(()=>{if(key==='long')return '每季第一個交易日檢視';if(key==='short'&&!us)return '每週最後一個交易日收盤換名單';if(key==='mid'&&!us)return '每天收盤檢查排名';if(key==='mid'&&us)return '每天收盤掃描跌深';return '每週五收盤後出下週名單';})();
@@ -22587,11 +22587,13 @@ function aip3Tier(key,T,us){
       else if(key==='mid'&&us&&p.entry)extra=`停利 $${(p.entry*1.2).toFixed(2)}・停損 $${(p.entry*0.85).toFixed(2)}・剩 ${Math.max(0,60-(p.days||0))} 天`;
       else if(key==='long')extra='持有到下一季檢視';
     }
-    const why=(p.why||[]).slice(0,key==='long'?4:3).map(x=>`<span>${x}</span>`).join('')+(extra?`<span style="color:var(--amber);border-color:var(--amber)">${extra}</span>`:'');
+    const aiC=p.ai!=null?(p.ai>=8?'var(--up)':p.ai>=5?'var(--amber)':'var(--down)'):'';   // r1095:AI 未來性分數(1~10)
+    const aiChip=key==='long'&&p.ai!=null?`<span style="color:${aiC};border-color:${aiC};font-weight:800">🔮 未來性 ${p.ai}/10${p.ai0!=null&&p.ai0!==p.ai?`(選入時 ${p.ai0})`:''}</span>`:(key==='long'&&p.st!=='done'?`<span class="dim">🔮 未來性:AI 尚未評分,先依量化排序</span>`:'');
+    const why=aiChip+(p.why||[]).slice(0,key==='long'?4:3).map(x=>`<span>${x}</span>`).join('')+(extra?`<span style="color:var(--amber);border-color:var(--amber)">${extra}</span>`:'');
     return `<div class="a3-row"><div class="a3-nm"><a href="#stock/${p.id}">${p.name||p.id}</a><span class="c-code">${p.id}</span>${p.cur&&p.cur!==p.id?`<span class="dim" style="font-size:11px"> → 現持 ${p.cur}</span>`:''}<span class="a3-st" style="color:${stC}">${stT}</span></div>
       <div class="a3-px">${p.entry?`${cur}${(+p.entry).toLocaleString()}<small>進場 ${md(p.fill_d)}</small>`:`${cur}${p.sel_px!=null?(+p.sel_px).toLocaleString():'—'}<small>選股日收盤</small>`}</div>
       <div class="a3-ret" style="color:${cl(ret)}">${p.entry?fp(ret):'—'}<small>${px?`${p.st==='done'?'出場 ':'現價 '}${cur}${(+px).toLocaleString()}${p.st!=='done'&&q.rt?'・'+(q.lab||'即時'):''}`:''}</small></div>
-      <div class="a3-why">${why}</div>${p.ind?`<div class="a3-ind">🏭 <b>產業分析</b>(AI 搜尋整理,敘述非驗證):${p.ind}</div>`:(key==='long'&&p.st!=='done'?'<div class="a3-ind dim">🏭 產業分析:下一班後端補上</div>':'')}</div>`;}).join('');
+      <div class="a3-why">${why}</div>${p.ind?`<div class="a3-ind">🏭 <b>產業分析</b>(AI 搜尋最近 3 個月新聞${p.ai_d?'・'+md(p.ai_d)+' 評':''}・敘述非驗證):${p.ind}${p.ind_src?`<br><span class="dim">📰 依據:${p.ind_src}</span>`:''}</div>`:(key==='long'&&p.st!=='done'?'<div class="a3-ind dim">🏭 產業分析與未來性評分:下一班後端補上</div>':'')}</div>`;}).join('');
   const empty=K3-(T.slots||[]).length;
   const emptyRows=empty>0?`<div class="a3-empty">${key==='mid'&&us?`⏳ 還有 ${empty} 個空位,等跌深機會(第一天離 60 日高 ≥25%)`:`⏳ 還有 ${empty} 個空位,${nextLab}時補`}</div>`:'';
   const P=T.perf||{};const hist=(T.hist||[]).slice(-12).reverse();
@@ -22603,9 +22605,13 @@ function aip3Tier(key,T,us){
     return `<details class="a3-full"><summary style="cursor:pointer;font-size:12.5px;color:var(--txt2)">🏆 同一套模型的完整 20 檔(主力・量價籌碼組帳戶)・持股 ${L.length} 檔${ln?`・累計 <b style="color:${ln[1]>=0?'var(--up)':'var(--down)'}">${ln[1]>=0?'+':''}${(ln[1]||0).toLocaleString()} 元</b>`:''}</summary>
       <div class="dim-note" style="margin:4px 0">中期清單只取排名前 5;這個帳戶持有前 ${(PV.rules||{}).topk||20} 名、每檔金額依波動分配,規則相同(掉出前 200 名換股、+25% 停利)。細節在下方進階區。</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px 6px">${L.map(({p,r})=>`<a href="#stock/${p.id}" class="pv-pk" style="display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;color:inherit;text-decoration:none">${p.name} <b style="color:${cl(r)}">${fp(r)}</b></a>`).join('')}</div></details>`;})();
+  const pool=(()=>{if(key!=='long'||!(T.pool||[]).length)return '';const sel=new Set((T.slots||[]).map(p=>p.id));const L=T.pool.slice().sort((a,b)=>((b.ai??-1)-(a.ai??-1)));
+    return `<details class="a3-full"><summary style="cursor:pointer;font-size:12.5px;color:var(--txt2)">🧪 候選池 ${T.pool.length} 檔(量化條件全部通過)→ AI 未來性評分 ${T.ai_n||0} 檔 → 取最高 5 檔</summary>
+      <div class="dim-note" style="margin:4px 0">候選池是驗證過的部分(一年平均比大盤 +13%);池內排序交給 AI 讀最近 3 個月的產業新聞,這部分無法回測、標參考。粗體 = 入選。</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px 6px">${L.map(c=>`<a href="#stock/${c.id}" class="pv-pk" style="display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;color:inherit;text-decoration:none;${sel.has(c.id)?'font-weight:800;border-color:var(--a3c)':''}">${c.name||c.id} <b style="color:${c.ai==null?'var(--mut)':c.ai>=8?'var(--up)':c.ai>=5?'var(--amber)':'var(--down)'}">${c.ai!=null?c.ai+'/10':'未評'}</b></a>`).join('')}</div></details>`;})();
   return `<div class="a3-card" style="--a3c:${meta.col}"><div class="a3-h"><b>${meta.ic} ${meta.nm}</b><span class="dim">${meta.sub}</span><span class="a3-tag" style="color:${(T.note||'').startsWith('✅')?'var(--up)':(T.note||'').startsWith('⚠')?'var(--amber)':'var(--txt2)'}">${T.note||''}</span></div>
     <div class="a3-rule">${T.rule||''}</div><div class="a3-val">${T.val||''}</div>
-    <div style="margin-top:6px">${rows}${emptyRows}</div>${full20}${foot}</div>`;
+    <div style="margin-top:6px">${rows}${emptyRows}</div>${full20}${pool}${foot}</div>`;
 }
 const K3=5;
 function renderAip3(){
