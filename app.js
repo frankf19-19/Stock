@@ -1,4 +1,4 @@
-/* K研所 · build r1099 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1100 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1099';
+const APP_BUILD='r1100';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2454,7 +2454,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1099</span>');
+  diag.push('<span style="color:var(--dim)">build r1100</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -22580,7 +22580,8 @@ function aip3Tier(key,T,us){
     const q=aip3Px(p.cur||p.id,us);const live=q.px&&p.entry&&p.st!=='done'&&(!p.last_d||q.rt||q.px!==p.last);
     const px=live?q.px:(p.last??q.px);const ret=p.st==='done'?p.ret:(px&&p.entry?(px/p.entry-1)*100:null);
     const stC=p.st==='pend'?'var(--amber)':p.st==='done'?'var(--mut)':'var(--up)';
-    const stT=p.st==='pend'?(us?'下個交易日開盤買':'下個交易日 9:00 開盤買'):p.st==='done'?`已出場 ${md(p.xd)}`:p.st==='nofill'?'未成交':`持有 ${p.days||0} 天`;
+    const prov=key==='long'&&T.ai_done===false&&p.st==='pend';   // r1100:長期暫定名單——AI 未來性還沒評完,先不成交
+    const stT=prov?'⏳ 等 AI 評分完成再成交':p.st==='pend'?(us?'下個交易日開盤買':'下個交易日 9:00 開盤買'):p.st==='done'?`已出場 ${md(p.xd)}`:p.st==='nofill'?'未成交':`持有 ${p.days||0} 天`;
     let extra='';
     if(p.st==='hold'){
       if(key==='short'&&!us)extra=`最多再 ${Math.max(0,15-(p.days||0))} 天`;
@@ -22607,7 +22608,7 @@ function aip3Tier(key,T,us){
       <div class="dim-note" style="margin:4px 0">中期清單只取排名前 5;這個帳戶持有前 ${(PV.rules||{}).topk||20} 名、每檔金額依波動分配,規則相同(掉出前 200 名換股、+25% 停利)。細節在下方進階區。</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px 6px">${L.map(({p,r})=>`<a href="#stock/${p.id}" class="pv-pk" style="display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;color:inherit;text-decoration:none">${p.name} <b style="color:${cl(r)}">${fp(r)}</b></a>`).join('')}</div></details>`;})();
   const pool=(()=>{if(key!=='long'||!(T.pool||[]).length)return '';const sel=new Set((T.slots||[]).map(p=>p.id));const L=T.pool.slice().sort((a,b)=>((b.ai??-1)-(a.ai??-1)));
-    return `<details class="a3-full"><summary style="cursor:pointer;font-size:12.5px;color:var(--txt2)">🧪 候選池 ${T.pool.length} 檔(量化條件全部通過)→ AI 未來性評分 ${T.ai_n||0} 檔 → 取最高 5 檔</summary>
+    return `${T.ai_done===false?`<div class="aov-warn" style="margin:6px 0">⏳ AI 未來性評分進行中:已評 ${T.ai_n||0} / ${T.ai_need||Math.min(12,T.pool.length)} 檔(Gemini 額度用完時會等下一班補評,最多等 3 個交易日),評完才會以下一個開盤價成交;名單可能還會變動。</div>`:''}<details class="a3-full"><summary style="cursor:pointer;font-size:12.5px;color:var(--txt2)">🧪 候選池 ${T.pool.length} 檔(量化條件全部通過)→ AI 未來性評分 ${T.ai_n||0} 檔 → 取最高 5 檔</summary>
       <div class="dim-note" style="margin:4px 0">候選池是驗證過的部分(一年平均比大盤 +13%);池內排序交給 AI 讀最近 3 個月的產業新聞,這部分無法回測、標參考。粗體 = 入選。</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px 6px">${L.map(c=>`<a href="#stock/${c.id}" class="pv-pk" style="display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;color:inherit;text-decoration:none;${sel.has(c.id)?'font-weight:800;border-color:var(--a3c)':''}">${c.name||c.id} <b style="color:${c.ai==null?'var(--mut)':c.ai>=8?'var(--up)':c.ai>=5?'var(--amber)':'var(--down)'}">${c.ai!=null?c.ai+'/10':'未評'}</b></a>`).join('')}</div></details>`;})();
   return `<div class="a3-card" style="--a3c:${meta.col}"><div class="a3-h"><b>${meta.ic} ${meta.nm}</b><span class="dim">${meta.sub}</span><span class="a3-tag" style="color:${(T.note||'').startsWith('✅')?'var(--up)':(T.note||'').startsWith('⚠')?'var(--amber)':'var(--txt2)'}">${T.note||''}</span></div>

@@ -24,7 +24,8 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1099"
+VER = "r1100"
+PROV_MAX_TD = 3     # 長期清單「暫定」最多等 3 個交易日:AI 評分沒評完(額度 429)就先不成交、下一班再補評;超過就用現有分數成交
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
 AI_TTL_D = 45       # AI 未來性評分快取天數(選股時 45 天內不重打;每月第一班另外更新持股)
 AI_POOL_N = 12      # 每個市場最多替量化排序前 12 檔候選打 AI 分(每檔一次搜尋約 15~20 秒)
@@ -325,16 +326,22 @@ def _has_key():
     except Exception: return False
 
 
+_AI = {"fail": 0, "dead": False}
 def ensure_ai(p, cache, us=False, max_age=AI_TTL_D):
-    """把 AI 未來性套到候選/槽位 p(快取夠新就不打);回 False 代表沒金鑰(整班停做)"""
+    """把 AI 未來性套到候選/槽位 p(快取夠新就不打);回 False 代表沒金鑰(整班停做)
+    r1100:連續 2 次失敗(多半是 Gemini 額度 429)就這班不再打,省時間;沒評到的下一班再補"""
     e = cache.get(p["id"])
     try: age = (NOW.date() - dt.date.fromisoformat((e or {}).get("d") or "2000-01-01")).days
     except Exception: age = 9999
     if not (e and e.get("score") is not None and age <= max_age):
-        if _time.time() - _T0 > AI_BUDGET_SEC: return True                 # 時間用完:這檔先不評,下一班再補
+        if _AI["dead"] or _time.time() - _T0 > AI_BUDGET_SEC: return True   # 額度掛了/時間用完:這檔先不評,下一班再補
         r = ai_future(p, us)
         if r is None: return False
-        if r.get("score") is None and not r.get("txt"): return True        # 這班失敗,下次再試
+        if r.get("score") is None and not r.get("txt"):
+            _AI["fail"] += 1
+            if _AI["fail"] >= 2: _AI["dead"] = True; log("  AI 未來性:連續失敗(多半是額度 429),這班不再打,下一班補評")
+            return True                                                     # 這班失敗,下次再試
+        _AI["fail"] = 0
         cache[p["id"]] = e = r
     p["ai"] = e.get("score"); p["ai_d"] = e.get("d"); p["ind"] = e.get("txt") or ""; p["ind_src"] = e.get("src") or ""; p["ind_try"] = 1
     if p.get("ai0") is None: p["ai0"] = p["ai"]
@@ -529,6 +536,29 @@ def ai_refresh(T, cache, us=False):
     if monthly and ok and T["slots"]: T["ai_m"] = m
 
 
+def mark_prov(T, day, n_ai, n_cand, has_key, us):
+    """選完後判定:AI 評分有沒有評到該評的檔數(量化前 12 或全部候選)。沒評完 → 暫定(先不成交,最多等 PROV_MAX_TD 個交易日)"""
+    need = min(AI_POOL_N, n_cand)
+    done = (n_ai >= need) or (n_cand == 0)
+    if not done and not T.get("prov_d"): T["prov_d"] = day
+    if done: T.pop("prov_d", None)
+    T["ai_done"] = bool(done); T["ai_need"] = need
+
+
+def provisional(T, day, us):
+    """還在「暫定」嗎:有槽位、都沒成交、AI 沒評完;超過 PROV_MAX_TD 個交易日就放棄等待,照現有分數成交"""
+    if "ai_done" not in T and T["slots"]:                                 # 舊檔沒有這個欄位:用上次的評分數補判
+        T["ai_done"] = (T.get("ai_n") or 0) >= min(AI_POOL_N, T.get("cand_n") or 0)
+        if not T["ai_done"]: T["prov_d"] = T.get("sel_d")
+    if not T["slots"] or any(p.get("fill_d") for p in T["slots"]) or T.get("ai_done", True): return False
+    d0 = T.get("prov_d") or T.get("sel_d")
+    if d0 and day:
+        u = d0
+        for _ in range(PROV_MAX_TD): u = next_td(u, us) or u
+        if day >= u: T["ai_done"] = True; T.pop("prov_d", None); log("  長期:等 AI 補評已超過 %d 個交易日,照現有分數成交" % PROV_MAX_TD); return False
+    return True
+
+
 def perf(T):
     H = T["hist"]; r = [h["ret"] for h in H if h.get("ret") is not None]
     T["perf"] = {"n": len(r), "win": round(100 * sum(1 for x in r if x > 0) / len(r)) if r else None, "avg": round(sum(r) / len(r), 2) if r else None,
@@ -595,8 +625,8 @@ def main():
     if T.get("rv") != LONG_RV:                                          # r1095:規則改版(加 AI 未來性排序)——清單還沒成交就重選
         if not any(p.get("fill_d") for p in T["slots"]): T["slots"] = []; T["sel_d"] = None; log("  長期:規則改版,重新選股")
         T["rv"] = LONG_RV
-    if _has_key() and T["slots"] and not any(p.get("ai") is not None for p in T["slots"]) and not any(p.get("fill_d") for p in T["slots"]):
-        T["slots"] = []; T["sel_d"] = None; log("  長期:上次是沒有 AI 評分的暫定名單(還沒成交),這班有金鑰 → 重選")   # r1099
+    prov = provisional(T, twd, False)                                    # r1100:暫定名單(AI 還沒評完)→ 有金鑰就重選、先不成交
+    if prov and _has_key(): T["slots"] = []; T["sel_d"] = None; log("  長期:暫定名單(AI 評分未完成、未成交)→ 重選、補評")
     if twd and (q_first(twd) or not T["sel_d"]) and T["sel_d"] != twd:
         cand = tw_long_candidates(twd); n_ai, has_key = ai_rank(cand, AIC); pick = pick_div(cand, K); ids = {c["id"] for c in pick}
         fill_and_track(T, False, exit_close_on={**{p["id"]: twd for p in T["slots"] if p["id"] not in ids and p["fill_d"]}, "_why": "quarter"})
@@ -605,9 +635,11 @@ def main():
             if c["id"] not in held: T["slots"].append(slot(c, twd, {"sec_g": c.get("sec_g"), "sec_pct": c.get("sec_pct")}))
         T["sel_d"] = twd; T["cand_n"] = len(cand); T["ai_n"] = n_ai; T["ai_m"] = NOW.strftime("%Y-%m") if (has_key and n_ai) else None
         T["pool"] = [{"id": c["id"], "name": c.get("name"), "ai": c.get("ai"), "comp": round(c.get("comp") or 0, 3)} for c in cand]
-        log(f"  長期:候選 {len(cand)}、AI 評分 {n_ai} → {[(c['name'], c.get('ai')) for c in pick]}")
-    else:
+        mark_prov(T, twd, n_ai, len(cand), has_key, False)
+        log(f"  長期:候選 {len(cand)}、AI 評分 {n_ai}{'(未完成,先不成交)' if not T.get('ai_done') else ''} → {[(c['name'], c.get('ai')) for c in pick]}")
+    elif not provisional(T, twd, False):
         fill_and_track(T, False)
+    else: log("  長期:暫定名單等 AI 補評,今天先不成交")
     ai_refresh(T, AIC, False)
     # ── 美股 短期(鏡射每週模型)──
     T = us["short"]
@@ -643,8 +675,8 @@ def main():
     if T.get("rv") != LONG_RV:
         if not any(p.get("fill_d") for p in T["slots"]): T["slots"] = []; T["sel_d"] = None; log("  美股長期:規則改版,重新選股")
         T["rv"] = LONG_RV
-    if _has_key() and T["slots"] and not any(p.get("ai") is not None for p in T["slots"]) and not any(p.get("fill_d") for p in T["slots"]):
-        T["slots"] = []; T["sel_d"] = None; log("  美股長期:暫定名單(無 AI 評分、未成交)→ 重選")
+    prov = provisional(T, usd, True)
+    if prov and _has_key(): T["slots"] = []; T["sel_d"] = None; log("  美股長期:暫定名單(AI 評分未完成、未成交)→ 重選、補評")
     if usd and (q_first(usd, True) or not T["sel_d"]) and T["sel_d"] != usd:
         cand = us_long_candidates(usd); n_ai, has_key = ai_rank(cand, AIC, True); pick = pick_div(cand, K); ids = {c["id"] for c in pick}
         fill_and_track(T, True, exit_close_on={**{p["id"]: usd for p in T["slots"] if p["id"] not in ids and p["fill_d"]}, "_why": "quarter"})
@@ -653,9 +685,11 @@ def main():
             if c["id"] not in held: T["slots"].append(slot(c, usd))
         T["sel_d"] = usd; T["cand_n"] = len(cand); T["ai_n"] = n_ai; T["ai_m"] = NOW.strftime("%Y-%m") if (has_key and n_ai) else None
         T["pool"] = [{"id": c["id"], "name": c.get("name"), "ai": c.get("ai"), "g": round((c.get("g") or 0) * 100, 1)} for c in cand]
-        log(f"  美股長期:候選 {len(cand)}、AI 評分 {n_ai} → {[(c['id'], c.get('ai')) for c in pick]}")
-    else:
+        mark_prov(T, usd, n_ai, len(cand), has_key, True)
+        log(f"  美股長期:候選 {len(cand)}、AI 評分 {n_ai}{'(未完成,先不成交)' if not T.get('ai_done') else ''} → {[(c['id'], c.get('ai')) for c in pick]}")
+    elif not provisional(T, usd, True):
         fill_and_track(T, True)
+    else: log("  美股長期:暫定名單等 AI 補評,今天先不成交")
     ai_refresh(T, AIC, True)
     for mk in (tw, us):
         for k, T in mk.items():
