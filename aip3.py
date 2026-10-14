@@ -301,7 +301,7 @@ def _claude_raw(prompt, max_tokens=900, search=True):
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not key: return None
     import requests
-    body = {"model": os.environ.get("CLAUDE_MODEL", "claude-sonnet-5-5"), "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
+    body = {"model": (os.environ.get("CLAUDE_MODEL") or "").strip() or "claude-sonnet-5-5", "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
     if search: body["tools"] = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]
     for attempt in range(3):
         try:
