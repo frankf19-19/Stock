@@ -160,6 +160,7 @@ jobs:
             [ -f spark.json ] && git add spark.json
             [ -f aipick.json ] && git add aipick.json
             [ -f aipick_us.json ] && git add aipick_us.json      # r890:美股 AI Pick
+            [ -f aip3.json ] && git add aip3.json                # r1092
             [ -f aitrader.json ] && git add aitrader.json        # r894:AI 交易員
             [ -f holidays.json ] && git add holidays.json        # r904:休市行事曆
             [ -f brain.json ] && git add brain.json              # r905:大腦
@@ -231,6 +232,7 @@ jobs:
             step AI複核 timeout 1500 python aipick_review.py || echo "AI 複核失敗,不影響選股"   # r943:獨立步驟,每檔存一次
             git fetch -q origin main && git checkout -q origin/main -- aipick_us.json 2>/dev/null || true       # r1091:先拿美股盤中班(yext.yml)剛記的觸發紀錄,再做美股結算
             step AIPick美股 bash -c 'AIPICK_MKT=US timeout 900 python aipick.py || echo "美股 AI Pick 失敗,不影響主資料"'   # r890
+            step AIPick三期 timeout 600 python aip3.py || echo "三期制 AI Pick 失敗,不影響主資料"        # r1092:短期/中期/長期 各 5 檔
             step AI交易員 bash -c 'AITRADER_MKT=TW timeout 600 python aitrader.py; AITRADER_MKT=US timeout 600 python aitrader.py; true'   # r894
             step 推播 timeout 300 python notify.py || echo "推播失敗,不影響主資料"
             step 分數歷史 timeout 120 python score_hist.py || echo "分數歷史失敗"   # r909
