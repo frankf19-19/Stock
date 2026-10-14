@@ -1,0 +1,33 @@
+name: AI Pick 三清單(手動補跑,r1099)
+# 平常由 update_data.yml 每輪跑;這支只在要「現在就重算」時手動點:AI 未來性評分、參考價位、技術線都會一起產生
+on:
+  workflow_dispatch:
+concurrency:
+  group: aip3-manual
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  aip3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests numpy
+      - name: 三清單(含 AI 未來性評分)
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          mkdir -p logs
+          timeout 1800 python aip3.py 2>&1 | tee logs/aip3_last.txt || echo "::warning::三清單失敗"
+          grep -E "長期|aip3:|AI 未來性|略過" logs/aip3_last.txt | head -30 | sed 's/^/::notice::/' || true
+      - name: 提交
+        run: |
+          git config user.name "kyansuo-bot"; git config user.email "bot@users.noreply.github.com"
+          git add aip3.json logs/aip3_last.txt
+          git commit -m "aip3: 手動補跑 $(TZ=Asia/Taipei date +'%m-%d %H:%M')" -q || exit 0
+          for i in 1 2 3 4 5; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 8; done
