@@ -1,4 +1,4 @@
-/* K研所 · build r1100 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1101 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1100';
+const APP_BUILD='r1101';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2454,7 +2454,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1100</span>');
+  diag.push('<span style="color:var(--dim)">build r1101</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -22595,7 +22595,7 @@ function aip3Tier(key,T,us){
     return `<div class="a3-row"><div class="a3-nm"><a href="#stock/${p.id}">${p.name||p.id}</a><span class="c-code">${p.id}</span>${p.cur&&p.cur!==p.id?`<span class="dim" style="font-size:11px"> → 現持 ${p.cur}</span>`:''}<span class="a3-st" style="color:${stC}">${stT}</span></div>
       <div class="a3-px">${p.entry?`${cur}${(+p.entry).toLocaleString()}<small>進場 ${md(p.fill_d)}</small>`:`${cur}${p.sel_px!=null?(+p.sel_px).toLocaleString():'—'}<small>選股日收盤</small>`}</div>
       <div class="a3-ret" style="color:${cl(ret)}">${p.entry?fp(ret):'—'}<small>${px?`${p.st==='done'?'出場 ':'現價 '}${cur}${(+px).toLocaleString()}${p.st!=='done'&&q.rt?'・'+(q.lab||'即時'):''}`:''}</small></div>
-      <div class="a3-why">${why}</div>${aip3LvHTML(p,px,us)}${key==='short'?aip3TechHTML(p,px,us):''}${p.ind?`<div class="a3-ind">🏭 <b>產業分析</b>(AI 搜尋最近 3 個月新聞${p.ai_d?'・'+md(p.ai_d)+' 評':''}・敘述非驗證):${p.ind}${p.ind_src?`<br><span class="dim">📰 依據:${p.ind_src}</span>`:''}</div>`:(key==='long'&&p.st!=='done'?'<div class="a3-ind dim">🏭 產業分析與未來性評分:下一班後端補上</div>':'')}</div>`;}).join('');
+      <div class="a3-why">${why}</div>${aip3LvHTML(p,px,us)}${key==='short'?aip3TechHTML(p,px,us):''}${p.ind?`<div class="a3-ind">🏭 <b>產業分析</b>(${p.ai_eng==='claude'?'Claude':'AI'} 搜尋最近 3 個月新聞${p.ai_d?'・'+md(p.ai_d)+' 評':''}・敘述非驗證):${p.ind}${p.ind_src?`<br><span class="dim">📰 依據:${p.ind_src}</span>`:''}</div>`:(key==='long'&&p.st!=='done'?'<div class="a3-ind dim">🏭 產業分析與未來性評分:下一班後端補上</div>':'')}</div>`;}).join('');
   const empty=K3-(T.slots||[]).length;
   const emptyRows=empty>0?`<div class="a3-empty">${key==='mid'&&us?`⏳ 還有 ${empty} 個空位,等跌深機會(第一天離 60 日高 ≥25%)`:`⏳ 還有 ${empty} 個空位,${nextLab}時補`}</div>`:'';
   const P=T.perf||{};const hist=(T.hist||[]).slice(-12).reverse();

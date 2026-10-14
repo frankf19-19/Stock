@@ -20,6 +20,8 @@ jobs:
       - name: 三清單(含 AI 未來性評分)
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # r1101:有設就改用 Claude 評未來性(沒設退回 Gemini)
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
           PYTHONUNBUFFERED: "1"
         run: |
           mkdir -p logs

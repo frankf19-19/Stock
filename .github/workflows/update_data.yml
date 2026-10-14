@@ -97,6 +97,8 @@ jobs:
           FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}    # 可選;未設定則走免token額度
           US_YAHOO_FALLBACK: "1"                         # r705:美股日K最後備援(僅美股;設 0 可關,台股維持零 Yahoo)
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}          # r771:入選/出場理由(純敘述,沒金鑰就跳過)
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # r1101:三清單長期的 AI 未來性評分改用 Claude(沒設退回 Gemini)
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           LINE_TOKEN: ${{ secrets.LINE_TOKEN }}

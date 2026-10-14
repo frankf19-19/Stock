@@ -24,7 +24,7 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1100"
+VER = "r1101"
 PROV_MAX_TD = 3     # 長期清單「暫定」最多等 3 個交易日:AI 評分沒評完(額度 429)就先不成交、下一班再補評;超過就用現有分數成交
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
 AI_TTL_D = 45       # AI 未來性評分快取天數(選股時 45 天內不重打;每月第一班另外更新持股)
@@ -295,12 +295,34 @@ def us_dip_candidates(day):
     out.sort(key=lambda r: -r["liq"]); return out
 
 
+def _claude_raw(prompt, max_tokens=900, search=True):
+    """r1101:改用 Claude(Anthropic API + 網路搜尋工具)——GitHub Secret ANTHROPIC_API_KEY 有設就優先用,沒設回 None(退回 Gemini)
+    模型預設 claude-sonnet-5-5(可用環境變數 CLAUDE_MODEL 改成 claude-haiku-5-5 省錢);每檔最多 3 次搜尋"""
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not key: return None
+    import requests
+    body = {"model": os.environ.get("CLAUDE_MODEL", "claude-sonnet-5-5"), "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
+    if search: body["tools"] = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]
+    for attempt in range(3):
+        try:
+            r = requests.post("https://api.anthropic.com/v1/messages", headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"}, json=body, timeout=180)
+            if r.status_code in (429, 500, 502, 503, 529): log(f"  claude {r.status_code},{20 * (attempt + 1)} 秒後重試"); _time.sleep(20 * (attempt + 1)); continue
+            if not r.ok: log(f"  claude 錯誤 {r.status_code}:{r.text[:200]}"); return ""
+            j = r.json()
+            txt = "".join(b.get("text", "") for b in (j.get("content") or []) if b.get("type") == "text").strip()
+            if not txt: log(f"  claude 空回應:{str(j)[:200]}")
+            return txt
+        except Exception as e:
+            log(f"  claude 例外:{e}"); _time.sleep(10)
+    return ""
+
+
 def ai_future(p, us=False):
-    """r1095:AI 未來性評分——Gemini + Google 搜尋最近 3 個月產業/公司新聞,回 {"score":1~10,"txt":分析,"src":依據,"d":日期};沒金鑰 → None
+    """r1095:AI 未來性評分——Claude(有 ANTHROPIC_API_KEY 時)或 Gemini + 搜尋最近 3 個月產業/公司新聞,回 {"score":1~10,"txt":分析,"src":依據,"d":日期};沒金鑰 → None
     這是「參考」:沒有歷史新聞可回測,所以只拿來在已驗證的候選池裡排序,不決定候選池本身"""
     try:
         import aipick
-        if not aipick.GEMINI_KEY: return None
+        if not aipick.GEMINI_KEY and not os.environ.get("ANTHROPIC_API_KEY", "").strip(): return None
         aipick.AI2_BUDGET = max(aipick.AI2_BUDGET, 60)
         nm = p.get("name") or p["id"]; sec = p.get("sector") or ""
         q = (f"你是產業研究員。請評估「{nm}({p['id']}){'(美股)' if us else '(台股)'}」(產業:{sec})未來 2~3 年的「未來性」。"
@@ -310,17 +332,20 @@ def ai_future(p, us=False):
              "5~6=產業持平、靠公司自身努力;3~4=產業成熟或成長明顯放緩;1~2=產業衰退或面臨替代。"
              "第二行「分析:」接 160 字以內一段:①產業未來 2~3 年的成長動能(具體需求來源或技術趨勢)②公司在產業鏈的位置與優勢③最大風險。"
              "第三行「依據:」寫 1~2 則最近新聞的重點與月份。不要喊口號、不要用「建議買進」這類字眼、不要用驚嘆號。")
-        txt = aipick._gemini_raw(q, 900, search=True) or ""
+        eng = "claude"; txt = _claude_raw(q, 900, search=True)
+        if txt is None: eng = "gemini"; txt = aipick._gemini_raw(q, 900, search=True) if aipick.GEMINI_KEY else ""
+        txt = txt or ""
         m = re.search(r"分數[::]\s*(\d+)", txt); sc = int(m.group(1)) if m else None
         if sc is not None: sc = max(1, min(10, sc))
         m2 = re.search(r"分析[::]\s*(.+?)(?=\n\s*依據[::]|$)", txt, re.S); ana = (m2.group(1) if m2 else txt).strip().replace("\n", " ")[:360]
         m3 = re.search(r"依據[::]\s*(.+)", txt, re.S); src = (m3.group(1) if m3 else "").strip().replace("\n", " ")[:220]
-        return {"score": sc, "txt": ana, "src": src, "d": NOW.strftime("%Y-%m-%d")}
+        return {"score": sc, "txt": ana, "src": src, "d": NOW.strftime("%Y-%m-%d"), "eng": eng}
     except Exception as e:
         log(f"  AI 未來性略過:{e}"); return {"score": None, "txt": "", "src": "", "d": NOW.strftime("%Y-%m-%d")}
 
 
 def _has_key():
+    if os.environ.get("ANTHROPIC_API_KEY", "").strip(): return True
     try:
         import aipick; return bool(aipick.GEMINI_KEY)
     except Exception: return False
@@ -343,7 +368,7 @@ def ensure_ai(p, cache, us=False, max_age=AI_TTL_D):
             return True                                                     # 這班失敗,下次再試
         _AI["fail"] = 0
         cache[p["id"]] = e = r
-    p["ai"] = e.get("score"); p["ai_d"] = e.get("d"); p["ind"] = e.get("txt") or ""; p["ind_src"] = e.get("src") or ""; p["ind_try"] = 1
+    p["ai"] = e.get("score"); p["ai_d"] = e.get("d"); p["ind"] = e.get("txt") or ""; p["ind_src"] = e.get("src") or ""; p["ind_try"] = 1; p["ai_eng"] = e.get("eng")
     if p.get("ai0") is None: p["ai0"] = p["ai"]
     return True
 
