@@ -387,6 +387,7 @@ def ensure_ai(p, cache, us=False, max_age=AI_TTL_D):
     e = cache.get(p["id"])
     try: age = (NOW.date() - dt.date.fromisoformat((e or {}).get("d") or "2000-01-01")).days
     except Exception: age = 9999
+    if e and e.get("score") is not None and "news" not in e: age = 9999       # r1102:舊的「搜尋 grounding」評分沒附新聞 → 用新聞版重評一次
     if not (e and e.get("score") is not None and age <= max_age):
         if _AI["dead"] or _time.time() - _T0 > AI_BUDGET_SEC:
             if e and e.get("news"): p["news"] = e["news"]; p["news_d"] = e.get("news_d")
