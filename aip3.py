@@ -24,7 +24,7 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1097"
+VER = "r1098"
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
 AI_TTL_D = 45       # AI 未來性評分快取天數(選股時 45 天內不重打;每月第一班另外更新持股)
 AI_POOL_N = 12      # 每個市場最多替量化排序前 12 檔候選打 AI 分(每檔一次搜尋約 15~20 秒)
@@ -385,22 +385,28 @@ def levels(p, key, us=False, prev=None):
         try:
             tgt, stp, LV = aipick.stock_levels(d, o, buy, a, sinfo)
             ma20 = sum(C[-20:]) / 20; ma240 = sum(C[-240:]) / 240 if len(C) >= 240 else None
-            if key == "short":
-                sl, sls = stp, f"結構支撐({LV.get('stp_src')})"; tp, tps = tgt, f"第一道壓力({LV.get('tgt_src')})"; add, adds = buy * 1.05, "進場 +5%(走勢證明對了再加)"
+            # r1098:依三清單各自的回測結果定(研究:專案文件「三清單停損停利研究_2026-10-14」)
+            if us and key == "short":                                        # 美股短期 = 每週模型自己的結構目標/停損
+                sl, sls = stp, f"結構支撐({LV.get('stp_src')},每週模型規則)"; tp, tps = tgt, f"第一道壓力({LV.get('tgt_src')},每週模型規則)"; add, adds = buy * 1.05, "進場 +5%"
+            elif us and key == "mid":                                        # 美股中期 = 跌深低接規則 +20% / −15%
+                sl, sls = buy * 0.85, "進場 −15%(模型規則)"; tp, tps = buy * 1.20, "進場 +20%(模型規則)"; add, adds = buy * 1.10, "進場 +10%"
+            elif key == "short":
+                sl, sls = buy * 0.85, "進場 −15%(災難停損;回測:緊停損會把年化從 +33% 砍到 +7~27%)"
+                tp, tps = buy * 1.20, "進場 +20%(回測:年化 +34.2%、回落 −34%、最差年 −10%)"
+                add, adds = buy * 1.05, "進場 +5%(回測:加碼後平均再 +2.2%,和新買一檔差不多)"
             elif key == "mid":
-                sl, sls = stp, f"結構支撐({LV.get('stp_src')})"; tp, tps = buy * 1.25, "進場 +25%(回測變體)"; add, adds = buy * 1.10, "進場 +10%,且仍在量價前 20 名"
+                sl, sls = (p.get("sl_px") or (buy - 4 * a)), "進場 − 4 ATR(原回測設定:年化 +38.5%、回落 −37%;緊停損反而差)"
+                tp, tps = buy * 1.25, "進場 +25%(回測:年化 +41.5%、最差年 −4%)"
+                add, adds = buy * 1.10, "進場 +10% 且仍在量價前 20 名(回測:加碼後平均再 +4.2%、61% 賺)"
             else:
-                ma60 = sum(C[-60:]) / 60
-                if ma60 * 0.97 < buy and ma60 * 0.97 >= buy * 0.85: sl, sls = ma60 * 0.97, "季線 −3%(跌破季線代表中期趨勢壞了)"
-                else: sl, sls = max(stp, buy * 0.85), "進場 −15%(長期持股的底線)" if stp < buy * 0.85 else f"結構支撐({LV.get('stp_src')})"
-                tp, tps = buy * 1.30, "進場 +30%(先減碼一半,其餘續抱)"
-                if ma20 and ma20 < buy * 0.995: add, adds = ma20, "回到月線附近(拉回不破月線再加)"
-                else: add, adds = buy * 1.10, "進場 +10%"
+                sl, sls = buy * 0.92, "進場 −8%(回測:長期任何停損都降年化,但不補位可把回落 −46% 壓到 −28%;停損後等下一季,不要換股)"
+                tp, tps = buy * 1.40, "進場 +40% 減碼一半(回測:長期全賣的停利都讓年化變差,+40% 影響最小)"
+                add, adds = buy * 1.10, "進場 +10%(回測:加碼後平均再 +12.4%、56% 賺——長期贏家會續強)"
             if prev and prev.get("sl") and p.get("fill_d"): sl = max(sl, prev["sl"]); sls = prev.get("sl_src") if prev["sl"] >= sl else sls
             if add <= sl * 1.02: add, adds = buy * 1.10, "進場 +10%"               # 加碼價不能貼著停損
             re_ = sl + 1.0 * a
             R = lambda v: aipick.rtick(float(v), "near")
-            return {"sl": R(sl), "sl_src": sls, "tp": R(tp), "tp_src": tps, "add": R(add), "add_src": adds, "re": R(re_), "re_src": "停損參考價 + 1 ATR(站回支撐就可買回)",
+            return {"sl": R(sl), "sl_src": sls, "tp": R(tp), "tp_src": tps, "add": R(add), "add_src": adds, "re": R(re_), "re_src": "停損價 + 1 ATR 站回就可買回(回測:停損後 10 天內買回,三個清單都平均虧 −2%、勝率 3 成 → 不建議,除非有新理由)",
                     "atr": round(a, 2), "d": d[-1], "anchor": round(float(buy), 2), "rr": LV.get("rr")}
         finally: aipick.US = old
     except Exception as e:
@@ -452,8 +458,9 @@ def slot(c, day, extra=None):
     return x
 
 
-def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None):
-    """成交(選股日之後第一個交易日開盤)+ 逐日更新 + 固定規則出場。exit_close_on: {sid: 'close'} 今天收盤出場的名單"""
+def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None, sl_atr=None):
+    """成交(選股日之後第一個交易日開盤)+ 逐日更新 + 固定規則出場。exit_close_on: {sid: 'close'} 今天收盤出場的名單
+    r1098:sl_atr = 進場價 − N×ATR(14)(成交日前 14 根 K 算),中期清單用 4 ATR(原回測設定)"""
     exit_close_on = exit_close_on or {}
     keep = []
     for p in T["slots"]:
@@ -465,6 +472,9 @@ def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None):
             d0, o0 = nxt[0]
             if not us and o0[0] <= 0: keep.append(p); continue
             p["fill_d"], p["entry"], p["st"] = d0, round(o0[0], 2), "hold"; p["hi"], p["lo"] = o0[1], o0[2]
+            if sl_atr:
+                prev = [b[1] for b in B if b[0] < d0][-15:]
+                if len(prev) >= 15: p["sl_px"] = round(p["entry"] - sl_atr * _atr14(prev), 2); p["sl_why"] = f"進場價 − {sl_atr:g}×ATR"
         held = [b for b in B if b[0] >= p["fill_d"]]
         if not held: keep.append(p); continue
         xd = xp = xw = None
@@ -472,6 +482,7 @@ def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None):
             p["hi"] = max(p["hi"] or 0, o[1]); p["lo"] = min(p["lo"] or 1e18, o[2])
             if True:
                 if sl and o[2] <= p["entry"] * (1 - sl) and n > 0: xd, xp, xw = d, round(min(o[0], p["entry"] * (1 - sl)), 2), "sl"; break
+                if p.get("sl_px") and o[2] <= p["sl_px"]: xd, xp, xw = d, round(min(o[0], p["sl_px"]), 2), "sl"; break
                 if tp and o[1] >= p["entry"] * (1 + tp): xd, xp, xw = d, round(max(o[0], p["entry"] * (1 + tp)), 2), "tp"; break
             if exit_close_on.get(p["id"]) == d: xd, xp, xw = d, round(o[3], 2), exit_close_on.get("_why", "rule"); break
             if p.get("x_open") and d > p["x_open"]: xd, xp, xw = d, round(o[0], 2), p.get("x_why", "rank"); break
@@ -506,10 +517,14 @@ def perf(T):
 def main():
     J = load(OUT, {}) or {}
     tw = J.get("tw") or {}; us = J.get("us") or {}
-    tw.setdefault("short", new_tier("每週最後一個交易日收盤選 5 檔(近 52 週高 × 強勢訊號);下個交易日開盤買,最多持 15 個交易日,不設停損停利",
-                                     "回測 2016~2026 含成本:年化 +31.8%、最大回落 −37%、最差年 −25%;訊號 5/10/20 天贏大盤 +0.5/+1.1/+1.5%,14 年全正", "⚠ 強勢股集中,波動大於中期"))
-    tw.setdefault("mid", new_tier("量價籌碼模型前 5 名補進空位,下個交易日開盤買;掉出前 200 名 → 隔天開盤賣,不設停利停損",
-                                   "回測 2016~2026 含成本:年化 +40.8%、最大回落 −37%、最差年 +9.9%、11 年全正,每年約 39 筆", "✅ 三個清單裡最穩"))
+    tw.setdefault("short", new_tier("", ""))
+    tw["short"].update(rule="每週最後一個交易日收盤選 5 檔(近 52 週高 × 強勢訊號);下個交易日開盤買,最多持 15 個交易日;停利 +20%、停損 −15%(盤中碰到就出)",
+                       val="回測 2016~2026 含成本:停利 +20% + 停損 −15% 年化 +34.2%、最大回落 −34%、最差年 −10%(不設停損停利 +32.6% / −38% / −25%);緊停損(≤3 ATR 或 ≤10%)年化掉到 +7~27%",
+                       note="⚠ 強勢股集中,波動大於中期")
+    tw.setdefault("mid", new_tier("", ""))
+    tw["mid"].update(rule="量價籌碼模型前 5 名補進空位,下個交易日開盤買;掉出前 200 名 → 隔天開盤賣;停損 = 進場價 − 4 ATR(約 −12%)、停利 +25%(盤中碰到就出)",
+                     val="回測 2016~2026 含成本:4 ATR 停損 + 停利 +25% 年化 +41.5%、最大回落 −39%、最差年 −4%;只停損不停利 +38.5% / −37% / +10%;緊停損(≤2.5 ATR 或 ≤10%)年化掉到 +20~37%",
+                     note="✅ 三個清單裡最穩")
     tw.setdefault("long", new_tier("", ""))
     tw["long"].update(rule="每季第一個交易日:先用驗證過的量化條件選出候選池(成交值前 40%、近 3 月營收年增 10~100%、連 6 個月營收成長、近 3 個月營收合計創 13 個月新高、本益比 10~35、離 52 週高 ≤15%、站上年線),再由 AI 搜尋最近 3 個月的產業與公司新聞,給每檔「未來性」1~10 分,取最高 5 檔(同產業最多 2 檔)持有到下一季;每月第一班重新評分與更新分析;候選不足 5 檔就留空",
                       val="候選池回測 2013~2026:一年比大盤 +13.1%(12 年中 9 年)、半年 +9.7%(13 年中 11 年);池內用量化排序取 5 檔一年 +14.7%——優勢來自候選池本身,池內怎麼排影響小。AI 未來性排序沒有歷史新聞可回測,標參考",
@@ -526,7 +541,7 @@ def main():
     log(f"aip3:台股最後交易日 {twd}、美股 {usd}")
     # ── 台股 短期 ──
     T = tw["short"]
-    fill_and_track(T, False, hold_max=15)
+    fill_and_track(T, False, hold_max=15, tp=0.20, sl=0.15)             # r1098:停利 +20% / 停損 −15%(回測 +34.2%、回落 −34%、最差年 −10%)
     if twd and (week_last(twd) or not T["sel_d"]) and T["sel_d"] != twd:
         held = {p["id"] for p in T["slots"]}
         if len(T["slots"]) < K:
@@ -545,7 +560,7 @@ def main():
             if p["fill_d"] and p["fill_d"] < twd and not p.get("x_open"):
                 rk = (ra.get(p["id"]) or [9999])[0]
                 if rk > 200: p["x_open"], p["x_why"] = twd, "rank"; log(f"  中期:{p['name']} 掉到第 {rk} 名 → 隔天開盤賣")
-        fill_and_track(T, False)
+        fill_and_track(T, False, tp=0.25, sl_atr=4)                       # r1098:4 ATR 停損(原回測設定)+ 停利 +25%(回測 +41.5%)
         held = {p["id"] for p in T["slots"]}; sold_today = {h["id"] for h in T["hist"] if h.get("xd") == twd}
         for c in top:
             if len(T["slots"]) >= K: break
@@ -553,7 +568,7 @@ def main():
             T["slots"].append(slot(c, twd, {"sel_px": (STK.get(c["id"]) or {}).get("price")})); held.add(c["id"])
         T["sel_d"] = twd
     else:
-        fill_and_track(T, False); log(f"  中期:量價排名日 {rd} 與 K 線 {twd} 不同,今天不換股")
+        fill_and_track(T, False, tp=0.25, sl_atr=4); log(f"  中期:量價排名日 {rd} 與 K 線 {twd} 不同,今天不換股")
     # ── 台股 長期 ──
     T = tw["long"]; AIC = J.setdefault("ai_cache", {})
     if T.get("rv") != LONG_RV:                                          # r1095:規則改版(加 AI 未來性排序)——清單還沒成交就重選
