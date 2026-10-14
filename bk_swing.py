@@ -296,7 +296,7 @@ def build_full(ALL, log=print):
         if out and S.get(k, {}).get(sid) is not None: S[k][sid]["sw"]["from"] = ds[dd[0]]
 
     if nst < 500 or not ev:                                   # 全券商資料還不夠(回補中)→ 全市場驗證先保留前 15 大版本
-        fb.save_shards(S)                                     # r1066:已補齊的個股(最愛/持股)先用全部券商、多年資料顯示
+        fb.save_shards(S, own=("sw",))                        # r1066:已補齊的個股(最愛/持股)先用全部券商、多年資料顯示;r1089:只寫自己的 sw 欄,底用最新分片
         log(f"  🕵️ 全券商資料還不夠:{nst} 檔有 {MIN_DAYS} 天以上、驗證事件 {sum(len(v) for g in ev.values() for v in g.values())} 筆 → 全市場驗證先不覆蓋;這 {nst} 檔的個股結果已更新"); return {"stocks": nst, "ready": False}
     def agg(a):
         if not a: return None
@@ -314,6 +314,6 @@ def build_full(ALL, log=print):
     json.dump(V, open("bk/_swing_validation.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     for side in today: today[side].sort(key=lambda x: -sum(abs(b[1]) for b in x["br"]))
     json.dump({"d": span[1], "all": 1, **today}, open("bk/_swing_today.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    fb.save_shards(S)
+    fb.save_shards(S, own=("sw",))                            # r1089:只寫自己的 sw 欄,底用最新分片(不蓋掉別班的每日分點)
     log(f"  🕵️ 全券商波段主力分點:{nst} 檔、{nsw} 檔有;吃貨 {a} vs {c}")
     return {"stocks": nst, "with_swing": nsw, "pass_acc": V["pass_acc"], "pass_dist": V["pass_dist"]}

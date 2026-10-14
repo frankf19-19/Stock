@@ -254,10 +254,52 @@ def load_shards(d=None):
     return S
 
 
-def save_shards(S, d=None):
+OWN = ("d", "s", "kb", "kbv", "cp", "sw")                    # r1089:fetch_broker / backfill_broker 自己負責的欄位
+
+
+def origin_shards(keys):
+    """r1089:拿 origin/main 上最新的分片(別的班可能剛寫過);拿不到就用硬碟上的那份。"""
+    import subprocess
+    out = {}
+    try: subprocess.run(["git", "fetch", "-q", "origin", "main"], timeout=120, capture_output=True)
+    except Exception: pass
+    for k in keys:
+        j = None
+        try:
+            r = subprocess.run(["git", "show", f"origin/main:{DIR}/tw{k}.json"], capture_output=True, timeout=60)
+            if r.returncode == 0 and r.stdout: j = json.loads(r.stdout.decode("utf-8"))
+        except Exception: j = None
+        if not isinstance(j, dict):
+            try: j = json.load(open(os.path.join(DIR, f"tw{k}.json"), encoding="utf-8"))
+            except Exception: j = None
+        if isinstance(j, dict): out[k] = j
+    return out
+
+
+def save_shards(S, d=None, own=None):
+    """own = 本程式負責的欄位。給了就「以 origin/main 最新的分片當底,只覆蓋這些欄位」再寫檔。
+    r1089 事故:bkall(全券商)一班跑好幾小時,開工時 checkout 的分片早就過時,整檔寫回 + 推送時 -X theirs 以本班為準
+      → fetch_broker 10/12、10/13 剛寫進去的每日分點(d/s)被蓋回 10/08,網站分點停在 10/08 兩天。
+    同一班裡沒人會改別人的欄位,所以底用最新的、欄位各寫各的就不會互相蓋。另外 d/s 只能變長不能變短(資料不縮水)。"""
     d = d or DIR; os.makedirs(d, exist_ok=True)
+    base = origin_shards(list(S.keys())) if (own and d == DIR) else {}
+    kept = 0
     for k, sh in S.items():
+        if own and k in base:
+            b = base[k]
+            for sid, e in sh.items():
+                if not isinstance(e, dict): continue
+                if sid not in b or not isinstance(b[sid], dict): b[sid] = e; continue
+                t = b[sid]
+                for key in own:
+                    if key not in e: continue
+                    if key in ("d", "s") and isinstance(t.get("d"), list) and isinstance(e.get("d"), list) and t["d"] and e["d"] and t["d"][-1] > e["d"][-1]:
+                        kept += (key == "d"); continue                      # 底比我新(cache 太舊)→ 不倒退
+                    if key == "sw" and (t.get("sw") or {}).get("all") and not (e.get("sw") or {}).get("all"): continue   # 全券商版本不被前 15 大版本蓋掉
+                    t[key] = e[key]
+            sh = b
         json.dump(sh, open(os.path.join(d, f"tw{k}.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    if kept: log(f"  (分片合併:{kept} 檔 origin/main 的每日分點比本班新,保留不倒退)")
 
 
 def raw_load():
@@ -361,7 +403,7 @@ def main():
     ids = [s["id"] for s in data.get("stocks") or [] if s.get("market") == "TW" and not s.get("etf")]
     S = load_shards(); R = raw_load()
     try:                                                     # r1051c:🕵️ 波段主力分點先算(抓資料前)——收尾的後處理常被 timeout 砍掉
-        import bk_swing; bk_swing.build(R, S, closes_of, log); save_shards(S)
+        import bk_swing; bk_swing.build(R, S, closes_of, log); save_shards(S, own=OWN)
     except Exception as ex0: log(f"  波段主力分點失敗:{ex0}")
     t0 = time.time(); n = 0; empty = 0; fail = 0
     # ── 八大行庫(當天一次)──
@@ -452,7 +494,7 @@ def main():
     try:                                                     # r1051:🕵️ 波段主力分點(低檔吃貨、高檔出貨)+ walk-forward 驗證
         import bk_swing; bk_swing.build(R, S, closes_of, log)
     except Exception as ex5: log(f"  波段主力分點失敗:{ex5}")
-    save_shards(S)
+    save_shards(S, own=OWN)
     try: kb_today(S, day)
     except Exception as e: log(f"  kb_today 失敗:{e}")
     log(f"✅ 分點:本輪抓 {n} 筆(補進 {sum(got.values())}、仍空 {empty}、失敗 {fail});覆蓋 " +
