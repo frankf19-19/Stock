@@ -1,17 +1,32 @@
 aip3:台股最後交易日 2026-10-14、美股 2026-10-13
   長期:暫定名單(AI 評分未完成、未成交)→ 重選、補評
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini gemini-3.5-flash-lite 429,換模型/重試
-  gemini gemini-3.5-flash 429,換模型/重試
-  gemini gemini-2.0-flash 404,換模型/重試
+  gemini gemini-2.5-flash 503,換模型/重試
   gemini gemini-2.5-flash 429,換模型/重試
   gemini gemini-2.5-flash 429,換模型/重試
-  gemini gemini-3.5-flash-lite 429,換模型/重試
-  gemini gemini-3.5-flash 429,換模型/重試
-  gemini gemini-2.0-flash 404,換模型/重試
   gemini gemini-2.5-flash 429,換模型/重試
-  AI 未來性:連續失敗(多半是額度 429),這班不再打,下一班補評
-  長期:候選 14、AI 評分 3(未完成,先不成交) → [('技嘉', 9), ('雙鴻', 9), ('中華電', 8), ('台積電', None), ('健鼎', None)]
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  長期:候選 14、AI 評分 12 → [('台積電', 10), ('技嘉', 9), ('雙鴻', 9), ('帆宣', 9), ('光寶科', 9)]
   美股長期:暫定名單(AI 評分未完成、未成交)→ 重選、補評
-  美股長期:候選 17、AI 評分 0(未完成,先不成交) → [('MU', None), ('SNDK', None), ('BE', None), ('META', None), ('GOOG', None)]
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  gemini gemini-3.5-flash-lite 429,換模型/重試
+  gemini gemini-3.5-flash 429,換模型/重試
+  gemini gemini-2.0-flash 404,換模型/重試
+  gemini gemini-2.5-flash 429,換模型/重試
+  美股長期:候選 17、AI 評分 11(未完成,先不成交) → [('BE', 9), ('NVDA', 9), ('PLTR', 9), ('META', 8), ('GOOG', None)]
+  gemini gemini-2.5-flash 429,換模型/重試
 aip3:完成 tw.short=5檔 tw.mid=5檔 tw.long=5檔 us.short=5檔 us.mid=5檔 us.long=5檔
