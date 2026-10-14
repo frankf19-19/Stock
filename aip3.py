@@ -319,6 +319,12 @@ def ai_future(p, us=False):
         log(f"  AI 未來性略過:{e}"); return {"score": None, "txt": "", "src": "", "d": NOW.strftime("%Y-%m-%d")}
 
 
+def _has_key():
+    try:
+        import aipick; return bool(aipick.GEMINI_KEY)
+    except Exception: return False
+
+
 def ensure_ai(p, cache, us=False, max_age=AI_TTL_D):
     """把 AI 未來性套到候選/槽位 p(快取夠新就不打);回 False 代表沒金鑰(整班停做)"""
     e = cache.get(p["id"])
@@ -589,6 +595,8 @@ def main():
     if T.get("rv") != LONG_RV:                                          # r1095:規則改版(加 AI 未來性排序)——清單還沒成交就重選
         if not any(p.get("fill_d") for p in T["slots"]): T["slots"] = []; T["sel_d"] = None; log("  長期:規則改版,重新選股")
         T["rv"] = LONG_RV
+    if _has_key() and T["slots"] and not any(p.get("ai") is not None for p in T["slots"]) and not any(p.get("fill_d") for p in T["slots"]):
+        T["slots"] = []; T["sel_d"] = None; log("  長期:上次是沒有 AI 評分的暫定名單(還沒成交),這班有金鑰 → 重選")   # r1099
     if twd and (q_first(twd) or not T["sel_d"]) and T["sel_d"] != twd:
         cand = tw_long_candidates(twd); n_ai, has_key = ai_rank(cand, AIC); pick = pick_div(cand, K); ids = {c["id"] for c in pick}
         fill_and_track(T, False, exit_close_on={**{p["id"]: twd for p in T["slots"] if p["id"] not in ids and p["fill_d"]}, "_why": "quarter"})
@@ -635,6 +643,8 @@ def main():
     if T.get("rv") != LONG_RV:
         if not any(p.get("fill_d") for p in T["slots"]): T["slots"] = []; T["sel_d"] = None; log("  美股長期:規則改版,重新選股")
         T["rv"] = LONG_RV
+    if _has_key() and T["slots"] and not any(p.get("ai") is not None for p in T["slots"]) and not any(p.get("fill_d") for p in T["slots"]):
+        T["slots"] = []; T["sel_d"] = None; log("  美股長期:暫定名單(無 AI 評分、未成交)→ 重選")
     if usd and (q_first(usd, True) or not T["sel_d"]) and T["sel_d"] != usd:
         cand = us_long_candidates(usd); n_ai, has_key = ai_rank(cand, AIC, True); pick = pick_div(cand, K); ids = {c["id"] for c in pick}
         fill_and_track(T, True, exit_close_on={**{p["id"]: usd for p in T["slots"] if p["id"] not in ids and p["fill_d"]}, "_why": "quarter"})
