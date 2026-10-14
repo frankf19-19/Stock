@@ -92,6 +92,8 @@ def main():
                 s["pz"] = 0
                 continue
             s["price"] = round(last, 2)
+            vv = px(m, "v")                                   # r1099:今日累計成交量(張)→ 前端算量比(AI Pick 短期清單的量能觀察)
+            if vv: s["dvol"] = int(vv)
             if prev:
                 s["chg"] = round((last - prev) / prev * 100, 2)
             s["pz"] = 1; s["pt"] = now.strftime("%Y-%m-%d %H:%M")

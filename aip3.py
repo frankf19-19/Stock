@@ -24,7 +24,7 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1098"
+VER = "r1099"
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
 AI_TTL_D = 45       # AI 未來性評分快取天數(選股時 45 天內不重打;每月第一班另外更新持股)
 AI_POOL_N = 12      # 每個市場最多替量化排序前 12 檔候選打 AI 分(每檔一次搜尋約 15~20 秒)
@@ -436,11 +436,26 @@ def hist_levels(T, key, us=False):
         log(f"  再買回價位略過:{e}")
 
 
+def tech_of(p, us=False):
+    """r1099:技術線與量能快照(給前端即時比對):5/10/20 日線、20 日均量、昨量;短期清單用來看「量 + 技術線」"""
+    try:
+        B = raw_bars(p["id"], us)
+        if len(B) < 21: return None
+        o = [b[1] for b in B]; C = [x[3] for x in o]; V = [x[4] if len(x) > 4 else 0 for x in o]
+        ma = lambda n: round(sum(C[-n:]) / n, 2)
+        vavg = sum(V[-21:-1]) / 20
+        return {"d": B[-1][0], "ma5": ma(5), "ma10": ma(10), "ma20": ma(20), "vavg": round(vavg), "v1": round(V[-1]), "vr1": round(V[-1] / vavg, 2) if vavg else None,
+                "hi20": round(max(x[1] for x in o[-20:]), 2), "lo10": round(min(x[2] for x in o[-10:]), 2)}
+    except Exception: return None
+
+
 def tier_levels(T, key, us=False):
     for p in T["slots"]:
         if p.get("st") == "done": continue
         lv = levels(p, key, us, p.get("lv"))
         if lv: p["lv"] = lv
+        t = tech_of(p, us)
+        if t: p["tech"] = t
     hist_levels(T, key, us)
 
 
@@ -518,8 +533,8 @@ def main():
     J = load(OUT, {}) or {}
     tw = J.get("tw") or {}; us = J.get("us") or {}
     tw.setdefault("short", new_tier("", ""))
-    tw["short"].update(rule="每週最後一個交易日收盤選 5 檔(近 52 週高 × 強勢訊號);下個交易日開盤買,最多持 15 個交易日;停利 +20%、停損 −15%(盤中碰到就出)",
-                       val="回測 2016~2026 含成本:停利 +20% + 停損 −15% 年化 +34.2%、最大回落 −34%、最差年 −10%(不設停損停利 +32.6% / −38% / −25%);緊停損(≤3 ATR 或 ≤10%)年化掉到 +7~27%",
+    tw["short"].update(rule="每週最後一個交易日收盤,用量與技術線選 5 檔(離 52 週高 10% 內 × 創新高/帶量突破 20・55 日高/爆量長紅/OBV 新高/KD・RSI 高檔/均線多頭/投信外資買超);下個交易日開盤買,最多持 15 個交易日;停利 +20%、停損 −15%(盤中碰到就出)",
+                       val="回測 2016~2026 含成本:停利 +20% + 停損 −15% 年化 +34.2%、最大回落 −34%、最差年 −10%(不設 +32.6% / −38% / −25%);用均線或量能出場都更差:跌破 5 日線 +1%、10 日線 +12%、20 日線 +30%、爆量不漲 +12%、量縮收黑 +25%、乖離停利 +8~17%——強勢股 2~3 週內常先洗再漲",
                        note="⚠ 強勢股集中,波動大於中期")
     tw.setdefault("mid", new_tier("", ""))
     tw["mid"].update(rule="量價籌碼模型前 5 名補進空位,下個交易日開盤買;掉出前 200 名 → 隔天開盤賣;停損 = 進場價 − 4 ATR(約 −12%)、停利 +25%(盤中碰到就出)",

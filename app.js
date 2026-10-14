@@ -1,4 +1,4 @@
-/* K研所 · build r1098 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1099 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1098';
+const APP_BUILD='r1099';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2454,7 +2454,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1098</span>');
+  diag.push('<span style="color:var(--dim)">build r1099</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -15790,7 +15790,7 @@ const LEARN={
    ['美股為什麼標「參考」','美股歷史資料只有<b>目前</b>的 S&P 500 成分股,被剔除的公司不在裡面(倖存者偏差),所以跌深、高波動類策略的回測會偏樂觀。短期用現有每週模型(每週 walk-forward 驗證);中期的跌深低接每筆贏隨機 +1.9%,但 5 檔集中組合最大回落 −48%、2022 年 −39%;長期用「年線上、成交值前 20 的龍頭裡,近一年營收成長最高 5 檔」:一年比大盤 +15.8%,但只有 10 年資料、6 年贏;純龍頭版 +6.7%(13 年中 10 年)。這跟 2013 年以來大型科技股時代有關,標弱驗證。'],
    ['怎麼看成績單','每個清單的進場價一律是「下個交易日開盤價」,網站自己逐日記帳,出場原因(到期、掉出排名、停利、停損、季檢視)都留著,不回頭修改。成績單累積的是真實紀錄,跟回測數字分開看:回測告訴你這套規則「歷史上」如何,成績單告訴你它「上線後」如何。'],
    ['為什麼舊的兩組收掉一組','三清單上線前,台股 AI Pick 有兩個帳戶:<b>🏆 主力・量價籌碼組 20 檔</b>(回測年化 +43.7%、最大回落 −31%)與 <b>🌲 副組・每日交易</b>(樹模型 28 檔 + v2 模型 12 檔)。副組的問題:① 樹模型與主力組的每日報酬相關 0.82,等於同一件事做兩次,沒有分散效果;② 回測年化 +24.6%、滾動驗證 +14%,都輸主力組;v2 的選股超額報酬只有每年 +0.4%;③ 實盤 12 筆規則出場,勝率 8%、平均 −5.5%;④ 36 檔持股讓頁面看不清楚。所以 10/14 起副組<b>停止進場、持股在下一個交易日開盤結束清算</b>,紀錄全部留在戰績。主力 20 檔則是 🌊 中期清單的「完整版」(中期取它的前 5 名),繼續運作,收在中期卡片與進階區。'],
-   ['停損・停利・加碼・再買回:三個清單分別回測後這樣定','用 2016~2026 的日線路徑,對三個清單各跑了 25 種停損(1.5~4 ATR、−5~−15%、結構支撐)、停利(+8~+40%、2/3 ATR、第一道壓力)、移動停利,再加「加碼後的後續報酬」和「停損後 10 天內站回再買」。結論三個清單真的不一樣:<br><b>🏃 短期(持 ≤15 天)</b>:緊停損是毒藥——1.5~3 ATR 或 −5~−10% 的停損把年化從 +32.6% 砍到 +7~27%、回落反而更深(強勢股常先洗再漲);只有 −15% 這種「災難停損」沒傷害(+34.2%)。停利 +15~25% 會把回落從 −38% 壓到 −30~34%、最差年從 −25% 變 −2~−17%。<b>採用:停利 +20% + 停損 −15%</b>(年化 +34.2%、回落 −34%、夏普 1.23、最差年 −10%),這就是模型的出場規則。加碼 +5% 後平均再 +2.2%(跟新買一檔差不多,可加可不加)。<br><b>🌊 中期(量價前 5)</b>:4 ATR 停損本來就是原回測的設定(有 +38.5% / 回落 −37%;沒有 +36.3% / −40%),更緊的停損都更差(≤2.5 ATR 或 ≤10% → +20~37%)。停利 +25% 最好(年化 +41.5%、最差年 −4%),+8~15% 也不錯但交易多一倍。<b>採用:4 ATR 停損 + 停利 +25%</b>。加碼 +10% 後平均再 +4.2%、61% 賺 → 可以加。<br><b>🏦 長期(季選、持到下一季)</b>:任何停利都傷(+8% → 年化 +3%;+40% → +20.7%;不設 +24.4%),因為報酬全靠少數大贏家;任何停損也都降年化,<b>但「停損後不補位、等下一季」能把回落從 −46% 壓到 −21~−28%</b>(−5%:+19.5%/−21%/夏普 1.20;−8%:+16.3%/−28%);停損後馬上換下一檔(補位)則全部更差(−5% 補位變成 −3%)。加碼 +10% 後平均再 +12.4%、56% 賺——長期贏家會續強,<b>加碼比停利有道理</b>。<b>模型不設停損停利;給你的參考:停損 −8%(停損後等下一季)、+40% 可減碼一半、+10% 可加碼</b>。<br><b>🔁 再買回</b>:停損後 10 個交易日內站回「停損價 + 1 ATR」再買,短期 −2.1%(勝率 30%)、中期 −1.7%(32%)、長期 −1.9%(24%)——三個清單都虧,所以這個價位只做提醒;真的要買回,請用新的理由(例如重新進清單),不要只因為它站回去了。到期/掉出排名/季檢視出場的,站回出場價時也會提醒(沒回測)。<br>以上全部含手續費與證交稅;停損停利都以盤中碰到為準(跳空用開盤價)。完整表格在專案文件「三清單停損停利研究_2026-10-14」。'],
+   ['停損・停利・加碼・再買回:三個清單分別回測後這樣定','用 2016~2026 的日線路徑,對三個清單各跑了 25 種停損(1.5~4 ATR、−5~−15%、結構支撐)、停利(+8~+40%、2/3 ATR、第一道壓力)、移動停利,再加「加碼後的後續報酬」和「停損後 10 天內站回再買」。結論三個清單真的不一樣:<br><b>🏃 短期(持 ≤15 天)</b>:緊停損是毒藥——1.5~3 ATR 或 −5~−10% 的停損把年化從 +32.6% 砍到 +7~27%、回落反而更深(強勢股常先洗再漲);只有 −15% 這種「災難停損」沒傷害(+34.2%)。停利 +15~25% 會把回落從 −38% 壓到 −30~34%、最差年從 −25% 變 −2~−17%。<b>採用:停利 +20% + 停損 −15%</b>(年化 +34.2%、回落 −34%、夏普 1.23、最差年 −10%),這就是模型的出場規則。加碼 +5% 後平均再 +2.2%(跟新買一檔差不多,可加可不加)。短期也試了「量 + 技術線」出場(同一組名單):收盤跌破 5 日線賣 → 年化 +1%、10 日線 +12%、20 日線 +30%;跌破進場日低點 −1%、訊號日低點 +21%;賺 8% 後跌破 10 日線 +32%(唯一接近固定停利的);乖離 5 日線 ≥8% 停利 +17%、乖離 20 日線 ≥15~20% +8~15%;爆量不漲(2 倍量收黑)隔天賣 +12%、3 倍量 +32%;爆量長上影 +25%;量縮收黑 +25%;進場日量不足 +26%。結論:<b>量與技術線用在「選股」最有效</b>(創新高、帶量突破、OBV 新高、均線多頭、KD/RSI 高檔都是驗證過的訊號),但用來「出場」都輸固定的 +20%/−15%——強勢股 2~3 週內常先洗掉短均線再漲,均線一破就賣等於把行情讓給別人。所以短期卡片上的 5/10/20 日線與今日量比只做即時觀察,不當出場規則。<br><b>🌊 中期(量價前 5)</b>:4 ATR 停損本來就是原回測的設定(有 +38.5% / 回落 −37%;沒有 +36.3% / −40%),更緊的停損都更差(≤2.5 ATR 或 ≤10% → +20~37%)。停利 +25% 最好(年化 +41.5%、最差年 −4%),+8~15% 也不錯但交易多一倍。<b>採用:4 ATR 停損 + 停利 +25%</b>。加碼 +10% 後平均再 +4.2%、61% 賺 → 可以加。<br><b>🏦 長期(季選、持到下一季)</b>:任何停利都傷(+8% → 年化 +3%;+40% → +20.7%;不設 +24.4%),因為報酬全靠少數大贏家;任何停損也都降年化,<b>但「停損後不補位、等下一季」能把回落從 −46% 壓到 −21~−28%</b>(−5%:+19.5%/−21%/夏普 1.20;−8%:+16.3%/−28%);停損後馬上換下一檔(補位)則全部更差(−5% 補位變成 −3%)。加碼 +10% 後平均再 +12.4%、56% 賺——長期贏家會續強,<b>加碼比停利有道理</b>。<b>模型不設停損停利;給你的參考:停損 −8%(停損後等下一季)、+40% 可減碼一半、+10% 可加碼</b>。<br><b>🔁 再買回</b>:停損後 10 個交易日內站回「停損價 + 1 ATR」再買,短期 −2.1%(勝率 30%)、中期 −1.7%(32%)、長期 −1.9%(24%)——三個清單都虧,所以這個價位只做提醒;真的要買回,請用新的理由(例如重新進清單),不要只因為它站回去了。到期/掉出排名/季檢視出場的,站回出場價時也會提醒(沒回測)。<br>以上全部含手續費與證交稅;停損停利都以盤中碰到為準(跳空用開盤價)。完整表格在專案文件「三清單停損停利研究_2026-10-14」。'],
    ['限制','台股歷史不含已下市股票;長期規則是從約 13 個變體裡挑的(每個條件都有十等分獨立支持,但仍有過度配適的可能);三個清單同一檔股票可能同時出現;任何一個清單都不是投資建議。完整研究:專案文件「AI_Pick三期制研究_2026-10-14」。']],
   more:['kline','inst']},
  kline:{t:'K線與均線,五分鐘看懂',tag:'投資基礎',one:'一根K棒就是一天的多空戰報;均線是大家的平均成本線',
@@ -22594,7 +22594,7 @@ function aip3Tier(key,T,us){
     return `<div class="a3-row"><div class="a3-nm"><a href="#stock/${p.id}">${p.name||p.id}</a><span class="c-code">${p.id}</span>${p.cur&&p.cur!==p.id?`<span class="dim" style="font-size:11px"> → 現持 ${p.cur}</span>`:''}<span class="a3-st" style="color:${stC}">${stT}</span></div>
       <div class="a3-px">${p.entry?`${cur}${(+p.entry).toLocaleString()}<small>進場 ${md(p.fill_d)}</small>`:`${cur}${p.sel_px!=null?(+p.sel_px).toLocaleString():'—'}<small>選股日收盤</small>`}</div>
       <div class="a3-ret" style="color:${cl(ret)}">${p.entry?fp(ret):'—'}<small>${px?`${p.st==='done'?'出場 ':'現價 '}${cur}${(+px).toLocaleString()}${p.st!=='done'&&q.rt?'・'+(q.lab||'即時'):''}`:''}</small></div>
-      <div class="a3-why">${why}</div>${aip3LvHTML(p,px,us)}${p.ind?`<div class="a3-ind">🏭 <b>產業分析</b>(AI 搜尋最近 3 個月新聞${p.ai_d?'・'+md(p.ai_d)+' 評':''}・敘述非驗證):${p.ind}${p.ind_src?`<br><span class="dim">📰 依據:${p.ind_src}</span>`:''}</div>`:(key==='long'&&p.st!=='done'?'<div class="a3-ind dim">🏭 產業分析與未來性評分:下一班後端補上</div>':'')}</div>`;}).join('');
+      <div class="a3-why">${why}</div>${aip3LvHTML(p,px,us)}${key==='short'?aip3TechHTML(p,px,us):''}${p.ind?`<div class="a3-ind">🏭 <b>產業分析</b>(AI 搜尋最近 3 個月新聞${p.ai_d?'・'+md(p.ai_d)+' 評':''}・敘述非驗證):${p.ind}${p.ind_src?`<br><span class="dim">📰 依據:${p.ind_src}</span>`:''}</div>`:(key==='long'&&p.st!=='done'?'<div class="a3-ind dim">🏭 產業分析與未來性評分:下一班後端補上</div>':'')}</div>`;}).join('');
   const empty=K3-(T.slots||[]).length;
   const emptyRows=empty>0?`<div class="a3-empty">${key==='mid'&&us?`⏳ 還有 ${empty} 個空位,等跌深機會(第一天離 60 日高 ≥25%)`:`⏳ 還有 ${empty} 個空位,${nextLab}時補`}</div>`:'';
   const P=T.perf||{};const hist=(T.hist||[]).slice(-12).reverse();
@@ -22622,6 +22622,16 @@ function aip3LvHTML(p,px,us){
   const it=(ic,lab,v,src,hit,col)=>`<span class="a3-lvi${hit?' hit':''}" title="${(src||'').replace(/"/g,'')}" ${hit?`style="color:${col};border-color:${col}"`:''}><span class="l">${ic} ${lab}</span><b>${c}${(+v).toLocaleString()}</b><em>${f(dist(v))}</em></span>`;
   const msg=hitSl?['🛑 現價已跌破停損參考價','var(--down)']:hitTp?['🎯 現價已到停利參考價','var(--up)']:hitAdd?['➕ 現價已到加碼參考價','var(--up)']:null;
   return `<div class="a3-lv">${it('🛑','停損',L.sl,L.sl_src,hitSl,'var(--down)')}${it('🎯','停利',L.tp,L.tp_src,hitTp,'var(--up)')}${it('➕','加碼',L.add,L.add_src,hitAdd,'var(--up)')}${it('🔁','再買回',L.re,L.re_src,false,'')}${p.st==='pend'?'<span class="dim" style="font-size:11px">以選股日收盤估,成交後以進場價重算</span>':''}${msg?`<span class="a3-lvhit" style="color:${msg[1]}">${msg[0]}</span>`:''}</div>`;
+}
+function aip3TechHTML(p,px,us){
+  /* r1099:短期清單的「量 + 技術線」即時觀察——5/10/20 日線在現價上下、今日量比(盤中累計 ÷ 20 日均量);只做觀察,出場仍照回測規則(均線/量能出場回測都更差) */
+  const T=p.tech;if(!T||p.st==='done')return '';
+  const c=us?'$':'';const m=(lab,v)=>{if(!v)return '';const up=px&&px>=v;return `<span class="a3-lvi" style="${px?`color:${up?'var(--up)':'var(--down)'}`:''}"><span class="l">${lab}</span><b>${c}${(+v).toLocaleString()}</b><em>${px?(up?'▲ 在線上':'▼ 跌破'):''}</em></span>`;};
+  let vol='';
+  try{const st=!us&&(DATA.stocks||[]).find(x=>x.id===p.id);const dv=st&&st.dvol,today=aipIso(aipTpDate());
+    if(dv&&T.vavg&&st.dhd===today){const r=dv/T.vavg;vol=`<span class="a3-lvi a3-vol" style="color:${r>=1.5?'var(--up)':r<0.7?'var(--down)':'inherit'}"><span class="l">📊 今日量比</span><b>${r.toFixed(2)}×</b><em>${dv.toLocaleString()} 張 / 20 日均 ${T.vavg.toLocaleString()}${marketOpen()?'(盤中累計)':''}</em></span>`;}
+    else if(T.vr1!=null)vol=`<span class="a3-lvi a3-vol" style="color:${T.vr1>=1.5?'var(--up)':T.vr1<0.7?'var(--down)':'inherit'}"><span class="l">📊 ${aipMD(T.d)} 量比</span><b>${T.vr1.toFixed(2)}×</b><em>${(T.v1||0).toLocaleString()} 張 / 20 日均 ${(T.vavg||0).toLocaleString()}</em></span>`;}catch(e){}
+  return `<div class="a3-lv a3-tech">${m('📈 5日線',T.ma5)}${m('10日線',T.ma10)}${m('20日線',T.ma20)}${vol}</div>`;
 }
 function aip3ReHTML(h,us){
   if(h.re==null||!h.re_until)return '';
