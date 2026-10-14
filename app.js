@@ -1,4 +1,4 @@
-/* K研所 · build r1090 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1091 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1090';
+const APP_BUILD='r1091';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2438,7 +2438,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1090</span>');
+  diag.push('<span style="color:var(--dim)">build r1091</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -7569,16 +7569,33 @@ function kpiStrip(s){                                     // r701:財報狗式�
     const cards=[];
     const pct=(+s.chg||0), pctS=(pct>=0?'+':'')+pct.toFixed(2)+'%';
     cards.push(cell('股價',`<span id="kpiPx">${s.price??'—'}</span>`,`<span id="kpiChg" style="color:${cc}">${pctS}</span>`));
-    const usNA=s.market==='US'?'美股未收錄':null;                       // r1090:美股本來就沒抓財報,不要寫「待更新」讓人以為會補
-    cards.push(cell('每股盈餘 EPS',(s.eps!=null?(+s.eps).toFixed(2):'—'),s.eps!=null?'近四季':(usNA||'待更新'),(s.eps!=null&&+s.eps<0)?'var(--down)':''));
+    if(s.market==='US'){                                                   // r1091:美股四格改抓 CNBC 即時基本面(EPS/本益比/市值/52 週區間),渲染後 usKpiFill 填入
+      cards.push(cell('每股盈餘 EPS','<span data-uskpi="eps">…</span>','近四季'));
+      cards.push(cell('本益比 PE','<span data-uskpi="pe">…</span>','<span data-uskpi="pesub">倍</span>'));
+      cards.push(cell('市值','<span data-uskpi="mcap">…</span>','美元'));
+      cards.push(cell('52 週區間','<span data-uskpi="rng" style="font-size:15px">…</span>','<span data-uskpi="rngsub">低 ~ 高</span>'));
+      setTimeout(()=>{try{usKpiFill(s.id);}catch(e){}},0);
+      return `<div class="kpi-strip">${cards.join('')}</div>`;
+    }
+    cards.push(cell('每股盈餘 EPS',(s.eps!=null?(+s.eps).toFixed(2):'—'),s.eps!=null?'近四季':'待更新',(s.eps!=null&&+s.eps<0)?'var(--down)':''));
     const ind=(DATA.indpe||{})[s.sector];
-    const peSub=(s.pe&&ind)?((s.pe>=ind?'高於':'低於')+'同業 '+ind):(s.pe?'倍':(usNA||'虧損不適用'));
+    const peSub=(s.pe&&ind)?((s.pe>=ind?'高於':'低於')+'同業 '+ind):(s.pe?'倍':'虧損不適用');
     cards.push(cell('本益比 PE',(s.pe?s.pe:'—'),peSub,(s.pe&&ind&&s.pe<ind)?'var(--up)':''));
-    cards.push(cell('股價淨值比 PB',(s.pb?s.pb:'—'),s.pb?'倍':(usNA||'—')));
+    cards.push(cell('股價淨值比 PB',(s.pb?s.pb:'—'),s.pb?'倍':'—'));
     const ry=(s.t3&&s.t3.ry!=null)?s.t3.ry:null;
-    cards.push(cell(s.market==='US'?'營收年增':'月營收年增',(ry!=null?((ry>=0?'+':'')+(+ry).toFixed(1)+'%'):'—'),ry!=null?'YoY':(usNA||'待更新'),ry!=null?(ry>=0?'var(--up)':'var(--down)'):''));
+    cards.push(cell('月營收年增',(ry!=null?((ry>=0?'+':'')+(+ry).toFixed(1)+'%'):'—'),ry!=null?'YoY':'待更新',ry!=null?(ry>=0?'var(--up)':'var(--down)'):''));
     return `<div class="kpi-strip">${cards.join('')}</div>`;
   }catch(e){return '';}
+}
+async function usKpiFill(id){                              // r1091:美股個股頁 KPI 四格 ← CNBC(即時;抓不到就標「—」)
+  const set=(k,v)=>{document.querySelectorAll(`[data-uskpi="${k}"]`).forEach(el=>{el.innerHTML=v;});};
+  let q=null;try{const m=await cnbcStocks([id]);q=m[id];}catch(e){}
+  if(!document.querySelector('[data-uskpi]'))return;
+  if(!q){['eps','pe','mcap','rng'].forEach(k=>set(k,'—'));set('pesub','CNBC 暫時抓不到');return;}
+  set('eps',q.eps!=null?(+q.eps).toFixed(2):'—');set('pe',q.pe!=null?q.pe.toFixed(1):'—');set('pesub',q.fpe?`倍・預估 ${q.fpe.toFixed(1)}`:(q.eps!=null&&q.eps<0?'虧損不適用':'倍'));
+  set('mcap',q.mcap||'—');set('rng',(q.lo52&&q.hi52)?`${q.lo52.toLocaleString()} ~ ${q.hi52.toLocaleString()}`:'—');
+  if(q.lo52&&q.hi52&&q.c){const pos=Math.round((q.c-q.lo52)/(q.hi52-q.lo52)*100);set('rngsub',`現價在區間 ${Math.max(0,Math.min(100,pos))}% 處`);}
+  try{const st=(DATA.stocks||[]).find(x=>x.id===id);if(st&&q.c>0&&q.st==='REG_MKT'){st.price=q.c;if(q.pc)st.chg=+((q.c/q.pc-1)*100).toFixed(2);const px=document.getElementById('dPx'),ch=document.getElementById('dChg');if(px&&location.hash==='#stock/'+id){px.textContent=q.c;if(ch)ch.innerHTML=chgHtml(st.chg);}}}catch(e){}
 }
 function renderStkAlerts(s,k,tt){
   const el=document.getElementById('stkAlerts');
@@ -22149,8 +22166,9 @@ function aipWeekLabel(bw){
 let AIPK=null,AIPK_T=0,AIPK_HIST=false;
 async function aipLoad(force){
   try{
-    if(!force&&AIPK&&Date.now()-AIPK_T<10*60e3)return AIPK;
-    const r=await fT('aipick.json?v='+kv()+'_'+Math.floor(Date.now()/600e3),15000,{cache:'default'});
+    const live=(marketOpen()||openish());                                  // r1091:盤中 3 分鐘重抓(其餘 10 分鐘)
+    if(!force&&AIPK&&Date.now()-AIPK_T<(live?3:10)*60e3)return AIPK;
+    const r=await fT('aipick.json?v='+kv()+'_'+Math.floor(Date.now()/(live?180e3:600e3)),15000,{cache:live?'no-store':'default'});
     if(r&&r.ok){const j=await r.json();if(j&&Array.isArray(j.weeks)){AIPK=j;AIPK_T=Date.now();}}
   }catch(e){}
   return AIPK;
@@ -22521,8 +22539,8 @@ function aipWeekBlock(w,compact){
 const US_AIP_SHOW=false;                         // 美股版先只給管理員看,實戰幾週再開
 let AIPK_US=null,AIPK_US_T=0;
 let AIPK_MKT=(()=>{try{return localStorage.getItem('aipMkt')==='US'?'US':'TW';}catch(e){return 'TW';}})();
-async function aipLoadUS(force){try{if(!force&&AIPK_US&&Date.now()-AIPK_US_T<10*60e3)return AIPK_US;
-  const r=await fT('aipick_us.json?v='+kv()+'_'+Math.floor(Date.now()/600e3),15000,{cache:'default'});
+async function aipLoadUS(force){try{const live=typeof usSession==='function'&&usSession()==='盤中';if(!force&&AIPK_US&&Date.now()-AIPK_US_T<(live?5:10)*60e3)return AIPK_US;
+  const r=await fT('aipick_us.json?v='+kv()+'_'+Math.floor(Date.now()/(live?300e3:600e3)),15000,{cache:live?'no-store':'default'});
   if(r&&r.ok){const j=await r.json();if(j&&Array.isArray(j.weeks)){AIPK_US=j;AIPK_US_T=Date.now();}}}catch(e){}return AIPK_US;}
 function aipMktOK(){return US_AIP_SHOW||isAdmin();}
 function aipMktBar(){return '';}   // r892:改由網站頂端的 台股/美股 切換決定,不另設按鈕
@@ -22732,15 +22750,45 @@ function usJournalHTML(){
 }
 /* ══ r997:🇺🇸 美股 AI Pick 版面齊全——現況總覽/持股卡片/關注清單/戰績(與台股同格式);規則維持每週名單(美股回測舊規則較穩)
    盤中:有設 Finnhub 金鑰時每分鐘抓持股與掛單的即時價,顯示「盤中觸價(待收盤日 K 確認)」;正式成交仍以官方日 K 判定 ══ */
-const USAIP_RT={q:{},t:0,busy:false};
-function usPx(id){const q=USAIP_RT.q[id]||(typeof USL!=='undefined'&&USL.q&&USL.q[id]);if(q&&q.c>0)return {px:+q.c,rt:1};const st=(DATA.stocks||[]).find(x=>x.id===id);return st&&st.price>0?{px:+st.price,rt:0}:{px:null,rt:0};}
-async function usRtPoll(ids){
-  if(USAIP_RT.busy||typeof fhKey!=='function'||!fhKey()||Date.now()-USAIP_RT.t<55e3)return;
+const USAIP_RT={q:{},t:0,busy:false,src:'',st:''};
+function usPx(id){const q=USAIP_RT.q[id]||(typeof USL!=='undefined'&&USL.q&&USL.q[id]);if(q&&q.c>0)return {px:+q.c,rt:1,st:q.st||'',h:q.h,l:q.l,t:q.t};const st=(DATA.stocks||[]).find(x=>x.id===id);return st&&st.price>0?{px:+st.price,rt:0}:{px:null,rt:0};}
+/* r1091:美股個股即時報價——CNBC 報價服務(交易所即時、原生 CORS、瀏覽器直連,不用金鑰)。
+   正常盤每 20 秒、盤前盤後每 2 分鐘、收盤後每 10 分鐘(拿最新收盤);一次最多 40 檔一個請求。
+   回傳 {sym:{c,o,h,l,pc,t,st,ext}}:c=正常盤最新價(盤前/盤後時 c=延長時段價、st 標示),h/l 只在正常盤有效(判「盤中已觸價」用)。 */
+async function cnbcStocks(syms){
+  const out={};syms=[...new Set(syms.filter(Boolean))];
+  const num=v=>{const x=parseFloat(String(v??'').replace(/,/g,''));return isFinite(x)&&x>0?x:null;};
+  for(let i=0;i<syms.length;i+=40){
+    const chunk=syms.slice(i,i+40);
+    try{
+      const r=await fT('https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols='+encodeURIComponent(chunk.join('|'))+'&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json',8000,{cache:'no-store'});
+      if(!r||!r.ok)continue;
+      const j=await r.json();let q=((j||{}).FormattedQuoteResult||{}).FormattedQuote||[];if(!Array.isArray(q))q=[q];
+      q.forEach(x=>{const sym=x&&x.symbol;if(!sym||String(x.code??'0')!=='0')return;
+        const st=x.curmktstatus||'',ext=x.ExtendedMktQuote||{},reg=num(x.last),ex=num(ext.last);
+        const c=(st==='REG_MKT'||!ex)?reg:ex;if(!c)return;
+        out[sym]={c,reg,ext:ex,o:num(x.open),h:num(x.high),l:num(x.low),pc:num(x.previous_day_closing),st,
+          t:Date.parse((st==='REG_MKT'||!ext.last_time)?(x.last_time||''):ext.last_time)||Date.now(),src:'cnbc',
+          pe:num(x.pe),eps:parseFloat(String(x.eps||'').replace(/,/g,''))||null,mcap:x.mktcapView||'',hi52:num(x.yrhiprice),lo52:num(x.yrloprice),fpe:num(x.fpe)};});
+    }catch(e){}
+  }
+  return out;
+}
+function usRtGap(){const st=USAIP_RT.st;return st==='REG_MKT'?20e3:(st==='PRE_MKT'||st==='POST_MKT')?120e3:600e3;}
+async function usRtPoll(ids,force){
+  if(USAIP_RT.busy||!ids||!ids.length)return;
+  const fh=typeof fhKey==='function'&&fhKey();
+  if(!force&&Date.now()-USAIP_RT.t<(fh?55e3:usRtGap()))return;
   USAIP_RT.busy=true;USAIP_RT.t=Date.now();
-  try{for(const id of ids.slice(0,25)){try{const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(id)}&token=${fhKey()}`,8000);if(r&&r.ok){const j=await r.json();if(j&&j.c>0)USAIP_RT.q[id]={c:j.c,h:j.h,l:j.l,o:j.o,pc:j.pc,t:j.t};}}catch(e){}await new Promise(r=>setTimeout(r,250));}}
-  finally{USAIP_RT.busy=false;}
+  try{
+    if(fh){for(const id of ids.slice(0,25)){try{const r=await fT(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(id)}&token=${fhKey()}`,8000);if(r&&r.ok){const j=await r.json();if(j&&j.c>0)USAIP_RT.q[id]={c:j.c,h:j.h,l:j.l,o:j.o,pc:j.pc,t:j.t*1000,src:'finnhub',st:''};}}catch(e){}await new Promise(r=>setTimeout(r,250));}USAIP_RT.src='finnhub';}
+    else{const m=await cnbcStocks(ids.slice(0,120));const ks=Object.keys(m);if(ks.length){ks.forEach(k=>USAIP_RT.q[k]=m[k]);USAIP_RT.src='cnbc';USAIP_RT.st=m[ks[0]].st||'';}}
+  }finally{USAIP_RT.busy=false;}
   try{if(window.GMKT==='US')renderAIPick();}catch(e){}
 }
+function usRtLabel(q){const st=q&&q.st;return !q||!q.rt?'收盤':st==='REG_MKT'?'盤中':st==='PRE_MKT'?'盤前':st==='POST_MKT'?'盤後':'最新';}
+setInterval(()=>{try{if(document.hidden||window.GMKT!=='US')return;const b=document.getElementById('aipickBox');if(!b)return;const r=b.getBoundingClientRect();if(r.bottom<-200||r.top>innerHeight*2)return;
+  const S=usState();usRtPoll(S.hold.map(x=>x.L.id).concat(S.pend.map(x=>x.p.id)));}catch(e){}},5000);   // r1091:美股分頁在看的時候,照時段節奏輪詢
 function usState(){
   const J=AIPK_US||{};const live=(J.weeks||[]).filter(w=>!w.bt&&w.status!=='skip');
   const hold=[],pend=[],ev=[];let lastDay='';
@@ -22760,8 +22808,11 @@ function usOverview(){
   const rets=S.hold.map(({L})=>{const q=usPx(L.id);return q.px?(q.px/L.entry-1)*100:null;}).filter(v=>v!=null);
   const avg=rets.length?rets.reduce((a,b)=>a+b,0)/rets.length:null;
   const near=S.hold.filter(({L})=>{const q=usPx(L.id);return q.px&&L.stop&&(q.px/L.stop-1)*100<3;});
-  const rtOn=typeof fhKey==='function'&&fhKey();
+  const rtOn=(typeof fhKey==='function'&&fhKey())||USAIP_RT.src==='cnbc';
   const touch=S.pend.filter(({p})=>{const q=USAIP_RT.q[p.id];return q&&q.l>0&&q.l<=p.buy;});
+  const hit=S.hold.filter(({L})=>{const q=USAIP_RT.q[L.id];return q&&((q.l>0&&L.stop&&q.l<=L.stop)||(q.h>0&&L.target&&q.h>=L.target));});
+  const rtT=(()=>{let m=0;Object.values(USAIP_RT.q).forEach(q=>{if(q&&q.t>m)m=q.t;});return m;})();
+  const hms=ts=>new Date(ts).toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'}).slice(0,8);
   const chip=(x,c)=>`<span class="wl-chip" style="color:${c};border-color:${c}">${x}</span>`;
   const pendRows=S.pend.length?S.pend.map(({w,p})=>{const q=usPx(p.id),rq=USAIP_RT.q[p.id];const gap=q.px?(q.px/p.buy-1)*100:null;
     return `<div class="wl-row wl-buy"><a href="#stock/${p.id}"><b>${p.id}</b></a><span class="dim">${p.name||''}</span><b class="wl-p">${q.px?'$'+q.px:''}</b><span class="wl-chips">${chip('買價 $'+p.buy+' ~ 追價上限 $'+(p.buy_hi||p.buy),'var(--gold,#E8B44A)')}${gap!=null?chip(gap<=0?'✅ 現價已在買價內':'距買價 +'+gap.toFixed(1)+'%',gap<=0?'var(--up)':'var(--txt2)'):''}${rq&&rq.l>0&&rq.l<=p.buy?chip('⚡ 盤中觸價・待收盤確認','var(--up)'):''}${chip('目標 $'+p.target+'・停損 $'+p.stop,'var(--txt2)')}</span></div>`;}).join(''):'<div class="dim-note">這週名單都已成交或已取消</div>';
@@ -22774,7 +22825,8 @@ function usOverview(){
       <div><i>接近停損</i><b style="color:${near.length?'var(--amber)':'inherit'}">${near.length}</b><small>離停損 &lt;3%</small></div>
       <div><i>等待成交</i><b>${S.pend.length}</b><small>${touch.length?'⚡ '+touch.length+' 檔盤中已觸價':'本週名單'}</small></div>
     </div>
-    <div class="dim-note" style="margin:-4px 0 8px">${rtOn?'🟢 盤中即時價(Finnhub,每分鐘更新)':'⚪ 目前用收盤價;到 ⚙ 設定 Finnhub 免費金鑰可看盤中即時價'}・正式成交/停損以美股收盤後官方日 K 判定(台灣時間早上更新)</div>
+    ${hit.length?`<div class="aov-warn">⚡ 盤中已觸價:${hit.map(({L})=>{const q=USAIP_RT.q[L.id];return `<a href="#stock/${L.id}">${L.id}</a> ${q.l<=L.stop?'最低 $'+q.l+' ≤ 停損 $'+L.stop:'最高 $'+q.h+' ≥ 目標 $'+L.target}`;}).join(';')}——後端 20 分鐘內記錄時間,正式出場以收盤官方日 K 判定</div>`:''}
+    <div class="dim-note" style="margin:-4px 0 8px">${rtOn?(USAIP_RT.src==='cnbc'?`🟢 即時價 ${rtT?hms(rtT):''}(CNBC 交易所即時${USAIP_RT.st==='REG_MKT'?',每 20 秒更新':USAIP_RT.st==='PRE_MKT'?',盤前':USAIP_RT.st==='POST_MKT'?',盤後':''})`:'🟢 盤中即時價(Finnhub,每分鐘更新)'):'⚪ 目前用收盤價;即時報價讀取中…'}・正式成交/停損以美股收盤後官方日 K 判定(台灣時間早上更新)</div>
     ${near.length?`<div class="aov-warn">⚠ 接近停損:${near.map(({L})=>`<a href="#stock/${L.id}">${L.id}</a> $${usPx(L.id).px} / 停損 $${L.stop}`).join(';')}</div>`:''}
     <div class="aps-title">🔔 最近交易日(${S.lastDay?aipMD(S.lastDay):'—'})</div>${S.ev.length?`<ul class="trd-log">${S.ev.map(x=>`<li>${x}</li>`).join('')}</ul>`:'<div class="dim-note">沒有買賣</div>'}
     <div class="aps-title">👀 關注清單</div>
@@ -22785,12 +22837,14 @@ function usOverview(){
 function usHold(){
   const S=usState();if(!S.hold.length)return '<div class="dim-note">目前沒有持股</div>';
   const fp=v=>v==null?'—':(v>0?'+':'')+v.toFixed(2)+'%',cl=v=>v==null?'':v>0?'var(--up)':v<0?'var(--down)':'inherit';
-  const L=S.hold.map(({w,p,L})=>{const q=usPx(L.id);const ret=q.px?(q.px/L.entry-1)*100:null;const gS=q.px&&L.stop?(q.px/L.stop-1)*100:null;const gT=q.px&&L.target?(L.target/q.px-1)*100:null;return {w,L,px:q.px,rt:q.rt,ret,gS,gT};});
+  const L=S.hold.map(({w,p,L})=>{const q=usPx(L.id);const ret=q.px?(q.px/L.entry-1)*100:null;const gS=q.px&&L.stop?(q.px/L.stop-1)*100:null;const gT=q.px&&L.target?(L.target/q.px-1)*100:null;
+    const hitS=q.rt&&q.l>0&&L.stop&&q.l<=L.stop,hitT=q.rt&&q.h>0&&L.target&&q.h>=L.target;return {w,L,px:q.px,rt:q.rt,lab:usRtLabel(q),ret,gS,gT,hitS,hitT,q};});
   L.sort((a,b)=>(a.gS??99)-(b.gS??99));
   const bar=g=>{const v=Math.max(4,Math.min(100,(g??0)/10*100));const c=g==null?'var(--dim)':g<3?'var(--down)':g<6?'var(--amber)':'var(--up)';return `<div class="hc-bar"><i style="width:${v}%;background:${c}"></i></div>`;};
   return `<div class="dim-note" style="margin:0 0 8px">共 ${L.length} 檔・依離停損遠近排序・價格美元${L.some(x=>x.rt)?'・🟢 盤中即時':''}</div>`+L.map(r=>`<div class="hc">
     <div class="hc-h"><a href="#stock/${r.L.id}"><b>${r.L.id}</b></a><span class="dim">${r.L.name||''}</span><b class="hc-ret" style="color:${cl(r.ret)}">${fp(r.ret)}</b></div>
-    <div class="hc-g"><div><i>進場</i><b>$${r.L.entry}</b><small>${aipMD(r.L.fill)}</small></div><div><i>現價</i><b>${r.px?'$'+r.px:'—'}</b><small>${r.rt?'盤中':'收盤'}</small></div><div><i>目標 / 停損</i><b>$${r.L.target}</b><small>停損 $${r.L.stop}</small></div></div>
+    <div class="hc-g"><div><i>進場</i><b>$${r.L.entry}</b><small>${aipMD(r.L.fill)}</small></div><div><i>現價</i><b>${r.px?'$'+r.px:'—'}</b><small>${r.lab}</small></div><div><i>目標 / 停損</i><b>$${r.L.target}</b><small>停損 $${r.L.stop}</small></div></div>
+    ${r.hitS?`<div class="hc-alert">🛑 盤中最低 $${r.q.l} 已觸停損 $${r.L.stop}——正式出場以收盤官方日 K 判定</div>`:r.hitT?`<div class="hc-alert" style="color:var(--up)">🎯 盤中最高 $${r.q.h} 已到目標 $${r.L.target}——正式出場以收盤官方日 K 判定</div>`:''}
     <div class="hc-gap"><span>距停損 <b style="color:${r.gS!=null&&r.gS<3?'var(--down)':'inherit'}">${r.gS!=null?r.gS.toFixed(1)+'%':'—'}</b></span>${bar(r.gS)}<span>距目標 <b>${r.gT!=null?r.gT.toFixed(1)+'%':'—'}</b></span></div>
   </div>`).join('');
 }
@@ -22831,6 +22885,7 @@ function pvHTML(){
   const fp=v=>v==null?'—':(v>0?'+':'')+(+v).toFixed(1)+'%',cl=v=>v>0?'var(--up)':v<0?'var(--down)':'var(--dim)',md=x=>String(x||'').slice(5).replace('-','/');
   if(!S)return `<div class="dim-block" style="margin-top:14px"><b>📈 量價組</b><div class="dim-note">下次收盤班會產生第一份名單。</div></div>`;
   const B=S.bt||{},R=S.rules||{};
+  (S.pos||[]).forEach(p=>{const st=(DATA.stocks||[]).find(x=>x.id===p.id);if(st&&st.price>0)p.px=+st.price;});   // r1091:現價跟即時價走(原本只有後端寫檔時的價)
   const pos=(S.pos||[]).map(p=>{const r=p.px?(p.px/p.entry-1)*100:null;return `<div class="r-card" data-id="${p.id}" tabindex="0" role="button" onclick="location.hash='#stock/${p.id}'" title="點進去看這檔" style="padding:10px 12px;cursor:pointer">
     <div style="display:flex;justify-content:space-between;gap:8px"><b>${p.name} <span class="c-code">${p.id}</span></b><b style="color:${cl(r)}">${fp(r)}</b></div>
     <div style="font-size:12.5px;color:var(--txt2);margin-top:4px">${md(p.fill)} 開盤買 <b>${p.entry}</b>・現價 ${p.px??'—'}${p.w?`・金額 <b>${(+p.w).toFixed(2)} 倍</b>(約 ${Math.round((p.amt||p.w*100000)/1000)/10} 萬)`:''}</div>
@@ -22896,7 +22951,7 @@ function aipOverview(){
     ${near.length?`<div class="aov-warn">⚠ 接近出場線:${near.map(r=>`<a href="#stock/${r.id}">${r.name}</a> 現價 ${r.px} / 出場線 ${r.line}`).join(';')}</div>`:''}
     <div class="aps-title">🔔 今天發生</div>${ev.length?`<ul class="trd-log">${[...new Set(ev)].sort().map(x=>`<li>${x}</li>`).join('')}</ul>`:'<div class="dim-note">今天還沒有買賣</div>'}
     ${aipWatchHTML(T)}
-    <div class="dim-note">更新 ${T.updated||AIPK&&AIPK.updated||''}・單一投資組合:原每週名單持股已移交,之後所有買賣都依每日交易規則(任何交易日進出)</div>
+    <div class="dim-note">${(()=>{const rt=(window.__rtOkT&&Date.now()-window.__rtOkT<90e3)?window.__rtOkT:0;const live=marketOpen();return `後端 ${T.updated||AIPK&&AIPK.updated||''}${window.__trdLiveAt?`(盤中檔 ${String(window.__trdLiveAt).slice(11)})`:''}${live?`・現價 ${rt?'⚡ 即時 '+new Date(rt).toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'}).slice(0,8):'⚠ 即時報價未連上,用後端快照'}`:''}`;})()}・單一投資組合:原每週名單持股已移交,之後所有買賣都依每日交易規則(任何交易日進出)</div>
   </div>`;
 }
 function aipWatchHTML(T){
@@ -22977,6 +23032,7 @@ function aipUnifiedHold(){
     <div class="hc-gap"><span>距出場線 <b style="color:${r.gap!=null&&r.gap<3?'var(--down)':'inherit'}">${r.gap!=null?r.gap.toFixed(1)+'%':'—'}</b></span>${bar(r.gap)}${pb!=null?`<span>勝算 <b style="color:${pb<48?'var(--down)':pb>=54?'var(--up)':'inherit'}">${pb}%</b></span>`:''}</div>
     ${r.P&&(r.P.stop||r.P.reclaim)?`<div class="fav-def"><span class="fd-a" style="border-color:${r.px&&r.px<r.P.stop?'var(--down)':'#5FB37A'}">🛑 系統停損 <b>${r.P.stop}</b>${r.gap!=null?` <em style="color:${r.gap<0?'var(--down)':r.gap<3?'var(--amber)':'var(--dim)'}">${r.gap<0?'已跌破':'+'+r.gap.toFixed(1)+'%'}</em>`:''}</span>${r.P.stp_src?`<span class="fd-c">${r.P.stp_src}</span>`:''}</div>`:''}
     ${sell(r)?'<div class="hc-alert">📉 模型轉弱,明天開盤賣出</div>':''}
+    ${r.gap!=null&&r.gap<=0&&marketOpen()&&r.fill!==aipIso(aipTpDate())?`<div class="hc-alert">🛑 現價 ${r.px} 已到出場線 ${r.line}——後端 5 分鐘內記錄出場(以官方成交價為準)</div>`:''}
     ${r.P?aipSellEval(r):''}
   </div>`;}).join('');
   const rows=L.map(r=>{const pb=prob(r);return `<tr><td><a href="#stock/${r.id}"><b>${r.name}</b></a> <span class="dim">${r.id}</span>${r.add?'<br><span class="hc-add">➕ 加碼第 '+r.add+' 筆</span>':''}</td><td>${aipMD(r.fill)}<br>${r.entry}</td><td>${r.px||'—'}<br><b style="color:${cl(r.ret)}">${fp(r.ret)}</b></td><td>${r.line}<br><span class="dim">${tag(r)}・距 ${r.gap!=null?r.gap.toFixed(1)+'%':'—'}</span></td><td>${pb!=null?pb+'%':'—'}${sell(r)?'<br><b style="color:var(--amber)">明天開盤賣</b>':''}</td><td>${r.Rnow!=null?(r.Rnow>0?'+':'')+r.Rnow.toFixed(2)+'R':'—'}<br><span class="dim">${r.mae??'—'} / ${r.mfe??'—'}R</span></td></tr>`;}).join('');
@@ -23023,6 +23079,22 @@ function aipStatsNew(){
 /* ═══ r975:🎯 AI Pick 每日交易——任何交易日都可以進出(後端 trader.py,每晚收盤後決策,隔天開盤執行)═══ */
 let TRD=null,TRD_T=0;
 async function trdLoad(){try{const j=await aipLoad(true);if(j&&j.trader){TRD=j.trader;TRD_T=Date.now();}}catch(e){}return TRD;}
+/* r1091:盤中小檔 trader_live.json(盤中迴圈每 5 分鐘寫,約 10 KB gzip)——盤中每 60 秒讀一次併回 trader 狀態,
+   開盤成交/盤中停損/關注清單一分鐘內就出現,不用等 10 分鐘重抓 100 KB 的 aipick.json */
+let TRDL_T=0,TRDL_U='';
+async function trdLiveLoad(force){
+  try{
+    if(!force&&Date.now()-TRDL_T<55e3)return false;TRDL_T=Date.now();
+    const r=await fT('trader_live.json?_='+Math.floor(Date.now()/55e3),8000,{cache:'no-store'});if(!r||!r.ok)return false;
+    const j=await r.json();if(!j||!j.trader||!j.u||j.u<=TRDL_U)return false;
+    const base=TRD||(AIPK&&AIPK.trader);if(!base)return false;
+    const cur=String(base.updated||'');if(j.src&&cur&&j.src<cur)return false;          // 小檔比手上的 aipick.json 還舊 → 不倒退
+    const L=j.trader;Object.keys(L).forEach(k=>{if(k==='pv'||k==='os'){base[k]=Object.assign(base[k]||{},L[k]);}else base[k]=L[k];});
+    TRDL_U=j.u;TRD=base;if(AIPK)AIPK.trader=base;window.__trdLiveAt=j.u;return true;
+  }catch(e){return false;}
+}
+setInterval(()=>{try{if(document.hidden||window.GMKT==='US'||!(marketOpen()||openish()))return;const b=document.getElementById('aipickBox');if(!b)return;
+  trdLiveLoad().then(ch=>{if(ch)renderAIPick();});}catch(e){}},60e3);
 function traderHTML(mode){
   if(!TRD&&AIPK&&AIPK.trader){TRD=AIPK.trader;TRD_T=Date.now();}
   if(!TRD){if(window.__trdL&&AIPK)return '';if(!window.__trdL){window.__trdL=1;trdLoad().then(j=>{if(j)try{renderAIPick();}catch(e){}});}return '<div class="aps-card"><div class="dim-note">⏳ 讀取 AI 交易員…</div></div>';}
@@ -23392,6 +23464,7 @@ function renderSig(){
 }
 lazyRun('#sigstatBox',()=>{sigLoad().then(()=>renderSig());},30*60*1000);
 setInterval(aipTick,15000);
+setInterval(()=>{try{if(document.hidden||window.GMKT!=='US'||!document.getElementById('aipickBox'))return;if(typeof usSession==='function'&&usSession()==='盤中')aipLoadUS().then(j=>{if(j&&window.GMKT==='US')renderAIPick();});}catch(e){}},5*60e3);   // r1091:美股盤中每 5 分鐘重抓(後端每 20 分鐘記一次觸價)
 setInterval(()=>{try{if(!document.hidden&&(marketOpen()||openish()))aipLoad(true).then(()=>{try{aipFillSweep();}catch(e){}});}catch(e){}},10*60*1000);   // r746:重抓後對帳
 
 /* ══ ⭐ 最愛提醒:買進時機 / 賣出訊號 / 停利 / 停損(r702) ══
@@ -23595,13 +23668,13 @@ function aipSweep(){
   try{
     if(!AIPK||!DATA||!DATA.stocks||!aipAlertOn()||!favAlertOn())return;
     const tpd=aipTpDate(),today=aipIso(tpd),tm=aipIso(aipMonday(tpd));
-    (AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='done').forEach(w=>{
+    (AIPK.weeks||[]).filter(w=>!w.bt&&w.status!=='done'&&!w.xfer).forEach(w=>{   // r1091:已移交每日交易的週次不再提示(那些段落已凍結,鴻海 10/12 早就出場卻天天跳「觸停損」)
       if(w.buy_week>tm)return;                                   // 買進週還沒開始
       const evEnd=aipAdd(w.eval_week,4),bwEnd=aipAdd(w.buy_week,4);
       const rp=aipRotPlan(w);
       (w.picks||[]).forEach((p,si)=>{
         const cl=aipCurLeg(p);
-        if(cl&&cl.xd)return;                                     // 這個倉位已收工(後端已結算完最後一段)
+        if(cl&&(cl.xd||cl.xfer))return;                          // 這個倉位已收工(後端已結算完最後一段)/ 已移交每日交易
         const tid=cl?cl.id:p.id, tnm=cl?cl.name:p.name;
         const s=(DATA.stocks||[]).find(x=>x.id===tid);
         const px=s&&s.price>0?+s.price:0;if(!px)return;
@@ -23635,7 +23708,7 @@ function aipFillSweep(){
     const seen=prev||{};
     const cutoff=aipAdd(aipIso(aipTpDate()),-7);         // 只提示近 7 天的異動,舊資料不吵
     let dirty=false;
-    (AIPK.weeks||[]).filter(w=>!w.bt).forEach(w=>{
+    (AIPK.weeks||[]).filter(w=>!w.bt&&!w.xfer).forEach(w=>{
       const evEnd=w.eval_week?aipAdd(w.eval_week,4):'';
       (w.picks||[]).forEach((p,si)=>{
         const legs=aipLegs(p);

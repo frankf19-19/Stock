@@ -787,6 +787,34 @@ def _minutes(sid, date):
 # 盤中 5 分鐘迴圈每輪拿 data.json 的即時價:第一次碰到買價/追價區/目標/停損,就把「日期・時間・價格」記進
 # p["iv"](intraday)。收盤後日 K 結算出同一天的成交/出場時,直接沿用這個時間;沒記到的(網站沒跑那輪)
 # 才退回查富果 1 分 K。這樣時間是「當下」的,結算價仍以日 K 為準(凍結不動)。
+def us_quotes(syms):
+    """r1091:美股即時報價(CNBC 報價服務,交易所即時;GitHub 機房可連)→ {sym: {px, o, h, l, pc, st, t}}
+    只在正常盤(REG_MKT)把 px 當成交價用;盤前/盤後只回 ext(延長時段價),不拿來判成交/停損。"""
+    import urllib.request, urllib.parse
+    out = {}
+    syms = [x for x in dict.fromkeys(syms) if x]
+    for i in range(0, len(syms), 40):
+        chunk = syms[i:i + 40]
+        url = ("https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=" + urllib.parse.quote("|".join(chunk))
+               + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json")
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"})
+            j = json.loads(urllib.request.urlopen(req, timeout=20).read().decode("utf-8"))
+            q = ((j.get("FormattedQuoteResult") or {}).get("FormattedQuote")) or []
+            if isinstance(q, dict): q = [q]
+            f = lambda v: (float(str(v).replace(",", "")) if str(v or "").replace(",", "").replace(".", "", 1).replace("-", "", 1).isdigit() else None)
+            for x in q:
+                sym = x.get("symbol")
+                if not sym or str(x.get("code", "0")) != "0": continue
+                ext = x.get("ExtendedMktQuote") or {}
+                out[sym] = {"px": f(x.get("last")), "o": f(x.get("open")), "h": f(x.get("high")), "l": f(x.get("low")),
+                            "pc": f(x.get("previous_day_closing")), "st": x.get("curmktstatus") or "", "t": x.get("last_time") or "",
+                            "ext": f(ext.get("last")), "ext_t": ext.get("last_time") or ""}
+        except Exception as e:
+            print(f"aipick:CNBC 報價失敗 {e}")
+    return out
+
+
 def intraday_watch(weeks, prices, hhmm, hl=None):
     hl = hl or {}
     n = 0
@@ -1456,7 +1484,23 @@ def main():
         snap_day = str(data.get("updated") or "")[:10]
         # r973:報價快照本身也要在 09:00 之後、而且是今天——08:5x 的快照是開盤前「試撮」價,不是成交
         #       (10/05 鴻海/緯創/創見被記成 08:56 成交,就是 09:0x 跑的這輪拿到 08:56 的試撮快照)
-        if (not US) and TODAY.weekday() < 5 and 9 * 60 <= hm <= 13 * 60 + 35 and "09:00" <= snap <= "13:30" and snap_day == iso(TODAY):
+        if US and LIGHT and TODAY.weekday() < 5 and 9 * 60 + 30 <= hm <= 16 * 60 + 5:        # r1091:美股盤中(美東 09:30~16:05)——CNBC 即時報價記錄買價/目標/停損觸發
+            need = []
+            for w in weeks:
+                if w.get("bt") or w.get("status") == "done": continue
+                for p in w.get("picks") or []:
+                    legs = p.get("legs") or []
+                    cur = legs[-1] if legs else None
+                    if cur and cur.get("xd"): continue
+                    need.append(cur["id"] if cur else p["id"])
+            Q = us_quotes(need) if need else {}
+            reg = {k: v for k, v in Q.items() if v.get("st") == "REG_MKT" and v.get("px") and v.get("h") and v.get("l")}
+            prices = {k: v["px"] for k, v in reg.items()}
+            hl = {k: [v["o"], v["h"], v["l"]] for k, v in reg.items()}
+            snap = NOW.strftime("%H:%M")
+            ni = intraday_watch(weeks, prices, snap, hl) if prices else 0
+            print(f"aipick:美股盤中 {len(need)} 檔、取得 {len(Q)} 檔報價、正常盤 {len(reg)} 檔;記錄 {ni} 筆觸發(美東 {snap})")
+        elif (not US) and TODAY.weekday() < 5 and 9 * 60 <= hm <= 13 * 60 + 35 and "09:00" <= snap <= "13:30" and snap_day == iso(TODAY):
             # r974:只用「今天、09:00 後、真的成交」的價格(update_quotes 標 pz=1、pt=時間);另帶今天官方最低/最高價,
             #       限價成交必須「今天最低價真的 ≤ 買價」、停損必須「最低價 ≤ 停損」、到目標必須「最高價 ≥ 目標」
             tday = iso(TODAY)
@@ -1468,7 +1512,7 @@ def main():
     except Exception as e:
         print(f"aipick:盤中記錄失敗 {e}")
     try:
-        na = 0 if US else apply_intraday_times(weeks)       # r890:美股不做分K時間戳(台股 MIS 專用)
+        na = apply_intraday_times(weeks)                    # r890:美股不做分K時間戳(台股 MIS 專用);r1091:美股盤中紀錄的時間一樣沿用
         if na: print(f"aipick:沿用盤中記錄的時間 {na} 筆")
         nt = 0 if US else stamp_times(weeks, budget=6 if LIGHT else 20)
         if nt: print(f"aipick:補成交/出場時間 {nt} 次查詢(富果 1 分 K)")
