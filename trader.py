@@ -13,6 +13,10 @@ import json, os, datetime as dt
 FILE = "trader.json"; SLOTS = 20; PMIN = 0.54; MAX_SECTOR = 999; GAP_MAX = 0.03; TRAIL_ON = 1.10; TRAIL_DD = 0.85   # r996:取消「同產業最多 2 檔」(回測沒有這條)——r995 誤把註解放在行中間,後面三個參數被註解掉導致例外
 GTOPK = 15; GXPCT = 0.50
 SLOT_OF = {"v": 12, "g": 28}   # r1010:選股能力——樹模型年化 α +4.8%、v2 僅 +0.4% → 資金改 7:3 偏重樹模型(α +3.5%、回落 −19.6%)
+# r1094:🧹 副組(樹模型 + v2)結束——三清單上線後角色重複:樹模型與主力・量價籌碼組日報酬相關 0.82、回測年化 +24.6% 輸主力 +43.7%,v2 α 只有 +0.4%/年;
+#       實盤 12 筆出場勝率 8%、平均 −5.5%。停止新進場與加碼,所有持股在下一個交易日開盤「結束清算」(why=retire),紀錄全部保留。要恢復改回 False 即可(重新起算)。
+RETIRE_VG = True; RETIRE_D = "2026-10-14"
+RETIRE_WHY = "三清單上線後與主力・量價籌碼組重複(相關 0.82、回測年化較低),副組結束;持股於下一交易日開盤結束清算,紀錄保留"
 PEXIT = 0.48; HMIN = 5; TRAIL_OFF = True; ADD_GAIN = 0.10; MAX_LOTS = 2
 NOTIONAL = 100000; FEE_B = 0.001425; FEE_S = 0.001425 + 0.003; START = "2026-10-05"
 
@@ -174,6 +178,24 @@ def gbt_prob(x):
 def _sl(x): return "g" if x.get("sleeve") == "g" else "v"
 
 
+def _retire(T, ev, today):
+    """r1094:副組結束——取消所有待買單(新進場/加碼),持股標記「下一交易日開盤賣出」(xwhy=retire);只做一次,之後每班只確保沒有新單"""
+    if not RETIRE_VG: return
+    T["rules"]["retired"] = {"d": RETIRE_D, "why": RETIRE_WHY}
+    drop = [q for q in T.get("pend") or [] if not q.get("_keep")]
+    if drop:
+        T["pend"] = []
+        ev.append(f"{today} ❎ 副組結束:取消待買 " + "、".join(f"{q['name']}{'(加碼)' if q.get('add') else ''}" for q in drop))
+    n = 0
+    for p in T.get("pos") or []:
+        if p.get("xsig"): continue
+        p["xsig"] = min(RETIRE_D, today); p["xwhy"] = "retire"; n += 1
+    if not T.get("retired_d"):
+        T["retired_d"] = RETIRE_D
+        ev.append(f"{RETIRE_D} 🧹 副組(樹模型 + v2)結束:{RETIRE_WHY}(持股 {len(T.get('pos') or [])} 檔)")
+    elif n: ev.append(f"{today} 🧹 副組結束清算:{n} 檔標記下一交易日開盤賣出")
+
+
 _HOLI = None
 def _tw_open(day):
     """r1047:台股這天有沒有開盤(週末/holidays.json 國定假日 → 沒開)。10/9 國慶休市時,盤中班拿到 MIS 的 10/8 舊報價當成今天開盤,誤買 4 檔"""
@@ -322,6 +344,8 @@ def run(A, data, log=print):
         T["pos"].append({k: t[k] for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")} |
                         {"stop": t.get("line", t["stop0"]), "hi": t.get("hi", t["entry"]), "seen": d[d.index(t["xd"]) - 1] if d.index(t["xd"]) > 0 else t["fill"], "ok": 1})
         ev.append(f"{t['xd']} ↩ 核對:{t['name']} 官方最低 {b[2]} 未觸及出場價 {t['xp']},撤銷盤中出場")
+    try: _retire(T, ev, last)                                              # r1094:副組結束——取消待買、持股標記清算
+    except Exception as e: log(f"trader:副組結束處理例外 {e}")
     # ① 待買單:訊號日之後第一根 K 的開盤
     keep = []
     for q in T["pend"]:
@@ -360,8 +384,8 @@ def run(A, data, log=print):
             apply_div(T, p, d[i], ev)
             b = o[i]; op, h, l = b[0], b[1], b[2]; pc = _prev_close(o, i)
             locked_dn = pc and h == l and op <= pc * 0.905
-            if p.get("xsig") and d[i] > p["xsig"] and op and not locked_dn:      # r984:模型預測轉弱 → 訊號隔天開盤賣
-                out = (d[i], op, "model"); p["seen"] = d[i]; break
+            if p.get("xsig") and d[i] > p["xsig"] and op and not locked_dn:      # r984:模型預測轉弱 → 訊號隔天開盤賣;r1094:副組結束清算也走這條(why=retire)
+                out = (d[i], op, p.get("xwhy") or "model"); p["seen"] = d[i]; break
             line = p["stop"]
             if l <= line and not locked_dn:
                 xp = op if op <= line else line
@@ -378,7 +402,7 @@ def run(A, data, log=print):
             if out[2] == "sl": p["lo"] = min(p.get("lo") or p["entry"], out[1])
             T["trades"][-1].update({**{k: v for k, v in _rstat(p, out[1]).items() if k != "r"}, "R": _rstat(p, out[1])["r"], "r0": p.get("r0"),
                                     "days": sum(1 for x in d if p["fill"] < x <= out[0])})
-            ev.append(f"{out[0]} {'🔒 移動停利' if out[2] == 'trail' else '📉 模型轉弱' if out[2] == 'model' else '🛑 停損'} {p['name']} @{round(float(out[1]), 2)}({ret*100:+.2f}%)")
+            ev.append(f"{out[0]} {'🔒 移動停利' if out[2] == 'trail' else '📉 模型轉弱' if out[2] == 'model' else '🧹 結束清算' if out[2] == 'retire' else '🛑 停損'} {p['name']} @{round(float(out[1]), 2)}({ret*100:+.2f}%)")
         else: still.append(p)
     T["pos"] = still
     # ③ 收盤決策(每個交易日一次;最新 K 全市場入庫 ≥90% 才做)
@@ -409,7 +433,7 @@ def run(A, data, log=print):
             held = {p["id"] for p in T["pos"]} | {q["id"] for q in T["pend"]}
             secn = {}
             for p in T["pos"] + T["pend"]: secn[p.get("sector")] = secn.get(p.get("sector"), 0) + 1
-            free = (SLOT_OF["v"] - _cnt(T, "v")) if do_sig else 0; new = []
+            free = (SLOT_OF["v"] - _cnt(T, "v")) if (do_sig and not RETIRE_VG) else 0; new = []
             for pr, s in sc:
                 if free <= 0 or pr < PMIN: break
                 if s["id"] in held or secn.get(s.get("sector"), 0) >= MAX_SECTOR: continue
@@ -422,7 +446,7 @@ def run(A, data, log=print):
                 T["pend"].append(q); new.append(q); held.add(s["id"]); secn[s.get("sector")] = secn.get(s.get("sector"), 0) + 1; free -= 1
             # r1009:🌲 樹模型組(另 20 檔)——每天全市場「樹模型排名前 15」且產業在月線上、近3月營收成長 → 明天開盤買
             gnew = []
-            if do_sig and GR:
+            if do_sig and GR and not RETIRE_VG:
                 gfree = SLOT_OF["g"] - _cnt(T, "g")
                 for g, sid in gsc[:GTOPK]:
                     if gfree <= 0: break
@@ -499,6 +523,7 @@ def run(A, data, log=print):
                 for p in T["pos"]: lots.setdefault(p["id"], []).append(p)
                 pend_ids = [q["id"] for q in T["pend"]]
                 for sid0, L in lots.items():
+                    if RETIRE_VG: break                                     # r1094:副組結束,不加碼
                     base = min(L, key=lambda x: x["fill"])
                     if _cnt(T, _sl(base)) >= SLOT_OF[_sl(base)]: continue
                     if len(L) + pend_ids.count(sid0) >= MAX_LOTS or base.get("xsig"): continue
@@ -513,8 +538,9 @@ def run(A, data, log=print):
             except Exception as ex: log(f"trader:加碼判斷例外 {ex}")
             T["n_scored"] = len(sc)
             if do_sig: T["sig_done"] = last
-            if do_sig: ev.append(f"{last} 🔍 收盤掃描 {len(sc)} 檔,勝算 ≥{PMIN} 有 {sum(1 for x in sc if x[0] >= PMIN)} 檔;" +
+            if do_sig and not RETIRE_VG: ev.append(f"{last} 🔍 收盤掃描 {len(sc)} 檔,勝算 ≥{PMIN} 有 {sum(1 for x in sc if x[0] >= PMIN)} 檔;" +
                       ("明天開盤買進:" + "、".join(q["name"] for q in new) if new else "沒有新進場(" + ("已滿" if free <= 0 else "沒有夠強的標的") + ")"))
+            if RETIRE_VG: T["watch"] = []; T["watch_d"] = last                # r1094:副組不再進場 → 沒有候選清單
         else:
             log(f"trader:{last} K 入庫 {hit}/{tot} 未達 90%,本班不做收盤決策")
     for e in ev: T["log"].insert(0, e)
@@ -522,7 +548,11 @@ def run(A, data, log=print):
     tr_ = T["trades"]
     T["stats"] = {"closed": len(tr_), "win": round(100 * sum(1 for t in tr_ if t["ret"] > 0) / len(tr_), 1) if tr_ else None,
                   "avg": round(sum(t["ret"] for t in tr_) / len(tr_), 2) if tr_ else None,
-                  "realized": round(sum(t["ret"] / 100 * NOTIONAL for t in tr_))}
+                  "realized": round(sum(t["ret"] / 100 * NOTIONAL for t in tr_)),
+                  "retire_n": sum(1 for t in tr_ if t.get("why") == "retire"),            # r1094:其中「結束清算」筆數(不是規則出場)
+                  "rule_n": sum(1 for t in tr_ if t.get("why") != "retire"),
+                  "rule_win": (lambda L: round(100 * sum(1 for t in L if t["ret"] > 0) / len(L), 1) if L else None)([t for t in tr_ if t.get("why") != "retire"]),
+                  "rule_avg": (lambda L: round(sum(t["ret"] for t in L) / len(L), 2) if L else None)([t for t in tr_ if t.get("why") != "retire"])}
     try:
         T["journal"] = journal(T)
         for p in T["pos"]:
@@ -568,6 +598,8 @@ def run_intraday(A, data, hhmm, log=print):
         ok = s.get("pz") == 1 and str(s.get("pt") or "")[:10] == today and s.get("dhd") == today and s.get("dhl")
         return (float(s["price"]), s["dhl"]) if ok else (None, None)
     ev = []; keep = []
+    try: T.setdefault("rules", {}); _retire(T, ev, today)                   # r1094:副組結束——盤中班也先取消待買、標記清算
+    except Exception as e: log(f"trader:副組結束處理例外 {e}")
     for q in T.get("pend") or []:
         if q["sig_d"] >= today: keep.append(q); continue
         px, hl = live(q["id"])
@@ -600,13 +632,14 @@ def run_intraday(A, data, hhmm, log=print):
         op, h, l = hl
         try: apply_div(T, p, today, ev)                                    # r986:除權息日盤中先下調停損
         except Exception: pass
-        if p.get("xsig") and p["xsig"] < today and op:                      # r984:模型轉弱 → 開盤賣(官方開盤價)
-            ret = _ret(p, op)
+        if p.get("xsig") and p["xsig"] < today and op:                      # r984:模型轉弱 → 開盤賣(官方開盤價);r1094:副組結束清算(why=retire)同路徑
+            ret = _ret(p, op); why0 = p.get("xwhy") or "model"
             T.setdefault("trades", []).append({**{k: p.get(k) for k in ("id", "name", "sector", "fill", "entry", "sh", "stop0", "p", "sig_d")},
-                                               "xd": today, "xt": "09:00", "xp": op, "why": "model", "ret": round(ret * 100, 2), "hi": p["hi"], "line": op, "rt": 1})
+                                               "xd": today, "xt": "09:00", "xp": op, "why": why0, "ret": round(ret * 100, 2), "hi": p["hi"], "line": op, "rt": 1,
+                                               "days": sum(1 for x in (A.bars_of(p["id"])[0] or []) if p["fill"] < x < today) + 1})
             try: _rinit(A, p); rs = _rstat(p, op); T["trades"][-1].update({"R": rs["r"], "mae": rs["mae"], "mfe": rs["mfe"], "r0": p.get("r0")})
             except Exception: pass
-            ev.append(f"{today} 09:00 📉 模型轉弱 {p['name']} 開盤 {op}({ret*100:+.2f}%)"); continue
+            ev.append(f"{today} 09:00 {'🧹 結束清算' if why0 == 'retire' else '📉 模型轉弱'} {p['name']} 開盤 {op}({ret*100:+.2f}%)"); continue
         hi_now = max(p["hi"], h)
         line = round(max(p["stop"], hi_now * TRAIL_DD), 2) if (not TRAIL_OFF and hi_now >= p["entry"] * TRAIL_ON) else p["stop"]
         p["line_rt"] = line

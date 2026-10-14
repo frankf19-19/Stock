@@ -15,7 +15,7 @@ def main():
         print("aip_live:讀不到 aipick.json", e); return
     T = J.get("trader") or {}
     if not T: print("aip_live:沒有 trader 狀態"); return
-    L = {k: T.get(k) for k in ("ver", "updated", "last_bar", "pos", "pend", "watch", "watch_d", "sig_done", "nav", "stats", "rules") if k in T}
+    L = {k: T.get(k) for k in ("ver", "updated", "last_bar", "pos", "pend", "watch", "watch_d", "sig_done", "nav", "stats", "rules", "retired_d") if k in T}
     L["trades"] = (T.get("trades") or [])[-30:]
     L["log"] = (T.get("log") or [])[-60:]
     for grp in ("pv", "os"):                                        # 量價組 / 其他分組:只帶盤中會動的欄位
