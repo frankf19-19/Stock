@@ -152,6 +152,8 @@ def analyze(sym, name, mkt, wk, prev):
     return res
 
 
+FM_IDX = {"^TWII": "TAIEX", "^TWOII": "TPEx"}                  # r1089:FinMind TaiwanStockPrice 的指數代號(Yahoo 掛掉時的備援)
+
 # ═══ r883:台股正2(00631L)進場時機 ═══
 LEV = [("00631L.TW", "元大台灣50正2", "^TWII")]
 
@@ -329,6 +331,13 @@ def main():
     out = []
     for sym, name, mkt in INDICES:
         wk = fetch_weekly(sym)
+        if mkt == "TW" and sym in FM_IDX:                      # r1089:Yahoo 的 ^TWOII 已下架(404)→ 改用 FinMind 指數日線併週線
+            stale = (not wk) or (dt.date.fromisoformat(wk[-1][0]) < NOW.date() - dt.timedelta(days=10))
+            if stale:
+                w2 = fetch_weekly_finmind(FM_IDX[sym], start=(NOW - dt.timedelta(days=3652)).strftime("%Y-%m-%d"))
+                if w2:
+                    log(f"  {name}:Yahoo {'抓不到' if not wk else '只到 ' + wk[-1][0]} → FinMind {FM_IDX[sym]} 日線併週線({len(w2)} 週,到 {w2[-1][0]})")
+                    wk = w2
         if not wk:
             if sym in prev: out.append(prev[sym]); log(f"  {name}:抓不到,沿用前值")
             continue

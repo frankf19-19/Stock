@@ -4,31 +4,17 @@ permissions: {contents: read}
 jobs:
   p:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     env:
       FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
     steps:
+      - uses: actions/checkout@v4
+      - run: pip -q install requests
       - run: |
-          UA="User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
-          t(){ curl -sS -m 25 -D /tmp/h -o /tmp/b -H "$UA" "$2" 2>/tmp/e; m="$1 | $(head -1 /tmp/h | tr -d '\r') | $(cat /tmp/e) | $(python3 -c "
-          import json,sys
-          try:
-            j=json.load(open('/tmp/b'))
-          except Exception as e:
-            print('nonjson', open('/tmp/b',errors='replace').read()[:200].replace('\n',' ')); sys.exit()
-          r=(j.get('chart') or {}).get('result')
-          if r is not None:
-            r=r[0]; ts=r.get('timestamp') or []; cl=r['indicators']['quote'][0]['close']; import datetime as d
-            v=[(d.datetime.utcfromtimestamp(t).date().isoformat(),c) for t,c in zip(ts,cl)]
-            print('bars',len(v),'last5',v[-5:],'nulls',sum(1 for _,c in v if c is None), 'meta',{k:r['meta'].get(k) for k in ('symbol','regularMarketPrice','regularMarketTime')})
-          elif 'chart' in j: print('chart err', j['chart'].get('error'))
-          else: print('keys',list(j.keys())[:6],'msg',j.get('msg'),'n',len(j.get('data') or []),'tail',(j.get('data') or [])[-2:])
-          ")"; echo "::notice title=$1::${m//%/%25}"; }
-          t YTWOII_10y "https://query1.finance.yahoo.com/v8/finance/chart/%5ETWOII?range=10y&interval=1wk&includeAdjustedClose=false"
-          t YTWOII_3mo "https://query2.finance.yahoo.com/v8/finance/chart/%5ETWOII?range=3mo&interval=1d"
-          t YTWII_3mo "https://query1.finance.yahoo.com/v8/finance/chart/%5ETWII?range=3mo&interval=1wk"
-          t FM_TPEX "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=TPEx&start_date=2026-09-01&token=$FINMIND_TOKEN"
-          t FM_TPEX2 "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=TPEX&start_date=2026-09-01&token=$FINMIND_TOKEN"
-          t FM_TAIEX "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=TAIEX&start_date=2026-09-01&token=$FINMIND_TOKEN"
-          t FM_IDX "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanVariousIndicators5Seconds&start_date=2026-10-13&token=$FINMIND_TOKEN"
-          t STOOQ "https://stooq.com/q/d/l/?s=%5Etwoii&i=w"
+          timeout 300 python fetch_bias.py > /tmp/log 2>&1 || true
+          echo "::notice title=LOG::$(grep -v '^$' /tmp/log | tr '\n' ' ' | cut -c1-1500)"
+          echo "::notice title=TWOII::$(python3 -c "
+          import json;J=json.load(open('bias.json'))
+          for x in J['idx']:
+            m=x['ma']['20']; print(x['name'],x['as_of'],x['last'],x['zone'],'bias',m['bias'],'pct',m['pct'],'weeks',x['weeks'],'q',len(m.get('q') or []),'c_out',m.get('c_out'),'|',end=' ')
+          " | cut -c1-1200)"
