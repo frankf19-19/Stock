@@ -16,6 +16,7 @@ on:
   workflow_dispatch: {}
 permissions:
   contents: write
+  actions: write                  # r1085:盤中順便當「管理員保險」——管理員(guard.yml)超過 20 分鐘沒巡就補點火
 concurrency:
   group: quotes
   cancel-in-progress: true        # 新班砍舊班:卡死的迴圈被下一班自動接手
@@ -52,6 +53,16 @@ jobs:
             HM=$(TZ=Asia/Taipei date +%H%M); HM=$((10#$HM))
             [ $HM -gt 1345 ] && { echo "已過 13:45,本班收工"; break; }
             [ $(date +%s) -ge $END ] && { echo "已到 13:45 收盤,本班完成整場任務"; break; }
+            # r1085 🛡 管理員保險:盤中管理員應該每 5 分鐘巡一輪,但 GitHub 常把它 08:04/08:34 的排程丟掉
+            #      (10/12 拖到 09:21 才開巡、10/13 08:30 還沒開;夜間每小時那班 18 班只跑了 4 班)。
+            #      這個迴圈是 Worker 準時點火的,順便看 guard.json:超過 20 分鐘沒更新 → 補啟動 guard.yml(25 分鐘內最多一次)
+            if [ $HM -ge 810 ] && [ $HM -lt 1340 ] && python market_day.py tw >/dev/null; then
+              git pull -q --rebase origin main || true
+              GA=$(python -c "import json,datetime as d;u=json.load(open('guard.json')).get('u','');n=d.datetime.utcnow()+d.timedelta(hours=8);print(int((n-d.datetime.strptime(u[:16],'%Y-%m-%d %H:%M')).total_seconds()//60))" 2>/dev/null || echo 999)
+              if [ "$GA" -gt 20 ] && [ $(( $(date +%s) - ${GKICK:-0} )) -gt 1500 ]; then
+                if gh workflow run guard.yml -R "$GITHUB_REPOSITORY" --ref main; then GKICK=$(date +%s); echo "🛡 管理員已 $GA 分鐘沒巡檢 → 補啟動 guard.yml"; else echo "🛡 補啟動管理員失敗(不影響報價)"; fi
+              fi
+            fi
             if [ $HM -ge 855 ]; then
               git pull --rebase origin main || true      # 先同步,拿到別班/主更新最新的 spark 續寫
               python update_quotes.py || echo "本輪掃價失敗,5分鐘後再試"

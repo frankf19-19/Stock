@@ -28,6 +28,7 @@ on:
 
 permissions:
   contents: write
+  actions: read                # r1088:重複點火檢查要讀自己的班表
 
 concurrency:
   group: kdata
@@ -41,15 +42,41 @@ jobs:
       - name: 取得程式碼
         uses: actions/checkout@v4
 
+      # r1088:重複點火檢查——Worker 的定時點火每次都點兩班(10/09 起每個時段都是兩筆 workflow_dispatch,相隔 7~25 秒);
+      #        第二班排在第一班後面,等它跑完又整套重跑一次(10/13 白天因此多跑 2.5 小時,還把盤中走勢蓋掉)。
+      #        Worker 的程式不在這個倉庫,先在這裡擋:3 分鐘內有比自己早的同類班、而且沒被取消/失敗 → 本班直接收工。
+      - name: 重複點火檢查
+        id: dedupe
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          me=${{ github.run_id }}; dup=0
+          mine=$(gh api repos/$GITHUB_REPOSITORY/actions/runs/$me --jq '.created_at' 2>/dev/null) || mine=""
+          if [ -n "$mine" ]; then
+            t0=$(date -d "$mine" +%s)
+            while IFS=$'\t' read -r id ca st cc; do
+              { [ -z "$id" ] || [ "$id" = "$me" ]; } && continue
+              d=$(( t0 - $(date -d "$ca" +%s) ))
+              if [ "$id" -lt "$me" ] && [ $d -ge 0 ] && [ $d -le 180 ] && [ "$cc" != "cancelled" ] && [ "$cc" != "failure" ]; then
+                dup=1; echo "⏭ 重複點火:#$id 在 $d 秒前已啟動($st $cc)→ 本班收工,不重複跑"
+              fi
+            done < <(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/update_data.yml/runs?event=workflow_dispatch&per_page=8" --jq '.workflow_runs[]|[.id,.created_at,.status,(.conclusion//"")]|@tsv' 2>/dev/null)
+          fi
+          echo "dup=$dup" >> "$GITHUB_OUTPUT"
+
       - name: 設定 Python
+        if: steps.dedupe.outputs.dup != '1'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: 安裝套件
+        if: steps.dedupe.outputs.dup != '1'
         run: pip install requests pandas lxml html5lib beautifulsoup4 pypdf pywebpush   # r784:Web Push
 
       - name: 還原分點原始資料快取(bkraw,250 日,不進 repo)
+        if: steps.dedupe.outputs.dup != '1'
         uses: actions/cache/restore@v4
         with:
           path: bkraw
@@ -57,11 +84,13 @@ jobs:
           restore-keys: |
             bkraw-
       - name: 分點快取被清掉 → 從網站自己的永久紀錄(GitHub Releases bk15)還原 250 日(r1061)
+        if: steps.dedupe.outputs.dup != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if ls bkraw/tw*.json >/dev/null 2>&1; then echo "bkraw 快取在"; else timeout 900 python archive_bk.py restore_bk15 || echo "還原失敗,沿用 bk/ 60 日"; fi
       - name: 每日更新(單次或傍晚自迴圈)
+        if: steps.dedupe.outputs.dup != '1'
         env:
           PYTHONUNBUFFERED: "1"                          # log 即時輸出,不再看起來像卡住
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}      # 美股指數官方源(fetch_macro)
@@ -154,6 +183,20 @@ jobs:
             echo "::warning::推送重試 3 次仍失敗,本輪成果留在工作樹,下一輪一起再推"; return 1
           }
 
+          # r1088:主資料跑完,先把「盤中迴圈專屬」的檔案換成網站上最新版,再跑報價快照
+          #   事故:10/13 兩班白天的單次班各跑了 2.5 小時(美股來源慢),班內的 spark.json 還是開工時的舊檔;
+          #         報價快照在舊檔上多加 1 點就提交,commit_push 的 -X theirs 又以本班為準 → 盤中迴圈 2.5 小時累積的 15 點、23 點全被蓋掉,
+          #         10/13 當日走勢只剩 4 點。這些檔主資料步驟從頭到尾不會碰,直接拿 origin/main 的版本續寫就對了;本班改過的檔一律不動。
+          sync_live() {
+            git fetch -q origin main || { echo "  (同步盤中檔:fetch 失敗,略過)"; return 0; }
+            for f in spark.json aipick.json notify_state.json hourly_scan.json signal_log.json; do
+              if git diff --quiet -- "$f" 2>/dev/null && git diff --cached --quiet -- "$f" 2>/dev/null; then
+                git checkout -q origin/main -- "$f" 2>/dev/null && echo "  同步盤中檔:$f ← origin/main" || true
+              fi
+            done
+            return 0
+          }
+
           run_once() {
             echo "══════ 開始一輪 $(TZ=Asia/Taipei date '+%m/%d %H:%M') ══════"
             git pull --rebase --autostash -X theirs origin main || true     # 先同步別班的成果(ETF 17:35、盤中迴圈)
@@ -164,6 +207,7 @@ jobs:
             else
               step 主資料輕量 bash -c 'UD_FULL=0 python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"'
             fi
+            sync_live                                                                       # r1088:主資料可能跑很久,先拿回盤中迴圈最新的 spark/AI Pick 再續寫
             step 報價快照 timeout 300 python update_quotes.py || echo "報價快照失敗,不影響主資料"
             step 大盤週乖離 timeout 300 python fetch_bias.py || echo "大盤週乖離失敗,不影響主資料"        # r789
             step 借券 timeout 600 python backfill_sbl.py || echo "借券回補失敗,不影響主資料"          # r793
@@ -172,7 +216,10 @@ jobs:
             commit_push 存檔點1 || true                                                    # r821:主資料先落地
             # r820:分點/歷史回補一天只需一次,只在「單次班」或「B 段第一輪」跑;其他輪 30 分鐘內結束,19:37/20:37/21:37 才不會擠成一團
             if [ "${HEAVY_EXTRAS:-1}" = "1" ] && [ $HHMM -ge 1700 -o "$END" = "0" ]; then
-              step 分點 timeout 2400 python fetch_broker.py || echo "分點失敗,不影響主資料"            # r802:FinMind Sponsor;r820:雙線程
+              # r1085:舊設定「外面 40 分鐘砍掉、裡面以為有 50 分鐘可抓」對不起來——傍晚第一輪要抓全市場當天 ~1,900 檔,
+              #        10/05、10/06、10/12 都在 40 分鐘被硬砍(結束碼 124),收尾的「寫進網站分點檔」整段沒做,當天分點拖到 23:5x 備援班才上網站。
+              #        改成:抓資料最多 45 分鐘(時間到就收手、下一班接著抓)+ 留 15 分鐘給收尾,外層上限 60 分鐘。
+              step 分點 env BK_BUDGET_SEC=2700 timeout 3600 python fetch_broker.py || echo "分點失敗,不影響主資料"            # r802:FinMind Sponsor;r820:雙線程
               commit_push 存檔點2 || true                                                 # r821:分點先落地
               step 歷史回補 timeout 1500 python backfill_hist.py || echo "歷史回補失敗,不影響主資料"       # r802;r803:每 150 次落地
               step 分點歷史 timeout 1650 python backfill_broker.py || echo "分點歷史失敗,不影響主資料"      # r804/r811:一天一次全市場
@@ -211,7 +258,7 @@ jobs:
             run_once
           done
       - name: 保存分點原始資料快取
-        if: always()
+        if: always() && steps.dedupe.outputs.dup != '1'
         uses: actions/cache/save@v4
         with:
           path: bkraw

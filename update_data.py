@@ -1714,33 +1714,44 @@ def update_us_prices(hist, us_comps):
     if not stale:
         print(f"  美股價格:{fresh} 檔皆為最新({exp}),免抓"); return
     stale = stale[:cap]
-    hi = 0                                         # 0=stooq.com 起手;連續失敗 15 檔後永久切 stooq.pl
-    fails = 0
+    # r1088:時間預算 + 壞掉的來源整輪停用。
+    #   事故:10/13 白天兩班「②價格」各跑 8,400 秒(2 小時 20 分)——美股 250 檔每檔 ~33 秒:stooq 連線掛到 20 秒逾時、
+    #         Yahoo 429 再重試三次,一檔接一檔沒完沒了;整班拖到盤中才做報價快照,連帶把當日走勢蓋掉。
+    #   改成:①整段最多 US_TIME_BUDGET_SEC(預設 15 分鐘),時間到就收手,剩下的下一班接力(本來就是增量制);
+    #         ②任一來源連續 15 檔失敗就整輪停用(原本只有 stooq.com 有這個保護),三個都停用就直接收工。
+    budget = int(os.environ.get("US_TIME_BUDGET_SEC", "900") or 900)
+    t_us0 = time.time()
+    srcs = ["stooq.com", "stooq.pl"] + (["yahoo"] if yah_ok else [])
+    cfail = {s: 0 for s in srcs}                   # 各來源「連續」失敗檔數;成功一次歸零
+    dead = set()                                   # 本輪已停用的來源
     n1 = n2 = n3 = 0
-    for c in stale:
+    left = 0
+    for i, c in enumerate(stale):
+        if time.time() - t_us0 > budget:
+            left = len(stale) - i
+            print(f"  [note] 美股價格:已用 {int(time.time() - t_us0)} 秒超過預算 {budget} 秒,剩 {left} 檔留給下一班(來源慢或被擋時不拖累整班)")
+            break
+        if all(s in dead for s in srcs):
+            left = len(stale) - i
+            print(f"  [warn] 美股價格:三個來源都連續失敗已停用,剩 {left} 檔留給下一班")
+            break
         sym = c["id"]
         e = None; src = None
-        for host in (["stooq.com", "stooq.pl"][hi:]):   # 每檔級聯:主源 →(還在主源時)鏡像
+        for s in srcs:                             # 每檔級聯:stooq.com → stooq.pl 鏡像 → Yahoo(已停用的來源直接跳過)
+            if s in dead: continue
             try:
-                e = _stooq_hist(sym, host)
+                e = _yahoo_chart_hist(sym) if s == "yahoo" else _stooq_hist(sym, s)
             except Exception:
                 e = None
             if e is not None:
-                src = host; break
-        if e is None and yah_ok:
-            try:
-                e = _yahoo_chart_hist(sym)
-            except Exception:
-                e = None
-            if e is not None: src = "yahoo"
-        if src == "stooq.com":
-            n1 += 1; fails = 0
-        else:
-            fails += 1
-            if hi == 0 and fails >= 15:
-                hi = 1; print("  [note] stooq.com 連續 15 檔失敗 → 之後直接走 stooq.pl 鏡像")
-            if src == "stooq.pl": n2 += 1
-            elif src == "yahoo": n3 += 1
+                src = s; cfail[s] = 0; break
+            cfail[s] += 1
+            if cfail[s] >= 15:
+                dead.add(s)
+                print(f"  [note] {s} 連續 15 檔失敗 → 本輪之後不再試這個來源" + ("(直接走 stooq.pl 鏡像)" if s == "stooq.com" else ""))
+        if src == "stooq.com": n1 += 1
+        elif src == "stooq.pl": n2 += 1
+        elif src == "yahoo": n3 += 1
         if e is not None:
             old = hist.get(sym) or {"d": [], "o": []}
             if not old["d"] or e["d"][-1] >= old["d"][-1]:
@@ -1749,7 +1760,8 @@ def update_us_prices(hist, us_comps):
                 hist[sym] = {"d": ks, "o": [m[k] for k in ks]}
         time.sleep(0.35)
     done = n1 + n2 + n3
-    print(f"  美股價格:更新 {done}/{len(stale)} 檔(stooq {n1}、鏡像 {n2}、Yahoo備援 {n3};最新免抓 {fresh};應到 {exp})")
+    print(f"  美股價格:更新 {done}/{len(stale) - left} 檔(stooq {n1}、鏡像 {n2}、Yahoo備援 {n3};最新免抓 {fresh};應到 {exp};"
+          f"耗時 {int(time.time() - t_us0)} 秒{f'、未處理 {left} 檔' if left else ''})")
     if done == 0:
         print("  [warn] 美股三個來源全數失敗——K 線將持續停更,請檢查來源封鎖狀況")
 
