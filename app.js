@@ -1,4 +1,4 @@
-/* K研所 · build r1108 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1109 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1108';
+const APP_BUILD='r1109';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2479,7 +2479,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1108</span>');
+  diag.push('<span style="color:var(--dim)">build r1109</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -23637,7 +23637,7 @@ function renderBias(){
   const box=document.getElementById('biasBox'); if(!box)return;
   const J=BIAS; if(!J){box.innerHTML='<div class="dim-note">⏳ 讀取中…(bias.json 由每日重班產生;首次要等 fetch_bias.py 跑過一班)</div>';return;}
   const zc={'低檔':'var(--up)','偏低':'var(--t-gold)','中性':'var(--mut)','偏高':'var(--amber)','高檔':'var(--down)'};
-  const zi={'低檔':'🟢 低檔區・歷史上的好買點','偏低':'🟡 偏低・分批區','中性':'⚪ 中性','偏高':'🟠 偏高・不追','高檔':'🔴 高檔區・過熱'};
+  const zi={'低檔':'🟢 低檔區・歷史上的好買點','偏低':'🟡 偏低・分批區','中性':'⚪ 中性','偏高':'🟠 偏高・不追不加碼','高檔':'🔴 高檔區・不加碼(回測:不是賣點)'};   // r1109:高檔出場回測後改字
   const f1=x=>x==null?'—':(x>=0?'+':'')+x.toFixed(1)+'%';
   const uTs=(()=>{const t=Date.parse(String(J.u||'').replace(' ','T')+':00+08:00');return isFinite(t)?t:0;})();
   const hms=ts=>new Date(ts).toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'}).slice(0,8),hm=ts=>hms(ts).slice(0,5);
@@ -23645,6 +23645,7 @@ function renderBias(){
   const rows=IDX.map(x=>{
     const m=x.ma[String(J.main_ma||20)]||{}, bt=x.low_bt||{}, b8=bt['8'], b13=bt['13'], base8=(x.base||{})['8'];
     const eps=(x.low_eps||[]).slice(-3).reverse(), lv=x.live;
+    const hb=x.hi_bt||{}, h8=hb['8'], h13=hb['13'], hd=x.hi_dd13, bd=(x.base||{}).dd13, svh=x.sell_vs_hold, heps=(x.hi_eps||[]).slice(-3).reverse();   // r1109:高檔出場回測
     const lvTag=lv?(lv.fresh?`<span class="bias-live" title="用最新價把這一週重算;收盤後以正式週收盤為準">⚡ ${lv.src==='m'?hm(lv.ts)+' 報價(約 20 分更新)':hms(lv.ts)+' 即時'}</span>`
                           :`<span class="bias-live" style="opacity:.75" title="正式週線還沒重算,先用這天收盤價估">${lv.d.slice(5).replace('-','/')} 收盤估</span>`):'';
     const stale=!lv&&x.as_of&&(Date.now()-Date.parse(x.as_of+'T00:00:00+08:00'))>12*864e5;
@@ -23659,13 +23660,15 @@ function renderBias(){
         <div>10 週 ${f1((x.ma['10']||{}).bias)}(分位 ${(x.ma['10']||{}).pct??'—'})・52 週 ${f1((x.ma['52']||{}).bias)}(分位 ${(x.ma['52']||{}).pct??'—'})</div>
         ${b8?`<div><b>低檔進場回測</b>(十年共 ${b8.n} 次進入低檔區):8 週後勝率 <b style="color:${b8.win>=60?'var(--up)':'var(--txt2)'}">${b8.win}%</b>・中位 <b>${f1(b8.med)}</b>・最差 ${f1(b8.worst)}${b13?`;13 週後勝率 ${b13.win}%・中位 ${f1(b13.med)}`:''}${base8?` <span class="dim">(任意時點 8 週基準:勝率 ${base8.win}%・中位 ${f1(base8.med)})</span>`:''}</div>`:'<div class="dim">回測樣本不足</div>'}
         ${eps.length?`<div class="dim">最近進入低檔:${eps.map(e=>`${e.d.slice(2).replace(/-/g,'/')}(${f1(e.bias)}${e.fwd&&e.fwd['8']!=null?` → 8週 ${f1(e.fwd['8'])}`:''})`).join('・')}</div>`:''}
+        ${h8?`<div style="margin-top:4px"><b>高檔出場回測</b>(十年共 ${h8.n} 次進入高檔區):8 週後勝率 <b style="color:${h8.win>=(base8?base8.win:60)?'var(--up)':'var(--down)'}">${h8.win}%</b>・中位 <b>${f1(h8.med)}</b>${h13?`;13 週後勝率 ${h13.win}%・中位 ${f1(h13.med)}`:''}${base8?` <span class="dim">(任意時點 8 週:${base8.win}%・${f1(base8.med)})</span>`:''}${hd?`;13 週內最深回檔中位 ${f1(hd.med)}、出現比當週低 3% 的買回點機率 <b>${hd.lower3}%</b>${bd?` <span class="dim">(任意時點 ${bd.lower3}%)</span>`:''}`:''}${svh?`;高檔賣・乖離回中位買回 ${svh.yrs} 年年化 <b>${svh.sell>=0?'+':''}${svh.sell}%</b> vs 一直抱 <b>${svh.hold>=0?'+':''}${svh.hold}%</b>(回檔 ${svh.sell_mdd}% vs ${svh.hold_mdd}%)`:''} → <b style="color:${(svh&&svh.sell>=svh.hold)||(h8.win<(base8?base8.win:60)&&h8.med<(base8?base8.med:0))?'var(--down)':'var(--amber)'}">${(svh&&svh.sell>=svh.hold)?'高檔減碼有幫助':'乖離高檔是「不加碼」,不是賣點'}</b></div>`:''}
+        ${heps.length?`<div class="dim">最近進入高檔:${heps.map(e=>`${e.d.slice(2).replace(/-/g,'/')}(${f1(e.bias)}${e.fwd&&e.fwd['8']!=null?` → 8週 ${f1(e.fwd['8'])}`:''})`).join('・')}</div>`:''}
       </div></div>
     </div>`;}).join('');
-  const lows=IDX.filter(x=>x.zone==='低檔'||x.zone==='偏低');
-  const html=`<div class="dim-note" style="margin-bottom:8px">正式週線 ${J.u} 更新;盤中每 20 秒用即時價重算「這一週」(標 ⚡;美股 CNBC 即時報價、台股盤中即時指數),收盤後以正式週收盤為準。乖離 =(週收 − 20 週均)÷ 20 週均;<b>低檔/高檔不用固定 %</b>,而是每個指數放進它自己十年的乖離分佈:≤10 分位 = 低檔、≥90 = 高檔。灰帶 = 10~90 分位區間,線在灰帶下緣以下就是歷史上罕見的便宜。${lows.length?`<b style="color:var(--up)">現在在低檔/偏低區:${lows.map(x=>x.name).join('、')}</b>`:'現在沒有指數在低檔區。'}</div>
+  const lows=IDX.filter(x=>x.zone==='低檔'||x.zone==='偏低'),highs=IDX.filter(x=>x.zone==='高檔'||x.zone==='偏高');
+  const html=`<div class="dim-note" style="margin-bottom:8px">正式週線 ${J.u} 更新;盤中每 20 秒用即時價重算「這一週」(標 ⚡;美股 CNBC 即時報價、台股盤中即時指數),收盤後以正式週收盤為準。乖離 =(週收 − 20 週均)÷ 20 週均;<b>低檔/高檔不用固定 %</b>,而是每個指數放進它自己十年的乖離分佈:≤10 分位 = 低檔、≥90 = 高檔。灰帶 = 10~90 分位區間,線在灰帶下緣以下就是歷史上罕見的便宜。${lows.length?`<b style="color:var(--up)">現在在低檔/偏低區:${lows.map(x=>x.name).join('、')}</b>`:'現在沒有指數在低檔區。'}${highs.length?` <b style="color:var(--amber)">高檔/偏高區:${highs.map(x=>x.name).join('、')}</b>(不加碼;回測不支持因為乖離高而賣,見各卡「高檔出場回測」)`:''}</div>
     <div class="bias-grid">${rows}</div>
     ${levHTML(J,IDX,uTs)}
-    <div class="dim-note" style="margin-top:8px">「低檔進場回測」= 過去十年每次從上方跌進低檔區的那一週買進,8/13 週後的結果;跟「任意時點」基準比才知道低檔有沒有優勢。乖離低檔是<b>時機</b>不是保證——系統性事件(2020/03、2022)時可以更低。資料:Yahoo 週線(櫃買 Yahoo 停更的部分用櫃買中心官方收盤補)。非投資建議。</div>`;
+    <div class="dim-note" style="margin-top:8px">「低檔進場回測」= 過去十年每次從上方跌進低檔區的那一週買進,8/13 週後的結果;跟「任意時點」基準比才知道低檔有沒有優勢。<b>「高檔出場回測」= 每次從下方漲進高檔區(≥90 分位)那一週賣出的結果</b>:六個指數十年共約 100 次,之後 8~26 週的報酬反而多半高於任意時點、13 週內出現更便宜買回點的機率也比平常低;「進入高檔就賣、乖離回到十年中位再買回」每個指數都輸一直抱著(加權年化 +8.7% vs +18.0%、費半 +23.8% vs +28.7%)——高檔後跌回 75 分位、跌破 20 週線、連續兩週高檔也都一樣。所以乖離高檔的意思是<b>不加碼、不追</b>,要賣請用個股自己的停利/停損規則(三清單每檔都有)。這十年整體是多頭(含 2020/03、2022 兩段 −30%),長空頭下結論可能不同。乖離低檔是<b>時機</b>不是保證——系統性事件(2020/03、2022)時可以更低。資料:Yahoo 週線(櫃買 Yahoo 停更的部分用櫃買中心官方收盤補)。非投資建議。</div>`;
   if(box.__h!==html){box.innerHTML=html;box.__h=html;}
 }
 /* r883:🚀 台股正2 進場時機卡 */

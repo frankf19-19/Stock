@@ -20,9 +20,13 @@ jobs:
           mkdir -p logs
           python bias_sell_study.py 2>&1 | tee /tmp/study.txt || echo "::warning::研究失敗"
           grep -E "══|抓不到|失敗|✅" /tmp/study.txt | sed 's/^/::notice::/' || true
+      - name: 重算 bias.json(含高檔出場回測)
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: timeout 300 python fetch_bias.py || echo "::warning::fetch_bias 失敗"
       - name: 提交
         run: |
           git config user.name "bot"; git config user.email "bot@users.noreply.github.com"
-          git add bias_sell_study.json logs/bias_sell_study.txt 2>/dev/null || true
+          git add bias_sell_study.json logs/bias_sell_study.txt bias.json 2>/dev/null || true
           git commit -q -m "研究:大盤週乖離賣出時機 [CI Skip]" || exit 0
           for i in 1 2 3 4 5; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 8; done

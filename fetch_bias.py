@@ -145,7 +145,46 @@ def analyze(sym, name, mkt, wk, prev):
     for k in FWD:
         xs = [(C[i + k] / C[i] - 1) * 100 for i in range(0, n - k)]
         if xs: base[str(k)] = {"win": round(100 * sum(1 for x in xs if x > 0) / len(xs)), "med": round(st.median(xs), 2)}
+    dd0 = [(min(C[i + 1:i + 14]) / C[i] - 1) * 100 for i in range(0, n - 13)]
+    if dd0: base["dd13"] = {"med": round(st.median(dd0), 2), "lower3": round(100 * sum(1 for x in dd0 if x <= -3) / len(dd0))}
     res["base"] = base
+    # ── r1109:高檔出場回測(研究 bias_sell_study.py:六個指數十年,乖離進入高檔後的報酬反而高於任意時點、
+    #    13 週內出現更低買回點的機率也比平常低;「高檔賣、乖離回中位買回」每個指數都輸一直抱著 → 高檔 = 不加碼,不是賣點)──
+    try:
+        hthr = main["p90"]; heps = []
+        for i in range(MAIN, n):
+            if b[i] is None or b[i - 1] is None: continue
+            if b[i] >= hthr and b[i - 1] < hthr:
+                e = {"d": D[i], "bias": round(b[i], 2), "px": round(C[i], 2), "fwd": {}}
+                for k in FWD:
+                    if i + k < n: e["fwd"][str(k)] = round((C[i + k] / C[i] - 1) * 100, 2)
+                if i + 13 < n: e["dd13"] = round((min(C[i + 1:i + 14]) / C[i] - 1) * 100, 2)
+                heps.append(e)
+        hbt = {}
+        for k in FWD:
+            xs = [e["fwd"][str(k)] for e in heps if str(k) in e["fwd"]]
+            if len(xs) >= 3:
+                hbt[str(k)] = {"n": len(xs), "win": round(100 * sum(1 for x in xs if x > 0) / len(xs)), "med": round(st.median(xs), 2),
+                               "avg": round(sum(xs) / len(xs), 2), "worst": round(min(xs), 2)}
+        dds = [e["dd13"] for e in heps if "dd13" in e]
+        res["hi_bt"] = hbt; res["hi_eps"] = heps[-8:]
+        if len(dds) >= 3: res["hi_dd13"] = {"n": len(dds), "med": round(st.median(dds), 2), "worst": round(min(dds), 2), "lower3": round(100 * sum(1 for x in dds if x <= -3) / len(dds))}
+        # 機械策略:進入高檔那週賣,乖離回到十年中位(≤50 分位)那週買回 vs 一直抱(同一段期間,週收盤執行,不含成本)
+        p50 = sorted(hist)[int(len(hist) * 0.5)] if (hist := [x for x in b if x is not None]) else None
+        if p50 is not None and n > 60:
+            hi_set = {i for i in range(MAIN, n) if b[i] is not None and b[i - 1] is not None and b[i] >= hthr and b[i - 1] < hthr}
+            eq = 1.0; inm = True; peak = 1.0; mdd = 0; nsell = 0; bh = 1.0; bpk = 1.0; bmdd = 0
+            for i in range(MAIN + 1, n):
+                r_ = C[i] / C[i - 1]; bh *= r_; bpk = max(bpk, bh); bmdd = min(bmdd, (bh / bpk - 1) * 100)
+                if inm: eq *= r_
+                peak = max(peak, eq); mdd = min(mdd, (eq / peak - 1) * 100)
+                if inm and i in hi_set: inm = False; nsell += 1
+                elif (not inm) and b[i] is not None and b[i] <= p50: inm = True
+            yrs = (n - MAIN - 1) / 52
+            cg = lambda v: round(((v) ** (1 / yrs) - 1) * 100, 1)
+            res["sell_vs_hold"] = {"hold": cg(bh), "sell": cg(eq), "hold_mdd": round(bmdd, 1), "sell_mdd": round(mdd, 1), "n_sell": nsell, "yrs": round(yrs, 1)}
+    except Exception as e:
+        log(f"  {name} 高檔回測略過:{e}")
     # 近 52 週的主乖離序列(前端畫小圖)
     res["spark"] = [round(x, 1) if x is not None else None for x in b[-52:]]
     res["spark_d"] = D[-52:]
