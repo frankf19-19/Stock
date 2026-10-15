@@ -88,10 +88,20 @@ def main():
             o_, h_, l_ = px(m, "o"), px(m, "h"), px(m, "l")
             if o_ and h_ and l_:
                 s["dhl"] = [round(o_, 2), round(h_, 2), round(l_, 2)]; s["dhd"] = now.strftime("%Y-%m-%d")
+            src = "z"
+            if not last:
+                # r1106:10/12 起 MIS 對九成以上股票(含台積電)z 與 pz 一律回 "-",只剩開高低量與五檔;
+                #       整天只有 150 檔有「成交價」,盤中即時、AI Pick 觸價全失效。改用「買一」當最近成交價的代理
+                #       (漲停鎖死:買一=漲停價、賣一空 → 正確;跌停鎖死:買一空 → 用賣一);不再退到昨收(r974 的事故來源)。
+                #       並夾在今天官方高低之間;標 pq="b" 讓後端/前端知道這是五檔推估不是成交價。
+                b1 = px(m, "b"); a1 = px(m, "a")
+                last = b1 or a1
+                if last and h_ and l_: last = min(max(last, l_), h_)
+                src = "b" if last else None
             if not last:
                 s["pz"] = 0
                 continue
-            s["price"] = round(last, 2)
+            s["price"] = round(last, 2); s["pq"] = src
             vv = px(m, "v")                                   # r1099:今日累計成交量(張)→ 前端算量比(AI Pick 短期清單的量能觀察)
             if vv: s["dvol"] = int(vv)
             if prev:
