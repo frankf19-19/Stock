@@ -16,7 +16,7 @@ SHOWS = {
                     "解讀前一晚美股、總經數據、國際新聞與資金面對台股的影響)"},
 }
 KEY   = os.environ.get("GEMINI_KEY", "").strip()
-MODEL = "gemini-2.5-flash"
+MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]   # 免費額度各自獨立:2.5 flash 被限流(429)就換下一個
 UA    = {"User-Agent": "Mozilla/5.0 (kyansuo-digest; personal dashboard)"}
 
 def log(*a): print(*a, flush=True)
@@ -69,8 +69,9 @@ def youtube_url(C, title):
     try:
         xml = requests.get(f"https://www.youtube.com/feeds/videos.xml?channel_id={cid}", headers=UA, timeout=20,
                            cookies={"CONSENT": "YES+cb", "SOCS": "CAI"}).text
-        for m in re.finditer(r"<entry>(.*?)</entry>", xml, re.S):
-            blk = m.group(1)
+        ents = re.findall(r"<entry>(.*?)</entry>", xml, re.S)
+        log(f"  頻道 RSS:{len(ents)} 支影片" + (f",最新:{(re.search(r'<title>(.*?)</title>', ents[0], re.S) or [None, ''])[1][:40]}" if ents else "(可能是同意頁/被擋)"))
+        for blk in ents:
             t = (re.search(r"<title>(.*?)</title>", blk, re.S) or [None, ""])[1]
             if want in norm(t) or norm(t) in want:
                 vid = (re.search(r"<yt:videoId>([\w-]+)</yt:videoId>", blk) or [None, None])[1]
@@ -138,19 +139,21 @@ def listen(C, src, title, retry=False):
 規則:純閒聊可以一句帶過;會員/贊助/業配段落完全跳過;他沒講的不要腦補;聽不清楚的段落註明。{'他若引用歌詞、詩句或文章原文,一律改用你自己的話描述,不要逐字引用。' if retry else ''}最後一行固定:AI 聆聽全集整理,觀點屬節目主持人,非投資建議。"""}]}],
         "generationConfig": {"maxOutputTokens": 8192, "thinkingConfig": {"thinkingBudget": 0}}}   # 關思考:思考會吃掉輸出額度而斷頭(前端同樣設定)
     r = None
-    for att in range(1, 4):
-        try:
-            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={KEY}", json=body, timeout=1500)
-            if r.ok: break
-            if r.status_code in (429, 500, 502, 503):
-                log(f"  第{att}次 Gemini {r.status_code},60秒後重試…"); time.sleep(60); continue
-            log(f"✗ Gemini {r.status_code}: {r.text[:300]}"); sys.exit(1)
-        except requests.exceptions.Timeout:
-            log(f"  第{att}次讀取逾時(1500s),重試…")
-        except Exception as e:
-            log(f"  第{att}次連線異常:{e},60秒後重試…"); time.sleep(60)
+    for model in MODELS:
+        for att in range(1, 3):
+            try:
+                r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={KEY}", json=body, timeout=1500)
+                if r.ok: break
+                if r.status_code in (429, 500, 502, 503):
+                    log(f"  {model} 第{att}次 {r.status_code}" + (",45秒後重試…" if att < 2 else ",換下一個模型")); time.sleep(45 if att < 2 else 2); continue
+                log(f"  ✗ {model} {r.status_code}: {r.text[:200]},換下一個模型"); break
+            except requests.exceptions.Timeout:
+                log(f"  {model} 第{att}次讀取逾時(1500s)")
+            except Exception as e:
+                log(f"  {model} 第{att}次連線異常:{e}"); time.sleep(30)
+        if r is not None and r.ok: log(f"  使用模型 {model}"); break
     if r is None or not r.ok:
-        log("✗ Gemini 連續失敗,下次排程再試。"); sys.exit(1)
+        log("✗ Gemini 全部模型都失敗(多半是免費額度限流),下次排程再試。"); return "", None
     cand = (r.json().get("candidates") or [{}])[0]
     parts = (cand.get("content") or {}).get("parts") or []
     fr = cand.get("finishReason")
@@ -193,7 +196,7 @@ def main():
         log(f"  整理太短或中斷({len(s or '')} 字,{fr}),重試一次…")
         s2, fr2 = listen(C, src, title, retry=True)
         if len(s2 or "") > len(s or ""): s, fr = s2, fr2
-    if not s: log("✗ 空回應"); sys.exit(1)
+    if not s: log("✗ 空回應,下次排程再試"); return
     eps = [x for x in eps if x.get("t") != title]
     rec = {"t": title, "dt": ep.get("releaseDate", ""), "yt": link, "s": s, "u": time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 8 * 3600))}
     eps = [rec] + eps
