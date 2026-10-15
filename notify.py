@@ -664,6 +664,16 @@ def collect_events(aip, prices):
             ev.append((f"tr|{today}|{hashlib.md5(body.encode()).hexdigest()[:10]}", lvl, f"🎯 <b>AI Pick 每日交易</b>\n{body}"))
     except Exception:
         pass
+    # r1107:AI Pick 三清單的盤中記帳(aip3.py 盤中班:09:00 開盤成交、盤中停損/停利/掉出排名)——成交/出場 = 一級事實
+    try:
+        import hashlib
+        for x in (load("aip3.json", {}).get("rt_log") or [])[-40:]:
+            if not x.startswith(today): continue
+            body = x[11:]
+            if not any(k in body for k in ("🟢", "🛑 停損", "🎯 停利", "📉 掉出排名")): continue
+            ev.append((f"a3|{today}|{hashlib.md5(body.encode()).hexdigest()[:10]}", 1, f"🤖 <b>AI Pick 三清單</b>\n{body}"))
+    except Exception:
+        pass
     return ev
 
 

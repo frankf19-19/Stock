@@ -24,7 +24,7 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1102"
+VER = "r1107"
 NEWS_TTL_D = 7      # Google News RSS 快取天數(免費、不用金鑰)
 PROV_MAX_TD = 3     # 長期清單「暫定」最多等 3 個交易日:AI 評分沒評完(額度 429)就先不成交、下一班再補評;超過就用現有分數成交
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
@@ -34,6 +34,11 @@ AI_BUDGET_SEC = 480 # 整班 AI 呼叫時間上限;超過就不再打,沒評到�
 import time as _time
 _T0 = _time.time()
 K = 5
+# r1107:三清單的進出場參數(晚上主班用日 K、盤中班用即時開高低,兩邊共用同一份,不會對不上)
+TIER_RULES = {"short": dict(hold_max=15, tp=0.20, sl=0.15),     # r1098:停利 +20% / 停損 −15%(回測 +34.2%、回落 −34%、最差年 −10%)
+              "mid": dict(tp=0.25, sl_atr=4),                   # r1098:4 ATR 停損(原回測設定)+ 停利 +25%(回測 +41.5%)
+              "long": {}}                                       # 長期:模型不停損不停利(回測都降年化),只有季檢視
+LIVE_OUT = "aip3_live.json"
 
 
 def log(*a): print(*a, flush=True)
@@ -476,7 +481,8 @@ def levels(p, key, us=False, prev=None):
                 sl, sls = buy * 0.92, "進場 −8%(回測:長期任何停損都降年化,但不補位可把回落 −46% 壓到 −28%;停損後等下一季,不要換股)"
                 tp, tps = buy * 1.40, "進場 +40% 減碼一半(回測:長期全賣的停利都讓年化變差,+40% 影響最小)"
                 add, adds = buy * 1.10, "進場 +10%(回測:加碼後平均再 +12.4%、56% 賺——長期贏家會續強)"
-            if prev and prev.get("sl") and p.get("fill_d"): sl = max(sl, prev["sl"]); sls = prev.get("sl_src") if prev["sl"] >= sl else sls
+            if prev and prev.get("sl") and p.get("fill_d") and prev.get("anchor") == round(float(buy), 2):   # r1107:只在同一個進場價之間「只上不下」;成交那一刻錨換成開盤價就重算
+                sl = max(sl, prev["sl"]); sls = prev.get("sl_src") if prev["sl"] >= sl else sls
             if add <= sl * 1.02: add, adds = buy * 1.10, "進場 +10%"               # 加碼價不能貼著停損
             re_ = sl + 1.0 * a
             R = lambda v: aipick.rtick(float(v), "near")
@@ -653,7 +659,7 @@ def main():
     log(f"aip3:台股最後交易日 {twd}、美股 {usd}")
     # ── 台股 短期 ──
     T = tw["short"]
-    fill_and_track(T, False, hold_max=15, tp=0.20, sl=0.15)             # r1098:停利 +20% / 停損 −15%(回測 +34.2%、回落 −34%、最差年 −10%)
+    fill_and_track(T, False, **TIER_RULES["short"])                     # r1098:停利 +20% / 停損 −15%(回測 +34.2%、回落 −34%、最差年 −10%)
     if twd and (week_last(twd) or not T["sel_d"]) and T["sel_d"] != twd:
         held = {p["id"] for p in T["slots"]}
         if len(T["slots"]) < K:
@@ -672,7 +678,7 @@ def main():
             if p["fill_d"] and p["fill_d"] < twd and not p.get("x_open"):
                 rk = (ra.get(p["id"]) or [9999])[0]
                 if rk > 200: p["x_open"], p["x_why"] = twd, "rank"; log(f"  中期:{p['name']} 掉到第 {rk} 名 → 隔天開盤賣")
-        fill_and_track(T, False, tp=0.25, sl_atr=4)                       # r1098:4 ATR 停損(原回測設定)+ 停利 +25%(回測 +41.5%)
+        fill_and_track(T, False, **TIER_RULES["mid"])                     # r1098:4 ATR 停損(原回測設定)+ 停利 +25%(回測 +41.5%)
         held = {p["id"] for p in T["slots"]}; sold_today = {h["id"] for h in T["hist"] if h.get("xd") == twd}
         for c in top:
             if len(T["slots"]) >= K: break
@@ -680,7 +686,7 @@ def main():
             T["slots"].append(slot(c, twd, {"sel_px": (STK.get(c["id"]) or {}).get("price")})); held.add(c["id"])
         T["sel_d"] = twd
     else:
-        fill_and_track(T, False, tp=0.25, sl_atr=4); log(f"  中期:量價排名日 {rd} 與 K 線 {twd} 不同,今天不換股")
+        fill_and_track(T, False, **TIER_RULES["mid"]); log(f"  中期:量價排名日 {rd} 與 K 線 {twd} 不同,今天不換股")
     # ── 台股 長期 ──
     T = tw["long"]; AIC = J.setdefault("ai_cache", {})
     if T.get("rv") != LONG_RV:                                          # r1095:規則改版(加 AI 未來性排序)——清單還沒成交就重選
@@ -761,11 +767,124 @@ def main():
     cut = (NOW - dt.timedelta(days=120)).strftime("%Y-%m-%d")
     out = {"ver": VER, "u": NOW.strftime("%Y-%m-%d %H:%M"), "tw_day": twd, "us_day": usd, "tw": tw, "us": us,
            "start": J.get("start") or NOW.strftime("%Y-%m-%d"), "ai_cache": {k: v for k, v in (J.get("ai_cache") or {}).items() if (v or {}).get("d", "") >= cut}}
+    if J.get("rt_log"): out["rt_log"] = J["rt_log"][-120:]                 # r1107:盤中記帳紀錄(永久留在檔裡)
+    if J.get("rt"): out["rt"] = J["rt"]
     json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    try: write_live(out)
+    except Exception as e: log(f"  盤中小檔略過 {e}")
     log("aip3:完成 " + " ".join(f"{m}.{k}={len(T['slots'])}檔" for m, mk in (("tw", tw), ("us", us)) for k, T in mk.items()))
 
 
+# ═══════════════ r1107:盤中即時記帳(intraday-quotes 每 5 分鐘呼叫,AIP3_LIGHT=1)═══════════════
+def _live(sid, today):
+    """今天的即時價與官方開高低(update_quotes.py 寫在 data.json);不是今天的資料就當沒有"""
+    s = STK.get(sid) or {}
+    ok = s.get("pz") == 1 and str(s.get("pt") or "")[:10] == today and s.get("dhd") == today and s.get("dhl")
+    if not ok: return None, None
+    try:
+        hl = [float(x) for x in s["dhl"]]
+        return (float(s["price"]), hl) if hl[0] > 0 else (None, None)
+    except Exception: return None, None
+
+
+def _slim(p):
+    return {k: v for k, v in p.items() if k not in ("news", "ind", "ind_src", "ind_try", "why")}
+
+
+def write_live(J, ev=None):
+    """aip3_live.json:盤中會變的部分(台股三清單的槽位、今天出場的、今天的紀錄),約 20 KB;前端盤中每分鐘讀這個小檔併回 aip3.json"""
+    today = NOW.strftime("%Y-%m-%d")
+    tw = J.get("tw") or {}
+    L = {"u": NOW.strftime("%Y-%m-%d %H:%M"), "d": today, "src": J.get("u"), "rt": J.get("rt"), "ev": [x for x in (J.get("rt_log") or []) if x.startswith(today)][-40:], "tw": {}}
+    for k in ("short", "mid", "long"):
+        T = tw.get(k)
+        if not T: continue
+        L["tw"][k] = {"slots": [_slim(p) for p in T.get("slots") or []], "hist_today": [_slim(h) for h in (T.get("hist") or [])[-30:] if h.get("xd") == today],
+                      "perf": T.get("perf"), "upd": T.get("upd"), "ai_done": T.get("ai_done")}
+    s = json.dumps(L, ensure_ascii=False, separators=(",", ":"))
+    open(LIVE_OUT, "w", encoding="utf-8").write(s)
+    log(f"aip3 盤中小檔:{len(s)//1024} KB")
+
+
+def run_intraday():
+    """盤中班(09:00~13:35,每 5 分鐘)——規則跟晚上主班的日 K 版一模一樣,只是用官方開高低「當下」判:
+    ① 待買:選股日的下一個交易日 = 今天 → 09:00 開盤一出來就以官方開盤價成交(中期清單同時算 4 ATR 停損價)
+    ② 持有:今天官方最低 ≤ 停損 → 出場(出場價 = min(開盤, 停損));官方最高 ≥ 停利 → 出場(max(開盤, 停利));
+       掉出排名(x_open)→ 開盤價賣。到期(第 15 天收盤)與季檢視要等收盤,留給晚上主班;晚上主班再用官方日 K 核對一次(同一條規則,結果一致)
+    只處理台股:美股盤中在台北夜間,沒有盤中班,仍由主班用日 K 結算。
+    有成交/出場才改寫 aip3.json;每輪都寫 aip3_live.json(小檔)讓前端一分鐘內看到。"""
+    J = load(OUT, {}) or {}
+    tw = J.get("tw") or {}
+    if not tw: log("aip3 盤中:沒有 aip3.json,略過"); return
+    today = NOW.strftime("%Y-%m-%d"); hhmm = NOW.strftime("%H:%M")
+    if not trading(today) or not ("09:00" <= hhmm <= "13:35"): log(f"aip3 盤中:{today} {hhmm} 非交易時段,略過"); return
+    ev = []; nm = {"short": "🏃 短期", "mid": "🌊 中期", "long": "🏦 長期"}
+    for key in ("short", "mid", "long"):
+        T = tw.get(key)
+        if not T: continue
+        R = TIER_RULES[key]
+        # ① 待買成交
+        for p in T.get("slots") or []:
+            if p.get("fill_d") or p.get("st") != "pend" or not p.get("sel_d"): continue
+            if next_td(p["sel_d"]) != today: continue                          # 只接「選股日的下一個交易日」;資料延誤的情況留給主班用日 K 補
+            if key == "long" and T.get("ai_done") is False: continue           # 暫定名單(AI 還沒評完)先不成交
+            px, hl = _live(p["id"], today)
+            if not hl: continue
+            op, h, l = hl
+            p["fill_d"], p["entry"], p["st"], p["ft"], p["rt"] = today, round(op, 2), "hold", "09:00", 1
+            p["hi"], p["lo"] = h, l
+            if R.get("sl_atr"):
+                prev = [b[1] for b in raw_bars(p["id"]) if b[0] < today][-15:]
+                if len(prev) >= 15: p["sl_px"] = round(p["entry"] - R["sl_atr"] * _atr14(prev), 2); p["sl_why"] = f"進場價 − {R['sl_atr']:g}×ATR"
+            ev.append(f"{today} 09:00 🟢 {nm[key]}買進 {p['name']}({p['id']})官方開盤 {p['entry']}" + (f"(停損 {p['sl_px']})" if p.get("sl_px") else ""))
+        # ② 持有中的出場判定
+        keep = []
+        for p in T.get("slots") or []:
+            if not p.get("fill_d") or p.get("st") != "hold" or not p.get("entry"): keep.append(p); continue
+            px, hl = _live(p["id"], today)
+            if px is None: keep.append(p); continue
+            op, h, l = hl; e = p["entry"]
+            p["hi"] = max(p.get("hi") or 0, h); p["lo"] = min(p.get("lo") or 1e18, l)
+            n = sum(1 for b in raw_bars(p["id"]) if p["fill_d"] <= b[0] < today) + 1
+            xp = xw = xt = None
+            if R.get("sl") and l <= e * (1 - R["sl"]): xp, xw, xt = round(min(op, e * (1 - R["sl"])), 2), "sl", hhmm
+            elif p.get("sl_px") and l <= p["sl_px"]: xp, xw, xt = round(min(op, p["sl_px"]), 2), "sl", hhmm
+            elif R.get("tp") and h >= e * (1 + R["tp"]): xp, xw, xt = round(max(op, e * (1 + R["tp"])), 2), "tp", hhmm
+            elif p.get("x_open") and today > p["x_open"]: xp, xw, xt = round(op, 2), p.get("x_why", "rank"), "09:00"
+            if xp:
+                p.update(xd=today, xt=xt, xp=xp, xw=xw, ret=round((xp / e - 1) * 100, 2), st="done", last=xp, last_d=today, days=n, rt=1)
+                T.setdefault("hist", []).append(p); T["hist"] = T["hist"][-400:]
+                lab = {"sl": "🛑 停損", "tp": "🎯 停利", "rank": "📉 掉出排名", "quarter": "季檢視"}.get(xw, xw)
+                ev.append(f"{today} {xt} {lab} {nm[key]} {p['name']}({p['id']})@{xp}({p['ret']:+.2f}%)"); continue
+            p["last"], p["last_d"], p["days"] = round(px, 2), today, n
+            p["ret"] = round((px / e - 1) * 100, 2)
+            keep.append(p)
+        T["slots"] = keep
+    J["rt"] = {"d": today, "t": hhmm}
+    if ev:
+        for key in ("short", "mid", "long"):
+            T = tw.get(key)
+            if not T: continue
+            try: tier_levels(T, key, False)                                  # 成交後參考價位改以進場價算、出場的補再買回價
+            except Exception as e2: log(f"  {key} 參考價位例外 {e2}")
+            perf(T); T["upd"] = NOW.strftime("%Y-%m-%d %H:%M")
+        J["rt_log"] = ((J.get("rt_log") or []) + ev)[-120:]
+        J["u"] = NOW.strftime("%Y-%m-%d %H:%M")
+        json.dump(J, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        for x in ev: log("  " + x)
+        log(f"aip3 盤中:{len(ev)} 筆成交/出場,已寫回 {OUT}")
+    else:
+        # 沒事件:aip3.json 不動(避免每 5 分鐘一個 120 KB 的提交),只更新小檔
+        log(f"aip3 盤中 {hhmm}:無成交/出場")
+    write_live(J)
+
+
 if __name__ == "__main__":
+    if os.environ.get("AIP3_LIGHT") == "1":
+        try: run_intraday()
+        except Exception as e:
+            import traceback; traceback.print_exc(); print("aip3 盤中:例外", e)
+        raise SystemExit(0)
     try: main()
     except Exception as e:
         import traceback; traceback.print_exc(); print("aip3:例外", e)

@@ -1,4 +1,4 @@
-/* K研所 · build r1105 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1107 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1105';
+const APP_BUILD='r1107';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2479,7 +2479,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1105</span>');
+  diag.push('<span style="color:var(--dim)">build r1107</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -22620,6 +22620,30 @@ async function aip3Load(force){try{const live=(marketOpen()||(typeof usSession==
   if(!force&&AIP3&&Date.now()-AIP3_T<(live?3:10)*60e3)return AIP3;
   const r=await fT('aip3.json?v='+kv()+'_'+Math.floor(Date.now()/(live?180e3:600e3)),15000,{cache:live?'no-store':'default'});
   if(r&&r.ok){const j=await r.json();if(j&&j.tw){AIP3=j;AIP3_T=Date.now();}}}catch(e){}return AIP3;}
+/* r1107:盤中小檔 aip3_live.json(後端盤中班每 5 分鐘寫,約 15 KB)——09:00 開盤成交、盤中停損/停利一分鐘內就出現,不用等晚上主班
+   src = 它是從哪一版 aip3.json 算出來的:比手上的主檔新 → 先重抓主檔;比主檔舊 → 不倒退 */
+let AIP3L_T=0,AIP3L_U='';
+async function aip3LiveLoad(force){
+  try{
+    if(!force&&Date.now()-AIP3L_T<55e3)return false;AIP3L_T=Date.now();
+    const r=await fT('aip3_live.json?_='+Math.floor(Date.now()/55e3),8000,{cache:'no-store'});if(!r||!r.ok)return false;
+    const j=await r.json();if(!j||!j.tw||!j.u||j.u<=AIP3L_U)return false;
+    if(!AIP3){await aip3Load(true);if(!AIP3)return false;}
+    if(j.src&&AIP3.u&&j.src>AIP3.u)await aip3Load(true);
+    if(j.src&&AIP3.u&&j.src<AIP3.u)return false;
+    const M=AIP3.tw||{};
+    Object.keys(j.tw).forEach(k=>{const L=j.tw[k],T=M[k];if(!T||!L)return;
+      const by={};(T.slots||[]).forEach(p=>by[p.id]=p);
+      T.slots=(L.slots||[]).map(x=>Object.assign({},by[x.id]||{},x));
+      T.hist=T.hist||[];
+      (L.hist_today||[]).forEach(h=>{const i=T.hist.findIndex(x=>x.id===h.id&&x.xd===h.xd);if(i>=0)T.hist[i]=Object.assign({},T.hist[i],h);else T.hist.push(Object.assign({},by[h.id]||{},h));});
+      if(L.perf)T.perf=L.perf;if(L.upd)T.upd=L.upd;if(L.ai_done!=null)T.ai_done=L.ai_done;});
+    if(j.rt)AIP3.rt=j.rt;
+    if(j.ev&&j.ev.length)AIP3.rt_log=(AIP3.rt_log||[]).filter(x=>!x.startsWith(j.d)).concat(j.ev);
+    AIP3L_U=j.u;return true;
+  }catch(e){return false;}
+}
+setInterval(()=>{try{if(document.hidden||window.GMKT==='US'||!marketOpen())return;const b=document.getElementById('aip3Box');if(!b)return;aip3LiveLoad().then(ch=>{if(ch)renderAip3();});}catch(e){}},60e3);
 function aip3Px(id,us){                                 // 現價:台股=即時報價(DATA.stocks);美股=CNBC/Finnhub 即時(usPx),都沒有就用後端最後收盤
   if(us){const q=usPx(id);return q&&q.px?{px:q.px,rt:q.rt,lab:usRtLabel(q)}:{px:null,rt:0};}
   const st=(DATA.stocks||[]).find(x=>x.id===id);return st&&st.price>0?{px:+st.price,rt:marketOpen()?1:0,lab:marketOpen()?'即時':'收盤'}:{px:null,rt:0};
@@ -22634,7 +22658,8 @@ function aip3Tier(key,T,us){
     const px=live?q.px:(p.last??q.px);const ret=p.st==='done'?p.ret:(px&&p.entry?(px/p.entry-1)*100:null);
     const stC=p.st==='pend'?'var(--amber)':p.st==='done'?'var(--mut)':'var(--up)';
     const prov=key==='long'&&T.ai_done===false&&p.st==='pend';   // r1100:長期暫定名單——AI 未來性還沒評完,先不成交
-    const stT=prov?'⏳ 等 AI 評分完成再成交':p.st==='pend'?(us?'下個交易日開盤買':'下個交易日 9:00 開盤買'):p.st==='done'?`已出場 ${md(p.xd)}`:p.st==='nofill'?'未成交':`持有 ${p.days||0} 天`;
+    const tdy=!us&&aipIso(aipTpDate());   // r1107:台股盤中——選股日之後的第一個交易日開盤,後端盤中班 5 分鐘內記成交;出場帶時間
+    const stT=prov?'⏳ 等 AI 評分完成再成交':p.st==='pend'?(us?'下個交易日開盤買':(tdy&&p.sel_d&&p.sel_d<tdy&&marketOpen()?'今天 9:00 開盤買・盤中記帳中(約 5 分鐘)':'下個交易日 9:00 開盤買')):p.st==='done'?`已出場 ${md(p.xd)}${p.xt?' '+p.xt:''}`:p.st==='nofill'?'未成交':`持有 ${p.days||0} 天`;
     let extra='';
     if(p.st==='hold'){
       if(key==='short'&&!us)extra=`最多再 ${Math.max(0,15-(p.days||0))} 天`;
@@ -22646,7 +22671,7 @@ function aip3Tier(key,T,us){
     const aiChip=key==='long'&&p.ai!=null?`<span style="color:${aiC};border-color:${aiC};font-weight:800">🔮 未來性 ${p.ai}/10${p.ai0!=null&&p.ai0!==p.ai?`(選入時 ${p.ai0})`:''}</span>`:(key==='long'&&p.st!=='done'?`<span class="dim">🔮 未來性:AI 尚未評分,先依量化排序</span>`:'');
     const why=aiChip+(p.why||[]).slice(0,key==='long'?4:3).map(x=>`<span>${x}</span>`).join('')+(extra?`<span style="color:var(--amber);border-color:var(--amber)">${extra}</span>`:'');
     return `<div class="a3-row"><div class="a3-nm"><a href="#stock/${p.id}">${p.name||p.id}</a><span class="c-code">${p.id}</span>${p.cur&&p.cur!==p.id?`<span class="dim" style="font-size:11px"> → 現持 ${p.cur}</span>`:''}<span class="a3-st" style="color:${stC}">${stT}</span></div>
-      <div class="a3-px">${p.entry?`${cur}${(+p.entry).toLocaleString()}<small>進場 ${md(p.fill_d)}</small>`:`${cur}${p.sel_px!=null?(+p.sel_px).toLocaleString():'—'}<small>選股日收盤</small>`}</div>
+      <div class="a3-px">${p.entry?`${cur}${(+p.entry).toLocaleString()}<small>進場 ${md(p.fill_d)}${p.ft?' '+p.ft:''}</small>`:`${cur}${p.sel_px!=null?(+p.sel_px).toLocaleString():'—'}<small>選股日收盤</small>`}</div>
       <div class="a3-ret" style="color:${cl(ret)}">${p.entry?fp(ret):'—'}<small>${px?`${p.st==='done'?'出場 ':'現價 '}${cur}${(+px).toLocaleString()}${p.st!=='done'&&q.rt?'・'+(q.lab||'即時'):''}`:''}</small></div>
       <div class="a3-why">${why}</div>${aip3LvHTML(p,px,us)}${key==='short'?aip3TechHTML(p,px,us):''}${p.ind?`<div class="a3-ind">🏭 <b>產業分析</b>(${p.ai_eng==='claude'?'Claude':'AI'} 讀最近 90 天新聞${p.ai_d?'・'+md(p.ai_d)+' 評':''}・敘述非驗證):${p.ind}${p.ind_src?`<br><span class="dim">📰 依據:${p.ind_src}</span>`:''}</div>`:(key==='long'&&p.st!=='done'?'<div class="a3-ind dim">🏭 產業分析與未來性評分:下一班後端補上</div>':'')}${key==='long'&&p.st!=='done'&&(p.news||[]).length?`<div class="a3-ind a3-news">📰 <b>最近新聞</b>(Google News・90 天內${p.news_d?'・'+md(p.news_d)+' 抓':''}):${p.news.slice(0,3).map(n=>`<a href="${(n.u||'#').replace(/"/g,'')}" target="_blank" rel="noopener">${n.d?md(n.d)+' ':''}${n.s?n.s+':':''}${String(n.t||'').replace(/</g,'&lt;')}</a>`).join('<br>')}</div>`:''}</div>`;}).join('');
   const empty=K3-(T.slots||[]).length;
@@ -22717,12 +22742,15 @@ function renderAip3(){
   const box=document.getElementById('aip3Box');if(!box)return;
   const J=AIP3;if(!J){box.innerHTML='<div class="dim-note">⏳ 三清單讀取中…(後端每天收盤後產生 aip3.json;第一次要等下一班)</div>';return;}
   const us=window.GMKT==='US';const M=us?J.us:J.tw;if(!M){box.innerHTML='<div class="dim-note">尚無資料</div>';return;}
-  const html=`<div class="dim-note" style="margin:0 0 8px">${us?'🇺🇸 美股':'🇹🇼 台股'}・更新 ${J.u||''}(K 線到 ${us?J.us_day:J.tw_day})・三個清單各自獨立、各 5 檔;進場價一律是「下個交易日開盤價」,網站自己逐日記帳,不是回頭補的。${us?'<b>美股資料只有目前 S&P 500 成分股,歷史有倖存者偏差;中期、長期標示為參考。</b>':''}規則與回測:<a href="#learn/aip3" style="color:var(--t-blue)">怎麼驗證的 →</a></div>
-    <div class="a3-grid">${['short','mid','long'].map(k=>M[k]?aip3Tier(k,M[k],us):'').join('')}</div>
+  const tdy=aipIso(aipTpDate()),rtOn=!us&&J.rt&&J.rt.d===tdy;   // r1107:盤中記帳心跳 + 今天的成交/出場紀錄
+  const evs=us?[]:(J.rt_log||[]).filter(x=>String(x).startsWith(tdy)).map(x=>String(x).slice(11));
+  const evHtml=evs.length?`<details class="a3-evlog"><summary>📒 今天盤中記帳 ${evs.length} 筆・最新:${evs[evs.length-1]}</summary><ul>${evs.slice().reverse().map(x=>`<li>${x}</li>`).join('')}</ul></details>`:'';
+  const html=`<div class="dim-note" style="margin:0 0 8px">${us?'🇺🇸 美股':'🇹🇼 台股'}・更新 ${J.u||''}(K 線到 ${us?J.us_day:J.tw_day})${rtOn?`・<b style="color:var(--up)">⏱ 盤中記帳到 ${J.rt.t}</b>`:(!us&&marketOpen()?'・⏱ 盤中記帳每 5 分鐘一輪':'')}・三個清單各自獨立、各 5 檔;進場價一律是「下個交易日開盤價」,${us?'網站自己逐日記帳':'台股盤中就記帳(09:00 開盤成交、碰到停損停利當下出場),晚上再用官方日 K 核對'},不是回頭補的。${us?'<b>美股資料只有目前 S&P 500 成分股,歷史有倖存者偏差;中期、長期標示為參考。</b>':''}規則與回測:<a href="#learn/aip3" style="color:var(--t-blue)">怎麼驗證的 →</a></div>
+    ${evHtml}<div class="a3-grid">${['short','mid','long'].map(k=>M[k]?aip3Tier(k,M[k],us):'').join('')}</div>
     <div class="dim-note">短期、中期、長期是三種不同節奏,不是同一檔股票的三種看法;同一檔可能同時出現在兩個清單。數字是模型帳上的紀錄,非投資建議。<br>🧭 每檔下面的 <b>🛑 停損 / 🎯 停利 / ➕ 加碼 / 🔁 再買回</b>:三個清單各自回測後分別定(短期 −15%/+20%、中期 4 ATR/+25%、長期 −8%/+40% 減碼一半);短期與中期的停損停利就是模型自己的出場規則,長期的是給你自己控風險的參考(回測:長期任何停損停利都會降年化,但停損不補位能把回落砍一半)。現價即時比對,碰到就跳提示;賣出後 10 個交易日內站回再買回價也會提示——但回測顯示停損後急著買回三個清單都虧,請當提醒不是建議。細節:<a href="#learn/aip3">看說明</a>。</div>`;
   if(box.__h!==html){box.innerHTML=html;box.__h=html;}
 }
-lazyRun('#aip3Box',()=>{aip3Load().then(()=>renderAip3());},10*60*1000);
+lazyRun('#aip3Box',()=>{aip3Load().then(()=>aip3LiveLoad(true)).then(()=>renderAip3());},10*60*1000);
 setInterval(()=>{try{const b=document.getElementById('aip3Box');if(!b||document.hidden||!AIP3)return;const r=b.getBoundingClientRect();if(r.bottom<-200||r.top>innerHeight*1.5)return;
   if(marketOpen()||(window.GMKT==='US'&&typeof usSession==='function'&&usSession()!=='休市'))renderAip3();}catch(e){}},15000);   // 盤中 15 秒跟即時價
 /* r890:AI Pick 分台股/美股——AIPK 永遠是台股(最愛/提醒/哨兵都依賴它);美股另存 AIPK_US,渲染時暫時換上 */
