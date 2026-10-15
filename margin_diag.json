@@ -1,5 +1,5 @@
 {
- "ts": "2026-10-14T18:09:59.076390",
+ "ts": "2026-10-15T14:21:35.399649",
  "steps": [
   {
    "s": "mi_margn_positional",
@@ -16,7 +16,7 @@
   },
   {
    "s": "twse_margin",
-   "n": 1299
+   "n": 1300
   },
   {
    "s": "twt93u_positional",
@@ -88,8 +88,8 @@
   {
    "s": "twse_daytrade_ok",
    "tag": "legacy",
-   "n": 1226,
-   "nonzero": 1125
+   "n": 1228,
+   "nonzero": 1182
   },
   {
    "s": "tpex_margin_ok",
