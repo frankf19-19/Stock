@@ -1,4 +1,4 @@
-/* K研所 · build r1104 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1105 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1104';
+const APP_BUILD='r1105';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -504,6 +504,25 @@ const APP_BUILD='r1104';
     document.body.appendChild(b);}},25000);
   window.addEventListener('error',e=>{try{if(window.DATA&&DATA.stocks)return;const b=document.getElementById('bootWarn')||document.createElement('div');b.id='bootWarn';b.style.cssText='position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));z-index:9999;background:#2a1010;border:1px solid #e05a4a;border-radius:12px;padding:10px 14px;font-size:13px;color:#ffd9d4';b.textContent='⚠ 程式錯誤:'+String(e.message||'').slice(0,120)+'(請截圖給 Frank)';document.body.appendChild(b);}catch(_){}});
 }catch(e){}})();
+/* r1105:頁面一直開著(手機 PWA 從背景叫回來)也要吃到新版本——每 10 分鐘與回到前景時比對 index.html 的 build,不同就重新載入 */
+(function(){
+  let busy=false,last=0;
+  async function chk(){try{
+    if(busy||Date.now()-last<60e3)return;busy=true;last=Date.now();
+    const r=await fetch('index.html?_='+Date.now(),{cache:'no-store'});if(!r.ok)return;
+    const m=/<meta name="build" content="([^"]+)"/.exec(await r.text());const want=m&&m[1];
+    if(want&&want!==APP_BUILD){
+      try{sessionStorage.removeItem('__vfix');}catch(e){}
+      const idle=document.hidden||(Date.now()-(window.__lastTouch||0)>20e3);
+      if(idle){location.reload();return;}
+      if(!document.getElementById('newBuildBar')){const b=document.createElement('div');b.id='newBuildBar';b.style.cssText='position:fixed;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom));z-index:9999;background:#132a1a;border:1px solid #5FB37A;border-radius:12px;padding:10px 14px;font-size:14px;color:#dfe';
+        b.innerHTML='🆕 網站有新版本('+want+'),<button onclick="location.reload()" style="margin-left:6px;padding:4px 10px;border-radius:8px;border:1px solid #5FB37A;background:transparent;color:#dfe;font-weight:800">點一下更新</button>';document.body.appendChild(b);}
+    }
+  }catch(e){}finally{busy=false;}}
+  ['touchstart','pointerdown','keydown','scroll'].forEach(ev=>addEventListener(ev,()=>{window.__lastTouch=Date.now();},{passive:true}));
+  setInterval(chk,10*60e3);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){last=0;setTimeout(chk,800);}});
+})();
 /* r932:自動把每個表格包進可左右滑的框(手機不再擠成一個字一行);用 MutationObserver 在畫面更新後處理 */
 (function(){
   const SKIP='.tbl-scroll,.ait-tw,.aps-card .ait-tw,[style*="overflow"],.chart-box';
@@ -2460,7 +2479,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1104</span>');
+  diag.push('<span style="color:var(--dim)">build r1105</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -21778,7 +21797,14 @@ function sbMerge(cloud,local,cloudAt){                      // 合併策略:最�
       const pm=v=>{try{const o=JSON.parse(v||'{}');return o&&typeof o==='object'?o:{};}catch(e){return{};}};
       const mx=(a,b)=>{const o={};[a,b].forEach(m=>Object.keys(m).forEach(k=>{const v=+m[k]||0;if(v>(o[k]||0))o[k]=v;}));return o;};
       const at=mx(pm((cloud||{}).fav_at),pm((local||{}).fav_at)),rm=mx(pm((cloud||{}).fav_rm),pm((local||{}).fav_rm));
-      const u=[...new Set([...lf,...cf].map(String))].filter(id=>((at[id]||1)>(rm[id]||0)));
+      const lts=+(sbDirtyGet().fav_ids||0),cts=cloudAt?Date.parse(cloudAt):0;   // r1105:沒有加入/移除記錄的舊收藏:只在一邊的,看哪一邊比較新——新的一邊沒有它就是被刪了
+      const lS=new Set(lf.map(String)),cS=new Set(cf.map(String));
+      const u=[...new Set([...lf,...cf].map(String))].filter(id=>{
+        const A=at[id]||0,R=rm[id]||0;
+        if(A||R)return A>R;
+        const inL=lS.has(id),inC=cS.has(id);
+        if(inL&&inC)return true;
+        return inL?(lts>=cts):(cts>lts);});
       const cut=Date.now()-180*86400e3;Object.keys(rm).forEach(k=>{if(rm[k]<cut&&!u.includes(k))delete rm[k];});   // 半年前的刪除記錄清掉
       out.fav_ids=JSON.stringify(u.slice(-100));out.fav_at=JSON.stringify(at);out.fav_rm=JSON.stringify(rm);
     }
