@@ -1,4 +1,4 @@
-/* K研所 · build r1103 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1104 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1103';
+const APP_BUILD='r1104';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2460,7 +2460,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1103</span>');
+  diag.push('<span style="color:var(--dim)">build r1104</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -23512,6 +23512,9 @@ function biasLivePx(x,uTs){
     const d=s&&s.d;if(d&&d.t&&d.t.length){const i=d.t.length-1;cand(new Date(d.t[i]*1000).toISOString().slice(0,10),d.c[i],d.t[i]*1000,'d');}
     const k=x.sym==='^TWII'?'加權':x.sym==='^TWOII'?'櫃買':null,r=k&&window.RTIDX&&window.RTIDX[k];
     if(r&&r.val&&r.ts&&Date.now()-r.ts<15*60000)cand(tpDay(r.ts/1000),r.val,r.ts,'rt');
+    const sid=String(x.sym||'').replace(/\.TWO?$/,'');                     // r1104:台股個股/ETF(正2 卡)→ 用網站的即時報價(MIS,盤中約 1 分鐘)
+    if(/^\d/.test(sid)){const st=(window.DATA&&DATA.stocks||[]).find(q=>q.id===sid);
+      if(st&&st.price>0&&st.pt){const ts=Date.parse(String(st.pt).replace(' ','T')+':00+08:00');if(isFinite(ts))cand(String(st.pt).slice(0,10),+st.price,ts,'rt');}}
   }
   if(!best)return null;
   if(best.d===x.as_of&&(best.ts<=uTs||Math.abs(best.px-x.last)<=x.last*1e-5))return null;   // 官方那班已經比較新
@@ -23569,20 +23572,42 @@ function renderBias(){
   const lows=IDX.filter(x=>x.zone==='低檔'||x.zone==='偏低');
   const html=`<div class="dim-note" style="margin-bottom:8px">正式週線 ${J.u} 更新;盤中每 20 秒用即時價重算「這一週」(標 ⚡;美股 CNBC 即時報價、台股盤中即時指數),收盤後以正式週收盤為準。乖離 =(週收 − 20 週均)÷ 20 週均;<b>低檔/高檔不用固定 %</b>,而是每個指數放進它自己十年的乖離分佈:≤10 分位 = 低檔、≥90 = 高檔。灰帶 = 10~90 分位區間,線在灰帶下緣以下就是歷史上罕見的便宜。${lows.length?`<b style="color:var(--up)">現在在低檔/偏低區:${lows.map(x=>x.name).join('、')}</b>`:'現在沒有指數在低檔區。'}</div>
     <div class="bias-grid">${rows}</div>
-    ${levHTML(J)}
+    ${levHTML(J,IDX,uTs)}
     <div class="dim-note" style="margin-top:8px">「低檔進場回測」= 過去十年每次從上方跌進低檔區的那一週買進,8/13 週後的結果;跟「任意時點」基準比才知道低檔有沒有優勢。乖離低檔是<b>時機</b>不是保證——系統性事件(2020/03、2022)時可以更低。資料:Yahoo 週線(櫃買 Yahoo 停更的部分用櫃買中心官方收盤補)。非投資建議。</div>`;
   if(box.__h!==html){box.innerHTML=html;box.__h=html;}
 }
 /* r883:🚀 台股正2 進場時機卡 */
 const LEV_SHOW=false;   // r886:正2 時機卡——回測數字人工核對後才對外開(管理員預覽)
-function levHTML(J){if(!LEV_SHOW&&!isAdmin())return '';const L=(J&&J.lev||[]);if(!L.length)return '';const f1=x=>x==null?'—':(x>=0?'+':'')+(+x).toFixed(1)+'%';
+function levJudge(tp,sp,vp,above){   // r1104:與 fetch_bias.py 的判定規則同一套(盤中用即時分位重算)
+  let score=0;const why=[];
+  if(tp!=null){if(tp>10&&tp<=25){score+=2;why.push(`加權乖離分位 ${tp}(偏低檔=甜蜜點,26 週歷史勝率 77%)`);}
+    else if(tp<=10){score+=1;why.push(`加權乖離分位 ${tp}(極低檔:短線無優勢、最差 −25%,只適合抱半年以上)`);}
+    else if(tp>=90){score-=1;why.push(`加權乖離分位 ${tp}(過熱)`);}
+    else why.push(`加權乖離分位 ${tp}(不便宜,持有不加碼)`);}
+  if(sp!=null){if(sp<=10){score-=1;why.push(`正2 自身乖離分位 ${sp}(自身低檔是反指標:8 週勝率 45%)`);}else if(sp>=90){score-=1;why.push(`正2 自身乖離分位 ${sp}(過熱)`);}}
+  if(vp!=null&&vp>=90){score+=1;why.push(`波動分位 ${vp}(高波動段歷史 8 週 75% 勝、中位 +14.5%)`);}
+  why.push('加權在年線'+(above?'上':'下')+'(不計分:12 年皆為多頭,年線下反而 V 轉;若遇長空頭則相反)');
+  return {score,why,verdict:score>=2?'加碼區・分批':score===1?'可小量':score===0?'持有不加碼':'減碼/不追'};
+}
+function levHTML(J,IDX,uTs){if(!LEV_SHOW&&!isAdmin())return '';const L0=(J&&J.lev||[]);if(!L0.length)return '';const f1=x=>x==null?'—':(x>=0?'+':'')+(+x).toFixed(1)+'%';
   const vc={'加碼區・分批':'var(--up)','可小量':'var(--t-gold)','持有不加碼':'var(--txt2)','減碼/不追':'var(--down)'};
   const row=(lab,b,hi)=>b?`<tr${hi?' class="hi"':''}><td>${lab}</td><td>${b.n}</td><td style="color:${b.win>=70?'var(--up)':b.win<55?'var(--down)':'inherit'}">${b.win}%</td><td>${f1(b.med)}</td><td>${f1(b.worst)}</td></tr>`:'';
-  return L.map(x=>{const m=x.ma['20']||{};const col=vc[x.verdict]||'var(--txt2)';const bt=k=>(x.twii_low25&&x.twii_low25.bt||{})[k];const b10=k=>(x.twii_low10&&x.twii_low10.bt||{})[k];const bs=k=>(x.base||{})[k];const ow=k=>(x.own_low&&x.own_low.bt||{})[k];const lk=(x.like_now||{}).bt||{};const vb=x.vol_bt||{};const ab=(x.ma52||{}).above||{},bl=(x.ma52||{}).below||{};
+  const hms=ts=>new Date(ts).toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'}).slice(0,8);
+  const TW=(IDX||[]).find(y=>y.sym==='^TWII');   // 加權的即時週乖離(renderBias 已算好)
+  const L=L0.map(x0=>{   // r1104:正2 自身乖離用即時價重算、加權乖離/分位/年線用即時加權,判定也跟著重算;正式數字保留顯示
+    let x;try{x=biasLive(x0,uTs)||x0;}catch(e){x=x0;}
+    const liveAny=(x.live&&x.live.fresh)||(TW&&TW.live&&TW.live.fresh);
+    if(!x.live&&!(TW&&TW.live))return x0;
+    const o=Object.assign({},x,{off:{verdict:x0.verdict,twii_pct:x0.twii_pct,twii_bias:x0.twii_bias,own_pct:(x0.ma['20']||{}).pct,own_bias:(x0.ma['20']||{}).bias,last:x0.last,as_of:x0.as_of}});
+    if(TW&&TW.live){const tm=TW.ma['20']||{},t52=(TW.ma['52']||{}).ma;o.twii_bias=tm.bias;o.twii_pct=tm.pct;if(t52)o.twii_above_ma52=TW.last>t52;o.twii_live=TW.live;}
+    const j=levJudge(o.twii_pct,(o.ma['20']||{}).pct,o.vol_pct,o.twii_above_ma52);o.score=j.score;o.verdict=j.verdict;o.why=j.why;o.liveAny=liveAny;
+    return o;});
+  return L.map(x=>{const m=x.ma['20']||{};const col=vc[x.verdict]||'var(--txt2)';
+    const lvTag=x.off?(x.liveAny?`<span class="bias-live" title="正2 現價用網站即時報價、加權用盤中即時指數重算這一週;收盤後以正式週收盤為準">⚡ ${hms(Math.max((x.live||{}).ts||0,(x.twii_live||{}).ts||0))} 即時</span>`:`<span class="bias-live" style="opacity:.75">${((x.live||x.twii_live||{}).d||'').slice(5).replace('-','/')} 收盤估</span>`):'';const bt=k=>(x.twii_low25&&x.twii_low25.bt||{})[k];const b10=k=>(x.twii_low10&&x.twii_low10.bt||{})[k];const bs=k=>(x.base||{})[k];const ow=k=>(x.own_low&&x.own_low.bt||{})[k];const lk=(x.like_now||{}).bt||{};const vb=x.vol_bt||{};const ab=(x.ma52||{}).above||{},bl=(x.ma52||{}).below||{};
     const yrs=(x.yearly||[]).slice(-8);
     return `<div class="bias-card lev-card" style="border-left-color:${col};margin-top:12px">
-      <div class="bias-h"><b>🚀 ${x.name}</b><span class="c-code">${x.sym.replace('.TW','')}</span><span class="bias-zone" style="color:${col};font-size:15px">現在:${x.verdict}</span></div>
-      <div class="bias-m">現價 <b>${x.last}</b>・自身週乖離 <b style="color:${m.bias<0?'var(--down)':'var(--up)'}">${f1(m.bias)}</b>(分位 ${m.pct})・加權週乖離 <b>${f1(x.twii_bias)}</b>(分位 <b>${x.twii_pct}</b>;偏低檔門檻 ${f1(x.p25)})・加權${x.twii_above_ma52?'在年線上':'在年線下'}・波動分位 ${x.vol_pct??'—'}</div>
+      <div class="bias-h"><b>🚀 ${x.name}</b><span class="c-code">${x.sym.replace('.TW','')}</span><span class="bias-zone" style="color:${col};font-size:15px">現在:${x.verdict}${x.off&&x.off.verdict!==x.verdict?' <span style="font-size:11px;font-weight:400;color:var(--dim)">(盤中暫估)</span>':''}</span></div>
+      <div class="bias-m">現價 <b>${x.last}</b>${lvTag}・自身週乖離 <b style="color:${m.bias<0?'var(--down)':'var(--up)'}">${f1(m.bias)}</b>(分位 ${m.pct})・加權週乖離 <b>${f1(x.twii_bias)}</b>(分位 <b>${x.twii_pct}</b>;偏低檔門檻 ${f1(x.p25)})・加權${x.twii_above_ma52?'在年線上':'在年線下'}・波動分位 ${x.vol_pct??'—'}${x.off?`<span class="dim">・正式週收(${x.off.as_of.slice(5).replace('-','/')}):${x.off.verdict}・正2 乖離 ${f1(x.off.own_bias)}(分位 ${x.off.own_pct})・加權分位 ${x.off.twii_pct}</span>`:''}</div>
       <div class="lev-why">${(x.why||[]).map(w=>`<span>${w}</span>`).join('')}</div>
       <div class="lev-grid">
         <div><div class="lev-t">① 加權便宜時買正2,之後怎麼走</div>
