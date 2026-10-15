@@ -26,7 +26,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: |
           python listen_show.py yth 2>&1 | tee /tmp/yth_log.txt || true
-          grep -E "最新集|路線|Gemini|音檔|完成|✗|⚠|重試|歸檔" /tmp/yth_log.txt | tail -20 | sed 's/^/::notice::/' || true
+          grep -E "最新集|路線|Gemini|音檔|完成|✗|⚠|重試|歸檔|模型|頻道 RSS" /tmp/yth_log.txt | tail -20 | sed 's/^/::notice::/' || true
           grep -q "^完成" /tmp/yth_log.txt || grep -q "已整理過" /tmp/yth_log.txt || echo "::warning::本班沒有產出(看上面 notice)"
       - name: 提交結果
         run: |

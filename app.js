@@ -17291,7 +17291,7 @@ function gaClean(html){                           // 描述 → 純文字(保留
    ② 摘要內文裡的個股名(可點進個股頁)與產業關鍵字直接上色
    比對來源:站內 2256 檔台股 + 547 檔美股名稱/代號/中文名;中文兩字名稱容易撞到一般用詞(世界、統一、可成…),只收常見大型股白名單 */
 const GA_W2=new Set('鴻海 廣達 緯創 緯穎 華碩 技嘉 微星 仁寶 和碩 宏碁 聯電 長榮 陽明 萬海 中鋼 台塑 南亞 台化 智邦 奇鋐 欣興 健鼎 瑞昱 聯詠 華通 旺宏 群光 億光 研華 致茂 上銀 川湖 穩懋 聯茂 台燿 雙鴻 嘉澤 勤誠 營邦 神達 華城 士電 東元 亞力 信驊 祥碩 世芯 貿聯 譜瑞 力成 頎邦 南電 景碩 臻鼎 聯亞 光聖 眾達 上詮 聯鈞 建準 台達 光寶 日月光 中華電 遠傳 華航 裕隆 儒鴻 聚陽 豐泰 寶成 中租 美時 保瑞 智原 力旺 矽力 原相 義隆 聯陽 天鈺 新唐 群聯 威剛 十銓 宇瞻 旭隼 鈊象 兆豐 玉山 中信 國泰 富邦 元大 台新 開發 永豐 京元電 晶技 嘉晶 環球晶 精材 弘塑 辛耘 萬潤 均華 家登 帆宣 漢唐 亞翔 聖暉 樺漢 圓剛 英業達 神基 定穎 金像電 台光電 健策 高力 雙鴻 超眾 泰碩 力致 尼得科 崇越 大聯大 文曄 華新 大亞 華榮 中興電 亞德客 正崴 鴻準 可寧衛 長榮航 星宇 台灣高鐵 中鋼構 東和鋼鐵 大成鋼 聯發科 南亞科 華邦電 力積電 台積電 大立光 玉晶光 宏達電 統一超'.split(' '));
-const GA_BAD=new Set('台灣大 新天地 創業家 新零售 太空梭 一零四 大台北 雲嘉南 地心引力 新復興 大學光 夠麻吉 美而快 全國電 先進光 世界健身'.split(' '));
+const GA_BAD=new Set('台灣大 新天地 創業家 新零售 太空梭 一零四 大台北 雲嘉南 地心引力 新復興 大學光 夠麻吉 美而快 全國電 先進光 世界健身 那斯達克 納斯達克 道瓊 標普'.split(' '))   // r1108:指數名不當成公司(Nasdaq Inc.);
 const GA_TBAD=new Set('ALL NOW LOW KEY ARE HAS CAT DAY BALL TECH FAST POOL COST PEAK TAP BRO BEN MAS WELL DOW FOX NWS ON IT EPS CEO ETF GDP CPI FED USD NEW EASY'.split(' '));
 const GA_US_ALIAS={NVIDIA:'NVDA',Google:'GOOGL',Alphabet:'GOOGL',谷歌:'GOOGL',Facebook:'META',臉書:'META',Meta:'META',Tesla:'TSLA',特斯拉:'TSLA',Amazon:'AMZN',Apple:'AAPL',Microsoft:'MSFT',Broadcom:'AVGO',Intel:'INTC',英特爾:'INTC',Micron:'MU',Oracle:'ORCL',甲骨文:'ORCL',Supermicro:'SMCI',美超微:'SMCI',Palantir:'PLTR',Qualcomm:'QCOM',Netflix:'NFLX',Costco:'COST',好市多:'COST',AMD:'AMD',CoreWeave:'CRWV',Arm:'ARM'};
 const GA_IND=[['AI伺服器','AI伺服器|伺服器'],['GPU/AI晶片','GPU|AI晶片|AI 晶片|顯卡'],['AI','AI|人工智慧'],['CPU/處理器','CPU|處理器'],['記憶體','記憶體|DRAM|NAND|HBM|DDR5|快閃記憶體'],
@@ -17319,7 +17319,7 @@ function gaIndex(){
   const esc=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   const wrap=x=>/^[A-Za-z]/.test(x)?`(?<![A-Za-z])${esc(x)}(?![A-Za-z])`:esc(x);
   const keys=[...new Set([...Object.keys(al),...Object.keys(ind)])].sort((a,b)=>b.length-a.length);
-  const codeRe='(?<![0-9])(?!20[2-3][0-9]\\s*(?:年|展望|Q[1-4]|H[12]|上半|下半|財測|預估))[1-9][0-9]{3}(?![0-9年點元萬億%kK])';   // r1108:「2027 展望」這種年份不當成代號(大成鋼 2027 曾被誤標)
+  const codeRe='(?<![0-9])(?!20[2-3][0-9]\\s*(?:年|展望|Q[1-4]|H[12]|上半|下半|財測|預估))[1-9][0-9]{3}(?![0-9])(?!\\s*[年點元萬億兆%kK])';   // r1108:「1101 點」「6615 億」中間有空白也不算代號   // r1108:「2027 展望」這種年份不當成代號(大成鋼 2027 曾被誤標)
   GA_IX={n:S.length,cd:!!__cdCache,al,ind,re:new RegExp(keys.map(wrap).join('|')+'|'+codeRe,'gi'),byId:Object.fromEntries(S.map(s=>[s.id,s]))};
   return GA_IX;
 }

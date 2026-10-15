@@ -158,7 +158,9 @@ def listen(C, src, title, retry=False):
     parts = (cand.get("content") or {}).get("parts") or []
     fr = cand.get("finishReason")
     txt = "".join(p.get("text", "") for p in parts).strip()
+    txt = re.sub(r"^(好的|以下|這是|當然)[^\n]{0,40}[:：]\s*\n+", "", txt)        # 去掉「好的,這是您需要的整理:」這類開場白
     log(f"  Gemini 回 {len(txt)} 字,finishReason={fr}")
+    listen.model = model
     return txt, fr
 
 def main():
@@ -198,7 +200,7 @@ def main():
         if len(s2 or "") > len(s or ""): s, fr = s2, fr2
     if not s: log("✗ 空回應,下次排程再試"); return
     eps = [x for x in eps if x.get("t") != title]
-    rec = {"t": title, "dt": ep.get("releaseDate", ""), "yt": link, "s": s, "u": time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 8 * 3600))}
+    rec = {"t": title, "dt": ep.get("releaseDate", ""), "yt": link, "s": s, "m": getattr(listen, "model", None), "u": time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 8 * 3600))}
     eps = [rec] + eps
     eps = eps[:C["keep"]]
     out = {"v": 1, "show": show, "name": C["name"], "t": title, "dt": rec["dt"], "yt": link, "s": s, "eps": eps}
