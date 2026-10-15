@@ -1,4 +1,4 @@
-/* K研所 · build r1107 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1108 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1107';
+const APP_BUILD='r1108';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2479,7 +2479,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1107</span>');
+  diag.push('<span style="color:var(--dim)">build r1108</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -15520,7 +15520,7 @@ function setupMobileNav(){
   if(!document.getElementById('mobNav')){
     const nav=document.createElement('div');
     nav.id='mobNav';
-    const items=[['news','📰','早報'],['macro','📊','大盤'],['aipick','🤖','AI'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','股癌'],['port','💼','持股']];   // r1072:早報=首頁,排第一
+    const items=[['news','📰','早報'],['macro','📊','大盤'],['aipick','🤖','AI'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','節目'],['port','💼','持股']];   // r1072:早報=首頁,排第一
     nav.innerHTML=items.map(([k,ic,lb])=>`<button data-mn="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('')
       +`<button data-mn="__fav"><span class="mi">⭐</span>最愛</button>`;
     document.body.appendChild(nav);
@@ -17247,16 +17247,38 @@ async function yNews(q,count){
   return [];  // Yahoo 已全面停用——新聞由 Google 聚合供應(含信任度徽章)
 }
 /* ══ 🎙️ 股癌分頁:官方 RSS 集數 + 站內播放 + AI 摘要 + 觀點報導 ══ */
-const GA_ID='1500839292';                        // Apple Podcasts 股癌 ID
+/* r1108:🎙 節目分頁——股癌之外再加「游庭皓的財經皓角(早晨財經速解讀)」,同一套邏輯(Apple 目錄列集數、後台 AI 聽完整理、個股/產業標示、相關報導),
+   用上方切換鈕換節目;localStorage 快取鍵:股癌沿用舊鍵,其他節目加後綴 */
+const GA_SHOWS={
+  gooaye:{id:'1500839292',name:'股癌 Gooaye',short:'股癌',ic:'🎙️',json:'gooaye.json',news:'股癌 (台股 OR 謝孟恭 OR 觀點)',newsT:'📰 股癌觀點・相關報導',yt:'@Gooaye',ep:true,
+    sub:'最新集數即時更新・站內播放・AI 重點摘要',kind:'台股 Podcast「股癌 Gooaye」',wait:'通常上片後 4 小時內出現',credit:'股癌'},
+  yth:{id:'1488295306',name:'游庭皓的財經皓角',short:'財經皓角',ic:'☀️',json:'yth.json',news:'游庭皓 OR 財經皓角',newsT:'📰 游庭皓觀點・相關報導',ytcid:'UC0lbAQVpenvfA2QqzsRtL_g',ep:false,chapters:true,
+    sub:'每個交易日 8:30 開盤前直播「早晨財經速解讀」・AI 聽完整理・每集永久保留',kind:'財經直播節目「游庭皓的財經皓角・早晨財經速解讀」(主持人游庭皓,開盤前解讀美股、總經與國際新聞對台股的影響)',wait:'通常直播結束後 1~3 小時內出現',credit:'游庭皓的財經皓角'}
+};
+let GA_CUR=(()=>{try{const v=localStorage.getItem('ga_show');return GA_SHOWS[v]?v:'gooaye';}catch(e){return 'gooaye';}})();
+function gaCfg(){return GA_SHOWS[GA_CUR]||GA_SHOWS.gooaye;}
+function gaSK(k){return GA_CUR==='gooaye'?k:k+'_'+GA_CUR;}
+function gaSetShow(k){if(!GA_SHOWS[k]||k===GA_CUR)return;GA_CUR=k;try{localStorage.setItem('ga_show',k);}catch(e){}
+  document.querySelectorAll('#gaShowSeg button').forEach(b=>b.classList.toggle('on',b.dataset.show===k));
+  const box=document.getElementById('gaEps');if(box){box.dataset.done='';box.innerHTML='<div class="dim-note">節目載入中…</div>';}
+  const nb=document.getElementById('gaNews');if(nb)nb.innerHTML='<div class="dim-note">載入中…</div>';
+  gaPaintHead();gooayeLoad(true);}
+function gaPaintHead(){try{const C=gaCfg();
+  const t=document.getElementById('gaTitle');if(t)t.innerHTML=`${C.ic} ${C.name} <span style="font-weight:400;font-size:13px;letter-spacing:0">${C.sub}</span>`;
+  const n=document.getElementById('gaNewsT');if(n&&n.childNodes[0]&&n.childNodes[0].nodeType===3)n.childNodes[0].textContent=C.newsT+' ';   // 只改文字節點,保留收合提示
+  const c=document.getElementById('gaCredit');if(c)c.textContent=C.credit;
+  document.querySelectorAll('#gaShowSeg button').forEach(b=>b.classList.toggle('on',b.dataset.show===GA_CUR));
+  const seg=document.getElementById('gaShowSeg');if(seg&&!seg.__b){seg.__b=1;seg.querySelectorAll('button').forEach(b=>b.onclick=()=>gaSetShow(b.dataset.show));}
+}catch(e){}}
 async function gaFeedUrl(){
-  try{const c=JSON.parse(localStorage.getItem('ga_feed')||'null');
+  try{const c=JSON.parse(localStorage.getItem(gaSK('ga_feed'))||'null');
     if(c&&c.exp>Date.now()&&c.u)return c.u;}catch(e){}
-  const lu='https://itunes.apple.com/lookup?id='+GA_ID;
+  const lu='https://itunes.apple.com/lookup?id='+gaCfg().id;
   let j=null;
   try{const r=await fT(lu,9000);if(r.ok)j=await r.json();}catch(e){}
   if(!j){const t=await fetchTextProxy(lu);try{j=JSON.parse(t);}catch(e){}}
   const u=j&&j.results&&j.results[0]&&j.results[0].feedUrl;
-  if(u)try{localStorage.setItem('ga_feed',JSON.stringify({exp:Date.now()+7*864e5,u}));}catch(e){}
+  if(u)try{localStorage.setItem(gaSK('ga_feed'),JSON.stringify({exp:Date.now()+7*864e5,u}));}catch(e){}
   return u||null;
 }
 function gaClean(html){                           // 描述 → 純文字(保留換行)
@@ -17297,7 +17319,7 @@ function gaIndex(){
   const esc=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   const wrap=x=>/^[A-Za-z]/.test(x)?`(?<![A-Za-z])${esc(x)}(?![A-Za-z])`:esc(x);
   const keys=[...new Set([...Object.keys(al),...Object.keys(ind)])].sort((a,b)=>b.length-a.length);
-  const codeRe='(?<![0-9])[1-9][0-9]{3}(?![0-9年點元萬億%kK])';
+  const codeRe='(?<![0-9])(?!20[2-3][0-9]\\s*(?:年|展望|Q[1-4]|H[12]|上半|下半|財測|預估))[1-9][0-9]{3}(?![0-9年點元萬億%kK])';   // r1108:「2027 展望」這種年份不當成代號(大成鋼 2027 曾被誤標)
   GA_IX={n:S.length,cd:!!__cdCache,al,ind,re:new RegExp(keys.map(wrap).join('|')+'|'+codeRe,'gi'),byId:Object.fromEntries(S.map(s=>[s.id,s]))};
   return GA_IX;
 }
@@ -17422,18 +17444,18 @@ function gaJsonp(url){                            // JSONP:瀏覽器原生跨網
   });
 }
 async function gaEpisodes(force){
-  if(!force)try{const c=JSON.parse(localStorage.getItem('ga_eps2')||'null');
+  if(!force)try{const c=JSON.parse(localStorage.getItem(gaSK('ga_eps2'))||'null');
     if(c&&Date.now()-c.t<10*60e3&&c.eps&&c.eps.length)return c.eps;}catch(e){}
   let eps=[];
   // 首選:Apple iTunes API 直接回集數(JSONP 免代理、輕量、含完整描述與音檔)
   try{
-    const j=await gaJsonp('https://itunes.apple.com/lookup?id='+GA_ID+'&entity=podcastEpisode&limit=12&country=tw');
+    const j=await gaJsonp('https://itunes.apple.com/lookup?id='+gaCfg().id+'&entity=podcastEpisode&limit=12&country=tw');
     const rows=(j&&j.results||[]).filter(x=>x.kind==='podcast-episode'||x.wrapperType==='podcastEpisode');
     eps=rows.map(x=>({
       t:x.trackName||'',
       d:gaClean(x.description||(x.shortDescription||'')),
       a:x.episodeUrl||'',
-      l:x.trackViewUrl||('https://podcasts.apple.com/tw/podcast/id'+GA_ID),
+      l:x.trackViewUrl||('https://podcasts.apple.com/tw/podcast/id'+gaCfg().id),
       min:x.trackTimeMillis?Math.round(x.trackTimeMillis/60000):null,
       dt:gaDate(x.releaseDate),
       ...glbAgo(x.releaseDate)
@@ -17465,8 +17487,12 @@ async function gaEpisodes(force){
       }
     }
   }
-  if(eps.length)try{localStorage.setItem('ga_eps2',JSON.stringify({t:Date.now(),eps}));}catch(e){}
+  if(eps.length)try{localStorage.setItem(gaSK('ga_eps2'),JSON.stringify({t:Date.now(),eps}));}catch(e){}
   return eps;
+}
+function gaIntro(d){                              // r1108:財經皓角的描述=章節時間軸(00:00 市場概況…)→ 只留時間軸;股癌 → gaAdStrip
+  if(gaCfg().chapters){const L=String(d||'').split('\n').map(x=>x.trim()).filter(x=>/^\d{1,2}:\d{2}(:\d{2})?\s*\S/.test(x)&&!/https?:/.test(x));if(L.length>=2)return L.slice(0,16).join('\n');}
+  return gaAdStrip(d);
 }
 function gaAdStrip(d){                            // 股癌描述=第一段是哏、之後全是業配 → 只留第一段
   const AD=/傳送門|專屬|活動價|優惠|禮盒|套組|折扣|下單|贈送|限量|業配|Hosting provided|linktr|https?:\/\/|www\.|NT?\$|\$\s?\d|獻上|新品|上市.{0,4}(茶|酒|課|品)/i;
@@ -17504,8 +17530,8 @@ async function gaSummarize(i,fromQueue){
   box.innerHTML='<span style="color:var(--dim)">📌 AI 正在整理本集重點…(上網搜尋中)</span>';
   const ep=(e.t.match(/EP\s?(\d+)/i)||[])[1];
   try{
-    const s=await gaAiOnce(`任務:整理台股 Podcast「股癌 Gooaye」這一集的重點:「${e.t}」(${e.dt||e.ago||'近期'}發布${ep?',集數 EP'+ep:''})。
-步驟一:上網搜尋${ep?`「股癌 EP${ep}」「股癌 EP${ep} 重點」`:'該集標題'}在 PTT、Threads、Dcard、部落格、YouTube 留言的重點整理與討論。
+    const s=await gaAiOnce(`任務:整理${gaCfg().kind}這一集的重點:「${e.t}」(${e.dt||e.ago||'近期'}發布${ep?',集數 EP'+ep:''})。
+步驟一:上網搜尋${ep?`「股癌 EP${ep}」「股癌 EP${ep} 重點」`:'該集標題與節目名稱'}在 PTT、Threads、Dcard、部落格、YouTube 留言的重點整理與討論。
 步驟二A:若找到可靠整理 → 條列 3~6 點核心觀點、提及的台股族群與個股(股名+代號)、多空看法。
 步驟二B:若找不到專門整理 → 不要只回「找不到」,改為:根據搜尋到的零散討論、該集發布當週的台股/美股市場焦點、以及標題線索,條列「本集可能涵蓋的主題」3~5 點,每點開頭標【推測】。
 輸出用繁體中文,直接條列不要開場白;最後一行固定:AI 整理${ep?'(EP'+ep+')':''},非官方摘要,推測項僅供參考,非投資建議。`);
@@ -17522,16 +17548,17 @@ async function gaSummarize(i,fromQueue){
 }
 /* 🎧 聽整集:找出該集 YouTube 版 → Gemini 直接聽完整理(不靠網路筆記) */
 async function gaChannelId(){
-  try{const c=JSON.parse(localStorage.getItem('ga_ytcid')||'null');
+  if(gaCfg().ytcid)return gaCfg().ytcid;   // r1108:頻道 ID 已知的節目不用抓頻道頁
+  try{const c=JSON.parse(localStorage.getItem(gaSK('ga_ytcid'))||'null');
     if(c&&c.exp>Date.now()&&c.id)return c.id;}catch(e){}
-  const t=await fetchTextProxy('https://www.youtube.com/@Gooaye');
+  const t=await fetchTextProxy('https://www.youtube.com/'+(gaCfg().yt||'@Gooaye'));
   const id=(String(t||'').match(/"channelId":"(UC[\w-]{22})"/)||
             String(t||'').match(/channel_id=(UC[\w-]{22})/)||[])[1];
-  if(id)try{localStorage.setItem('ga_ytcid',JSON.stringify({exp:Date.now()+30*864e5,id}));}catch(e){}
+  if(id)try{localStorage.setItem(gaSK('ga_ytcid'),JSON.stringify({exp:Date.now()+30*864e5,id}));}catch(e){}
   return id||null;
 }
 async function gaYtList(){
-  try{const c=JSON.parse(localStorage.getItem('ga_ytls')||'null');
+  try{const c=JSON.parse(localStorage.getItem(gaSK('ga_ytls'))||'null');
     if(c&&Date.now()-c.t<60*60e3&&c.v&&c.v.length)return c.v;}catch(e){}
   const cid=await gaChannelId();
   if(!cid)return [];
@@ -17551,14 +17578,20 @@ async function gaYtList(){
         u:(en.querySelector('link')||{getAttribute:()=>''}).getAttribute('href')||''}));
     }catch(e){}
   }
-  if(v.length)try{localStorage.setItem('ga_ytls',JSON.stringify({t:Date.now(),v}));}catch(e){}
+  if(v.length)try{localStorage.setItem(gaSK('ga_ytls'),JSON.stringify({t:Date.now(),v}));}catch(e){}
   return v;
 }
+function gaNorm(t){return String(t||'').replace(/^\s*\d{4}\/\d{1,2}\/\d{1,2}\s*[(（][一二三四五六日天][)）]\s*/,'').replace(/【[^】]*】/g,'').replace(/[\s\W_]+/g,'').toLowerCase();}   // r1108:去日期前綴/【標籤】/標點,比對 podcast 與 YouTube 標題
 async function gaYtUrl(epTitle){
-  const ep=(String(epTitle).match(/EP\s?(\d+)/i)||[])[1];
-  if(!ep)return null;
   const list=await gaYtList();
-  const hit=list.find(x=>new RegExp('EP\\s?'+ep+'\\b','i').test(x.t));
+  if(gaCfg().ep){
+    const ep=(String(epTitle).match(/EP\s?(\d+)/i)||[])[1];
+    if(!ep)return null;
+    const hit=list.find(x=>new RegExp('EP\\s?'+ep+'\\b','i').test(x.t));
+    return hit?hit.u:null;
+  }
+  const want=gaNorm(epTitle);if(want.length<6)return null;
+  const hit=list.find(x=>{const n=gaNorm(x.t);return n.includes(want)||want.includes(n);});
   return hit?hit.u:null;
 }
 async function gaListen(i){
@@ -17581,7 +17614,7 @@ async function gaListen(i){
   try{
     const s=await gaAiOnce(null,[
       {file_data:{file_uri:yt}},
-      {text:`請完整聽完這一集台股 Podcast「股癌」(${e.t}),用繁體中文寫一份「聽完可以不用再聽」等級的詳細整理,總長 800~1500 字,直接開始不要開場白。
+      {text:`請完整聽完這一集${gaCfg().kind}(${e.t}),用繁體中文寫一份「聽完可以不用再聽」等級的詳細整理,總長 800~1500 字,直接開始不要開場白。
 格式:依節目順序每主題一段——**小標**+他實際講了什麼(3~5句,含具體例子/數字/公司名/比喻)+他的結論;市場/總經觀點要含他給的理由;提及的個股與族群(有講才寫,用「**提及的個股與族群**」當標題):每檔一項 * **股名(代號)**:偏多/偏空/中性。他怎麼說+邏輯;產業/族群也各列一項並標多空;只舉例沒表態標「中性(舉例)」;值得追蹤的後續(有才寫)。
 規則:閒聊哏一句帶過、業配跳過、沒講的不腦補。最後一行固定:AI 聆聽全集整理,觀點屬節目主持人,非投資建議。`}],true,8192);
     if(!s)throw new Error('空回應');
@@ -17602,15 +17635,18 @@ async function gaQueueRun(){
   try{await Promise.race([coDescData(),new Promise(r=>setTimeout(r,3000))]);}catch(e){}
   const eps=window.__gaEps||[];
   // 後台預整理檔:最新集重點已在 repo,秒開零等待
-  let pre=null;
-  try{const r=await fT('gooaye.json?'+Math.floor(Date.now()/6e5),8000);
+  let pre=null;const C0=gaCfg();
+  try{const r=await fT(C0.json+'?'+Math.floor(Date.now()/6e5),8000);
     if(r.ok)pre=await r.json();}catch(e){}
+  const preMap={};try{if(pre){if(pre.s&&pre.t)preMap[gaNorm(pre.t)]=pre.s;(pre.eps||[]).forEach(x=>{if(x&&x.t&&x.s)preMap[gaNorm(x.t)]=x.s;});}}catch(e){}   // r1108:多集檔(eps)——每集永久保留
   for(let i=0;i<eps.length;i++){
+    if(gaCfg()!==C0)return;
     const b=document.getElementById('gaSum'+i);
     if(!b)continue;
     const epNo=(eps[i].t.match(/EP\s?(\d+)/i)||[])[1];
-    if(pre&&pre.s&&((pre.t&&pre.t===eps[i].t)||(epNo&&pre.ep&&String(pre.ep)===String(epNo)))){
-      b.innerHTML=gaBody(pre.s,'🎧 <b>本集重點(AI 聽完全集)</b>');
+    const preS=preMap[gaNorm(eps[i].t)]||(pre&&pre.s&&epNo&&pre.ep&&String(pre.ep)===String(epNo)?pre.s:null);
+    if(preS){
+      b.innerHTML=gaBody(preS,'🎧 <b>本集重點(AI 聽完全集)</b>');
       continue;
     }
     let lsn=null;
@@ -17620,7 +17656,7 @@ async function gaQueueRun(){
       continue;
     }
     b.innerHTML=(i===0
-      ?'<span style="color:var(--dim)">🎧 最新集重點由後台自動整理中(通常上片後 4 小時內出現)</span> '
+      ?`<span style="color:var(--dim)">🎧 最新集重點由後台自動整理中(${C0.wait})</span> `
       :'')
       +`<button class="glb-aibtn ga-lsnbtn" data-i="${i}" style="font-size:13px;padding:4px 12px">🎧 ${i===0?'等不及?立即':'AI '}聽整集整理(約 1~2 分鐘)</button>`;
   }
@@ -17640,9 +17676,9 @@ setInterval(async()=>{
   try{
     const eps=await gaEpisodes(true);
     if(!eps.length)return;
-    let last='';try{last=localStorage.getItem('ga_last')||'';}catch(e){}
+    let last='';try{last=localStorage.getItem(gaSK('ga_last'))||'';}catch(e){}
     if(eps[0].t!==last){
-      try{localStorage.setItem('ga_last',eps[0].t);}catch(e){}
+      try{localStorage.setItem(gaSK('ga_last'),eps[0].t);}catch(e){}
       const p=document.getElementById('tp-gooaye');
       const visible=p&&p.style.display!=='none';
       const box=document.getElementById('gaEps');
@@ -17656,20 +17692,22 @@ async function gooayeLoad(force){
   const box=document.getElementById('gaEps');
   if(!box||GA_BUSY)return;
   if(box.dataset.done&&!force)return;
+  gaPaintHead();const C0=gaCfg();
   GA_BUSY=true;
   const eps=await Promise.race([gaEpisodes(force),new Promise(r=>setTimeout(()=>r([]),15000))]);
   GA_BUSY=false;
+  if(gaCfg()!==C0){gooayeLoad(true);return;}   // 載入途中換了節目
   window.__gaRenderT=Date.now();
-  if(eps.length)try{localStorage.setItem('ga_last',eps[0].t);}catch(e){}
+  if(eps.length)try{localStorage.setItem(gaSK('ga_last'),eps[0].t);}catch(e){}
   if(!document.getElementById('gaEps'))return;
   box.dataset.done='1';
   if(!eps.length){
-    box.innerHTML=`<div class="dim-note">節目暫時載入不到——<a href="https://podcasts.apple.com/tw/podcast/id${GA_ID}" target="_blank" rel="noopener" style="color:var(--amber)">直接開 Apple Podcasts 收聽 ↗</a>(稍後重新整理會自動重試)</div>`;
+    box.innerHTML=`<div class="dim-note">節目暫時載入不到——<a href="https://podcasts.apple.com/tw/podcast/id${gaCfg().id}" target="_blank" rel="noopener" style="color:var(--amber)">直接開 Apple Podcasts 收聽 ↗</a>(稍後重新整理會自動重試)</div>`;
     box.dataset.done='';
     return;
   }
   box.innerHTML=eps.map((e,i)=>{
-    const intro=gaAdStrip(e.d);
+    const intro=gaIntro(e.d);
     const codes=gaCodes(e.t+' '+e.d);
     return `<div class="dim-block" style="border-left:4px solid ${i===0?'var(--amber)':'var(--line)'};margin-bottom:10px">
       <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
@@ -17705,8 +17743,8 @@ async function gooayeLoad(force){
   // 觀點報導(中文新聞聚合)
   const nb=document.getElementById('gaNews');
   if(nb){
-    const its=await rssItems('股癌 (台股 OR 謝孟恭 OR 觀點)',10);
-    if(document.getElementById('gaNews'))
+    const its=await rssItems(C0.news,10);
+    if(document.getElementById('gaNews')&&gaCfg()===C0)
       nb.innerHTML=its.length?its.map(x=>
         `<div class="glb-row"><span style="min-width:0"><a href="${x.l}" target="_blank" rel="noopener">${x.t}</a></span><span class="meta" style="margin-left:auto">${x.s}${credBadge(x.s)}${x.d?' · '+x.d:''}</span></div>`).join('')
         :'<div class="dim-note">暫無相關報導,稍後自動更新。</div>';

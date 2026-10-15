@@ -1,0 +1,35 @@
+name: 財經皓角最新集自動整理
+# r1108:游庭皓的財經皓角「早晨財經速解讀」——每個交易日 08:30 直播,直播結束後 podcast 上架;
+#       跟股癌同一套:同集已整理直接跳過(零成本),09:25 / 10:25 / 12:25 三個檢查點,週末不跑
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "25 1,2,4 * * 1-5"      # 台北 09:25、10:25、12:25(週一~五)
+permissions:
+  contents: write
+concurrency:
+  group: yth
+  cancel-in-progress: false
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests
+      - name: 聆聽整理
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          PYTHONUNBUFFERED: "1"
+        run: python listen_show.py yth
+      - name: 提交結果
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add yth.json 2>/dev/null || true
+          git add yth_hist/ 2>/dev/null || true
+          git commit -m "財經皓角重點更新 [CI Skip]" || echo "無變更"
+          for i in 1 2 3 4 5; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 8; done
