@@ -114,7 +114,7 @@ def gemini_upload_audio(mp3_url, tagname):
     log("  ✓ 音檔就緒")
     return (fj.get("uri") or uri), mime
 
-def listen(C, src, title):
+def listen(C, src, title, retry=False):
     """同股癌的整理格式(前端「本集提到的個股與產業」卡片靠這個格式解析),內容描述改成這個節目的性質"""
     body = {"contents": [{"role": "user", "parts": [
         ({"file_data": {"file_uri": src[0], "mime_type": src[1]}} if isinstance(src, tuple) else {"file_data": {"file_uri": src}}),
@@ -135,8 +135,8 @@ def listen(C, src, title):
 ## 值得追蹤的後續(有才寫)
 例如他點名的數據公布、財報、事件與他預期的影響。
 
-規則:純閒聊可以一句帶過;會員/贊助/業配段落完全跳過;他沒講的不要腦補;聽不清楚的段落註明。最後一行固定:AI 聆聽全集整理,觀點屬節目主持人,非投資建議。"""}]}],
-        "generationConfig": {"maxOutputTokens": 8192}}
+規則:純閒聊可以一句帶過;會員/贊助/業配段落完全跳過;他沒講的不要腦補;聽不清楚的段落註明。{'他若引用歌詞、詩句或文章原文,一律改用你自己的話描述,不要逐字引用。' if retry else ''}最後一行固定:AI 聆聽全集整理,觀點屬節目主持人,非投資建議。"""}]}],
+        "generationConfig": {"maxOutputTokens": 8192, "thinkingConfig": {"thinkingBudget": 0}}}   # 關思考:思考會吃掉輸出額度而斷頭(前端同樣設定)
     r = None
     for att in range(1, 4):
         try:
@@ -151,8 +151,12 @@ def listen(C, src, title):
             log(f"  第{att}次連線異常:{e},60秒後重試…"); time.sleep(60)
     if r is None or not r.ok:
         log("✗ Gemini 連續失敗,下次排程再試。"); sys.exit(1)
-    parts = ((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
-    return "".join(p.get("text", "") for p in parts).strip()
+    cand = (r.json().get("candidates") or [{}])[0]
+    parts = (cand.get("content") or {}).get("parts") or []
+    fr = cand.get("finishReason")
+    txt = "".join(p.get("text", "") for p in parts).strip()
+    log(f"  Gemini 回 {len(txt)} 字,finishReason={fr}")
+    return txt, fr
 
 def main():
     show = (sys.argv[1] if len(sys.argv) > 1 else os.environ.get("SHOW") or "yth").strip()
@@ -168,7 +172,7 @@ def main():
         with open(C["out"], encoding="utf-8") as f: old = json.load(f)
     except Exception: pass
     eps = [x for x in (old.get("eps") or []) if x.get("t") and x.get("s")]
-    if any(x["t"] == title for x in eps):
+    if any(x["t"] == title and len(x["s"]) >= 500 for x in eps):
         log("同一集已整理過,結束(零成本)。"); return
     yt = youtube_url(C, title)
     src = yt; link = yt
@@ -183,8 +187,14 @@ def main():
         log("以音檔直讀模式聆聽…")
     else:
         log(f"YouTube:{yt},開始聆聽(30~40 分鐘節目約需 1~3 分鐘)…")
-    s = listen(C, src, title)
+    s, fr = listen(C, src, title)
+    if (not s or len(s) < 500 or (fr and fr != "STOP")):
+        # 太短或被中途截斷(例如引用歌詞觸發 RECITATION)→ 換個說法再聽一次
+        log(f"  整理太短或中斷({len(s or '')} 字,{fr}),重試一次…")
+        s2, fr2 = listen(C, src, title, retry=True)
+        if len(s2 or "") > len(s or ""): s, fr = s2, fr2
     if not s: log("✗ 空回應"); sys.exit(1)
+    eps = [x for x in eps if x.get("t") != title]
     rec = {"t": title, "dt": ep.get("releaseDate", ""), "yt": link, "s": s, "u": time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 8 * 3600))}
     eps = [rec] + eps
     eps = eps[:C["keep"]]
@@ -199,8 +209,8 @@ def main():
         try:
             with open(hp, encoding="utf-8") as f: H = json.load(f) or []
         except Exception: pass
-        if not any(x.get("t") == title for x in H):
-            H.append(rec)
+        H = [x for x in H if x.get("t") != title] + [rec]
+        if True:
             with open(hp, "w", encoding="utf-8") as f: json.dump(H, f, ensure_ascii=False)
             log(f"  歸檔:{hp}({len(H)} 集)")
     except Exception as e:
