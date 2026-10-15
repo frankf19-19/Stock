@@ -1551,6 +1551,7 @@ def backfill_twse_history(hist, sid, months=13):
     return False
 
 OFF_CHG = {}   # 官方當日漲跌%(fill_tw_daily_official 填入,主迴圈覆蓋 chg)
+OFF_CHG_D = {}  # r1110:該筆漲跌的日期——10/15 深夜 openapi 仍回 10/14 的檔,chg 被蓋成前一天的 +7.69%(金像電)而價格是 10/15 收盤 → 兩者對不上;只有日期跟 K 線最後一根相同才用
 
 def fill_tw_daily_official(hist, comps):
     """證交所 STOCK_DAY_ALL + 櫃買 daily_close_quotes:一天各一次呼叫,
@@ -1599,6 +1600,7 @@ def fill_tw_daily_official(hist, comps):
                         base = c2 - chv
                         if base > 0:
                             OFF_CHG[sid] = round(chv / base * 100, 2)
+                            OFF_CHG_D[sid] = d2                      # r1110:記下這筆漲跌是哪一天的(openapi 常回前一交易日的舊檔)
                     except Exception:
                         pass
                 n += 1
@@ -4480,7 +4482,7 @@ def main():
         if bars and len(bars.get("o", [])) >= 2:
             try:
                 d = score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips)
-                if c["id"] in OFF_CHG:              # 官方當日漲跌%優先(K棒缺口時仍正確)
+                if c["id"] in OFF_CHG and (not OFF_CHG_D.get(c["id"]) or OFF_CHG_D[c["id"]] == (bars.get("d") or [None])[-1]):   # 官方當日漲跌%優先(K棒缺口時仍正確);r1110:日期要跟 K 線最後一根同一天
                     d["chg"] = OFF_CHG[c["id"]]
                 if c.get("etf"):                      # ETF 期間績效(價格報酬,%)
                     _cl=[x[3] for x in bars["o"]]; _ds=bars.get("d") or []
