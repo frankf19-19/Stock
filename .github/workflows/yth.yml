@@ -4,7 +4,7 @@ name: 財經皓角最新集自動整理
 on:
   workflow_dispatch:
   schedule:
-    - cron: "25 1,2,4 * * 1-5"      # 台北 09:25、10:25、12:25(週一~五)
+    - cron: "25 1,2,4,6,9 * * 1-5"  # 台北 09:25、10:25、12:25、14:25、17:25(週一~五;GitHub 常整班丟掉,另有 cron_guard 由股癌班補啟動)
 permissions:
   contents: write
 concurrency:

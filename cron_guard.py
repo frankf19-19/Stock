@@ -49,5 +49,13 @@ try: gt = dt.datetime.strptime(gu[:16], "%Y-%m-%d %H:%M")
 except Exception: gt = None
 if gt is None or (NOW - gt).total_seconds() > 2 * 3600:
     log(f"網站管理員:上次巡檢 {gu or '—'},超過 2 小時"); out.append("guard.yml")
+# ☀️ 財經皓角(r1110):台股交易日 10:00 後,yth.json 最新一集還不是今天的 → 補啟動(10/16 三個排程班 GitHub 全丟,只在 14:03 跑了一班還撞到 Gemini 503)
+try:
+    if trading(TODAY) and NOW.hour >= 10:
+        yt = str((load("yth.json", {}) or {}).get("dt") or "")[:10]
+        if yt < TODAY.isoformat():
+            log(f"財經皓角:最新一集 {yt or '—'},今天 {TODAY} 還沒整理"); out.append("yth.yml")
+except Exception:
+    pass
 if not out: log("排程保險:都正常")
 print("\n".join(out))

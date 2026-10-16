@@ -16,7 +16,7 @@ SHOWS = {
                     "解讀前一晚美股、總經數據、國際新聞與資金面對台股的影響)"},
 }
 KEY   = os.environ.get("GEMINI_KEY", "").strip()
-MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]   # 免費額度各自獨立:2.5 flash 被限流(429)就換下一個
+MODELS = ["gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"]   # 免費額度各自獨立:2.5 flash 限流/過載就換下一個(2.5 flash-lite、2.0 flash 已下架,404 時 API 指名改用 3.5 flash-lite / 3.8 flash)
 UA    = {"User-Agent": "Mozilla/5.0 (kyansuo-digest; personal dashboard)"}
 
 def log(*a): print(*a, flush=True)
@@ -140,12 +140,12 @@ def listen(C, src, title, retry=False):
         "generationConfig": {"maxOutputTokens": 8192, "thinkingConfig": {"thinkingBudget": 0}}}   # 關思考:思考會吃掉輸出額度而斷頭(前端同樣設定)
     r = None
     for model in MODELS:
-        for att in range(1, 3):
+        for att in range(1, 4):
             try:
                 r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={KEY}", json=body, timeout=1500)
                 if r.ok: break
                 if r.status_code in (429, 500, 502, 503):
-                    log(f"  {model} 第{att}次 {r.status_code}" + (",45秒後重試…" if att < 2 else ",換下一個模型")); time.sleep(45 if att < 2 else 2); continue
+                    log(f"  {model} 第{att}次 {r.status_code}" + (",60秒後重試…" if att < 3 else ",換下一個模型")); time.sleep(60 if att < 3 else 2); continue
                 log(f"  ✗ {model} {r.status_code}: {r.text[:200]},換下一個模型"); break
             except requests.exceptions.Timeout:
                 log(f"  {model} 第{att}次讀取逾時(1500s)")
