@@ -1,4 +1,4 @@
-/* K研所 · build r1116 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1117 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1116';
+const APP_BUILD='r1117';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2479,7 +2479,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1116</span>');
+  diag.push('<span style="color:var(--dim)">build r1117</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -7255,7 +7255,8 @@ setTimeout(refreshIdxMis,2600);
 setInterval(()=>{try{
   const ok9=k=>{const m=(IDX.misD||{})[k];return m&&Array.isArray(m.c)&&m.c.length>5;};
   if(openish()){refreshIdxMis();return;}
-  if((!ok9('tw')||!ok9('otc'))&&Date.now()-(window.__idxMisT||0)>5*60e3){   // r486:盤外自癒
+  const wd=tpNow().getDay(),gap=(wd===0||wd===6||holiTW())?30*60e3:5*60e3;   // r1117:假日 MIS 本來就沒今日分線,自癒改 30 分鐘一次(少打代理)
+  if((!ok9('tw')||!ok9('otc'))&&Date.now()-(window.__idxMisT||0)>gap){   // r486:盤外自癒
     window.__idxMisT=Date.now();refreshIdxMis();
   }
 }catch(e){}},60000);
@@ -12360,8 +12361,9 @@ function toastLite(msg){   // 頁內淡入提示(取代 alert,不打斷操作)
   requestAnimationFrame(()=>{el.style.opacity='1';el.style.transform='translateX(-50%) translateY(0)';});
   window.__toastTm=setTimeout(()=>{el.style.opacity='0';el.style.transform='translateX(-50%) translateY(8px)';},2800);
 }
-function mdLite(t){   // Gemini 輸出的輕量渲染:跳脫 → 表格 → **粗體** → ##標題 → 換行
+function mdLite(t){   // r1117:合併兩個同名版本(後者覆蓋前者,表格渲染一直是死碼):跳脫 → 程式碼 → 表格 → 粗體/標題 → 清單 → 換行
   let esc=String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  esc=esc.replace(/```\w*\n?([\s\S]*?)```/g,(m,c)=>`<pre><code>${c.trim()}</code></pre>`).replace(/`([^`\n]+)`/g,'<code>$1</code>');
   // Markdown 表格:連續的 | 列(含分隔列 |---|)→ HTML table
   esc=esc.replace(/(?:^\|.*\|[ \t]*\n)+/gm,block=>{
     const lines=block.trim().split('\n').filter(l=>l.trim().startsWith('|'));
@@ -12375,12 +12377,13 @@ function mdLite(t){   // Gemini 輸出的輕量渲染:跳脫 → 表格 → **�
     const tb=rows.map(r=>`<tr>${r.map((c,j)=>`<td style="padding:5px 9px;border-bottom:1px solid var(--line);${j>0?'text-align:right;font-variant-numeric:tabular-nums':''}">${c}</td>`).join('')}</tr>`).join('');
     return `<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13.5px"><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>\n`;
   });
-  return esc.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
-            .replace(/^###\s*(.+)$/gm,'<b style="color:var(--amber);font-size:15px">$1</b>')
-            .replace(/^##+\s*(.+)$/gm,'<b style="color:var(--amber)">$1</b>')
-            .replace(/(<\/table>)\n?/g,'$1')          // 表格後不要多餘 <br>
-            .replace(/\n/g,'<br>')
-            .replace(/<br>(<table)/g,'$1').replace(/(<\/table>)<br>/g,'$1');
+  esc=esc.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>')
+         .replace(/^###\s*(.+)$/gm,'<b style="color:var(--amber);font-size:15px">$1</b>')
+         .replace(/^(?:#{2,4}\s*|#\s+)(.+)$/gm,'<b style="color:var(--amber)">$1</b>');
+  esc=esc.split('\n').map(ln=>/^\s*[-•*] /.test(ln)?'<li>'+ln.replace(/^\s*[-•*] /,'')+'</li>':ln).join('\n');
+  esc=esc.replace(/(?:^|\n)((?:<li>[\s\S]*?<\/li>\n?)+)/g,m=>'<ul>'+m.replace(/\n/g,'')+'</ul>');
+  return esc.replace(/(<\/table>)\n?/g,'$1').replace(/\n{2,}/g,'\n').replace(/\n/g,'<br>')
+            .replace(/<br>(<table)/g,'$1').replace(/(<\/table>)<br>/g,'$1').replace(/<br>(<ul>)/g,'$1').replace(/(<\/ul>)<br>/g,'$1');
 }
 function confSummaryHTML(s){   // 📝 法說重點摘要:引擎依公開文本自動「寫出」一段白話重點(主體內容,非連結)
   try{
@@ -21545,17 +21548,6 @@ document.addEventListener('keydown',e=>{
 function aiKey(){return AI.keys[AI.prov]||'';}
 function aiModel(){return AI.models[AI.prov];}
 function aiEsc(x){return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function mdLite(t){
-  t=aiEsc(t);
-  t=t.replace(/```\w*\n?([\s\S]*?)```/g,(m,c)=>`<pre><code>${c.trim()}</code></pre>`);
-  t=t.replace(/`([^`\n]+)`/g,'<code>$1</code>');
-  t=t.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
-  t=t.replace(/^#{1,4} (.+)$/gm,'<b>$1</b>');
-  t=t.split('\n').map(ln=>/^\s*[-•*] /.test(ln)?'<li>'+ln.replace(/^\s*[-•*] /,'')+'</li>':ln).join('\n');
-  t=t.replace(/(?:^|\n)((?:<li>[\s\S]*?<\/li>\n?)+)/g,m=>'<ul>'+m.replace(/\n/g,'')+'</ul>');
-  t=t.replace(/\n{2,}/g,'\n').replace(/\n/g,'<br>');
-  return t;
-}
 function aiModelTag(){
   const names={'gemini-2.5-flash':'Gemini 2.5 Flash','gemini-2.5-flash-lite':'Gemini Flash-Lite',
     'gemini-3-flash-preview':'Gemini 3 Flash',
