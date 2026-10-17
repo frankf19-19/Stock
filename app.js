@@ -1,4 +1,4 @@
-/* K研所 · build r1121 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1122 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1121';
+const APP_BUILD='r1122';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -996,6 +996,18 @@ function osHTML(){
       ${open?`<details class="aip-fold"><summary>追蹤中的 ${(OS.open||[]).length} 檔</summary>${open}</details>`:''}
     </div>`;}catch(e){return '';}
 }
+/* r1122:最愛卡「做法」區——三清單(短/中/長期)持有或待買的那檔,直接列出進場價、帳面、停損/停利/加碼(原本只認主力 20 檔,台塑在短期清單卻寫「還沒到買點」) */
+function a3TiersOf(id,us){const a3=(typeof AIP3!=='undefined'&&AIP3&&(us?AIP3.us:AIP3.tw))||null;const out=[];if(!a3)return out;
+  ['short','mid','long'].forEach(k=>{(a3[k]&&a3[k].slots||[]).forEach(sl=>{if((sl.cur||sl.id)===id&&(sl.st==='hold'||sl.st==='pend'))out.push({k,sl});});});return out;}
+function a3PlanLine(id,us,px){
+  const c=us?'$':'',nm={short:'🏃 短期清單',mid:'🌊 中期清單',long:'🏦 長期清單'},md=d=>String(d||'').slice(5).replace('-','/');
+  const T=a3TiersOf(id,us);if(!T.length)return '';
+  return T.map(({k,sl})=>{const L=sl.lv||{};
+    if(sl.st==='pend')return `${nm[k]}:<b>下一交易日開盤買</b>(以選股日收盤估:停損 ${c}${L.sl||'—'}、停利 ${c}${L.tp||'—'},成交後以進場價重算)`;
+    const r=px&&sl.entry?(px/sl.entry-1)*100:null;
+    const extra=k==='short'&&!us?`、最多再 ${Math.max(0,15-(sl.days||0))} 天`:k==='mid'&&us?`、剩 ${Math.max(0,60-(sl.days||0))} 天`:k==='mid'?'、掉出前 200 名隔天開盤賣':'、持有到下一季檢視(長期清單不自動停損,價位是參考)';
+    return `${nm[k]}:<b>持有中</b>(${md(sl.fill_d)} 買 ${c}${sl.entry}${r!=null?`,帳面 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b>`:''});🛑 停損 <b>${c}${L.sl||'—'}</b>・🎯 停利 <b>${c}${L.tp||'—'}</b>${L.add?`・➕ 加碼 ${c}${L.add}`:''}${extra}`;}).join('<br>');
+}
 function actionPlan(o,id,px,own,cost,dates){
   /* r1031:全部用「價格」表達——模型門檻(AI Pick 勝算/名次、量價籌碼排名)都換算成「收盤到哪個價會觸發」 */
   const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||{},PV=T.pv||{},R=PV.rules||{},TP=R.tp||0.25;
@@ -1005,8 +1017,10 @@ function actionPlan(o,id,px,own,cost,dates){
   const m60dn=n>=65&&avg(60)<avg(60,5);
   const sys=(T.pos||[]).find(x=>x.id===id),pend=(T.pend||[]).find(x=>x.id===id),M=(T.pxmap||{})[id]||{};
   const pvh=(PV.pos||[]).find(x=>x.id===id),pvq=(PV.pend||[]).find(x=>x.id===id),PM=(PV.pxmap||{})[id]||{};
-  const hold=own||sys||pvh,S=[],B=[];   // [價格, 說明]
+  const a3h=a3TiersOf(id,false).filter(t=>t.sl.st==='hold'&&t.sl.entry),a3s=a3h.find(t=>t.k==='short')||a3h.find(t=>t.k==='mid')||null;   // r1122:三清單持有中(短期/中期有真正的停損;長期只是參考)
+  const hold=own||sys||pvh||!!a3h.length,S=[],B=[];   // [價格, 說明]
   if(sys) S.push([sys.stop,'盤中跌破就賣','AI Pick 停損']);
+  a3h.forEach(t=>{if(t.sl.lv&&t.sl.lv.sl&&t.k!=='long')S.push([t.sl.lv.sl,'盤中跌破就賣',(t.k==='short'?'短期清單':'中期清單')+'停損']);});
   const vs=sys&&sys.sleeve==='g'?M.g_sell:M.v_sell;
   if((own||sys)&&vs) S.push([vs,'收盤跌破 → 隔天開盤賣','AI Pick 模型轉弱']);
   if((own||pvh)&&PM.sell) S.push([PM.sell,'收盤跌破 → 隔天開盤賣','量價籌碼轉弱']);
@@ -1029,8 +1043,9 @@ function actionPlan(o,id,px,own,cost,dates){
   const trig=B.filter(x=>x[0]!=null).sort((a,b)=>Math.abs(a[0]-px)-Math.abs(b[0]-px))[0];
   const stopCand=S.filter(x=>x[0]<px);let stop=stopCand.length?stopCand[0][0]:null;
   if(!hold){const ref=trig&&trig[0]?trig[0]:px;const c=[lv.d60,lv.d240].filter(v=>v&&v<ref&&v>=ref*0.7);stop=c.length?Math.max(...c):null;}   // 還沒買:買進後的停損(季線/年線)
-  const entry=sys?sys.entry:pvh?pvh.entry:cost||null;
-  const tpx=tp||(entry?tk(entry*(1+TP)):(!nowOK&&trig)?tk(trig[0]*(1+TP)):tk(px*(1+TP)));   // 還沒買:以買進價 +25%
+  const entry=sys?sys.entry:pvh?pvh.entry:a3s?a3s.sl.entry:(a3h[0]?a3h[0].sl.entry:cost||null);
+  const a3tp=a3s&&a3s.sl.lv&&a3s.sl.lv.tp||null;
+  const tpx=a3tp||tp||(entry?tk(entry*(1+TP)):(!nowOK&&trig)?tk(trig[0]*(1+TP)):tk(px*(1+TP)));   // 還沒買:以買進價 +25%
   let buyTxt;
   if(nowOK) buyTxt=`現在就可以買:明天 9:00 開盤價,<b>${fmt(tk(px*1.03))} 以下</b>才買(漲超過 3% 不追)`;
   else if(trig&&trig[0]>px) buyTxt=`收盤站上 <b>${fmt(trig[0])}</b> 後,隔天開盤在 <b>${fmt(trig[0])}~${fmt(tk(trig[0]*1.03))}</b> 之間買(還差 ${pct(trig[0])})`;
@@ -1063,6 +1078,7 @@ function actionPlan(o,id,px,own,cost,dates){
   const L=(ic,lab,txt)=>`<div style="display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><div style="min-width:64px;font-weight:900">${ic} ${lab}</div><div>${txt}</div></div>`;
   return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
     <div style="padding:2px 0 2px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
+    ${(()=>{const t=a3PlanLine(id,false,px);return t?L('🤖','AI Pick',t):'';})()}
     ${(()=>{const t=stratLine(o,id,px);return t?L('🧭','做法',t):'';})()}
     ${(()=>{const t=posLine(POS,vtCalc(o),id);return t?L('📏','位置',t):'';})()}
     ${(()=>{const t=vtTechLine(o,POS&&POS.z);return t?L('📈','技術',t):'';})()}
@@ -1291,10 +1307,12 @@ function usPlan(o,s,dates,own,cost){
     else if(dd<=-V.th){ddTxt=`已在跌深區(離 60 日高 ${dd.toFixed(1)}%);規則是跌破 −${V.th}% 的<b>第一天</b>買,之後不追加`;buy='已過第一天,依規則不追;等下一次跌深';}
     else{ddTxt=`離 60 日高 ${dd.toFixed(1)}%;跌到 <b>${fmt(trig)}</b>(= 60 日高 ${fmt(hi60)} 的 −${V.th}%,比現價 ${pct(trig)})以下的第一天才符合`;buy=`收盤跌到 <b>${fmt(trig)}</b> 以下的第一天 → 隔天開盤買(現在差 ${pct(trig)})`;stop=trig*(1-V.sl/100);tpx=trig*(1+V.tp/100);}
     const ddRow=`🎯 <b>跌深低接</b> ✅:${ddTxt} ${dim(`(美股回測 ${V.n.toLocaleString()} 次:每筆平均 +${V.avg}%、勝率 ${V.win}%;隨機買同樣停利停損 +${V.rnd}%;${V.yrs} 年勝過隨機)`)}`;
-    const hold=own&&cost>0,pnl=hold?(px/cost-1)*100:null;
-    const st=hold?`比成本 <b style="color:${pnl>=0?'var(--up)':'var(--down)'}">${pnl>=0?'+':''}${pnl.toFixed(1)}%</b>`:(ready?'<b style="color:var(--up)">符合跌深低接</b>':'<b>還沒到美股驗證過的買點</b>,先觀望');
+    const a3h=a3TiersOf(s.id,true).filter(t=>t.sl.st==='hold'&&t.sl.entry),a3e=a3h.length?a3h[0].sl.entry:null;   // r1122:美股三清單持有中
+    const hold=(own&&cost>0)||!!a3e,base=(own&&cost>0)?cost:a3e,pnl=hold?(px/base-1)*100:null;
+    const st=hold?`比${(own&&cost>0)?'成本':'三清單進場價'} <b style="color:${pnl>=0?'var(--up)':'var(--down)'}">${pnl>=0?'+':''}${pnl.toFixed(1)}%</b>${a3h.length?',照清單的停損/停利':''}`:(ready?'<b style="color:var(--up)">符合跌深低接</b>':'<b>還沒到美股驗證過的買點</b>,先觀望');
     return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
       <div style="padding:2px 0 2px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
+      ${(()=>{const t=a3PlanLine(s.id,true,px);return t?L('🤖','AI Pick',t):'';})()}
       ${L('🧭','做法',ddRow)}
       ${L('📏','現況',`${fact}${jump}<div style="font-size:11.5px;color:var(--dim);margin-top:2px">美股實測(2013~2026):離 52 週高的位置、創新高、均線、KD/RSI、帶量突破、量價、站上 N 日高、跌破季線/年線,之後 20 天都<b>沒有穩定好壞</b>(跟台股不同),只當現況參考。</div>`)}
       ${L('🟢','買進',buy)}
@@ -2488,7 +2506,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1121</span>');
+  diag.push('<span style="color:var(--dim)">build r1122</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
