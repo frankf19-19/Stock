@@ -1,4 +1,4 @@
-/* K研所 · build r1122 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1124 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1122';
+const APP_BUILD='r1124';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1043,7 +1043,7 @@ function actionPlan(o,id,px,own,cost,dates){
   const trig=B.filter(x=>x[0]!=null).sort((a,b)=>Math.abs(a[0]-px)-Math.abs(b[0]-px))[0];
   const stopCand=S.filter(x=>x[0]<px);let stop=stopCand.length?stopCand[0][0]:null;
   if(!hold){const ref=trig&&trig[0]?trig[0]:px;const c=[lv.d60,lv.d240].filter(v=>v&&v<ref&&v>=ref*0.7);stop=c.length?Math.max(...c):null;}   // 還沒買:買進後的停損(季線/年線)
-  const entry=sys?sys.entry:pvh?pvh.entry:a3s?a3s.sl.entry:(a3h[0]?a3h[0].sl.entry:cost||null);
+  const entry=(own&&cost)?cost:sys?sys.entry:pvh?pvh.entry:a3s?a3s.sl.entry:(a3h[0]?a3h[0].sl.entry:null);   // r1124:你自己設的持股成本優先(原本排在模型帳之後,設了也看不到)
   const a3tp=a3s&&a3s.sl.lv&&a3s.sl.lv.tp||null;
   const tpx=a3tp||tp||(entry?tk(entry*(1+TP)):(!nowOK&&trig)?tk(trig[0]*(1+TP)):tk(px*(1+TP)));   // 還沒買:以買進價 +25%
   let buyTxt;
@@ -2506,7 +2506,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1122</span>');
+  diag.push('<span style="color:var(--dim)">build r1124</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
