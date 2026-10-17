@@ -488,7 +488,8 @@ def levels(p, key, us=False, prev=None):
             if add <= sl * 1.02: add, adds = buy * 1.10, "進場 +10%"               # 加碼價不能貼著停損
             re_ = sl + 1.0 * a
             R = lambda v: aipick.rtick(float(v), "near")
-            return {"sl": aipick.rtick(float(sl), "down"), "sl_src": sls, "tp": aipick.rtick(float(tp), "up"), "tp_src": tps,   # r1121:停損往下、停利往上一檔,跟實際出場價同一個數 "add": R(add), "add_src": adds, "re": R(re_), "re_src": "停損價 + 1 ATR 站回就可買回(回測:停損後 10 天內買回,三個清單都平均虧 −2%、勝率 3 成 → 不建議,除非有新理由)",
+            # r1121:停損往下、停利往上一檔,跟實際出場價同一個數
+            return {"sl": aipick.rtick(float(sl), "down"), "sl_src": sls, "tp": aipick.rtick(float(tp), "up"), "tp_src": tps, "add": R(add), "add_src": adds, "re": R(re_), "re_src": "停損價 + 1 ATR 站回就可買回(回測:停損後 10 天內買回,三個清單都平均虧 −2%、勝率 3 成 → 不建議,除非有新理由)",
                     "atr": round(a, 2), "d": d[-1], "anchor": round(float(buy), 2), "rr": LV.get("rr")}
         finally: aipick.US = old
     except Exception as e:
