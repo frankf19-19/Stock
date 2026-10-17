@@ -28,11 +28,14 @@ jobs:
           python listen_show.py yth 2>&1 | tee /tmp/yth_log.txt || true
           grep -E "最新集|路線|Gemini|音檔|完成|✗|⚠|重試|歸檔|模型|頻道 RSS" /tmp/yth_log.txt | tail -20 | sed 's/^/::notice::/' || true
           grep -q "^完成" /tmp/yth_log.txt || grep -q "已整理過" /tmp/yth_log.txt || echo "::warning::本班沒有產出(看上面 notice)"
+      - name: 推薦好書(RSS 描述 + AI 整理,永久累積)
+        run: python fetch_books.py yth || echo "::warning::好書清單失敗"
       - name: 提交結果
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
           git add yth.json 2>/dev/null || true
           git add yth_hist/ 2>/dev/null || true
+          git add yth_books.json 2>/dev/null || true
           git commit -m "財經皓角重點更新 [CI Skip]" || echo "無變更"
           for i in 1 2 3 4 5; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 8; done

@@ -1,4 +1,4 @@
-/* K研所 · build r1109 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1111 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1109';
+const APP_BUILD='r1111';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2479,7 +2479,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1109</span>');
+  diag.push('<span style="color:var(--dim)">build r1111</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -17252,7 +17252,7 @@ async function yNews(q,count){
 const GA_SHOWS={
   gooaye:{id:'1500839292',name:'股癌 Gooaye',short:'股癌',ic:'🎙️',json:'gooaye.json',news:'股癌 (台股 OR 謝孟恭 OR 觀點)',newsT:'📰 股癌觀點・相關報導',yt:'@Gooaye',ep:true,
     sub:'最新集數即時更新・站內播放・AI 重點摘要',kind:'台股 Podcast「股癌 Gooaye」',wait:'通常上片後 4 小時內出現',credit:'股癌'},
-  yth:{id:'1488295306',name:'游庭皓的財經皓角',short:'財經皓角',ic:'☀️',json:'yth.json',news:'游庭皓 OR 財經皓角',newsT:'📰 游庭皓觀點・相關報導',ytcid:'UC0lbAQVpenvfA2QqzsRtL_g',ep:false,chapters:true,
+  yth:{id:'1488295306',name:'游庭皓的財經皓角',short:'財經皓角',ic:'☀️',json:'yth.json',news:'游庭皓 OR 財經皓角',newsT:'📰 游庭皓觀點・相關報導',ytcid:'UC0lbAQVpenvfA2QqzsRtL_g',ep:false,chapters:true,books:'yth_books.json',
     sub:'每個交易日 8:30 開盤前直播「早晨財經速解讀」・AI 聽完整理・每集永久保留',kind:'財經直播節目「游庭皓的財經皓角・早晨財經速解讀」(主持人游庭皓,開盤前解讀美股、總經與國際新聞對台股的影響)',wait:'通常直播結束後 1~3 小時內出現',credit:'游庭皓的財經皓角'}
 };
 let GA_CUR=(()=>{try{const v=localStorage.getItem('ga_show');return GA_SHOWS[v]?v:'gooaye';}catch(e){return 'gooaye';}})();
@@ -17457,7 +17457,7 @@ async function gaEpisodes(force){
       a:x.episodeUrl||'',
       l:x.trackViewUrl||('https://podcasts.apple.com/tw/podcast/id'+gaCfg().id),
       min:x.trackTimeMillis?Math.round(x.trackTimeMillis/60000):null,
-      dt:gaDate(x.releaseDate),
+      dt:gaDate(x.releaseDate),iso:gaIso(x.releaseDate),
       ...glbAgo(x.releaseDate)
     })).filter(x=>x.t);
     eps.sort((a,b)=>(a.hrs??9e9)-(b.hrs??9e9));
@@ -17471,7 +17471,7 @@ async function gaEpisodes(force){
         if(r.ok){const j=await r.json();
           if(j&&j.status==='ok'&&Array.isArray(j.items))
             eps=j.items.map(it=>({t:it.title,d:gaClean(it.description||it.content),
-              a:(it.enclosure&&it.enclosure.link)||'',l:it.link||'#',min:null,dt:gaDate(it.pubDate),...glbAgo(it.pubDate)}));}
+              a:(it.enclosure&&it.enclosure.link)||'',l:it.link||'#',min:null,dt:gaDate(it.pubDate),iso:gaIso(it.pubDate),...glbAgo(it.pubDate)}));}
       }catch(e){}
       if(!eps.length){
         const xml=await fetchTextProxy(fu);
@@ -17481,7 +17481,7 @@ async function gaEpisodes(force){
             const q=s=>{const e2=it.querySelector(s);return e2?e2.textContent:'';};
             const enc=it.querySelector('enclosure');
             return {t:q('title'),d:gaClean(q('description')),
-              a:enc?enc.getAttribute('url')||'':'',l:q('link')||'#',min:null,dt:gaDate(q('pubDate')),...glbAgo(q('pubDate'))};
+              a:enc?enc.getAttribute('url')||'':'',l:q('link')||'#',min:null,dt:gaDate(q('pubDate')),iso:gaIso(q('pubDate')),...glbAgo(q('pubDate'))};
           }).filter(x=>x.t);
         }catch(e){}
       }
@@ -17687,6 +17687,46 @@ setInterval(async()=>{
     }
   }catch(e){}
 },10*60e3);
+/* r1111:📚 節目推薦過的書——後端 fetch_books.py 從 podcast 每集描述的「書名/作者/出版社」區塊(官方寫的)+ AI 整理裡的「本集推薦的書」累積成 <show>_books.json,永久只增不減 */
+let GA_BOOKS={};
+function gaIso(d){try{const t=new Date(d);if(!isFinite(t))return '';return new Date(t.getTime()+8*3600e3).toISOString().slice(0,10);}catch(e){return '';}}
+async function gaBooksLoad(C){
+  if(!C.books)return null;
+  const k=C.books;if(GA_BOOKS[k]&&Date.now()-GA_BOOKS[k].t<30*60e3)return GA_BOOKS[k].j;
+  try{const r=await fT(k+'?'+Math.floor(Date.now()/18e5),8000);if(r&&r.ok){const j=await r.json();if(j&&Array.isArray(j.books)){GA_BOOKS[k]={t:Date.now(),j};return j;}}}catch(e){}
+  return (GA_BOOKS[k]||{}).j||null;
+}
+function gaBookRow(b){
+  const md=d=>d?String(d).slice(2).replace(/-/g,'/'):'';const esc=x=>aiEsc(String(x||''));
+  const meta=[b.author?`${esc(b.author)}${b.orig?` <span class="dim">(${esc(b.orig)})</span>`:''}`:'',b.pub?esc(b.pub)+(b.pubd?' '+esc(b.pubd):''):''].filter(Boolean).join('・');
+  return `<div class="ga-book${b.src==='ai'?' ai':''}"><div class="ga-bk-t">《${esc(b.title)}》${b.src==='ai'?'<span class="ga-bk-ai" title="節目描述沒寫,是 AI 聽整集時聽到他提到的">AI 聽到</span>':''}</div>
+    ${meta?`<div class="ga-bk-m">${meta}</div>`:''}${b.why?`<div class="ga-bk-w">${esc(b.why)}</div>`:''}
+    <div class="ga-bk-l">${b.ep_dt?`<a href="${String(b.ep_url||'#').replace(/"/g,'')}" target="_blank" rel="noopener">📅 ${md(b.ep_dt)} 那集 ↗</a>`:''}${b.url?`<a href="${String(b.url).replace(/"/g,'')}" target="_blank" rel="noopener">📖 書籍連結 ↗</a>`:`<a href="https://search.books.com.tw/search/query/key/${encodeURIComponent(b.title)}" target="_blank" rel="noopener">🔍 博客來找這本 ↗</a>`}</div></div>`;
+}
+function gaBooksRender(J,C){
+  const box=document.getElementById('gaBooks'),tt=document.getElementById('gaBooksT');if(!box)return;
+  if(!C.books||!J||!(J.books||[]).length){box.innerHTML='';box.hidden=true;if(tt)tt.hidden=true;return;}
+  box.hidden=false;if(tt){tt.hidden=false;try{if(tt.childNodes[0]&&tt.childNodes[0].nodeType===3)tt.childNodes[0].textContent=`📚 他推薦過的書(${J.books.length} 本) `;}catch(e){}}
+  const B=J.books;const N=10;const q=(box.querySelector('#gaBookQ')||{}).value||'';
+  const show=all=>{const v=(document.getElementById('gaBookQ')||{}).value||'';const vv=v.trim().toLowerCase();
+    const L=B.filter(b=>!vv||[b.title,b.author,b.orig,b.pub,b.why,b.ep].some(x=>String(x||'').toLowerCase().includes(vv)));
+    const cut=all||vv?L:L.slice(0,N);
+    document.getElementById('gaBookList').innerHTML=cut.map(gaBookRow).join('')||'<div class="dim-note">沒有符合的書</div>';
+    const m=document.getElementById('gaBookMore');if(m)m.style.display=(all||vv||L.length<=N)?'none':'';if(m)m.textContent=`顯示全部 ${L.length} 本`;};
+  box.innerHTML=`<div class="dim-note" style="margin:0 0 8px">共 <b>${B.length}</b> 本・來源:節目每集描述裡的「書名/作者/出版社」(官方寫的,多半是每週五的抽書好書)+ AI 聽整集時聽到他提到的(標「AI 聽到」,參考)。最新的在前,永久累積;書籍連結是節目自己附的。</div>
+    <input id="gaBookQ" type="search" placeholder="🔍 找書:書名、作者、出版社" value="${aiEsc(q)}" style="width:100%;box-sizing:border-box;margin:0 0 8px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:14.5px">
+    <div id="gaBookList" class="ga-books"></div><button type="button" id="gaBookMore" class="btn-ghost" style="margin-top:8px;padding:6px 14px"></button>`;
+  show(false);
+  box.querySelector('#gaBookQ').oninput=()=>show(false);
+  box.querySelector('#gaBookMore').onclick=()=>show(true);
+}
+function gaBooksCss(){if(document.getElementById('gaBooksCss'))return;const st=document.createElement('style');st.id='gaBooksCss';
+  st.textContent=`.ga-books{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+  .ga-book{border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;background:var(--panel);padding:9px 12px;font-size:13.5px;line-height:1.6}
+  .ga-book.ai{border-left-color:var(--t-blue)}
+  .ga-bk-t{font-weight:900;font-size:15px}.ga-bk-ai{font-size:11px;font-weight:700;color:var(--t-blue);border:1px solid var(--t-blue);border-radius:6px;padding:0 5px;margin-left:6px;vertical-align:2px}
+  .ga-bk-m{color:var(--txt2)}.ga-bk-w{color:var(--txt2);margin-top:2px}.ga-bk-l{margin-top:4px;display:flex;gap:12px;flex-wrap:wrap}.ga-bk-l a{color:var(--amber);text-decoration:none;font-size:13px}
+  .ga-ep-bk{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:9px;border:1px solid var(--amber);color:var(--amber);font-size:13px;font-weight:800;text-decoration:none}`;document.head.appendChild(st);}
 let GA_BUSY=false;
 async function gooayeLoad(force){
   const box=document.getElementById('gaEps');
@@ -17727,6 +17767,11 @@ async function gooayeLoad(force){
   // 全部集數自動排隊預整理(有金鑰/通行碼才跑;有快取秒現)
   setTimeout(()=>{try{gaQueueRun();}catch(e){}},300);
   window.__gaEps=eps;
+  try{gaBooksCss();const bb=document.getElementById('gaBooks');if(bb&&!C0.books){bb.hidden=true;const t0=document.getElementById('gaBooksT');if(t0)t0.hidden=true;}
+    gaBooksLoad(C0).then(J=>{if(gaCfg()!==C0)return;gaBooksRender(J,C0);
+      if(J&&(J.books||[]).length){const by={};J.books.forEach(b=>{if(b.ep_dt)(by[b.ep_dt]=by[b.ep_dt]||[]).push(b);});   // r1111:集數卡上標「📚 本集推薦」
+        eps.forEach((e,i)=>{const L=by[e.iso];if(!L||!L.length)return;const host=document.getElementById('gaSum'+i);if(!host||!host.parentNode||host.parentNode.querySelector('.ga-ep-bk'))return;
+          host.insertAdjacentHTML('beforebegin',L.map(b=>`<a class="ga-ep-bk" href="${b.url?String(b.url).replace(/"/g,''):'javascript:void 0'}" ${b.url?'target="_blank" rel="noopener"':''}>📚 本集推薦:《${aiEsc(b.title)}》${b.author?' '+aiEsc(b.author):''}</a>`).join(' '));});}});}catch(e){}
   box.onclick=ev=>{
     const more=ev.target.closest('.ga-more');
     if(more){const e=window.__gaEps[+more.dataset.i];
