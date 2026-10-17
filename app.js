@@ -1,4 +1,4 @@
-/* K研所 · build r1118 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1119 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1118';
+const APP_BUILD='r1119';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -992,7 +992,7 @@ function osHTML(){
       <div style="font-weight:900;font-size:16px">🎯 錯殺低接・實戰追蹤 <span style="font-weight:400;font-size:13px;color:var(--dim)">離 60 日高跌 ≥30% 的第一天 → 隔天開盤買</span></div>
       <div class="dim-note" style="margin:4px 0 8px">停利 +20%、停損 −15%、最多抱 60 天。回測 ${bt.range||'2012~2026'}:營收好 ${((bt.good||[])[0]||0).toLocaleString()} 次、勝率 ${(bt.good||[])[2]}%、平均 +${(bt.good||[])[1]}%;營收不好平均 +${(bt.bad||[])[1]}%;隨機買同規則 +${(bt.rand||[])[1]}%;${bt.years||''} 年勝過隨機。歷史資料不含已下市股票,可能偏樂觀——所以這裡用每天的實際訊號持續追蹤成績。</div>
       <div style="font-size:13px;margin-bottom:6px">📊 實戰:已出場 ${st.closed||0} 筆${st.closed?`、勝率 ${st.win}%、平均 ${fp(st.avg)}`:''}・追蹤中 ${st.open||0} 檔${(st.closed||0)<20?`<span style="color:var(--dim)">(累積 20 筆後跟回測每筆 +${(bt.all||[])[1]||3.1}% 比較)</span>`:st.avg<0?`<b style="color:var(--down)"> ⚠ 實戰明顯落後回測,規則需要重新檢討</b>`:st.avg<((bt.all||[])[1]||3.1)/2?`<span style="color:var(--amber)"> 實戰低於回測一半,持續觀察</span>`:`<span style="color:var(--up)"> 實戰符合回測</span>`}</div>
-      ${pend?`<div style="font-size:13px;margin-bottom:6px">⏭ 明天開盤買:${pend}</div>`:''}
+      ${pend?`<div style="font-size:13px;margin-bottom:6px">⏭ ${(()=>{try{const t=_isoIn('Asia/Taipei'),nx=twNextTD(t);return (nx&&(nx!==twTomorrowIso()||!twTradeDay(t)))?twTDLabel(nx)+' 9:00 開盤買':'明天開盤買';}catch(e){return '明天開盤買';}})()}:${pend}</div>`:''}
       ${open?`<details class="aip-fold"><summary>追蹤中的 ${(OS.open||[]).length} 檔</summary>${open}</details>`:''}
     </div>`;}catch(e){return '';}
 }
@@ -1180,6 +1180,7 @@ async function favStateFill(){
         favStPaint(id);if(tries<4)needRetry=true;continue;}
       const st=favState(s,k.ohlc);
       try{await aipLoad();}catch(e){}
+      try{await aip3Load();}catch(e){}   // r1119:三清單也要先載,不然最愛卡的「AI Pick」狀態看不到短/中/長期清單(台塑在短期清單卻寫「沒有買進訊號」)
       let plan='',own=false;
       try{const P=favPlanOf(s,k.ohlc,k.dates),px0=+s.price||0;   // 持股損益(有設進場價才顯示)——事實,不是預測
         if(P&&P.entry&&px0){own=true;const r=(px0/P.entry-1)*100;plan+=`<div class="fav-pnl" style="font-size:13px;margin:6px 0 2px">💼 持股成本 <b>${P.entry}</b>・損益 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b></div>`;}}catch(e){}
@@ -1306,10 +1307,18 @@ function usPlan(o,s,dates,own,cost){
 /* r1074:美股最愛的 AI Pick 狀態——原本誤用台股 AI Pick 判斷,美股永遠顯示「沒有買進訊號」。美股 AI Pick 還在實戰驗證(未公開):
    一般使用者顯示「驗證中」;管理員看得到 AI 交易員(美股)目前是否持有 */
 function usPickVerdict(id){
-  const md=x=>String(x||'').slice(5).replace('-','/');
+  const md=x=>String(x||'').slice(5).replace('-','/'),ln=t=>`<div class="aiv-ln" style="font-size:13px;margin:5px 0;line-height:1.5">${t}</div>`;
   const adm=typeof isAdmin==='function'&&isAdmin(),U=(typeof AIT!=='undefined'&&AIT&&AIT.US)||null,p=U&&U.pos&&U.pos[id];
+  // r1119:美股三清單(短期=每週模型、中期=跌深低接、長期=未來性)是公開的,最愛卡要照台股一樣顯示
+  const a3=(typeof AIP3!=='undefined'&&AIP3&&AIP3.us)||null,tiers=[];
+  if(a3)['short','mid','long'].forEach(k=>{const m={short:'🏃 短期',mid:'🌊 中期',long:'🏦 長期'}[k];(a3[k]&&a3[k].slots||[]).forEach(sl=>{if((sl.cur||sl.id)===id&&(sl.st==='hold'||sl.st==='pend'))tiers.push({k,m,sl});});});
+  if(tiers.length){
+    const parts=tiers.map(({m,sl})=>sl.st==='pend'?`${m}清單:<b>下一交易日開盤買</b>`:`${m}清單:<b>持有中</b>・${md(sl.fill_d)} 買 $${sl.entry}`);
+    const act=tiers.map(({m,sl})=>sl.lv?ln(`${m}參考價:🛑 停損 <b>$${sl.lv.sl}</b>・🎯 停利 <b>$${sl.lv.tp}</b>・➕ 加碼 <b>$${sl.lv.add}</b>・🔁 再買回 <b>$${sl.lv.re}</b>`):'').join('')
+      +tiers.map(({k})=>ln(k==='short'?'🏃 短期:每週模型(回測 25 週勝率 54%),到目標/停損當天賣':k==='mid'?'🌊 中期:跌深低接,停利 +20% / 停損 −15% / 最多 60 天(參考・高波動)':'🏦 長期:每季第一個交易日檢視(參考)')).join('');
+    return {cls:tiers.some(t=>t.sl.st==='pend')?'fst-brk':'fst-up',txt:`<span>🤖 AI Pick:${parts.join(';')}</span>`,act};}
   if(adm&&p)return {cls:'fst-up',txt:`<span>🤖 AI 交易員(美股・驗證中・只有管理員看得到):<b>持有中</b>・${md(p.d0)} 買 ${p.entry}・停損 ${p.stop}</span>`};
-  return {cls:'fst-wait',txt:`<span>🤖 美股 AI Pick 還在實戰驗證,尚未開放買賣訊號${adm&&U?'(AI 交易員目前沒有持有這檔)':''}</span>`};
+  return {cls:'fst-wait',txt:`<span>🤖 AI Pick:不在美股三清單內${adm&&U?'(AI 交易員目前也沒有持有這檔)':''}</span>`};
 }
 /* r1068:⚡ 最愛快選——最愛多的時候(≥6 檔):上方固定一列「搜尋框 + 每檔小按鈕(含今日漲跌)」,
    點按鈕直接捲到那張卡片並閃一下;打字即時篩選(代號或名稱) */
@@ -2479,7 +2488,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1118</span>');
+  diag.push('<span style="color:var(--dim)">build r1119</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -22609,7 +22618,8 @@ function aipStatStrip(st,label,note){
     <div class="aip-stats-h"><b>📊 ${label}</b><span>${note||''}</span></div>${mtm}
     <div class="aip-kpis">
       ${box('累計週數',st.weeks+' 週')}
-      ${box('推薦/成交',`${st.n} / ${st.filled}`)}
+      ${(()=>{let n=st.n;try{const td=aipIso(aipTpDate());n-= (st.by_week||[]).filter(w=>w.buy_week>td).reduce((a,w)=>a+(w.n||0),0);}catch(e){}   // r1119:還沒開始買的下一週不算「推薦」
+        return box(m?'推薦/已結案':'推薦/成交',`${n} / ${st.filled}`);})()}
       ${box('準確率(收高)',wr!=null?wr+'%':'—',wr>=50?'var(--up)':'var(--down)')}
       ${box('平均漲跌',st.avg_ret!=null?(st.avg_ret>0?'+':'')+st.avg_ret+'%':'—',st.avg_ret>0?'var(--up)':'var(--down)')}
       ${box('平均賺 / 平均賠',`<span style="color:var(--up)">${st.avg_win!=null?'+'+st.avg_win+'%':'—'}</span> / <span style="color:var(--down)">${st.avg_loss!=null?st.avg_loss+'%':'—'}</span>`)}
@@ -22775,7 +22785,7 @@ function aip3Tier(key,T,us){
   const empty=K3-(T.slots||[]).length;
   const emptyRows=empty>0?`<div class="a3-empty">${key==='mid'&&us?`⏳ 還有 ${empty} 個空位,等跌深機會(第一天離 60 日高 ≥25%)`:`⏳ 還有 ${empty} 個空位,${nextLab}時補`}</div>`:'';
   const P=T.perf||{};const hist=(T.hist||[]).slice(-12).reverse();
-  const foot=`<div class="a3-foot"><span>📜 成績單:已出場 <b>${P.n||0}</b> 筆${P.n?`・勝率 <b>${P.win}%</b>・平均 <b style="color:${cl(P.avg)}">${fp(P.avg)}</b>`:''}${P.open?`・持有中 ${P.open} 檔平均 <b style="color:${cl(P.open_avg)}">${fp(P.open_avg)}</b>`:''}</span><span>${nextLab}</span>${hist.length?`<details><summary style="cursor:pointer">最近出場</summary><ul class="a3-hist" style="list-style:none;padding:0;margin:0">${hist.map(h=>{const re=aip3ReHTML(h,us);return `<li><span>${md(h.fill_d)}→${md(h.xd)}</span><span><a href="#stock/${h.id}">${h.name||h.id}</a></span><span class="dim">${h.xw==='tp'?'停利':h.xw==='sl'?'停損':h.xw==='time'?'到期':h.xw==='rank'?'掉出排名':h.xw==='quarter'?'季檢視':h.xw||''}</span><span style="color:${cl(h.ret)}">${fp(h.ret)}</span>${re?`<span class="a3-re">${re}</span>`:''}</li>`;}).join('')}</ul></details>`:''}</div>`;
+  const foot=`<div class="a3-foot"><span>📜 成績單:已出場 <b>${P.n||0}</b> 筆${P.n?`・勝率 <b>${P.win}%</b>・平均 <b style="color:${cl(P.avg)}">${fp(P.avg)}</b>`:''}${P.open?`・持有中 ${P.open} 檔${us&&key==='short'&&P.open>(T.slots||[]).filter(p=>p.st==='hold').length?'(各週合計,上面只列最新一週)':''}平均 <b style="color:${cl(P.open_avg)}">${fp(P.open_avg)}</b>`:''}</span><span>${nextLab}</span>${hist.length?`<details><summary style="cursor:pointer">最近出場</summary><ul class="a3-hist" style="list-style:none;padding:0;margin:0">${hist.map(h=>{const re=aip3ReHTML(h,us);return `<li><span>${md(h.fill_d)}→${md(h.xd)}</span><span><a href="#stock/${h.id}">${h.name||h.id}</a></span><span class="dim">${h.xw==='tp'?'停利':h.xw==='sl'?'停損':h.xw==='time'?'到期':h.xw==='rank'?'掉出排名':h.xw==='quarter'?'季檢視':h.xw||''}</span><span style="color:${cl(h.ret)}">${fp(h.ret)}</span>${re?`<span class="a3-re">${re}</span>`:''}</li>`;}).join('')}</ul></details>`:''}</div>`;
   // r1094:中期 = 主力・量價籌碼組的前 5 名;同一套模型的完整 20 檔帳戶收在這裡(點開看),進階區不再另立一組
   const full20=(()=>{if(key!=='mid'||us)return '';const PV=((AIPK||{}).trader||{}).pv;if(!PV||!(PV.pos||[]).length)return '';
     const nv=(PV.nav||[]),ln=nv.length?nv[nv.length-1]:null;
@@ -22819,8 +22829,9 @@ function aip3ReHTML(h,us){
 function aip3Sweep(){
   /* 到價提示:清單裡任何一檔現價碰到 停損/停利/加碼 參考價,或剛出場的股票站回「再買回價」,跳提示卡 + 瀏覽器通知(同一檔同一種一天一次) */
   try{
-    if(!AIP3||!aipAlertOn()||!favAlertOn())return;
+    if(!aipAlertOn()||!favAlertOn())return;
     const us=window.GMKT==='US';if(us?!(typeof usSession==='function'&&usSession()==='盤中'):!marketOpen())return;
+    if(!AIP3){aip3Load();return;}   // r1119:沒開過 AI 分頁也要能提示 → 盤中先把三清單載起來(10 分鐘一次),下一輪再比
     const M=us?AIP3.us:AIP3.tw;if(!M)return;const c=us?'$':'';
     ['short','mid','long'].forEach(k=>{const T=M[k];if(!T)return;const nm={short:'🏃 短期',mid:'🌊 中期',long:'🏦 長期'}[k];
       (T.slots||[]).forEach(p=>{const L=p.lv;if(!L||p.st!=='hold')return;const q=aip3Px(p.cur||p.id,us);const px=q.px;if(!px)return;
@@ -23162,7 +23173,7 @@ function usOverview(){
     ${hit.length?`<div class="aov-warn">⚡ 盤中已觸價:${hit.map(({L})=>{const q=USAIP_RT.q[L.id];return `<a href="#stock/${L.id}">${L.id}</a> ${q.l<=L.stop?'最低 $'+q.l+' ≤ 停損 $'+L.stop:'最高 $'+q.h+' ≥ 目標 $'+L.target}`;}).join(';')}——後端 20 分鐘內記錄時間,正式出場以收盤官方日 K 判定</div>`:''}
     <div class="dim-note" style="margin:-4px 0 8px">${rtOn?(USAIP_RT.src==='cnbc'?`🟢 即時價 ${rtT?hms(rtT):''}(CNBC 交易所即時${USAIP_RT.st==='REG_MKT'?',每 20 秒更新':USAIP_RT.st==='PRE_MKT'?',盤前':USAIP_RT.st==='POST_MKT'?',盤後':''})`:'🟢 盤中即時價(Finnhub,每分鐘更新)'):'⚪ 目前用收盤價;即時報價讀取中…'}・正式成交/停損以美股收盤後官方日 K 判定(台灣時間早上更新)</div>
     ${near.length?`<div class="aov-warn">⚠ 接近停損:${near.map(({L})=>`<a href="#stock/${L.id}">${L.id}</a> $${usPx(L.id).px} / 停損 $${L.stop}`).join(';')}</div>`:''}
-    <div class="aps-title">🔔 最近交易日(${S.lastDay?aipMD(S.lastDay):'—'})</div>${S.ev.length?`<ul class="trd-log">${S.ev.map(x=>`<li>${x}</li>`).join('')}</ul>`:'<div class="dim-note">沒有買賣</div>'}
+    <div class="aps-title">🔔 最近一次有買賣的交易日(${S.lastDay?aipMD(S.lastDay):'—'})</div>${S.ev.length?`<ul class="trd-log">${S.ev.map(x=>`<li>${x}</li>`).join('')}</ul>`:'<div class="dim-note">沒有買賣</div>'}
     <div class="aps-title">👀 關注清單</div>
     <div class="wl-sub">等待成交(${S.cw?aipMD(S.cw.buy_week)+' 週名單':''})</div>${pendRows}
     <div class="wl-sub">候補(有倉位出場時依序遞補)</div>${benchRows}
@@ -23230,7 +23241,8 @@ function pvHTML(){
   const st=S.stats||{};const nav=S.nav||[];const lastN=nav.length?nav[nav.length-1]:null;
   const yrs=Object.entries(B.years||{}).map(([y,[a,b]])=>`<tr><td>${y}</td><td style="color:${cl(a)}">${fp(a)}</td><td style="color:${cl(b)}">${fp(b)}</td></tr>`).join('');
   const vars=(B.variants||[]).map(v=>`<tr><td>${v[0]}</td><td>${fp(v[1])}</td><td>${fp(v[2])}</td></tr>`).join('');
-  const recent=(S.log||[]).slice(0,8).map(x=>`<div style="font-size:12.5px;line-height:1.6">${x}</div>`).join('');
+  const recent=(S.log||[]).slice(0,8).map(x=>{let t=String(x);try{const m=t.match(/^(\d{4}-\d{2}-\d{2})/);if(m&&/明天/.test(t)){const nx=twNextTD(m[1]);if(nx)t=t.replace(/明天(\s*9:00)?\s*開盤/g,`${twTDLabel(nx)} 9:00 開盤`);}}catch(e){}   // r1119:紀錄裡的「明天」要用那一行的日期算,不是今天(10/14 的重排原本被寫成 10/19 執行)
+    return `<div style="font-size:12.5px;line-height:1.6">${t}</div>`;}).join('');
   return `<div class="dim-block pv-blk" style="margin-top:16px;border-left:4px solid #6FA8DC">
     <div style="font-weight:900;font-size:16px">🏆 AI Pick 主力・量價籌碼組 <span style="font-weight:400;font-size:13px;color:var(--dim)">量價+技術+乖離+法人+融資</span></div>
     <div class="dim-note" style="margin:4px 0 8px">38 項量價技術指標(漲幅、離高點距離、均線乖離與斜率、波動、量比、成交值、漲停次數、RSI/KD…)+ 籌碼(外資、投信 5/20 日買超佔均量、融資 20 日增減),不用營收/本益比。分點與大戶持股歷史還不夠長(約 1 年/15 週),累積到可驗證後再加入。每天收盤重新排名,盤中即時執行。<b>10/9 驗證後改為 AI Pick 主力</b>(回測年化 ${fp(B.cagr)},比樹模型組重建版 +24.6% 好很多)。最多 ${R.topk||20} 檔;<b>每檔金額依波動分配</b>:平均 10 萬,波動小的最多 ${R.wmax||1.5} 倍、波動大的最少 ${R.wmin||0.67} 倍,總投入不超過 ${((R.topk||20)*10)} 萬。</div>
@@ -23286,7 +23298,7 @@ function aipOverview(){
     </div>
     ${near.length?`<div class="aov-warn">⚠ 接近出場線:${near.map(r=>`<a href="#stock/${r.id}">${r.name}</a> 現價 ${r.px} / 出場線 ${r.line}`).join(';')}</div>`:''}`;})()}
     <div class="aps-title">🔔 今天發生</div>${(()=>{const RT=(T.rules||{}).retired;const L=RT?[...new Set((PV.log||[]).filter(x=>String(x).startsWith(today)).map(x=>x.slice(11)))]:[...new Set(ev)].sort();   // r1096:副組結束後只列主力 20 檔的事
-      return L.length?`<ul class="trd-log">${L.map(x=>`<li>${x}</li>`).join('')}</ul>`:'<div class="dim-note">今天還沒有買賣</div>';})()}
+      return L.length?`<ul class="trd-log">${L.map(x=>`<li>${x}</li>`).join('')}</ul>`:`<div class="dim-note">${(()=>{try{return twTradeDay(_isoIn('Asia/Taipei'))?'今天還沒有買賣':'今天休市,沒有買賣';}catch(e){return '今天還沒有買賣';}})()}</div>`;})()}
     ${(T.rules||{}).retired?'':aipWatchHTML(T)}
     <div class="dim-note">${(()=>{const rt=(window.__rtOkT&&Date.now()-window.__rtOkT<90e3)?window.__rtOkT:0;const live=marketOpen();return `後端 ${T.updated||AIPK&&AIPK.updated||''}${window.__trdLiveAt?`(盤中檔 ${String(window.__trdLiveAt).slice(11)})`:''}${live?`・現價 ${rt?'⚡ 即時 '+new Date(rt).toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'}).slice(0,8):'⚠ 即時報價未連上,用後端快照'}`:''}`;})()}${(T.rules||{}).retired?'・主力・量價籌碼組與三清單照常運作;副組已結束':'・單一投資組合:原每週名單持股已移交,之後所有買賣都依每日交易規則(任何交易日進出)'}</div>
   </div>`;
