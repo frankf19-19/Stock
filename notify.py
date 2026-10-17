@@ -661,7 +661,23 @@ def collect_events(aip, prices):
             lvl = 1 if any(k in body for k in ("🟢 買進", "➕ 加碼", "🛑 停損", "🔒 移動停利", "📉 模型轉弱", "💵", "🎯 停利", "🔄 量價組換股")) else 2 if any(k in body for k in ("明天開盤", "➕ 加碼訊號", "副組(樹模型 + v2)結束")) else 0   # r1094:副組結束公告推一次;逐檔清算不推
             if not lvl: continue
             if "收盤掃描" in body and "明天開盤買進" not in body: continue
+            if "量價籌碼組" in body: continue                      # r1119:主力 20 檔的事件改由下面 pv 區塊推(標題對、不重複)
             ev.append((f"tr|{today}|{hashlib.md5(body.encode()).hexdigest()[:10]}", lvl, f"🎯 <b>AI Pick 每日交易</b>\n{body}"))
+    except Exception:
+        pass
+    # r1119:🏆 主力・量價籌碼組(20 檔帳戶)——副組 10/14 結束後它才是台股主帳戶,但它的買賣一直沒推播:
+    #       成交/換股賣出/停利 = 一級事實;收盤重排(明天開盤要買/要賣誰)= 二級行動;兩邊都「無」的重排不推
+    try:
+        import hashlib
+        for x in (((aip.get("trader") or {}).get("pv") or {}).get("log") or [])[:40]:
+            if not x.startswith(today): continue
+            body = x[11:]
+            if "收盤重排" in body or "每週重排" in body:
+                if re.search(r"買進 無", body) and re.search(r"賣出 無", body): continue
+                lvl = 2
+            elif any(k in body for k in ("🟢 買進", "換股賣出", "🎯 停利", "🛑 停損")): lvl = 1
+            else: continue
+            ev.append((f"pv|{today}|{hashlib.md5(body.encode()).hexdigest()[:10]}", lvl, f"🏆 <b>AI Pick 主力 20 檔</b>\n{body}"))
     except Exception:
         pass
     # r1107:AI Pick 三清單的盤中記帳(aip3.py 盤中班:09:00 開盤成交、盤中停損/停利/掉出排名)——成交/出場 = 一級事實
@@ -670,7 +686,7 @@ def collect_events(aip, prices):
         for x in (load("aip3.json", {}).get("rt_log") or [])[-40:]:
             if not x.startswith(today): continue
             body = x[11:]
-            if not any(k in body for k in ("🟢", "🛑 停損", "🎯 停利", "📉 掉出排名")): continue
+            if not any(k in body for k in ("🟢", "🛑 停損", "🎯 停利", "📉 掉出排名", "⏰ 到期", "🔁 季檢視")): continue
             ev.append((f"a3|{today}|{hashlib.md5(body.encode()).hexdigest()[:10]}", 1, f"🤖 <b>AI Pick 三清單</b>\n{body}"))
     except Exception:
         pass

@@ -1,4 +1,4 @@
-/* K研所 · build r1119 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1120 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1119';
+const APP_BUILD='r1120';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2488,7 +2488,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1119</span>');
+  diag.push('<span style="color:var(--dim)">build r1120</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -23141,7 +23141,7 @@ function usState(){
   live.forEach(w=>(w.picks||[]).forEach(p=>{
     const legs=aipLegs(p),cur=legs.length?legs[legs.length-1]:null;
     if(cur&&!cur.xd)hold.push({w,p,L:cur});
-    if(!legs.length&&!p._nofill&&w.status!=='done')pend.push({w,p});
+    if(!legs.length&&!p._nofill&&w.status!=='done'&&!w.xfer)pend.push({w,p});   // r1119:已移交的週次不再有掛單
     legs.forEach(L=>{if(L.fill===lastDay)ev.push(`🟢 ${L.name||L.id} 成交 @${L.entry}`);if(L.xd===lastDay)ev.push(`${L.xw==='tp'?'🎯 到目標':L.xw==='sl'?'🛑 停損':L.xw==='trail'?'🔒 移動停利':'出場'} ${L.name||L.id} @${L.xp}`);});
   }));
   const cw=live.length?live[live.length-1]:null;
@@ -23502,7 +23502,7 @@ function aipStatusHTML(){
         if(L.xd===today)evs.push(`${L.xt||hhmm} ${W[L.xw]||'出場'} ${L.name} @${L.xp}(${fp(L.ret)})`);if(L.fill===today)evs.push(`${L.ft||hhmm} 🟢 ${L.name} 成交 @${L.entry}`);});
       if(!cur){
         if(iv.fill&&iv.fill.d===today){hold.push({name:p.name,id:p.id,st:'🟢 今日成交',entry:iv.fill.px,fill:today,px:pxOf(p.id),tgt:p.target,stp:p.stop,chain:''});evs.push(`${iv.fill.t||hhmm} 🟢 ${p.name} 成交 @${iv.fill.px}`);}
-        else if(p.result==='nofill'||p._nofill){}
+        else if(p.result==='nofill'||p._nofill||w.xfer){}   // r1119:已移交/停用的週次(xfer)後端不再結算,掛著的單不會成交 → 不要再顯示「現價回到買價就成交」(原每週名單的華通)
         else{const px=pxOf(p.id);wait.push({name:p.name,id:p.id,buy:p.buy,buy_hi:p.buy_hi,px,gap:pc(px,p.buy),tgt:p.target,stp:p.stop,since:w.buy_week});}
       }else if(!cur.xd&&!cur.xfer){
         const px=pxOf(cur.id);const ex=iv.exit&&iv.exit.leg===legs.length-1&&iv.exit.d===today?iv.exit:null;
@@ -23570,7 +23570,7 @@ function renderAIPickCore(){
             const lg=aipLegs(p);
             const chain=lg.map(L=>`${L.name} ${aipMD(L.fill)}買${L.entry}→${L.xd?aipMD(L.xd)+'賣'+L.xp:'—'}${L.xw==='tp'?'🎯':L.xw==='sl'?'🛑':L.xw==='exp'?'⏰':''}`).join(' 🔄 ');
             const last=lg.length?lg[lg.length-1]:null,rot=lg.length>1&&last&&last.id!==p.id;   // r1118:換過股的格子,出場價是最後那檔的,要寫出它的名字(原本「景碩 買 334 → 賣 75」看起來像錯價)
-            return `<span class="aip-hpk ${p.result}" data-aip="${p.id}" title="${chain}"><b>${p.name}</b>${lg.length>1?`<i>🔄${lg.length-1}</i>`:''} ${p.result==='nofill'?'<i>未成交</i>':`${aipMD(p.fill)} 買 ${p.entry} → ${rot?`換 <b>${last.name}</b> `:''}${p.xd?aipMD(p.xd)+' 賣 '+p.xp:'—'} ${aipPct(p.ret,1)}${rot?'(各段合計)':''} ${p.xw==='tp'?'🎯':p.xw==='sl'?'🛑':'⏰'}`}</span>`;}).join('')}</div></div>`;
+            return `<span class="aip-hpk ${p.result}" data-aip="${p.id}" title="${chain}"><b>${p.name}</b>${lg.length>1?`<i>🔄${lg.length-1}</i>`:''} ${p.result==='nofill'||!p.fill?'<i>未成交</i>':`${aipMD(p.fill)} 買 ${p.entry} → ${rot?`換 <b>${last.name}</b> `:''}${p.xd?aipMD(p.xd)+' 賣 '+p.xp:'—'} ${aipPct(p.ret,1)}${rot?'(各段合計)':''} ${p.xw==='tp'?'🎯':p.xw==='sl'?'🛑':'⏰'}`}</span>`;}).join('')}</div></div>`;
       });
       hh+='</div>';
     }

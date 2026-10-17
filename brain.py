@@ -95,6 +95,14 @@ def review_aipick(fn, label, prev, J, S):
             "bt_win": st_bt.get("win_rate"), "bt_avg": st_bt.get("avg_ret"),
             "rec_n": len(rec), "rec_avg": round(sum(rec) / len(rec), 2) if rec else None,
             "rec_win": round(100 * sum(1 for r in rec if r > 0) / len(rec)) if rec else None}
+    # r1119:無期限模式(美股)——stats.filled 是「整個格子結案」數,格子換股時會從 loss 變回 pending(10/17 從 12 筆跳回 9 筆),
+    #       改用「已出場的每一段」算:筆數只會增加,跟三清單美股短期的成績單同一個數字
+    live_wk = [w for w in A.get("weeks") or [] if not w.get("bt") and w.get("status") != "skip"]
+    if any(w.get("mode") == "open" for w in live_wk):
+        legs = [L for w in live_wk for p in (w.get("picks") or []) for L in (p.get("legs") or []) if L.get("xd") and isinstance(L.get("ret"), (int, float))]
+        if legs:
+            snap["live_n"] = len(legs); snap["live_win"] = round(100 * sum(1 for L in legs if L["ret"] > 0) / len(legs), 1)
+            snap["live_avg"] = round(sum(L["ret"] for L in legs) / len(legs), 2)
     if (snap["live_n"] or 0) >= 10 and snap["bt_win"] is not None and snap["live_win"] is not None:
         gap = snap["live_win"] - snap["bt_win"]
         J.append({"tag": label, "level": "good" if gap >= -5 else "warn",
@@ -193,7 +201,7 @@ def main():
     review_study(prev, J, S)
     review_v2(prev, J, S)
     trust, mem = review_signals(prev, J)
-    review_aipick("aipick.json", "AI Pick(台股)", prev, J, S)
+    review_aipick("aipick.json", "AI Pick(台股・原每週名單,已停用)", prev, J, S)   # r1119:10/12 起不再產生每週名單,只剩舊格子結案;別再每天寫得像正式訊號
     review_aipick("aipick_us.json", "AI Pick(美股)", prev, J, S)
     review_trader(J, SUG)
     H = load("holidays.json", {}); lr = H.get("learned") or {}

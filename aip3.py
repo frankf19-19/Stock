@@ -568,6 +568,7 @@ def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None, s
             d0, o0 = nxt[0]
             if not us and o0[0] <= 0: keep.append(p); continue
             p["fill_d"], p["entry"], p["st"] = d0, round(o0[0], 2), "hold"; p["hi"], p["lo"] = o0[1], o0[2]
+            T.setdefault("_ev", []).append(("fill", p))                    # r1119:晚班/美股的成交也要進 rt_log(推播、事件紀錄)
             if sl_atr:
                 prev = [b[1] for b in B if b[0] < d0][-15:]
                 if len(prev) >= 15: p["sl_px"] = round(p["entry"] - sl_atr * _atr14(prev), 2); p["sl_why"] = f"進場價 − {sl_atr:g}×ATR"
@@ -587,6 +588,7 @@ def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None, s
         if xd:
             p.update(xd=xd, xp=xp, xw=xw, ret=round((xp / p["entry"] - 1) * 100, 2), st="done", last=xp, last_d=xd, days=n)
             T["hist"].append(p); T["hist"] = T["hist"][-400:]
+            T.setdefault("_ev", []).append(("exit", p))                    # r1119
         else:
             p["ret"] = round((p["last"] / p["entry"] - 1) * 100, 2) if p["last"] and p["entry"] else None
             keep.append(p)
@@ -765,6 +767,22 @@ def main():
             except Exception as e: log(f"  {k} 參考價位例外 {e}")
             if not (k == "short" and mk is us): perf(T)
             T["upd"] = NOW.strftime("%Y-%m-%d %H:%M")
+    # r1119:晚班(台股補記)與美股的成交/出場 → rt_log(原本只有台股盤中班會寫,美股三清單的買賣從來沒推播、事件紀錄也沒有)
+    try:
+        nm = {"short": "🏃 短期", "mid": "🌊 中期", "long": "🏦 長期"}
+        lab = {"sl": "🛑 停損", "tp": "🎯 停利", "time": "⏰ 到期", "rank": "📉 掉出排名", "quarter": "🔁 季檢視"}
+        ev2 = []
+        for mk, M, flag in (("🇹🇼", tw, ""), ("🇺🇸", us, "$")):
+            for k, T in M.items():
+                for kind, p in (T.pop("_ev", None) or []):
+                    if kind == "fill":
+                        ev2.append(f"{NOW:%Y-%m-%d %H:%M} 🟢 {mk} {nm[k]}買進 {p['name']}({p['id']}){p['fill_d'][5:].replace('-', '/')} 開盤 {flag}{p['entry']}" + (f"(停損 {flag}{p['sl_px']})" if p.get("sl_px") else "") + ("" if flag else "(晚班補記)"))
+                    else:
+                        ev2.append(f"{NOW:%Y-%m-%d %H:%M} {lab.get(p.get('xw'), p.get('xw'))} {mk} {nm[k]} {p['name']}({p['id']}){p['xd'][5:].replace('-', '/')} @{flag}{p['xp']}({p['ret']:+.2f}%)")
+        if ev2:
+            J["rt_log"] = ((J.get("rt_log") or []) + ev2)[-120:]
+            for x in ev2: log("  " + x)
+    except Exception as e: log(f"  事件紀錄略過 {e}")
     cut = (NOW - dt.timedelta(days=120)).strftime("%Y-%m-%d")
     out = {"ver": VER, "u": NOW.strftime("%Y-%m-%d %H:%M"), "tw_day": twd, "us_day": usd, "tw": tw, "us": us,
            "start": J.get("start") or NOW.strftime("%Y-%m-%d"), "ai_cache": {k: v for k, v in (J.get("ai_cache") or {}).items() if (v or {}).get("d", "") >= cut}}
