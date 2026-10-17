@@ -30,9 +30,17 @@ def feed_items(C):
     return out
 
 
+def _split_fields(d):
+    """r1111b:有些集的描述整段沒換行(書名 作者 原文作者 … 全在一行)→ 在每個欄位名、網址、抽書說明前補換行,再逐行解析"""
+    d = re.sub(r"[ \t　]*(書名|原文作者|作者|譯者|繪者|出版社|出版日期)[:：]", r"\n\1：", d)
+    d = re.sub(r"[ \t　]+(https?://\S+)", r"\n\1", d)
+    d = re.sub(r"[ \t　]*([(（](?:YT|FB)抽書|《早晨財經速解讀》|免責聲明)", r"\n\1", d)
+    return d
+
+
 def parse_desc(d):
     """一集描述 → [{title, author, orig, trans, pub, pubd, url}];一集可能不只一本"""
-    L = [x.strip() for x in d.split("\n")]
+    L = [x.strip() for x in _split_fields(d).split("\n")]
     books = []; cur = None
     for i, ln in enumerate(L):
         m = re.match(r"^書名[:：]\s*(.+)$", ln)
@@ -73,6 +81,8 @@ def main():
     try: old = json.load(open(outp, encoding="utf-8"))
     except Exception: old = {"v": 1, "show": show, "books": []}
     books = old.get("books") or []
+    bad = [b for b in books if len(str(b.get("title") or "")) > 60 or re.search(r"作者[:：]|出版社[:：]|https?://", str(b.get("title") or ""))]   # r1111b:之前沒換行的描述整段被當成書名 → 丟掉重抓
+    if bad: log(f"  清掉 {len(bad)} 筆解析錯的:{[b['title'][:20] for b in bad]}"); books = [b for b in books if b not in bad]
     seen = {(norm(b.get("title")), b.get("ep_dt")) for b in books}
     added = 0
     # ① RSS 描述
