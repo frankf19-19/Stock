@@ -1,4 +1,4 @@
-/* K研所 · build r1124 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1125 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1124';
+const APP_BUILD='r1125';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2506,7 +2506,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1124</span>');
+  diag.push('<span style="color:var(--dim)">build r1125</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -22854,9 +22854,9 @@ function aip3Sweep(){
     ['short','mid','long'].forEach(k=>{const T=M[k];if(!T)return;const nm={short:'🏃 短期',mid:'🌊 中期',long:'🏦 長期'}[k];
       (T.slots||[]).forEach(p=>{const L=p.lv;if(!L||p.st!=='hold')return;const q=aip3Px(p.cur||p.id,us);const px=q.px;if(!px)return;
         const r=(px/p.entry-1)*100,rt=(r>0?'+':'')+r.toFixed(2)+'%';let sig=null;
-        if(px<=L.sl)sig={k:'sl',title:`🤖 AI Pick ${nm}・跌破停損參考價`,text:`現價 ${c}${px} ≤ 停損參考 ${c}${L.sl}(${L.sl_src||''});${aipMD(p.fill_d)} 進場 ${c}${p.entry},帳面 ${rt}。${k==='long'?'長期清單的模型不停損(回測:停損會降年化),這是給你控風險的參考':'這是模型的出場規則,模型帳也會記錄出場'}`};
-        else if(px>=L.tp)sig={k:'tp',title:`🤖 AI Pick ${nm}・到停利參考價`,text:`現價 ${c}${px} ≥ 停利參考 ${c}${L.tp}(${L.tp_src||''});進場 ${c}${p.entry},帳面 ${rt}`};
-        else if(px>=L.add)sig={k:'add',title:`🤖 AI Pick ${nm}・到加碼參考價`,text:`現價 ${c}${px} ≥ 加碼參考 ${c}${L.add}(${L.add_src||''});進場 ${c}${p.entry},帳面 ${rt}`};
+        if(px<=L.sl)sig={k:'sl',title:`🤖 AI Pick ${nm}・跌破停損參考價`,text:`現價 ${c}${px} ≤ 停損參考 ${c}${L.sl}(${String(L.sl_src||'').split(/[(;,]/)[0]});${aipMD(p.fill_d)} 進場 ${c}${p.entry},帳面 ${rt}。${k==='long'?'長期清單的模型不停損(回測:停損會降年化),這是給你控風險的參考':'這是模型的出場規則,模型帳也會記錄出場'}`};
+        else if(px>=L.tp)sig={k:'tp',title:`🤖 AI Pick ${nm}・到停利參考價`,text:`現價 ${c}${px} ≥ 停利參考 ${c}${L.tp}(${String(L.tp_src||'').split(/[(;,]/)[0]});進場 ${c}${p.entry},帳面 ${rt}`};
+        else if(px>=L.add)sig={k:'add',title:`🤖 AI Pick ${nm}・到加碼參考價`,text:`現價 ${c}${px} ≥ 加碼參考 ${c}${L.add}(${String(L.add_src||'').split(/[(;,]/)[0]});進場 ${c}${p.entry},帳面 ${rt}`};
         if(sig)try{favAlertFire({id:p.id,name:p.name},sig);}catch(e){}});
       const today=aipIso(aipTpDate());
       (T.hist||[]).slice(-15).forEach(h=>{if(h.re==null||!h.re_until||today>h.re_until)return;const q=aip3Px(h.id,us);const px=q.px;if(!px||px<h.re)return;
@@ -23899,7 +23899,7 @@ function favEntryOf(id){   // 進場價來源:持股成本 > 自設 > AI Pick �
   const u=favPlanUser()[id]||{};
   if(u.entry>0)return {px:+u.entry,src:'自設'};
   try{const p=(typeof portGet==='function'?portGet():[]).find(x=>x.id===id);if(p&&+p.cost>0)return {px:+p.cost,src:'持股成本'};}catch(e){}
-  try{const w=(AIPK&&AIPK.weeks||[]).filter(x=>!x.bt&&x.status!=='done');for(const ww of w){const p=ww.picks.find(x=>x.id===id);if(p&&p.entry>0)return {px:+p.entry,src:'AI Pick 成交'};}}catch(e){}
+  // r1125:原本第三順位是「原每週名單的成交價」——那個名單已停用,而且模型的成交價不是你的持股成本,卻會顯示成「💼 持股成本 2395・損益」;三清單/主力 20 檔的進場價另有 🤖 AI Pick 列
   return null;
 }
 function favPlanOf(s,o,dates){   // 算這檔的四組關鍵價位
