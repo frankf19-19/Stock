@@ -1,11 +1,14 @@
 name: 探針:財經皓角 RSS 描述(暫時)
 on:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install requests
@@ -20,13 +23,15 @@ jobs:
           def tag(b,t):
               m=re.search(rf"<{t}[^>]*>(.*?)</{t}>",b,re.S); v=(m.group(1) if m else "").strip()
               return html.unescape(re.sub(r"^<!\[CDATA\[(.*)\]\]>$",r"\1",v,flags=re.S)).strip()
-          hits=0
+          import os; os.makedirs("logs",exist_ok=True); out=[]
           for k,b in enumerate(items):
-              t=tag(b,"title"); d=re.sub(r"<[^>]+>","\n",tag(b,"description"))
-              if k<2: print("::notice::DESC "+json.dumps(d[:700],ensure_ascii=False))
-              for ln in d.split("\n"):
-                  if re.search(r"書|閱讀|作者|推薦", ln) and len(ln)<120:
-                      hits+=1
-                      if hits<=40: print("::notice::"+t[:22]+" | "+ln.strip())
-          print(f"::notice::lines with 書/推薦: {hits}")
+              t=tag(b,"title"); d=re.sub(r"<[^>]+>","\n",tag(b,"description")); link=tag(b,"link"); pub=tag(b,"pubDate")
+              if re.search(r"書名|好書|推薦書|閱讀|抽書", d):
+                  out.append("=== "+t+" | "+pub+" | "+link); out.append(d[:1500]); out.append("")
+          open("logs/probe_feed.txt","w",encoding="utf-8").write("\n".join(out))
+          print(f"::notice::episodes with book text: {sum(1 for x in out if x.startswith('==='))}")
           PY
+      - run: |
+          git config user.name "bot"; git config user.email "bot@users.noreply.github.com"
+          git add logs/probe_feed.txt; git commit -q -m "probe: feed 書籍段落 [CI Skip]" || exit 0
+          for i in 1 2 3; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 5; done
