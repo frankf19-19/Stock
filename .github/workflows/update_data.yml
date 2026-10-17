@@ -207,10 +207,11 @@ jobs:
             # r823:輕量輪——每段第 2 輪起 ETF 持股不重抓、update_data.py 略過逐檔磨補/個股新聞/總經新聞/法說會(沿用上一輪)
             step 休市行事曆 timeout 120 python fetch_holidays.py || echo "行事曆失敗,沿用上一版"   # r904
             if [ "${HEAVY_EXTRAS:-1}" = "1" ]; then
-              step 主資料 bash -c 'python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"; python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"'
+              step 主資料 bash -c 'python fetch_etf.py || echo "ETF 持股抓取失敗,主程式沿用舊 etf_hold.json"; python update_data.py 2>&1 | tee /tmp/ud.txt; test ${PIPESTATUS[0]} -eq 0 || echo "::warning::update_data.py 失敗,本輪略過主資料"'
             else
-              step 主資料輕量 bash -c 'UD_FULL=0 python update_data.py || echo "::warning::update_data.py 失敗,本輪略過主資料"'
+              step 主資料輕量 bash -c 'UD_FULL=0 python update_data.py 2>&1 | tee /tmp/ud.txt; test ${PIPESTATUS[0]} -eq 0 || echo "::warning::update_data.py 失敗,本輪略過主資料"'
             fi
+            grep -E "美股價格|台股價格|\[warn\]|連續 1[05] 檔" /tmp/ud.txt 2>/dev/null | head -4 | sed 's/^/::notice::/' || true   # r1118:log 讀不到 → 關鍵行放進 annotations
             sync_live                                                                       # r1088:主資料可能跑很久,先拿回盤中迴圈最新的 spark/AI Pick 再續寫
             step 報價快照 timeout 300 python update_quotes.py || echo "報價快照失敗,不影響主資料"
             step 大盤週乖離 timeout 300 python fetch_bias.py || echo "大盤週乖離失敗,不影響主資料"        # r789

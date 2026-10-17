@@ -1728,25 +1728,33 @@ def update_us_prices(hist, us_comps):
     dead = set()                                   # 本輪已停用的來源
     n1 = n2 = n3 = 0
     left = 0
+    n_old = {}; cstale = {}; lag = set()           # r1118:各來源「有資料但沒到應到日」的檔數(診斷用)/連續停舊日計數/本輪略過的落後來源
     for i, c in enumerate(stale):
         if time.time() - t_us0 > budget:
             left = len(stale) - i
             print(f"  [note] 美股價格:已用 {int(time.time() - t_us0)} 秒超過預算 {budget} 秒,剩 {left} 檔留給下一班(來源慢或被擋時不拖累整班)")
             break
-        if all(s in dead for s in srcs):
+        if all((s in dead or s in lag) for s in srcs):
             left = len(stale) - i
             print(f"  [warn] 美股價格:三個來源都連續失敗已停用,剩 {left} 檔留給下一班")
             break
         sym = c["id"]
         e = None; src = None
         for s in srcs:                             # 每檔級聯:stooq.com → stooq.pl 鏡像 → Yahoo(已停用的來源直接跳過)
-            if s in dead: continue
+            if s in dead or s in lag: continue
             try:
-                e = _yahoo_chart_hist(sym) if s == "yahoo" else _stooq_hist(sym, s)
+                e2 = _yahoo_chart_hist(sym) if s == "yahoo" else _stooq_hist(sym, s)
             except Exception:
-                e = None
-            if e is not None:
-                src = s; cfail[s] = 0; break
+                e2 = None
+            if e2 is not None:
+                cfail[s] = 0
+                if e is None or e2["d"][-1] > e["d"][-1]: e = e2; src = s
+                if e2["d"][-1] >= exp.isoformat(): cstale[s] = 0; break      # 已到應到日 → 不用再問下一個來源
+                n_old[s] = n_old.get(s, 0) + 1                # r1118:來源有回但還停在前一天(Stooq 美股日線台北早上還沒更新)→ 續問下一個來源
+                cstale[s] = cstale.get(s, 0) + 1
+                if cstale[s] >= 10 and s != srcs[-1]:
+                    lag.add(s); print(f"  [note] {s} 連續 10 檔都還停在 {e2['d'][-1]}(未到應到日 {exp})→ 本輪之後直接問下一個來源")
+                continue
             cfail[s] += 1
             if cfail[s] >= 15:
                 dead.add(s)
@@ -1762,8 +1770,9 @@ def update_us_prices(hist, us_comps):
                 hist[sym] = {"d": ks, "o": [m[k] for k in ks]}
         time.sleep(0.35)
     done = n1 + n2 + n3
-    print(f"  美股價格:更新 {done}/{len(stale) - left} 檔(stooq {n1}、鏡像 {n2}、Yahoo備援 {n3};最新免抓 {fresh};應到 {exp};"
-          f"耗時 {int(time.time() - t_us0)} 秒{f'、未處理 {left} 檔' if left else ''})")
+    n_new = sum(1 for c in stale if ((hist.get(c["id"]) or {}).get("d") or ["0000"])[-1] >= exp.isoformat())
+    print(f"  美股價格:更新 {done}/{len(stale) - left} 檔(stooq {n1}、鏡像 {n2}、Yahoo備援 {n3};最新免抓 {fresh};應到 {exp},到位 {n_new};"
+          f"來源停在舊日 {n_old or '無'};耗時 {int(time.time() - t_us0)} 秒{f'、未處理 {left} 檔' if left else ''})")
     if done == 0:
         print("  [warn] 美股三個來源全數失敗——K 線將持續停更,請檢查來源封鎖狀況")
 
