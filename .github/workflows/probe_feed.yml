@@ -1,0 +1,32 @@
+name: 探針:財經皓角 RSS 描述(暫時)
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests
+      - run: |
+          python - <<'PY'
+          import requests, re, json, html
+          UA={"User-Agent":"Mozilla/5.0"}
+          j=requests.get("https://itunes.apple.com/lookup?id=1488295306",headers=UA,timeout=20).json()
+          feed=j["results"][0]["feedUrl"]; print("::notice::feed "+feed)
+          xml=requests.get(feed,headers=UA,timeout=30).text
+          items=re.findall(r"<item>(.*?)</item>",xml,re.S); print(f"::notice::items {len(items)}")
+          def tag(b,t):
+              m=re.search(rf"<{t}[^>]*>(.*?)</{t}>",b,re.S); v=(m.group(1) if m else "").strip()
+              return html.unescape(re.sub(r"^<!\[CDATA\[(.*)\]\]>$",r"\1",v,flags=re.S)).strip()
+          hits=0
+          for k,b in enumerate(items):
+              t=tag(b,"title"); d=re.sub(r"<[^>]+>","\n",tag(b,"description"))
+              if k<2: print("::notice::DESC "+json.dumps(d[:700],ensure_ascii=False))
+              for ln in d.split("\n"):
+                  if re.search(r"書|閱讀|作者|推薦", ln) and len(ln)<120:
+                      hits+=1
+                      if hits<=40: print("::notice::"+t[:22]+" | "+ln.strip())
+          print(f"::notice::lines with 書/推薦: {hits}")
+          PY
