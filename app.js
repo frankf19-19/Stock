@@ -1,4 +1,4 @@
-/* K研所 · build r1114 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1115 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1114';
+const APP_BUILD='r1115';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2479,7 +2479,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1114</span>');
+  diag.push('<span style="color:var(--dim)">build r1115</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -25524,9 +25524,45 @@ function newsRender(j){
     </div>
     <div class="sec-title" style="margin-top:16px">🔑 今日重點 <span style="font-weight:400;font-size:13px;letter-spacing:0">依重要度排序・每則附原始新聞連結</span></div>
     ${items.map(card).join('')||'<div class="dim-note">這天沒有整理出重點。</div>'}
-    ${watch}`;
+    ${watch}
+    <div id="trendBox"></div>`;
+  try{trendsLoad().then(T=>trendsRender(T));}catch(e){}   // r1115:🔭 未來產業趨勢
   box.querySelectorAll('[data-nd]').forEach(b=>b.onclick=()=>newsLoad(b.dataset.nd));
   const sel=document.getElementById('newsMore');if(sel)sel.onchange=()=>{if(sel.value)newsLoad(sel.value);};
+}
+/* r1115:🔭 未來產業趨勢——後端 fetch_trends.py 每天跟著早報跑:把近 14 天早報重點交給 AI 歸納 4~6 個 1~3 年的產業趨勢,
+   相關個股只留站內清單有的,並標上站內已驗證名單(三清單/主力 20 檔);AI 歸納屬敘述、非驗證 */
+let TRENDS=null,TRENDS_T=0;
+async function trendsLoad(){
+  if(TRENDS&&Date.now()-TRENDS_T<30*60e3)return TRENDS;
+  try{const r=await fT('trends.json?'+Math.floor(Date.now()/18e5),9000);if(r&&r.ok){const j=await r.json();if(j&&Array.isArray(j.trends)){TRENDS=j;TRENDS_T=Date.now();}}}catch(e){}
+  return TRENDS;
+}
+function trendsRender(T){
+  const box=document.getElementById('trendBox');if(!box)return;
+  if(!T||!(T.trends||[]).length){box.innerHTML='';return;}
+  const esc=newsEsc;const stC={'萌芽':'var(--t-blue)','成形':'var(--up)','主流':'var(--amber)','過熱':'var(--down)'};
+  const live=id=>{const s=((window.DATA&&DATA.stocks)||[]).find(x=>x.id===id);return s&&s.price>0?{px:s.price,chg:s.chg}:null;};
+  const chip=x=>{const q=live(x.id)||{px:x.px,chg:x.chg};const fl=(x.flags||[]).map(f=>`<span class="tr-flag">${esc(f)}</span>`).join('');
+    return `<a class="tr-stk" href="#stock/${encodeURIComponent(x.id)}" title="${esc(x.why||'')}"><b>${esc(x.n||x.id)}</b> <span class="c-code">${esc(x.id)}</span>${q&&q.px!=null?` <span>${(+q.px).toLocaleString()}</span> <span style="color:${q.chg>=0?'var(--up)':'var(--down)'}">${q.chg>=0?'+':''}${(+q.chg||0).toFixed(2)}%</span>`:''}${x.yoy?` <span class="dim">營收 ${esc(x.yoy)}</span>`:''}${fl}</a>`;};
+  const card=t=>`<div class="news-card tr-card" style="border-left-color:${stC[t.stage]||'var(--line)'}">
+      <div class="news-head"><span class="news-cat" style="color:${stC[t.stage]||'var(--txt2)'};border-color:${stC[t.stage]||'var(--line)'}">${esc(t.stage)}</span><b class="news-ttl">${esc(t.name)}</b><span class="dim" style="font-size:12.5px">看 ${esc(t.horizon||'1~3 年')}${t.days>1?`・連續 ${t.days} 天出現(自 ${String(t.first||'').slice(5).replace('-','/')})`:'・今天新出現'}</span></div>
+      <div class="news-what">${esc(t.thesis)}</div>
+      ${(t.chain||[]).length?`<div class="news-tags">${t.chain.map(c=>`<span class="news-grp">${esc(c)}</span>`).join('')}</div>`:''}
+      ${(t.tw||[]).length?`<div class="tr-row"><span class="dim">🇹🇼 相關台股</span>${t.tw.map(chip).join('')}</div>`:''}
+      ${(t.us||[]).length?`<div class="tr-row"><span class="dim">🇺🇸 相關美股</span>${t.us.map(chip).join('')}</div>`:''}
+      ${(t.tw||[]).some(x=>x.why)?`<div class="tr-why">${t.tw.filter(x=>x.why).map(x=>`<div>▸ <b>${esc(x.n||x.id)}</b>:${esc(x.why)}</div>`).join('')}</div>`:''}
+      ${t.risk?`<div class="news-why"><b>⚠️ 最大風險</b>${esc(t.risk)}</div>`:''}
+      <div class="news-src">${(t.src||[]).map(x=>`<div>📎 ${esc(x.d.slice(5).replace('-','/'))} ${x.l?`<a href="${esc(x.l)}" target="_blank" rel="noopener" style="color:var(--txt2);text-decoration:none;border-bottom:1px dotted var(--line)">${esc(x.t)}</a>`:esc(x.t)}${x.s?` <span class="dim">— ${esc(x.s)}</span>`:''}</div>`).join('')}</div>
+    </div>`;
+  const gen=(T.gen||'').slice(5,16).replace('T',' ');
+  box.innerHTML=`<div class="sec-title" style="margin-top:18px">🔭 未來產業趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">AI 從近 ${T.days_in||14} 天早報重點歸納・看 1~3 年・參考</span></div>
+    <div class="dim-note" style="margin:0 0 8px">每天跟著早報更新(${esc(gen)} 產生);「連續 N 天出現」= 同一個趨勢連續幾天都被歸納出來,越久越不是一日行情。相關個股只列站內有資料的,價格即時;標籤是站內已驗證的名單(三清單、主力 20 檔),其餘個股與趨勢敘述<b>非驗證</b>、非投資建議。</div>
+    ${T.trends.map(card).join('')}`;
+  if(!document.getElementById('trCss')){const st=document.createElement('style');st.id='trCss';st.textContent=`.tr-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;font-size:13px}
+    .tr-stk{display:inline-flex;flex-wrap:wrap;gap:3px 5px;align-items:center;padding:3px 9px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);color:var(--txt);text-decoration:none;font-size:13px}.tr-stk b,.tr-stk span{white-space:nowrap}
+    .tr-stk:hover{border-color:var(--amber)}.tr-flag{font-size:10.5px;font-weight:800;color:var(--amber);border:1px solid var(--amber);border-radius:6px;padding:0 4px;white-space:nowrap}
+    .tr-why{font-size:13px;color:var(--txt2);line-height:1.7;margin-top:6px}`;document.head.appendChild(st);}
 }
 async function newsLoad(date){
   const box=document.getElementById('newsBox');if(!box)return;
