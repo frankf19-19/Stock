@@ -1,4 +1,4 @@
-/* K研所 · build r1112 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1113 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1112';
+const APP_BUILD='r1113';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2479,7 +2479,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1112</span>');
+  diag.push('<span style="color:var(--dim)">build r1113</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -15493,7 +15493,7 @@ function buildHomeSide(){                                  // r701:首頁左欄(
     if(window.innerWidth<1024)return;
     const pane=[...document.querySelectorAll('.tabPane')].find(p=>p.style.display!=='none'&&p.offsetParent!==null);
     if(!pane)return;
-    const items=[...pane.querySelectorAll('.sec-title[data-sec],[data-jumpname]')].filter(el=>!el.classList.contains('sec-off'));
+    const items=[...pane.querySelectorAll('.sec-title[data-sec],[data-jumpname]')].filter(el=>!el.classList.contains('sec-off')&&!el.hidden);   // r1112b:hidden 的區塊不列
     if(items.length<3)return;
     const side=document.createElement('nav');
     side.id='homeSide';
@@ -17271,6 +17271,7 @@ function gaPaintHead(){try{const C=gaCfg();
   const seg=document.getElementById('gaShowSeg');if(seg&&!seg.__b){seg.__b=1;seg.querySelectorAll('button').forEach(b=>b.onclick=()=>gaSetShow(b.dataset.show));}
   const bt=document.getElementById('gaBooksT');if(bt&&!C.books){bt.hidden=true;const bb=document.getElementById('gaBooks');if(bb)bb.hidden=true;}   // r1112:換節目時先把另一個節目才有的區塊藏起來
   try{buildJumpBar(document.getElementById('tp-gooaye'));}catch(e){}   // 「跳到:」列跟著換節目重建(標題文字、有沒有推薦好書)
+  try{if(typeof buildHomeSide==='function')buildHomeSide();}catch(e){}   // r1112b:桌機左欄目錄也要重建(之前留著另一個節目的區塊名)
 }catch(e){}}
 async function gaFeedUrl(){
   try{const c=JSON.parse(localStorage.getItem(gaSK('ga_feed'))||'null');
@@ -17710,6 +17711,7 @@ function gaBooksRender(J,C){
   if(!C.books||!J||!(J.books||[]).length){box.innerHTML='';box.hidden=true;if(tt)tt.hidden=true;return;}
   box.hidden=false;if(tt){tt.hidden=false;try{if(tt.childNodes[0]&&tt.childNodes[0].nodeType===3)tt.childNodes[0].textContent=`📚 他推薦過的書(${J.books.length} 本) `;}catch(e){}}
   try{buildJumpBar(document.getElementById('tp-gooaye'));}catch(e){}
+  try{if(typeof buildHomeSide==='function')buildHomeSide();}catch(e){}
   const B=J.books;const N=10;const q=(box.querySelector('#gaBookQ')||{}).value||'';
   const show=all=>{const v=(document.getElementById('gaBookQ')||{}).value||'';const vv=v.trim().toLowerCase();
     const L=B.filter(b=>!vv||[b.title,b.author,b.orig,b.pub,b.why,b.ep].some(x=>String(x||'').toLowerCase().includes(vv)));
