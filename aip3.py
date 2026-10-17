@@ -487,7 +487,7 @@ def levels(p, key, us=False, prev=None):
             if add <= sl * 1.02: add, adds = buy * 1.10, "進場 +10%"               # 加碼價不能貼著停損
             re_ = sl + 1.0 * a
             R = lambda v: aipick.rtick(float(v), "near")
-            return {"sl": R(sl), "sl_src": sls, "tp": R(tp), "tp_src": tps, "add": R(add), "add_src": adds, "re": R(re_), "re_src": "停損價 + 1 ATR 站回就可買回(回測:停損後 10 天內買回,三個清單都平均虧 −2%、勝率 3 成 → 不建議,除非有新理由)",
+            return {"sl": aipick.rtick(float(sl), "down"), "sl_src": sls, "tp": aipick.rtick(float(tp), "up"), "tp_src": tps,   # r1121:停損往下、停利往上一檔,跟實際出場價同一個數 "add": R(add), "add_src": adds, "re": R(re_), "re_src": "停損價 + 1 ATR 站回就可買回(回測:停損後 10 天內買回,三個清單都平均虧 −2%、勝率 3 成 → 不建議,除非有新理由)",
                     "atr": round(a, 2), "d": d[-1], "anchor": round(float(buy), 2), "rr": LV.get("rr")}
         finally: aipick.US = old
     except Exception as e:
@@ -554,6 +554,15 @@ def slot(c, day, extra=None):
     return x
 
 
+def _tk(px, us, mode="near"):
+    """r1121:出場價對齊升降單位(台股停損 88.9×0.85=75.565 原本記 75.56,卡片卻寫停損 75.6);停損往下、停利往上一檔"""
+    try:
+        if us: return round(float(px), 2)
+        import aipick
+        return aipick.rtick(float(px), mode)
+    except Exception: return round(float(px), 2)
+
+
 def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None, sl_atr=None):
     """成交(選股日之後第一個交易日開盤)+ 逐日更新 + 固定規則出場。exit_close_on: {sid: 'close'} 今天收盤出場的名單
     r1098:sl_atr = 進場價 − N×ATR(14)(成交日前 14 根 K 算),中期清單用 4 ATR(原回測設定)"""
@@ -578,9 +587,9 @@ def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None, s
         for n, (d, o) in enumerate(held, 1):
             p["hi"] = max(p["hi"] or 0, o[1]); p["lo"] = min(p["lo"] or 1e18, o[2])
             if True:
-                if sl and o[2] <= p["entry"] * (1 - sl) and n > 0: xd, xp, xw = d, round(min(o[0], p["entry"] * (1 - sl)), 2), "sl"; break
-                if p.get("sl_px") and o[2] <= p["sl_px"]: xd, xp, xw = d, round(min(o[0], p["sl_px"]), 2), "sl"; break
-                if tp and o[1] >= p["entry"] * (1 + tp): xd, xp, xw = d, round(max(o[0], p["entry"] * (1 + tp)), 2), "tp"; break
+                if sl and o[2] <= p["entry"] * (1 - sl) and n > 0: xd, xp, xw = d, _tk(min(o[0], p["entry"] * (1 - sl)), us, "down"), "sl"; break
+                if p.get("sl_px") and o[2] <= p["sl_px"]: xd, xp, xw = d, _tk(min(o[0], p["sl_px"]), us, "down"), "sl"; break
+                if tp and o[1] >= p["entry"] * (1 + tp): xd, xp, xw = d, _tk(max(o[0], p["entry"] * (1 + tp)), us, "up"), "tp"; break
             if exit_close_on.get(p["id"]) == d: xd, xp, xw = d, round(o[3], 2), exit_close_on.get("_why", "rule"); break
             if p.get("x_open") and d > p["x_open"]: xd, xp, xw = d, round(o[0], 2), p.get("x_why", "rank"); break
             if hold_max and n >= hold_max: xd, xp, xw = d, round(o[3], 2), "time"; break
@@ -679,7 +688,8 @@ def main():
     if rd and twd and rd == twd:
         for p in T["slots"]:
             if p["fill_d"] and p["fill_d"] < twd and not p.get("x_open"):
-                rk = (ra.get(p["id"]) or [9999])[0]
+                rk = (ra.get(p["id"]) or [None])[0]
+                if rk is None: log(f"  中期:{p['name']} 今天沒有排名(評分缺這檔,可能資料未到)→ 不當掉出排名,明天再看"); continue   # r1121:原本當 9999 名直接賣
                 if rk > 200: p["x_open"], p["x_why"] = twd, "rank"; log(f"  中期:{p['name']} 掉到第 {rk} 名 → 隔天開盤賣")
         fill_and_track(T, False, **TIER_RULES["mid"])                     # r1098:4 ATR 停損(原回測設定)+ 停利 +25%(回測 +41.5%)
         held = {p["id"] for p in T["slots"]}; sold_today = {h["id"] for h in T["hist"] if h.get("xd") == twd}
@@ -866,9 +876,9 @@ def run_intraday():
             p["hi"] = max(p.get("hi") or 0, h); p["lo"] = min(p.get("lo") or 1e18, l)
             n = sum(1 for b in raw_bars(p["id"]) if p["fill_d"] <= b[0] < today) + 1
             xp = xw = xt = None
-            if R.get("sl") and l <= e * (1 - R["sl"]): xp, xw, xt = round(min(op, e * (1 - R["sl"])), 2), "sl", hhmm
-            elif p.get("sl_px") and l <= p["sl_px"]: xp, xw, xt = round(min(op, p["sl_px"]), 2), "sl", hhmm
-            elif R.get("tp") and h >= e * (1 + R["tp"]): xp, xw, xt = round(max(op, e * (1 + R["tp"])), 2), "tp", hhmm
+            if R.get("sl") and l <= e * (1 - R["sl"]): xp, xw, xt = _tk(min(op, e * (1 - R["sl"])), False, "down"), "sl", hhmm
+            elif p.get("sl_px") and l <= p["sl_px"]: xp, xw, xt = _tk(min(op, p["sl_px"]), False, "down"), "sl", hhmm
+            elif R.get("tp") and h >= e * (1 + R["tp"]): xp, xw, xt = _tk(max(op, e * (1 + R["tp"])), False, "up"), "tp", hhmm
             elif p.get("x_open") and today > p["x_open"]: xp, xw, xt = round(op, 2), p.get("x_why", "rank"), "09:00"
             if xp:
                 p.update(xd=today, xt=xt, xp=xp, xw=xw, ret=round((xp / e - 1) * 100, 2), st="done", last=xp, last_d=today, days=n, rt=1)
