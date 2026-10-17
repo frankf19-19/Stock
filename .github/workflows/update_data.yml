@@ -164,6 +164,7 @@ jobs:
             [ -f aipick.json ] && git add aipick.json
             [ -f aipick_us.json ] && git add aipick_us.json      # r890:美股 AI Pick
             [ -f aip3.json ] && git add aip3.json                # r1092
+            [ -f aip3_ai.json ] && git add aip3_ai.json          # r1123:AI 評分快取拆檔
             [ -f aip3_live.json ] && git add aip3_live.json      # r1107:三清單盤中小檔
             [ -f aitrader.json ] && git add aitrader.json        # r894:AI 交易員
             [ -f holidays.json ] && git add holidays.json        # r904:休市行事曆

@@ -39,6 +39,7 @@ TIER_RULES = {"short": dict(hold_max=15, tp=0.20, sl=0.15),     # r1098:停利 +
               "mid": dict(tp=0.25, sl_atr=4),                   # r1098:4 ATR 停損(原回測設定)+ 停利 +25%(回測 +41.5%)
               "long": {}}                                       # 長期:模型不停損不停利(回測都降年化),只有季檢視
 LIVE_OUT = "aip3_live.json"
+AI_OUT = "aip3_ai.json"               # r1123:AI 未來性評分快取(56 KB,前端用不到)拆出去,aip3.json 減半
 
 
 def log(*a): print(*a, flush=True)
@@ -646,6 +647,8 @@ def perf(T):
 
 def main():
     J = load(OUT, {}) or {}
+    if "ai_cache" not in J or not J["ai_cache"]:                        # r1123:快取改放 aip3_ai.json(舊檔仍有的話沿用一次)
+        J["ai_cache"] = (load(AI_OUT, {}) or {}).get("ai_cache") or J.get("ai_cache") or {}
     tw = J.get("tw") or {}; us = J.get("us") or {}
     tw.setdefault("short", new_tier("", ""))
     tw["short"].update(rule="每週最後一個交易日收盤,用量與技術線選 5 檔(離 52 週高 10% 內 × 創新高/帶量突破 20・55 日高/爆量長紅/OBV 新高/KD・RSI 高檔/均線多頭/投信外資買超);下個交易日開盤買,最多持 15 個交易日;停利 +20%、停損 −15%(盤中碰到就出)",
@@ -795,7 +798,9 @@ def main():
     except Exception as e: log(f"  事件紀錄略過 {e}")
     cut = (NOW - dt.timedelta(days=120)).strftime("%Y-%m-%d")
     out = {"ver": VER, "u": NOW.strftime("%Y-%m-%d %H:%M"), "tw_day": twd, "us_day": usd, "tw": tw, "us": us,
-           "start": J.get("start") or NOW.strftime("%Y-%m-%d"), "ai_cache": {k: v for k, v in (J.get("ai_cache") or {}).items() if (v or {}).get("d", "") >= cut}}
+           "start": J.get("start") or NOW.strftime("%Y-%m-%d")}
+    try: json.dump({"u": out["u"], "ai_cache": {k: v for k, v in (J.get("ai_cache") or {}).items() if (v or {}).get("d", "") >= cut}}, open(AI_OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    except Exception as e: log(f"  AI 快取檔略過 {e}")
     if J.get("rt_log"): out["rt_log"] = J["rt_log"][-120:]                 # r1107:盤中記帳紀錄(永久留在檔裡)
     if J.get("rt"): out["rt"] = J["rt"]
     json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))

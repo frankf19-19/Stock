@@ -30,6 +30,6 @@ jobs:
       - name: 提交
         run: |
           git config user.name "kyansuo-bot"; git config user.email "bot@users.noreply.github.com"
-          git add aip3.json logs/aip3_last.txt; git add aip3_live.json 2>/dev/null || true
+          git add aip3.json logs/aip3_last.txt; git add aip3_ai.json 2>/dev/null || true; git add aip3_live.json 2>/dev/null || true
           git commit -m "aip3: 手動補跑 $(TZ=Asia/Taipei date +'%m-%d %H:%M')" -q || exit 0
           for i in 1 2 3 4 5; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 8; done
