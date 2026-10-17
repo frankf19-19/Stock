@@ -1,4 +1,4 @@
-/* K研所 · build r1115 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1116 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1115';
+const APP_BUILD='r1116';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2479,7 +2479,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1115</span>');
+  diag.push('<span style="color:var(--dim)">build r1116</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -17494,7 +17494,10 @@ async function gaEpisodes(force){
   return eps;
 }
 function gaIntro(d){                              // r1108:財經皓角的描述=章節時間軸(00:00 市場概況…)→ 只留時間軸;股癌 → gaAdStrip
-  if(gaCfg().chapters){const L=String(d||'').split('\n').map(x=>x.trim()).filter(x=>/^\d{1,2}:\d{2}(:\d{2})?\s*\S/.test(x)&&!/https?:/.test(x));if(L.length>=2)return L.slice(0,16).join('\n');}
+  if(gaCfg().chapters){const L=String(d||'').split('\n').map(x=>x.trim()).filter(x=>/^\d{1,2}:\d{2}(:\d{2})?\s*\S/.test(x)&&!/https?:/.test(x));if(L.length>=2)return L.slice(0,16).join('\n');
+    // r1116:沒有時間軸的集 → 去掉每集都一樣的制式文字(訂閱/會員/來信/打賞/免責/節目簡介/抽書規則/書名區塊),剩下才是這集特有的描述;什麼都不剩就不顯示
+    const BO=/訂閱|會員|粉絲專頁|來信|打賞|退款|免責|個人知識節目|開盤前30分鐘|抽書|^書名|^作者|^原文作者|^譯者|^繪者|^出版社|^出版日期|https?:\/\/|@/;
+    const K=String(d||'').split('\n').map(x=>x.trim()).filter(x=>x&&!BO.test(x));return K.join('\n').slice(0,200);}
   return gaAdStrip(d);
 }
 function gaAdStrip(d){                            // 股癌描述=第一段是哏、之後全是業配 → 只留第一段
@@ -17713,7 +17716,7 @@ function gaYtEpUrl(b){   // r1114:那集的 YouTube——後端對照表對到�
 }
 let GA_YTMAP={};
 async function gaYtMapLoad(C){   // r1114:集數 → YouTube 影片對照表(<show>_yt.json,後端 yt-dlp 列頻道;日期 or 標題對)
-  if(!C.ytcid)return null;const k=C.json.replace('.json','_yt.json');
+  if(!C.ytcid)return null;const k=C.json.replace('.json','_yt_lite.json');   // r1116:小檔(日期索引 + 最近 100 支),完整檔 300 KB 留給後端用
   if(GA_YTMAP[k]&&Date.now()-GA_YTMAP[k].t<30*60e3)return GA_YTMAP[k].j;
   try{const r=await fT(k+'?'+Math.floor(Date.now()/18e5),9000);if(r&&r.ok){const j=await r.json();if(j&&(j.d||j.m)){GA_YTMAP[k]={t:Date.now(),j};return j;}}}catch(e){}
   return (GA_YTMAP[k]||{}).j||null;

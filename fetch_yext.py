@@ -655,6 +655,22 @@ def main():
     CMD_STOOQ = {"GC=F": "gc.f", "SI=F": "si.f", "HG=F": "hg.f", "CL=F": "cl.f",
                  "BZ=F": "cb.f", "NG=F": "ng.f", "NI=F": "ni.f", "ALI=F": "ali.f"}
     for sym, st in CMD_STOOQ.items():
+        # r1116:Stooq 從機房一直抓不到(八個商品全空,前端原物料卡片漲跌%與鋁卡從沒出現過)→ 先走 Yahoo 日線(指數同源、機房可通),Stooq 退為備援
+        got = False
+        try:
+            j = json.loads(http_get("https://query1.finance.yahoo.com/v8/finance/chart/" + urllib.parse.quote(sym) + "?range=6mo&interval=1d", timeout=20))
+            res = j["chart"]["result"][0]
+            t, c = [], []
+            for tt, cc in zip(res.get("timestamp") or [], (res["indicators"]["quote"][0].get("close") or [])):
+                if cc is not None: t.append(int(tt)); c.append(round(float(cc), 4))
+            if len(t) >= 2:
+                t, c = t[-90:], c[-90:]
+                series[sym] = {"d": {"t": t, "c": c, "prev": c[-2]}}
+                print(f"  {sym} ← Yahoo({len(t)} 根,最新 {c[-1]})"); got = True
+        except Exception as e:
+            print(f"  [warn] {sym} Yahoo: {str(e)[:50]}")
+        if got:
+            time.sleep(0.3); continue
         try:
             try:
                 csvt = http_get(f"https://stooq.com/q/d/l/?s={st}&i=d", timeout=25)

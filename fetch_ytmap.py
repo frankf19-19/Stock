@@ -36,7 +36,7 @@ def main():
     opts = {"extract_flat": True, "quiet": True, "no_warnings": True, "skip_download": True, "playlistend": (1500 if not (M and D) else 80), "ignoreerrors": True,
             "extractor_args": {"youtube": {"lang": ["zh-TW", "zh-Hant", "zh"]}},      # 要中文標題(預設會拿到 YouTube 自動翻譯的英文標題,對不到 podcast 集名)
             "http_headers": {"Accept-Language": "zh-TW,zh;q=0.9,en;q=0.5"}}
-    added = 0; seen = 0
+    added = 0; seen = 0; recent = []
     for tab in ("streams", "videos"):
         url = f"https://www.youtube.com/channel/{C['yt_cid']}/{tab}"
         try:
@@ -47,7 +47,7 @@ def main():
             for e in ents:
                 vid = e.get("id"); t = e.get("title") or ""
                 if not vid or not t: continue
-                seen += 1
+                seen += 1; recent.append(vid)
                 k = norm(t)
                 if len(k) >= 6 and (k not in M or (is_en(M[k].get("t")) and not is_en(t))):
                     if k not in M: added += 1
@@ -59,6 +59,9 @@ def main():
     out = {"v": 1, "show": show, "u": dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M"), "n": len(M), "m": M, "d": D}
     if seen or not old.get("m"):
         json.dump(out, open(outp, "w", encoding="utf-8"), ensure_ascii=False)
+        # r1116:給前端的小檔(完整檔 300 KB 太大):日期索引全部 + 最近看到的 100 支標題索引(集數卡只需要最近幾集)
+        rs = set(recent[:100]); lite_m = {k: v for k, v in M.items() if v.get("id") in rs}
+        json.dump({"v": 1, "u": out["u"], "d": D, "m": lite_m}, open(f"{show}_yt_lite.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     log(f"完成:{outp} 共 {len(M)} 支、日期索引 {len(D)} 天(新增 {added},本次看到 {seen},英文標題 {sum(1 for v in M.values() if is_en(v.get('t')))})")
 
 
