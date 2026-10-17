@@ -116,6 +116,18 @@ def main():
                 books.append({"title": b["title"], "author": b["author"], "why": b["why"], "src": "ai", "ep": e.get("t"), "ep_dt": edt, "ep_url": e.get("yt") or ""})
     except Exception as e:
         log(f"  AI 整理解析失敗:{e}")
+    # ③ 每本書「那集」的 YouTube 連結(fetch_ytmap.py 的對照表:標題正規化 or 日期)
+    try:
+        Y = json.load(open(f"{show}_yt.json", encoding="utf-8")); YM = Y.get("m") or {}; YD = Y.get("d") or {}
+        n_yt = 0
+        for b in books:
+            hit = YM.get(norm(b.get("ep"))) or None
+            vid = (hit or {}).get("id") or YD.get(str(b.get("ep_dt") or ""))
+            if vid: b["yt_url"] = f"https://www.youtube.com/watch?v={vid}"; n_yt += 1
+            elif b.get("ep_url", "").startswith("https://www.youtube.com/"): b["yt_url"] = b["ep_url"]; n_yt += 1
+        log(f"  YouTube 連結:{n_yt}/{len(books)} 本對到")
+    except Exception as e:
+        log(f"  YouTube 對照略過:{e}")
     books.sort(key=lambda b: (b.get("ep_dt") or ""), reverse=True)
     out = {"v": 1, "show": show, "name": C["name"], "u": dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M"), "n": len(books), "books": books}
     json.dump(out, open(outp, "w", encoding="utf-8"), ensure_ascii=False)

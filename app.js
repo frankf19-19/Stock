@@ -1,4 +1,4 @@
-/* K研所 · build r1113 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1114 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1113';
+const APP_BUILD='r1114';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2479,7 +2479,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1113</span>');
+  diag.push('<span style="color:var(--dim)">build r1114</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -17704,7 +17704,19 @@ function gaBookRow(b){
   const meta=[b.author?`${esc(b.author)}${b.orig?` <span class="dim">(${esc(b.orig)})</span>`:''}`:'',b.pub?esc(b.pub)+(b.pubd?' '+esc(b.pubd):''):''].filter(Boolean).join('・');
   return `<div class="ga-book${b.src==='ai'?' ai':''}"><div class="ga-bk-t">《${esc(b.title)}》${b.src==='ai'?'<span class="ga-bk-ai" title="節目描述沒寫,是 AI 聽整集時聽到他提到的">AI 聽到</span>':''}</div>
     ${meta?`<div class="ga-bk-m">${meta}</div>`:''}${b.why?`<div class="ga-bk-w">${esc(b.why)}</div>`:''}
-    <div class="ga-bk-l">${b.ep_dt?`<a href="${String(b.ep_url||'#').replace(/"/g,'')}" target="_blank" rel="noopener">📅 ${md(b.ep_dt)} 那集 ↗</a>`:''}${b.url?`<a href="${String(b.url).replace(/"/g,'')}" target="_blank" rel="noopener">📖 書籍連結 ↗</a>`:`<a href="https://search.books.com.tw/search/query/key/${encodeURIComponent(b.title)}" target="_blank" rel="noopener">🔍 博客來找這本 ↗</a>`}</div></div>`;
+    <div class="ga-bk-l">${b.ep_dt?`<span class="dim">📅 ${md(b.ep_dt)} 那集:</span>${b.ep_url&&!/youtube\.com|youtu\.be/.test(b.ep_url)?`<a href="${String(b.ep_url).replace(/"/g,'')}" target="_blank" rel="noopener">🎧 Podcast ↗</a>`:''}<a href="${gaYtEpUrl(b)}" target="_blank" rel="noopener">▶️ YouTube ↗</a>`:''}${b.url?`<a href="${String(b.url).replace(/"/g,'')}" target="_blank" rel="noopener">📖 書籍連結 ↗</a>`:`<a href="https://search.books.com.tw/search/query/key/${encodeURIComponent(b.title)}" target="_blank" rel="noopener">🔍 博客來找這本 ↗</a>`}</div></div>`;
+}
+function gaYtEpUrl(b){   // r1114:那集的 YouTube——後端對照表對到就直接連影片,沒對到就連到頻道內搜尋該集標題
+  if(b.yt_url)return String(b.yt_url).replace(/"/g,'');
+  const C=gaCfg();const q=String(b.ep||'').replace(/^\s*\d{4}\/\d{1,2}\/\d{1,2}\s*[(（][一二三四五六日天][)）]\s*/,'').replace(/【[^】]*】/g,'').trim();
+  return C.ytcid?`https://www.youtube.com/channel/${C.ytcid}/search?query=${encodeURIComponent(q)}`:`https://www.youtube.com/results?search_query=${encodeURIComponent((C.name||'')+' '+q)}`;
+}
+let GA_YTMAP={};
+async function gaYtMapLoad(C){   // r1114:集數 → YouTube 影片對照表(<show>_yt.json,後端 yt-dlp 列頻道;日期 or 標題對)
+  if(!C.ytcid)return null;const k=C.json.replace('.json','_yt.json');
+  if(GA_YTMAP[k]&&Date.now()-GA_YTMAP[k].t<30*60e3)return GA_YTMAP[k].j;
+  try{const r=await fT(k+'?'+Math.floor(Date.now()/18e5),9000);if(r&&r.ok){const j=await r.json();if(j&&(j.d||j.m)){GA_YTMAP[k]={t:Date.now(),j};return j;}}}catch(e){}
+  return (GA_YTMAP[k]||{}).j||null;
 }
 function gaBooksRender(J,C){
   const box=document.getElementById('gaBooks'),tt=document.getElementById('gaBooksT');if(!box)return;
@@ -17764,7 +17776,7 @@ async function gooayeLoad(force){
       ${codes?`<div style="margin-top:6px;font-size:13px"><span style="color:var(--mut);font-weight:800">提及個股:</span>${codes}</div>`:''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
         ${e.a?`<button class="btn-ghost ga-play" data-i="${i}" style="padding:5px 14px">▶ 站內播放</button>`:''}
-        <a href="${e.l}" target="_blank" rel="noopener" style="color:var(--dim);font-size:13px;text-decoration:none">原頁面(含完整描述)↗</a>
+        <a href="${e.l}" target="_blank" rel="noopener" style="color:var(--dim);font-size:13px;text-decoration:none">原頁面(含完整描述)↗</a><span class="ga-ytlink" data-i="${i}"></span>
       </div>
       <div class="ga-audio" id="gaAu${i}"></div>
     </div>`;
@@ -17772,6 +17784,9 @@ async function gooayeLoad(force){
   // 全部集數自動排隊預整理(有金鑰/通行碼才跑;有快取秒現)
   setTimeout(()=>{try{gaQueueRun();}catch(e){}},300);
   window.__gaEps=eps;
+  try{if(C0.ytcid)gaYtMapLoad(C0).then(Y=>{if(!Y||gaCfg()!==C0)return;const M=Y.m||{},D=Y.d||{};   // r1114:集數卡上的 ▶️ YouTube
+      eps.forEach((e,i)=>{const hit=M[gaNorm(e.t)];const vid=(hit&&hit.id)||D[e.iso];const sp=document.querySelector(`.ga-ytlink[data-i="${i}"]`);if(!sp)return;
+        sp.innerHTML=`<a href="${vid?'https://www.youtube.com/watch?v='+vid:gaYtEpUrl({ep:e.t})}" target="_blank" rel="noopener" style="color:var(--amber);font-size:13px;text-decoration:none;margin-left:10px">▶️ YouTube${vid?'':'(搜尋)'} ↗</a>`;});});}catch(e){}
   try{gaBooksCss();const bb=document.getElementById('gaBooks');if(bb&&!C0.books){bb.hidden=true;const t0=document.getElementById('gaBooksT');if(t0)t0.hidden=true;}
     gaBooksLoad(C0).then(J=>{if(gaCfg()!==C0)return;gaBooksRender(J,C0);
       if(J&&(J.books||[]).length){const by={};J.books.forEach(b=>{if(b.ep_dt)(by[b.ep_dt]=by[b.ep_dt]||[]).push(b);});   // r1111:集數卡上標「📚 本集推薦」
