@@ -454,12 +454,13 @@ def levels(p, key, us=False, prev=None):
     再買回 = 停損參考價 + 1 ATR(站回支撐之上就可買回,當天也可以)"""
     try:
         import aipick
-        B = bars(p["id"], us)
+        sid = p.get("cur") or p["id"]                                        # r1118:美股短期換股後(ONTO → BBY),價位/ATR 要算「現在持有的那檔」
+        B = bars(sid, us)
         if len(B) < 60: return prev
         d = [b[0] for b in B]; o = [b[1] for b in B]; C = [x[3] for x in o]
         buy = p.get("entry") or p.get("sel_px") or C[-1]
         if not buy or buy <= 0: return prev
-        a = _atr14(o); sinfo = STK.get(p["id"]) or {}
+        a = _atr14(o); sinfo = STK.get(sid) or {}
         old = aipick.US; aipick.US = bool(us)
         try:
             tgt, stp, LV = aipick.stock_levels(d, o, buy, a, sinfo)
@@ -519,7 +520,7 @@ def hist_levels(T, key, us=False):
 def tech_of(p, us=False):
     """r1099:技術線與量能快照(給前端即時比對):5/10/20 日線、20 日均量、昨量;短期清單用來看「量 + 技術線」"""
     try:
-        B = raw_bars(p["id"], us)
+        B = raw_bars(p.get("cur") or p["id"], us)                           # r1118:換股後看現持那檔的線
         if len(B) < 21: return None
         o = [b[1] for b in B]; C = [x[3] for x in o]; V = [x[4] if len(x) > 4 else 0 for x in o]
         ma = lambda n: round(sum(C[-n:]) / n, 2)
