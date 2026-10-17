@@ -1,0 +1,28 @@
+name: 探針:yt-dlp 列頻道影片(暫時)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests yt-dlp
+      - run: |
+          python fetch_ytmap.py yth 2>&1 | tee /tmp/yt.txt || true
+          grep -E "streams|videos|完成|✗|失敗" /tmp/yt.txt | sed 's/^/::notice::/' || true
+          python - <<'PY'
+          import json
+          try:
+              J=json.load(open('yth_yt.json')); m=J['m']; ks=list(m)[:3]
+              print("::notice::sample "+json.dumps([m[k] for k in ks],ensure_ascii=False)[:600])
+          except Exception as e: print("::warning::no map",e)
+          PY
+      - run: |
+          git config user.name "bot"; git config user.email "bot@users.noreply.github.com"
+          git add yth_yt.json 2>/dev/null || true; git commit -q -m "yt 對照表 [CI Skip]" || exit 0
+          for i in 1 2 3; do git pull --rebase --autostash -X theirs origin main -q && git push -q && exit 0; sleep 5; done

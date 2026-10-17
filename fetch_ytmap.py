@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""r1114:節目每一集的 YouTube 影片對照表 → <show>_yt.json(永久、只增不減)
+用 yt-dlp 的「扁平列表」抓頻道的 /streams 與 /videos 兩個分頁(直播與一般影片),只拿標題與影片 ID,不下載、不用金鑰、零成本;
+標題正規化(去日期前綴/【標籤】/標點)後當 key,podcast 集名就能對到 YouTube 連結(推薦好書的「那集」連結、集數卡的 ▶️ YouTube)。
+用法:python fetch_ytmap.py yth"""
+import json, sys, datetime as dt
+from listen_show import SHOWS, norm
+
+def log(*a): print(*a, flush=True)
+
+
+def main():
+    show = (sys.argv[1] if len(sys.argv) > 1 else "yth").strip()
+    C = SHOWS.get(show)
+    if not C or not C.get("yt_cid"): log("✗ 沒有頻道 ID"); sys.exit(1)
+    outp = f"{show}_yt.json"
+    try: old = json.load(open(outp, encoding="utf-8"))
+    except Exception: old = {"v": 1, "show": show, "m": {}}
+    M = old.get("m") or {}
+    try:
+        import yt_dlp
+    except Exception as e:
+        log(f"✗ 沒有 yt-dlp:{e}"); sys.exit(1)
+    opts = {"extract_flat": True, "quiet": True, "no_warnings": True, "skip_download": True, "playlistend": 1200, "ignoreerrors": True}
+    added = 0; seen = 0
+    for tab in ("streams", "videos"):
+        url = f"https://www.youtube.com/channel/{C['yt_cid']}/{tab}"
+        try:
+            with yt_dlp.YoutubeDL(opts) as y:
+                info = y.extract_info(url, download=False) or {}
+            ents = [e for e in (info.get("entries") or []) if e]
+            log(f"  {tab}:{len(ents)} 支")
+            for e in ents:
+                vid = e.get("id"); t = e.get("title") or ""
+                if not vid or not t: continue
+                seen += 1
+                k = norm(t)
+                if len(k) < 6 or k in M: continue
+                M[k] = {"id": vid, "t": t}; added += 1
+        except Exception as ex:
+            log(f"  {tab} 失敗:{ex}")
+    out = {"v": 1, "show": show, "u": dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M"), "n": len(M), "m": M}
+    if seen or not old.get("m"):
+        json.dump(out, open(outp, "w", encoding="utf-8"), ensure_ascii=False)
+    log(f"完成:{outp} 共 {len(M)} 支(新增 {added},本次看到 {seen})")
+
+
+if __name__ == "__main__":
+    main()
