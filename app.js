@@ -589,7 +589,7 @@ function setBadges(extra){
   }
   document.getElementById('updBadge').textContent='盤後資料:'+_upd+tail+intr+(extra||'');
   const sb=document.getElementById('srcBadge');
-  if(DATA.source==='live'){ sb.textContent='● 報價即時'; sb.className='badge live'; }
+  if(DATA.source==='live'){ const op=(typeof marketOpen==='function')&&marketOpen(); sb.textContent=op?'● 報價即時':'● 收盤資料'; sb.className='badge live'; }   // r1116:休市時不要寫「報價即時」
 }
 function favList(){try{if(!SB_USER&&!Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k)))return[];}catch(e){}try{const a=JSON.parse(localStorage.getItem('fav_ids')||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}}   // r861:沒有登入 session 一律空
 function favHas(id){return favList().includes(id);}
