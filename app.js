@@ -26050,7 +26050,7 @@ function extOptCard(O){
       ${sp?`<div class="ex-st">回測(${extE((O.stats||{}).period||'')},每週三取樣 ${sp.n} 次):支撐到結算前守住 <b>${sp.held}%</b>,同樣距離的歷史基準 ${sp.exp}%;壓力沒被突破 <b>${sc?sc.held:'—'}%</b>,基準 ${sc?sc.exp:'—'}%。</div>`:''}
       <details><summary class="dim" style="cursor:pointer;font-size:12.5px">各履約價未平倉(紅=買權、綠=賣權)</summary><div class="ex-obs">${bars}</div></details></div>`;};
   return `<div class="ex-card"><div class="ex-h">🎲 台指選擇權支撐壓力 <span class="dim">期交所・${String(O.d||'').slice(5).replace('-','/')} 收盤・加權 ${spot?Math.round(spot).toLocaleString():'—'}</span></div>
-    ${one('w','週選')}${one('m','月選')}
+    ${O.c.w?one('w','週選'):'<div class="dim-note" style="margin:6px 0">週選未平倉太少(這週主要由月選結算),先看月選。</div>'}${one('m','月選')}
     <div class="dim-note">「守住」= 到結算前收盤都沒跌破支撐(或沒漲破壓力)。基準 = 歷史上同樣天數、同樣距離自然守住的機率;比基準高才代表大戶未平倉真的有守。</div></div>`;
 }
 function extMacRender(){

@@ -476,7 +476,7 @@ def daily(S):
             except Exception: pass
             res = {"d": d, "spot": spot, "c": {}}
             X = opt_expiry(O)
-            for kind in ("m", "w"):
+            for kind in ("m", "w"):   # 先月選(週選要跟月選比厚薄)
                 dd = d.replace("-", "")
                 cons = [c for c in day if (re.fullmatch(r"\d{6}", c) is not None) == (kind == "m")]
                 cons = sorted((c for c in cons if (day[c].get("x") or "99999999") > dd), key=lambda c: (day[c].get("x") or "99999999", c))
@@ -484,7 +484,9 @@ def daily(S):
                 if kind == "w":   # 週選:接下來 3 個到期裡,挑未平倉最多的(週五新制週選常常很薄)
                     tot = lambda c: sum(x[1] + x[2] for x in day[c]["k"])
                     cons = sorted(cons[:3], key=lambda c: -tot(c))
-                    if tot(cons[0]) < 3000: continue
+                    mon = res["c"].get("m")
+                    mtot = sum(x[1] + x[2] for x in (day.get(mon["con"]) or {}).get("k", [])) if mon else 0
+                    if tot(cons[0]) < 3000 or (mtot and tot(cons[0]) < 0.25 * mtot): continue   # 太薄 → 這週看月選就好
                 cn = cons[0]; e = day[cn]
                 pw, cw, pcr = walls(e, spot)
                 ks = e["k"]
