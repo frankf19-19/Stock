@@ -327,15 +327,22 @@ FRED_SERIES = {"BAA10Y": "Baa 公司債利差", "T10Y3M": "10年-3個月殖利�
 def fred(backfill=False):
     P = f"{D}/fred.json.gz"
     A = gz_load(P, {"s": {}})
+    key = os.environ.get("FRED_API_KEY", "").strip()
     for sid in FRED_SERIES:
+        s = A["s"].setdefault(sid, {}); n0 = len(s)
         try:
-            r = requests.get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}", headers=UA, timeout=60)
-            s = A["s"].setdefault(sid, {})
-            n0 = len(s)
-            for ln in r.text.strip().splitlines()[1:]:
-                d, _, v = ln.partition(",")
-                try: s[d] = float(v)
-                except Exception: pass
+            if key:   # 官方 API(有金鑰最穩)
+                r = requests.get("https://api.stlouisfed.org/fred/series/observations", timeout=60,
+                                 params={"series_id": sid, "api_key": key, "file_type": "json", "observation_start": "1970-01-01"})
+                for o in r.json().get("observations") or []:
+                    try: s[o["date"]] = float(o["value"])
+                    except Exception: pass
+            if len(s) == n0:   # 備援:CSV 下載
+                r = requests.get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}", headers={"User-Agent": "Mozilla/5.0", "Accept": "*/*"}, timeout=90)
+                for ln in r.text.strip().splitlines()[1:]:
+                    d, _, v = ln.partition(",")
+                    try: s[d] = float(v)
+                    except Exception: pass
             log(f"  {sid}:{len(s)} 筆(+{len(s) - n0})")
         except Exception as e: log(f"  {sid} 失敗 {e}")
         time.sleep(1)

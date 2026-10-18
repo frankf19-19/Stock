@@ -23,7 +23,7 @@ jobs:
         with: { python-version: "3.11" }
       - name: 回補 ${{ matrix.src }}
         if: github.event.inputs.only == '' || github.event.inputs.only == matrix.src
-        env: { FINMIND_TOKEN: "${{ secrets.FINMIND_TOKEN }}", PYTHONUNBUFFERED: "1" }
+        env: { FINMIND_TOKEN: "${{ secrets.FINMIND_TOKEN }}", FRED_API_KEY: "${{ secrets.FRED_API_KEY }}", PYTHONUNBUFFERED: "1" }
         run: |
           pip install requests
           timeout 19800 python ext_fetch.py ${{ matrix.src }} backfill || echo "::warning::${{ matrix.src }} 中途停止(已存的部分會提交,下次接著補)"
