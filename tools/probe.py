@@ -26,9 +26,6 @@ req("mops_sb21q3_page", "GET", "https://mopsov.twse.com.tw/mops/web/t56sb21_q3")
 req("mops_sb21q3", "POST", "https://mopsov.twse.com.tw/mops/web/ajax_t56sb21",
     data={"encodeURIComponent": 1, "step": 1, "firstin": 1, "off": 1, "TYPEK": "sii", "year": "113", "month": "7", "day": "16"})
 H = {"Accept": "application/json", "Content-Type": "application/json"}
-#req("finra_eq", "POST", "https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest",
-    json={"limit": 5, "compareFilters": [{"compareType": "equal", "fieldName": "settlementDate", "fieldValue": "2026-09-30"}],
-          "domainFilters": [{"fieldName": "symbolCode", "values": ["AAPL", "NVDA", "SMCI"]}]}, headers=H)
 r = req("finra_parts", "GET", "https://api.finra.org/partitions/group/otcMarket/name/consolidatedShortInterest", headers={"Accept": "application/json"})
 try:
     p = [x["partitions"][0] for x in r.json()["availablePartitions"]]; save("finra_parts_sum", txt=f"{len(p)} {p[:2]} {p[-3:]}")
