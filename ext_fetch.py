@@ -15,7 +15,7 @@ NOW = dt.datetime.now(TZ)
 D = "archive/ext"
 os.makedirs(D, exist_ok=True)
 UA = {"User-Agent": "Mozilla/5.0 (K-research personal dashboard)"}
-SEC_UA = {"User-Agent": "K-research-dashboard github.com/frankf19-19/Stock research@frankf19-19.github.io", "Accept-Encoding": "gzip, deflate"}
+SEC_UA = {"User-Agent": "K-research personal dashboard frankccc199@gmail.com", "Accept-Encoding": "gzip, deflate"}   # SEC 規定要附聯絡信箱(Frank 同意用這個)
 
 
 def log(*a): print(*a, flush=True)
