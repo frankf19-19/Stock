@@ -1,4 +1,4 @@
-/* K研所 · build r1127 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1128 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1127';
+const APP_BUILD='r1128';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2506,7 +2506,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1127</span>');
+  diag.push('<span style="color:var(--dim)">build r1128</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -25728,14 +25728,20 @@ function btmStatLine(on,off,ep){
   const w=(on.w60??0)-(off&&off.w60!=null?off.w60:0);
   return `<span class="btm-st">歷史上跌深時亮燈 → 3 個月後上漲機率 <b style="color:${w>=3?'var(--up)':'var(--txt2)'}">${on.w60}%</b>${off&&off.n?`(沒亮 ${off.w60}%)`:''}、中位 ${on.m60>=0?'+':''}${on.m60}%;之後最多再跌中位 ${on.dd}%${off&&off.n?`(沒亮 ${off.dd}%)`:''}${ep?`・出現過 ${ep} 次`:''}</span>`;
 }
-/* 大盤(單一指數)卡 */
-function btmMktHTML(key){
-  const m=BTM.mkt&&BTM.mkt[key],S=BTM.stats&&BTM.stats.mkt&&BTM.stats.mkt[key];if(!m||!S)return '<div class="dim-note">資料準備中。</div>';
+/* 大盤:目前亮哪些燈(大盤卡與首頁指數卡共用) */
+function btmMktOn(key){
+  const m=BTM&&BTM.mkt&&BTM.mkt[key],S=BTM&&BTM.stats&&BTM.stats.mkt&&BTM.stats.mkt[key];if(!m||!S)return null;
   const L=btmIdxLive(key,m),mode=L.d>m.d?'N':'S',c=btmCalc(L.px,m,mode),P=L.px,big=key==='TW';
   const on={b20:c.b20<=m.q20,b60:c.b60<=m.q60,up:c.up,fx:!!(m.on&&m.on.fx),br:!!(m.on&&m.on.br),nl:!!(m.on&&m.on.nl),thr:!!(m.on&&m.on.thr)};
   const lights=(S.lights||[]).filter(x=>x.pass),fails=(S.lights||[]).filter(x=>!x.pass);
   const low=lights.filter(x=>x.kind==='low'),stop=lights.filter(x=>x.kind==='stop');
   const nLow=low.filter(x=>on[x.k]).length,nStop=stop.filter(x=>on[x.k]).length;
+  return {m,S,L,c,P,big,on,fails,low,stop,nLow,nStop};
+}
+/* 大盤(單一指數)卡 */
+function btmMktHTML(key){
+  const Z=btmMktOn(key);if(!Z)return '<div class="dim-note">資料準備中。</div>';
+  const {m,S,L,c,P,big,on,fails,low,stop,nLow,nStop}=Z;
   const cnt=(S.cnt||[]).find(x=>x.k===Math.min(nLow,3))||null,base=S.base||{};
   const valTxt=k=>k==='b20'?`現在 ${btmPct(c.b20)}(門檻 ${btmPct(m.q20)})`:k==='b60'?`現在 ${btmPct(c.b60)}(門檻 ${btmPct(m.q60)})`
     :k==='fx'?`近 20 日 ${btmFmt(m.F20,1)} 億(門檻 ${btmFmt(m.F20q,1)} 億)`:k==='br'?`現在 ${m.ab20}%(近 10 天最低 ${m.ab20min10}%)`
@@ -25825,3 +25831,48 @@ async function btmStockBox(s){
   }catch(e){}
 }
 setInterval(()=>{try{const m=location.hash.match(/^#stock\/(.+)$/);if(m&&document.getElementById('btmStkBox')){const s=(DATA.stocks||[]).find(x=>x.id===decodeURIComponent(m[1]));if(s)btmStockBox(s);}}catch(e){}},20*1000);
+/* r1128:🎯 卡片上的落底燈號標記
+   個股卡(選股清單/最愛/持股/雷達/AI Pick 持股…):亮 2 盞以上才標(1 盞歷史上跟沒亮差不多,不標免得滿版都是);
+   有站回 10 日線再加「✓止跌」。指數卡(加權、S&P500、那斯達克、費半):有任何落底燈亮就標。價格類燈用即時價重算。 */
+function btmCardTag(id){
+  if(!BTM||!BTM.stk||/^0/.test(id)||BTM_ETF_US.has(id))return null;
+  const o=btmStkObj(id,BTM.stk[id]);if(!o||!o.liq)return null;
+  const R=btmStkLights(o,btmStkLive(o,o.us?BTM.asof.us:BTM.asof.tw));if(R.n<2)return null;
+  const tot=R.lights.length,S=BTM.stats&&BTM.stats.stk&&BTM.stats.stk[o.us?'US':'TW'],cn=S&&(S.cnt||[]).find(x=>x.k===R.n);
+  return {sig:R.n+'|'+(R.up?1:0),cls:R.n>=3?'lv3':'lv2',txt:`🎯 落底 ${R.n}/${tot}${R.up?' ✓止跌':''}`,
+    tip:`落底燈亮 ${R.n}/${tot} 盞${R.up?',已站回 10 日線(止跌)':',還沒止跌'}${cn&&cn.n?`。歷史上同樣亮 ${R.n} 盞:3 個月後上漲機率 ${cn.w60}%、中位 ${cn.m60>=0?'+':''}${cn.m60}%`:''}。點進個股頁看每顆燈與門檻價`};
+}
+function btmIdxTag(key){
+  const Z=btmMktOn(key);if(!Z||!Z.nLow)return null;
+  const st=Z.nStop>0;
+  return {sig:Z.nLow+'|'+(st?1:0),cls:Z.nLow>=2?'lv3':'lv2',txt:`🎯 落底 ${Z.nLow}/${Z.low.length}${st?' ✓止跌':''}`,
+    tip:`大盤落底燈亮 ${Z.nLow}/${Z.low.length} 盞${st?',而且出現止跌訊號':',還沒止跌'}。到「市場」頁的 🎯 落底燈號看明細與門檻價`};
+}
+function btmPutTag(host,T){
+  if(!host)return;let e=host.querySelector(':scope > .btm-tag');
+  if(!T){if(e)e.remove();return;}
+  if(e&&e.dataset.sig===T.sig)return;
+  if(!e){e=document.createElement('span');e.className='btm-tag';host.appendChild(e);}
+  e.className='btm-tag '+T.cls;e.dataset.sig=T.sig;e.textContent=T.txt;e.title=T.tip;
+}
+function btmDecorate(){
+  if(!BTM||!BTM.stk)return;
+  try{
+    document.querySelectorAll('.card[data-id],.r-card[data-id]').forEach(c=>{
+      const host=c.querySelector('.c-name,.r-name')||c.querySelector(':scope > div > b')||c.firstElementChild;
+      if(host)btmPutTag(host,btmCardTag(c.dataset.id));
+    });
+    const tw=document.querySelector('.idx-card[data-mk="twii"] .nm');if(tw)btmPutTag(tw,btmIdxTag('TW'));
+    [['gspc','SPX'],['ixic','NDX'],['sox','SOX']].forEach(([mk,k])=>{
+      const c=document.getElementById('tvC_'+mk),nm=c&&c.closest('.idx-card')&&c.closest('.idx-card').querySelector('.nm');
+      if(nm)btmPutTag(nm,btmIdxTag(k));
+      const c2=document.querySelector(`.idx-card[data-mk="${mk}"] .nm`);if(c2)btmPutTag(c2,btmIdxTag(k));
+    });
+  }catch(e){}
+}
+(function(){
+  let tm=null;const kick=()=>{clearTimeout(tm);tm=setTimeout(btmDecorate,500);};
+  setTimeout(()=>{btmLoad().then(()=>{btmDecorate();
+    try{new MutationObserver(kick).observe(document.body,{childList:true,subtree:true});}catch(e){}});},2500);
+  setInterval(()=>{btmLoad().then(btmDecorate).catch(()=>{});},20*1000);
+})();

@@ -2542,3 +2542,7 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .btm-prices b{font-family:var(--mono);font-size:16px}
 .btm-prices small{font-size:11px;color:var(--dim)}
 .btm-stk .btm-verdict{font-size:14.5px}
+/* r1128:卡片上的落底燈號標記 */
+.btm-tag{display:inline-block;margin-left:6px;font-size:11.5px;font-weight:800;line-height:1.5;padding:0 7px;border-radius:999px;border:1px solid var(--amber);color:var(--amber);vertical-align:2px;white-space:nowrap;cursor:help}
+.btm-tag.lv3{border-color:var(--t-gold);color:#1a1405;background:var(--t-gold)}
+.idx-card .nm .btm-tag{font-size:11px;margin-left:5px}
