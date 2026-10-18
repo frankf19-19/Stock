@@ -287,8 +287,10 @@ def facts_text(F, CL):
     if F.get("vix"): L.append(f"・VIX {F['vix']['v']}")
     if F.get("fng"): L.append(f"・CNN 恐懼貪婪指數 {F['fng']['v']}({F['fng']['r']};一週前 {F['fng'].get('w')})")
     if F.get("events"): L.append("・即將發生:" + ";".join(f"{e['d']} {e['t']}" for e in F["events"]))
-    L.append("・落底清單(回測結果):" + ";".join(
-        f"{c['t']}={'不適用(還沒跌深)' if c.get('na') else '成立' if c['now'] else '未成立'}【{'回測有效' if c['st'] == 'ok' else '回測沒比較好' if c['st'] == 'fail' else '無法回測'}】" for c in CL))
+    now = lambda c: "目前不適用(還沒跌深)" if c.get("na") else "目前成立" if c["now"] else "目前未成立"
+    for st, lab in (("ok", "【回測有效】(跌深時可以當依據)"), ("fail", "【回測沒比較好】(歷史上不可靠,不能當依據)"), ("nodata", "【無法回測】(僅供觀察)")):
+        g = [c for c in CL if c["st"] == st]
+        if g: L.append(f"・落底清單{lab}:" + ";".join(f"{c['t']}({now(c)})" for c in g))
     return "\n".join(L)
 
 
@@ -319,21 +321,25 @@ def prompt(F, CL, items):
 8. 全部繁體中文(台灣用語),不要用驚嘆號,不要寫「投資一定有風險」這類套話(網站會統一加註)。"""
 
 
+TRIED = []
+
+
 def gemini(p):
     """先試推理能力較強的 2.5 Pro(免費額度),不行再用 Flash 系列"""
     if not KEY: log("  ✗ 沒有 GEMINI_KEY"); return None
+    TRIED.clear()
     for mdl in ["gemini-2.5-pro", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-2.0-flash"]:
         gc = {"maxOutputTokens": 12000, "temperature": 0.3, "responseMimeType": "application/json", "responseSchema": SCHEMA}
         if not mdl.startswith("gemini-2.0"): gc["thinkingConfig"] = {"thinkingBudget": 4096}
         try:
             r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent?key={KEY}",
                               json={"contents": [{"role": "user", "parts": [{"text": p}]}], "generationConfig": gc}, timeout=240)
-            if not r.ok: log(f"  gemini {mdl} {r.status_code},換模型"); time.sleep(6); continue
+            if not r.ok: TRIED.append(f"{mdl}:{r.status_code}"); log(f"  gemini {mdl} {r.status_code},換模型"); time.sleep(6); continue
             cand = (r.json().get("candidates") or [{}])[0]
             txt = "".join(x.get("text", "") for x in ((cand.get("content") or {}).get("parts") or []) if not x.get("thought"))
             j = json.loads(txt); j["_model"] = mdl; return j
         except Exception as e:
-            log(f"  gemini {mdl} 失敗:{str(e)[:150]}"); time.sleep(6)
+            TRIED.append(f"{mdl}:{str(e)[:60]}"); log(f"  gemini {mdl} 失敗:{str(e)[:150]}"); time.sleep(6)
     return None
 
 
@@ -369,7 +375,7 @@ def ai_view(F, CL, items):
             seen = seen or s["likely"]
     return {"head": (j.get("head") or "").strip(), "causes": causes, "where": (j.get("where") or "").strip(),
             "timing": (j.get("timing") or "").strip(), "scen": scen, "tips": [t.strip() for t in j.get("tips") or [] if t.strip() and not bad_tip(t, CL)][:3],
-            "model": j.get("_model", ""), "n_in": len(items)}
+            "model": j.get("_model", ""), "n_in": len(items), "tried": list(TRIED)}
 
 
 # ══════════════════════ 主程式 ══════════════════════
