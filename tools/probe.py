@@ -12,12 +12,21 @@ def req(name, m, url, **kw):
     h = dict(UA); h.update(kw.pop("headers", {}))
     try: r = requests.request(m, url, headers=h, timeout=60, **kw); save(name, r); return r
     except Exception as e: save(name, txt=f"ERR {e}")
-for rep in ("SY", "OY"):
-    for y, mo, d in (("115", "10", "15"), ("105", "3", "15"), ("98", "3", "16")):
-        req(f"mops2_{rep}_{y}", "POST", "https://mopsov.twse.com.tw/mops/web/ajax_t56sb12",
-            data={"encodeURIComponent": 1, "run": "", "step": 2, "year": y, "month": mo, "day": d, "report": rep, "firstin": "true"}); time.sleep(4)
+import re
+summ = []
+for y, mo, d in (("115","7","15"),("115","1","15"),("114","7","15"),("114","1","15"),("113","7","16"),("113","1","16"),("112","7","14"),("111","7","15"),("110","7","15"),("108","7","15")):
+    try:
+        r = requests.post("https://mopsov.twse.com.tw/mops/web/ajax_t56sb12", headers=UA, timeout=60,
+            data={"encodeURIComponent": 1, "run": "", "step": 2, "year": y, "month": mo, "day": d, "report": "SY", "firstin": "true"})
+        m = re.search(r"總計：(\d+)筆", r.text); summ.append(f"{y}/{mo}/{d} {r.status_code} {'無' if '無持股轉讓' in r.text else (m.group(1) if m else '?')}")
+    except Exception as e: summ.append(f"{y}/{mo}/{d} ERR {e}")
+    time.sleep(4)
+save("mops_depth", txt="\n".join(summ))
+req("mops_sb21q3_page", "GET", "https://mopsov.twse.com.tw/mops/web/t56sb21_q3")
+req("mops_sb21q3", "POST", "https://mopsov.twse.com.tw/mops/web/ajax_t56sb21",
+    data={"encodeURIComponent": 1, "step": 1, "firstin": 1, "off": 1, "TYPEK": "sii", "year": "113", "month": "7", "day": "16"})
 H = {"Accept": "application/json", "Content-Type": "application/json"}
-req("finra_eq", "POST", "https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest",
+#req("finra_eq", "POST", "https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest",
     json={"limit": 5, "compareFilters": [{"compareType": "equal", "fieldName": "settlementDate", "fieldValue": "2026-09-30"}],
           "domainFilters": [{"fieldName": "symbolCode", "values": ["AAPL", "NVDA", "SMCI"]}]}, headers=H)
 r = req("finra_parts", "GET", "https://api.finra.org/partitions/group/otcMarket/name/consolidatedShortInterest", headers={"Accept": "application/json"})
