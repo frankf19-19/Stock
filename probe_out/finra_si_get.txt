@@ -1,8 +1,0 @@
-STATUS 200
-CT text/plain
-LEN 559
-
-accountingYearMonthNumber,symbolCode,issueName,issuerServicesGroupExchangeCode,marketClassCode,currentShortPositionQuantity,previousShortPositionQuantity,stockSplitFlag,averageDailyVolumeQuantity,daysToCoverQuantity,revisionFlag,changePercent,changePreviousNumber,settlementDate
-20200415,A,Agilent Technologies Inc.,A,NYSE,4851353,4767556,,2012318,2.41,,1.76,83797,2020-04-15
-20200415,AA,Alcoa Corporation,A,NYSE,10624431,9476203,,9564290,1.11,,12.12,1148228,2020-04-15
-20200415,AAALF,Aareal Bank AG AKT,S,OTC,79128,100172,,0,999.99,,-21.01,-21044,2020-04-15

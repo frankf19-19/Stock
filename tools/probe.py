@@ -1,69 +1,43 @@
-"""一次性:探測新資料源的格式(輸出到 probe_out/,不影響網站)"""
-import os, json, requests, io, zipfile, re, time
+"""一次性:探測新資料源(第 2 輪)"""
+import os, json, requests, time
 os.makedirs("probe_out", exist_ok=True)
-UA = {"User-Agent": "K-research personal dashboard frankccc199@gmail.com", "Accept": "*/*"}
-def save(name, r=None, txt=None, extra=""):
+UA = {"User-Agent": "Mozilla/5.0 (K-research personal dashboard; frankccc199@gmail.com)", "Accept": "*/*"}
+def save(name, r=None, txt=None):
     with open(f"probe_out/{name}.txt", "w", encoding="utf-8") as f:
         if r is not None:
-            f.write(f"STATUS {r.status_code}\nCT {r.headers.get('content-type')}\nLEN {len(r.content)}\n{extra}\n")
-            try: t = r.content.decode("utf-8")
-            except Exception:
-                try: t = r.content.decode("big5", errors="replace")
-                except Exception: t = repr(r.content[:2000])
-            f.write(t[:6000])
+            f.write(f"STATUS {r.status_code}\nCT {r.headers.get('content-type')}\nLEN {len(r.content)}\n\n")
+            ct = (r.headers.get("content-type") or "").lower()
+            enc = "big5" if ("950" in ct or "big5" in ct) else "utf-8"
+            f.write(r.content.decode(enc, errors="replace")[:5000])
         else: f.write(txt or "")
-def get(name, url, **kw):
-    try: r = requests.get(url, headers=UA, timeout=60, **kw); save(name, r); return r
+def req(name, m, url, **kw):
+    h = dict(UA); h.update(kw.pop("headers", {}))
+    try: r = requests.request(m, url, headers=h, timeout=60, **kw); save(name, r); return r
     except Exception as e: save(name, txt=f"ERR {e}")
-def post(name, url, **kw):
-    try: r = requests.post(url, headers=UA, timeout=60, **kw); save(name, r); return r
-    except Exception as e: save(name, txt=f"ERR {e}")
-
-# ── TW 內部人 ──
-r = get("twse_swagger", "https://openapi.twse.com.tw/v1/swagger.json")
-try:
-    sw = r.json(); hits = [(p, json.dumps(v, ensure_ascii=False)[:200]) for p, v in sw.get("paths", {}).items()]
-    save("twse_paths", txt="\n".join(f"{p} {d}" for p, d in hits))
-except Exception as e: save("twse_paths", txt=str(e))
-r = get("tpex_swagger", "https://www.tpex.org.tw/openapi/swagger.json")
-try:
-    sw = r.json(); save("tpex_paths", txt="\n".join(f"{p} {json.dumps(v, ensure_ascii=False)[:200]}" for p, v in sw.get("paths", {}).items()))
-except Exception as e: save("tpex_paths", txt=str(e))
-for ds in (20767, 20768, 22813, 22814, 31564):
-    get(f"dgov_{ds}", f"https://data.gov.tw/api/v2/rest/dataset/{ds}")
-post("mops_t56sb12", "https://mopsov.twse.com.tw/mops/web/ajax_t56sb12",
-     data={"encodeURIComponent": 1, "step": 1, "firstin": 1, "off": 1, "TYPEK": "sii", "year": "115", "month": "9"})
-get("mops_t56sb12_page", "https://mopsov.twse.com.tw/mops/web/t56sb12")
-# ── SEC ──
-get("sec_form345_page", "https://www.sec.gov/data-research/sec-markets-data/insider-transactions-data-sets")
-get("sec_sub_aapl", "https://data.sec.gov/submissions/CIK0000320193.json")
-for u in ["https://www.sec.gov/files/structureddata/data/insider-transactions-data-sets/2026q2_form345.zip",
-          "https://www.sec.gov/files/structureddata/data/insider-transactions-data-sets/2026q1_form345.zip"]:
-    try:
-        r = requests.get(u, headers=UA, timeout=120)
-        info = ""
-        if r.ok:
-            z = zipfile.ZipFile(io.BytesIO(r.content)); info = "FILES " + str([(i.filename, i.file_size) for i in z.infolist()])
-            for fn in z.namelist():
-                if fn.endswith(".tsv"): info += f"\n== {fn}\n" + z.read(fn)[:1500].decode("utf-8", "replace")
-        save("sec_zip_" + u[-18:-12], r, extra=info)
-    except Exception as e: save("sec_zip_" + u[-18:-12], txt=str(e))
-# ── TAIFEX 選擇權 ──
-post("taifex_opt", "https://www.taifex.com.tw/cht/3/optDataDown",
-     data={"down_type": "1", "commodity_id": "TXO", "commodity_id2": "", "queryStartDate": "2026/10/15", "queryEndDate": "2026/10/16"})
-get("taifex_opt_hist_page", "https://www.taifex.com.tw/cht/3/dlOptDataDown")
-# ── 國發會 ──
-get("ndc_index", "https://index.ndc.gov.tw/n/zh_tw/data/eco")
-# ── FRED ──
-for s in ["BAMLH0A0HYM2", "BAA10Y", "T10Y3M", "NFCI", "STLFSI4", "VIXCLS"]:
-    try:
-        r = requests.get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={s}", headers=UA, timeout=60)
-        lines = r.text.strip().splitlines()
-        save(f"fred_{s}", txt=f"STATUS {r.status_code} rows {len(lines)}\n" + "\n".join(lines[:4] + ["..."] + lines[-4:]))
-    except Exception as e: save(f"fred_{s}", txt=str(e))
-# ── FINRA ──
-post("finra_si", "https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest",
-     json={"limit": 5, "compareFilters": [{"compareType": "equal", "fieldName": "symbolCode", "fieldValue": "AAPL"}]},
-     headers={**UA, "Accept": "application/json", "Content-Type": "application/json"})
-get("finra_si_get", "https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest?limit=3")
+# MOPS 申報轉讓(舊版 ajax 參數猜測)
+base = {"encodeURIComponent": 1, "step": 1, "firstin": 1, "off": 1, "TYPEK": "sii"}
+for i, extra in enumerate([{"year": "115", "month": "09", "day": "01"}, {"date1": "1150901", "date2": "1150930"},
+                           {"begin_date": "1150901", "end_date": "1150930"}, {"sdate": "115/09/01", "edate": "115/09/30"},
+                           {"year": "115", "smonth": "09", "emonth": "09", "sday": "01", "eday": "30"}, {"step": 0}]):
+    req(f"mops_v{i}", "POST", "https://mopsov.twse.com.tw/mops/web/ajax_t56sb12", data={**base, **extra}); time.sleep(3)
+req("mops_new_page", "GET", "https://mops.twse.com.tw/mops/api/redirectToOld?apiName=ajax_t56sb12")
+req("mops_new_api", "POST", "https://mops.twse.com.tw/mops/api/t56sb12", json={"companyId": "", "year": "115", "month": "9", "marketKind": "sii"})
+# TAIFEX 歷史深度
+for d in ["2016/01/04", "2020/01/06", "2023/10/02"]:
+    req(f"taifex_{d[:4]}", "POST", "https://www.taifex.com.tw/cht/3/optDataDown",
+        data={"down_type": "1", "commodity_id": "TXO", "commodity_id2": "", "queryStartDate": d, "queryEndDate": d}); time.sleep(3)
+# FinMind 景氣指標
+tok = os.environ.get("FINMIND_TOKEN", "")
+req("fm_business", "GET", "https://api.finmindtrade.com/api/v4/data", params={"dataset": "TaiwanBusinessIndicator", "start_date": "1980-01-01", "token": tok})
+# NDC JSON 猜測
+req("ndc_json1", "POST", "https://index.ndc.gov.tw/n/json/data/eco/indicators", headers={"X-Requested-With": "XMLHttpRequest", "Referer": "https://index.ndc.gov.tw/n/zh_tw/data/eco"})
+req("ndc_json2", "GET", "https://index.ndc.gov.tw/n/json/data/eco/indicators")
+# FINRA:過濾與最新資料
+req("finra_post", "POST", "https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest",
+    json={"limit": 5, "compareFilters": [{"compareType": "equal", "fieldName": "symbolCode", "fieldValue": "AAPL"}],
+          "sortFields": ["-settlementDate"]}, headers={"Accept": "application/json", "Content-Type": "application/json"})
+req("finra_post_date", "POST", "https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest",
+    json={"limit": 3, "dateRangeFilters": [{"fieldName": "settlementDate", "startDate": "2015-01-01", "endDate": "2016-01-31"}]},
+    headers={"Accept": "application/json", "Content-Type": "application/json"})
+req("finra_partitions", "GET", "https://api.finra.org/partitions/group/otcMarket/name/consolidatedShortInterest", headers={"Accept": "application/json"})
 print("done")

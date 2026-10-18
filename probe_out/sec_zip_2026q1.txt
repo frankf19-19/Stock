@@ -1,135 +1,0 @@
-STATUS 200
-CT application/octet-stream
-LEN 13874904
-FILES [('DERIV_HOLDING.tsv', 3014509), ('DERIV_TRANS.tsv', 6110613), ('FOOTNOTES.tsv', 43870427), ('NONDERIV_HOLDING.tsv', 2729055), ('NONDERIV_TRANS.tsv', 11452996), ('OWNER_SIGNATURE.tsv', 5537136), ('REPORTINGOWNER.tsv', 10439470), ('SUBMISSION.tsv', 7487317), ('FORM_345_metadata.json', 39131), ('FORM_345_readme.htm', 393653)]
-== DERIV_HOLDING.tsv
-ACCESSION_NUMBER	DERIV_HOLDING_SK	SECURITY_TITLE	SECURITY_TITLE_FN	CONV_EXERCISE_PRICE	CONV_EXERCISE_PRICE_FN	TRANS_FORM_TYPE	TRANS_FORM_TYPE_FN	EXERCISE_DATE	EXERCISE_DATE_FN	EXPIRATION_DATE	EXPIRATION_DATE_FN	UNDLYNG_SEC_TITLE	UNDLYNG_SEC_TITLE_FN	UNDLYNG_SEC_SHARES	UNDLYNG_SEC_SHARES_FN	UNDLYNG_SEC_VALUE	UNDLYNG_SEC_VALUE_FN	SHRS_OWND_FOLWNG_TRANS	SHRS_OWND_FOLWNG_TRANS_FN	VALU_OWND_FOLWNG_TRANS	VALU_OWND_FOLWNG_TRANS_FN	DIRECT_INDIRECT_OWNERSHIP	DIRECT_INDIRECT_OWNERSHIP_FN	NATURE_OF_OWNERSHIP	NATURE_OF_OWNERSHIP_FN
-0001062993-26-001774	2028685	Restricted Stock Units		0.0					F3		F3	Common Stock		25000.0								I		By 12832577 Canada Inc.	F2
-0001062993-26-001774	2028684	Restricted Stock Units		0.0					F1		F1	Common Stock		300000.0								I		By 12832577 Canada Inc.	F2
-0001062993-26-001774	2028687	Restricted Stock Units		0.0					F5		F5	Common Stock		50000.0								I		By 12832577 Canada Inc.	F2
-0001062993-26-001774	2028689	Restricted Stock Units		0.0					F7		F7	Common Stock		70000.0								I		By 12832577 Canada Inc.	F2
-0001062993-26-001774	2028688	Restricted Stock Units		0.0					F6		F6	Common Stock		70000.0								I		By 12832577 Canada Inc.	F2
-0001062993-26-001774	2028686	Restricted Stock Units		0.0					F3		F4	Common Stock		50000.0								I		By 12832577 Canada Inc.	F2
-0001193125-26-135284	2029026	Option (Right to buy)		0.0					F3	01-DEC-2032		ADSs		134190.0								D			
-0001193125-26-135284	2029029	Incentive Stock Option (Right to Buy)		4.0					F6	04-SEP-2034		ADSs		450000.0		
-== DERIV_TRANS.tsv
-ACCESSION_NUMBER	DERIV_TRANS_SK	SECURITY_TITLE	SECURITY_TITLE_FN	CONV_EXERCISE_PRICE	CONV_EXERCISE_PRICE_FN	TRANS_DATE	TRANS_DATE_FN	DEEMED_EXECUTION_DATE	DEEMED_EXECUTION_DATE_FN	TRANS_FORM_TYPE	TRANS_CODE	EQUITY_SWAP_INVOLVED	EQUITY_SWAP_TRANS_CD_FN	TRANS_TIMELINESS	TRANS_TIMELINESS_FN	TRANS_SHARES	TRANS_SHARES_FN	TRANS_TOTAL_VALUE	TRANS_TOTAL_VALUE_FN	TRANS_PRICEPERSHARE	TRANS_PRICEPERSHARE_FN	TRANS_ACQUIRED_DISP_CD	TRANS_ACQUIRED_DISP_CD_FN	EXCERCISE_DATE	EXCERCISE_DATE_FN	EXPIRATION_DATE	EXPIRATION_DATE_FN	UNDLYNG_SEC_TITLE	UNDLYNG_SEC_TITLE_FN	UNDLYNG_SEC_SHARES	UNDLYNG_SEC_SHARES_FN	UNDLYNG_SEC_VALUE	UNDLYNG_SEC_VALUE_FN	SHRS_OWND_FOLWNG_TRANS	SHRS_OWND_FOLWNG_TRANS_FN	VALU_OWND_FOLWNG_TRANS	VALU_OWND_FOLWNG_TRANS_FN	DIRECT_INDIRECT_OWNERSHIP	DIRECT_INDIRECT_OWNERSHIP_FN	NATURE_OF_OWNERSHIP	NATURE_OF_OWNERSHIP_FN
-0001104659-26-038057	3375188	Series A Convertible Preferred Stock			F1	31-MAR-2026				4	C	0				28000.0				0.0		D			F1		F1	Common Stock		7000000.0				39414.0				I		Fairmount Healthcare Fund II LP	F2
-0001213900-26-037880	3375408	Stock Option (Right to Buy)		0.0		27-MAR-2026				4	A	0				42146.0					F6, F1	A			F5	13-NOV-2033		Common Stock		42146.0				42146.0				D			
-0001104659-26-038052	3375297	Class B Ordinary Shares	F1		F1	27-MAR-2026				4	J	0	F2			1312500.0				0.0	F1	D			F1		F1	Class A Ordinary Shares	F1	1312500.0				8750000.0	F1			D	F3		
-0001213900-26-037856	3375829	Stock Option (Right to Buy)		1.0		27-MAR-2026				4	A	0				12013.0					F7	A			F5	17-JUL-2032		Co
-== FOOTNOTES.tsv
-ACCESSION_NUMBER	FOOTNOTE_ID	FOOTNOTE_TXT
-0001193125-26-135334	F1	The price reported in Column 4 is a weighted average price. These shares were sold in multiple transactions at prices ranging from $273.53 to $273.54, inclusive. The Reporting Person undertakes to provide to any security holder of Alphabet Inc. or the staff of the Securities and Exchange Commission, upon request, full information regarding the number of shares sold at each separate price within the ranges set forth in footnotes (1) through (5) to this Form 4.
-0001193125-26-135334	F2	The price reported in Column 4 is a weighted average price. These shares were sold in multiple transactions at prices ranging from $274.53 to $275.53 inclusive.
-0001193125-26-135334	F3	The price reported in Column 4 is a weighted average price. These shares were sold in multiple transactions at prices ranging from $275.73 to $276.73 inclusive.
-0001193125-26-135334	F4	The price reported in Column 4 is a weighted average price. These shares were sold in multiple transactions at prices ranging from $276.83 to $277.83 inclusive.
-0001193125-26-135334	F7	The GSUs vest as follows: (i) 27/260th of the grant will vest on each March 25, 2025, June 25, 2025, September 25, 2025 and December 25, 2025; and (ii) 19/260th of the grant will vest quarterly on the 25th day of the month from March 25, 2026 through December 25, 2026, and on the 1st day of the month from April 1, 2027 through January 1, 2028, subject to continued employment on the applic
-== NONDERIV_HOLDING.tsv
-ACCESSION_NUMBER	NONDERIV_HOLDING_SK	SECURITY_TITLE	SECURITY_TITLE_FN	TRANS_FORM_TYPE	TRANS_FORM_TYPE_FN	SHRS_OWND_FOLWNG_TRANS	SHRS_OWND_FOLWNG_TRANS_FN	VALU_OWND_FOLWNG_TRANS	VALU_OWND_FOLWNG_TRANS_FN	DIRECT_INDIRECT_OWNERSHIP	DIRECT_INDIRECT_OWNERSHIP_FN	NATURE_OF_OWNERSHIP	NATURE_OF_OWNERSHIP_FN
-0001193125-26-135334	2884976	Class C Google Stock Units	F7			59820.0				D			
-0001193125-26-135334	2884975	Class C Google Stock Units	F6			28578.0				D			
-0001193125-26-135314	2885479	Common Unit				366766.0				D		See footnote	F6
-0001193125-26-135314	2885480	General Partnership Unit				622296.0				I			
-0000950103-26-005134	2885367	Common Stock				203615.0	F1			D			
-0001193125-26-135307	2885395	Class M Common Stock				5406586.0				I		By BD Investment Holdings II LLC	F2
-0001213900-26-037857	2885498	Class B Ordinary Share				3500000.0				I		Held by PLOUTOS GROUP LIMITED (BVI)	F1
-0001140361-26-012433	2884968	Class A Common Stock, par value $0.01 per share				134877.0				D			
-0001193125-26-135284	2885391	ADS	F1			65802.0				D			
-0001193125-26-135283	2885247	ADS	F1			345547.0				D			
-0001193125-26-135258	2885399	Class C Google Stock Units	F1			262.0				D			
-0001193125-26-135258	2885402	Class C Google Stock Units	F4			1683.0				D			
-0001193125-26-135258	2885401	Class C Google Stock Units	F3			1147.0				D			
-0001193125-26-135258	2885400	Class C Google Stock Units	F2			954.0				D			
-0001213900-26-037813	2885194	Ordinary Shares				17516.0				D			
-0002125577-26-000001	2885003	CLASS B ORDINARY
-== NONDERIV_TRANS.tsv
-ACCESSION_NUMBER	NONDERIV_TRANS_SK	SECURITY_TITLE	SECURITY_TITLE_FN	TRANS_DATE	TRANS_DATE_FN	DEEMED_EXECUTION_DATE	DEEMED_EXECUTION_DATE_FN	TRANS_FORM_TYPE	TRANS_CODE	EQUITY_SWAP_INVOLVED	EQUITY_SWAP_TRANS_CD_FN	TRANS_TIMELINESS	TRANS_TIMELINESS_FN	TRANS_SHARES	TRANS_SHARES_FN	TRANS_PRICEPERSHARE	TRANS_PRICEPERSHARE_FN	TRANS_ACQUIRED_DISP_CD	TRANS_ACQUIRED_DISP_CD_FN	SHRS_OWND_FOLWNG_TRANS	SHRS_OWND_FOLWNG_TRANS_FN	VALU_OWND_FOLWNG_TRANS	VALU_OWND_FOLWNG_TRANS_FN	DIRECT_INDIRECT_OWNERSHIP	DIRECT_INDIRECT_OWNERSHIP_FN	NATURE_OF_OWNERSHIP	NATURE_OF_OWNERSHIP_FN
-0001193125-26-135334	8937906	Class C Capital Stock		31-MAR-2026				4	G	false				8993.0		0.0		A		60801.0				I			
-0001193125-26-135334	8937901	Class C Capital Stock		27-MAR-2026				4	S	false				1516.0		274.93	F2	D		56608.0				I		By Arete Trust, John Kent Walker and Diana Ruth Walsh, Trustees	
-0001193125-26-135334	8937905	Class C Capital Stock		31-MAR-2026				4	G	false				8993.0		0.0		D		23508.0				D		By Arete Trust, John Kent Walker and Diana Ruth Walsh, Trustees	
-0001193125-26-135334	8937904	Class C Capital Stock		27-MAR-2026				4	S	false				1300.0		278.3	F5	D		51808.0				I		By Arete Trust, John Kent Walker and Diana Ruth Walsh, Trustees	
-0001193125-26-135334	8937900	Class C Capital Stock		27-MAR-2026				4	S	false				2677.0		273.91	F1	D		58124.0				I		By Arete Trust, John Kent Walker and Diana Ruth Walsh, Trustees	
-0001193125-26-135334	8937903	Class C Capital Stock		27-MAR-2026				4	S	false				2100.0		277.42	F4	D		53108.0
-== OWNER_SIGNATURE.tsv
-ACCESSION_NUMBER	OWNERSIGNATURENAME	OWNERSIGNATUREDATE
-0001493152-26-014456	/s/ Ong Sie Hou Raymond	31-MAR-2026
-0001213900-26-037919	/s/ Huaguang Huang	31-MAR-2026
-0001193125-26-135334	s/ Kenneth Yi, as Attorney-in-Fact for John Kent Walker	31-MAR-2026
-0001030471-26-000005	Sean Shao	31-MAR-2026
-0001062993-26-001774	/s/ Craig Tavares	31-MAR-2026
-0001104659-26-038057	/s/ Tomas Kiselak for Fairmount Funds Management LLC	31-MAR-2026
-0001193125-26-135314	/s/ Todd Mason, by POA from Angeliki Frangou, Chairwoman of the Board, Chief Executive Officer and Director	31-MAR-2026
-0001213900-26-037880	/s/ Dan Brahmy	31-MAR-2026
-0000950103-26-005134	/s/ Michal Fridman	31-MAR-2026
-0001193125-26-135307	/s/ Christopher Ryan, as attorney-in-fact for Brandon Mintz	31-MAR-2026
-0001104659-26-038052	/s/ Jordan Leon, Attorney-in-Fact for Ryan Shea	31-MAR-2026
-0001104659-26-038052	/s/ Jordan Leon, Attorney-in-Fact for Trevor Harries-Jones	31-MAR-2026
-0001104659-26-038052	/s/ Jordan Leon, Attorney-in- Fact for Idea Tender LLC	31-MAR-2026
-0001213900-26-037870	/s/ Yael Sandler, Attorney-in-Fact	31-MAR-2026
-0001213900-26-037865	/s/ Tsang Hing Hang Bern	31-MAR-2026
-0001213900-26-037861	/s/ Yael Sandler, Attorney-in-Fact	31-MAR-2026
-0001213900-26-037857	/s/ Wenquan Zhu	31-MAR-2026
-0001213900-26-037856	/s/ Yael Sandler, Attorney-in-Fact	31-MAR-2026
-0001213900-26-037850	/s/ Yael Sandler, Attorney-in-Fact	31-MAR-2026
-0002005790-26-000012	/s/ Melisa Nelson, as Attorney-in-fact	31-MAR-2026
-0001493152-26-014418	
-== REPORTINGOWNER.tsv
-ACCESSION_NUMBER	RPTOWNERCIK	RPTOWNERNAME	RPTOWNER_RELATIONSHIP	RPTOWNER_TITLE	RPTOWNER_TXT	RPTOWNER_STREET1	RPTOWNER_STREET2	RPTOWNER_CITY	RPTOWNER_STATE	RPTOWNER_ZIPCODE	RPTOWNER_STATE_DESC	FILE_NUMBER
-0001493152-26-014456	0002125911	Ong Sie Hou Raymond	Director			600 NORTH BRIDGE ROAD,	PARKVIEW SQUARE #24-01	SINGAPORE		188778	SINGAPORE	001-42426
-0001213900-26-037919	0002125166	Huang Huaguang	Officer	Chief Financial Officer		ROOM 1, BUILDING 10, JINZHONG GUOBIN HUI	QINYUAN 2ND ROAD, XILI STREET	SHENZHEN		518071	CHINA	001-33768
-0001193125-26-135334	0001238734	WALKER JOHN KENT	Officer	President, Global Affairs, CLO		C/O ALPHABET INC.	1600 AMPHITHEATRE PKWY	MOUNTAIN VIEW	CA	94043		001-37580
-0001030471-26-000005	0001432657	Shao Sean	Director			4TH FLOOR, SOUTH WING	368 LIUHE ROAD, BINJIANG DISTRICT	HANGZHOU		310053	CHINA	001-35216
-0001062993-26-001774	0002122229	Tavares Craig	Officer	BUZZ HPC- President & COO		7900 CALLAGHAN ROAD, SUITE 128		SAN ANTONIO	TX	78229		001-40398
-0001104659-26-038057	0001802528	Fairmount Funds Management LLC	Director			200 BARR HARBOR DRIVE, SUITE 400		WEST CONSHOHOCKEN	PA	19428		001-38443
-0001193125-26-135314	0001310495	Frangou Angeliki	Director,Officer,TenPercentOwner	See Remarks		C/O NAVIOS SHIPMANAGEMENT INC.	85 AKTI MIAOULI	PIRAEUS		18538	GREECE	001-33811
-0001213900-26-037880	0002045607	Brahmy Dan	Director,Officer	Chief Executive Officer		C/O CYABRA, INC.	13 GERSHON SHATZ	TEL AVIV		6997543	ISRAEL	001-43214
-0000950103-26-005134	0002121474	Fridman 
-== SUBMISSION.tsv
-ACCESSION_NUMBER	FILING_DATE	PERIOD_OF_REPORT	DATE_OF_ORIG_SUB	NO_SECURITIES_OWNED	NOT_SUBJECT_SEC16	FORM3_HOLDINGS_REPORTED	FORM4_TRANS_REPORTED	DOCUMENT_TYPE	ISSUERCIK	ISSUERNAME	ISSUERTRADINGSYMBOL	REMARKS	AFF10B5ONE
-0001193125-26-134840	31-MAR-2026	27-MAR-2026			false			4	0001825079	Velo3D, Inc.	VELO		false
-0002060688-26-000006	31-MAR-2026	30-MAR-2026			0			4	0001874315	Satellogic Inc.	SATL		0
-0001104659-26-037685	31-MAR-2026	18-MAR-2026		0				3	0001969302	Pony AI Inc.	PONY	Exhibit 24 - Power of Attorney	
-0000895345-26-000136	31-MAR-2026	18-MAR-2026		1				3	0000912892	GRUPO TELEVISA, S.A.B.	TV		
-0002123440-26-000001	31-MAR-2026	18-MAR-2026		1				3	0002074123	CCH Holdings Ltd	CCHH		
-0001628280-26-022550	31-MAR-2026	30-MAR-2026			0			4	0000909327	Suzano S.A.	SUZ		0
-0001493152-26-014171	31-MAR-2026	29-MAR-2026			0			4	0000873860	ONITY GROUP INC.	ONIT		0
-0001185185-26-001169	31-MAR-2026	26-MAR-2026		0				3	0001985337	YY Group Holding Ltd.	YYGH		
-0001437749-26-010600	31-MAR-2026	30-MAR-2026						4	0000919567	RENN Fund, Inc.	RCG		0
-0001493152-26-014167	31-MAR-2026	29-MAR-2026			0			4	0000873860	ONITY GROUP INC.	ONIT		0
-0001213900-26-036866	31-MAR-2026	18-MAR-2026		1				3	0002046656	Happy City Holdings Ltd	HCHL		
-0001104659-26-038027	31-MAR-2026	31-MAR-2026		0				3	0001123452	SOUTHEAST AIRPORT GROUP	ASR		
-0001213900-26-037509	31-MAR-2026	31-MAR-2026		0				3	0001967621	Alpha Technology Group Ltd	ATGL	No securities are beneficially owned.	
-0001213900-26-037391	31-MAR-2026	31-MAR-2
-PK    B]�\曫��厬 m�-    DERIV_HOLDING.tsv抻is7�.�嫡_Q旄��v�U�}嫦侍��,iH琫�乜Ke��KCR鎀��;��5�I�#Of�碥 	�籔棖貏吶^�譓���8�<qv��/萷y蘩鏷w���э�鑒柶/~�槻酁��湉//_o�緙��//���貪抒/~y{v�錖��?zqv譓���o峛鷿瞀�/緮�G斷z~r鎟�f�鶄茬�M惄濮]�����錢Ys鯄q枺����r攦滕?�藃�W?寰��c諅���蟿黚�恪獎儂病p��Y��7∥?踸蹞鐔鑒�_N_�鐑/恄�?}[�/�紗>廓儵�/o^&♀罹��  0$%~��劘9� �ts馭遛緲w��=�?獗⑷��拽銓嚓F���?�?n��l6�芟憺@�s稱<�s���r鴆vys��r{z鏮暄�Z薴��)<`|痯扳���/�謣��闔�詶��?�玅�y鳼C�!�b���� 敝�O讄艗�臅艗戄�關豜~3A蟘��� �宧s譔\q��@��?WZ0rㄧ髺謓�婸Af記,�s���o5,騋d6�祈��縠��=�0媄`��G塴���9�36�B�(罌�誖��о�I��(巴�?*�����浚�~烶{fD?y��'���x襘'麥A���8"_�4耄EK �ツ@aa雂`wZ�#�煬莊勫/�3$�慝鎌褥俙俀���咇?瑞.o驔�0���序��-^���$�*� �譜阺�甐����jj�<蝦Shu`趖附3
-,0�Z肊y`N欄湳槷歅憝*圾�?s�����sj啟g%G祅�甐�韻俉~砷hQ�_��@���N:反9��� 
-� �N&�棯g��dS甩娊@��
-��CM�3軬6@�v
-��9 �S壺萁�(R���9Z�zN�曘^%蒛������uZ��vU�(h跬���芟�パ沒����5�:嬋6�;嶷付I1》�@�uzl�罷s睞倏~蕭稱�:嫈�踀�Q�蠳LV[碴籓��)羧鰇燙��8�	敳Ei漦��W+MI�P�吭齷a�9O�嬋8�	�捍T<�)O��)S�0fbｔ勫Y�"g�^皤粗�畦D��U�涃D��9Q:[��C�,歆<#Jfv惈O-O<�P+1腯鴆糱i�#帥��RfJ��I忏/E雹俍���敼���Q*�l�$-]6+粱���V"埠齠啐s@�(搕+釗��幃AuO琅?湣7嵫#�P�-]{+�(鋌棬1��h 疥.�TN?買溙������g[廯燰玀��賄螺M︸�;�# ��*蕛&�鮡荏w萐詍��'?謓n~WJ驫�跅冒耿じ��馭踞�cHM�sK(V�╳�%R�謨a\R彝瘧dZ�j晙=n千����5鯤L#淔雩燂�~楋�>耋K�N<�x����愨厗噆蘥v�檥牰�呠臄澭爞p�a{zv球夃,�:扢q��紿�?��|��<蕉蝸撕7�$筧欖�蛾A堵EN賚趄_���礂咇����戃� ↗W炳 _������繇潾櫥禦_^~撩�Sm藲7�/��*Y間 �3J磠琅�q��3b&嗩i悅>鷌(嬧O�x觕�����侵S��l}3��aX	K1纓_�x\:ソ��/苂L�:.軦4�)0�f�B<L姚璗迥)��}u�+RI矞���臡卻
-��g��,*�Kz���疄�-,(����顟Q)6a�+�g�(��Z黜H�L��怜ke耞��冊�$�S緩~>(<')��Zs�M�9���?挏{DX��褫?:溳r�������肚��� ��h�7>燛癤�+mJG*j�Shο鬅�|��霵}��&6�h篘Y�M蕾k�K仚劗鷃侄O�磥錄斑|�浞���=��剭c狃��l��[哀U�"廆鮪��
-退勃:�7臌竇��汨b�/涾���笆�����:;?掏瓊璩�?ぺ?�?�D�T墾蟨��o�9.菕0`踊a盬�2`%�)窕��N�事�&媱����罼%1X炩呈i;��1踊肕��婝I��	跨�%�亞�	��夭�9�;髧脞宦!"!^�$潶b��〧���鴻m��觸1��C歟�?��_僖�!1�EI虧 �:圁���{��也�.�V鷨	r$緣�<���*K�	冬
-'諆a馯|=鷮f�nm嚆O榹�jcnp�7����A���S�QeB�*U�q�7�
-H迼!����芍�;�鮡W�3Lc肘(Q���!9hAR?�X[G勉�BHX�$;IL��楈,揋傖]���JC脹�
-遾鏬豯�崀��;H勴膰���HJ勴
-�g穾��鐻唊p冗�=h Q褣�_7�禢��H/非k&m�謞猒��夎|����|褚��揳襗��w���g°L��&3+���附P孈�t�.,�=��t�眛�璻8w%W'v��薨x*G嵥幯�鮸�b鋷��.L��"*箖扈祿���8�7唐�蔏@h,怷�p�
-I�
-�)VN��g�茍�:���=h鵋�3bkE��)'�榚&���9�NV廜0��議5�P)ab�c9JD[�R]�誺���<9$h���~xI��!<彿����9+gg&隢氫e�\�-�?]�鈖玃�[��Fpm$纀農f�4HD鴩摳桄歹槉菽昄Bt*D����C~F��TuJ��/\mF� �� oP@3U?�E7C	k婿��跕�8|}跦懖�舲瓢�婚�]廄ov怞"��#�h��g ���趍郹�]6�^姓棫�!�,�!��8pat]KCH&SG��I,�4�����L�80�$萄�"嚮a桽�閤��蓇LZ["�潧lK7�r脥�N晒tK"謏Cご k館幽8�,戍���80qYw�5�k���竣@i��P翱{�}g�鍰�蔆,湅祲�查1�︹僤蟯r樗������l����wO5�������V� 訒=e溺R�荖)』)LW豦�95��'�xk征E�5�[胠蔪/裯���濜橨Nみ覟�墂�2�,�6i�;軞��
-�二偺/��
-��氘Ka�,1��|1���,嵥媊8���N����mA�>y鶂�b=>�1}�鱋H��孤蕕U�槓�{庚I偓圂篘�9+錉"Ey>吜� s�,!4暵S>潔D_���!���T�|D囮辰�覝l蟉 y>瓞8>鶸x��剒苗��vbo��c�"ON~�挌���@+7���t��9�D瑽舊�}涉[黝暟 �{>��8>兄�Z�P��琬������2�)η�#[Fh倇�=跈��稕,dC� ��. �.�R標�r)=!粡PN��|靮膷f�|�廧wuq鄱
-霉�慦���/梲不,p1J樟M��種婷�8.K牋�%-�)責G��扙氶9|^~49f蝁M�鵘p�銊�}0嶢}���坋�/!�鬍�����qJ�'�^���cT�q�:NjTyy韇3姽T繆��'5�?X��4zJ?X�4沬>\�4z�z婁虴d��0\1�8��KI2��[��(PV媮蝀iRp嚵�Ti�8�3�扽�姝噰`4�甋6- G�&�tyC�麴蠷r�4O?`��Smp榐^E蛐���	M��M5�琳R�K�S�娹K屎�B嬣.��桎	隰納�<Bㄋy���)�*�t}0�4I�砩邠w�1���4椔.��Z完O5�爊S
-Z煒t6�nS蜇iUt*8-
-�
-6�6坭全�~a��=j埥y��71�3=�m%P懈}�腃`5|����@j�
-蘧��鬨T�~�腃 5zL=�m%P瑾=�(��壁m%p璀=��.PZb�^楴������K陫7���酐毀�|���a��%尋詈T�y瞢��s�q
-Nh�" ]鉉��%�垀�%/帽�R3�N���?誂鶹a姬KV�!\檠V�j�=;�毈牄獿'gg'�/呲項冗�6N_轘8{~��僶蝑k婢�泣65��篛惦�禠鱔7/�生	猗��9P(Q4CV馴�l��ai0瘐^*��臡L��ax�滬螰8y�甚�:壾��8hЭ羱aM��}>悛�2��@豱]�猿J�魵譧l醍遝�(倳匟
-借KW�貘�p�#毢M^z誇�����T荶��>蠪�C乎〉
-�	Z��愘%&�0升Q0�K黵m蘙��^JI'Q0�h�*o邐�嶞���㎞m�6B�譫�茤k��
-哃d`9�z0m;�度���M( DR
-��4>��p礪鷘敗�(姵襱��~A儻�北�祪�0_+	hK�]籹\^4�6����2幏
-�[�2坡.8�f`9��韖0#�h���ZC`v��2&�&�8挽s{[V��>~q�I5iT�枙 #n�,�酄��$斃�>�,:雕薎騂(沚2��「豩虈"�K�oTDz���'�]�f@`�v霹�嬠%U��=�ST��V�$��蘋 崴y;;`f&奈�l8�匽m僄l暋毅��'-�W;Q0<�\� 嬪Π9豩�>�=b 霆�)��Ax山 �,潐T詿f�>�:�U蝆1|R胱u鐃WG�05蝕葃郫I��@TB"����JV�.��Rp�飺3g幏s�'K�燹��狠���婰	0��蔬趡慒�搐�忿s1執���搐�� uP怹��#�ot�罍%�[/|�豳��?os洚~D檍Q�'!魎���眯00����1��浽)嚝�J\��$�毽��W�?N�5w阡3�"��:�乘LQ.砂R_>鉦qQc戮${濰+瑲�\穜\餔Oj媊ysG���VY���a�)�8f剫�l(�3騍喕1熧�:F_� jN)瞄�R�/�?甐�?�菹瑆觤��t蘥矊�=蝴葔����郩g^]}模�����狤��|w漂{y{鹵�1�6*�g卍9�#0cΓ��>-9%婇�?\l�]~碳m<2|�令��5KU7�W���禁��澩�を�[臞@�鍘M糟�?�+�*襣Hd�q}�>扴;5����栗�$蝎嵀呶�瞈2柑S���&猗z�B仲咥�幼�	h考:髕`�撻�?悅胳%�纚�nS,9x�T��3z�H櫸�`�彪敊�w'?幡}灗藇��bJ莣�0褦紞蕊@撳怩�W3畝痹�&#U��J�.�wE蛐���e@#獉�鱒倳+k!:��-:Z\�9,恮rq剕����胕}����	eP<E休�1o|@�矜b獳稘�X璞+拆墾O����瓶▲��癿9�!禋���E��齂��)彸`纀oc秘���;��d脽�[�1�86"�4l\i詢_稕�?��~{ys�鸏��餫�����7�踼�n�v筱�xe<�������9F�feN疘" )$(戮j!穿��瑲�焛贍g�#:�T��5鬌!箖X2挃Q[g4F�5-P藯穫� #Ρ莝儢�っ樾惈殶�=頲B�}℅銆�飌�)�[|J��唎c��$瘨�制紕膼銆���Y�%���-�<FA�鐶╳=,o�'�侺�+bl:����4:���歑R1�ah~醴山	Ql
-v�漾o|�嵥�	%�L溧X蒼�-瓋h�3&��WnlK剷E��O�&�^�薊^家S鹽�8� B!� 宎�f起/���h霂C[��-�s�梁峌Gv&殪�0灤���j��漉�瀸30]�c織�(T媛��羬����匆g��ZT�Ts�7&怲onbF���&XD_%鴳�*獦��碚nq��!*p�|D螺=��lH齒F��:���鐃��i���@��3r/{H i 閘>覞�F晌馳{�~���/拲帴.墅i�XkcXAl\WnL [N}���g誹trVо��8�n�L眐�愕'�R泉,酣Ⅰ��.�b2;��]��>)������I︿蘇?
-球�A�"�4盚顰厝橚趶~�#��;�;�侳)��隿<��P
-b幵��&�� YX激��*��'耑�Q-踘G��輜�}束�?��屭t���7�選狚繘A7[P0�-←囂菻?.濷婢|`��柣"�堭��(
-�つ摯d鰈VF��Taa�7頭�h�濰a��9.������	dh��ｒ�痱�G浿��?>蜁�(n閟jG�h篥蜿踀]��i{��枷H���@�潣��ギ�	鋑N.)S�5�[=鞥^鐒磛��uT�茜 -uO阱2�鷛� O���d�眈嶵鷷﹉2<}�鄖�灼E╴�褑&攡�&]謮鑑鉤]v栟R瀸u唷�鐨郁儽萍v薯�聒瓣HFx攳貌吒礁楩竮RW��/I�
-Z�ヅ��o斲L鉾朒y給�,|�<!�(靄�甩���垢�:nw��唹��*醭悹N	�Et���/�{��.�_ ,�'�*��婘鼁� �,氀W薱C/ク��M�j 軷疄�t7�F�*硎����S靮�aM�蠫[Q���\�>�'q�r耗9繆甭6���昮O憮傶�.�|l撮篲珃������6礁m|�Nn��H��Tuw謯��?�9��(��糜g�!_�3�佪>�p`�=|o��|>�<S籌1爰�柸5Q�T0i�������~3 饐崚�:{K�T噫�潮栱J蒢<窵醃U*�櫥->T�;W雵焥羲灣t6�瑳�銴v噫�薃;E�兼趡�旐剖G惊_�T詿w蛵莩�鏏�~美���}����3|w�'�筳@錒��曦v&G�^8x櫨�3x< ��E?敹h芥U���#主�媞c漃宮b0翟曶����噥�s�膮��戄袪汃鷇�|��ROE�鐇o�?|c�1�a���戟�6�2-Q坏kH:/�y
-]p裂摟�綺�D�	&3�橋{M<(�x'E=�)�$庴餮妒撰?�f>�縳衿烤鋼�b�攦囊�罺鱺�	���榕����n�:�5*Smz(s�4妝�4l�:4O琌�I'�6�hl::M媞_虛3���*�x\蠱T舐坐	�5擠匐茤+�#驦4���#貄*y|才
