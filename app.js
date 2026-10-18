@@ -1,4 +1,4 @@
-/* K研所 · build r1128 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1129 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1128';
+const APP_BUILD='r1129';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2506,7 +2506,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1128</span>');
+  diag.push('<span style="color:var(--dim)">build r1129</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -15551,7 +15551,7 @@ function setupMobileNav(){
   if(!document.getElementById('mobNav')){
     const nav=document.createElement('div');
     nav.id='mobNav';
-    const items=[['news','📰','早報'],['macro','📊','大盤'],['aipick','🤖','AI'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','節目'],['port','💼','持股']];   // r1072:早報=首頁,排第一
+    const items=[['news','📰','早報'],['view','🧭','盤勢'],['macro','📊','大盤'],['aipick','🤖','AI'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','節目'],['port','💼','持股']];   // r1072:早報=首頁,排第一
     nav.innerHTML=items.map(([k,ic,lb])=>`<button data-mn="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('')
       +`<button data-mn="__fav"><span class="mi">⭐</span>最愛</button>`;
     document.body.appendChild(nav);
@@ -18847,7 +18847,7 @@ async function loadCreditTrend(s,e){
 }
 /* ══ 首頁分頁籤:大盤/個股/ETF ══ */
 function setHomeTab(t){
-  ['macro','aipick','stocks','etf','gooaye','news','port'].forEach(k=>{
+  ['macro','aipick','stocks','etf','gooaye','news','view','port'].forEach(k=>{
     const p=document.getElementById('tp-'+k);
     if(p)p.style.display=(k===t)?'':'none';
     const b=document.querySelector('#homeTabs [data-tab="'+k+'"]');
@@ -18859,7 +18859,8 @@ function setHomeTab(t){
     try{aipLoad().then(()=>{try{renderAIPick();}catch(e){}});}catch(e){}
     try{setTimeout(aipSweep,600);}catch(e){}},0);}
   if(t==='etf'){try{renderEtf();}catch(e){}}
-  if(t==='news'){setTimeout(()=>{try{newsLoad();}catch(e){}},0);}   // r1071:📰 產業早報
+  if(t==='news'){setTimeout(()=>{try{newsLoad();}catch(e){}},0);}
+  if(t==='view'){setTimeout(()=>{try{viewLoad();}catch(e){}},0);}   // r1129:🧭 盤勢解讀   // r1071:📰 產業早報
   if(t==='port'){try{renderPort();}catch(e){}try{setTimeout(portHeadRisk,500);}catch(e){}}
   if(t==='gooaye'){try{
     gaDot(false);
@@ -25876,3 +25877,113 @@ function btmDecorate(){
     try{new MutationObserver(kick).observe(document.body,{childList:true,subtree:true});}catch(e){}});},2500);
   setInterval(()=>{btmLoad().then(btmDecorate).catch(()=>{});},20*1000);
 })();
+/* ══ r1129:🧭 盤勢解讀(後端 market_view.py:台北 07:50 美股收盤後、21:50 台股盤後各一份;view/ 永久保存)══
+   數字全部由程式從站上資料算(指數位置、融資、外資、期貨、利率、落底燈號、關鍵價位);
+   落底清單每一項都附回測結果(view_stats.json,2014 起);AI 只負責寫原因/時間點/劇本,原因必須附真實新聞。 */
+window.__viewCache=window.__viewCache||{};
+async function viewFetch(key){
+  const k=key||'latest',c=window.__viewCache[k];
+  if(c&&Date.now()-c.t<10*60e3)return c.j;
+  const r=await fT((key?'view/'+key+'.json':'view.json')+'?'+Math.floor(Date.now()/3e5),10000);
+  if(!r.ok)throw new Error(r.status);
+  const j=await r.json();window.__viewCache[k]={t:Date.now(),j};
+  if(!key&&j.dates)window.__viewDates=j.dates;
+  return j;
+}
+const vwE=s=>newsEsc(s);
+const vwN=(v,big)=>v==null||!isFinite(v)?'—':(+v).toLocaleString('en-US',{maximumFractionDigits:big||Math.abs(v)>=1000?0:Math.abs(v)>=100?1:2});
+const vwP=(v,d=1)=>v==null||!isFinite(v)?'—':`<span style="color:${v>0?'var(--up)':v<0?'var(--down)':'var(--txt2)'}">${v>0?'+':''}${(+v).toFixed(d)}%</span>`;
+const VW_ZONE={'極低':'var(--t-gold)','低檔':'var(--t-gold)','偏低':'var(--amber)','中性':'var(--txt2)','偏高':'var(--t-orange)','高檔':'var(--down)','極高':'var(--down)'};
+function vwFactRows(F){
+  const R=[];
+  const m=F.margin;if(m)R.push(['融資餘額',`${vwN(m.v,1)} 億`,m.off>-3?`離 60 日高點(${vwN(m.max,1)} 億)只少 ${Math.abs(m.off).toFixed(1)}%,<b>散戶還沒認賠</b>`:m.off<=-10?`已從高點洗掉 ${Math.abs(m.off).toFixed(1)}%`:`從高點減少 ${Math.abs(m.off).toFixed(1)}%,開始在洗`,m.d]);
+  const f=F.fspot;if(f&&f.v){const v=f.v.slice(-5),neg=[...v].reverse().findIndex(x=>x>=0),run=neg<0?v.length:neg,s5=v.reduce((a,b)=>a+b,0);
+    R.push(['外資現貨(近 5 日)',`${s5>=0?'+':''}${vwN(s5,1)} 億`,`${run>=2?`連 ${run} 天賣超;`:''}近 20 日累計 ${vwN(f.F20,1)} 億${f.F20q!=null&&f.F20<=f.F20q?'(<b>達近 3 年最極端 10%</b>)':''}`,f.d&&f.d[f.d.length-1]]);}
+  const u=F.fut;if(u)R.push(['外資台指期淨部位',`${u.fx>0?'+':''}${vwN(u.fx,1)} 口`,`${u.pct!=null&&u.pct<=10?'<b>空單在一年最多的 10% 內</b>':'一年分位 '+u.pct};近 5 日${u.d5>=0?'回補':'再加空'} ${vwN(Math.abs(u.d5||0),1)} 口`,u.d]);
+  const l=F.leek;if(l)R.push(['散戶小台多空比',`${l.v>0?'+':''}${(+l.v).toFixed(1)}%`,l.v>15?'散戶在逢低做多(通常是反指標)':l.v<0?'<b>散戶轉空/認輸</b>':'散戶小幅偏多',l.d]);
+  const t=F.tnx;if(t)R.push(['美債 10 年殖利率',`${t.v.toFixed(2)}%`,`20 日高點 ${t.hi20.toFixed(2)}%(${t.off>=0?'+':''}${t.off.toFixed(2)});20 日前起 ${t.chg20>=0?'+':''}${t.chg20.toFixed(2)}`,t.d]);
+  if(F.brent)R.push(['布蘭特原油',vwN(F.brent.v),`20 日 ${F.brent.chg20>=0?'+':''}${F.brent.chg20}%`,F.brent.d]);
+  if(F.vix)R.push(['VIX 恐慌指數',vwN(F.vix.v),F.vix.v>=30?'恐慌':F.vix.v>=20?'偏緊張':'平穩',F.vix.d]);
+  if(F.fng)R.push(['CNN 恐懼貪婪',vwN(F.fng.v),`${F.fng.v<25?'<b>極度恐懼</b>':F.fng.v<45?'恐懼':F.fng.v<55?'中性':F.fng.v<75?'貪婪':'極度貪婪'};一週前 ${F.fng.w??'—'}`,F.fng.ts]);
+  return R;
+}
+function vwLevels(L){
+  if(!L)return '';
+  const rows=[...L.lv];const P=L.last;
+  const pos=rows.findIndex(z=>z.p<P);const cur={n:'現在',p:P,cur:1};
+  if(pos<0)rows.push(cur);else rows.splice(pos,0,cur);
+  return `<div class="vw-lv"><div class="vw-lvh"><b>${vwE(L.name)}</b><span class="dim">${(L.d||'').slice(5).replace('-','/')} 收盤</span></div>
+    ${rows.map(z=>z.cur?`<div class="vw-lvr cur"><span>▶ 現在</span><b>${vwN(z.p,L.big)}</b><span></span></div>`
+      :`<div class="vw-lvr"><span>${vwE(z.n)}</span><b>${vwN(z.p,L.big)}</b><span class="dim">${vwP(z.dist)}</span><small>${vwE(z.w)}</small></div>`).join('')}</div>`;
+}
+function vwCheck(c,period){
+  const icon=c.na?'<span class="vw-ck na">—</span>':c.now?'<span class="vw-ck on">✓</span>':'<span class="vw-ck">☐</span>';
+  const badge=c.st==='ok'?'<span class="vw-bd ok">回測有效</span>':c.st==='fail'?'<span class="vw-bd fail">歷史上不可靠</span>':'<span class="vw-bd nd">無法回測・僅供觀察</span>';
+  const s=x=>x&&x.n?`3 個月後上漲機率 <b>${x.w60}%</b>、中位 ${x.m60>=0?'+':''}${x.m60}%;1 個月 ${x.w20}%;之後最多再跌中位 ${x.dd}%`:'—';
+  const det=c.st==='nodata'?vwE(c.note||''):`跌深(離一年高點 ≥8%)的日子裡,<br>・成立時:${s(c.on)}<br>・不成立時:${s(c.off)}<br><span class="dim">${period||''} 共 ${c.ep||'—'} 段行情</span>`;
+  return `<div class="vw-ckr${c.now&&!c.na?' on':''}">${icon}<div class="vw-ckc"><div><b>${vwE(c.t)}</b> ${badge}</div>
+    <div class="dim" style="font-size:12.5px">${vwE(c.v||'')}${c.na?`<br>${vwE(c.na)}`:''}</div>
+    <details><summary>回測數字</summary><div class="vw-det">${det}</div></details></div></div>`;
+}
+function viewRender(j){
+  const box=document.getElementById('viewBox');if(!box)return;
+  const F=j.facts||{},dates=window.__viewDates||j.dates||[],ck=`${j.date}_${j.slot}`;
+  const sl=s=>s==='am'?'早':'晚';
+  const chips=dates.slice(0,10).map(x=>`<button class="news-dbtn${x.d+'_'+x.s===ck?' on':''}" data-vk="${x.d}_${x.s}">${newsDay(x.d)} ${sl(x.s)}</button>`).join('')
+    +(dates.length>10?`<select id="viewMore" class="news-dsel"><option value="">更早 ▾</option>${dates.slice(10).map(x=>`<option value="${x.d}_${x.s}">${newsDay(x.d)} ${sl(x.s)} ${x.d.slice(0,4)}</option>`).join('')}</select>`:'');
+  const latest=dates[0]&&dates[0].d+'_'+dates[0].s===ck;
+  const idx=(F.idx||[]).map(x=>`<tr><td><b>${vwE(x.name)}</b></td><td class="r">${vwN(x.last,x.k!=='OTC'&&x.last>=1000)}<div class="dim" style="font-size:11px">${(x.d||'').slice(5).replace('-','/')}</div></td><td class="r c1">${vwP(x.chg1,2)}</td><td class="r">${vwP(x.dd)}</td>
+    <td class="r">${vwP(x.wb)}<div class="dim" style="font-size:11px">第 ${x.wpct??'—'} 百分位</div></td><td><span class="vw-zone" style="color:${VW_ZONE[x.zone]||'var(--txt2)'};border-color:${VW_ZONE[x.zone]||'var(--line)'}">${vwE(x.zone||'—')}</span></td></tr>`).join('');
+  const bt=(F.idx||[]).filter(x=>x.bt).map(x=>{const b=x.bt,base=x.base||{};
+    return `<div class="vw-bt"><b>${vwE(x.name)}跌進 20 週乖離「${vwE(x.zone)}」區</b>,歷史上之後的表現(共 ${b['4']?.n??'—'} 次):
+      ${['4','8','26'].filter(h=>b[h]).map(h=>`<div>・${h} 週後:上漲機率 <b>${b[h].win}%</b>、中位 ${b[h].med>=0?'+':''}${b[h].med}%、最差 ${b[h].worst}%<span class="dim">(平常 ${base[h]?.win??'—'}%、${base[h]?.med>=0?'+':''}${base[h]?.med??'—'}%)</span></div>`).join('')}</div>`;}).join('');
+  const lights=Object.entries(F.lights||{}).map(([k,v])=>`<a class="vw-lt${v.nLow?' on':''}" href="javascript:void 0" data-btm="${k}"><b>${vwE(v.name)}</b> 落底燈 <b>${v.nLow}/${(v.low||[]).length}</b>・止跌 ${v.nStop}/${(v.stop||[]).length}</a>`).join('');
+  const facts=vwFactRows(F).map(r=>`<tr><td><b>${r[0]}</b></td><td class="r">${r[1]}</td><td>${r[2]}<span class="dim" style="font-size:11px"> ${r[3]?String(r[3]).slice(5).replace('-','/'):''}</span></td></tr>`).join('');
+  const causes=(j.causes||[]).map((c,i)=>`<div class="news-card" style="border-left-color:${i===0?'#8E7CC3':'var(--line)'}">
+      <div class="news-head"><span class="news-cat" style="color:var(--txt2);border-color:var(--line)">${i+1}</span><b class="news-ttl">${vwE(c.t)}</b></div>
+      <div class="news-what">${vwE(c.body)}</div>
+      <div class="news-src">${(c.src||[]).map(s=>`<div>📎 ${newsSrcHtml(s)}</div>`).join('')}</div></div>`).join('');
+  const ev=(F.events||[]).map(e=>`<div class="vw-ev"><b>${e.d.slice(5).replace('-','/')}</b> ${vwE(e.t)}</div>`).join('');
+  const groups=[...new Set((j.check||[]).map(c=>c.g))];
+  const check=groups.map(g=>`<div class="vw-ckg">${vwE(g)}</div>`+(j.check||[]).filter(c=>c.g===g).map(c=>vwCheck(c,j.period)).join('')).join('');
+  const scen=(j.scen||[]).map(s=>`<div class="vw-sc ${s.n==='樂觀'?'up':s.n==='悲觀'?'dn':''}${s.likely?' lk':''}"><div><b>${vwE(s.n)}</b>${s.likely?' <span class="vw-bd ok">最可能</span>':''}</div><div>${vwE(s.body)}</div></div>`).join('');
+  const gen=(j.gen||'').slice(5,16).replace('T',' ').replace('-','/');
+  box.innerHTML=`<div class="news-dates">${chips}</div>
+    <div class="news-top" style="border-left-color:#8E7CC3">
+      <div class="news-date">🧭 盤勢解讀|${newsDay(j.date)} ${j.slot==='am'?'早上版(美股收盤後)':'晚上版(台股盤後)'}${latest?' <span style="font-size:12px;font-weight:800;color:var(--amber);border:1px solid var(--amber);border-radius:6px;padding:1px 6px;vertical-align:2px">最新</span>':''}</div>
+      <div class="news-mood" style="color:var(--txt);font-size:16px">${vwE(j.head)}</div>
+      <div class="news-meta">${gen} 產生・解讀:${vwE(j.model||'')}${j.n_in?`(從 ${j.n_in} 則新聞標題)`:''}・數字全部由程式從站上資料計算</div>
+    </div>
+    <div class="sec-title" style="margin-top:16px">🔍 為什麼漲跌 <span style="font-weight:400;font-size:13px;letter-spacing:0">由重到輕・每條附原始新聞</span></div>
+    ${causes||'<div class="dim-note">這份沒有整理出原因。</div>'}
+    <div class="sec-title" style="margin-top:18px">📍 現在跌到哪裡 <span style="font-weight:400;font-size:13px;letter-spacing:0">20 週乖離分位 = 跟自己過去比,越低越少見</span></div>
+    <div class="vw-tw"><table class="vw-t"><thead><tr><th>指數</th><th class="r">收盤</th><th class="r c1">當天</th><th class="r">離高點<span class="dim" style="font-weight:400">(半年)</span></th><th class="r">20 週乖離</th><th>位置</th></tr></thead><tbody>${idx}</tbody></table></div>
+    ${bt}
+    ${lights?`<div class="vw-lts"><span class="dim" style="font-size:12.5px">🎯 落底燈號(回測驗證過的訊號):</span>${lights}</div>`:''}
+    <div class="vw-tw" style="margin-top:10px"><table class="vw-t"><thead><tr><th>籌碼與總經</th><th class="r">現在</th><th>代表什麼</th></tr></thead><tbody>${facts}</tbody></table></div>
+    ${j.where?`<div class="news-why" style="margin-top:10px"><b>📝 解讀</b>${vwE(j.where)}</div>`:''}
+    <div class="sec-title" style="margin-top:18px">📐 關鍵價位 <span style="font-weight:400;font-size:13px;letter-spacing:0">由上到下・百分比是離現在多遠</span></div>
+    <div class="vw-lvs">${vwLevels((F.levels||{}).TW)}${vwLevels((F.levels||{}).SOX)}</div>
+    <div class="sec-title" style="margin-top:18px">⏰ 什麼時候會落底</div>
+    ${j.timing?`<div class="news-card" style="border-left-color:var(--amber)"><div class="news-what" style="margin-top:0">${vwE(j.timing)}</div>${ev?`<div style="margin-top:8px">${ev}</div>`:''}</div>`:''}
+    <div class="sec-title" style="margin-top:18px">✅ 落底訊號清單 <span style="font-weight:400;font-size:13px;letter-spacing:0">✓ 成立 ☐ 未成立 — 不適用・每項都附回測結果</span></div>
+    <div class="news-card" style="border-left-color:var(--t-gold)">${check}
+      <div class="dim-note" style="margin-top:8px">回測方法:${vwE(j.period||'')} 真實資料,只看「離一年高點跌 8% 以上」的日子,比較條件成立與不成立之後 3 個月的表現;3 個月上漲機率高 3 個百分點以上、或之後再跌少 1 個百分點以上,才算「回測有效」。常聽到的訊號不一定有用——「歷史上不可靠」就是實測沒有比較好。</div></div>
+    <div class="sec-title" style="margin-top:18px">🧭 三種劇本</div>
+    <div class="vw-scs">${scen}</div>
+    ${(j.tips||[]).length?`<div class="news-why" style="margin-top:10px"><b>💡 參考做法</b>${j.tips.map(t=>`<div>・${vwE(t)}</div>`).join('')}</div>`:''}
+    <div class="dim-note" style="margin-top:12px">原因、時間點與劇本由 AI 根據「程式算好的數字」和「真實新聞標題」撰寫,對不到新聞的原因會自動剔除;數字、價位、落底燈號、回測都由程式計算。資料整理與情境推演,不是投資建議。</div>`;
+  box.querySelectorAll('[data-vk]').forEach(b=>b.onclick=()=>viewLoad(b.dataset.vk));
+  const sel=document.getElementById('viewMore');if(sel)sel.onchange=()=>{if(sel.value)viewLoad(sel.value);};
+  box.querySelectorAll('[data-btm]').forEach(a=>a.onclick=()=>{try{const k=a.dataset.btm;if(k!=='TW'&&typeof BTM_US_TAB!=='undefined')BTM_US_TAB=k;
+    const want=k==='TW'?'TW':'US';if((window.GMKT||'TW')!==want){const b=document.querySelector(`#gmktBar button[data-gm="${want}"]`);if(b)b.click();}
+    setHomeTab('macro');setTimeout(()=>{const e=document.getElementById('btmBox');if(e){try{btmRender();}catch(_){}e.scrollIntoView({behavior:'smooth',block:'start'});}},400);}catch(e){}});
+}
+async function viewLoad(key){
+  const box=document.getElementById('viewBox');if(!box)return;
+  if(!box.innerHTML.trim()||box.querySelector('.dim-note.loading'))box.innerHTML='<div class="dim-note loading">盤勢解讀載入中…</div>';
+  try{
+    if(key&&!window.__viewDates){try{await viewFetch();}catch(e){}}
+    viewRender(await viewFetch(key));
+  }catch(e){box.innerHTML='<div class="dim-note">盤勢解讀還沒產生(每天台北 07:50、21:50 自動更新),稍後再回來看。</div>';}
+}

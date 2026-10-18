@@ -2546,3 +2546,36 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .btm-tag{display:inline-block;margin-left:6px;font-size:11.5px;font-weight:800;line-height:1.5;padding:0 7px;border-radius:999px;border:1px solid var(--amber);color:var(--amber);vertical-align:2px;white-space:nowrap;cursor:help}
 .btm-tag.lv3{border-color:var(--t-gold);color:#1a1405;background:var(--t-gold)}
 .idx-card .nm .btm-tag{font-size:11px;margin-left:5px}
+/* r1129:🧭 盤勢解讀 */
+.vw-tw{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.vw-t{width:100%;border-collapse:collapse;font-size:13.5px}
+.vw-t th{font-size:12px;color:var(--dim);font-weight:700;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.vw-t td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5}
+.vw-t tr:last-child td{border-bottom:none}
+.vw-t .r{text-align:right;white-space:nowrap;font-family:var(--mono)}
+.vw-zone{font-size:12px;font-weight:900;border:1.5px solid;border-radius:6px;padding:1px 7px;white-space:nowrap}
+.vw-bt{margin-top:10px;font-size:13.5px;line-height:1.75;background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--t-gold);border-radius:10px;padding:9px 13px}
+.vw-lts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+.vw-lt{font-size:12.5px;padding:3px 10px;border:1.5px solid var(--line);border-radius:999px;color:var(--txt2);text-decoration:none;background:var(--panel)}
+.vw-lt.on{border-color:var(--amber);color:var(--amber)}
+.vw-lvs{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+.vw-lv{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 13px}
+.vw-lvh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.vw-lvr{display:grid;grid-template-columns:1fr auto 64px;gap:2px 10px;align-items:baseline;padding:6px 0;border-top:1px dashed var(--line);font-size:13.5px}
+.vw-lvr b{font-family:var(--mono)}.vw-lvr>span:last-of-type{text-align:right;font-family:var(--mono)}
+.vw-lvr small{grid-column:1/-1;color:var(--dim);font-size:11.5px;line-height:1.45}
+.vw-lvr.cur{color:var(--amber);font-weight:900;border-top:1.5px solid var(--amber)}
+.vw-ev{font-size:13.5px;padding:3px 0}.vw-ev b{display:inline-block;min-width:44px;font-family:var(--mono);color:var(--amber)}
+.vw-ckg{font-size:12.5px;font-weight:900;color:var(--dim);margin:10px 0 2px;letter-spacing:.05em}.vw-ckg:first-child{margin-top:0}
+.vw-ckr{display:flex;gap:10px;padding:8px 0;border-top:1px dashed var(--line)}
+.vw-ckc{flex:1;min-width:0;font-size:14px;line-height:1.6}
+.vw-ckc details summary{cursor:pointer;font-size:12px;color:var(--dim)}
+.vw-det{font-size:12.5px;line-height:1.7;color:var(--txt2);margin-top:3px}
+.vw-ck{flex:none;width:24px;height:24px;border-radius:7px;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--dim)}
+.vw-ck.on{border-color:var(--t-gold);color:var(--t-gold)}
+.vw-bd{display:inline-block;font-size:11px;font-weight:900;border-radius:6px;padding:0 6px;border:1px solid;vertical-align:1px;white-space:nowrap}
+.vw-bd.ok{color:var(--t-gold);border-color:var(--t-gold)}.vw-bd.fail{color:var(--mut);border-color:var(--mut);border-style:dashed}.vw-bd.nd{color:var(--dim);border-color:var(--line)}
+.vw-scs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.vw-sc{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--txt2);border-radius:12px;padding:10px 13px;font-size:14px;line-height:1.7}
+.vw-sc.up{border-top-color:var(--up)}.vw-sc.dn{border-top-color:var(--down)}.vw-sc.lk{box-shadow:0 0 0 1.5px var(--amber) inset}
+@media(max-width:640px){#mobNav button{font-size:10.5px}#mobNav button .mi{font-size:19px}.vw-t{font-size:12.5px}.vw-t td,.vw-t th{padding:7px 7px}.vw-t .c1{display:none}}

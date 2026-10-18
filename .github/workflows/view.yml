@@ -1,0 +1,43 @@
+name: 🧭 盤勢解讀
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "這一班已產生也重做(1=是)"
+        required: false
+        default: "0"
+      slot:
+        description: "am=早上版、pm=晚上版(空白=依時間)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "50 23 * * 1-5"   # 台北週二~六 07:50:美股剛收盤
+    - cron: "50 13 * * 1-5"   # 台北週一~五 21:50:台股盤後(法人、融資)資料齊了
+permissions:
+  contents: write
+concurrency:
+  group: view
+  cancel-in-progress: false
+jobs:
+  view:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests
+      - name: 產生盤勢解讀
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          FORCE: ${{ github.event.inputs.force }}
+          SLOT: ${{ github.event.inputs.slot }}
+          PYTHONUNBUFFERED: "1"
+        run: python market_view.py
+      - name: 提交
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add view.json view/ 2>/dev/null || true
+          git commit -m "盤勢解讀更新 [CI Skip]" || { echo "無變更"; exit 0; }
+          for i in 1 2 3 4 5; do git pull --rebase origin main && git push && break; git rebase --abort 2>/dev/null || true; sleep $((i*7)); done

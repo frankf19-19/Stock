@@ -27,11 +27,16 @@ jobs:
           BOTTOM_STATS: ${{ github.event.inputs.stats == '1' && '1' || (github.event_name == 'schedule' && '1' || '0') }}
           PYTHONUNBUFFERED: "1"
         run: python bottom.py
+      - name: 🧭 盤勢解讀・落底清單回測(每週一次)
+        if: github.event.inputs.stats == '1' || github.event_name == 'schedule'
+        env: { PYTHONUNBUFFERED: "1" }
+        run: timeout 900 python view_stats.py || echo "::warning::清單回測失敗"
       - name: 提交
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
           git add bottom.json bottom_stats.json 2>/dev/null || true
+          [ -f view_stats.json ] && git add view_stats.json
           git add archive/hist/bottom 2>/dev/null || true
           git commit -m "落底燈號更新 [CI Skip]" || { echo "無變更"; exit 0; }
           for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && break; git rebase --abort 2>/dev/null || true; sleep $((i*7)); done

@@ -440,6 +440,7 @@ def run_daily(S):
         dts, cls = [x[0] for x in tw_idx], [x[1] for x in tw_idx]
         thr_series = (ab >= 50) & win(ab <= 20, 15)
         extra = {"ab20": r1(ab.iloc[-1]), "ab20min10": r1(ab.iloc[-10:].min()), "F20": r1(F20, 0), "F20q": F20q,
+                 "Fd": [[k, r1(v, 0)] for k, v in Fs.iloc[-10:].items()],   # r1129:近 10 日外資現貨買賣超(億),盤勢解讀用
                  "on": {"fx": bool(F20 is not None and F20q is not None and F20 <= F20q), "br": bool(ab.iloc[-10:].min() <= 15),
                         "thr": bool(thr_series.iloc[-5:].any())}}
         out["mkt"]["TW"] = mkt_state(cls, dts, extra, -0.06, -0.10, st_tw)
