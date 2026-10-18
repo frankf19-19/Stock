@@ -328,7 +328,16 @@ def gemini(p):
     """先試推理能力較強的 2.5 Pro(免費額度),不行再用 Flash 系列"""
     if not KEY: log("  ✗ 沒有 GEMINI_KEY"); return None
     TRIED.clear()
-    for mdl in ["gemini-2.5-pro", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-2.0-flash"]:
+    order = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-2.0-flash"]
+    try:   # 查目前真的有的模型:最新版的 Pro 排最前面(推理較好),沒有/額度用完再退回 Flash
+        ms = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={KEY}&pageSize=200", timeout=30).json().get("models") or []
+        names = [m["name"].split("/")[-1] for m in ms if "generateContent" in (m.get("supportedGenerationMethods") or [])]
+        ver = lambda n: tuple(int(x) for x in re.findall(r"gemini-(\d+)\.?(\d*)", n)[0] if x) if re.match(r"gemini-\d", n) else (0,)
+        pro = sorted([n for n in names if re.fullmatch(r"gemini-\d+(\.\d+)?-pro(-latest)?", n)], key=ver, reverse=True)[:2]
+        order = pro + [n for n in order if n in names or not names]
+    except Exception as e:
+        TRIED.append(f"models:{str(e)[:40]}")
+    for mdl in order:
         gc = {"maxOutputTokens": 12000, "temperature": 0.3, "responseMimeType": "application/json", "responseSchema": SCHEMA}
         if not mdl.startswith("gemini-2.0"): gc["thinkingConfig"] = {"thinkingBudget": 4096}
         try:
