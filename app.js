@@ -26087,6 +26087,7 @@ async function extStockBox(s){
         ${a&&a.n?`<div class="ex-st" style="margin-top:6px">${extBadge(a.pass,'回測有效(警訊)')} <b>內部人在市場賣出</b>:${extStatLine(a)}</div>`:''}
         ${bg&&bg.n?`<div class="ex-st">${extBadge(bg.pass,'回測有效(警訊)')} <b>大額賣出(≥ 3 天均量或 ≥ 1 億)</b>:${extStatLine(bg)}</div>`:''}
         ${cl&&cl.n?`<div class="ex-st">${extBadge(cl.pass,'回測有效(警訊)')} <b>20 天內 2 位以上內部人賣</b>:${extStatLine(cl)}</div>`:''}
+        ${St.gift&&St.gift.n?`<div class="ex-st">${extBadge(St.gift.pass,'回測有效(偏多)')} <b>內部人把股票贈與/信託給家人</b>:${extStatLine(St.gift)}</div>`:''}
         <div class="dim-note">贈與、信託不算賣出(只是轉移持股)。「之前漲跌差不多的股票」用來排除『內部人都在大漲後賣』的假象。回測 ${extE(St.period||'')}。</div></div>`;
     }else{
       const F=EXT.form4||{},L=(F.recent||{})[s.id]||[],St=F.stats||{};

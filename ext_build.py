@@ -229,6 +229,11 @@ def stats_opt(twii):
         spot = P.loc[t]
         for kind in ("m", "w"):
             cons = sorted(c for c in O[d] if (re.fullmatch(r"\d{6}", c) is not None) == (kind == "m"))
+            cons = [c for c in cons if X.get(c) and X[c] > d]
+            if kind == "w":   # 跟每日顯示同一規則:接下來 3 個週選裡挑未平倉最多的
+                tot = lambda c: sum(x[1] + x[2] for x in O[d][c]["k"])
+                cons = sorted(sorted(cons, key=lambda c: X[c])[:3], key=lambda c: -tot(c))
+                if cons and tot(cons[0]) < 3000: cons = []
             for c in cons:
                 x = X.get(c)
                 if not x or x <= d: continue
@@ -348,10 +353,13 @@ def stats_insider_tw():
             if others: ev_clu.append((t, s))
     out = {"all": event_study(c, ev_all, liq, "內部人市場賣出(全部)"), "big": event_study(c, ev_big, liq, "大額(≥3 天均量或 ≥1 億)"),
            "clu": event_study(c, list(dict.fromkeys(ev_clu)), liq, "20 天內 2 位以上內部人申報賣"),
-           "gift": event_study(c, ev_gift, liq, "贈與/信託(對照組)")}
+           "gift": event_study(c, ev_gift, liq, "贈與/信託給家人")}
     for k, o in out.items():
         if o.get("n", 0) >= 100:
-            o["pass"] = bool((o["bw60"] - o["w60"]) >= 3 or (o["bm60"] - o["m60"]) >= 1)   # 「警訊」有效 = 之後比同級股票差
+            if k == "gift":   # 贈與/信託:看是不是「之後比同級股票好」
+                o["pass"] = bool((o["w60"] - o["bw60"]) >= 3 or (o["m60"] - o["bm60"]) >= 1); o["good"] = True
+            else:
+                o["pass"] = bool((o["bw60"] - o["w60"]) >= 3 or (o["bm60"] - o["m60"]) >= 1)   # 「警訊」有效 = 之後比同級股票差
     out["period"] = f"{min(x['d'] for x in rows)[:4]}~{NOW.year}"
     return out
 
@@ -473,6 +481,10 @@ def daily(S):
                 cons = [c for c in day if (re.fullmatch(r"\d{6}", c) is not None) == (kind == "m")]
                 cons = sorted((c for c in cons if (day[c].get("x") or "99999999") > dd), key=lambda c: (day[c].get("x") or "99999999", c))
                 if not cons or not spot: continue
+                if kind == "w":   # 週選:接下來 3 個到期裡,挑未平倉最多的(週五新制週選常常很薄)
+                    tot = lambda c: sum(x[1] + x[2] for x in day[c]["k"])
+                    cons = sorted(cons[:3], key=lambda c: -tot(c))
+                    if tot(cons[0]) < 3000: continue
                 cn = cons[0]; e = day[cn]
                 pw, cw, pcr = walls(e, spot)
                 ks = e["k"]
