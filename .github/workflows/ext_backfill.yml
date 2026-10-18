@@ -1,0 +1,36 @@
+name: 📦 外部資料回補(內部人/Form4/選擇權/空單/FRED/景氣)
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "只跑某一個(insider_tw/form4/opt/finra/fred/biz;空白=全部)"
+        required: false
+        default: ""
+permissions: { contents: write }
+jobs:
+  bf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        src: [insider_tw, form4, opt, finra, fred, biz]
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event.inputs.only == '' || github.event.inputs.only == matrix.src
+      - uses: actions/setup-python@v5
+        if: github.event.inputs.only == '' || github.event.inputs.only == matrix.src
+        with: { python-version: "3.11" }
+      - name: 回補 ${{ matrix.src }}
+        if: github.event.inputs.only == '' || github.event.inputs.only == matrix.src
+        env: { FINMIND_TOKEN: "${{ secrets.FINMIND_TOKEN }}", PYTHONUNBUFFERED: "1" }
+        run: |
+          pip install requests
+          timeout 19800 python ext_fetch.py ${{ matrix.src }} backfill || echo "::warning::${{ matrix.src }} 中途停止(已存的部分會提交,下次接著補)"
+      - name: 提交
+        if: always() && (github.event.inputs.only == '' || github.event.inputs.only == matrix.src)
+        run: |
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git add archive/ext/ 2>/dev/null || true
+          git commit -m "外部資料回補 ${{ matrix.src }} [CI Skip]" || exit 0
+          for i in 1 2 3 4 5 6; do git pull --rebase -X theirs origin main && git push && break; git rebase --abort 2>/dev/null || true; sleep $((i*13)); done
