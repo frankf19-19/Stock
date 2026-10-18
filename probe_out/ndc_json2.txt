@@ -1,0 +1,74 @@
+STATUS 200
+CT text/html; charset=UTF-8
+LEN 22123
+
+<!DOCTYPE html>
+<html ng-app="NDCapp" lang="zh_tw">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="csrf-token" content="GoQfy1b2b4wJfUdbGn5GB6mEfA0g2EKemUmkZ9QO">
+<link rel="shortcut icon" href="/n/include/images/favicon.ico">
+<title>國發會-景氣指標查詢系統-景氣對策信號</title>
+<link rel="stylesheet" href="/n/include/css/ndc.css?v=202603">
+<link rel="stylesheet" href="/n/include/css/accessibility.css">
+</head>
+
+<body ng-controller="defaultCtrl">
+<a ng-click="goAnchor('bottom')" title="{{LANG==='en' ? 'Skip to main content' : '跳到主要內容區塊' }}" class="sr-only sr-only-focusable" href="javascript:void(0)" tabindex="1">{{LANG==='en' ? 'Skip to main content' : '跳到主要內容區塊'}}</a>
+<noscript style="display:block; text-align:center; padding:10px 0">
+
+{{LANG==='en' ? 'Your browser does not support JavaScript. If the webpage function is not working properly, please enable the browser JavaScript status.' : '您的瀏覽器不支援JavaScript功能，若網頁功能無法正常使用時，請開啟瀏覽器JavaScript狀態' }}
+</noscript>
+<!--top menu-->
+<div id="top">
+    <div class="width">
+    <a ng-href="/n/{{LANG}}" class="logo_herf" title="{{lang.info_sec_title_name}}" aria-label="{{lang.info_sec_title_name}}">
+            <strong style="font-size: 0;">{{lang.info_sec_title_name}}</strong>
+            <div class="name" style="margin-top: 10px;" toa>
+                <h1 class="ch"><span ng-bind="lang.info_sec_title_name"></span></h1>
+                <p class="en"><span ng-bind="lang.info_bottom_title_name"></span></p>
+            </div>
+        </a>
+        <div class="language">
+            <a href="javascript:void(0)" ng-click="goAnchor('AU')" id="AU" name="U" title="{{LANG==='en' ? 'Top Menu' : '上方功能區塊' }}" accesskey="U" style="">:::</a>
+            <a ng-href="/n/{{LANG}}/sitemap" title="{{lang.ndc_sitemap_tw}} "><span ng-bind="lang.ndc_sitemap_tw"></span></a>｜
+            <a ng-href="{{lang.info_company_weburl}}" target="_blank" title="{{LANG==='en' ? lang.info_title_name + '(open new window)' : lang.info_title_name + '(開新視窗)' }} "><span ng-bind="lang.info_title_name"></span></a>｜
+            <a ng-href="/n/{{LANG==='en' ? 'zh_tw' : 'en'}}" ng-bind="LANG==='en' ? lang.ndc_change_lang_zh_tw : lang.ndc_change_lang_en" title="{{LANG==='en' ? lang.ndc_change_lang_zh_tw : lang.ndc_change_lang_en}}">&nbsp</a>｜
+            <!-- <a ng-href="/m/{{LANG}}" ng-bind="lang.ndc_default_mobile" title="{{lang.ndc_default_mobile}}">&nbsp</a>｜ -->
+            <a ng-href="{{lang.ndc_rss_feed_link}}" target="_blank" title="{{LANG==='en' ? 'RRS (open new window)' : 'RRS (開新視窗)' }}"><img src="/n/include/images/community_4.png"   alt="{{LANG==='en' ? 'RRS' : 'RRS' }}" align="absmiddle"></a>
+            <div class="search textRight__box">
+                <div class="textRight">
+                <label class="name" for="search">{{LANG==='en' ? 'Search:' : '搜尋：' }}
+                <input id="search" name="search" type="text" maxlength="30" aria-required="true" ng-attr-placeholder="{{lang.ndc_default_plz_enter_keyword}}" title="{{lang.ndc_default_plz_enter_keyword}}"  value="{{lang.ndc_default_plz_enter_keyword}}" autocorrect="off" autocomplete="off" ng-enter ng-model="keyword"/>
+                </label>
+                <a class="myButton" role= "button" id="mybutton" ng-enter href="#" title="{{LANG==='en' ? 'Search button' : '確認搜尋' }}" mybutton>
+                    <img src="/n/include/images/search.png" align="absmiddle" alt="{{LANG==='en' ? 'Search button icon' : '確認搜尋放大鏡圖示' }}" >
+                </a>
+                </div>
+            </div>
+        </div>
+        <div class="hide"></div>
+    </div>
+</div>
+
+<!--首頁5大圖表 -->
+<div id="home" class="style_a">
+    <div class="width">
+        <div class="charts_icon_a color_a">
+            <a ng-href="/n/{{LANG}}/lightscore#/" title="{{lang.ndc_light_and_score}}"><img src="/n/include/images/charts_icon_01.png" alt=''><div><p ng-bind-html="lang.ndc_light_and_score"></p></div></a>
+        </div>
+        <div class="charts_icon_c">
+            <a ng-href="/n/{{LANG}}/leading#/" title="{{lang.ndc_leading_indicators}}"><img src="/n/include/images/charts_icon_02.png" alt=''><div><p ng-bind-html="lang.ndc_leading_indicators"></p></div></a>
+        </div>
+        <div class="charts_icon_c">
+            <a ng-href="/n/{{LANG}}/coincident#/" title="{{lang.ndc_coincident_indicators}}"><img src="/n/include/images/charts_icon_03.png" alt=''><div><p ng-bind-html="lang.ndc_coincident_indicators"></p></div></a>
+        </div>
+        <div class="charts_icon_c">
+            <a ng-href="/n/{{LANG}}/lagged#/" title="{{lang.ndc_lagged_indicator}}"><img src="/n/include/images/charts_icon_04.png" alt=''><div><p ng-bind-html="lang.ndc_lagged_indicator"></p></div></a>
+        </div>
+        <div class="charts_icon_d">
+            <a ng-href="/n/{{LANG}}/PMI#/" title="{{lang.ndc_PMI}}"><img src="/n/include/images/charts_icon_05.png" alt=''><div><p ng-bind-html="lang.ndc_PMI"></p></div></a>
+        </div>
+        <div class="charts_icon_d end">
+        

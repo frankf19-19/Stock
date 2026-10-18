@@ -1,0 +1,5 @@
+STATUS 400
+CT application/json
+LEN 607
+
+{"statusCode":400,"statusDescription":"Bad Request","requestId":"5384d1f3-9473-4793-974f-9c81f4d61fe4","message":"Sorting is allowed only if all partitions keys are specified in EQUAL CompareFilter.Partition keys missing or not using EQUAL CompareFilter: settlementDate","dataRequest":{"async":false,"offset":0,"compareFilters":[{"fieldName":"symbolCode","compareType":"EQUAL","fieldValue":"AAPL"}],"dataVersion":1,"datasetName":"consolidatedshortinterest","format":"application/json","limit":5,"datasetGroup":"otcmarket","versionedDatasetName":"consolidatedshortinterest","sortFields":["-settlementDate"]}}

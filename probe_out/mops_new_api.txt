@@ -1,0 +1,7 @@
+STATUS 200
+CT text/html;charset=UTF-8
+LEN 65
+
+<script>
+  location.href = location.origin + "/mops";
+</script>

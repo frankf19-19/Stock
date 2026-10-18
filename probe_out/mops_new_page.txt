@@ -1,0 +1,5 @@
+STATUS 200
+CT application/json;charset=UTF-8
+LEN 89
+
+{"code":406,"message":"查無相符資料","result":null,"datetime":"115/10/18 10:29:43"}

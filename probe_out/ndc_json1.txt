@@ -1,0 +1,7 @@
+STATUS 419
+CT application/json
+LEN 41
+
+{
+    "message": "CSRF token mismatch."
+}
