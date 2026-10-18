@@ -38,8 +38,8 @@ LEAD_DAILY_MAX = 3          # r795:主力進出每人每日最多 3 則(最吵�
 # r795:事件鍵前綴 → 類別(使用者可在帳號面板勾選要收哪些)
 CAT_OF = {"fill": "aip", "rot": "aip", "rotbuy": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
           "fz": "fav", "fh": "fav", "fl": "fav", "fb": "fav", "ftp": "port", "fsl": "port",
-          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "kb_acc": "lead", "bk_sb": "lead", "bk_ss": "lead", "kb_t1": "lead", "kb_t2": "lead", "hs": "h60", "bias": "bias", "btmm": "btm", "btms": "btm"}
-CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離", "btm": "落底燈號"}
+          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "kb_acc": "lead", "bk_sb": "lead", "bk_ss": "lead", "kb_t1": "lead", "kb_t2": "lead", "hs": "h60", "bias": "bias", "btmm": "btm", "btms": "btm", "ins": "ins", "insb": "ins"}
+CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離", "btm": "落底燈號", "ins": "內部人買賣"}
 def cat_of(key):
     p = str(key).split("|")[0]
     return CAT_OF.get(p) or ("lead" if p.startswith("lead") else "fav" if p.startswith("f") else "aip")
@@ -810,6 +810,35 @@ def btm_stock_events(st, data, ids):
     return out
 
 
+def ins_stock_events(data, ids):
+    """r1130:最愛/持股——台股董監大股東申報在市場賣股、美股主管/董事在市場買進(近 3 天新出現的才推)。回傳 {sid: [事件]}"""
+    out = {}
+    try: X = json.load(open("ext.json", encoding="utf-8"))
+    except Exception: return out
+    by = {s["id"]: s for s in data.get("stocks") or []}
+    cut = (NOW - dt.timedelta(days=3)).date().isoformat()
+    tw = ((X.get("insider_tw") or {}).get("recent") or {}); us = ((X.get("form4") or {}).get("recent") or {})
+    st_tw = ((X.get("insider_tw") or {}).get("stats") or {}).get("all") or {}
+    st_us = ((X.get("form4") or {}).get("stats") or {}).get("buy") or {}
+    for sid in ids:
+        nm = (by.get(sid) or {}).get("name") or sid; px = (by.get(sid) or {}).get("price")
+        ev = []
+        for x in tw.get(sid) or []:
+            if (x.get("d") or "") < cut or not re.search(r"一般交易|鉅額|盤後|拍賣", x.get("how") or ""): continue
+            sh = x.get("sh") or 0
+            val = f"(約 {sh * float(px) / 1e8:.1f} 億)" if px and sh else ""
+            note = f"\n歷史上內部人市場賣出後 60 天上漲機率 {st_tw.get('w60')}%(之前漲跌差不多的股票 {st_tw.get('bw60')}%)" if st_tw.get("n") else ""
+            ev.append((f"ins|{sid}|{x['d']}|{x.get('who')}|{sh}", 2,
+                       f"👔 <b>{nm} {sid} 內部人申報賣股</b>\n{x.get('d')[5:].replace('-', '/')} {x.get('role')} {x.get('who')}:{x.get('how')} {sh / 1000:,.0f} 張{val}\n申報後持股 {(x.get('after') or 0) / 1000:,.0f} 張・可賣期間到 {(x.get('p1') or '')[5:].replace('-', '/')}{note}"))
+        for x in us.get(sid) or []:
+            if (x.get("fd") or "") < cut or x.get("c") != "P" or (x.get("v") or 0) < 5e4: continue
+            note = f"\n歷史上主管買進後 60 天上漲機率 {st_us.get('w60')}%(之前漲跌差不多的股票 {st_us.get('bw60')}%)" if st_us.get("n") else ""
+            ev.append((f"insb|{sid}|{x['fd']}|{x.get('who')}|{x.get('sh')}", 2,
+                       f"👔 <b>{nm} {sid} 內部人買進</b>\n{x['fd'][5:].replace('-', '/')} {x.get('role')} {x.get('who')}:買進 {x.get('sh'):,} 股 @ {x.get('px')}(約 ${(x.get('v') or 0) / 1e3:,.0f}K){note}"))
+        if ev: out[sid] = ev[:3]
+    return out
+
+
 def send_tg(text):
     if not (TG_TOKEN and TG_CHAT): return False
     try:
@@ -884,6 +913,9 @@ def main():
         btm_s = btm_stock_events(st, data, sorted(ids))
         _btm_clean(st)
     except Exception as e: log(f"  落底燈號(個股)略過:{e}")
+    try:                                                      # r1130:👔 最愛/持股內部人買賣
+        for _sid, _ev in ins_stock_events(data, sorted(ids)).items(): btm_s[_sid] = btm_s.get(_sid, []) + _ev
+    except Exception as e: log(f"  內部人通知略過:{e}")
     # r795:訊號成績單——所有事件(不分收件人)記進 signal_log.json,重班回頭補 5/20 日報酬
     try:
         all_ev = list(base_ev)
@@ -908,6 +940,7 @@ def main():
         if isinstance(cats, list) and cats:                     # r805:可細到「事件種類」(鍵前綴),也相容舊的大類名
             sel = set(cats)
             if "btm_v1" not in sel: sel |= {"btmm", "btms"}      # r1127:新種類預設開(使用者在通知設定存過一次後就照他的選擇)
+            if "ins_v1" not in sel: sel |= {"ins", "insb"}       # r1130
             ev = [e for e in ev if (str(e[0]).split("|")[0] in sel) or (cat_of(e[0]) in sel)]
         lk = f"{TODAY}|{rc['key']}|lead"
         new = [(k, lv, t) for k, lv, t in ev if k not in sent_u]
@@ -932,7 +965,7 @@ def main():
         ok_push = False
         if rc.get("subs"):
             plain = re.sub(r"</?b>", "", "\n\n".join(t for _, _, t in new))
-            _nm = "落底燈號" if all(cat_of(k) == "btm" for k, _, _ in new) else "AI Pick"   # r1127
+            _nm = "落底燈號" if all(cat_of(k) == "btm" for k, _, _ in new) else "內部人買賣" if all(cat_of(k) == "ins" for k, _, _ in new) else "AI Pick"   # r1127/r1130
             title = f"K研所 {_nm}・{len(new)} 則" if len(new) > 1 else f"K研所 {_nm}"
             n_ok, dead = send_push_to(rc["subs"], title, plain)
             ok_push = n_ok > 0

@@ -1,0 +1,54 @@
+name: 🌐 外部資料(每日更新 + 每週回測)
+on:
+  workflow_dispatch:
+    inputs:
+      stats:
+        description: "重算回測與策略實驗室(1=是)"
+        required: false
+        default: "0"
+      src:
+        description: "要更新的來源(空白=依時段)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "40 0 * * 2-6"    # 台北 08:40:美股收盤後(Form 4、FRED、空單)
+    - cron: "40 8 * * 1-5"    # 台北 16:40:選擇權未平倉、內部人申報
+    - cron: "40 13 * * 1-5"   # 台北 21:40:內部人申報(晚上補齊)
+    - cron: "20 3 * * 6"      # 台北週六 11:20:每週重算回測 + 策略實驗室
+permissions: { contents: write }
+concurrency: { group: ext, cancel-in-progress: false }
+jobs:
+  ext:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests numpy pandas
+      - name: 抓資料
+        env: { FINMIND_TOKEN: "${{ secrets.FINMIND_TOKEN }}", FRED_API_KEY: "${{ secrets.FRED_API_KEY }}", PYTHONUNBUFFERED: "1" }
+        run: |
+          H=$(TZ=Asia/Taipei date +%H)
+          SRC="${{ github.event.inputs.src }}"
+          if [ -z "$SRC" ]; then
+            if [ "$H" -lt 12 ]; then SRC="form4 fred finra biz"; elif [ "$H" -lt 19 ]; then SRC="opt insider_tw"; else SRC="insider_tw"; fi
+          fi
+          for s in $SRC; do timeout 900 python ext_fetch.py $s || echo "::warning::$s 失敗"; done
+      - name: 回測(每週)
+        if: github.event.inputs.stats == '1' || github.event.schedule == '20 3 * * 6'
+        env: { PYTHONUNBUFFERED: "1" }
+        run: |
+          timeout 2400 python ext_build.py stats || echo "::warning::回測失敗"
+          timeout 1200 python lab_build.py || echo "::warning::實驗室失敗"
+      - name: 每日現況
+        if: github.event.inputs.stats != '1' && github.event.schedule != '20 3 * * 6'
+        env: { PYTHONUNBUFFERED: "1" }
+        run: timeout 600 python ext_build.py || echo "::warning::現況失敗"
+      - name: 提交
+        run: |
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git add archive/ext/ ext.json 2>/dev/null || true
+          for f in ext_stats.json lab/meta.json lab/tw.bin lab/us.bin; do [ -f $f ] && git add $f; done
+          git commit -m "外部資料更新 [CI Skip]" || exit 0
+          for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && break; git rebase --abort 2>/dev/null || true; sleep $((i*11)); done

@@ -162,6 +162,36 @@ def facts():
             ev.append({"d": d1, "t": f"FOMC 利率決議({d0[5:].replace('-', '/')}~{d1[8:]},台北 {nd[5:].replace('-', '/')} 清晨公布)", "k": "fomc"})
     ev.sort(key=lambda z: z["d"])
     F["events"] = [e for e in ev if e["d"] <= (dt.date.fromisoformat(today) + dt.timedelta(days=45)).isoformat()][:10]
+    # r1130:外部資料(景氣燈號、美國金融壓力、選擇權支撐壓力)
+    X = jl("ext.json", {}) or {}
+    try:
+        b = (X.get("biz") or {}).get("last")
+        if b:
+            NM = {"B": "藍燈", "YB": "黃藍燈", "G": "綠燈", "YR": "黃紅燈", "R": "紅燈"}
+            F["biz"] = {"m": b[0], "score": b[1], "color": NM.get(b[2], b[2]), "c": b[2], "lead_up3": (X.get("biz") or {}).get("lead_up3")}
+        fr = X.get("fred") or {}
+        cur = fr.get("cur") or {}
+        if cur.get("BAA10Y"):
+            F["fred"] = {"baa": cur["BAA10Y"]["v"], "baa_c20": cur["BAA10Y"].get("c20"), "q90": fr.get("q90"),
+                         "curve": (cur.get("T10Y3M") or {}).get("v"), "nfci": (cur.get("NFCI") or {}).get("v"),
+                         "stl": (cur.get("STLFSI4") or {}).get("v"), "d": cur["BAA10Y"]["d"],
+                         "on": [k for k, v in (fr.get("on") or {}).items() if v]}
+        O = X.get("opt") or {}; OS = ((O.get("stats") or {}).get("lights") or {})
+        tw = F["levels"].get("TW")
+        if tw and O.get("c"):
+            for kind, nm in (("w", "週選"), ("m", "月選")):
+                x = O["c"].get(kind)
+                if not x: continue
+                for side, key, lab in (("put", "pw", "支撐"), ("call", "cw", "壓力")):
+                    if not x.get(key): continue
+                    st = OS.get(f"{kind}_{side}") or {}
+                    v = f"回測:到結算前守住 {st.get('held')}%(同距離基準 {st.get('exp')}%)" + ("" if st.get("pass") else ",歷史上不可靠") if st else "回測資料累積中"
+                    tw["lv"].append({"n": f"選擇權{lab}({nm}最大{'賣' if side == 'put' else '買'}權)", "p": float(x[key]),
+                                     "w": f"{x.get(key + 'oi') or 0:,} 口未平倉;{v}", "opt": True, "ok": bool(st.get("pass"))})
+            tw["lv"].sort(key=lambda z: -z["p"])
+            for z in tw["lv"]: z["dist"] = r((z["p"] / tw["last"] - 1) * 100)
+            F["opt"] = {k: {"pw": v.get("pw"), "cw": v.get("cw"), "pcr": v.get("pcr"), "con": v.get("con")} for k, v in O["c"].items()}
+    except Exception as e: log(f"  外部資料略過:{e}")
     F["asof"] = BS.get("asof") or {}
     return F
 
@@ -285,6 +315,8 @@ def facts_text(F, CL):
     if F.get("tnx"): t = F["tnx"]; L.append(f"・美債 10 年殖利率 {t['v']:.2f}%(20 日前起 {t['chg20']:+.2f},20 日高點 {t['hi20']:.2f}%)")
     if F.get("brent"): L.append(f"・布蘭特原油 {F['brent']['v']}(20 日 {F['brent']['chg20']:+.1f}%)")
     if F.get("vix"): L.append(f"・VIX {F['vix']['v']}")
+    if F.get("biz"): b = F["biz"]; L.append(f"・台灣景氣對策信號 {b['m']} {b['score']} 分({b['color']}){',領先指標連 3 個月上升' if b.get('lead_up3') else ''}")
+    if F.get("fred"): f = F["fred"]; L.append(f"・美國 Baa 公司債利差 {f['baa']}%(20 日 {f.get('baa_c20')},近 3 年最高 10% 門檻 {f.get('q90')}%);10 年−3 個月殖利率差 {f.get('curve')}%;芝加哥 Fed 金融情勢 {f.get('nfci')}")
     if F.get("fng"): L.append(f"・CNN 恐懼貪婪指數 {F['fng']['v']}({F['fng']['r']};一週前 {F['fng'].get('w')})")
     if F.get("events"): L.append("・即將發生:" + ";".join(f"{e['d']} {e['t']}" for e in F["events"]))
     now = lambda c: "目前不適用(還沒跌深)" if c.get("na") else "目前成立" if c["now"] else "目前未成立"
