@@ -1,4 +1,4 @@
-/* K研所 · build r1130 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1131 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1130';
+const APP_BUILD='r1131';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2506,7 +2506,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1130</span>');
+  diag.push('<span style="color:var(--dim)">build r1131</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -26098,7 +26098,7 @@ async function extStockBox(s){
       const si=Q.length?Q[Q.length-1]:null,si0=Q.length>1?Q[Q.length-2]:null;
       html=`<div class="dim-block" style="border-left:4px solid ${buys.length?'var(--t-gold)':'var(--line)'}"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:15px">👔 內部人買賣(Form 4)</b>
         <span class="btm-pill ${buys.length?'on':''}">近 120 天買進 ${buys.length} 筆</span><span class="btm-pill">賣出 ${sells.length} 筆</span><span class="dim" style="font-size:12px;margin-left:auto">SEC・只列市場買賣(不含配股、選擇權履約)</span></div>
-        ${L.length?`<div class="vw-tw" style="margin-top:8px"><table class="vw-t"><thead><tr><th>申報日</th><th>身分</th><th>買/賣</th><th class="r">股數・價格</th><th class="r">金額</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="dim-note">近 120 天沒有內部人市場買賣。</div>'}
+        ${L.length?`<div class="vw-tw" style="margin-top:8px"><table class="vw-t"><thead><tr><th>申報日</th><th>身分</th><th>買/賣</th><th class="r">股數・價格</th><th class="r">金額</th></tr></thead><tbody>${rows}</tbody></table></div>`:(St.buy?'<div class="dim-note">近 120 天沒有內部人市場買賣。</div>':'<div class="dim-note">⏳ SEC 內部人資料回補中,完成後自動顯示。</div>')}
         ${St.buy&&St.buy.n?`<div class="ex-st" style="margin-top:6px">${extBadge(St.buy.pass)} <b>主管/董事買進 ≥ 5 萬美元</b>:${extStatLine(St.buy)}</div>`:''}
         ${St.buy_clu&&St.buy_clu.n?`<div class="ex-st">${extBadge(St.buy_clu.pass)} <b>30 天內 2 位以上買進</b>:${extStatLine(St.buy_clu)}</div>`:''}
         ${St.sell_big&&St.sell_big.n?`<div class="ex-st">${extBadge(St.sell_big.pass,'回測有效(警訊)')} <b>主管賣出 ≥ 100 萬美元</b>:${extStatLine(St.sell_big)}</div>`:''}
