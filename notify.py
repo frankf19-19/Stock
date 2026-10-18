@@ -38,8 +38,8 @@ LEAD_DAILY_MAX = 3          # r795:主力進出每人每日最多 3 則(最吵�
 # r795:事件鍵前綴 → 類別(使用者可在帳號面板勾選要收哪些)
 CAT_OF = {"fill": "aip", "rot": "aip", "rotbuy": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
           "fz": "fav", "fh": "fav", "fl": "fav", "fb": "fav", "ftp": "port", "fsl": "port",
-          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "kb_acc": "lead", "bk_sb": "lead", "bk_ss": "lead", "kb_t1": "lead", "kb_t2": "lead", "hs": "h60", "bias": "bias"}
-CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離"}
+          "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "kb_acc": "lead", "bk_sb": "lead", "bk_ss": "lead", "kb_t1": "lead", "kb_t2": "lead", "hs": "h60", "bias": "bias", "btmm": "btm", "btms": "btm"}
+CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離", "btm": "落底燈號"}
 def cat_of(key):
     p = str(key).split("|")[0]
     return CAT_OF.get(p) or ("lead" if p.startswith("lead") else "fav" if p.startswith("f") else "aip")
@@ -693,6 +693,123 @@ def collect_events(aip, prices):
     return ev
 
 
+# ═══ r1127:🎯 落底燈號通知(bottom.py 的燈號 → 大盤新燈亮起/止跌確認;最愛/持股亮 3 盞以上/止跌確認)═══
+_BTM = None
+def _btm():
+    global _BTM
+    if _BTM is None: _BTM = load("bottom.json", {}) or {}
+    return _BTM
+BTM_MNM = {"b60": "中線超跌", "b20": "短線急跌", "fx": "外資賣到極端", "br": "全面殺盤", "nl": "恐慌拋售", "thr": "止跌:廣度急升", "up": "止跌:站回 10 日線"}
+BTM_SNM = {"20": "短線超跌", "60": "中線超跌", "dd": "跌幅夠深", "mf": "融資洗出", "tr": "投信進場"}
+
+def _btm_calc(P, o, mode):
+    N = mode == "N"
+    s9, s19, s59 = (o["N9"], o["N19"], o["N59"]) if N else (o["S9"], o["S19"], o["S59"])
+    lo, nl = (o["nlo19"], o["nl2n"]) if N else (o["lo19"], o["nl2"])
+    return {"b20": P / ((s19 + P) / 20) - 1, "b60": P / ((s59 + P) / 60) - 1, "pma10": s9 / 9, "lo": lo,
+            "up": P > s9 / 9 and not nl and P > lo}
+
+def _btm_mode(asof):
+    """今天是台股交易日、已開盤、而 bottom.json 還是前一天的 → 現價當成新的一根(N);否則現價取代最後一根(S)"""
+    try:
+        hol = (load("holidays.json", {}) or {}).get("tw") or {}
+        trading = NOW.weekday() < 5 and TODAY not in hol
+        return "N" if trading and NOW.hour * 60 + NOW.minute >= 9 * 60 + 5 and str(asof) < TODAY else "S"
+    except Exception: return "S"
+
+def _btm_ep(st, key, on):
+    """這一波的起始日:不亮→亮 記今天;熄滅 3 天內又亮沿用原本那一波(避免在門檻附近來回洗通知)"""
+    E = st.setdefault("btm_ep", {}); e = E.get(key)
+    if on:
+        if e and (e.get("off") is None or (dt.date.fromisoformat(TODAY) - dt.date.fromisoformat(e["off"])).days <= 3):
+            e["off"] = None; return e["d"]
+        E[key] = {"d": TODAY, "off": None}; return TODAY
+    if e and e.get("off") is None: e["off"] = TODAY
+    return None
+
+def _btm_clean(st):
+    E = st.get("btm_ep") or {}
+    for k in [k for k, e in E.items() if e.get("off") and (dt.date.fromisoformat(TODAY) - dt.date.fromisoformat(e["off"])).days > 30]: del E[k]
+
+def _fmt(v):
+    try: return f"{v:,.0f}" if abs(v) >= 1000 else f"{v:,.1f}" if abs(v) >= 100 else f"{v:,.2f}"
+    except Exception: return "—"
+
+def collect_btm_market(st, data):
+    """大盤(台股加權、S&P500、那斯達克、費半):通過驗證的燈「新亮起」才通知;止跌燈只在近 20 天有落底燈亮過時才通知"""
+    ev = []; B = _btm()
+    if not B.get("mkt"): return ev
+    lowd = st.setdefault("btm_lowd", {})
+    for key, m in B["mkt"].items():
+        if not m: continue
+        S = ((B.get("stats") or {}).get("mkt") or {}).get(key) or {}
+        info = {o["k"]: o for o in S.get("lights") or []}
+        P, mode = m["last"], "S"
+        if key == "TW":
+            iv = next((x.get("val") for x in ((data.get("macro") or {}).get("idx") or []) if "加權" in str(x.get("name"))), None)
+            mode = _btm_mode(m["d"])
+            if mode == "N" and iv: P = float(iv)
+            elif mode == "N": mode = "S"
+        c = _btm_calc(P, m, mode)
+        on = dict(m.get("on") or {})
+        on.update({"b20": c["b20"] <= m["q20"], "b60": c["b60"] <= m["q60"], "up": c["up"]})
+        lights = [k for k in (m.get("pass") or []) if k in on]
+        low_on = [k for k in lights if info.get(k, {}).get("kind") == "low" and on.get(k)]
+        if low_on: lowd[key] = TODAY
+        recent_low = lowd.get(key) and (dt.date.fromisoformat(TODAY) - dt.date.fromisoformat(lowd[key])).days <= 20
+        n_low = sum(1 for k in lights if info.get(k, {}).get("kind") == "low")
+        for k in lights:
+            ep = _btm_ep(st, f"m|{key}|{k}", bool(on.get(k)))
+            if not ep: continue
+            stop = info.get(k, {}).get("kind") == "stop"
+            if stop and not recent_low: continue
+            o = info.get(k, {}).get("on") or {}; f = info.get(k, {}).get("off") or {}
+            stat = f"歷史上跌深時亮這盞燈:3 個月後上漲機率 {o.get('w60'):.0f}%(沒亮 {f.get('w60'):.0f}%),之後最多再跌中位 {o.get('dd')}%" if o.get("n") else ""
+            head = f"{'✅' if stop else '🎯'} <b>{m.get('name', key)} {'止跌燈' if stop else '落底燈'}亮:{BTM_MNM.get(k, k)}</b>"
+            body = f"目前落底燈 {len(low_on)}/{n_low} 盞・{m.get('name', key)} {_fmt(P)}\n{stat}\n止跌確認價 {_fmt(c['pma10'])}・破底警戒 {_fmt(c['lo'])}"
+            ev.append((f"btmm|{key}|{k}|{ep}", 2, head + "\n" + body))
+    return ev
+
+def btm_stock_events(st, data, ids):
+    """最愛/持股:落底燈亮 3 盞以上、或亮 2 盞以上時止跌確認(站回 10 日線、3 天不破底)→ 每一波通知一次。回傳 {sid: [事件]}"""
+    out = {}; B = _btm()
+    if not B.get("stk"): return out
+    by = {s["id"]: s for s in data.get("stocks") or []}
+    stats = ((B.get("stats") or {}).get("stk") or {})
+    asof = B.get("asof") or {}
+    for sid in ids:
+        a = B["stk"].get(sid)
+        if not a or sid.startswith("0"): continue
+        us = not sid[0].isdigit()
+        o = dict(zip(["last", "S9", "S19", "S59", "lo19", "nl2", "N9", "N19", "N59", "nlo19", "nl2n"], a[:11]))
+        q20, q60 = a[11], a[12]
+        P, mode = o["last"], "S"
+        if not us:
+            mode = _btm_mode(asof.get("tw"))
+            px = (by.get(sid) or {}).get("price")
+            if mode == "N" and px: P = float(px)
+            elif mode == "N": mode = "S"
+        c = _btm_calc(P, o, mode)
+        L = [("20", c["b20"] <= q20), ("60", c["b60"] <= q60)]
+        if us: hi = max(a[13], P); L.append(("dd", P / hi - 1 <= a[14]))
+        else: L += [("mf", bool(a[13])), ("tr", bool(a[14]))]
+        n = sum(1 for _, v in L if v); tot = len(L)
+        nm = (by.get(sid) or {}).get("name") or sid
+        S = stats.get("US" if us else "TW") or {}
+        cnt = next((x for x in S.get("cnt") or [] if x.get("k") == n), {})
+        lit = "、".join(BTM_SNM[k] for k, v in L if v)
+        ev = []
+        ep = _btm_ep(st, f"s|{sid}|n3", n >= 3)
+        if ep:
+            stat = f"\n歷史上個股亮 {n} 盞:3 個月後上漲機率 {cnt.get('w60'):.0f}%、中位 {cnt.get('m60'):+.1f}%" if cnt.get("n") else ""
+            ev.append((f"btms|{sid}|n3|{ep}", 2, f"🎯 <b>{nm} {sid} 落底燈亮 {n}/{tot} 盞</b>({lit})\n現價 {_fmt(P)}{'・還沒止跌' if not c['up'] else '・已止跌'}{stat}\n止跌確認價 {_fmt(c['pma10'])}・破底警戒 {_fmt(c['lo'])}"))
+        ep = _btm_ep(st, f"s|{sid}|up", n >= 2 and c["up"])
+        if ep:
+            ev.append((f"btms|{sid}|up|{ep}", 2, f"✅ <b>{nm} {sid} 止跌確認</b>(落底燈 {n}/{tot}:{lit})\n收盤站上 10 日線 {_fmt(c['pma10'])}、3 天沒有破底;現價 {_fmt(P)}・破底警戒 {_fmt(c['lo'])}"))
+        if ev: out[sid] = ev
+    return out
+
+
 def send_tg(text):
     if not (TG_TOKEN and TG_CHAT): return False
     try:
@@ -755,6 +872,18 @@ def main():
         os.makedirs("bk", exist_ok=True); json.dump(sorted(pri), open("bk/_prio_users.json", "w"))
     except Exception: pass
     base_ev = collect_events(aip, prices)                    # 一、二級對所有人相同,算一次
+    try: base_ev += collect_btm_market(st, data)             # r1127:🎯 大盤落底燈號
+    except Exception as e: log(f"  落底燈號(大盤)略過:{e}")
+    btm_s = {}
+    try:                                                      # r1127:🎯 最愛/持股落底燈號(每檔只算一次,各帳號挑自己的)
+        ids = set()
+        for rc in recips:
+            ud = rc.get("ud") or {}
+            ids |= {str(x) for x in (ud.get("fav_ids") or [])}
+            ids |= {str(p.get("id") if isinstance(p, dict) else p) for p in (ud.get("port1") or [])}
+        btm_s = btm_stock_events(st, data, sorted(ids))
+        _btm_clean(st)
+    except Exception as e: log(f"  落底燈號(個股)略過:{e}")
     # r795:訊號成績單——所有事件(不分收件人)記進 signal_log.json,重班回頭補 5/20 日報酬
     try:
         all_ev = list(base_ev)
@@ -768,11 +897,17 @@ def main():
     pushed = 0
     for rc in recips:
         ev = base_ev + collect_fav_events(data, aip, prices, rc["ud"] or {})
+        try:
+            _ud = rc.get("ud") or {}
+            _mine = {str(x) for x in (_ud.get("fav_ids") or [])} | {str(p.get("id") if isinstance(p, dict) else p) for p in (_ud.get("port1") or [])}
+            for _sid in sorted(_mine): ev = ev + btm_s.get(_sid, [])
+        except Exception: pass
         sent_u = sent.get(rc["key"])
         if not isinstance(sent_u, dict): sent_u = sent[rc["key"]] = {}
         cats = (rc.get("ud") or {}).get("cats")                 # r795:使用者類別過濾(沒設 = 全收)
         if isinstance(cats, list) and cats:                     # r805:可細到「事件種類」(鍵前綴),也相容舊的大類名
             sel = set(cats)
+            if "btm_v1" not in sel: sel |= {"btmm", "btms"}      # r1127:新種類預設開(使用者在通知設定存過一次後就照他的選擇)
             ev = [e for e in ev if (str(e[0]).split("|")[0] in sel) or (cat_of(e[0]) in sel)]
         lk = f"{TODAY}|{rc['key']}|lead"
         new = [(k, lv, t) for k, lv, t in ev if k not in sent_u]
@@ -797,7 +932,8 @@ def main():
         ok_push = False
         if rc.get("subs"):
             plain = re.sub(r"</?b>", "", "\n\n".join(t for _, _, t in new))
-            title = f"K研所 AI Pick・{len(new)} 則" if len(new) > 1 else "K研所 AI Pick"
+            _nm = "落底燈號" if all(cat_of(k) == "btm" for k, _, _ in new) else "AI Pick"   # r1127
+            title = f"K研所 {_nm}・{len(new)} 則" if len(new) > 1 else f"K研所 {_nm}"
             n_ok, dead = send_push_to(rc["subs"], title, plain)
             ok_push = n_ok > 0
             if dead:                                                    # 清掉失效訂閱,免得每輪都撞牆

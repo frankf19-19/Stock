@@ -1,4 +1,4 @@
-/* K研所 · build r1126 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1127 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1126';
+const APP_BUILD='r1127';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2506,7 +2506,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1126</span>');
+  diag.push('<span style="color:var(--dim)">build r1127</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -22088,12 +22088,15 @@ const PUSH_GROUPS=[
   ['最愛',[['fz','回檔到均線帶'],['fh','突破 20 日高'],['fl','跌破 10 日低'],['fb','跌破均線帶']]],
   ['持股',[['ftp','停利到價'],['fsl','停損到價']]],
   ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_t1','⏰ 關鍵分點達標後的預期發動日(最愛/持股)'],['kb_t2','⏰ 預期到高點/低點日(最愛/持股)'],['kb_acc','🧺 最愛有券商開始持續吃貨(全部券商・參考)'],['kb_sb','🔁 關鍵分點連買 ≥3 日'],['kb_ss','🔁 關鍵分點連賣 ≥3 日'],['bk_sb','🔁 任一券商連買 ≥5 日'],['bk_ss','🔁 任一券商連賣 ≥5 日'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
-  ['市場',[['bias','大盤週乖離進入低檔 / 高檔']]]];
+  ['市場',[['bias','大盤週乖離進入低檔 / 高檔']]],
+  ['🎯 落底燈號',[['btmm','大盤(台股・美股三大):新的落底燈亮起 / 止跌確認'],['btms','最愛・持股:落底燈亮 3 盞以上 / 止跌確認']]]];   // r1127
 const PUSH_KINDS=PUSH_GROUPS.flatMap(g=>g[1].map(x=>x[0]));
-const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_t1','kb_t2','kb_acc','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:[],bias:['bias']};
+const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_t1','kb_t2','kb_acc','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:[],bias:['bias'],btm:['btmm','btms']};
 /* r817:舊帳號存的細項名單裡沒有新種類 → 預設補上(新種類預設開) */
 (function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(Array.isArray(a)&&!a.includes('lead')){let ch=false;['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss','kb_t1','kb_t2'].forEach(k=>{if(!a.includes(k)){a.push(k);ch=true;}});if(ch)localStorage.setItem('pushCats',JSON.stringify(a));}
   if(Array.isArray(a)&&!a.includes('lead')&&!localStorage.getItem('pushCatsAcc1')){if(!a.includes('kb_acc'))a.push('kb_acc');localStorage.setItem('pushCats',JSON.stringify(a));localStorage.setItem('pushCatsAcc1','1');}}catch(e){}})();   // r1070:🧺 新種類只預設打開一次(之後使用者可關)
+(function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');   // r1127:🎯 落底燈號新種類預設打開一次
+  if(Array.isArray(a)&&!a.includes('btm_v1')){['btmm','btms','btm_v1'].forEach(k=>{if(!a.includes(k))a.push(k);});localStorage.setItem('pushCats',JSON.stringify(a));setTimeout(()=>{try{pushSyncProfile();}catch(e){}},9000);}}catch(e){}})();
 function pushCatsGet(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(!Array.isArray(a))return PUSH_KINDS.slice();
   const out=new Set();a.forEach(x=>{if(PUSH_CAT_KINDS[x])PUSH_CAT_KINDS[x].forEach(k=>out.add(k));else out.add(x);});return [...out];}catch(e){return PUSH_KINDS.slice();}}
 function pushProfile(){
@@ -22169,7 +22172,7 @@ async function sbPushPaint(boxId,compact){                         // r810:細�
       <div class="sb-note" style="margin-top:8px">⚡ <b>AI Pick 即時哨兵</b>:盤中每分鐘由 Cloudflare 直接盯即時價,成交/追價/停利/停損/接近目標/逼近停損 1 分鐘內推到手機(不經 GitHub)。</div>
       <button class="sb-alt" id="sbPushTest">🔔 測試即時推播</button>
       <button class="sb-alt" id="sbPushOff">關閉此裝置推播</button>`;
-    const saveCats=()=>{const sel=[...box.querySelectorAll('input[data-cat]:checked')].map(x=>x.dataset.cat);try{localStorage.setItem('pushCats',JSON.stringify(sel));}catch(e){}pushApi('/push/sync',pushProfile()).then(()=>sbToast('通知設定已更新',0)).catch(()=>{});};
+    const saveCats=()=>{const sel=[...box.querySelectorAll('input[data-cat]:checked')].map(x=>x.dataset.cat);sel.push('btm_v1');/* r1127:標記看過落底燈號選項 */try{localStorage.setItem('pushCats',JSON.stringify(sel));}catch(e){}pushApi('/push/sync',pushProfile()).then(()=>sbToast('通知設定已更新',0)).catch(()=>{});};
     box.querySelectorAll('input[data-cat]').forEach(cb=>cb.onchange=saveCats);
     box.querySelectorAll('[data-catall]').forEach(a=>a.onclick=()=>{box.querySelectorAll('input[data-cat]').forEach(cb=>cb.checked=a.dataset.catall==='1');saveCats();});
     box.querySelectorAll('[data-catg]').forEach(a=>a.onclick=()=>{const g=PUSH_GROUPS.find(x=>x[0]===a.dataset.catg);if(!g)return;const ks=new Set(g[1].map(x=>x[0]));box.querySelectorAll('input[data-cat]').forEach(cb=>{if(ks.has(cb.dataset.cat))cb.checked=true;});saveCats();});
@@ -25783,6 +25786,7 @@ function btmRender(){
   html+=`<div class="btm-card" style="margin-top:10px"><div class="btm-sub" style="margin-top:0">${us?'美股':'台股'}個股:落底燈亮最多的(流動性足夠的才列)</div>
     <div style="line-height:2">${btmTopList(us)}</div>
     ${c3&&c0?`<div class="btm-st">個股亮 3 盞以上時,歷史上 3 個月後上漲機率 ${c3.w60}%、中位 ${c3.m60>=0?'+':''}${c3.m60}%(一盞都沒亮:${c0.w60}%、${c0.m60>=0?'+':''}${c0.m60}%)。點進個股頁看每顆燈與門檻價。</div>`:''}</div>
+  <div class="dim-note" style="margin-top:8px">🔔 有開手機推播的話:大盤有新的落底燈亮起、或止跌確認,以及你的最愛/持股亮 3 盞以上、止跌確認,都會即時通知(帳號面板的通知設定可關)。</div>
   <div class="dim-note" style="margin-top:8px">怎麼驗證:${BTM.period||''} 年真實資料(台股全部上市櫃、美股 S&P 500 成分股與 SPY/QQQ/SOXX)。大盤燈是在「離一年高點跌 8% 以上」的日子裡比較亮燈和沒亮燈之後 3 個月的表現,比較好的才採用;個股燈是統計所有股票「亮幾盞」之後的表現。驗證每週重算一次(${(BTM.stats_u||'').slice(5,16)})。歷史統計不保證未來,不是投資建議。</div>`;
   box.innerHTML=html;
   const seg=document.getElementById('btmUsSeg');if(seg)seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{BTM_US_TAB=b.dataset.k;btmRender();});
