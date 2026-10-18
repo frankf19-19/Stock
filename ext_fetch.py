@@ -180,7 +180,13 @@ def form4(backfill=False):
             time.sleep(1)
     # 每日:EDGAR 每日索引(最近 10 天;季度資料集還沒出的部分)
     seen = set(A.get("idx_done") or [])
-    days = [(NOW - dt.timedelta(days=i)).date() for i in range(1, 12 if not backfill else 100)]
+    # 季度資料集還沒出的那段(最多 200 天),每天補 40 個交易日的每日索引,幾天內就補齊
+    lastq = max(A["q"]) if A["q"] else None
+    qend = dt.date(int(lastq[:4]), int(lastq[-1]) * 3, 28) if lastq else (NOW - dt.timedelta(days=100)).date()
+    span = min(200, max(12, (NOW.date() - qend).days))
+    days = [(NOW - dt.timedelta(days=i)).date() for i in range(2, span)]   # 前一天的索引美東晚上才完整,從前兩天開始
+    days = [d for d in days if d.isoformat() not in seen and d.weekday() < 5]
+    days = sorted(days, reverse=True)[:40 if not backfill else 200]
     n_new = 0
     for day in sorted(days):
         if day.weekday() >= 5 or day.isoformat() in seen: continue
@@ -216,7 +222,7 @@ def form4(backfill=False):
                                        "after": num(g("sharesOwnedFollowingTransaction")), "acc": acc}
                 n_new += 1
         seen.add(day.isoformat())
-    A["idx_done"] = sorted(seen)[-400:]
+    A["idx_done"] = sorted(seen)[-600:]
     A["u"] = NOW.strftime("%Y-%m-%d %H:%M")
     gz_save(P, A)
     log(f"✓ Form 4:共 {len(rows)} 筆(每日索引新增 {n_new})")
