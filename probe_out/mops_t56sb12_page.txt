@@ -1,0 +1,74 @@
+STATUS 200
+CT text/html; charset=utf-8
+LEN 14008
+
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+<title>公開資訊觀測站</title>
+<link href="css/print_css1.css" rel="stylesheet" type="text/css" Media="Print"/>
+
+
+
+<link href="css/css2.css" rel="stylesheet" type="text/css" />
+<link href="css/clickmenu1.css"rel="stylesheet" type="text/css"/>
+
+
+
+
+
+<!--
+<link href="css/tag.css" rel="stylesheet" type="text/css" />
+<link href="css/tablea.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" language="JavaScript1.2" src="js/menu/stmenu.js"></script>
+-->
+<!-- 2021.09.07 start 拿掉舊插件  -->
+<!-- <script type="text/javascript" src="js/jquery-1.1.4.pack.js"></script>
+<script type="text/javascript" src="js/jquery.clickmenu.js"></script> -->
+<!-- 2021.09.07 end 拿掉舊插件  -->
+<!-- 2021.09.07 start -->
+<script type="text/javascript" src="js/jquery-3.6.0.min.js"></script>
+
+
+<script type="text/javascript" src="js/mops2.js"></script>
+
+<!-- 2021.09.07 end -->
+
+
+
+
+</head>
+<body>
+
+<center>
+<table border="0"><tr><td align="left">
+
+
+<form name='fh' style='margin:0;' action='/mops/web/ajax_autoComplete' method='post' onsubmit='return false;'><input type='hidden' name='firstin' id='firstin' value = '1'><input type='hidden' name='TYPEK' id='TYPEK' value = 'all'><input type='hidden' name='step' id='step' value = '1'><input type='hidden' name='co_id' value = ''><input type='hidden' name = 'funcName' value = 't56sb12'><input type='hidden' name='searchtype' id='searchtype' value = ''><input type='hidden' name='inpuType' id='inpuType' value = 'keyword'><input type='hidden' name='auto-more' id='auto-more' value = ''><input type = 'hidden' name = 'keycon' value = ''><div id='head'><div id='head_02'><a href='/mops/web/index' alt='回首頁'><img src='images/blank.gif' width='232' height='52' border='0'></a></div><div id='head_03'><div id='search_bar'><div id='nav'><a style='color:yellow;text-decoration:none;'>全站搜尋</a></div><div id='search_b1' align='left'><table><tr><td align='left'><input name='keyword' type='text' class='textbox' id='keyword' size='45' oninput="document.getElementById('auto-more').value='';autoComplete(this.form , 'keyword' , 'auto-complete-data' , event);" onkeydown='chkKeyDown(this.form , this , "auto-complete-data" , event);' onkeyUp="document.getElementById('auto-more').value='';autoComplete(this.form , 'keyword' , 'auto-complete-data' , event);" onblur="setTimeout(function(){hideDiv('auto-complete-data');} , 200);" onClick="this.value='';document.getElementById('oldKeyWord').value='';hideDiv('auto-complete-data');" placeholder='請輸入公司代號、簡稱，或報表關鍵字' autocomplete='off'></td><td><input type='button' name='rulesubmit' id='rulesubmit' value=' 搜尋 ' onclick="document.fh.action='/mops/web/autoAction';document.fh.submit();"></td></tr></table></div><div id='search_txt' class='search_b2' style='z-index:1;'><table border='0'><tr><td><div style='background-image: url(images/map01.jpg) ; height: 19px; width:32px;background-position:-161px 0px;'></div></td><td><a href='javascript:void(0);' onClick='document.fh.keyword.value="營收";goaction("營收" , "0");'>營收</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="除權息";goaction("除權息" , "0");'>除權息</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="電子書";goaction("電子書" , "0");'>電子書</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="法說會";goaction("法說會" , "0");'>法說會</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="庫藏股";goaction("庫藏股" , "0");'>庫藏股</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="董監持股";goaction("董監持股" , "0");'>董監持股</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="獨立董事";goaction("獨立董事" , "0");'>獨立董事</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="董監酬金";goaction("董監酬金" , "0");'>董監酬金</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="ETF";goaction("ETF" , "0");'>ETF</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="TDR";goaction("TDR" , "0");'>TDR</a></td></tr></table></div></div></div><div id='head_04'><a href='http://emops.twse.com.tw/emops_all.htm'><img src='images/blank.gif' width='89' height='32' border='0' /></a><p style='margin-left:11px;'><a href='/mops/web/ezsearch'><img src='images/blank.png' border='0'></a></p></div></div></form><input type='hidden' id='oldKeyWord'><div id='auto-complete-data'></div><div id='auto-complete-data2'></div><form name='fh2' style='margin:0;' action='' method='post' onsubmit='return false;'><input type='hidden' name='usually' id='usually' value = ''></form><script>window.onload=getMsg;    var MAR = document.querySelector("#marquee");     if(MAR){         var MARS = document.querySelectorAll("#marquee a");         for(var i=0;i<MARS.length;i++){             MARS[i].setAttribute("target","_blank");             MARS[i].setAttribute("style","margin-right:20px");         };         if(MARS.length<1){             MAR.parentNode.innerHTML = "<span style='color:#ff0;'>全站搜尋</span>";             MAR.setAttribute("scrollamount","0")         };     };</script><style>    #marquee,#marquee a{color: #ff0!important;}    #marquee a:hover{color: #ff0!important;text-decoration: none!important;}    #marquee a[href]{text-decoration: underline!important;}</style> 
+
+
+
+
+<div id="menu" class="clickMenu">
+	<table width="100%" border="0" cellspacing="0" cellpadding="0">
+		<!-- 2021.09.07 start -->
+		<!-- <script>
+			$(document).ready(function() {
+			
+				$('#list').clickMenu();
+				document.getElementById('list').style.display='block';
+			});
+		</script> -->
+		<!-- 2021.09.07 end  -->
+		<tr>
+			<td id="menu1">
+				<ul id="list" style="display:none;">
+					<li class = "L00_Pop" id="mm0">常用報表
+					</li>
+					<li class = "L00_Pop" id="mm1">基本資料
+					</li>
+					<li class = "L00
