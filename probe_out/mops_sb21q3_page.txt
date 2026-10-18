@@ -1,0 +1,215 @@
+STATUS 200
+CT text/html; charset=utf-8
+LEN 43217
+
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+<title>公開資訊觀測站</title>
+<link href="css/print_css1.css" rel="stylesheet" type="text/css" Media="Print"/>
+
+
+
+<link href="css/css2.css" rel="stylesheet" type="text/css" />
+<link href="css/clickmenu1.css"rel="stylesheet" type="text/css"/>
+
+
+
+
+
+<!--
+<link href="css/tag.css" rel="stylesheet" type="text/css" />
+<link href="css/tablea.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" language="JavaScript1.2" src="js/menu/stmenu.js"></script>
+-->
+<!-- 2021.09.07 start 拿掉舊插件  -->
+<!-- <script type="text/javascript" src="js/jquery-1.1.4.pack.js"></script>
+<script type="text/javascript" src="js/jquery.clickmenu.js"></script> -->
+<!-- 2021.09.07 end 拿掉舊插件  -->
+<!-- 2021.09.07 start -->
+<script type="text/javascript" src="js/jquery-3.6.0.min.js"></script>
+
+
+<script type="text/javascript" src="js/mops2.js"></script>
+
+<!-- 2021.09.07 end -->
+
+
+
+
+</head>
+<body>
+
+<center>
+<table border="0"><tr><td align="left">
+
+
+<form name='fh' style='margin:0;' action='/mops/web/ajax_autoComplete' method='post' onsubmit='return false;'><input type='hidden' name='firstin' id='firstin' value = '1'><input type='hidden' name='TYPEK' id='TYPEK' value = 'all'><input type='hidden' name='step' id='step' value = '1'><input type='hidden' name='co_id' value = ''><input type='hidden' name = 'funcName' value = 't56sb21_q3'><input type='hidden' name='searchtype' id='searchtype' value = ''><input type='hidden' name='inpuType' id='inpuType' value = 'keyword'><input type='hidden' name='auto-more' id='auto-more' value = ''><input type = 'hidden' name = 'keycon' value = ''><div id='head'><div id='head_02'><a href='/mops/web/index' alt='回首頁'><img src='images/blank.gif' width='232' height='52' border='0'></a></div><div id='head_03'><div id='search_bar'><div id='nav'><a style='color:yellow;text-decoration:none;'>全站搜尋</a></div><div id='search_b1' align='left'><table><tr><td align='left'><input name='keyword' type='text' class='textbox' id='keyword' size='45' oninput="document.getElementById('auto-more').value='';autoComplete(this.form , 'keyword' , 'auto-complete-data' , event);" onkeydown='chkKeyDown(this.form , this , "auto-complete-data" , event);' onkeyUp="document.getElementById('auto-more').value='';autoComplete(this.form , 'keyword' , 'auto-complete-data' , event);" onblur="setTimeout(function(){hideDiv('auto-complete-data');} , 200);" onClick="this.value='';document.getElementById('oldKeyWord').value='';hideDiv('auto-complete-data');" placeholder='請輸入公司代號、簡稱，或報表關鍵字' autocomplete='off'></td><td><input type='button' name='rulesubmit' id='rulesubmit' value=' 搜尋 ' onclick="document.fh.action='/mops/web/autoAction';document.fh.submit();"></td></tr></table></div><div id='search_txt' class='search_b2' style='z-index:1;'><table border='0'><tr><td><div style='background-image: url(images/map01.jpg) ; height: 19px; width:32px;background-position:-161px 0px;'></div></td><td><a href='javascript:void(0);' onClick='document.fh.keyword.value="營收";goaction("營收" , "0");'>營收</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="除權息";goaction("除權息" , "0");'>除權息</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="電子書";goaction("電子書" , "0");'>電子書</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="法說會";goaction("法說會" , "0");'>法說會</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="庫藏股";goaction("庫藏股" , "0");'>庫藏股</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="董監持股";goaction("董監持股" , "0");'>董監持股</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="獨立董事";goaction("獨立董事" , "0");'>獨立董事</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="董監酬金";goaction("董監酬金" , "0");'>董監酬金</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="ETF";goaction("ETF" , "0");'>ETF</a><a href='javascript:void(0);' onClick='document.fh.keyword.value="TDR";goaction("TDR" , "0");'>TDR</a></td></tr></table></div></div></div><div id='head_04'><a href='http://emops.twse.com.tw/emops_all.htm'><img src='images/blank.gif' width='89' height='32' border='0' /></a><p style='margin-left:11px;'><a href='/mops/web/ezsearch'><img src='images/blank.png' border='0'></a></p></div></div></form><input type='hidden' id='oldKeyWord'><div id='auto-complete-data'></div><div id='auto-complete-data2'></div><form name='fh2' style='margin:0;' action='' method='post' onsubmit='return false;'><input type='hidden' name='usually' id='usually' value = ''></form><script>window.onload=getMsg;    var MAR = document.querySelector("#marquee");     if(MAR){         var MARS = document.querySelectorAll("#marquee a");         for(var i=0;i<MARS.length;i++){             MARS[i].setAttribute("target","_blank");             MARS[i].setAttribute("style","margin-right:20px");         };         if(MARS.length<1){             MAR.parentNode.innerHTML = "<span style='color:#ff0;'>全站搜尋</span>";             MAR.setAttribute("scrollamount","0")         };     };</script><style>    #marquee,#marquee a{color: #ff0!important;}    #marquee a:hover{color: #ff0!important;text-decoration: none!important;}    #marquee a[href]{text-decoration: underline!important;}</style> 
+
+
+
+
+<div id="menu" class="clickMenu">
+	<table width="100%" border="0" cellspacing="0" cellpadding="0">
+		<!-- 2021.09.07 start -->
+		<!-- <script>
+			$(document).ready(function() {
+			
+				$('#list').clickMenu();
+				document.getElementById('list').style.display='block';
+			});
+		</script> -->
+		<!-- 2021.09.07 end  -->
+		<tr>
+			<td id="menu1">
+				<ul id="list" style="display:none;">
+					<li class = "L00_Pop" id="mm0">常用報表
+					</li>
+					<li class = "L00_Pop" id="mm1">基本資料
+					</li>
+					<li class = "L00_Pop" id="mm2">彙總報表
+					</li>
+					<li class = "L00_Pop" id="mm3">股東會及股利
+					</li>
+					<li class = "L00_Pop" id="mm4">公司治理
+					</li>
+					<li class = "L00_Pop" id="mm5">財務報表
+					</li>
+					<li class = "L00_Pop" id="mm6">重大訊息與公告
+					</li>
+					<li class = "L00_Pop" id="mm7">營運概況
+					</li>
+					<li class = "L00_Pop" id="mm8">投資專區
+					</li>
+					<li class = "L00_Pop" id="mm9">認購（售）權證
+					</li>
+					<li class = "L00_Pop" id="mm10">債券
+					</li>
+					<li class = "L00_Pop" id="mm11">資產證券化
+					</li>
+
+				</ul>
+			</td>
+		</tr>
+	</table>
+</div>
+
+
+
+
+
+
+<div id="maincontent_in">
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td >
+<div id="PageBody">
+<table><tr><td valign="top" style="height:400px">
+<div id="main" >
+
+
+
+<!-- 
+	程式名稱:submenu-1.htm
+	程式功能:基本資料 左邊tree結構
+	修改紀錄:(格式=>西元日期+版次+程式設計師)
+	2024093025:thomas(T88K)新增 t57sb01_q10
+	2023120824thomas:(T88K)MOPS功能刪除整併調整
+	2023063022thomas:(T88G)MOPS功能刪除整併調整
+	2022010523:max(T88K)新增 t57sb01_q8
+	2016062822:thomas(T88K)修改t111sb02標題文字
+	2013100421:kevin(T88K)t158sb04==>t158sb04_new
+	2013061818:kevin:員工認股權憑證欄位順序調整
+	2013053117:leo:(T88K)新增t158sb05_new
+	2013051416:kevin:(T88K)修改t158sb02標題文字
+	2012101515leo:(T88K)庫藏股修改文字,修改連結
+	2012062814lucas(T88K)修改文字
+	2012051713tobey:(T88K)新增t160sb01 t160sb02
+	2011112912tobey:(T88K)新增t158sb01換掉t47sa17 新增t158sb02換掉t70sb01 和draco改的t158sb03 t158sb04
+	2011031411:eddie:新增外國發行人之股票、臺灣存託憑證、債券流通情形查詢
+-->
+<table width="176" border="0" cellpadding="0" cellspacing="0">
+<tr>
+	<td width="176"><span style="cursor: pointer; font-weight: bold; font-size: 13px;" onclick="showhide('level1','img-1')" id="menu1"> <img src="images/minus4.gif" id="img-1"/><a href="#">基本資料</a> </span> </td>
+</tr>
+<tr style="display: inline;" id="level1">
+	<td style="padding-left: 10px;">
+		<img src="images/pointer.gif"/><a class="01" target="_self" href="t146sb05">精華版3.0</a><br/>
+		<img src="images/pointer.gif"/><a target="_self" href="t05st03">公司基本資料</a><br/>
+		<img src="images/minus3.gif" id="img-1002"/><a onclick="showhide('level-1002','img-1002')" target="_self" href="#">重要子公司基本資料</a><br/>
+		<span style="display: none;" id="level-1002">
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="t79sb02">重要子公司基本資料</a><br/>
+			</span>
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="t79sb03">重要子公司異動說明</a><br/>
+			</span>
+
+		</span>
+		<img src="images/pointer.gif"/><a target="_self" href="t102sb01">被投資控股公司基本資料</a><br/>
+
+		<img src="images/minus3.gif" id="img-1004"/><a onclick="showhide('level-1004','img-1004')" href="#">電子書</a><br/>
+		<span style="display: none;" id="level-1004">
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="t57sb01_q1">財務報告書</a><br/>
+			</span>
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="t57sb01_q2">財務預測書</a><br/>
+			</span>
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="t57sb01_q3">公開說明書</a><br/>
+			</span>
+			<!--
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="t57sb01_q4">公開收購說明書(101<br/><span style="padding-left: 32px;">年7月後請至「公開</span><br/><span style="padding-left: 32px;">收購專區」查詢)</span></a><br/>
+			</span>
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="t57sb01_2">公開招募說明書</a><br/>
+			</span>
+			-->
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="t57sb01_q5">年報及股東會相關資<br/><span style="padding-left: 32px;">料(含存託憑證資料)</span></a><br/>
+			</span>
+			<!--
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="WDLReader">WDL Reader(請至威<br/><span style="padding-left: 32px;">鋒數位軟體下載區下</span><br/><span style="padding-left: 32px;">載)</span></a><br/>
+			</span>
+			-->
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="t57sb01_q8">年度自結財務資訊專<br/><span style="padding-left: 32px;">區</span></a><br/>
+			</span>
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="t57sb01_q10">關係企業三書表專區<br/></a><br/>
+			</span>
+		</span>
+
+
+		<img src="images/minus3.gif" id="img-1005"/> <a onclick="showhide('level-1005','img-1005')" target="_self" href="#">董監大股東持股、質<br/><span style="padding-left: 22px;">押、轉讓</span></a><br/>
+		<span style="display: none;" id="level-1005">
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="stapap1_all">董事、監察人、經理<br/><span style="padding-left: 32px;">人及大股東持股餘額</span><br/><span style="padding-left: 32px;">彙總表</span></a><br/>
+			</span>
+
+			<span style="padding-left: 15px;">
+				<img src="images/pointer.gif"/><a target="_self" href="stapap1">董監事持股餘額明細<br/><span style="padding-left: 32px;">資料</span></a><br/>
+			</span>
+
+			<span style="padding-left: 15px;">
+				<img src="images/minus3.gif" id="img-1005003"/><a onclick="showhide('level-1005003','img-1005003')" target="_self" href="#">內部人持股轉讓事前<br/><span style="padding-left: 32px;">申報表(個別公司)</span></a><br/>
+				<span style="display: none;" id="level-1005003">
+					<span style="padding-left: 35px;">
+						<img src="images/pointer.gif"/><a target="_self" href="t56sb21_q1">持股轉讓日報表</a><br/>
+					</span>
+					<span style="padding-left: 35px;">
+						<img src="images/pointer.gif"/><a target="_self" href="t56sb21_q2">持股未轉讓日報<br/><span style="padding-left: 50px;">表</span></a><br/>
+					</span>
+				</span>
+			</span>
+
+			<span style="padding-left: 15px;">
+				<img src="images/minus3.gif" id="img-1005004"/><a onclick="showhide('level-1005004','img-1005004')" target="_self" href="#">內部人持股轉讓事前<br/><span style="padding-left: 32px;">申報彙總表</span></a><br/>
+				<span style="display: none;" i
