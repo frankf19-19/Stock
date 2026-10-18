@@ -176,6 +176,7 @@ jobs:
             [ -f notify_state.json ] && git add notify_state.json
             [ -f hourly_scan.json ] && git add hourly_scan.json
             [ -f bias.json ] && git add bias.json
+            for f in bottom.json bottom_stats.json; do [ -f $f ] && git add $f; done   # r1126:落底燈號
             git add sbl/ 2>/dev/null || true
             for f in taifex.json signal_log.json signal_stats.json gov.json run_log.json kb_today.json broker_tags.json; do [ -f $f ] && git add $f; done
             git add bk/ hist/ 2>/dev/null || true
@@ -244,6 +245,7 @@ jobs:
             step 分數歷史 timeout 120 python score_hist.py || echo "分數歷史失敗"   # r909
             step 大腦 timeout 120 python brain.py || echo "大腦失敗,不影響主資料"   # r905:每輪最後回顧、寫學習日誌
             step 永久紀錄 timeout 600 python archive_all.py || echo "永久紀錄失敗,下一輪再補"   # r1061:所有只留最近 N 天的資料併進 archive/hist
+            step 落底燈號 timeout 900 python bottom.py || echo "落底燈號失敗,不影響主資料"   # r1126:大盤/美股/個股落底燈號(驗證每週重算)
             commit_push                                                                    # 整輪提交
           }
 

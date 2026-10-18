@@ -1,4 +1,4 @@
-/* K研所 · build r1125 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1126 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1125';
+const APP_BUILD='r1126';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2506,7 +2506,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1125</span>');
+  diag.push('<span style="color:var(--dim)">build r1126</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -14722,6 +14722,7 @@ async function showDetail(id){
   setTimeout(()=>{try{usInsiderBlock(s);}catch(e){}},1600);   // r1014:美股內部人買賣(籌碼章)
   // r1019:防守價區塊下架——2012~2026 回測跌破防守價後 20 日超額報酬 +0.07%,沒有預測力
   setTimeout(()=>{try{vBox(s);}catch(e){}},1200);            // r1020:驗證過的買賣價位
+  setTimeout(()=>{try{btmStockBox(s);}catch(e){}},1500);     // r1126:🎯 落底燈號
   try{usFundBlock(s);}catch(e){}   // r530:美股財報速覽(SEC XBRL)
   try{const fb=document.getElementById('rptFull');if(fb)fb.onclick=()=>rptFullRun(s);}catch(e12){}   // r790:一鍵完整分析
   window.__costR=null;
@@ -25663,3 +25664,160 @@ setTimeout(async function gLoop(){await guardTick();
   if(location.hash==='#guard'&&!document.getElementById('guardOv')&&typeof isAdmin==='function'&&isAdmin())guardPanel();
   setTimeout(gLoop,(window.__guard&&window.__guard.market==='盤中'?2:10)*60e3);},3000);
 addEventListener('hashchange',()=>{if(location.hash==='#guard'&&typeof isAdmin==='function'&&isAdmin())guardPanel();});
+
+/* ══ r1126:🎯 落底燈號(後端 bottom.py;2014 年起回測驗證,每週重算)══
+   大盤:台股加權、美股 S&P500/那斯達克/費半;個股:台股+美股每一檔。
+   價格類的燈(乖離、站回10日線、破底)用即時價重算;法人/融資/家數類用前一個交易日資料。 */
+let BTM=null,BTM_T=0;
+async function btmLoad(force){
+  if(BTM&&!force&&Date.now()-BTM_T<10*60e3)return BTM;
+  try{const r=await fT('bottom.json?v='+kv()+'_'+Math.floor(Date.now()/600e3),15000,{cache:'no-store'});if(r&&r.ok){BTM=await r.json();BTM_T=Date.now();}}catch(e){}
+  return BTM;
+}
+const BTM_SYM={TW:['^TWII','TW'],SPX:['^GSPC','US'],NDX:['^IXIC','US'],SOX:['^SOX','US']};
+const btmTPday=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Taipei'});
+function btmFmt(v,big){if(v==null||!isFinite(v))return '—';const a=Math.abs(v);return (+v).toLocaleString('en-US',{maximumFractionDigits:big||a>=1000?0:a>=100?1:2,minimumFractionDigits:0});}
+const btmPct=v=>v==null||!isFinite(v)?'—':(v>=0?'+':'')+(v*100).toFixed(1)+'%';
+/* o:{S9,S19,S59,lo19,nl2,N9,N19,N59,nlo19,nl2n};mode 'S'=現價取代最後一根收盤、'N'=現價是新的一天 */
+function btmCalc(P,o,mode){
+  const N=mode==='N',s9=N?o.N9:o.S9,s19=N?o.N19:o.S19,s59=N?o.N59:o.S59,lo=N?o.nlo19:o.lo19,nl=N?o.nl2n:o.nl2;
+  return {b20:P/((s19+P)/20)-1,b60:P/((s59+P)/60)-1,pma10:s9/9,lo,newlow:P<=lo,
+    up:P>s9/9&&!nl&&P>lo,thr:(q,n)=>(1+q)*(n===20?s19:s59)/(n-(1+q))};
+}
+function btmStkObj(id,a){
+  if(!a)return null;const us=!/^\d/.test(id);
+  return {id,us,last:a[0],S9:a[1],S19:a[2],S59:a[3],lo19:a[4],nl2:a[5],N9:a[6],N19:a[7],N59:a[8],nlo19:a[9],nl2n:a[10],
+    q20:a[11],q60:a[12],mf:us?0:a[13],tr:us?0:a[14],hi120:us?a[13]:null,qdd:us?a[14]:null,liq:a[15]};
+}
+function btmIdxLive(key,m){
+  try{if(typeof biasLivePx==='function'){const uTs=Date.parse(String(BTM.u||'').replace(' ','T')+':00+08:00')||0;   // 比 bottom.json 產生時間舊的分線價不算即時
+    const L=biasLivePx({sym:BTM_SYM[key][0],mkt:BTM_SYM[key][1],as_of:m.d,last:m.last},uTs);
+    if(L&&L.px>0)return {px:L.px,d:L.d,ts:L.ts,live:true};}}catch(e){}
+  return {px:m.last,d:m.d,live:false};
+}
+function btmStkLive(o,asof){
+  try{
+    if(!o.us){const r=typeof RTC!=='undefined'&&RTC[o.id];
+      if(typeof marketOpen==='function'&&marketOpen()&&r&&+r.c>0)return {px:+r.c,d:btmTPday(),live:true};}
+    else{const q=typeof usRtGet==='function'&&usRtGet(o.id);
+      if(q&&q.c>0){const d=q.t?new Date(q.t*1000).toLocaleDateString('en-CA',{timeZone:'America/New_York'}):asof;return {px:+q.c,d,live:true};}}
+    const st=(window.DATA&&DATA.stocks||[]).find(x=>x.id===o.id);
+    if(st&&st.price>0&&Math.abs(st.price/o.last-1)<0.25){const d=st.pt?String(st.pt).slice(0,10):asof;return {px:+st.price,d:d>asof?d:asof,live:d>asof};}
+  }catch(e){}
+  return {px:o.last,d:asof,live:false};
+}
+/* 個股:目前亮哪些燈 */
+function btmStkLights(o,L){
+  const mode=L.d>(o.us?BTM.asof.us:BTM.asof.tw)?'N':'S',c=btmCalc(L.px,o,mode),P=L.px;
+  const out=[{k:'20',on:c.b20<=o.q20,val:c.b20,th:c.thr(o.q20,20)},{k:'60',on:c.b60<=o.q60,val:c.b60,th:c.thr(o.q60,60)}];
+  if(o.us){const hi=Math.max(o.hi120,P);out.push({k:'dd',on:P/hi-1<=o.qdd,val:P/hi-1,th:hi*(1+o.qdd)});}
+  else{out.push({k:'mf',on:!!o.mf});out.push({k:'tr',on:!!o.tr});}
+  return {lights:out,n:out.filter(x=>x.on).length,up:c.up,c,mode};
+}
+const BTM_SNAME={'20':['短線超跌','20 日乖離跌到自己近 3 年最低的 5%'],'60':['中線超跌','60 日乖離跌到自己近 3 年最低的 5%'],
+  'dd':['跌幅夠深','離 120 日高點的跌幅,達自己近 3 年最深的 5%'],'mf':['融資洗出','融資從近 20 日高點減少 2 成以上(近 10 天內)'],
+  'tr':['投信進場','投信連續 3 天買超(近 5 天內)']};
+const BTM_MNAME={b60:['中線超跌',''],b20:['短線急跌',''],fx:['外資賣到極端','近 20 日外資累計賣超,達近 3 年最極端的 10%'],
+  br:['全面殺盤','站上月線的股票 ≤ 15%(近 10 天內)'],nl:['恐慌拋售','創 60 日新低的股票 ≥ 20%(近 10 天內)'],
+  thr:['廣度急升','站上月線的股票從 ≤20% 在 15 天內回到 ≥50%'],up:['站回 10 日線','收盤站上 10 日線,而且 3 天沒有再破底']};
+function btmStatLine(on,off,ep){
+  if(!on||!on.n)return '';
+  const w=(on.w60??0)-(off&&off.w60!=null?off.w60:0);
+  return `<span class="btm-st">歷史上跌深時亮燈 → 3 個月後上漲機率 <b style="color:${w>=3?'var(--up)':'var(--txt2)'}">${on.w60}%</b>${off&&off.n?`(沒亮 ${off.w60}%)`:''}、中位 ${on.m60>=0?'+':''}${on.m60}%;之後最多再跌中位 ${on.dd}%${off&&off.n?`(沒亮 ${off.dd}%)`:''}${ep?`・出現過 ${ep} 次`:''}</span>`;
+}
+/* 大盤(單一指數)卡 */
+function btmMktHTML(key){
+  const m=BTM.mkt&&BTM.mkt[key],S=BTM.stats&&BTM.stats.mkt&&BTM.stats.mkt[key];if(!m||!S)return '<div class="dim-note">資料準備中。</div>';
+  const L=btmIdxLive(key,m),mode=L.d>m.d?'N':'S',c=btmCalc(L.px,m,mode),P=L.px,big=key==='TW';
+  const on={b20:c.b20<=m.q20,b60:c.b60<=m.q60,up:c.up,fx:!!(m.on&&m.on.fx),br:!!(m.on&&m.on.br),nl:!!(m.on&&m.on.nl),thr:!!(m.on&&m.on.thr)};
+  const lights=(S.lights||[]).filter(x=>x.pass),fails=(S.lights||[]).filter(x=>!x.pass);
+  const low=lights.filter(x=>x.kind==='low'),stop=lights.filter(x=>x.kind==='stop');
+  const nLow=low.filter(x=>on[x.k]).length,nStop=stop.filter(x=>on[x.k]).length;
+  const cnt=(S.cnt||[]).find(x=>x.k===Math.min(nLow,3))||null,base=S.base||{};
+  const valTxt=k=>k==='b20'?`現在 ${btmPct(c.b20)}(門檻 ${btmPct(m.q20)})`:k==='b60'?`現在 ${btmPct(c.b60)}(門檻 ${btmPct(m.q60)})`
+    :k==='fx'?`近 20 日 ${btmFmt(m.F20,1)} 億(門檻 ${btmFmt(m.F20q,1)} 億)`:k==='br'?`現在 ${m.ab20}%(近 10 天最低 ${m.ab20min10}%)`
+    :k==='nl'?`現在 ${m.lo60}%(近 10 天最高 ${m.lo60max10}%)`:k==='thr'?`站上月線 ${m.ab20}%`:k==='up'?`10 日線 ${btmFmt(c.pma10,big)}・破底線 ${btmFmt(c.lo,big)}`:'';
+  const name=k=>{const n=BTM_MNAME[k]||[k,''];if(k==='b20')return [n[0],`20 日乖離 ≤ ${btmPct(m.q20)}`];if(k==='b60')return [n[0],`60 日乖離 ≤ ${btmPct(m.q60)}`];return n;};
+  const row=x=>{const n=name(x.k),o=on[x.k];return `<div class="btm-row${o?' on':''}${x.kind==='stop'?' stop':''}">
+      <span class="btm-dot"></span><div class="btm-rc"><div><b>${n[0]}</b> <span class="dim">${n[1]}</span><span class="btm-v">${valTxt(x.k)}</span></div>${btmStatLine(x.on,x.off,x.ep)}</div></div>`;};
+  const verdict=nLow===0?(nStop?'還沒跌到歷史低檔,但有止跌跡象':'還沒出現落底訊號(沒有跌到歷史上少見的低檔)')
+    :nStop?`跌到歷史低檔(${nLow} 盞),而且出現止跌訊號`:`跌到歷史低檔(${nLow} 盞),但還沒止跌——歷史上這時候中途通常還會再跌一段`;
+  const prices=[`<div><i>止跌確認價</i><b>${btmFmt(c.pma10,big)}</b><small>收盤站上 10 日線,且 3 天不破底</small></div>`,
+    `<div><i>破底警戒</i><b>${btmFmt(c.lo,big)}</b><small>跌破 = 創 20 日新低</small></div>`];
+  if(low.some(x=>x.k==='b20'))prices.push(`<div><i>短線急跌價</i><b>${btmFmt(c.thr(m.q20,20),big)}</b><small>跌到這以下亮燈</small></div>`);
+  if(low.some(x=>x.k==='b60'))prices.push(`<div><i>中線超跌價</i><b>${btmFmt(c.thr(m.q60,60),big)}</b><small>跌到這以下亮燈</small></div>`);
+  return `<div class="btm-card">
+    <div class="btm-h"><b>${m.name}</b> <span class="btm-px">${btmFmt(P,big)}</span><span class="dim">${L.live?'即時':m.d.slice(5).replace('-','/')+' 收盤'}</span>
+      <span class="btm-pill ${nLow?'on':''}">落底燈 ${nLow}/${low.length}</span><span class="btm-pill ${nStop?'stop':''}">止跌 ${nStop}/${stop.length}</span></div>
+    <div class="btm-verdict">${verdict}</div>
+    ${cnt&&cnt.n?`<div class="btm-st" style="margin:2px 0 8px">歷史上(離高點跌 8% 以上時)亮 ${Math.min(nLow,3)}${nLow>=3?'+':''} 盞:3 個月後上漲機率 <b>${cnt.w60}%</b>、中位 ${cnt.m60>=0?'+':''}${cnt.m60}%,之後最多再跌中位 ${cnt.dd}%。<span class="dim">(同期所有跌深日:${base.w60}%、中位 ${base.m60>=0?'+':''}${base.m60}%、再跌 ${base.dd}%)</span></div>`:''}
+    <div class="btm-prices">${prices.join('')}</div>
+    <div class="btm-sub">落底燈(跌夠深了嗎)</div>${low.map(row).join('')}
+    <div class="btm-sub">止跌燈(開始止跌了嗎)</div>${stop.map(row).join('')||'<div class="dim-note">這個指數沒有通過驗證的止跌燈。</div>'}
+    ${fails.length?`<details class="aip-fold" style="margin-top:6px"><summary class="dim" style="cursor:pointer;font-size:12.5px">驗證沒通過、不採用的燈(${fails.length})</summary><div class="dim-note">${fails.map(x=>`${(BTM_MNAME[x.k]||[x.k])[0]}:亮的時候 3 個月上漲機率 ${x.on.w60??'—'}%、沒亮 ${x.off.w60??'—'}%,沒有比較好`).join('<br>')}</div></details>`:''}
+  </div>`;
+}
+/* 目前落底燈亮最多的個股 */
+function btmTopList(us){
+  const out=[];
+  for(const [id,a] of Object.entries(BTM.stk||{})){
+    if(us!==!/^\d/.test(id)||/^0/.test(id)||BTM_ETF_US.has(id))continue;const o=btmStkObj(id,a);if(!o||!o.liq)continue;   // ETF 不在驗證範圍
+    const R=btmStkLights(o,btmStkLive(o,us?BTM.asof.us:BTM.asof.tw));if(R.n<2)continue;
+    out.push({id,n:R.n,up:R.up,b20:R.c.b20});
+  }
+  out.sort((a,b)=>b.n-a.n||(b.up-a.up)||a.b20-b.b20);
+  const nm=id=>{const s=(window.DATA&&DATA.stocks||[]).find(x=>x.id===id);return s?s.name:id;};
+  const tot=us?3:4;
+  return out.slice(0,16).map(x=>`<a class="glb-stk" href="#stock/${encodeURIComponent(x.id)}" title="落底燈 ${x.n}/${tot}${x.up?'・已站回 10 日線':''}">${newsEsc(nm(x.id))} ${newsEsc(x.id)} <b>${x.n}/${tot}</b>${x.up?' ✓止跌':''}</a>`).join('')||'<span class="dim">目前沒有亮 2 盞以上的股票。</span>';
+}
+let BTM_US_TAB='SOX';
+const BTM_ETF_US=new Set(['SPY','QQQ','SOXX','SMH','DIA','IWM','EEM','EFA','GLD','TLT','HYG','XLK','XLF','XLE','VTI','VOO']);
+function btmRender(){
+  const box=document.getElementById('btmBox');if(!box)return;
+  if(!BTM||!BTM.mkt){box.innerHTML='<div class="dim-note">⏳ 落底燈號載入中…(由每日更新產生 bottom.json)</div>';return;}
+  const us=window.GMKT==='US',S=BTM.stats&&BTM.stats.stk&&BTM.stats.stk[us?'US':'TW'];
+  let html='';
+  if(us){html+=`<div class="ind-seg" id="btmUsSeg" style="display:flex;margin:2px 0 10px">${['SPX','NDX','SOX'].map(k=>`<button data-k="${k}" class="${BTM_US_TAB===k?'on':''}">${(BTM.mkt[k]||{}).name||k}</button>`).join('')}</div>`+btmMktHTML(BTM_US_TAB);}
+  else html+=btmMktHTML('TW');
+  const c3=S&&(S.cnt||[]).find(x=>x.k===(us?3:3)),c0=S&&(S.cnt||[]).find(x=>x.k===0);
+  html+=`<div class="btm-card" style="margin-top:10px"><div class="btm-sub" style="margin-top:0">${us?'美股':'台股'}個股:落底燈亮最多的(流動性足夠的才列)</div>
+    <div style="line-height:2">${btmTopList(us)}</div>
+    ${c3&&c0?`<div class="btm-st">個股亮 3 盞以上時,歷史上 3 個月後上漲機率 ${c3.w60}%、中位 ${c3.m60>=0?'+':''}${c3.m60}%(一盞都沒亮:${c0.w60}%、${c0.m60>=0?'+':''}${c0.m60}%)。點進個股頁看每顆燈與門檻價。</div>`:''}</div>
+  <div class="dim-note" style="margin-top:8px">怎麼驗證:${BTM.period||''} 年真實資料(台股全部上市櫃、美股 S&P 500 成分股與 SPY/QQQ/SOXX)。大盤燈是在「離一年高點跌 8% 以上」的日子裡比較亮燈和沒亮燈之後 3 個月的表現,比較好的才採用;個股燈是統計所有股票「亮幾盞」之後的表現。驗證每週重算一次(${(BTM.stats_u||'').slice(5,16)})。歷史統計不保證未來,不是投資建議。</div>`;
+  box.innerHTML=html;
+  const seg=document.getElementById('btmUsSeg');if(seg)seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{BTM_US_TAB=b.dataset.k;btmRender();});
+}
+lazyRun('#btmBox',()=>{Promise.all([btmLoad(),typeof yextData==='function'?yextData().catch(()=>{}):null]).then(()=>btmRender());},20*1000);
+document.addEventListener('click',e=>{if(e.target&&e.target.closest&&e.target.closest('#gmktBar button'))setTimeout(()=>{try{btmRender();}catch(e2){}},120);});
+/* 個股頁卡片 */
+async function btmStockBox(s){
+  try{
+    if(!s||s.etf||/^0/.test(s.id)||BTM_ETF_US.has(s.id))return;await btmLoad();if(!BTM||!BTM.stk)return;if(location.hash!=='#stock/'+s.id)return;   // ETF 不在驗證範圍,不顯示
+    const o=btmStkObj(s.id,BTM.stk[s.id]);
+    let box=document.getElementById('btmStkBox');
+    if(!box){const sb=document.getElementById('sb-stk_k');if(!sb)return;box=document.createElement('div');box.id='btmStkBox';box.dataset.jumpname='🎯 落底燈號';
+      const v=document.getElementById('vBox');if(v&&v.parentNode===sb)v.after(box);else sb.prepend(box);}
+    if(!o){box.innerHTML='';return;}
+    const S=BTM.stats&&BTM.stats.stk&&BTM.stats.stk[o.us?'US':'TW'];
+    const L=btmStkLive(o,o.us?BTM.asof.us:BTM.asof.tw),R=btmStkLights(o,L),P=L.px,tot=R.lights.length;
+    const cnt=S&&(S.cnt||[]).find(x=>x.k===R.n),c0=S&&(S.cnt||[]).find(x=>x.k===0),st=S&&S.stop;
+    const lst={};(S&&S.lights||[]).forEach(x=>lst[x.k]=x);
+    const row=x=>{const n=BTM_SNAME[x.k]||[x.k,''],v=x.val!=null?`現在 ${btmPct(x.val)}`:'',t=x.th!=null?`・<b>${btmFmt(x.th)}</b> 以下會亮`:'',sx=lst[x.k];
+      return `<div class="btm-row${x.on?' on':''}"><span class="btm-dot"></span><div class="btm-rc"><div><b>${n[0]}</b> <span class="dim">${n[1]}</span><span class="btm-v">${v}${x.on?'':t}</span></div>${sx?btmStatLine(sx.on,sx.off):''}</div></div>`;};
+    const verdict=R.n===0?'還沒出現落底訊號':R.up?`亮 ${R.n} 盞,而且已經止跌(站回 10 日線)`:`亮 ${R.n} 盞,但還沒止跌——還在破底的話先別急`;
+    box.innerHTML=`<div class="dim-block btm-stk" style="border-left:4px solid ${R.n>=3?'var(--t-gold)':R.n?'var(--amber)':'var(--line)'}">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:15px">🎯 落底燈號</b>
+        <span class="btm-pill ${R.n?'on':''}">落底燈 ${R.n}/${tot}</span><span class="btm-pill ${R.up?'stop':''}">止跌 ${R.up?'✓':'—'}</span>
+        <span class="dim" style="margin-left:auto;font-size:12px">${L.live?'依即時價':'依 '+(o.us?BTM.asof.us:BTM.asof.tw).slice(5).replace('-','/')+' 收盤'}</span></div>
+      <div class="btm-verdict">${verdict}</div>
+      ${cnt&&cnt.n?`<div class="btm-st">歷史上${o.us?'美股':'台股'}個股同樣亮 ${R.n} 盞時:3 個月後上漲機率 <b>${cnt.w60}%</b>、中位 ${cnt.m60>=0?'+':''}${cnt.m60}%;之後最多再跌中位 ${cnt.dd}%${c0&&R.n?`<span class="dim">(一盞都沒亮:${c0.w60}%、${c0.m60>=0?'+':''}${c0.m60}%)</span>`:''}。</div>`:''}
+      <div class="btm-prices">
+        <div><i>止跌確認價</i><b>${btmFmt(R.c.pma10)}</b><small>收盤站上 10 日線、3 天不破底</small></div>
+        <div><i>破底警戒</i><b>${btmFmt(R.c.lo)}</b><small>跌破 = 創 20 日新低</small></div>
+        <div><i>現價</i><b>${btmFmt(P)}</b><small>${R.c.newlow?'⚠ 正在破底':'沒有破底'}</small></div></div>
+      ${R.lights.map(row).join('')}
+      ${st&&st.on&&st.on.n?`<div class="btm-st" style="margin-top:6px">止跌確認的意義:亮 2 盞以上時,已站回 10 日線的 → 3 個月上漲機率 ${st.on.w60}%、之後再跌中位 ${st.on.dd}%;還沒站回的 → ${st.off.w60}%、再跌 ${st.off.dd}%。</div>`:''}
+      <div class="dim-note" style="margin-top:6px">門檻是用這檔股票「自己」近 3 年的走勢算的,不跟大盤比。歷史統計來自 ${BTM.period||''} 全部${o.us?'美股 S&P 500 成分股':'上市櫃股票'},不保證未來。</div></div>`;
+  }catch(e){}
+}
+setInterval(()=>{try{const m=location.hash.match(/^#stock\/(.+)$/);if(m&&document.getElementById('btmStkBox')){const s=(DATA.stocks||[]).find(x=>x.id===decodeURIComponent(m[1]));if(s)btmStockBox(s);}}catch(e){}},20*1000);

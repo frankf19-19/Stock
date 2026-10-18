@@ -1,0 +1,37 @@
+name: 🎯 落底燈號
+on:
+  workflow_dispatch:
+    inputs:
+      stats:
+        description: "重算 10 年驗證(1=是)"
+        required: false
+        default: "0"
+  schedule:
+    - cron: "10 2 * * 6"     # 台北週六 10:10:每週重算一次驗證(平日由 update_data 每輪順便更新當天燈號)
+permissions:
+  contents: write
+concurrency:
+  group: bottom
+  cancel-in-progress: false
+jobs:
+  bottom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install numpy pandas
+      - name: 計算落底燈號
+        env:
+          BOTTOM_STATS: ${{ github.event.inputs.stats == '1' && '1' || (github.event_name == 'schedule' && '1' || '0') }}
+          PYTHONUNBUFFERED: "1"
+        run: python bottom.py
+      - name: 提交
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add bottom.json bottom_stats.json 2>/dev/null || true
+          git add archive/hist/bottom 2>/dev/null || true
+          git commit -m "落底燈號更新 [CI Skip]" || { echo "無變更"; exit 0; }
+          for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && break; git rebase --abort 2>/dev/null || true; sleep $((i*7)); done
