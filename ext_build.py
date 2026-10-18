@@ -457,7 +457,9 @@ def daily(S):
             res = {"d": d, "spot": spot, "c": {}}
             X = opt_expiry(O)
             for kind in ("m", "w"):
-                cons = sorted(c for c in day if (re.fullmatch(r"\d{6}", c) is not None) == (kind == "m"))
+                dd = d.replace("-", "")
+                cons = [c for c in day if (re.fullmatch(r"\d{6}", c) is not None) == (kind == "m")]
+                cons = sorted((c for c in cons if (day[c].get("x") or "99999999") > dd), key=lambda c: (day[c].get("x") or "99999999", c))
                 if not cons or not spot: continue
                 cn = cons[0]; e = day[cn]
                 pw, cw, pcr = walls(e, spot)

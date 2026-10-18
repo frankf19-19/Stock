@@ -237,7 +237,7 @@ def _opt_parse(text):
 def _opt_slim(day):
     """每天只留:最近 2 個月選 + 最近 2 個週選(還有未平倉的);履約價壓成 [履約價, 買權OI, 賣權OI]"""
     mon = sorted(c for c in day if re.fullmatch(r"\d{6}", c))[:2]
-    wk = sorted((c for c in day if not re.fullmatch(r"\d{6}", c)), key=lambda c: (c[:6], c[6:]))[:2]
+    wk = sorted((c for c in day if not re.fullmatch(r"\d{6}", c)), key=lambda c: (day[c].get("x") or c[:6] + "99", c))[:3]
     o = {}
     for c in mon + wk:
         e = day[c]; ks = sorted(set(e["c"]) | set(e["p"]))
