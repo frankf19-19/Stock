@@ -2608,3 +2608,5 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .lab-k>div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:7px 10px}.lab-k i{display:block;font-style:normal;font-size:11.5px;color:var(--dim)}
 .lab-k b{display:block;font-size:19px;font-family:var(--mono)}.lab-k small{font-size:11px;color:var(--dim)}
 .vw-lvr.opt>span:first-child{color:#8E7CC3}
+.vw-bd.dg{color:var(--t-orange);border-color:var(--t-orange)}
+.vw-ckr.on .vw-bd.dg~*{}

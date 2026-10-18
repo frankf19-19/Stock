@@ -249,12 +249,26 @@ def checklist(F):
         L.append({"g": "半導體", "k": "sox_nolow", "t": "費半 5 天不再創新低", "now": (not nl["SOX"]["last5"]) and nl["SOX"]["last20"],
                   "v": "近 5 天有創 20 日新低" if nl["SOX"]["last5"] else ("近 20 天有破底、這 5 天守住" if nl["SOX"]["last20"] else "近 20 天收盤都沒有創 20 日新低"),
                   **vstat(VS, "SOX", "nolow")})
+    # r1130:美國金融壓力(FRED 1990 起回測;美股跌深時)
+    try:
+        X = jl("ext.json", {}) or {}; fr = X.get("fred") or {}; FL = ((fr.get("stats") or {}).get("lights") or {}); on = fr.get("on") or {}
+        cur = fr.get("cur") or {}
+        for k, t, v in (("vix_hi", "VIX ≥ 30(美股恐慌)", f"現在 VIX {((cur.get('VIXCLS') or {}).get('v'))}"),
+                        ("credit_hi", "美國公司債利差飆高(近 3 年最高 10%)", f"現在 {((cur.get('BAA10Y') or {}).get('v'))}%,門檻 {fr.get('q90')}%")):
+            x = FL.get(k)
+            if not x: continue
+            o, f = x.get("on") or {}, x.get("off") or {}
+            st = "danger" if x.get("flip") else ("ok" if x.get("pass") else "fail")
+            L.append({"g": "美股・利率", "k": k, "t": t, "now": bool(on.get(k)), "v": v, "st": st,
+                      "on": {"n": o.get("n"), "w20": o.get("w60"), "w60": o.get("w120"), "m60": o.get("m120"), "dd": o.get("dd")},
+                      "off": {"n": f.get("n"), "w20": f.get("w60"), "w60": f.get("w120"), "m60": f.get("m120"), "dd": f.get("dd")}, "ep": x.get("ep"), "hz": "6m"})
+    except Exception: pass
     # 回測條件是「離一年高點跌 8% 以上」:還沒跌深時,價格/籌碼類項目不適用,不打勾也不打叉
     dd = {x["k"]: x.get("dd") for x in F.get("idx", [])}
     for c in L:
-        m = "SOX" if c["g"] == "半導體" else "TW" if c["g"] == "台股" else None
+        m = "SOX" if c["g"] == "半導體" else "TW" if c["g"] == "台股" else "SPX" if c["g"] == "美股・利率" else None
         if m and c["st"] != "nodata" and dd.get(m) is not None and dd[m] > -8:
-            c["na"] = f"{'費半' if m == 'SOX' else '加權'}離高點只跌 {abs(dd[m]):.1f}%,還不算跌深(回測條件是跌 8% 以上),這項先不適用"
+            c["na"] = f"{'費半' if m == 'SOX' else 'S&P 500' if m == 'SPX' else '加權'}離高點只跌 {abs(dd[m]):.1f}%,還不算跌深(回測條件是跌 8% 以上),這項先不適用"
     return L, VS.get("period") or ""
 
 
@@ -320,7 +334,7 @@ def facts_text(F, CL):
     if F.get("fng"): L.append(f"・CNN 恐懼貪婪指數 {F['fng']['v']}({F['fng']['r']};一週前 {F['fng'].get('w')})")
     if F.get("events"): L.append("・即將發生:" + ";".join(f"{e['d']} {e['t']}" for e in F["events"]))
     now = lambda c: "目前不適用(還沒跌深)" if c.get("na") else "目前成立" if c["now"] else "目前未成立"
-    for st, lab in (("ok", "【回測有效】(跌深時可以當依據)"), ("fail", "【回測沒比較好】(歷史上不可靠,不能當依據)"), ("nodata", "【無法回測】(僅供觀察)")):
+    for st, lab in (("ok", "【回測有效】(跌深時可以當依據)"), ("danger", "【回測有效・危險訊號】(成立時之後更容易再跌)"), ("fail", "【回測沒比較好】(歷史上不可靠,不能當依據)"), ("nodata", "【無法回測】(僅供觀察)")):
         g = [c for c in CL if c["st"] == st]
         if g: L.append(f"・落底清單{lab}:" + ";".join(f"{c['t']}({now(c)})" for c in g))
     return "\n".join(L)

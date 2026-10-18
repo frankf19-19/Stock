@@ -139,7 +139,10 @@ def stats_fred(spx):
             on, off = grp(D, C & s), grp(D, C & ~s)
             ep = episodes(C & s & D.r120.notna())
             ok = judge_low(on, off, ep)
-        out[k] = {"name": FRED_NAME[k], "kind": FRED_KIND[k], "pass": ok, "ep": ep, "on": on, "off": off}
+        flip = False
+        if not ok and FRED_KIND[k] != "risk" and on.get("n", 0) >= 60 and ep >= 4:   # 成立時反而更差 → 當「危險訊號」
+            flip = bool((off.get("w120") or 0) - (on.get("w120") or 0) >= 5 or (on.get("dd") or 0) - (off.get("dd") or 0) <= -2)
+        out[k] = {"name": FRED_NAME[k], "kind": FRED_KIND[k], "pass": ok or flip, "flip": flip, "ep": ep, "on": on, "off": off}
         log(f"  FRED {k:12s} {'✓' if ok else '✗'} ep{ep} on {on} | off {off}")
     return {"lights": out, "period": f"{D.index[0].year}~{D.index[-1].year}", "base": grp(D, C), "all": grp(D, pd.Series(True, index=D.index))}
 
@@ -179,7 +182,9 @@ def stats_biz(twii):
             ok = on.get("n", 0) >= 120 and ep >= 3 and ((off.get("w250") or 0) - (on.get("w250") or 0) >= 5 or (off.get("m250") or 0) - (on.get("m250") or 0) >= 3)
         else:
             ok = on.get("n", 0) >= 120 and ep >= 3 and ((on.get("w250") or 0) - (off.get("w250") or 0) >= 5 or (on.get("m250") or 0) - (off.get("m250") or 0) >= 3)
-        out[k] = {"name": NM[k], "kind": "risk" if k.startswith("red") else "buy", "pass": ok, "ep": ep, "on": on, "off": off}
+        d6 = (on.get("w120") or 0) - (off.get("w120") or 0)
+        out[k] = {"name": NM[k], "kind": "risk" if k.startswith("red") else "buy", "pass": ok, "ep": ep, "on": on, "off": off,
+                  "p6": bool(on.get("n", 0) >= 120 and ep >= 3 and (d6 <= -5 if k.startswith("red") else d6 >= 5))}
         log(f"  景氣 {k:10s} {'✓' if ok else '✗'} ep{ep} on {on} | off {off}")
     return {"lights": out, "period": f"{D.index[0].year}~{D.index[-1].year}", "all": grp(D, pd.Series(True, index=D.index))}
 

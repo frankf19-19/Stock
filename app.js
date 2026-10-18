@@ -25925,8 +25925,8 @@ function vwLevels(L){
 }
 function vwCheck(c,period){
   const icon=c.na?'<span class="vw-ck na">—</span>':c.now?'<span class="vw-ck on">✓</span>':'<span class="vw-ck">☐</span>';
-  const badge=c.st==='ok'?'<span class="vw-bd ok">回測有效</span>':c.st==='fail'?'<span class="vw-bd fail">歷史上不可靠</span>':'<span class="vw-bd nd">無法回測・僅供觀察</span>';
-  const s=x=>x&&x.n?`3 個月後上漲機率 <b>${x.w60}%</b>、中位 ${x.m60>=0?'+':''}${x.m60}%;1 個月 ${x.w20}%;之後最多再跌中位 ${x.dd}%`:'—';
+  const badge=c.st==='ok'?'<span class="vw-bd ok">回測有效</span>':c.st==='danger'?'<span class="vw-bd dg">回測有效・危險訊號</span>':c.st==='fail'?'<span class="vw-bd fail">歷史上不可靠</span>':'<span class="vw-bd nd">無法回測・僅供觀察</span>';
+  const s=x=>x&&x.n?(c.hz==='6m'?`6 個月後上漲機率 <b>${x.w60}%</b>、中位 ${x.m60>=0?'+':''}${x.m60}%;3 個月 ${x.w20}%;之後最多再跌中位 ${x.dd}%`:`3 個月後上漲機率 <b>${x.w60}%</b>、中位 ${x.m60>=0?'+':''}${x.m60}%;1 個月 ${x.w20}%;之後最多再跌中位 ${x.dd}%`):'—';
   const det=c.st==='nodata'?vwE(c.note||''):`跌深(離一年高點 ≥8%)的日子裡,<br>・成立時:${s(c.on)}<br>・不成立時:${s(c.off)}<br><span class="dim">${period||''} 共 ${c.ep||'—'} 段行情</span>`;
   return `<div class="vw-ckr${c.now&&!c.na?' on':''}">${icon}<div class="vw-ckc"><div><b>${vwE(c.t)}</b> ${badge}</div>
     <div class="dim" style="font-size:12.5px">${vwE(c.v||'')}${c.na?`<br>${vwE(c.na)}`:''}</div>
@@ -26013,7 +26013,8 @@ function extBizCard(B){
   const [m,sc,col]=B.last,C=BIZ_C[col]||['—','var(--line)'],S=(B.stats||{}).lights||{};
   const strip=(B.h||[]).map(x=>`<span class="ex-bz" title="${x[0]} ${x[1]} 分 ${(BIZ_C[x[2]]||['-'])[0]}" style="background:${(BIZ_C[x[2]]||['','var(--line)'])[1]}"></span>`).join('');
   const line=k=>{const x=S[k];if(!x||!x.on||!x.on.n)return '';const risk=x.kind==='risk';
-    return `<div class="ex-st">${extBadge(x.pass,risk?'回測有效(警訊)':'回測有效')} <b>${extE(x.name)}</b>:之後 1 年上漲機率 <b>${x.on.w250}%</b>(其他時候 ${x.off.w250}%)、中位 ${extPct(x.on.m250,1)}(其他 ${extPct(x.off.m250,1)})・出現 ${x.ep} 段</div>`;};
+    const st=x.pass?extBadge(true,risk?'回測有效(警訊)':'回測有效'):x.p6?'<span class="vw-bd ok">6 個月有效</span>':extBadge(false);
+    return `<div class="ex-st">${st} <b>${extE(x.name)}</b>:之後 1 年上漲機率 <b>${x.on.w250}%</b>(其他時候 ${x.off.w250}%)、中位 ${extPct(x.on.m250,1)}(其他 ${extPct(x.off.m250,1)});6 個月 ${x.on.w120}%(其他 ${x.off.w120}%)・出現 ${x.ep} 段${x.ep<6?'(樣本少)':''}</div>`;};
   return `<div class="ex-card"><div class="ex-h">🇹🇼 景氣對策信號 <span class="dim">國發會・每月底公布上個月</span></div>
     <div class="ex-big"><b style="color:${C[1]}">● ${C[0]}</b> <span>${m.replace('-','/')} ${sc} 分</span>${B.lead_up3?' <span class="vw-bd ok">領先指標連 3 個月上升</span>':''}</div>
     <div class="ex-strip">${strip}</div><div class="dim" style="font-size:11.5px">近 5 年每月燈號(藍=低迷 → 紅=過熱)</div>
@@ -26026,9 +26027,9 @@ function extFredCard(Fr){
   const row=(k,nm,fmt,note)=>{const x=c[k];if(!x)return '';return `<tr><td><b>${nm}</b></td><td class="r">${fmt(x.v)}</td><td class="r">${x.c20!=null?(x.c20>0?'+':'')+(+x.c20).toFixed(2):'—'}</td><td class="dim" style="font-size:12px">${note||''} ${String(x.d).slice(5).replace('-','/')}</td></tr>`;};
   const f2=v=>(+v).toFixed(2);
   const lt=k=>{const x=S[k];if(!x)return '';const n=x.on||{},o=x.off||{};const risk=x.kind==='risk';
-    return `<div class="vw-ckr${on[k]?' on':''}"><span class="vw-ck${on[k]?' on':''}">${on[k]?'✓':'☐'}</span><div class="vw-ckc"><div><b>${extE(x.name)}</b> ${extBadge(x.pass,risk?'回測有效(警訊)':'回測有效')}</div>
+    return `<div class="vw-ckr${on[k]?' on':''}"><span class="vw-ck${on[k]?' on':''}">${on[k]?'✓':'☐'}</span><div class="vw-ckc"><div><b>${extE(x.name)}</b> ${extBadge(x.pass,risk||x.flip?'回測有效(危險訊號)':'回測有效(落底訊號)')}</div>
       <div class="dim" style="font-size:12.5px">${risk?`成立時之後 1 年上漲機率 ${n.w250??'—'}%(不成立 ${o.w250??'—'}%),之後 6 個月最多再跌中位 ${n.dd??'—'}%(${o.dd??'—'}%)`
-        :`美股跌深時成立 → 6 個月後上漲機率 ${n.w120??'—'}%(不成立 ${o.w120??'—'}%),之後最多再跌中位 ${n.dd??'—'}%(${o.dd??'—'}%)`}・${x.ep} 段</div></div></div>`;};
+        :`美股跌深時成立 → 6 個月後上漲機率 ${n.w120??'—'}%(不成立 ${o.w120??'—'}%),之後最多再跌中位 ${n.dd??'—'}%(${o.dd??'—'}%)${x.flip?'——<b>成立時反而更危險</b>,不是落底訊號':''}`}・${x.ep} 段</div></div></div>`;};
   return `<div class="ex-card"><div class="ex-h">🇺🇸 美國金融壓力 <span class="dim">FRED・資金面出事的領先指標</span></div>
     <div class="vw-tw" style="margin:6px 0"><table class="vw-t"><thead><tr><th>指標</th><th class="r">現在</th><th class="r">20 日變化</th><th></th></tr></thead><tbody>
     ${row('BAA10Y','Baa 公司債利差',v=>f2(v)+'%',Fr.q90?`近 3 年最高 10% 門檻 ${Fr.q90}%`:'')}${row('BAMLH0A0HYM2','高收益債利差',v=>f2(v)+'%')}
