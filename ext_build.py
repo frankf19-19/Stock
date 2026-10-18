@@ -35,15 +35,22 @@ def r1(x, n=1):
 def idx_daily(sym):
     os.makedirs(f"{E}/idx", exist_ok=True)
     fp = f"{E}/idx/{sym.replace('^', '')}.json.gz"
-    A = gz(fp, {})
+    A = gz(fp, {}) or {}
+    if A.get("_v") != 2: A = {"_v": 2}                     # 舊版快取(range=max 會回傳季線,不是日線)整個重抓
     try:
-        r = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}",
-                         params={"range": "max", "interval": "1d"}, headers=UA, timeout=60)
-        r0 = r.json()["chart"]["result"][0]
-        for t, c in zip(r0["timestamp"], r0["indicators"]["quote"][0]["close"]):
-            if c: A[dt.datetime.fromtimestamp(t, dt.timezone.utc).date().isoformat()] = round(float(c), 2)
-        json_gz(fp, A)
+        new = {}
+        for p0, p1 in ((0, 1262304000), (1262304000, int(time.time()) + 86400)):   # 分兩段要日線,避免 Yahoo 自動降成月/季線
+            r = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}",
+                             params={"period1": p0, "period2": p1, "interval": "1d"}, headers=UA, timeout=60)
+            r0 = r.json()["chart"]["result"][0]
+            if (r0.get("meta") or {}).get("dataGranularity") not in (None, "1d"): log(f"  {sym} 粒度 {r0['meta'].get('dataGranularity')},略過這段"); continue
+            for t, c in zip(r0.get("timestamp") or [], r0["indicators"]["quote"][0]["close"]):
+                if c: new[dt.datetime.fromtimestamp(t, dt.timezone.utc).date().isoformat()] = round(float(c), 2)
+            time.sleep(1)
+        if len(new) > 2000: A.update(new); json_gz(fp, A)
+        log(f"  {sym}:日線 {len(A) - 1} 天({min(k for k in A if k != '_v')}~)")
     except Exception as e: log(f"  {sym} 抓取失敗 {e}(用舊資料)")
+    A.pop("_v", None)
     s = pd.Series(A, dtype=float); s.index = pd.to_datetime(s.index)
     return s.sort_index()
 

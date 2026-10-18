@@ -166,6 +166,8 @@ def check_files():
     else: check_age("yext", "每日資料", "國際行情", "yext.json", "updated", 72, 100, fix="yext.yml")
     check_file("usf", "每日資料", "美股財報", "usf.json", "updated", expect_us(2, "12:00"), expect_us(4, "12:00"), fix="usf.yml")
     check_age("holiday", "每日資料", "休市行事曆", "holidays.json", "updated", 72, 168)
+    check_age("ext", "每日資料", "內部人・選擇權・景氣・金融壓力", "ext.json", "u", 62, 90, fix="ext.yml")      # r1130
+    check_age("view", "每日資料", "盤勢解讀", "view.json", "gen", 62, 90, fix="view.yml")                    # r1129
     # 產業早報:每天 07:50 後要是今天的
     nj = load("news.json", {})
     nd = nj.get("date")
@@ -194,7 +196,7 @@ def check_integrity(state):
     add("integrity", "資料完整", "主資料完整性", st, msg)
     # 重要 JSON 檔能不能讀(壞檔自動還原)
     bad = []
-    for p in ["data.json", "aipick.json", "aipick_us.json", "spark.json", "brain.json", "news.json", "yext.json", "margin.json", "tdcc.json", "aitrader.json", "signal_log.json", "holidays.json"]:
+    for p in ["data.json", "aipick.json", "aipick_us.json", "spark.json", "brain.json", "news.json", "yext.json", "margin.json", "tdcc.json", "aitrader.json", "signal_log.json", "holidays.json", "bottom.json", "view.json", "ext.json"]:
         if os.path.exists(p) and load(p, None) is None: bad.append(p)
     if bad:
         fixed = [p for p in bad if restore_json(p)]
