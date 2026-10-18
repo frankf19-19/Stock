@@ -13,8 +13,7 @@
 import json, os, re, sys, time, math
 import datetime as dt
 import requests
-from fetch_news import rss, norm, gemini as _gem_news, KEY, UA
-import fetch_news
+from fetch_news import rss, norm, KEY
 
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
@@ -312,14 +311,47 @@ def prompt(F, CL, items):
 4. where:2~4 句,用數據說明現在跌到/漲到哪裡、哪個市場已經到歷史低檔、哪個還沒有、籌碼(融資/外資/散戶)洗乾淨了沒。
 5. timing:2~3 句,說明接下來哪些事件會決定方向(用數據裡的「即將發生」事件和新聞),以及「看到什麼」才比較可能落底/轉弱。
    提到落底清單時,要尊重回測結果:【回測有效】的可以當依據;【回測沒比較好】的要說「歷史上不可靠」;【無法回測】的說「僅供觀察」。
+5b. 寫原因時要像資深研究員講「因果鏈」(例如 通膨高於預期 → 升息機率上升 → 高本益比的半導體先被賣),
+   並分清楚是「需求/基本面變差」還是「利率/資金/籌碼」的問題——這會決定要等什麼才會落底;至少一條講台股自己的原因。
 6. scen:樂觀、中性、悲觀三種劇本,各 1~2 句,要帶關鍵價位(用數據裡的價位);likely=true 標你認為最可能的那一個(只能一個)。
-7. tips:2~3 條一般性的參考做法(例如分批、先看哪類股票),不要寫具體買賣某檔股票的建議。
+7. tips:2~3 條一般性的參考做法(例如分批、先看哪類股票),不要寫具體買賣某檔股票的建議;
+   不准把【回測沒比較好】的訊號當成進場或止穩依據(例如那些項目不能寫成「若…就是止穩訊號」)。
 8. 全部繁體中文(台灣用語),不要用驚嘆號,不要寫「投資一定有風險」這類套話(網站會統一加註)。"""
 
 
+def gemini(p):
+    """先試推理能力較強的 2.5 Pro(免費額度),不行再用 Flash 系列"""
+    if not KEY: log("  ✗ 沒有 GEMINI_KEY"); return None
+    for mdl in ["gemini-2.5-pro", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-2.0-flash"]:
+        gc = {"maxOutputTokens": 12000, "temperature": 0.3, "responseMimeType": "application/json", "responseSchema": SCHEMA}
+        if not mdl.startswith("gemini-2.0"): gc["thinkingConfig"] = {"thinkingBudget": 4096}
+        try:
+            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent?key={KEY}",
+                              json={"contents": [{"role": "user", "parts": [{"text": p}]}], "generationConfig": gc}, timeout=240)
+            if not r.ok: log(f"  gemini {mdl} {r.status_code},換模型"); time.sleep(6); continue
+            cand = (r.json().get("candidates") or [{}])[0]
+            txt = "".join(x.get("text", "") for x in ((cand.get("content") or {}).get("parts") or []) if not x.get("thought"))
+            j = json.loads(txt); j["_model"] = mdl; return j
+        except Exception as e:
+            log(f"  gemini {mdl} 失敗:{str(e)[:150]}"); time.sleep(6)
+    return None
+
+
+# 回測沒比較好的項目:建議裡同時出現這些字 → 該條建議拿掉(避免 AI 把不可靠的訊號當依據)
+FAIL_KW = {"fbuy3": [["外資", "買超"], ["外資", "回補現貨"]], "mwash10": [["融資", "洗"], ["融資", "減少"]],
+           "nolow": [["加權", "新低"]], "sox_ma60": [["費半", "季線"], ["費城", "季線"]], "sox_nolow": [["費半", "新低"], ["費城", "新低"]]}
+
+
+def bad_tip(t, CL):
+    for c in CL:
+        if c.get("st") == "fail":
+            for kws in FAIL_KW.get(c["k"], []):
+                if all(k in t for k in kws): return True
+    return False
+
+
 def ai_view(F, CL, items):
-    fetch_news.SCHEMA = SCHEMA      # 共用早報的 Gemini 呼叫(模型輪替、重試)
-    j = _gem_news(prompt(F, CL, items))
+    j = gemini(prompt(F, CL, items))
     if not j: return None
     def src(i):
         x = items[i]
@@ -336,7 +368,7 @@ def ai_view(F, CL, items):
             if s["likely"] and seen: s["likely"] = False
             seen = seen or s["likely"]
     return {"head": (j.get("head") or "").strip(), "causes": causes, "where": (j.get("where") or "").strip(),
-            "timing": (j.get("timing") or "").strip(), "scen": scen, "tips": [t.strip() for t in j.get("tips") or [] if t.strip()][:3],
+            "timing": (j.get("timing") or "").strip(), "scen": scen, "tips": [t.strip() for t in j.get("tips") or [] if t.strip() and not bad_tip(t, CL)][:3],
             "model": j.get("_model", ""), "n_in": len(items)}
 
 
