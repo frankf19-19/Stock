@@ -67,7 +67,7 @@ def insider_tw(backfill=False):
                 except Exception as e: log(f"  {y}-{m} {mk} 錯誤 {e}")
                 time.sleep(10 * (k + 1))
             if t is None: continue
-            cnt = 0
+            cnt = 0; got = {}
             for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", t, re.S | re.I):
                 c = cells(tr)
                 i = next((j for j, x in enumerate(c[:3]) if re.match(r"\d{2,3}/\d{2}/\d{2}$", x)), None)
@@ -75,14 +75,24 @@ def insider_tw(backfill=False):
                 c = c[i:]
                 d = roc2iso(c[0]); code = c[1]
                 if not d or not re.match(r"^\d{4,6}[A-Z]?$", code): continue
-                per = c[14].replace(" ", "")
+                # 欄位:申報日、代號、名稱、身分、姓名、轉讓方式、盤中最大可轉讓、受讓人(2 欄)、目前持股(自有/信託)、
+                #       預定轉讓(自有/信託)、轉讓後(自有/信託)、有效期間(2026-10 實測:受讓人後面多一個空欄)
+                off = 1 if len(c) >= 16 else 0
+                per = " ".join(c[14 + off:16 + off]).replace(" ", "")
                 pm = re.findall(r"\d{2,3}/\d{2}/\d{2}", per)
-                rec = {"d": d, "id": code, "n": c[2], "role": c[3], "who": c[4], "how": c[5], "max": num(c[6]), "to": c[7],
-                       "hold": num(c[8]), "hold_t": num(c[9]), "sh": num(c[10]), "sh_t": num(c[11]), "after": num(c[12]),
-                       "after_t": num(c[13]), "p0": roc2iso(pm[0]) if pm else None, "p1": roc2iso(pm[1]) if len(pm) > 1 else None, "mk": mk}
-                key = f"{d}|{code}|{c[4]}|{c[5]}|{c[10]}"
-                if key not in rows: n_new += 1
-                rows[key] = rec; cnt += 1
+                rec = {"d": d, "id": code, "n": c[2], "role": c[3], "who": c[4], "how": c[5], "max": (num(c[6]) or num(c[7])) if off else num(c[6]), "to": c[8] if off else c[7],
+                       "hold": num(c[8 + off]), "hold_t": num(c[9 + off]), "sh": num(c[10 + off]), "sh_t": num(c[11 + off]),
+                       "after": num(c[12 + off]), "after_t": num(c[13 + off]),
+                       "p0": roc2iso(pm[0]) if pm else None, "p1": roc2iso(pm[1]) if len(pm) > 1 else None, "mk": mk}
+                if rec["hold"] is not None and rec["sh"] is not None and rec["after"] is not None and abs(rec["hold"] - rec["sh"] - rec["after"]) > max(1000, 0.001 * rec["hold"]):
+                    log(f"  ⚠ 欄位對不上,略過:{code} {c[4]} {c[8:16]}"); continue
+                key = f"{d}|{code}|{c[4]}|{c[5]}|{rec['sh']}|{rec['hold']}|{rec['sh_t']}|{rec['to'] or ''}"
+                got[key] = rec; cnt += 1
+            if got or "無持股轉讓" in t:   # 這個月重抓成功 → 用新抓的取代同月同市場的舊紀錄(同一份資料,欄位更完整)
+                pre = f"{y}-{m:02d}"
+                for k in [k for k, v in rows.items() if v.get("d", "").startswith(pre) and v.get("mk") == mk and k not in got]: rows.pop(k)
+                n_new += sum(1 for k in got if k not in rows)
+                rows.update(got)
             log(f"  {y}-{m:02d} {mk}:{cnt} 筆")
             time.sleep(3.5)
         if backfill:
