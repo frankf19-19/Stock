@@ -12,10 +12,10 @@ def req(name, m, url, **kw):
     h = dict(UA); h.update(kw.pop("headers", {}))
     try: r = requests.request(m, url, headers=h, timeout=60, **kw); save(name, r); return r
     except Exception as e: save(name, txt=f"ERR {e}")
-for q in ("q1", "q2"):
+for rep in ("SY", "OY"):
     for y, mo, d in (("115", "10", "15"), ("105", "3", "15"), ("98", "3", "16")):
-        req(f"mops_{q}_{y}", "POST", f"https://mopsov.twse.com.tw/mops/web/ajax_t56sb12_{q}",
-            data={"encodeURIComponent": 1, "step": 1, "firstin": 1, "off": 1, "year": y, "month": mo, "day": d}); time.sleep(4)
+        req(f"mops2_{rep}_{y}", "POST", "https://mopsov.twse.com.tw/mops/web/ajax_t56sb12",
+            data={"encodeURIComponent": 1, "run": "", "step": 2, "year": y, "month": mo, "day": d, "report": rep, "firstin": "true"}); time.sleep(4)
 H = {"Accept": "application/json", "Content-Type": "application/json"}
 req("finra_eq", "POST", "https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest",
     json={"limit": 5, "compareFilters": [{"compareType": "equal", "fieldName": "settlementDate", "fieldValue": "2026-09-30"}],
