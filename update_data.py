@@ -3052,7 +3052,10 @@ def build_fut_table():
         print(f"  [warn] futtab 成交值: {e}")
 
     # 2. 三大法人現貨買賣超(億)
+    # r1126:原本直接「累加」到繼承來的昨日表上 → 每跑一次全套班,同一天的外資/投信/自營就再加一次
+    #       (10/15 外資 −3,025.6 → −6,051.2 → −9,076.8 億,天天在跳)。改成這次抓到的先在新 dict 加總(自營=自行買賣+避險),再整筆覆蓋。
     try:
+        acc = {}
         for r in _fm("TaiwanStockTotalInstitutionalInvestors"):
             d2 = r.get("date"); nm = str(r.get("name", ""))
             net = (numf(r.get("buy")) or 0) - (numf(r.get("sell")) or 0)
@@ -3061,7 +3064,10 @@ def build_fut_table():
             elif "Trust" in nm or "投信" in nm: key = "t"
             elif "Dealer" in nm or "自營" in nm: key = "dl"
             if d2 and key:
-                row(d2)[key] = round(row(d2).get(key, 0) + net / 1e8, 1)
+                acc.setdefault(nrm(d2), {}); acc[nrm(d2)][key] = acc[nrm(d2)].get(key, 0) + net
+        for d2, m in acc.items():
+            for key, v in m.items(): row(d2)[key] = round(v / 1e8, 1)
+        print(f"  futtab 法人現貨:{len(acc)} 天(整筆覆蓋)")
     except Exception as e:
         print(f"  [warn] futtab 法人現貨: {e}")
 
