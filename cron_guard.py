@@ -57,5 +57,15 @@ try:
             log(f"財經皓角:最新一集 {yt or '—'},今天 {TODAY} 還沒整理"); out.append("yth.yml")
 except Exception:
     pass
+# 🧭 盤勢解讀(r1126):晚上版 = 台股交易日 22:00 後;早上版 = 週二~六 08:10 後(美股剛收盤)。10/19 晚上 21:50 那班 GitHub 沒跑 → 補啟動
+try:
+    import os
+    want = None
+    if trading(TODAY) and NOW.hour >= 22: want = f"{TODAY}_pm"
+    elif TODAY.weekday() in (1, 2, 3, 4, 5) and (NOW.hour, NOW.minute) >= (8, 10): want = f"{TODAY}_am"
+    if want and not os.path.exists(f"view/{want}.json"):
+        log(f"盤勢解讀:{want} 還沒產生"); out.append("view.yml")
+except Exception:
+    pass
 if not out: log("排程保險:都正常")
 print("\n".join(out))
