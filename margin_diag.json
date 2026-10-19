@@ -1,5 +1,5 @@
 {
- "ts": "2026-10-16T17:41:09.986306",
+ "ts": "2026-10-19T14:06:23.884117",
  "steps": [
   {
    "s": "mi_margn_positional",
@@ -16,7 +16,7 @@
   },
   {
    "s": "twse_margin",
-   "n": 1301
+   "n": 1302
   },
   {
    "s": "twt93u_positional",
@@ -33,7 +33,7 @@
   },
   {
    "s": "twse_borrow",
-   "n": 1304
+   "n": 1305
   },
   {
    "s": "twtb4u_keys",
@@ -88,8 +88,8 @@
   {
    "s": "twse_daytrade_ok",
    "tag": "legacy",
-   "n": 1232,
-   "nonzero": 1166
+   "n": 1235,
+   "nonzero": 1155
   },
   {
    "s": "tpex_margin_ok",
@@ -98,6 +98,6 @@
   }
  ],
  "verdict": [
-  "OK(2222 檔)"
+  "OK(2223 檔)"
  ]
 }
