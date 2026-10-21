@@ -3,6 +3,11 @@ name: 財經皓角最新集自動整理
 #       跟股癌同一套:同集已整理直接跳過(零成本),09:25 / 10:25 / 12:25 三個檢查點,週末不跑
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: "最新集已整理也重聽一次(1=是)"
+        required: false
+        default: "0"
   schedule:
     - cron: "25 1,2,4,6,9 * * 1-5"  # 台北 09:25、10:25、12:25、14:25、17:25(週一~五;GitHub 常整班丟掉,另有 cron_guard 由股癌班補啟動)
 permissions:
@@ -23,10 +28,11 @@ jobs:
       - name: 聆聽整理
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          FORCE: ${{ github.event.inputs.force }}
           PYTHONUNBUFFERED: "1"
         run: |
           python listen_show.py yth 2>&1 | tee /tmp/yth_log.txt || true
-          grep -E "最新集|路線|Gemini|音檔|完成|✗|⚠|重試|歸檔|模型|頻道 RSS" /tmp/yth_log.txt | tail -20 | sed 's/^/::notice::/' || true
+          grep -E "最新集|路線|Gemini|音檔|完成|✗|⚠|重試|歸檔|模型|頻道 RSS|NO_AUDIO|對不上|開始聆聽" /tmp/yth_log.txt | tail -20 | sed 's/^/::notice::/' || true
           grep -q "^完成" /tmp/yth_log.txt || grep -q "已整理過" /tmp/yth_log.txt || echo "::warning::本班沒有產出(看上面 notice)"
       - name: YouTube 影片對照表(yt-dlp 扁平列表,不下載)
         run: timeout 300 python fetch_ytmap.py yth || echo "::warning::YouTube 對照表失敗"

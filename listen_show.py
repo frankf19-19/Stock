@@ -120,6 +120,7 @@ def listen(C, src, title, retry=False):
     body = {"contents": [{"role": "user", "parts": [
         ({"file_data": {"file_uri": src[0], "mime_type": src[1]}} if isinstance(src, tuple) else {"file_data": {"file_uri": src}}),
         {"text": f"""請完整聽完這一集{C['kind']}:「{title}」,用繁體中文寫一份「聽完可以不用再聽」等級的詳細整理,總長 800~1500 字,直接開始不要開場白。
+重要:如果你實際上拿不到或聽不到這個影片/音檔的內容(例如影片還在處理、無法存取、只有封面或靜音),請只回覆一行「NO_AUDIO」,絕對不要憑標題或常識編一份看起來像的整理。
 
 格式要求:
 ## 依節目順序,每個主題一個段落
@@ -166,6 +167,22 @@ def listen(C, src, title, retry=False):
     listen.model = model
     return txt, fr
 
+def title_match(title, txt):
+    """標題裡的關鍵詞(去日期/節目名/標點後,長度 ≥2 的中文詞或英文字)至少有一個出現在整理裡;標題抽不出詞就放行"""
+    t = re.sub(r"\d{4}/\d{1,2}/\d{1,2}\([一二三四五六日]\)|【.*?】|早晨財經速解讀|股癌|EP\.?\s*\d+", " ", title or "")
+    toks = set()
+    for w in re.findall(r"[A-Za-z]{2,}|[\u4e00-\u9fff]{2,}", t):
+        for i in range(0, max(1, len(w) - 1)):
+            if re.match(r"[\u4e00-\u9fff]", w): toks.add(w[i:i + 2])
+            else: toks.add(w.lower()); break
+    stop = {"了嗎", "嗎年", "是否", "什麼", "怎麼", "還是", "真正", "卻警", "警告", "剛開", "開始", "行情", "啟動", "今天", "這樣", "可以", "還有"}
+    toks = {x for x in toks if x not in stop}
+    if not toks: return True
+    body = (txt or "").lower()
+    hit = [x for x in toks if x in body]
+    return len(hit) >= max(1, min(2, len(toks) // 6))
+
+
 def main():
     show = (sys.argv[1] if len(sys.argv) > 1 else os.environ.get("SHOW") or "yth").strip()
     C = SHOWS.get(show)
@@ -180,28 +197,39 @@ def main():
         with open(C["out"], encoding="utf-8") as f: old = json.load(f)
     except Exception: pass
     eps = [x for x in (old.get("eps") or []) if x.get("t") and x.get("s")]
-    if any(x["t"] == title and len(x["s"]) >= 500 for x in eps):
+    if os.environ.get("FORCE") != "1" and any(x["t"] == title and len(x["s"]) >= 500 for x in eps):
         log("同一集已整理過,結束(零成本)。"); return
+    # r1127:10/20 那集 YouTube 剛上架、影片還在處理,Gemini 讀不到內容卻憑標題編了一篇(拜登會見以色列顧問……2023 年的事)。
+    #       改成:① 先用 podcast 的 mp3(真正的音檔位元組,上傳 Gemini Files)聽;YouTube 只當備援與連結
+    #            ② 提示詞要求讀不到就回 NO_AUDIO ③ 整理內容必須跟標題對得上(標題關鍵詞至少命中一個),否則丟掉、下一班再試
     yt = youtube_url(C, title)
-    src = yt; link = yt
-    if not yt:
-        mp3 = ep.get("episodeUrl") or ""
-        if not mp3:
-            log("⚠ YouTube 未找到且 RSS 無音檔直鏈,下次排程再試。"); return
+    link = yt or ep.get("trackViewUrl") or ""
+    mp3 = ep.get("episodeUrl") or ""
+    srcs = []
+    if mp3:
         uri, mime = gemini_upload_audio(mp3, f"{show}_ep")
-        if not uri:
-            log("✗ 路線C上傳失敗,下次排程再試。"); return
-        src = (uri, mime); link = ep.get("trackViewUrl") or mp3
-        log("以音檔直讀模式聆聽…")
-    else:
-        log(f"YouTube:{yt},開始聆聽(30~40 分鐘節目約需 1~3 分鐘)…")
-    s, fr = listen(C, src, title)
-    if (not s or len(s) < 500 or (fr and fr != "STOP")):
-        # 太短或被中途截斷(例如引用歌詞觸發 RECITATION)→ 換個說法再聽一次
-        log(f"  整理太短或中斷({len(s or '')} 字,{fr}),重試一次…")
-        s2, fr2 = listen(C, src, title, retry=True)
-        if len(s2 or "") > len(s or ""): s, fr = s2, fr2
-    if not s: log("✗ 空回應,下次排程再試"); return
+        if uri: srcs.append(((uri, mime), "音檔直讀(podcast mp3)"))
+        else: log("  路線C上傳失敗,改試 YouTube")
+    if yt: srcs.append((yt, f"YouTube {yt}"))
+    if not srcs:
+        log("⚠ 既沒有音檔直鏈也找不到 YouTube,下次排程再試。"); return
+    def _ok(txt):
+        if not txt or len(txt) < 500 or "NO_AUDIO" in txt[:40]: return False
+        return title_match(title, txt)
+    s = fr = None
+    for src, how in srcs:
+        log(f"{how},開始聆聽(30~40 分鐘節目約需 1~3 分鐘)…")
+        s, fr = listen(C, src, title)
+        if "NO_AUDIO" in (s or "")[:40]: log("  模型回 NO_AUDIO(讀不到內容),換下一個來源"); s = ""; continue
+        if (not s or len(s) < 500 or (fr and fr != "STOP")):
+            # 太短或被中途截斷(例如引用歌詞觸發 RECITATION)→ 換個說法再聽一次
+            log(f"  整理太短或中斷({len(s or '')} 字,{fr}),重試一次…")
+            s2, fr2 = listen(C, src, title, retry=True)
+            if len(s2 or "") > len(s or ""): s, fr = s2, fr2
+        if s and not title_match(title, s):
+            log(f"  ✗ 整理內容跟標題對不上(標題關鍵詞一個都沒出現),視為讀錯來源,丟掉:{s[:60]!r}"); s = ""; continue
+        if _ok(s): break
+    if not s: log("✗ 沒有可用的整理,下次排程再試"); return
     eps = [x for x in eps if x.get("t") != title]
     rec = {"t": title, "dt": ep.get("releaseDate", ""), "yt": link, "s": s, "m": getattr(listen, "model", None), "u": time.strftime("%Y-%m-%d %H:%M", time.gmtime(time.time() + 8 * 3600))}
     eps = [rec] + eps

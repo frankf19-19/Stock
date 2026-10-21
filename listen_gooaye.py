@@ -154,6 +154,7 @@ def listen(yt, title):
         ({"file_data": {"file_uri": yt[0], "mime_type": yt[1]}} if isinstance(yt, tuple)
          else {"file_data": {"file_uri": yt}}),
         {"text": f"""請完整聽完這一集台股 Podcast「股癌」({title}),用繁體中文寫一份「聽完可以不用再聽」等級的詳細整理,總長 800~1500 字,直接開始不要開場白。
+重要:如果你實際上拿不到或聽不到這個影片/音檔的內容(例如影片還在處理、無法存取、只有封面或靜音),請只回覆一行「NO_AUDIO」,絕對不要憑標題或常識編一份看起來像的整理。
 
 格式要求:
 ## 依節目順序,每個主題一個段落
@@ -207,22 +208,24 @@ def main():
     ep_no = (re.search(r"EP\s?(\d+)", title, re.I) or [None, None])[1]
     if not ep_no:
         log("⚠ 標題無集數編號,跳過"); return
+    # r1127:改成 podcast mp3 優先(真正的音檔),YouTube 只當備援與連結——財經皓角 10/20 影片還在處理時 Gemini 憑標題編了一篇
     yt = youtube_url(ep_no)
-    src = yt
-    link = yt
-    if not yt:                                            # r492 路線C:YouTube 全被擋也照樣整理
-        mp3 = ep.get("episodeUrl") or ""
-        if not mp3:
-            log("⚠ YouTube 未找到且 iTunes 無音檔直鏈,下次排程再試。"); return
+    link = yt or ep.get("trackViewUrl") or ""
+    mp3 = ep.get("episodeUrl") or ""
+    srcs = []
+    if mp3:
         uri, mime = gemini_upload_audio(mp3)
-        if not uri:
-            log("✗ 路線C上傳失敗,下次排程再試。"); return
-        src = (uri, mime)
-        link = ep.get("trackViewUrl") or mp3              # 前端「原頁面」改連 Apple 集頁
-        log("以音檔直讀模式聆聽…")
-    else:
-        log(f"YouTube:{yt},開始聆聽(50 分鐘節目約需 1~3 分鐘)…")
-    s = listen(src, title)
+        if uri: srcs.append(((uri, mime), "音檔直讀(podcast mp3)"))
+        else: log("  路線C上傳失敗,改試 YouTube")
+    if yt: srcs.append((yt, f"YouTube {yt}"))
+    if not srcs:
+        log("⚠ 既沒有音檔直鏈也找不到 YouTube,下次排程再試。"); return
+    s = ""
+    for src, how in srcs:
+        log(f"{how},開始聆聽(50 分鐘節目約需 1~3 分鐘)…")
+        s = listen(src, title) or ""
+        if "NO_AUDIO" in s[:40]: log("  模型回 NO_AUDIO(讀不到內容),換下一個來源"); s = ""; continue
+        if len(s) >= 500: break
     if not s:
         log("✗ 空回應"); sys.exit(1)
     with open(OUT, "w", encoding="utf-8") as f:
