@@ -1,18 +1,34 @@
-name: 🔎 資料源探測(一次性)
-on: { workflow_dispatch: {} }
-permissions: { contents: write }
+name: 探針:財報單季/累計(暫時)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    env:
+      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
+        with:
+          python-version: "3.11"
       - run: pip install requests
-      - run: python tools/probe.py
-        env: { FINMIND_TOKEN: "${{ secrets.FINMIND_TOKEN }}" }
       - run: |
-          git config user.name bot; git config user.email bot@users.noreply.github.com
-          git add -f probe_out/; git commit -m "probe [CI Skip]" || exit 0
-          for i in 1 2 3; do git pull --rebase origin main && git push && break; sleep 5; done
+          python - <<'PY'
+          import os,requests,json
+          tok=os.environ.get("FINMIND_TOKEN","")
+          def fm(p):
+              if tok: p["token"]=tok
+              j=requests.get("https://api.finmindtrade.com/api/v4/data",params=p,timeout=60).json()
+              return j.get("data") or []
+          for d in ("2026-06-30","2026-03-31","2025-06-30"):
+              rows=fm({"dataset":"TaiwanStockFinancialStatements","data_id":"2330","start_date":d,"end_date":d})
+              m={r["type"]:r["value"] for r in rows}
+              print(f"::notice::FM 2330 {d}: Revenue={m.get('Revenue')} EPS={m.get('EPS')} GrossProfit={m.get('GrossProfit')} n={len(rows)} types={list(m)[:8]}")
+          rows=fm({"dataset":"TaiwanStockFinancialStatements","start_date":"2026-06-30","end_date":"2026-06-30"})
+          print(f"::notice::FM 全市場 2026-06-30 列數={len(rows)} 股票數={len(set(r['stock_id'] for r in rows))}")
+          a=requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap17_L",timeout=60).json()
+          r=[x for x in a if x.get("公司代號")=="2330"]; print(f"::notice::openapi t187ap17 2330: {r[:1]}")
+          PY
