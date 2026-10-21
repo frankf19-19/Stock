@@ -2093,6 +2093,35 @@ def wayback_margins(want_qs):
             time.sleep(1)
     return {q: d for q, d in res.items() if d}
 
+_FM_EPS = {}
+_FM_Q = {}
+def fm_margin_quarter_cached(q):
+    if q not in _FM_Q: _FM_Q[q] = fm_margin_quarter(q)
+    return _FM_Q[q]
+
+def ytd_to_quarter(e, q, gm, om, nm, rv):
+    """r1128:證交所/櫃買 openapi 的「營益分析」是『資料截止季度』的累計值(Q2 = 上半年、Q3 = 前三季),
+       但歷史季(FinMind)是單季 → 2330 2026Q2 營收被記成 2.4 兆、季營收年增 +157%、ROE 多算一季。
+       用已存的同年前幾季(單季)把累計拆回單季;前幾季不齊就回 None(由呼叫端改用 FinMind 或跳過)。"""
+    y, s_ = int(q[:4]), int(q[-1])
+    if s_ == 1: return (gm, om, nm, rv)
+    if rv is None: return None
+    fq = e.get("fq") or []; idx = {fq[i]: i for i in range(len(fq))}
+    prevq = [f"{y}Q{i}" for i in range(1, s_)]
+    qr, G, O, N = (e.get("qr") or []), (e.get("gm") or []), (e.get("om") or []), (e.get("nm") or [])
+    try:
+        if not all(p in idx and qr[idx[p]] is not None for p in prevq): return None
+        if any(qr[idx[p]] >= rv for p in prevq): return None     # 前幾季任何一季 ≥ 累計值 → 存的不是單季,不能拆
+        rv_prev = sum(qr[idx[p]] for p in prevq)
+        rv_q = rv - rv_prev
+        if rv_q <= 0 or rv_prev <= 0: return None
+        def one(M, cur):
+            if cur is None or any(M[idx[p]] is None for p in prevq): return None
+            return round((rv * cur - sum(qr[idx[p]] * M[idx[p]] for p in prevq)) / rv_q, 2)
+        return (one(G, gm), one(O, om), one(N, nm), round(rv_q, 1))
+    except Exception:
+        return None
+
 def fm_margin_quarter(q):
     """FinMind 綜合損益表(date-only,日期=季底)→ 自算三率。
        GH Actions 直連 MOPS 被擋、Wayback 又無該季快照時,這是唯一實證可通的歷史季報來源。
@@ -2124,6 +2153,8 @@ def fm_margin_quarter(q):
             if None in (gp, oi, ni): continue
             out[sid] = (round(gp / rv * 100, 2), round(oi / rv * 100, 2),
                         round(ni / rv * 100, 2), round(rv / 1e6, 1))   # qr 對齊百萬元
+            eps = pick(m, "EPS", "BasicEarningsPerShare")
+            if eps is not None: _FM_EPS[(q, sid)] = round(eps, 2)        # r1128:單季 EPS 也留著(openapi 的是累計)
     except Exception as e:
         print(f"    [warn] FinMind 財報 {q}: {str(e)[:70]}")
     time.sleep(1.0)
@@ -2183,8 +2214,17 @@ def append_margins(chips, cur):
             print(f"  回補結果:{len(prev)} 家")
             for sid, (gm, om, nm, rv) in prev.items():
                 _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+    # r1128:最新季(openapi)是累計值 → 先用 FinMind 單季;沒有的用同年前幾季拆回單季;都不行就不寫(寧缺勿錯)
+    fmq = fm_margin_quarter_cached(q_now) if cur else {}
+    n_fm = n_dv = n_skip = 0
     for sid, (q, gm, om, nm, rv) in cur.items():
-        _put_margin(chips.setdefault(sid, {}), q, gm, om, nm, rv)
+        e = chips.setdefault(sid, {})
+        if q == q_now and sid in fmq:                       # ① FinMind 單季(最可靠)
+            _put_margin(e, q, *fmq[sid]); n_fm += 1; continue
+        conv = ytd_to_quarter(e, q, gm, om, nm, rv)        # ② 累計拆回單季(Q1 本來就是單季)
+        if conv is None: n_skip += 1; continue
+        _put_margin(e, q, *conv); n_dv += 1
+    print(f"  最新季三率:FinMind 單季 {n_fm} 家、累計拆單季 {n_dv} 家、無法拆(先不寫){n_skip} 家")
 
 def _put_margin(e, q, gm, om, nm, rv):
     m = {e["fq"][i]: [e["gm"][i], e["om"][i], e["nm"][i],
@@ -2590,12 +2630,37 @@ def fetch_credit_stocks(stocks):
             print(f"  FinMind 備援補入:融資融券 {n3} 檔、借券賣出 {n4} 檔")
     print(f"  信用交易:融資融券 {n1} 檔、借券賣出 {n2} 檔")
 
+def _credit_day(stocks):
+    """r1128:openapi MI_MARGN 沒有日期欄,而且它隔天早上才換成前一天的餘額 → 以前一律標成 TODAY,整條融資序列晚一個交易日、
+       假日還會多一列。改用 margin.json(fetch_margin.py 按日期抓的)的逐日歷史反查:拿幾檔大股的今日餘額去比對是哪一天的值。"""
+    try:
+        H = (json.load(open("margin.json", encoding="utf-8")).get("hist") or {})
+    except Exception:
+        return None
+    votes = {}
+    by_id = {s["id"]: s for s in stocks if s.get("market") == "TW"}
+    for sid in ("2330", "2317", "2303", "2881", "2882", "2454", "2603", "0050", "2308", "3034", "2609", "2002"):
+        f = ((by_id.get(sid) or {}).get("mg") or {}).get("f")
+        if f is None: continue
+        for d0, v in (H.get(sid) or [])[-8:]:
+            if v == f: votes[d0] = votes.get(d0, 0) + 1
+    if not votes: return None
+    day = max(votes, key=lambda d0: (votes[d0], d0))
+    return day if votes[day] >= 3 else None
+
 def append_credit(chips, stocks):
     """信用交易逐日累積:cd=日期 / mf=融資餘額 / mv=融券餘額 / sb=借券賣出餘額(張)。
     保留 CRED_DAYS 個交易日;同日重跑覆蓋。作為前端 FinMind 直連失敗時的站內回退。"""
     if TODAY.weekday() >= 5:   # 週末排程跑到的是週五資料,避免重複附加
         return
-    day = TODAY.isoformat()
+    day = _credit_day(stocks)
+    if not day:
+        print("  [warn] 信用交易:對不出 openapi 餘額是哪一天的(margin.json 沒有或對不上),本輪不附加"); return
+    try:
+        _HOL = set((json.load(open("holidays.json", encoding="utf-8")).get("tw") or {}).keys())
+        if day in _HOL: print(f"  信用交易:{day} 是休市日,不附加"); return
+    except Exception: pass
+    print(f"  信用交易:餘額日期 {day}(由 margin.json 反查)")
     for s in stocks:
         if s.get("market") != "TW": continue
         mg = s.get("mg") or {}
@@ -2654,7 +2719,7 @@ def fetch_credit_macro(prev, stocks=None):
             if n > 200:   # 覆蓋夠多檔才可信
                 otc = dict((prev or {}).get("otc") or {})
                 od, of, os_ = list(otc.get("d") or []), list(otc.get("f") or []), list(otc.get("s") or [])
-                day = TODAY.isoformat()
+                day = _credit_day(stocks) or TODAY.isoformat()      # r1128:用餘額真正的日期(上市反查),不是跑的那天
                 if od and od[-1] == day: of[-1], os_[-1] = fsum, ssum
                 else: od.append(day); of.append(fsum); os_.append(ssum)
                 out["otc"] = {"d": od[-130:], "f": of[-130:], "s": os_[-130:]}
@@ -4127,17 +4192,29 @@ def fetch_eps_bulk():
     return out
 
 def append_eps(chips, cur):
-    """把最新季 EPS append 進籌碼分片(qe_d 季別 / qe 值),同季覆蓋、保留 12 季。"""
-    n = 0
+    """把最新季 EPS append 進籌碼分片(qe_d 季別 / qe 值),同季覆蓋、保留 12 季。
+    r1128:openapi 的 EPS 是『資料截止季度』累計(2330 2026Q2 = 49.33 是上半年)→ 優先用 FinMind 單季 EPS,
+          沒有就用同年前幾季(已存的單季)拆,拆不了就先不寫。"""
+    n = 0; n_fm = n_dv = n_skip = 0
     for sid, (q, e) in (cur or {}).items():
         c = chips.setdefault(sid, {})
         qd = c.get("qe_d") or []; qe = c.get("qe") or []
+        y, s_ = int(q[:4]), int(q[-1])
+        fe = _FM_EPS.get((q, sid))
+        if fe is not None: e = fe; n_fm += 1
+        elif s_ > 1:
+            prevq = [f"{y}Q{i}" for i in range(1, s_)]
+            pos = {qd[i]: i for i in range(len(qd))}
+            if all(p in pos and qe[pos[p]] is not None for p in prevq):
+                e = round(e - sum(qe[pos[p]] for p in prevq), 2); n_dv += 1
+            else:
+                n_skip += 1; continue
         if qd and qd[-1] == q:
             qe[-1] = e
         else:
             qd.append(q); qe.append(e); n += 1
         c["qe_d"], c["qe"] = qd[-12:], qe[-12:]
-    if n: print(f"  季EPS 新增 {n} 家新一季")
+    print(f"  季EPS:新增 {n} 家新一季(FinMind 單季 {n_fm}、累計拆單季 {n_dv}、無法拆先不寫 {n_skip})")
 
 def build_health(hist, chips, comps, extra):
     """r707 🩺 資料健康度:各資料源最後日期+覆蓋率+紅黃綠;寫進 data.json['health']。"""
