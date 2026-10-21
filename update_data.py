@@ -2535,6 +2535,7 @@ def fetch_credit_stocks(stocks):
                     flds = j.get("fields") or []
                     arr = [dict(zip(flds, row)) for row in j["data"]]
                     print(f"  借券賣出資料日:{qd.strftime('%Y/%m/%d')}")
+                    globals()["_SB_DAY"] = qd.strftime("%Y-%m-%d")      # r1128:記下借券資料是哪一天,append_credit 只收同一天的
                     break
             except Exception:
                 continue
@@ -2670,10 +2671,12 @@ def append_credit(chips, stocks):
         mv = e.setdefault("mv", []); sb = e.setdefault("sb", [])
         for a in (mf, mv, sb):
             while len(a) < len(cd): a.append(None)
+        lv = mg.get("l") if globals().get("_SB_DAY") in (None, day) else None   # 借券日期跟融資日期不同(晚上借券先出)→ 等隔天再記
         if cd and cd[-1] == day:
-            mf[-1], mv[-1], sb[-1] = mg.get("f"), mg.get("s"), mg.get("l")
+            mf[-1], mv[-1] = mg.get("f"), mg.get("s")
+            if lv is not None: sb[-1] = lv
         else:
-            cd.append(day); mf.append(mg.get("f")); mv.append(mg.get("s")); sb.append(mg.get("l"))
+            cd.append(day); mf.append(mg.get("f")); mv.append(mg.get("s")); sb.append(lv)
         if len(cd) > CRED_DAYS:
             e["cd"], e["mf"], e["mv"], e["sb"] = cd[-CRED_DAYS:], mf[-CRED_DAYS:], mv[-CRED_DAYS:], sb[-CRED_DAYS:]
 
