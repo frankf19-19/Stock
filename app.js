@@ -17619,7 +17619,7 @@ async function gaYtList(){
   if(v.length)try{localStorage.setItem(gaSK('ga_ytls'),JSON.stringify({t:Date.now(),v}));}catch(e){}
   return v;
 }
-function gaNorm(t){return String(t||'').replace(/^\s*\d{4}\/\d{1,2}\/\d{1,2}\s*[(（][一二三四五六日天][)）]\s*/,'').replace(/【[^】]*】/g,'').replace(/[\s\W_]+/g,'').toLowerCase();}   // r1108:去日期前綴/【標籤】/標點,比對 podcast 與 YouTube 標題
+function gaNorm(t){return String(t||'').replace(/^\s*\d{4}\/\d{1,2}\/\d{1,2}\s*[(（][一二三四五六日天][)）]\s*/,'').replace(/【[^】]*】/g,'').replace(/[^\p{L}\p{N}]+/gu,'').toLowerCase();}   // r1127:原本 \W 會把中文全部刪掉 → 每一集都正規化成空字串,10/20 的卡片配到 10/16 賴清德那集的整理   // r1108:去日期前綴/【標籤】/標點,比對 podcast 與 YouTube 標題
 async function gaYtUrl(epTitle){
   const list=await gaYtList();
   if(gaCfg().ep){
