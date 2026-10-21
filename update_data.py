@@ -2229,16 +2229,33 @@ def append_margins(chips, cur):
             for sid, (gm, om, nm, rv) in prev.items():
                 _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
     # r1128:最新季(openapi)是累計值 → 先用 FinMind 單季;沒有的用同年前幾季拆回單季;都不行就不寫(寧缺勿錯)
+    # r1133 實測:FinMind「全市場 date-only」查詢在最新一季也回累計值(2330 2026Q2 營收 2.40 兆 = openapi 同值),
+    #   只有 EPS 是單季;個股 data_id 查詢才是單季 → FinMind 值只有在「跟 openapi 累計值明顯不同」時才當單季採用
     fmq = fm_margin_quarter_cached(q_now) if cur else {}
-    n_fm = n_dv = n_skip = 0
+    n_fm = n_dv = n_skip = n_cum = 0
     for sid, (q, gm, om, nm, rv) in cur.items():
         e = chips.setdefault(sid, {})
-        if q == q_now and sid in fmq:                       # ① FinMind 單季(最可靠)
-            _put_margin(e, q, *fmq[sid]); n_fm += 1; continue
+        f = fmq.get(sid) if q == q_now else None
+        if f and f[3] and rv and (q[-1] == "1" or abs(f[3] - rv) / rv > 0.02):   # ① FinMind 真的是單季才用
+            _put_margin(e, q, *f); n_fm += 1; continue
+        if f: n_cum += 1
         conv = ytd_to_quarter(e, q, gm, om, nm, rv)        # ② 累計拆回單季(Q1 本來就是單季)
-        if conv is None: n_skip += 1; continue
+        if conv is None:
+            n_skip += 1
+            _drop_cum_margin(e, q, rv)                     # r1133:之前版本已把累計值存進去的 → 拿掉,不留錯值
+            continue
         _put_margin(e, q, *conv); n_dv += 1
-    print(f"  最新季三率:FinMind 單季 {n_fm} 家、累計拆單季 {n_dv} 家、無法拆(先不寫){n_skip} 家")
+    print(f"  最新季三率:FinMind 單季 {n_fm} 家(FinMind 也是累計 {n_cum} 家)、累計拆單季 {n_dv} 家、無法拆(先不寫){n_skip} 家")
+
+def _drop_cum_margin(e, q, rv):
+    """已存的 q 季營收若跟 openapi 累計值一樣(r1128 之前存進去的)→ 整季拿掉(三率也是累計,一起拿掉)。"""
+    fq = e.get("fq") or []
+    if q[-1] == "1" or q not in fq or not rv: return
+    i = fq.index(q); qr = e.get("qr") or []
+    if i < len(qr) and qr[i] and abs(qr[i] - rv) / rv < 0.005:
+        for k in ("fq", "gm", "om", "nm", "qr"):
+            a = e.get(k)
+            if isinstance(a, list) and i < len(a): del a[i]
 
 def _put_margin(e, q, gm, om, nm, rv):
     m = {e["fq"][i]: [e["gm"][i], e["om"][i], e["nm"][i],
@@ -4227,7 +4244,10 @@ def append_eps(chips, cur):
             if all(p in pos and qe[pos[p]] is not None for p in prevq):
                 e = round(e - sum(qe[pos[p]] for p in prevq), 2); n_dv += 1
             else:
-                n_skip += 1; continue
+                n_skip += 1
+                if qd and qd[-1] == q and qe[-1] is not None and e and abs(qe[-1] - e) < 0.011:   # r1133:之前存的是累計值 → 拿掉
+                    qd.pop(); qe.pop(); c["qe_d"], c["qe"] = qd, qe
+                continue
         if qd and qd[-1] == q:
             qe[-1] = e
         else:
