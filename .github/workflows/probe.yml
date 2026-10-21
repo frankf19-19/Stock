@@ -27,8 +27,11 @@ jobs:
               rows=fm({"dataset":"TaiwanStockFinancialStatements","data_id":"2330","start_date":d,"end_date":d})
               m={r["type"]:r["value"] for r in rows}
               print(f"::notice::FM 2330 {d}: Revenue={m.get('Revenue')} EPS={m.get('EPS')} GrossProfit={m.get('GrossProfit')} n={len(rows)} types={list(m)[:8]}")
-          rows=fm({"dataset":"TaiwanStockFinancialStatements","start_date":"2026-06-30","end_date":"2026-06-30"})
-          print(f"::notice::FM 全市場 2026-06-30 列數={len(rows)} 股票數={len(set(r['stock_id'] for r in rows))}")
+          for d in ("2026-06-30","2026-03-31","2025-06-30"):
+              rows=fm({"dataset":"TaiwanStockFinancialStatements","start_date":d,"end_date":d})
+              m={r["type"]:r["value"] for r in rows if r["stock_id"]=="2330"}
+              m2={r["type"]:r["value"] for r in rows if r["stock_id"]=="2317"}
+              print(f"::notice::FM 全市場 {d} n={len(rows)} 2330 Revenue={m.get('Revenue')} EPS={m.get('EPS')} GP={m.get('GrossProfit')} | 2317 Revenue={m2.get('Revenue')} EPS={m2.get('EPS')}")
           a=requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap17_L",timeout=60).json()
           r=[x for x in a if x.get("公司代號")=="2330"]; print(f"::notice::openapi t187ap17 2330: {r[:1]}")
           PY
