@@ -4253,7 +4253,18 @@ def append_eps(chips, cur):
         else:
             qd.append(q); qe.append(e); n += 1
         c["qe_d"], c["qe"] = qd[-12:], qe[-12:]
-    print(f"  季EPS:新增 {n} 家新一季(FinMind 單季 {n_fm}、累計拆單季 {n_dv}、無法拆先不寫 {n_skip})")
+    # r1133:櫃買 openapi 在 GH 機房常抓不到(上櫃 867 檔一直沒有季 EPS)→ FinMind 全市場的單季 EPS 補上 openapi 沒給的
+    n_fb = 0
+    for (q, sid), fe in list(_FM_EPS.items()):
+        if sid in (cur or {}) or sid not in chips or fe is None: continue
+        c = chips[sid]; qd = c.get("qe_d") or []; qe = c.get("qe") or []
+        if q in qd:
+            if qe[qd.index(q)] != fe: qe[qd.index(q)] = fe
+            continue
+        if qd and q < qd[-1]: continue
+        qd.append(q); qe.append(fe); n_fb += 1
+        c["qe_d"], c["qe"] = qd[-12:], qe[-12:]
+    print(f"  季EPS:新增 {n} 家新一季(FinMind 單季 {n_fm}、累計拆單季 {n_dv}、無法拆先不寫 {n_skip});openapi 沒給、FinMind 補 {n_fb} 家")
 
 def build_health(hist, chips, comps, extra):
     """r707 🩺 資料健康度:各資料源最後日期+覆蓋率+紅黃綠;寫進 data.json['health']。"""
