@@ -11208,7 +11208,8 @@ async function fundAlertUI(s){                             // r496:基本面/前
         let mfChg=null;
         if(e&&Array.isArray(e.mf)&&e.mf.length>=6&&e.mf[e.mf.length-6]>0)
           mfChg=(e.mf[e.mf.length-1]/e.mf[e.mf.length-6]-1)*100;
-        let v=`融資 ${(+mg.f).toLocaleString()} 張`+(mg.fd!=null?`(今日 ${mg.fd>=0?'+':''}${mg.fd.toLocaleString()})`:'');
+        const mgd=mg.d?String(mg.d).slice(5).replace('-','/'):'';   // r1128:餘額日期(證交所隔天早上才公布前一天的餘額)
+        let v=`融資 ${(+mg.f).toLocaleString()} 張`+(mg.fd!=null?`(${mgd||'今日'} ${mg.fd>=0?'+':''}${mg.fd.toLocaleString()})`:(mgd?`(${mgd})`:''));
         if(mg.s!=null)v+=`・融券 ${(+mg.s).toLocaleString()} 張`;
         if(kr!=null)v+=`・券資比 ${kr.toFixed(1)}%${kr>=30?'(高,具軋空題材)':''}`;
         if(mfChg!=null)v+=`・融資5日 ${mfChg>=0?'+':''}${mfChg.toFixed(1)}%`;
@@ -23845,7 +23846,7 @@ function renderFutx(){
     <div class="fut-grid">
       ${card('外資臺指期未平倉淨額(口)',`<b style="color:${S.foreign>=0?'var(--up)':'var(--down)'}">${sg(S.foreign)}</b>`,`5 日 ${sg(S.foreign_d5)}・投信 ${sg(S.trust)}・自營 ${sg(S.dealer)}`,S.foreign_pct,futSpark(sp.foreign,240,44))}
       ${card('選擇權 P/C 未平倉比(%)',`<b>${f(S.pc_oi)}</b>`,`成交量比 ${f(S.pc_vol)}`,S.pc_pct,futSpark(sp.pc_oi,240,44))}
-      ${card('十大特定法人近月淨部位(口)',`<b style="color:${S.top10_spec_net>=0?'var(--up)':'var(--down)'}">${sg(S.top10_spec_net)}</b>`,`5 日 ${sg(S.top10_d5)}`,S.top10_pct,futSpark(sp.top10,240,44))}
+      ${card('十大特定法人淨部位(口・全部月份)',`<b style="color:${S.top10_spec_net>=0?'var(--up)':'var(--down)'}">${sg(S.top10_spec_net)}</b>`,`5 日 ${sg(S.top10_d5)}`,S.top10_pct,futSpark(sp.top10,240,44))}
     </div>
     ${(S.tags||[]).length?`<div class="fut-tags">${S.tags.map(t=>`<div>⚑ ${t}</div>`).join('')}</div>`:'<div class="dim-note" style="margin-top:6px">目前沒有極端值。</div>'}
     <div class="dim-note" style="margin-top:6px">資料:期交所三大法人期貨、P/C ratio、大額交易人未沖銷部位。非投資建議。</div>`;

@@ -93,6 +93,33 @@ def large_traders(d0, d1):
     return out
 
 
+def large_finmind(d0, d1):
+    """r1128:期交所 CSV/HTML 從機房一直抓不到(250 天全部空白)→ 改用 FinMind 大額交易人(futtab 的前五/十大就是這個來源):
+       臺股期貨 全部契約 的『特定法人』列,前十大買方 − 前十大賣方 = 近月淨部位近似(期交所口徑是近月,FinMind 的 contract_date=all 為全部月份,標示為參考)"""
+    import os
+    tok = os.environ.get("FINMIND_TOKEN", "")
+    params = {"dataset": "TaiwanFuturesOpenInterestLargeTraders", "data_id": "TX",
+              "start_date": d0.replace("/", "-"), "end_date": d1.replace("/", "-")}
+    if tok: params["token"] = tok
+    j = requests.get("https://api.finmindtrade.com/api/v4/data", params=params, timeout=60).json()
+    out = {}
+    for r in (j.get("data") or []):
+        d = str(r.get("date") or "")
+        cd = str(r.get("contract_date", r.get("contract", "")))
+        nm2 = str(r.get("name", "")) + str(r.get("trader_type", ""))
+        if not d or (cd and not any(x in cd.lower() for x in ("999999", "all", "全部"))): continue
+        if "特定" not in nm2 or "非" in nm2: continue
+        ks = {k.lower().replace("_", ""): k for k in r.keys()}
+        g = lambda p: num(r.get(ks.get(p))) if ks.get(p) else None
+        b10 = g("top10buy") if g("top10buy") is not None else g("buy10")
+        s10 = g("top10sell") if g("top10sell") is not None else g("sell10")
+        if b10 is None or s10 is None:
+            b10 = next((num(v) for k, v in r.items() if "top10" in k.lower().replace("_", "") and "buy" in k.lower()), None)
+            s10 = next((num(v) for k, v in r.items() if "top10" in k.lower().replace("_", "") and "sell" in k.lower()), None)
+        if b10 is not None and s10 is not None: out.setdefault(d, {})["top10_spec_net"] = int(b10 - s10)
+    return out
+
+
 def html_latest(path, want_name="臺股期貨"):
     """CSV 下載被擋時的備援:GET 查詢頁(HTML 表格,最新一個交易日)。回傳 (date, rows)。"""
     import re as _re
@@ -163,9 +190,19 @@ def main():
     for name, fn, fb in (("三大法人期貨", fut_institutional, fut_inst_html), ("P/C ratio", pc_ratio, None), ("大額交易人", large_traders, large_html)):
         try:
             res = fn(d0, d1)
+            if name == "大額交易人" and not res: raise RuntimeError("CSV 無資料")
             for d, e in res.items(): days.setdefault(d, {}).update(e)
             got += len(res); log(f"  {name}:{len(res)} 天")
         except Exception as ex:
+            if name == "大額交易人":
+                try:
+                    # r1128:先試 FinMind(首次回補一年,之後近兩週)
+                    d0f = (TODAY - dt.timedelta(days=400 if not any(days[k].get("top10_spec_net") is not None for k in days) else 12)).strftime("%Y/%m/%d")
+                    res = large_finmind(d0f, d1)
+                    for d, e in res.items(): days.setdefault(d, {}).update(e)
+                    got += len(res); log(f"  {name}:FinMind {len(res)} 天"); continue
+                except Exception as ex3:
+                    log(f"  {name} FinMind 也失敗:{ex3}")
             log(f"  {name} 失敗:{ex}")
             if fb:
                 try:

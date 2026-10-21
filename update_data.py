@@ -21,7 +21,7 @@ from io import StringIO
 import requests
 import pandas as pd
 
-TODAY = dt.date.today()
+TODAY = (dt.datetime.utcnow() + dt.timedelta(hours=8)).date()   # r1128:台北日期(GitHub 機器是 UTC;台北 00:00~08:00 跑的班原本會標成前一天)
 UA = {"User-Agent": "Mozilla/5.0"}
 K_DIR = "k"
 KEEP_BARS = 780        # r646:日K保留 780 個交易日(約三年)——週K「全部」才有縱深;回補引擎逐日磨深
@@ -587,7 +587,7 @@ def _finmind_inst_day(d):
             nm = str(r.get("name", ""))
             net = (r.get("buy") or 0) - (r.get("sell") or 0)
             a = agg.setdefault(sid, [0.0, 0.0, 0.0])
-            if nm in ("Foreign_Investor", "Foreign_Dealer_Self"): a[0] += net
+            if nm == "Foreign_Investor": a[0] += net        # r1128:跟 T86「外陸資(不含外資自營商)」同口徑;原本把外資自營也算進去,備援日跟官方日定義不同
             elif nm == "Investment_Trust": a[1] += net
             elif nm in ("Dealer_self", "Dealer_Hedging"): a[2] += net
         out = {sid: [int(round(v[0] / 1000)), int(round(v[1] / 1000)), int(round(v[2] / 1000))]
@@ -1439,6 +1439,11 @@ def _tpex_quote_day(d):
                 continue
     except Exception:
         pass
+    # r1128:休市日(颱風假)櫃買仍回「全部股票 開=高=低=收、量 0」的假行情 → 986 檔多了一根 2026-07-10 的假 K;整批超過九成零量就當沒開市
+    if out:
+        z = sum(1 for v in out.values() if v[4] == 0 and v[0] == v[1] == v[2] == v[3])
+        if z >= 0.9 * len(out):
+            print(f"  櫃買 {d}:{z}/{len(out)} 檔零量平盤 → 當休市,不寫"); return {}
     return out
 
 def _bulk_backfill(hist, tw_comps, ex, fetcher, label, max_days, need_bars=240):
@@ -1687,10 +1692,17 @@ def _yahoo_chart_hist(sym):
         ts = r0.get("timestamp") or []
         q = r0["indicators"]["quote"][0]
         e = {"d": [], "o": []}
+        try:                                                     # r1128:美股盤中跑到的最後一根是「進行中」的半根 K → 不收,免得被當成完整收盤
+            from zoneinfo import ZoneInfo
+            _et = dt.datetime.now(ZoneInfo("America/New_York"))
+        except Exception:
+            _et = dt.datetime.utcnow() - dt.timedelta(hours=4)
+        _skip_today = _et.hour * 60 + _et.minute < 16 * 60 + 10
         for i, t in enumerate(ts):
             c2 = q["close"][i]
             if c2 is None: continue
             d2 = dt.datetime.utcfromtimestamp(t - 5 * 3600).date().isoformat()   # 收盤日以美東近似
+            if _skip_today and d2 >= _et.date().isoformat(): continue
             o2 = q["open"][i] or c2; h2 = q["high"][i] or max(o2, c2); l2 = q["low"][i] or min(o2, c2)
             e["d"].append(d2)
             e["o"].append([round(float(o2), 2), round(float(h2), 2), round(float(l2), 2),
@@ -2663,6 +2675,8 @@ def append_credit(chips, stocks):
     except Exception: pass
     print(f"  信用交易:餘額日期 {day}(由 margin.json 反查)")
     for s in stocks:
+        if s.get("market") == "TW" and s.get("mg"): s["mg"]["d"] = day      # r1128:前端標示餘額是哪一天的
+    for s in stocks:
         if s.get("market") != "TW": continue
         mg = s.get("mg") or {}
         if mg.get("f") is None and mg.get("l") is None: continue
@@ -2696,7 +2710,7 @@ def fetch_credit_macro(prev, stocks=None):
             try: bal = float(r.get("TodayBalance", r.get("balance", 0)))
             except Exception: continue
             if "MarginPurchaseMoney" in nm: hist[d0] = round(bal / 1e8, 1)      # 融資金額 元→億
-            elif "ShortSaleVolume" in nm:   hist_sv[d0] = round(bal / 1e4, 1)   # 融券張數 張→萬張
+            elif nm.startswith("ShortSale") and "Money" not in nm:   hist_sv[d0] = round(bal / 1e4, 1)   # 融券張數 張→萬張(r1128:FinMind 的名稱是 ShortSale,原本比對 ShortSaleVolume 永遠對不到)
         if hist:
             ds = sorted(hist)[-60:]
             h = {"d": ds, "fin": [hist[d] for d in ds],
