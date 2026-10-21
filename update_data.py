@@ -1766,6 +1766,8 @@ def update_us_prices(hist, us_comps):
                 cstale[s] = cstale.get(s, 0) + 1
                 if cstale[s] >= 10 and s != srcs[-1]:
                     lag.add(s); print(f"  [note] {s} 連續 10 檔都還停在 {e2['d'][-1]}(未到應到日 {exp})→ 本輪之後直接問下一個來源")
+                elif cstale[s] >= 10:
+                    lag.add(s); print(f"  [note] {s} 連續 10 檔都還停在 {e2['d'][-1]}(Yahoo 台北早上 8 點多還沒換日,11:30 那班會補)→ 本輪收工,不再逐檔空抓")
                 continue
             cfail[s] += 1
             if cfail[s] >= 15:
