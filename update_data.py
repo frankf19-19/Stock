@@ -845,7 +845,7 @@ def seed_tdcc_history(chips):
         for i, dd in enumerate(bd):
             m.setdefault(str(dd), bp[i])              # 已有的週保留(同週以 tdcc.json 為準)
         ks = sorted(m)[-BIG_WEEKS:]
-        if len(ks) > len(bd):
+        if len(ks) > len(bd) or ks != [str(x) for x in bd]:   # r1135:倒序/重複也修
             e["bd"], e["bp"] = ks, [m[k] for k in ks]
             fixed += 1
     if fixed:
@@ -857,11 +857,12 @@ def append_tdcc(chips, tdcc, date):
     for sid, p in tdcc.items():
         e = chips.setdefault(sid, {})
         bd, bp = e.setdefault("bd", []), e.setdefault("bp", [])
-        if bd and bd[-1] == date:
-            bp[-1] = p; continue
-        bd.append(date); bp.append(p)
-        if len(bd) > BIG_WEEKS:
-            e["bd"], e["bp"] = bd[-BIG_WEEKS:], bp[-BIG_WEEKS:]
+        # r1135:集保偶爾回舊的一週(10/22 15:12 班拿到 10/08 的檔)→ 原本直接 append 在 10/16 後面,序列倒序、
+        #   健康度顯示大戶資料停在 10/08 → 改成依週別合併排序(同週覆蓋、舊週不會排到最後)
+        m = {str(d_): v for d_, v in zip(bd, bp)}
+        m[str(date)] = p
+        ks = sorted(m)[-BIG_WEEKS:]
+        e["bd"], e["bp"] = ks, [m[k] for k in ks]
 
 def clean_rev(chips):
     """r1061:修正既有月營收——同月重複只留一筆;某月的 YoY 與營收跟上個月完全一樣(舊版 FinMind 備援標錯月)→ 刪掉那個月"""
@@ -4497,7 +4498,7 @@ def fetch_macro():
                 idx.append({"name": name, "val": r2[0], "chg": r2[1]}); print(f"  {name} ← yext.json 日線備援({r2[0]})")
     # r707:VIX 恐慌指數 + 美債 10Y-2Y 利差(FRED 官方;利差的 chg 為絕對變化)
     try:
-        r2 = fred_last2("VIXCLS")
+        r2 = fred_last2("VIXCLS") if not any(i["name"] == "VIX 恐慌指數" for i in idx) else None
         if r2: idx.append({"name": "VIX 恐慌指數", "val": r2[0], "chg": r2[1]}); print(f"  VIX ← FRED({r2[0]})")
     except Exception as e:
         print(f"  [warn] VIX: {e}")
@@ -4713,6 +4714,11 @@ def main():
             if keep:
                 _macro["idx"] = (_macro.get("idx") or []) + keep
                 print(f"  [warn] 總經指數本輪缺 {len(keep)} 項({'、'.join(i['name'] for i in keep)}),沿用上一輪")
+            _seen, _u = set(), []
+            for i in _macro.get("idx") or []:
+                if i.get("name") in _seen: continue
+                _seen.add(i.get("name")); _u.append(i)
+            _macro["idx"] = _u
             for k, v in (pm.get("fx") or {}).items():
                 _macro.setdefault("fx", {}).setdefault(k, v)
         except Exception as e:
