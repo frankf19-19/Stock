@@ -19,6 +19,10 @@ TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 DATE = os.environ.get("DATE", "").strip() or NOW.strftime("%Y-%m-%d")
 SLOT = os.environ.get("SLOT", "").strip() or ("am" if NOW.hour < 14 else "pm")
+# r1134:GitHub 排程常整班延後好幾小時(10/21 的 21:50 班拖到隔天 02:16 才跑)→ 跑的時候已過午夜,
+#   會被當成「隔天早上版」去抓還沒收盤的美股而失敗。00:00~05:59 一律視為前一天晚上版(已產生就跳過)。
+if not os.environ.get("SLOT", "").strip() and not os.environ.get("DATE", "").strip() and NOW.hour < 6:
+    DATE, SLOT = (NOW - dt.timedelta(days=1)).strftime("%Y-%m-%d"), "pm"
 FORCE = os.environ.get("FORCE", "").strip() in ("1", "true", "yes")
 SEED = os.environ.get("SEED", "").strip()
 OUT, DIR = "view.json", "view"
@@ -467,4 +471,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        print(f"::error::盤勢解讀失敗:{type(e).__name__}: {str(e)[:200]}")
+        sys.exit(1)
