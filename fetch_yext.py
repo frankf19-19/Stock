@@ -112,6 +112,33 @@ def fred_daily(series, days=200):
             continue
     return {"t": t[-140:], "c": c[-140:]} if len(t) >= 5 else None
 
+def yahoo_daily(sym, days=200):
+    """r1134:FRED 整班抓不到時的備援(美股日 K 本來就用 Yahoo 備援,口徑相同)。盤中那根未收盤不收。"""
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}"
+           f"?range=1y&interval=1d&includeAdjustedClose=false")
+    j = json.loads(http_get(url, timeout=25))
+    r = ((j.get("chart") or {}).get("result") or [None])[0] or {}
+    ts = r.get("timestamp") or []
+    cl = (((r.get("indicators") or {}).get("quote") or [{}])[0].get("close")) or []
+    meta = r.get("meta") or {}
+    t, c = [], []
+    for a, b in zip(ts, cl):
+        if b is None: continue
+        t.append(int(a)); c.append(round(float(b), 4))
+    # 最後一根若是進行中的盤中(regularMarketTime 落在今天且市場未收)→ 去掉
+    try:
+        if t and meta.get("currentTradingPeriod"):
+            reg = meta["currentTradingPeriod"].get("regular") or {}
+            now = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+            if reg.get("start") and reg.get("end") and reg["start"] <= now < reg["end"] and t[-1] >= reg["start"] - 86400:
+                t.pop(); c.pop()
+    except Exception:
+        pass
+    # FRED 日線時間戳是 UTC 午夜 → 對齊成同一天的 UTC 午夜
+    t = [int(datetime.datetime.fromtimestamp(x, datetime.timezone.utc).date().strftime("%s")) if False else
+         int(datetime.datetime.combine(datetime.datetime.fromtimestamp(x, datetime.timezone.utc).date(), datetime.time(), datetime.timezone.utc).timestamp()) for x in t]
+    return {"t": t[-140:], "c": c[-140:]} if len(t) >= 5 else None
+
 def nasdaq_get(url):
     req = urllib.request.Request(url, headers={
         "User-Agent": UA["User-Agent"],
@@ -311,6 +338,14 @@ def main():
                     print(f"  {sym} FRED {sid} 失敗: {e}", file=sys.stderr)
                     if attempt == 1 and sym == "^GSPC": print(f"::warning::FRED 抓不到({sid}):{str(e)[:160].replace(FRED_KEY, '***')}")
                 time.sleep(1.2)
+            if sym not in series:
+                try:
+                    got = yahoo_daily(sym)
+                    if got:
+                        series[sym] = {"d": got, "src": "yahoo"}
+                        print(f"  {sym} ← Yahoo 備援({len(got['t'])} 根)")
+                except Exception as e:
+                    print(f"  {sym} Yahoo 備援失敗: {e}", file=sys.stderr)
             time.sleep(0.4)
     # 費城半導體:FRED 無此系列 → Nasdaq 官方端點(指數擁有者;零 Yahoo)
     got_sox = nasdaq_daily("SOX")
