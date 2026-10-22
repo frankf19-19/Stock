@@ -803,6 +803,15 @@ def main():
                 print("  恐懼貪婪指數:沿用前檔")
         except Exception:
             pass
+    # r1134:FRED 整班抓不到時(10/21 23:00 起美股三指數/VIX/殖利率日線全消失,盤勢解讀跟著掛)→ 日線沿用前檔
+    _kept = []
+    for sym, ov in (old_series or {}).items():
+        if isinstance(ov, dict) and ov.get("d") and not (series.get(sym) or {}).get("d"):
+            series.setdefault(sym, {})["d"] = ov["d"]
+            if ov.get("dl") and not series[sym].get("dl"): series[sym]["dl"] = ov["dl"]
+            _kept.append(sym)
+    if _kept:
+        print(f"::warning::日線本輪未取得、沿用前檔:{', '.join(_kept)}")
     doc = {"updated": datetime.datetime.now(datetime.timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%SZ"),
            "series": series}

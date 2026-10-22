@@ -318,7 +318,9 @@ def facts_text(F, CL):
     for x in F["idx"]:
         s = f"{x['name']} {fmt(x['last'])}({x['d']}"
         if x.get("chg1") is not None: s += f",當天 {x['chg1']:+.2f}%"
-        s += f");離近半年高點 {fmt(x['hi'])}({x['hid']}){x['dd']:+.1f}%;20 週乖離 {x['wb']:+.1f}%(歷史第 {x['wpct']:.0f} 百分位,區域:{x['zone']})"
+        s += ")"
+        if x.get("dd") is not None: s += f";離近半年高點 {fmt(x['hi'])}({x['hid']}){x['dd']:+.1f}%"
+        if x.get("wb") is not None and x.get("wpct") is not None: s += f";20 週乖離 {x['wb']:+.1f}%(歷史第 {x['wpct']:.0f} 百分位,區域:{x['zone']})"
         if x.get("bt"):
             b = x["bt"]; s += "。歷史上跌進這個低檔區之後:" + "、".join(f"{h} 週後上漲機率 {b[h]['win']}% 中位 {b[h]['med']:+.1f}%" for h in b)
         L.append("・" + s)
