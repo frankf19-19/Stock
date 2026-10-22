@@ -4689,6 +4689,19 @@ def main():
     if UD_FULL:
         _macro = fetch_macro()
         _news = fetch_news()
+        # r1134:FRED/櫃買偶爾整班抓不到(10/21 23:02 起美股三指數、VIX、利差、美元指數全消失,盤勢解讀跟著失敗)
+        #   → 這輪沒拿到的項目沿用上一輪的值,不讓卡片整排消失
+        try:
+            pm = prev_all.get("macro") or {}
+            have = {i["name"] for i in _macro.get("idx") or []}
+            keep = [i for i in (pm.get("idx") or []) if i.get("name") not in have]
+            if keep:
+                _macro["idx"] = (_macro.get("idx") or []) + keep
+                print(f"  [warn] 總經指數本輪缺 {len(keep)} 項({'、'.join(i['name'] for i in keep)}),沿用上一輪")
+            for k, v in (pm.get("fx") or {}).items():
+                _macro.setdefault("fx", {}).setdefault(k, v)
+        except Exception as e:
+            print(f"  [warn] 總經沿用: {e}")
     else:                                                     # r823:輕量輪沿用上一輪的總經與新聞
         _macro = prev_all.get("macro") or fetch_macro()
         _news = prev_all.get("news") or fetch_news()

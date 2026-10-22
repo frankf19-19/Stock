@@ -477,5 +477,6 @@ if __name__ == "__main__":
         raise
     except Exception as e:
         import traceback; traceback.print_exc()
-        print(f"::error::盤勢解讀失敗:{type(e).__name__}: {str(e)[:200]}")
+        tb = traceback.extract_tb(e.__traceback__)[-1]
+        print(f"::error::盤勢解讀失敗:{type(e).__name__}: {str(e)[:160]} @ {tb.name}:{tb.lineno} {tb.line[:120] if tb.line else ''}")
         sys.exit(1)
