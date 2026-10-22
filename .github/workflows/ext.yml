@@ -32,7 +32,9 @@ jobs:
           H=$(TZ=Asia/Taipei date +%H)
           SRC="${{ github.event.inputs.src }}"
           if [ -z "$SRC" ]; then
-            if [ "$H" -lt 12 ]; then SRC="form4 fred finra biz"; elif [ "$H" -lt 19 ]; then SRC="opt insider_tw"; else SRC="insider_tw"; fi
+            # r1135:GitHub 排程常拖好幾小時(10/22 的 16:40 班拖到 22:04 才跑 → 以為是晚上班、沒抓選擇權,支撐壓力停在 10/21)
+            #   → 選擇權每班都抓(只抓最近 6 天,很便宜),不再靠時鐘判斷
+            if [ "$H" -lt 12 ]; then SRC="form4 fred finra biz opt"; elif [ "$H" -lt 19 ]; then SRC="opt insider_tw"; else SRC="insider_tw opt"; fi
           fi
           for s in $SRC; do timeout 900 python ext_fetch.py $s || echo "::warning::$s 失敗"; done
       - name: 回測(每週)
