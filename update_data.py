@@ -4480,6 +4480,21 @@ def fetch_macro():
         time.sleep(0.3)
     if not any(i["name"] == "S&P 500" for i in idx):
         print("  [warn] FRED 未取得美股指數(FRED_API_KEY 未設定或 API 異常)")
+    # r1134:FRED 整班抓不到(10/21 深夜起回非 JSON)→ 改讀 yext.json 的日線(FRED→Yahoo 備援,同一份資料)
+    def _yext_last2(sym):
+        try:
+            with open("yext.json", encoding="utf-8") as f:
+                d = ((json.load(f).get("series") or {}).get(sym) or {}).get("d") or {}
+            c = [v for v in (d.get("c") or []) if v is not None]
+            if len(c) >= 2: return round(c[-1], 2), round(pct(c[-1], c[-2]), 2)
+        except Exception:
+            pass
+        return None
+    for name, sym in [("S&P 500", "^GSPC"), ("那斯達克", "^IXIC"), ("道瓊工業", "^DJI"), ("VIX 恐慌指數", "^VIX")]:
+        if not any(i["name"] == name for i in idx):
+            r2 = _yext_last2(sym)
+            if r2:
+                idx.append({"name": name, "val": r2[0], "chg": r2[1]}); print(f"  {name} ← yext.json 日線備援({r2[0]})")
     # r707:VIX 恐慌指數 + 美債 10Y-2Y 利差(FRED 官方;利差的 chg 為絕對變化)
     try:
         r2 = fred_last2("VIXCLS")
