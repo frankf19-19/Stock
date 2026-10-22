@@ -309,6 +309,7 @@ def main():
                         break
                 except Exception as e:
                     print(f"  {sym} FRED {sid} 失敗: {e}", file=sys.stderr)
+                    if attempt == 1 and sym == "^GSPC": print(f"::warning::FRED 抓不到({sid}):{str(e)[:160].replace(FRED_KEY, '***')}")
                 time.sleep(1.2)
             time.sleep(0.4)
     # 費城半導體:FRED 無此系列 → Nasdaq 官方端點(指數擁有者;零 Yahoo)
