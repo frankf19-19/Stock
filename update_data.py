@@ -1177,6 +1177,68 @@ def fm_stock_ocf(sid):
     except Exception:
         return None
 
+_FIN_TYPES_LOGGED = {"n": 0}
+def fm_stock_fin(sid):
+    """r1136:FinMind 個股「現金流量表 + 資產負債表」→ 財務體質(億元):
+       近四季營業現金流 ocf4、資本支出 capex4、自由現金流 fcf4;最新季 現金 cash、借款 debt、淨值 eq、總資產 ta、
+       流動比 cur(%)、負債比 dr(%)、存貨 inv、應收 ar、季別 q。失敗回 None。"""
+    try:
+        start = (dt.date.today() - dt.timedelta(days=560)).isoformat()
+        cf = _fm_raw({"dataset": "TaiwanStockCashFlowsStatement", "data_id": sid, "start_date": start}, f"個股現金流 {sid}") or []
+        time.sleep(0.35)
+        bs = _fm_raw({"dataset": "TaiwanStockBalanceSheet", "data_id": sid, "start_date": start}, f"個股資產負債 {sid}") or []
+        out = {}
+        # 現金流(累計數 → 還原單季 → 近四季合計)
+        def singles(key_pat):
+            byq = {}
+            for r in cf:
+                t0 = str(r.get("type", ""))
+                if not re.search(key_pat, t0): continue
+                d0 = str(r.get("date", ""))[:10]; v0 = numf(r.get("value"))
+                if len(d0) == 10 and v0 is not None: byq[d0] = v0
+            ks = sorted(byq); sg = {}
+            for i, k in enumerate(ks):
+                prevs = [x for x in ks[:i] if x[:4] == k[:4]]
+                sg[k] = byq[k] - (byq[prevs[-1]] if prevs else 0)
+            last = [sg[k] for k in sorted(sg)[-4:]]
+            return (sum(last) if len(last) >= 2 else None), (sorted(sg)[-1] if sg else None)
+        ocf4, dcf = singles(r"^CashFlowsFromOperatingActivities$|營業活動")
+        capex4, _ = singles(r"^AcquisitionOfPropertyPlantAndEquipment$|取得不動產")
+        if ocf4 is not None:
+            out["ocf4"] = round(ocf4 / 1e8, 2)
+            if capex4 is not None:
+                out["capex4"] = round(abs(capex4) / 1e8, 2)
+                out["fcf4"] = round((ocf4 - abs(capex4)) / 1e8, 2)
+        # 資產負債表(最新季)
+        if bs:
+            dmax = max(str(r.get("date", ""))[:10] for r in bs)
+            m = {str(r.get("type", "")): numf(r.get("value")) for r in bs if str(r.get("date", ""))[:10] == dmax}
+            if _FIN_TYPES_LOGGED["n"] < 1:
+                _FIN_TYPES_LOGGED["n"] += 1
+                print(f"  [diag] 資產負債表欄位({sid}):{[k for k in m if not k.endswith('_per')][:40]}")
+            def pick(*cands):
+                for c in cands:
+                    if c in m and m[c] is not None: return m[c]
+                return None
+            cash = pick("CashAndCashEquivalents"); ta = pick("TotalAssets"); tl = pick("Liabilities", "TotalLiabilities")
+            eq = pick("Equity", "TotalEquity", "EquityAttributableToOwnersOfParent")
+            ca = pick("CurrentAssets"); cl = pick("CurrentLiabilities")
+            inv = pick("Inventories"); ar = pick("AccountsReceivableNet")
+            sb = pick("ShorttermBorrowings") or 0; lb = pick("LongtermBorrowings", "LongtermBorrowingsNoncurrent") or 0
+            cur_lb = pick("CurrentPortionOfLongtermBorrowings", "LongtermBorrowingsCurrentPortion") or 0
+            bond = pick("BondsPayable", "BondsPayableNoncurrent") or 0
+            q = f"{dmax[:4]}Q{(int(dmax[5:7]) + 2) // 3}"
+            out["q"] = q
+            for k, v in (("cash", cash), ("ta", ta), ("eq", eq), ("inv", inv), ("ar", ar)):
+                if v is not None: out[k] = round(v / 1e8, 2)
+            out["debt"] = round((sb + lb + cur_lb + bond) / 1e8, 2)
+            if ta and tl is not None: out["dr"] = round(tl / ta * 100, 1)
+            if ca and cl: out["cur"] = round(ca / cl * 100, 1)
+        return out or None
+    except Exception as e:
+        print(f"  [warn] 財務體質 {sid}: {str(e)[:60]}")
+        return None
+
 def backfill_perstock(chips, comps, rev_n=250, q_n=120, cf_n=100):
     """全市場逐檔磨補(FinMind 個股查詢,免費層實證可用——深度層圖表在瀏覽器端
        走同一條路早就畫得出 36 個月)。每輪補 rev_n 檔營收 + q_n 檔季報,
@@ -1191,7 +1253,7 @@ def backfill_perstock(chips, comps, rev_n=250, q_n=120, cf_n=100):
     need_q = need_q_all[:q_budget]
     n_have_ldq = sum(1 for sid in tw if ldq in _fq(sid))
     print(f"  當季({ldq})季報已入庫 {n_have_ldq}/{len(tw)} 檔,本輪補 {len(need_q)} 檔(含缺最新季 {sum(1 for x in need_q if ldq not in _fq(x))} 檔)")
-    if not need_r and not need_q:
+    if not need_r and not need_q and cf_n <= 0:
         print("  個股磨補:營收/季報深度已達標,略過"); return
     okr = okq = 0
     for sid in need_r:
@@ -1218,14 +1280,18 @@ def backfill_perstock(chips, comps, rev_n=250, q_n=120, cf_n=100):
         okq += 1
     ldq2 = latest_due_quarter()
     need_c = [sid for sid in tw
-              if (chips.get(sid) or {}).get("ocfq") != ldq2
+              if ((chips.get(sid) or {}).get("ocfq") != ldq2 or not (chips.get(sid) or {}).get("fin"))
               and len((chips.get(sid) or {}).get("fq") or []) >= 3][:cf_n]
     okc = 0
-    for sid in need_c:                                     # ⑩ 盈餘品質:近四季 OCF ÷ 近四季淨利(qr×nm 回推)
-        ocf = fm_stock_ocf(sid)
+    okf = 0
+    for sid in need_c:                                     # ⑩ 盈餘品質:近四季 OCF ÷ 近四季淨利(qr×nm 回推)+ r1136 財務體質(現金/借款/流動比/負債比/自由現金流)
+        fin = fm_stock_fin(sid)
         time.sleep(0.35)
         e = chips.setdefault(sid, {})
         e["ocfq"] = ldq2                                   # 成敗都記季戳,失敗者下季再試,不佔每輪額度
+        if not fin: continue
+        if fin.get("q"): e["fin"] = fin; okf += 1
+        ocf = (fin.get("ocf4") or 0) * 1e8 if fin.get("ocf4") is not None else None
         if ocf is None: continue
         try:
             qr, nm = e.get("qr") or [], e.get("nm") or []
@@ -1235,7 +1301,7 @@ def backfill_perstock(chips, comps, rev_n=250, q_n=120, cf_n=100):
                 okc += 1
         except Exception:
             pass
-    print(f"  盈餘品質(OCF/淨利):更新 {okc}/{len(need_c)} 檔")
+    print(f"  盈餘品質(OCF/淨利):更新 {okc}/{len(need_c)} 檔;財務體質:{okf} 檔(全市場已有 {sum(1 for v in chips.values() if isinstance(v, dict) and v.get('fin'))} 檔)")
     print(f"  個股磨補(FinMind data_id):營收 {okr}/{len(need_r)} 檔、季報 {okq}/{len(need_q)} 檔"
           f"(待補存量:營收 {sum(1 for sid in tw if len((chips.get(sid) or {}).get('rm') or [])<13)} 檔)")
 
@@ -4609,7 +4675,10 @@ def main():
     backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
     if UD_WEEKEND: backfill_perstock(chips, comps, rev_n=800, q_n=800, cf_n=600)   # r831:週末大量磨補(季報/現金流每季才變)
     elif UD_FULL and _WD >= 5: backfill_perstock(chips, comps)                       # 假日排程班也做一點
-    else: print("  平日:逐檔磨補交給週末(季報/現金流每季才變)")
+    else:
+        print("  平日:逐檔磨補交給週末(季報/現金流每季才變);財務體質每輪補 120 檔")
+        try: backfill_perstock(chips, comps, rev_n=0, q_n=0, cf_n=120)      # r1136:財務體質(現金/借款/自由現金流)平日也磨
+        except Exception as e: print(f"  [warn] 財務體質磨補: {e}")
     append_margins(chips, fetch_margin_bulk())  # 季度三率,保留 8 季(供三率三升)
     try:
         append_eps(chips, fetch_eps_bulk())     # r707:季 EPS 逐季累積(qe_d/qe,供本益比河流圖)
