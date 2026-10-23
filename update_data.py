@@ -1205,7 +1205,7 @@ def fm_stock_fin(sid):
         if _FIN_TYPES_LOGGED["n"] < 1 and cf:
             print(f"  [diag] 現金流量表欄位({sid}):{sorted(set(str(r.get('type','')) for r in cf))[:45]}")
         ocf4, dcf = singles(r"^CashFlowsFromOperatingActivities$|營業活動")
-        capex4, _ = singles(r"AcquisitionOfPropertyPlantAndEquipment|PropertyPlantAndEquipment.*(Acqui|Purchase)|取得不動產|購置不動產")
+        capex4, _ = singles(r"^PropertyAndPlantAndEquipment$|AcquisitionOfPropertyPlantAndEquipment|PropertyPlantAndEquipment.*(Acqui|Purchase)|取得不動產|購置不動產")   # r1148:FinMind 現金流量表的資本支出欄叫 PropertyAndPlantAndEquipment(負值)
         if ocf4 is not None:
             out["ocf4"] = round(ocf4 / 1e8, 2)
             if capex4 is not None:
@@ -1282,7 +1282,8 @@ def backfill_perstock(chips, comps, rev_n=250, q_n=120, cf_n=100):
         okq += 1
     ldq2 = latest_due_quarter()
     need_c = [sid for sid in tw
-              if ((chips.get(sid) or {}).get("ocfq") != ldq2 or not (chips.get(sid) or {}).get("fin"))
+              if ((chips.get(sid) or {}).get("ocfq") != ldq2 or not (chips.get(sid) or {}).get("fin")
+                  or (((chips.get(sid) or {}).get("fin") or {}).get("ocf4") is not None and ((chips.get(sid) or {}).get("fin") or {}).get("fcf4") is None))   # r1148:已抓過但缺自由現金流(舊 capex 欄名抓不到)的補一次
               and len((chips.get(sid) or {}).get("fq") or []) >= 3][:cf_n]
     okc = 0
     okf = 0
