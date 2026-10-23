@@ -116,6 +116,109 @@ if __name__ == '__main__':
                '120日高・近高(≤10%)': lambda e, i: EV['站上 120 日高'](e, i) and near(e, i)}
         for en, ef in EV3.items():
             for xn in ('季線停損/+25%/60日', '季線停損/不停利/120日'): stats(simulate(S, ef, EX[xn]), f'{en} | {xn}')
+    if which == 'b5':
+        ev250 = EV['站上 250 日高']; base = EX['季線停損/不停利/120日']; tp25 = EX['季線停損/+25%/60日']
+        def mk_x(buf=0.0, confirm=1, hard=None, tstop=None, half=None, hold=120):
+            def f(e, ei):
+                a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; px = O[ei]; below = 0; sold_half = False; got = 0.0
+                for k in range(ei, min(n, ei + hold)):
+                    if hard and L[k] <= px * (1 - hard):
+                        xp = min(O[k], px * (1 - hard)); return k, (got + xp * 0.5 if sold_half else xp), 'sl'
+                    if half and not sold_half and H[k] >= px * (1 + half):
+                        sold_half = True; got = max(O[k], px * (1 + half)) * 0.5
+                    if tstop and k - ei + 1 == tstop and max(H[ei:k+1]) < px * 1.05: return k, (got + C[k] * 0.5 if sold_half else C[k]), 'time'
+                    below = below + 1 if (C[k] < P['ma60'][k] * (1 - buf) and k > ei) else 0
+                    if below >= confirm:
+                        xi = k + 1 if k + 1 < n else k; xp = O[k+1] if k + 1 < n else C[k]
+                        return xi, (got + xp * 0.5 if sold_half else xp), 'ma'
+                    if k == ei + hold - 1: return k, (got + C[k] * 0.5 if sold_half else C[k]), 'time'
+                return None, None, None
+            return f
+        stats(simulate(S, ev250, base), '基準:季線停損/不停利/120日')
+        stats(simulate(S, ev250, mk_x()), '同上(自寫版,應相同)')
+        stats(simulate(S, ev250, mk_x(buf=0.02)), '跌破季線 2% 以上才賣')
+        stats(simulate(S, ev250, mk_x(buf=0.03)), '跌破季線 3% 以上才賣')
+        stats(simulate(S, ev250, mk_x(confirm=2)), '連 2 天收盤跌破季線才賣')
+        stats(simulate(S, ev250, mk_x(confirm=3)), '連 3 天收盤跌破季線才賣')
+        stats(simulate(S, ev250, mk_x(hard=0.15)), '季線 + 硬停損 −15%(先到先賣)')
+        stats(simulate(S, ev250, mk_x(hard=0.20)), '季線 + 硬停損 −20%')
+        stats(simulate(S, ev250, mk_x(hard=0.10)), '季線 + 硬停損 −10%')
+        stats(simulate(S, ev250, mk_x(tstop=20)), '季線 + 20 天內沒漲 5% 就出')
+        stats(simulate(S, ev250, mk_x(tstop=10)), '季線 + 10 天內沒漲 5% 就出')
+        stats(simulate(S, ev250, mk_x(half=0.30)), '季線 + 漲 30% 先賣一半(現行寫法)')
+        stats(simulate(S, ev250, mk_x(half=0.20)), '季線 + 漲 20% 先賣一半')
+        stats(simulate(S, ev250, mk_x(half=0.50)), '季線 + 漲 50% 先賣一半')
+        stats(simulate(S, ev250, mk_x(hold=250)), '季線/不停利/250日')
+        stats(simulate(S, ev250, mk_x(hold=60)), '季線/不停利/60日')
+        # 加碼:+10% 且收盤在月線上 → 再買一單位(報酬以總投入計)
+        def mk_add(th=0.10, hold=120, ma='ma20'):
+            def f(e, ei):
+                a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; px = O[ei]; units = [px]; added = False
+                for k in range(ei, min(n, ei + hold)):
+                    if not added and k > ei and C[k] >= px * (1 + th) and C[k] > P[ma][k] and k + 1 < n and O[k+1]:
+                        units.append(O[k+1]); added = True
+                    if C[k] < P['ma60'][k] and k > ei:
+                        xi = k + 1 if k + 1 < n else k; xp = O[k+1] if k + 1 < n else C[k]
+                        # 回傳等效出場價:使 xp_eff/px = 平均每單位報酬
+                        return xi, px * np.mean([xp / u for u in units]), ('ma+' if added else 'ma')
+                    if k == ei + hold - 1: return k, px * np.mean([C[k] / u for u in units]), 'time'
+                return None, None, None
+            return f
+        for th in (0.05, 0.10, 0.20):
+            stats(simulate(S, ev250, mk_add(th)), f'加碼:漲 {int(th*100)}% 且月線上再買一單位(報酬按總投入)')
+        # 進場細分
+        def days_since_prev_high(e, i):
+            H = e['a'][:, 1]; h = e['P']['h250'][i]
+            j = i - 1
+            while j > i - 250 and H[j] < h: j -= 1
+            return i - j
+        F = {'首次突破(前高在 ≥60 天前)': lambda e, i: ev250(e, i) and days_since_prev_high(e, i) >= 60,
+             '首次突破(前高在 ≥120 天前)': lambda e, i: ev250(e, i) and days_since_prev_high(e, i) >= 120,
+             '續創(前高在 20 天內)': lambda e, i: ev250(e, i) and days_since_prev_high(e, i) <= 20,
+             '收在當天高點 1% 內': lambda e, i: ev250(e, i) and e['a'][i][3] >= e['a'][i][1] * 0.99,
+             '留上影線(收盤低於高點 3%+)': lambda e, i: ev250(e, i) and e['a'][i][3] < e['a'][i][1] * 0.97,
+             '突破幅度 <2%(剛過)': lambda e, i: ev250(e, i) and e['a'][i][3] / e['P']['h250'][i] - 1 < 0.02,
+             '突破幅度 ≥5%(大過)': lambda e, i: ev250(e, i) and e['a'][i][3] / e['P']['h250'][i] - 1 >= 0.05,
+             '站上季線且月線>季線': lambda e, i: ev250(e, i) and e['P']['ma20'][i] > e['P']['ma60'][i],
+             '離季線 <10%': lambda e, i: ev250(e, i) and e['a'][i][3] / e['P']['ma60'][i] - 1 < 0.10,
+             '離季線 ≥20%(已漲多)': lambda e, i: ev250(e, i) and e['a'][i][3] / e['P']['ma60'][i] - 1 >= 0.20}
+        m = S.get('0050')
+        if m is not None:
+            mdx = {d: k for k, d in enumerate(m['d'])}; mc = m['a'][:, 3]; cs = np.concatenate([[0], np.cumsum(mc)]); m200 = np.full(len(mc), np.nan); m200[199:] = (cs[200:] - cs[:-200]) / 200
+            def bull(e, i):
+                k = mdx.get(e['d'][i]); return k is not None and not np.isnan(m200[k]) and mc[k] > m200[k]
+            F['0050 在 200 日線上(多頭)'] = lambda e, i: ev250(e, i) and bull(e, i)
+            F['0050 在 200 日線下(空頭)'] = lambda e, i: ev250(e, i) and not bull(e, i)
+        for nm, ef in F.items():
+            stats(simulate(S, ef, base), f'{nm} | 季線/不停利'); stats(simulate(S, ef, tp25), f'{nm} | 季線/+25%')
+        # 再買回:上一筆 60 天內被季線停損出場,這次再突破
+        tr = simulate(S, ev250, base); last = {}; re_, fresh = [], []
+        for t in sorted(tr, key=lambda t: (t[0], t[1])):
+            sid = t[0]; prev = last.get(sid)
+            if prev and prev[1] == 'ma':
+                from datetime import date
+                dd = (date.fromisoformat(t[1]) - date.fromisoformat(prev[0])).days
+                (re_ if dd <= 90 else fresh).append(t)
+            else: fresh.append(t)
+            last[sid] = (t[1], t[4])
+        stats(re_, '再買回(上次被季線洗出 90 天內又突破)'); stats(fresh, '其他')
+    if which == 'b6':
+        ev250 = EV['站上 250 日高']
+        def mk_x(buf=0.0, confirm=1, hold=120):
+            def f(e, ei):
+                a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; px = O[ei]; below = 0
+                for k in range(ei, min(n, ei + hold)):
+                    below = below + 1 if (C[k] < P['ma60'][k] * (1 - buf) and k > ei) else 0
+                    if below >= confirm:
+                        xi = k + 1 if k + 1 < n else k; xp = O[k+1] if k + 1 < n else C[k]; return xi, xp, 'ma'
+                    if k == ei + hold - 1: return k, C[k], 'time'
+                return None, None, None
+            return f
+        for nm, x in [('當天跌破就賣', mk_x()), ('連 2 天', mk_x(confirm=2)), ('連 3 天', mk_x(confirm=3)), ('跌破 3%', mk_x(buf=0.03))]:
+            tr = simulate(S, ev250, x); r = np.array([t[2] for t in tr]); lo = r[r < 0]
+            print(f'{nm:12} 平均 {r.mean()*100:+.2f}%  輸的平均 {lo.mean()*100:+.2f}%  最差 5% {np.percentile(r,5)*100:+.1f}%  最差 1% {np.percentile(r,1)*100:+.1f}%  <−20% 佔 {(r<-0.2).mean()*100:.1f}%  贏的平均 {r[r>0].mean()*100:+.2f}%')
+            for a_, b_ in (('2016-01-01', '2021-01-01'), ('2021-01-01', None)):
+                t2 = simulate(S, ev250, x, start=a_, end=b_); r2 = np.array([t[2] for t in t2]); print(f'      {a_[:4]}~ 平均 {r2.mean()*100:+.2f}% PF {r2[r2>0].sum()/-r2[r2<0].sum():.2f} 筆 {len(r2)}')
     if which == 'b3':
         ev250 = EV['站上 250 日高']; xo = EX['季線停損/+25%/60日']; xn = EX['季線停損/不停利/120日']
         F3 = {'250日高': ev250,
