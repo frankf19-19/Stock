@@ -126,8 +126,8 @@ def filings(cik, since):
     return out
 
 
-def exhibit_text(cik, acc):
-    """8-K 附件 EX-99.1(財報新聞稿)→ 純文字"""
+def exhibit_text(cik, acc, primary=None):
+    """8-K 附件 EX-99.1(財報新聞稿)→ 純文字;Item 2.02 已確認但沒有 EX-99(例:NVIDIA 把新聞稿寫在主文件)→ 用主文件"""
     base = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc.replace('-', '')}"
     j = sec_get(base + "/index.json")
     if not j:
@@ -137,7 +137,9 @@ def exhibit_text(cik, acc):
     if ONLY: log(f"    附件 {names[:12]}")
     cands = [n for n in names if re.search(r"ex[-_]?99", n, re.I) and n.lower().endswith((".htm", ".html"))]
     cands.sort(key=lambda n: (0 if re.search(r"99[-_.]?1\b|991", n) else 1, len(n)))
-    if not cands:   # 沒有 EX-99 附件 → 不是財報新聞稿型的 8-K(純公告),不分析
+    if not cands and primary and primary in names:
+        cands = [primary]
+    if not cands:   # 沒有 EX-99 附件、也沒有可信的主文件 → 不是財報新聞稿型的 8-K(純公告),不分析
         return None, "NOEX99"
     for n in cands[:2]:
         t = sec_get(f"{base}/{n}", json_=False)
@@ -257,6 +259,7 @@ def main():
             x = next((c for c in j["conf"] if c.get("acc") == f["acc"]), None)
             if not x:
                 x = {"d": f["d"], "acc": f["acc"], "rd": f.get("rd")}
+                if f.get("doc"): x["doc"] = f["doc"]
                 if f.get("chk"): x["chk"] = 1
                 j["conf"].append(x)
         for x in j["conf"]:   # 含之前失敗一次的(清單抓不到也要重試)
@@ -276,7 +279,7 @@ def main():
                 if not is_earnings_8k(cik[sym], x["acc"]):
                     x["ai"] = None; x["skip"] = 1; x["pv"] = PV; log("    非財報 8-K,略過"); continue
                 x.pop("chk", None)
-            text, url = exhibit_text(cik[sym], x["acc"])
+            text, url = exhibit_text(cik[sym], x["acc"], None if x.get("chk") else x.get("doc"))
             if url == "NOEX99":
                 x["skip"] = 1; x["pv"] = PV; log("    沒有 EX-99 附件(非財報新聞稿),略過"); continue
             if not text:
