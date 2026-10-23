@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1149';
+const APP_BUILD='r1150';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -17823,10 +17823,18 @@ async function gaListen(i){
   }
 }
 /* 預整理佇列:全部集數依序生成(7秒一集防限流;有快取直接跳過) */
-let GA_QRUN=false;
+let GA_QRUN=false,GA_QAGAIN=false;
+/* r1150:原本切換節目(股癌↔財經皓角)時在迴圈裡直接 return、出錯也沒收尾 → GA_QRUN 永遠卡在 true,
+   之後同一頁怎麼重畫列表都不再套用後台整理好的重點(只剩「✦ 產生本集重點」按鈕),要整頁重新載入才好。
+   改成:一定在 finally 放開旗標;跑的途中又被叫(列表重畫/切回來)→ 跑完再補跑一次 */
 async function gaQueueRun(){
-  if(GA_QRUN)return;
-  GA_QRUN=true;
+  if(GA_QRUN){GA_QAGAIN=true;return;}
+  GA_QRUN=true;GA_QAGAIN=false;
+  try{await gaQueueRun1();}catch(e){}
+  finally{GA_QRUN=false;}
+  if(GA_QAGAIN){GA_QAGAIN=false;setTimeout(()=>{try{gaQueueRun();}catch(e){}},50);}
+}
+async function gaQueueRun1(){
   try{await Promise.race([coDescData(),new Promise(r=>setTimeout(r,3000))]);}catch(e){}
   const eps=window.__gaEps||[];
   // 後台預整理檔:最新集重點已在 repo,秒開零等待
@@ -17841,8 +17849,7 @@ async function gaQueueRun(){
     const epNo=(eps[i].t.match(/EP\s?(\d+)/i)||[])[1];
     const preS=preMap[gaNorm(eps[i].t)]||(pre&&pre.s&&epNo&&pre.ep&&String(pre.ep)===String(epNo)?pre.s:null);
     if(preS){
-      b.innerHTML=gaBody(preS,'🎧 <b>本集重點(AI 聽完全集)</b>');
-      continue;
+      try{b.innerHTML=gaBody(preS,'🎧 <b>本集重點(AI 聽完全集)</b>');continue;}catch(e){}
     }
     let lsn=null;
     try{lsn=JSON.parse(localStorage.getItem('ga_lsn_'+gaKey(eps[i].t))||'null');}catch(e){}
@@ -17855,7 +17862,6 @@ async function gaQueueRun(){
       :'')
       +`<button class="glb-aibtn ga-lsnbtn" data-i="${i}" style="font-size:13px;padding:4px 12px">🎧 ${i===0?'等不及?立即':'AI '}聽整集整理(約 1~2 分鐘)</button>`;
   }
-  GA_QRUN=false;
 }
 /* 自動更新:每 10 分鐘檢查新集數;新集 → 分頁鈕亮紅點,分頁開著就即時換上 */
 function gaDot(on){

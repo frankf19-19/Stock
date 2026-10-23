@@ -203,7 +203,7 @@ def main():
     try:
         with open(OUT, encoding="utf-8") as f: old = json.load(f)
     except Exception: pass
-    if old.get("t") == title and old.get("s") and old.get("v") == 3:
+    if (old.get("t") == title and old.get("s") and old.get("v") == 3) or any(x.get("t") == title and len(x.get("s") or "") >= 500 for x in old.get("eps") or []):
         log("同一集已整理過(v3),結束(零成本)。"); return
     ep_no = (re.search(r"EP\s?(\d+)", title, re.I) or [None, None])[1]
     if not ep_no:
@@ -228,10 +228,24 @@ def main():
         if len(s) >= 500: break
     if not s:
         log("✗ 空回應"); sys.exit(1)
+    # r1150:每集永久保留——原本只存最新一集、新集一出就把上一集覆蓋掉(EP706 的重點 10/21 被 EP707 蓋掉)
+    #   gooaye.json:最新集(t/s,舊欄位相容)+ eps 最近 20 集(前端用);gooaye_hist/YYYY-MM.json:按月永久歸檔
+    rec = {"t": title, "ep": ep_no, "dt": ep.get("releaseDate", ""), "yt": link, "s": s}
+    eps = [x for x in (old.get("eps") or []) if x.get("t") and x.get("s") and x.get("t") != title]
+    if old.get("t") and old.get("s") and old.get("t") != title and not any(x.get("t") == old["t"] for x in eps):
+        eps.append({k: old.get(k) for k in ("t", "ep", "dt", "yt", "s")})   # 舊格式(沒有 eps)的上一集先收進來
+    eps = sorted([rec] + eps, key=lambda x: x.get("dt") or "", reverse=True)
     with open(OUT, "w", encoding="utf-8") as f:
-        json.dump({"v": 3, "t": title, "ep": ep_no, "dt": ep.get("releaseDate", ""),
-                   "yt": link, "s": s}, f, ensure_ascii=False)
-    log(f"完成:gooaye.json({len(s)} 字)")
+        json.dump({"v": 3, "t": title, "ep": ep_no, "dt": rec["dt"], "yt": link, "s": s, "eps": eps[:20]}, f, ensure_ascii=False)
+    try:
+        os.makedirs("gooaye_hist", exist_ok=True)
+        hp = os.path.join("gooaye_hist", f"{(rec['dt'] or '')[:7] or 'unknown'}.json")
+        H = json.load(open(hp, encoding="utf-8")) if os.path.exists(hp) else []
+        H = [x for x in H if x.get("t") != title] + [rec]
+        H.sort(key=lambda x: x.get("dt") or "", reverse=True)
+        json.dump(H, open(hp, "w", encoding="utf-8"), ensure_ascii=False)
+    except Exception as e: log(f"  [warn] 月歸檔失敗:{e}")
+    log(f"完成:gooaye.json({len(s)} 字,保留最近 {min(len(eps), 20)} 集;月歸檔永久)")
 
 if __name__ == "__main__":
     main()
