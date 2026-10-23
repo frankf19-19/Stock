@@ -1202,8 +1202,10 @@ def fm_stock_fin(sid):
                 sg[k] = byq[k] - (byq[prevs[-1]] if prevs else 0)
             last = [sg[k] for k in sorted(sg)[-4:]]
             return (sum(last) if len(last) >= 2 else None), (sorted(sg)[-1] if sg else None)
+        if _FIN_TYPES_LOGGED["n"] < 1 and cf:
+            print(f"  [diag] 現金流量表欄位({sid}):{sorted(set(str(r.get('type','')) for r in cf))[:45]}")
         ocf4, dcf = singles(r"^CashFlowsFromOperatingActivities$|營業活動")
-        capex4, _ = singles(r"^AcquisitionOfPropertyPlantAndEquipment$|取得不動產")
+        capex4, _ = singles(r"AcquisitionOfPropertyPlantAndEquipment|PropertyPlantAndEquipment.*(Acqui|Purchase)|取得不動產|購置不動產")
         if ocf4 is not None:
             out["ocf4"] = round(ocf4 / 1e8, 2)
             if capex4 is not None:
