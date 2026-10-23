@@ -35,7 +35,7 @@ jobs:
               for name,mk in (("direct",lambda u:u),("worker",px)):
                   try:
                       r=requests.post(mk(u),headers=UA,timeout=60,data=data); t=r.text
-                      N(f"{u.split('/')[2]} {name} {r.status_code} len={len(t)} 法說={t.count('法說')} tr={t.count('<tr')} head={re.sub(r'\s+',' ',t[:300])}")
+                      hd=re.sub(r'\s+',' ',t[:300]); N(f"{u.split('/')[2]} {name} {r.status_code} len={len(t)} 法說={t.count('法說')} tr={t.count('<tr')} head={hd}")
                       links=re.findall(r'(FileDownLoad[^"\']+|/nas/[^"\']+|https?://[^"\']+\.(?:pdf|PDF))',t)[:3]
                       if links: N(f"links {links}")
                       m=re.search(r'<tr[^>]*>(?:(?!</tr>).){200,2000}</tr>',t,re.S)
@@ -44,7 +44,7 @@ jobs:
           # 2b 新版 MOPS 首頁 看它要什麼
           try:
               r=requests.get("https://mops.twse.com.tw/mops/web/t100sb02_1",headers=UA,timeout=60); t=r.text
-              N(f"mops page {r.status_code} len={len(t)} cookies={dict(r.cookies)} head={re.sub(r'\s+',' ',t[:400])}")
+              hd=re.sub(r'\s+',' ',t[:400]); N(f"mops page {r.status_code} len={len(t)} cookies={dict(r.cookies)} head={hd}")
           except Exception as e: N(f"mops page ERR {e}")
           # 2c 重大訊息 openapi(法說會公告會在這裡)
           try:
