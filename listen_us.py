@@ -259,9 +259,12 @@ def main():
             x = next((c for c in j["conf"] if c.get("acc") == f["acc"]), None)
             if not x:
                 x = {"d": f["d"], "acc": f["acc"], "rd": f.get("rd")}
-                if f.get("doc"): x["doc"] = f["doc"]
-                if f.get("chk"): x["chk"] = 1
                 j["conf"].append(x)
+            if f.get("doc"): x["doc"] = f["doc"]
+            if f.get("chk"): x.setdefault("chk", 1)
+            else:                                           # submissions 直接確認 Item 2.02 → 之前 Atom 路徑誤標的 skip/chk 清掉
+                x.pop("chk", None)
+                if x.get("skip") and not x.get("ai"): x.pop("skip", None); x.pop("fail", None)
         for x in j["conf"]:   # 含之前失敗一次的(清單抓不到也要重試)
             if x["d"] >= since and not x.get("skip") and not (x.get("ai") and x.get("pv") == PV) and (x.get("fail") or 0) < 3:
                 queue.append((sym, x))
