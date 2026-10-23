@@ -6,7 +6,7 @@ on:
         description: "回補幾個月(預設 2;首次回補可填 12)"
         default: ""
       max:
-        description: "本班最多幾場(預設 30)"
+        description: "本班最多幾場(預設 60)"
         default: ""
       only:
         description: "只跑這一檔代號"
@@ -17,6 +17,7 @@ on:
     - cron: "40 10 * * 1-5"
     - cron: "40 13 * * 1-5"
     - cron: "40 18 * * 1-6"
+    - cron: "40 0 * * 0,6"
 permissions:
   contents: write
 concurrency:
