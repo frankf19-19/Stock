@@ -17,5 +17,5 @@ jobs:
       - run: pip install requests pypdf
       - run: |
           python probe_ir.py > /tmp/p.txt 2>&1 || true
-          grep "^::notice::" /tmp/p.txt
-          grep -v "^::notice::" /tmp/p.txt | tail -c 1500 | tr '\n' ' ' | sed 's/^/::warning::LOG /'
+          grep -v "^::notice::" /tmp/p.txt | tail -c 1500 | tr '\n' ' ' | sed 's/^/::warning::LOG /' || true
+          grep "^::notice::" /tmp/p.txt || true
