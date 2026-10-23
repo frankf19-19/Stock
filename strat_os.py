@@ -69,8 +69,11 @@ def run(A, data, T, last, log=print):
         if p.get("seen") == last: still.append(p); continue
         p["seen"] = last; p["n"] = p.get("n", 0) + 1; p["px"] = c
         xp = why = None
-        if l and l <= p["sl"]: xp, why = (min(op, p["sl"]) if p["fill"] != last else p["sl"]), "sl"
-        elif h and h >= p["tp"]: xp, why = (max(op, p["tp"]) if p["fill"] != last else p["tp"]), "tp"
+        # r1157:開盤可知的成交優先；其餘同日雙觸價仍採停損優先。
+        if op and op <= p["sl"]: xp, why = op, "sl"
+        elif op and op >= p["tp"]: xp, why = op, "tp"
+        elif l and l <= p["sl"]: xp, why = p["sl"], "sl"
+        elif h and h >= p["tp"]: xp, why = p["tp"], "tp"
         elif p["n"] >= HOLD: xp, why = c, "time"
         if xp:
             ret = xp * (1 - 0.004425) / (p["entry"] * 1.001425) - 1
@@ -110,7 +113,7 @@ def run(A, data, T, last, log=print):
     S["stats"] = _st(cl, S["open"])
     S["stats40"] = _st([t for t in cl if t.get("r") == RULE_V], [p for p in S["open"] if p.get("r") == RULE_V])   # r1143:新規則單獨計
     S["stats30"] = _st([t for t in cl if not t.get("r")], [p for p in S["open"] if not p.get("r")])
-    S["closed"] = cl[-400:]
+    S["closed"] = cl  # r1157:錯殺交易永久保存，不截400筆
     S["rules"] = {"dd": DD, "tp": TP, "sl": SL, "hold": HOLD, "v": RULE_V,
                   "bt": {"all": [2583, 6.42, 63], "good": [598, 7.23, 65], "pf": 2.13, "years": "11/11", "range": "2016~2026",
                          "old30": [7305, 3.21, 54], "rand": [48344, 0.59, 47], "halves": [[753, 4.96, 58], [1831, 7.01, 64]]}}

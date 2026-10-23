@@ -25,7 +25,7 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1156"
+VER = "r1157"
 NEWS_TTL_D = 7      # Google News RSS 快取天數(免費、不用金鑰)
 PROV_MAX_TD = 3     # 長期清單「暫定」最多等 3 個交易日:AI 評分沒評完(額度 429)就先不成交、下一班再補評;超過就用現有分數成交
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
@@ -643,12 +643,16 @@ def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None, s
         xd = xp = xw = None
         for n, (d, o) in enumerate(held, 1):
             p["hi"] = max(p["hi"] or 0, o[1]); p["lo"] = min(p["lo"] or 1e18, o[2])
-            if True:
-                if sl and o[2] <= p["entry"] * (1 - sl) and n > 0: xd, xp, xw = d, _tk(min(o[0], p["entry"] * (1 - sl)), us, "down"), "sl"; break
-                if p.get("sl_px") and o[2] <= p["sl_px"]: xd, xp, xw = d, _tk(min(o[0], p["sl_px"]), us, "down"), "sl"; break
-                if tp and o[1] >= p["entry"] * (1 + tp): xd, xp, xw = d, _tk(max(o[0], p["entry"] * (1 + tp)), us, "up"), "tp"; break
-            if exit_close_on.get(p["id"]) == d: xd, xp, xw = d, round(o[3], 2), exit_close_on.get("_why", "rule"); break
+            # r1157:已知開盤先成交；開盤未觸價時，日K雙觸價才採停損優先。
+            stops = ([p["entry"] * (1 - sl)] if sl else []) + ([p["sl_px"]] if p.get("sl_px") else [])
+            stop = max(stops) if stops else None
+            target = p["entry"] * (1 + tp) if tp else None
             if p.get("x_open") and d > p["x_open"]: xd, xp, xw = d, round(o[0], 2), p.get("x_why", "rank"); break
+            if stop and o[0] <= stop: xd, xp, xw = d, _tk(o[0], us, "down"), "sl"; break
+            if target and o[0] >= target: xd, xp, xw = d, _tk(o[0], us, "up"), "tp"; break
+            if stop and o[2] <= stop: xd, xp, xw = d, _tk(stop, us, "down"), "sl"; break
+            if target and o[1] >= target: xd, xp, xw = d, _tk(target, us, "up"), "tp"; break
+            if exit_close_on.get(p["id"]) == d: xd, xp, xw = d, round(o[3], 2), exit_close_on.get("_why", "rule"); break
             if hold_max and n >= hold_max: xd, xp, xw = d, round(o[3], 2), "time"; break
             p["last"], p["last_d"], p["days"] = round(o[3], 2), d, n
         if xd:
