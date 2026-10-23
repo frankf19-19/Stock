@@ -25,7 +25,7 @@ PV = 1
 MODELS = ["gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash"]
 DIR = "ir_us"
 IDX = "ir_us_index.json"
-UA = {"User-Agent": "MajiStock frankf19-19@users.noreply.github.com", "Accept": "application/json, text/html, */*"}
+UA = {"User-Agent": "Mozilla/5.0 (compatible; KLabResearch/1.0; +https://frankf19-19.github.io/Stock/)", "Accept": "application/json, text/html, */*"}
 MAX_PER_RUN = int(os.environ.get("MAX_PER_RUN", "30") or 30)
 MONTHS_BACK = int(os.environ.get("MONTHS_BACK", "3") or 3)
 ONLY = os.environ.get("ONLY", "").strip().upper()
@@ -252,9 +252,9 @@ def main():
             continue
         fl = filings(cik[sym], since)
         time.sleep(0.12)
-        if not fl:
-            continue
         j = load_ir(sym)
+        if not fl and not j["conf"]:
+            continue
         for f in fl:
             x = next((c for c in j["conf"] if c.get("acc") == f["acc"]), None)
             if not x:
