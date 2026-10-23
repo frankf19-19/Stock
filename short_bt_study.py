@@ -48,6 +48,17 @@ def load_all():
         mp = {x: (fi[k], ti[k]) for k, x in enumerate(di)}
         f_ = np.array([mp.get(x, (0, 0))[0] for x in dd], dtype=float); t_ = np.array([mp.get(x, (0, 0))[1] for x in dd], dtype=float)
         out[sid] = dict(d=dd, a=a, f=f_, t=t_, sec=sec.get(sid, ''))
+    # 月營收 YoY(公布後次月 12 日起可用)
+    for f in glob.glob(f'{R}/archive/rev/tw/*.json.gz'):
+        j = json.load(gzip.open(f, 'rt'))
+        for sid, e in j.items():
+            if sid not in out or not e.get('m'): continue
+            m, r = e['m'], e['r']; mp = {m[i]: r[i] for i in range(len(m))}
+            yo = {}
+            for i, mm in enumerate(m):
+                y, mo = int(mm[:4]), int(mm[5:7]); pm = f'{y-1}-{mo:02d}'
+                if mp.get(pm) and r[i] is not None: yo[mm] = r[i] / mp[pm] - 1
+            out[sid]['rev'] = yo
     pickle.dump(out, open(CACHE, 'wb'))
     return out
 
@@ -92,7 +103,11 @@ def features(S):
         sign = np.sign(np.diff(C, prepend=C[0])); obv = np.cumsum(sign * V); obvHi = obv >= roll_max(obv, 60)
         t5 = np.full(n, 0.0); t5[4:] = np.convolve(e['t'], np.ones(5), 'valid'); f5 = np.full(n, 0.0); f5[4:] = np.convolve(e['f'], np.ones(5), 'valid')
         vol5 = np.full(n, 1.0); vol5[4:] = np.maximum(vs[5:] - vs[:-5], 1)
-        e['F'] = dict(liq=liq, hi250=hi250, phi=phi, h20p=h20p, h55p=h55p, v5=v5, v20b=v20b, v20p=v20p, ma20=ma20, ma60=ma60, rsi=rs, kd3=kd3,
+        tr = np.maximum(H - L, np.maximum(abs(H - np.roll(C, 1)), abs(L - np.roll(C, 1)))); tr[0] = H[0]-L[0]
+        atr = np.full(n, np.nan); ctr = np.concatenate([[0], np.cumsum(tr)]); atr[19:] = (ctr[20:] - ctr[:-20]) / 20
+        f20 = np.full(n, 0.0); f20[19:] = np.convolve(e['f'], np.ones(20), 'valid')
+        r20 = np.full(n, 0.0); r20[20:] = C[20:] / C[:-20] - 1
+        e['F'] = dict(atr=atr, f20=f20, r20=r20, liq=liq, hi250=hi250, phi=phi, h20p=h20p, h55p=h55p, v5=v5, v20b=v20b, v20p=v20p, ma20=ma20, ma60=ma60, rsi=rs, kd3=kd3,
                       obvHi=obvHi, tb=t5/vol5, fb=f5/vol5)
 
 def score_day(e, i, min_i=130):
@@ -110,7 +125,9 @@ def score_day(e, i, min_i=130):
     tb, fb = F['tb'][i], F['fb'][i]
     sc = new52*2 + brk20 + brk55 + (F['rsi'][i] >= 70) + F['kd3'][i] + big + F['obvHi'][i] + (tb >= 0.03)*2 + (fb >= 0.05) + bull
     if sc < 4: return None
-    return dict(sc=int(sc), tb=tb, r5=C[i]/C[i-5]-1, dh=dh, new52=new52, bull=bull, liq=liq)
+    d = e['d'][i]; y, mo = int(d[:4]), int(d[5:7]); pm = (f'{y}-{mo-1:02d}' if mo > 1 else f'{y-1}-12') if int(d[8:10]) >= 12 else (f'{y}-{mo-2:02d}' if mo > 2 else f'{y-1}-{mo+10:02d}')
+    ry = (e.get('rev') or {}).get(pm)
+    return dict(sc=int(sc), tb=tb, r5=C[i]/C[i-5]-1, dh=dh, new52=new52, bull=bull, liq=liq, atrp=F['atr'][i]/C[i], f20=F['f20'][i], r20=F['r20'][i], ry=ry, c=C[i])
 
 def run(S, cal, mkt_ok, variant):
     """cal: 全部交易日(升冪) ; mkt_ok[d]: 大盤濾網是否允許進場 ; variant: dict 參數"""
@@ -139,6 +156,7 @@ def run(S, cal, mkt_ok, variant):
             p['hi'] = max(p.get('hi', p['px']), H)
             trail = variant.get('trail'); be = variant.get('be')
             sl_eff = p['px'] * (1 - sl) if sl else None
+            if p.get('sl_px'): sl_eff = p['sl_px']
             if be and p['hi'] >= p['px'] * (1 + be): sl_eff = max(sl_eff or 0, p['px'] * 1.002)
             if trail and p['hi'] >= p['px'] * (1 + variant.get('trail_arm', 0.08)): sl_eff = max(sl_eff or 0, p['hi'] * (1 - trail))
             if sl_eff and L <= sl_eff: ex = min(O, sl_eff); why = 'sl'
@@ -163,8 +181,20 @@ def run(S, cal, mkt_ok, variant):
                 if filt == 'new52' and not s['new52']: continue
                 if filt == 'bull' and not s['bull']: continue
                 if filt == 'tb' and not (s['tb'] >= 0.03): continue
+                if variant.get('max_r20') is not None and s['r20'] > variant['max_r20']: continue
+                if variant.get('need_ry') and not (s['ry'] is not None and s['ry'] > 0): continue
+                if variant.get('need_f20') and not (s['f20'] > 0): continue
+                s['sc2'] = s['sc'] + (variant.get('w_ry', 0) * (1 if (s['ry'] is not None and s['ry'] > 0) else 0)) + (variant.get('w_f20', 0) * (1 if s['f20'] > 0 else 0)) + (variant.get('w_dh2', 0) * (1 if s['dh'] >= -0.02 else 0))
                 s['sid'] = sid; cands.append(s)
-            cands.sort(key=lambda x: (-x['sc'], -x['tb'], x['r5']))
+            sk = variant.get('sort', 'default')
+            if sk == 'dh': cands.sort(key=lambda x: (-x['sc2'], x['dh'] and -x['dh'], x['r5']))
+            elif sk == 'liq': cands.sort(key=lambda x: (-x['sc2'], -x['liq']))
+            elif sk == 'lowvol': cands.sort(key=lambda x: (-x['sc2'], x['atrp']))
+            elif sk == 'tb_lowvol': cands.sort(key=lambda x: (-x['sc2'], -int(x['tb']>=0.03), x['atrp']))
+            elif sk == 'lowvol_only': cands.sort(key=lambda x: (x['atrp'],))
+            elif sk == 'highvol': cands.sort(key=lambda x: (-x['sc2'], -x['atrp']))
+            elif sk == 'lowvol_dh': cands.sort(key=lambda x: (-x['sc2'], x['atrp'] - 2*x['dh']))
+            else: cands.sort(key=lambda x: (-x['sc2'], -x['tb'], x['r5']))
             room = K - len(open_pos)
             scale = 1.0 if mkt_ok.get(d, True) else pos_scale
             if scale <= 0: room = 0
@@ -175,7 +205,13 @@ def run(S, cal, mkt_ok, variant):
                 # buy next trading day open
                 e = S[c['sid']]; k = idx[c['sid']][d]
                 if k + 1 >= len(e['d']): continue
-                open_pos.append(dict(sid=c['sid'], ei=k+1, px=e['a'][k+1][0], sec=sec, size=scale / K)); secs[sec] += 1; room -= 1
+                px0 = e['a'][k+1][0]
+                if variant.get('max_gap') is not None and px0 / c['c'] - 1 > variant['max_gap']: continue   # 跳空太多不追
+                size = scale / K
+                if variant.get('volsize'): size = scale / K * min(2.0, max(0.5, 0.03 / max(c['atrp'], 1e-4)))   # 等風險:ATR 3% 為基準
+                p = dict(sid=c['sid'], ei=k+1, px=px0, sec=sec, size=size)
+                if variant.get('atr_sl'): p['sl_px'] = px0 - variant['atr_sl'] * c['atrp'] * c['c']
+                open_pos.append(p); secs[sec] += 1; room -= 1
     # equity: per-trade pnl, position size = scale/K of equity (approx: daily compounding on realized)
     eq = 1.0; curve = []; peak = 1.0; mdd = 0.0; yr = collections.defaultdict(float)
     for d in cal:
@@ -224,6 +260,27 @@ if __name__ == '__main__':
         '同產業上限 1': dict(sec_cap=1),
         '8 檔': dict(K=8),
         '空位每天補(不等週末)': dict(daily=1),
+        '停損改 2 ATR': dict(atr_sl=2, sl=0),
+        '停損改 3 ATR': dict(atr_sl=3, sl=0),
+        '停損改 4 ATR': dict(atr_sl=4, sl=0),
+        '等風險部位(ATR)': dict(volsize=1),
+        '排除 20 日已漲>30%': dict(max_r20=0.30),
+        '排除 20 日已漲>20%': dict(max_r20=0.20),
+        '跳空>3% 不追': dict(max_gap=0.03),
+        '要求月營收 YoY>0': dict(need_ry=1),
+        '要求外資 20 日買超': dict(need_f20=1),
+        '加分:營收YoY>0 +1': dict(w_ry=1),
+        '加分:外資20日買超 +1': dict(w_f20=1),
+        '加分:離高≤2% +1': dict(w_dh2=1),
+        '加分三項都加': dict(w_ry=1, w_f20=1, w_dh2=1),
+        '同分改離高近者優先': dict(sort='dh'),
+        '同分改成交值大者優先': dict(sort='liq'),
+        '同分改低波動優先': dict(sort='lowvol'),
+        '同分改高波動優先(反向對照)': dict(sort='highvol'),
+        '只看低波動(不看分數排序)': dict(sort='lowvol_only'),
+        '投信買超優先再低波動': dict(sort='tb_lowvol'),
+        '低波動+離高綜合': dict(sort='lowvol_dh'),
+        '低波動+sc≥5': dict(sort='lowvol', min_sc=5),
         '每天補+sc≥6': dict(daily=1, min_sc=6),
         '漲8%後停損移到成本': dict(be=0.08),
         '漲8%後移動停損8%': dict(trail=0.08),
@@ -235,4 +292,4 @@ if __name__ == '__main__':
     for name in sel:
         v = variants[name]; r = run(S, cal, mkt, v)
         print(f"{name:28} 年化 {r['cagr']*100:+6.1f}%  回落 {r['mdd']*100:6.1f}%  筆數 {r['n']:5}  勝率 {r['win']*100:4.0f}%  平均 {r['avg']*100:+5.2f}%  最差年 {r['worst']*100:+6.1f}%  正年 {r['pos_years']}/{r['ny']}  {time.time()-t0:.0f}s", flush=True)
-        if name.startswith('baseline'): print('   逐年', r['yrs'])
+        if name.startswith('baseline') or '低波動' in name: print('   逐年', {k:float(v) for k,v in r['yrs'].items()})

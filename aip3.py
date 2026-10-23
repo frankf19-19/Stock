@@ -24,7 +24,7 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1139"
+VER = "r1141"
 NEWS_TTL_D = 7      # Google News RSS 快取天數(免費、不用金鑰)
 PROV_MAX_TD = 3     # 長期清單「暫定」最多等 3 個交易日:AI 評分沒評完(額度 429)就先不成交、下一班再補評;超過就用現有分數成交
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
@@ -187,9 +187,13 @@ def tw_short_candidates(day):
         if sc < 4: continue
         why = [w for w, ok in [("創 52 週新高", new52), ("帶量突破 20 日高", brk20), ("突破 55 日高", brk55), ("RSI ≥70", rsi >= 70), ("KD 高檔鈍化", kd3),
                                ("爆量長紅", big), ("OBV 新高", obvHi), ("投信 5 日買超", tb >= 0.03), ("外資 5 日買超", fb >= 0.05), ("均線多頭", bull)] if ok]
+        tr = [max(H[j] - L[j], abs(H[j] - C[j - 1]), abs(L[j] - C[j - 1])) for j in range(i - 19, i + 1)]
+        atrp = (sum(tr) / 20) / C[i] if C[i] else 9        # r1141:20 日 ATR 佔股價比(波動)
         out.append({"id": sid, "name": s.get("name"), "sector": s.get("sector"), "sc": int(sc), "tb": round(tb, 4), "r5": round(C[i] / C[i - 5] - 1, 4),
-                    "dh": round(dh * 100, 1), "px": C[i], "why": why})
-    out.sort(key=lambda x: (-x["sc"], -x["tb"], x["r5"]))
+                    "dh": round(dh * 100, 1), "px": C[i], "atrp": round(atrp * 100, 2), "why": why + [f"波動 {atrp*100:.1f}%/日"]})
+    # r1141:同分改「波動低者優先」——2016~2026 回測:年化 +28.2% vs +23.9%、最大回落 −25% vs −29%、最差年 +2.2% vs −3.4%、11 年全正;
+    #       反向(高波動優先)+17.4%、只看低波動不看分數 +6.3% → 分數仍是主體,波動只做同分排序(研究:AI_Pick短期規則改法回測_2026-10-23)
+    out.sort(key=lambda x: (-x["sc"], x["atrp"]))
     return out
 
 
@@ -681,6 +685,9 @@ def main():
         J["ai_cache"] = (load(AI_OUT, {}) or {}).get("ai_cache") or J.get("ai_cache") or {}
     tw = J.get("tw") or {}; us = J.get("us") or {}
     tw.setdefault("short", new_tier("", ""))
+    tw["short"]["rule"] = "每週最後一個交易日收盤,用量與技術線選 5 檔(離 52 週高 10% 內 × 創新高/帶量突破 20・55 日高/爆量長紅/OBV 新高/KD・RSI 高檔/均線多頭/投信外資買超);同分時波動低者優先(r1141);下個交易日開盤買,最多持 15 個交易日;停利 +20%、停損 −15%(盤中碰到就出)"
+    tw["short"]["val"] = ("回測 2016~2026 含成本:停利 +20% + 停損 −15% 年化 +34.2%、最大回落 −34%、最差年 −10%;用均線或量能出場都更差。"
+                          "r1141 加「同分時波動低者優先」(同一回測器相對比較):年化 +23.9%→+28.2%、回落 −29%→−25%、最差年 −3.4%→+2.2%、11 年全正;反向(高波動優先)+17.4%、只看波動不看分數 +6.3%")
     tw["short"].update(rule="每週最後一個交易日收盤,用量與技術線選 5 檔(離 52 週高 10% 內 × 創新高/帶量突破 20・55 日高/爆量長紅/OBV 新高/KD・RSI 高檔/均線多頭/投信外資買超);下個交易日開盤買,最多持 15 個交易日;停利 +20%、停損 −15%(盤中碰到就出)",
                        val="回測 2016~2026 含成本:停利 +20% + 停損 −15% 年化 +34.2%、最大回落 −34%、最差年 −10%(不設 +32.6% / −38% / −25%);用均線或量能出場都更差:跌破 5 日線 +1%、10 日線 +12%、20 日線 +30%、爆量不漲 +12%、量縮收黑 +25%、乖離停利 +8~17%——強勢股 2~3 週內常先洗再漲",
                        note="⚠ 強勢股集中,波動大於中期")
