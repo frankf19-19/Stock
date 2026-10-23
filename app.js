@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1156';
+const APP_BUILD='r1157';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1037,15 +1037,60 @@ function aipHydrateWeekly(J,U){
 }
 function aipPolicyText(p,key,us){
   const c=aipSlotPolicy(p,key,us),f=v=>v>0?(us?'$':'')+v.toLocaleString(undefined,{maximumFractionDigits:2}):'待資料';
-  return `${c.source}：停損 ${f(c.sl)}・${c.model?'停利':'獲利觀察'} ${f(c.tp)}；${c.rule}${c.remaining!=null?'；剩'+c.remaining+'交易日':''}${p.x_open?'；已排定下一交易日開盤出場':''}${c.pending?'；尚未成交，以實際成交價重算':''}`;
+  const risk=c.model?strategyRiskMath(c.anchor,c.sl,c.tp):null;
+  return `${c.source}：停損 ${f(c.sl)}・${c.model?'停利':'獲利觀察'} ${f(c.tp)}${risk?'；按該進場價每股計畫風險 '+f(risk.loss)+'／目標淨收益 '+f(risk.gain)+'（雙邊各0.3%成本假設）':''}；${c.rule}${c.remaining!=null?'；剩'+c.remaining+'交易日':''}${p.x_open?'；已排定下一交易日開盤出場':''}${c.pending?'；尚未成交，以實際成交價重算':''}`;
 }
 function aipExecutableSignal(p,key,us,px){
   const c=aipSlotPolicy(p,key,us);px=strategyNumber(px);if(!c.active||!(px>0))return null;
   if(c.slTrigger&&px<=c.slTrigger)return {k:'sl',price:c.sl};if(c.tpTrigger&&px>=c.tpTrigger)return {k:'tp',price:c.tp};return null;
 }
+// r1157:沿用站內除權息因子，避免分割／除息被當成跌深或跌破均線。
+function strategyAdjustedBars(s,o,dates,factors){
+  if(s.market==='US'||!Array.isArray(dates)||dates.length!==o.length)return o;
+  const fs=factors||(typeof ADJ1!=='undefined'&&ADJ1&&ADJ1[s.id])||[];
+  if(!fs.length)return o;
+  return o.map((b,i)=>{let f=1;for(const x of fs)if(dates[i]<x[0]&&Number.isFinite(+x[1])&&+x[1]>0)f*=+x[1];return b.map((v,j)=>j<4?v*f:v);});
+}
+// r1157:只檢核既有已驗證規則；使用各日完整日K，不用現價冒充收盤。
+function strategyCloseCheck(s,o,dates,now=new Date()){
+  if(!s||s.historyOnly||s.etf||!Array.isArray(o)||!Array.isArray(dates)||o.length!==dates.length)return null;
+  const us=s.market==='US',parts=new Intl.DateTimeFormat('en-CA',{timeZone:us?'America/New_York':'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now),pt=k=>parts.find(x=>x.type===k)?.value;
+  const today=`${pt('year')}-${pt('month')}-${pt('day')}`,minutes=+pt('hour')*60+(+pt('minute')),cut=us?16*60:13*60+30;
+  let n=o.length;while(n&&(dates[n-1]>today||(dates[n-1]===today&&minutes<cut)))n--;
+  if(n<61)return null;
+  if(!us&&typeof ADJ1!=='undefined'&&!ADJ1)return null;
+  const b=strategyAdjustedBars(s,o,dates).slice(0,n),ds=dates.slice(0,n),valid=x=>Array.isArray(x)&&x.slice(0,4).every(v=>strategyNumber(v)>0);
+  if(!b.slice(-Math.min(n,252)).every(valid)||!ds.every((d,i)=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&(!i||d>ds[i-1])))return null;
+  const i=n-1,c=b[i][3],pc=b[i-1][3],hi=(at,w)=>Math.max(...b.slice(at-w+1,at+1).map(x=>+x[1])),avg=(at,w)=>b.slice(at-w+1,at+1).reduce((z,x)=>z+(+x[3]),0)/w;
+  const liquid=b.slice(-20).every(x=>strategyNumber(x[4])>=0)&&b.slice(-20).reduce((z,x)=>z+(+x[3])*(+x[4]),0)/20>=(us?2e7:2e4);
+  const jump=!us&&b.slice(-61).some((x,k,a)=>k&&(+x[3]/a[k-1][3]>1.115||+x[3]/a[k-1][3]<.885));
+  const th=us?.35:.40,dd=c/hi(i,60)-1,pdd=pc/hi(i-1,60)-1,dip=dd<=-th?(pdd>-th?'first':'already'):'none';
+  const ma60=avg(i,60),priorMa60=avg(i-1,60),below=c<ma60,below2=below&&pc<priorMa60;
+  const near=n>=250&&c>=hi(i,250)*.9,breaks=[];
+  if(!us&&near)for(const w of [60,120,250])if(i>=w+1&&c>hi(i-1,w)&&pc<=hi(i-2,w))breaks.push(w);
+  return {asof:ds[i],close:+c,liquid,jump,dip,dd,below,below2,ma60,priorMa60,breaks,excluded:o.length-n};
+}
+function strategyCloseText(s,o,dates){
+  const r=strategyCloseCheck(s,o,dates);if(!r)return '完整交易日資料不足或未對齊，暫不確認進出場條件';
+  const us=s.market==='US',f=v=>(us?'$':'')+(+v).toLocaleString(undefined,{maximumFractionDigits:2});
+  if(r.jump)return `${r.asof} 近期有超過11.5%的單日價格斷層，先核對除權／減資／分割還原；暫不確認買賣條件`;
+  let txt=`${r.asof} 收盤 ${f(r.close)}：`;
+  txt+=r.dip==='first'?'首次跌深條件成立；只對應這次收盤後下一交易日開盤，不追認為每天的新買點':r.dip==='already'?'仍在跌深範圍，但不是第一次跌深，不構成新的低接買點':'尚未符合首次跌深買點';
+  if(!us){txt+=r.breaks.length?`；收盤突破前${r.breaks.join('／')}日高且接近52週高，符合突破條件`:'；這次收盤沒有新的已驗證突破條件';
+    txt+=r.below2?'；已連續2日收盤跌破各日季線，技術突破持股依規則於次交易日開盤出場':r.below?'；僅1日收盤跌破季線，尚未完成2日出場確認':'；季線2日出場條件未成立';}
+  if(!r.liquid)txt+='；20日成交值不足或缺成交量，以上價格條件不構成可執行進場訊號';
+  return txt+(r.excluded?'；本日尚未收盤的K線不列入確認':'')+'。這是該日期的條件檢核，請先核對是否已過對應交易時點。';
+}
+function strategyRiskMath(entry,stop,target){
+  entry=strategyNumber(entry);stop=strategyNumber(stop);target=strategyNumber(target);
+  if(!(entry>0&&stop>0&&stop<entry&&target>entry))return null;
+  const loss=entry*1.003-stop*.997,gain=target*.997-entry*1.003;
+  return {loss,gain,ratio:gain/loss,breakeven:loss/(loss+gain)*100};
+}
 function ownStrategySummary(s,o,dates,own,cost){
   // 一般技術面規則和 AI 模型帳分列；不把模型持有視為使用者有持股。
   if(!s||!Array.isArray(o)||!o.length)return '';
+  const rawO=o;o=strategyAdjustedBars(s,o,dates);
   const us=s.market==='US',px=strategyNumber(s.price)||strategyNumber(o[o.length-1][3]),price=v=>v>0?(us?'$':'')+v.toLocaleString(undefined,{maximumFractionDigits:2}):'資料不足';
   const close=o.map(x=>strategyNumber(x[3])),high=o.map(x=>strategyNumber(x[1])),n=o.length,ma=k=>n>=k&&close.slice(-k).every(x=>x>0)?close.slice(-k).reduce((a,b)=>a+b,0)/k:null;
   if(!(px>0))return '';
@@ -1067,7 +1112,7 @@ function ownStrategySummary(s,o,dates,own,cost){
   const accounts=tiers.map(({k,sl})=>({short:'短期',mid:'中期',long:'長期'})[k]+'：'+aipPolicyText(sl,k,us));
   if(!us&&typeof AIPK!=='undefined'&&AIPK){const pv=(AIPK.trader||{}).pv||{},p=(pv.pos||[]).find(x=>x.id===s.id);if(p)accounts.push(`主力20檔模型帳：進場 ${price(p.entry)}；停損 ${price(p.stop)}；停利 ${price(p.tp)}；依模型轉弱／已排定出場記錄執行，與自設持股分開`);}
 
-  return `<div class="dim-block strategy-summary" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 操作規則與價位 <span class="ds">現價 ${price(px)}</span></h3>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}${row('AI Pick 模型帳',accounts.length?accounts.map(esc).join('<br>'):'不在三清單／主力模型持倉中；不因此推定這檔適合或不適合買進')}<div class="dim-note">價格會隨資料更新；進場、收盤確認、隔日開盤成交是不同時間。模型帳不等於你的持股；下列均線帶、左右側與情境價位保留為觀察參考，不構成另一套已驗證買賣規則。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。</div></div>`;
+  return `<div class="dim-block strategy-summary" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 操作規則與價位 <span class="ds">現價 ${price(px)}</span></h3>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('收盤檢核',esc(strategyCloseText(s,rawO,dates)))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}${row('AI Pick 模型帳',accounts.length?accounts.map(esc).join('<br>'):'不在三清單／主力模型持倉中；不因此推定這檔適合或不適合買進')}<div class="dim-note">價格會隨資料更新；進場、收盤確認、隔日開盤成交是不同時間。模型帳不等於你的持股；下列均線帶、左右側與情境價位保留為觀察參考，不構成另一套已驗證買賣規則。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。</div></div>`;
 }
 
 function refreshStrategySummaries(){
@@ -22930,8 +22975,10 @@ function aip3Tier(key,T,us){
 /* r1097:每檔參考價位——🛑 停損 / 🎯 停利 / ➕ 加碼 / 🔁 再買回,現價即時比對;模型帳仍照各清單規則進出 */
 function aip3LvHTML(p,px,us,key){
   if(!p.lv||p.st==='done')return '';const c=aipSlotPolicy(p,key,us),hit=aipExecutableSignal(p,key,us,px),f=v=>v>0?(us?'$':'')+v.toLocaleString(undefined,{maximumFractionDigits:2}):'待資料';
+  const risk=c.model?strategyRiskMath(c.anchor,c.sl,c.tp):null;
+  const riskLine=risk?`每股計畫風險 ${f(risk.loss)}／目標淨收益 ${f(risk.gain)}（雙邊各0.3%成本假設；跳空可能超過計畫風險）`:'標準進出場依上列規則，未填實際成交價不推定個人損益';
   const it=(lab,v,active)=>`<span class="a3-lvi${active?' hit':''}"><span class="l">${lab}</span><b>${f(v)}</b><em>${px&&v?((v/px-1)*100).toFixed(1)+'%':''}</em></span>`;
-  return `<div class="a3-lv">${it(c.model?'🛑 模型停損':'🛑 風險觀察',c.sl,hit&&hit.k==='sl')}${it(c.model?'🎯 模型停利':'🎯 獲利觀察',c.tp,hit&&hit.k==='tp')}${it('➕ 加碼觀察',c.add,false)}${it('🔁 買回觀察',c.re,false)}<div class="dim-note">${newsEsc(c.rule)}${c.pending?'；待實際成交後重算':''}${c.asof?'；價位資料 '+newsEsc(c.asof):''}。加碼／買回僅保留舊參考價，不是模型執行訊號。</div>${hit?`<span class="a3-lvhit">已觸及模型${hit.k==='sl'?'停損':'停利'}價；成交與出場以模型帳記錄為準</span>`:''}</div>`;
+  return `<div class="a3-lv">${it(c.model?'🛑 模型停損':'🛑 風險觀察',c.sl,hit&&hit.k==='sl')}${it(c.model?'🎯 模型停利':'🎯 獲利觀察',c.tp,hit&&hit.k==='tp')}${it('➕ 加碼觀察',c.add,false)}${it('🔁 買回觀察',c.re,false)}<div class="dim-note a3-risk">${newsEsc(riskLine)}</div><div class="dim-note">${newsEsc(c.rule)}${c.pending?'；待實際成交後重算':''}${c.asof?'；價位資料 '+newsEsc(c.asof):''}。加碼／買回僅保留舊參考價，不是模型執行訊號。</div>${hit?`<span class="a3-lvhit">已觸及模型${hit.k==='sl'?'停損':'停利'}價；成交與出場以模型帳記錄為準</span>`:''}</div>`;
 }
 function aip3TechHTML(p,px,us){
   /* r1099:短期清單的「量 + 技術線」即時觀察——5/10/20 日線在現價上下、今日量比(盤中累計 ÷ 20 日均量);只做觀察,出場仍照回測規則(均線/量能出場回測都更差) */
@@ -22960,6 +23007,11 @@ function aip3Sweep(){
   }catch(e){}
 }
 const K3=5;
+// r1157:研究結果與實戰模型帳分開；未通過分段和資金驗證者不自動上線。
+function strategyResearchNote(us){
+  const content=us?'本輪美股跌深研究：等5日內第一次反彈再買，在2016–2020較好，但2021–2026每筆平均由+6.64%降到+5.06%，勝率由56.39%降到54.31%；不採用。縮短持有、提高目標或緊停損也未在前後段全面改善。':'台股短期逐日淨值研究：2016-01-04～2026-10-16，1,899檔歷史股庫，5個槽位、以現金及實際持有股數逐日估值，雙邊各0.3%成本；研究年化+24.72%、最大回落−28.18%、2022年−9.87%，895筆已出場。8種改法沒有同時通過2016–2020與2021–2023；保留原規則。台股跌深把停利改30%或改移動停損，個股平均雖提高，但五檔資金研究變差，不直接套用。';
+  return `<details class="aip-fold strategy-research"><summary>🧪 這次怎麼加強：先驗證，再決定是否改規則</summary><p>${content}</p><div class="dim-note">這是研究模擬，非實戰模型帳成績；現有股庫有倖存者偏差，未完整模擬漲跌停排隊、流動性及稅費差異。歷史已研究過，時間切分不能稱為真正未見資料。期末未出場持倉保留市值，舊版已實現損益近似不能直接比較。<a href="research/r1157-summary.json" target="_blank" rel="noopener">完整研究紀錄與限制</a></div></details>`;
+}
 function renderAip3(){
   const box=document.getElementById('aip3Box');if(!box)return;
   const J=AIP3;if(!J){box.innerHTML='<div class="dim-note">⏳ 三清單讀取中…(後端每天收盤後產生 aip3.json;第一次要等下一班)</div>';return;}
@@ -22968,7 +23020,7 @@ function renderAip3(){
   const evs=(J.rt_log||[]).filter(x=>String(x).startsWith(tdy)&&(/🇺🇸/.test(String(x))===us)).map(x=>String(x).slice(11));
   const evHtml=evs.length?`<details class="a3-evlog"><summary>📒 今天盤中記帳 ${evs.length} 筆・最新:${evs[evs.length-1]}</summary><ul>${evs.slice().reverse().map(x=>`<li>${x}</li>`).join('')}</ul></details>`:'';
   const html=`<div class="dim-note" style="margin:0 0 8px">${us?'🇺🇸 美股':'🇹🇼 台股'}・更新 ${J.u||''}(K 線到 ${us?J.us_day:J.tw_day})${rtOn?`・<b style="color:var(--up)">⏱ 盤中記帳到 ${J.rt.t}</b>`:(!us&&marketOpen()?'・⏱ 盤中記帳每 5 分鐘一輪':'')}・三個清單各自獨立、各 5 檔;台股與美股中期／長期依下一交易日開盤成交，美股短期按每週模型買進條件及成交記錄,${us?'網站自己逐日記帳':'台股盤中就記帳(09:00 開盤成交、碰到停損停利當下出場),晚上再用官方日 K 核對'},不是回頭補的。${us?'<b>美股資料只有目前 S&P 500 成分股,歷史有倖存者偏差;中期、長期標示為參考。</b>':''}規則與回測:<a href="#learn/aip3" style="color:var(--t-blue)">怎麼驗證的&nbsp;→</a></div>
-    ${evHtml}${(()=>{try{if(us)return '';const e=(KCACHE['k/tw005.json']||{})['0050'];if(!(e&&e.o&&e.o.length>=200))return '';const C=e.o.map(x=>x[3]);const m200=C.slice(-200).reduce((a,b)=>a+b,0)/200;const last=C[C.length-1];   // r1139:大盤環境提醒(實證:0050 在 200 日線下時,近高強勢訊號 20 日超額只剩 +0.67%、不顯著;規則不變,只提醒部位)
+    ${strategyResearchNote(us)}${evHtml}${(()=>{try{if(us)return '';const e=(KCACHE['k/tw005.json']||{})['0050'];if(!(e&&e.o&&e.o.length>=200))return '';const C=e.o.map(x=>x[3]);const m200=C.slice(-200).reduce((a,b)=>a+b,0)/200;const last=C[C.length-1];   // r1139:大盤環境提醒(實證:0050 在 200 日線下時,近高強勢訊號 20 日超額只剩 +0.67%、不顯著;規則不變,只提醒部位)
       return last<m200?`<div class="aov-warn" style="margin:0 0 8px">🌧 大盤環境:0050 收在 200 日線之下(${last.toFixed(1)} vs ${m200.toFixed(1)})——實測這種時候「近 52 週高 × 強勢訊號」的優勢變弱(20 日比大盤 +0.67%,不顯著;多頭時 +1.1~1.9%)。但把短期清單在空頭「停做」回測反而更差(年化 +10.4% vs +23.9%)、「縮半部位」是取捨(年化 +17.8%、回落 −25% vs −29%)——規則不改,要不要縮部位由你決定。</div>`:'';}catch(x){return '';}})()}<div class="a3-grid">${['short','mid','long'].map(k=>M[k]?aip3Tier(k,M[k],us):'').join('')}</div>
     <div class="dim-note">短期、中期、長期是三種不同節奏,不是同一檔股票的三種看法;同一檔可能同時出現在兩個清單。數字是模型帳上的紀錄,非投資建議。<br>🧭 每檔下面的 <b>🛑 停損 / 🎯 停利 / ➕ 加碼 / 🔁 再買回</b>:每筆依市場與入場版本分列；台股短期−15%/+20%、中期4 ATR/+25%，美股中期舊持倉−15%/+20%/60日、新持倉−20%/+30%/90日。長期價格僅觀察，模型仍按季度檢視；加碼和買回價保留但不觸發買進通知。細節:<a href="#learn/aip3">看說明</a>。</div>`;
   if(box.__h!==html){box.innerHTML=html;box.__h=html;}
