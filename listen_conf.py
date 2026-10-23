@@ -365,6 +365,8 @@ def main():
             x["fail"] = (x.get("fail") or 0) + 1; x["pv"] = PV
             log(f"    AI 判定簡報不可讀(readable={o.get('readable')}),記一次失敗"); continue
         ai = {k: o.get(k) for k in ("tone", "head", "period", "summary", "numbers", "guidance", "drivers", "products", "capex", "risks", "watch", "quotes", "deep")}
+        if ai.get("deep"):   # flash-lite 常把 Markdown 小標黏在同一行 → 補換行
+            ai["deep"] = re.sub(r"\s*(#{2,4} )", r"\n\n\1", ai["deep"]).strip()
         x["ai"] = ai; x["pv"] = PV; x["src"] = src; x["file"] = fn; x["model"] = o.get("_model")
         x["ts"] = NOW.strftime("%Y-%m-%d %H:%M"); x.pop("fail", None)
         done += 1
