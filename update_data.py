@@ -2535,18 +2535,21 @@ def fetch_dividends(stocks):
                 if c0 <= 0 and s0 <= 0: continue
                 per = str(r.get(k_per, "")).strip() if k_per else ""
                 rows_by.setdefault(sid, {})[per or f"_{len(rows_by.get(sid, {}))}"] = [c0, s0]   # 同期重複(更正決議)以後者為準
-            agg = {}
+            agg = {}; est = set()
             for sid, pm in rows_by.items():
-                ks = sorted(pm)
-                if any("季" in k for k in ks): take = [k for k in ks if "季" in k][-4:]
-                elif any("半年" in k for k in ks): take = [k for k in ks if "半年" in k][-2:]
+                ks = sorted(pm); need = 1
+                if any("季" in k for k in ks): take = [k for k in ks if "季" in k][-4:]; need = 4
+                elif any("半年" in k for k in ks): take = [k for k in ks if "半年" in k][-2:]; need = 2
                 elif ks and all(k.startswith("_") for k in ks): take = ks
                 else: take = ks[-1:]
                 a0 = agg.setdefault(sid, [0.0, 0.0])
                 for k in take: a0[0] += pm[k][0]; a0[1] += pm[k][1]
+                if need > len(take) and take:                  # 表內只剩最近一兩期(季配/半年配)→ 年化,並標 est
+                    a0[0] *= need / len(take); a0[1] *= need / len(take); est.add(sid)
             for sid, (c0, s0) in agg.items():
                 st = by_id[sid]
                 dv = {"c": round(c0, 2)}
+                if sid in est: dv["est"] = 1                    # 以最近期數年化的推估值
                 if s0 > 0: dv["s"] = round(s0, 2)
                 px = st.get("price")
                 if px and px > 0 and c0 > 0:
@@ -4864,7 +4867,9 @@ def main():
             for kk in ("t", "f", "c"):
                 cur = (x.get(kk) or {}).get("score")
                 old_s = (pv.get(kk) or {}).get("score")
-                if cur == 50 and old_s not in (None, 50):
+                kvc = (x.get(kk) or {}).get("kv") or {}
+                no_data = (not kvc) or all(str(v).strip() in ("—", "") for v in kvc.values())   # r1137:只有「真的沒資料」才沿用,真的 50 分(如金融業不評月營收)不再被昨天的分數蓋掉
+                if cur == 50 and no_data and old_s not in (None, 50):
                     x[kk] = pv[kk]
                     kept += 1
         if kept:

@@ -11233,7 +11233,7 @@ async function fundAlertUI(s){                             // r496:基本面/前
     try{
       const dv=s.dv;
       if(dv&&(dv.c>0||dv.s>0)){
-        let v=`現金股利 ${dv.c} 元`+(dv.s?`・配股 ${dv.s} 元`:'')+(dv.y!=null?`・現金殖利率 ${dv.y}%`:'');
+        let v=`現金股利 ${dv.c} 元${dv.est?'(以最近配息期數年化推估)':''}`+(dv.s?`・配股 ${dv.s} 元`:'')+(dv.y!=null?`・現金殖利率 ${dv.y}%`:'');
         const bd=dv.y==null?pill('有配息','var(--amber)')
                :dv.y>=5?pill('高殖利率','var(--up)')
                :dv.y<1.5?pill('低殖利率','var(--amber)')
