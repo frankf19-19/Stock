@@ -137,6 +137,22 @@ def exhibit_text(cik, acc, primary=None):
     if ONLY: log(f"    附件 {names[:12]}")
     cands = [n for n in names if re.search(r"ex[-_]?99", n, re.I) and n.lower().endswith((".htm", ".html"))]
     cands.sort(key=lambda n: (0 if re.search(r"99[-_.]?1\b|991", n) else 1, len(n)))
+    def clean(t):
+        t = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", t)
+        t = re.sub(r"(?i)<br\s*/?>|</p>|</tr>|</div>|</li>|</h\d>", "\n", t)
+        t = re.sub(r"(?i)</td>|</th>", " | ", t)
+        t = re.sub(r"<[^>]+>", " ", t)
+        t = H.unescape(t)
+        t = re.sub(r"[ \t\xa0]+", " ", t)
+        return re.sub(r"\n\s*\n+", "\n", t).strip()
+    if not cands:   # 索引沒列 EX-99 檔(有些公司只放在完整申報 .txt 裡)→ 從 .txt 抽 <TYPE>EX-99 區段
+        txtn = next((n for n in names if n.lower().endswith(".txt") and acc in n), None)
+        if txtn:
+            full = sec_get(f"{base}/{txtn}", json_=False) or ""
+            for m in re.finditer(r"<DOCUMENT>\s*<TYPE>(EX-99[^\s<]*)(.*?)</DOCUMENT>", full, re.S):
+                t = clean(m.group(2))
+                if len(t) > 1500:
+                    return t[:90000], f"{base}/{txtn}"
     if not cands and primary and primary in names:
         cands = [primary]
     if not cands:   # 沒有 EX-99 附件、也沒有可信的主文件 → 不是財報新聞稿型的 8-K(純公告),不分析
