@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1155';
+const APP_BUILD='r1156';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1003,105 +1003,93 @@ function osHTML(){
 /* r1122:最愛卡「做法」區——三清單(短/中/長期)持有或待買的那檔,直接列出進場價、帳面、停損/停利/加碼(原本只認主力 20 檔,台塑在短期清單卻寫「還沒到買點」) */
 function a3TiersOf(id,us){const a3=(typeof AIP3!=='undefined'&&AIP3&&(us?AIP3.us:AIP3.tw))||null;const out=[];if(!a3)return out;
   ['short','mid','long'].forEach(k=>{(a3[k]&&a3[k].slots||[]).forEach(sl=>{if((sl.cur||sl.id)===id&&(sl.st==='hold'||sl.st==='pend'))out.push({k,sl});});});return out;}
+// r1156:同一筆持倉只用其成交規則；觀察價位不冒充模型出場或加碼訊號。
+function strategyNumber(v){return v==null||typeof v==='boolean'||String(v).trim()===''||!Number.isFinite(+v)?null:+v;}
+function strategyPrice(v,us,mode='near'){
+  v=strategyNumber(v);if(!(v>0))return null;
+  if(us)return +v.toFixed(2); // 美股模型帳以美分四捨五入記帳；觸價另外比較未取整門檻。
+  const t=us?0.01:v<10?0.01:v<50?0.05:v<100?0.1:v<500?0.5:v<1000?1:5;
+  const q=v/t,r=mode==='down'?Math.floor(q+1e-9):mode==='up'?Math.ceil(q-1e-9):Math.round(q);
+  return +(r*t).toFixed(2);
+}
+function aipSlotPolicy(p,key,us){
+  p=p||{};const L=p.lv||{},E=p.execution||{};
+  const entry=strategyNumber(p.entry),anchor=entry>0?entry:strategyNumber(p.sel_px),n=v=>strategyNumber(v),positive=v=>n(v)>0?n(v):null;
+  let sl=null,tp=null,hold=null,model=key!=='long',rule='',source='成交規則';
+  if(key==='short'&&!us){sl=anchor>0?strategyPrice(anchor*.85,false,'down'):null;tp=anchor>0?strategyPrice(anchor*1.2,false,'up'):null;hold=15;rule='盤中到停損／停利價出場，最長15交易日；不加碼';}
+  else if(key==='mid'&&!us){sl=strategyPrice(p.sl_px,false,'down');tp=anchor>0?strategyPrice(anchor*1.25,false,'up'):null;rule='進場時4 ATR停損／+25%停利；另依模型轉弱記錄隔日開盤出場';}
+  else if(key==='mid'&&us){const sr=positive(p.sl_r)||.20,tr=positive(p.tp_r)||.30;hold=positive(p.hold_r)||90;sl=anchor>0?strategyPrice(anchor*(1-sr),true,'down'):null;tp=anchor>0?strategyPrice(anchor*(1+tr),true,'up'):null;rule=`本筆停損−${Math.round(sr*100)}%／停利+${Math.round(tr*100)}%，最長${hold}交易日；新舊持倉各照入場規則`;
+  }else if(key==='short'&&us){sl=positive(E.sl);tp=positive(E.tp);model=!!(sl&&tp);source=model?'每週模型實際持倉':'結構觀察價（待每週模型同步）';rule='依每週模型實際持倉停損／目標與換股記錄，不套用台股15日規則';}
+  else{sl=positive(L.sl);tp=positive(L.tp);rule='模型持有到季度檢視，不自動執行價格停損、停利或加碼';source='風險觀察價（不自動成交）';}
+  if(key==='short'&&us&&!model){sl=positive(L.sl);tp=positive(L.tp);}
+  const terminal=p.st==='done'||p.st==='nofill';
+  const slTrigger=us&&key==='mid'&&anchor>0?anchor*(1-(positive(p.sl_r)||.20)):sl,tpTrigger=us&&key==='mid'&&anchor>0?anchor*(1+(positive(p.tp_r)||.30)):tp;
+  return {key,us,slTrigger,tpTrigger,entry:entry>0?entry:null,anchor,sl,tp,hold,model,source,rule,remaining:hold&&p.days!=null?Math.max(0,hold-(n(p.days)||0)):null,pending:p.st==='pend',terminal,active:model&&!terminal&&p.st==='hold'&&entry>0,add:positive(L.add),re:positive(L.re),asof:E.d||L.d||p.last_d||null};
+}
+function aipHydrateWeekly(J,U){
+  if(!(J&&J.us&&J.us.short&&U&&Array.isArray(U.weeks)))return J;
+  (J.us.short.slots||[]).forEach(p=>{const weeks=U.weeks.filter(w=>!w.bt&&w.ref_day===p.sel_d);
+    for(const w of weeks){const pick=(w.picks||[]).find(x=>x.id===p.id);if(!pick)continue;
+      const leg=(pick.legs||[]).find(x=>x.id===(p.cur||p.id)&&x.fill===p.fill_d&&+x.entry===+p.entry);
+      if(p.st==='hold'&&!leg)continue;const src=leg||pick;
+      p.execution={source:'weekly',id:p.cur||p.id,sl:src.stop,tp:src.target,buy:pick.buy,buy_hi:pick.buy_hi,d:src.last_day||w.ref_day,automatic:true};break;
+    }});return J;
+}
+function aipPolicyText(p,key,us){
+  const c=aipSlotPolicy(p,key,us),f=v=>v>0?(us?'$':'')+v.toLocaleString(undefined,{maximumFractionDigits:2}):'待資料';
+  return `${c.source}：停損 ${f(c.sl)}・${c.model?'停利':'獲利觀察'} ${f(c.tp)}；${c.rule}${c.remaining!=null?'；剩'+c.remaining+'交易日':''}${p.x_open?'；已排定下一交易日開盤出場':''}${c.pending?'；尚未成交，以實際成交價重算':''}`;
+}
+function aipExecutableSignal(p,key,us,px){
+  const c=aipSlotPolicy(p,key,us);px=strategyNumber(px);if(!c.active||!(px>0))return null;
+  if(c.slTrigger&&px<=c.slTrigger)return {k:'sl',price:c.sl};if(c.tpTrigger&&px>=c.tpTrigger)return {k:'tp',price:c.tp};return null;
+}
+function ownStrategySummary(s,o,dates,own,cost){
+  // 一般技術面規則和 AI 模型帳分列；不把模型持有視為使用者有持股。
+  if(!s||!Array.isArray(o)||!o.length)return '';
+  const us=s.market==='US',px=strategyNumber(s.price)||strategyNumber(o[o.length-1][3]),price=v=>v>0?(us?'$':'')+v.toLocaleString(undefined,{maximumFractionDigits:2}):'資料不足';
+  const close=o.map(x=>strategyNumber(x[3])),high=o.map(x=>strategyNumber(x[1])),n=o.length,ma=k=>n>=k&&close.slice(-k).every(x=>x>0)?close.slice(-k).reduce((a,b)=>a+b,0)/k:null;
+  if(!(px>0))return '';
+  const m20=ma(20),m60=ma(60),hi60=n>=60&&high.slice(-60).every(x=>x>0)?Math.max(...high.slice(-60)):null,hi250=n>=250&&high.slice(-250).every(x=>x>0)?Math.max(...high.slice(-250)):null;
+  const ownCost=own&&strategyNumber(cost)>0?+cost:null,entry=ownCost,threshold=us?.35:.40;
+  const trig=hi60?hi60*(1-threshold):null;
+  let buy='至少需要250根日K，資料不足時不推定買點',stop='尚無成交成本，成交後再計算',take='一般台股技術突破不設固定停利，依連續2天收盤跌破季線出場';
+  if(s.historyOnly){buy='近期報價／日K尚未對齊，暫不提供可執行買點';stop='先核對最新完整交易日資料；歷史圖不作即時出場判斷';take='近期資料待補，暫不推定停利';}
+  else if(s.etf){buy='ETF尚未完成個別策略回測；不套用一般個股突破或跌深買點';stop=entry?'你已填入成本 '+price(entry)+'；ETF風險線須依自行設定規則':'尚未填實際成本；不推定停損價';take='ETF未建立固定停利規則，幾何價位僅供觀察';}
+  else if(us){buy=trig?`跌深觀察 ${price(trig)}：第一天「收盤」離60日高跌35%以上，下一交易日開盤才可執行；盤中到價未確認`:'至少需要60根日K';stop=entry?`${price(strategyPrice(entry*.8,true,'down'))}（採跌深策略時，成本−20%）`:'若採跌深策略，實際成交成本−20%';take=entry?`${price(strategyPrice(entry*1.3,true,'up'))}（採跌深策略時，成本+30%），或最多90交易日`:'若採跌深策略，實際成交成本+30%，或最多90交易日';}
+  else if(hi250&&m60){const near=px>=hi250*.9,breakout=near&&n>=120?Math.min(...[Math.max(...high.slice(-60)),Math.max(...high.slice(-120)),hi250].filter(x=>x>=px)):hi250;
+    buy=`技術突破觀察 ${price(breakout)}：收盤確認創高後，下一交易日開盤執行；不是碰價即買${!near?'（目前離52週高超過10%，不把60／120日突破當買點）':''}。錯殺低接另看 ${price(trig)}（第一天收盤跌深40%）`;
+    stop=`技術突破：季線目前 ${price(m60)}，連續2個完整交易日收盤跌破各日季線，下一交易日開盤出場；單次盤中跌破未確認。錯殺低接：${entry?price(strategyPrice(entry*.85,false,'down'))+'（成本−15%）':'成交後以成本−15%計算'}`;
+    take+=`。錯殺低接：${entry?price(strategyPrice(entry*1.2,false,'up'))+'（成本+20%）':'成交後以成本+20%計算'}，或最多60交易日`;
+  }
+  const holdings=own?`你已設定進場成本${entry?'，自設成本 '+price(entry)+'，帳面 '+((px/entry-1)*100).toFixed(1)+'%':'，尚未填成本，不能把現價當成本'}`:'你尚未設定進場成本；AI Pick 是獨立模型帳';
+  const trend=m20&&m60?`現價${px>=m20?'在月線上':'在月線下'}、${px>=m60?'在季線上':'在季線下'}；月線 ${price(m20)}、季線 ${price(m60)}`:'均線歷史不足';
+  const tiers=a3TiersOf(s.id,us),esc=x=>newsEsc(String(x)),row=(k,v)=>`<div class="strategy-row"><b>${k}</b><span>${v}</span></div>`;
+  const accounts=tiers.map(({k,sl})=>({short:'短期',mid:'中期',long:'長期'})[k]+'：'+aipPolicyText(sl,k,us));
+  if(!us&&typeof AIPK!=='undefined'&&AIPK){const pv=(AIPK.trader||{}).pv||{},p=(pv.pos||[]).find(x=>x.id===s.id);if(p)accounts.push(`主力20檔模型帳：進場 ${price(p.entry)}；停損 ${price(p.stop)}；停利 ${price(p.tp)}；依模型轉弱／已排定出場記錄執行，與自設持股分開`);}
+
+  return `<div class="dim-block strategy-summary" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 操作規則與價位 <span class="ds">現價 ${price(px)}</span></h3>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}${row('AI Pick 模型帳',accounts.length?accounts.map(esc).join('<br>'):'不在三清單／主力模型持倉中；不因此推定這檔適合或不適合買進')}<div class="dim-note">價格會隨資料更新；進場、收盤確認、隔日開盤成交是不同時間。模型帳不等於你的持股；下列均線帶、左右側與情境價位保留為觀察參考，不構成另一套已驗證買賣規則。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。</div></div>`;
+}
+
+function refreshStrategySummaries(){
+  if(document.hidden)return;
+  document.querySelectorAll('.strategy-summary[data-id]').forEach(el=>{try{
+    const r=el.getBoundingClientRect();if(!r.width||!r.height||r.bottom<0||r.top>innerHeight*1.5)return;
+    const s=(DATA.stocks||[]).find(x=>x.id===el.dataset.id);if(!s)return;
+    const ke=(KCACHE[shardOf(s)]||{})[s.id],k=ke&&ke.o?{ohlc:ke.o,dates:ke.d}:location.hash==='#stock/'+s.id?baseK:null;
+    if(!k||!k.ohlc)return;const en=favEntryOf(s.id),so=el.dataset.history==='1'?Object.assign({},s,{historyOnly:true}):s;
+    const html=ownStrategySummary(so,k.ohlc,k.dates,!!en,en&&en.px);if(html&&el.outerHTML!==html)el.outerHTML=html;
+  }catch(e){}});
+}
+setInterval(()=>{try{refreshStrategySummaries();}catch(e){}},15000);
 function a3PlanLine(id,us,px){
-  const c=us?'$':'',nm={short:'🏃 短期清單',mid:'🌊 中期清單',long:'🏦 長期清單'},md=d=>String(d||'').slice(5).replace('-','/');
-  const T=a3TiersOf(id,us);if(!T.length)return '';
-  return T.map(({k,sl})=>{const L=sl.lv||{};
-    if(sl.st==='pend')return `${nm[k]}:<b>下一交易日開盤買</b>(以選股日收盤估:停損 ${c}${L.sl||'—'}、停利 ${c}${L.tp||'—'},成交後以進場價重算)`;
-    const r=px&&sl.entry?(px/sl.entry-1)*100:null;
-    const extra=k==='short'&&!us?`、最多再 ${Math.max(0,15-(sl.days||0))} 天`:k==='mid'&&us?`、剩 ${Math.max(0,60-(sl.days||0))} 天`:k==='mid'?'、掉出前 200 名隔天開盤賣':'、持有到下一季檢視(長期清單不自動停損,價位是參考)';
-    return `${nm[k]}:<b>持有中</b>(${md(sl.fill_d)} 買 ${c}${sl.entry}${r!=null?`,帳面 <b style="color:${r>=0?'var(--up)':'var(--down)'}">${r>=0?'+':''}${r.toFixed(1)}%</b>`:''});🛑 停損 <b>${c}${L.sl||'—'}</b>・🎯 停利 <b>${c}${L.tp||'—'}</b>${L.add?`・➕ 加碼 ${c}${L.add}`:''}${extra}`;}).join('<br>');
+  const nm={short:'🏃 短期清單',mid:'🌊 中期清單',long:'🏦 長期清單'};
+  return a3TiersOf(id,us).map(({k,sl})=>`${nm[k]}：${sl.st==='pend'?'待成交':'模型持有中'}；${newsEsc(aipPolicyText(sl,k,us))}`).join('<br>');
 }
 function actionPlan(o,id,px,own,cost,dates){
-  /* r1031:全部用「價格」表達——模型門檻(AI Pick 勝算/名次、量價籌碼排名)都換算成「收盤到哪個價會觸發」 */
-  const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||{},PV=T.pv||{},R=PV.rules||{},TP=R.tp||0.25;
-  const lv=lvLevels(o);px=+px||(o&&o.length?o[o.length-1][3]:0);if(!px)return '';
-  const g=v=>{const r=(v/px-1)*100;return `${r>=0?'+':''}${r.toFixed(1)}%`;},tk=v=>{const t=v<10?0.01:v<50?0.05:v<100?0.1:v<500?0.5:v<1000?1:5;return +(Math.round(v/t)*t).toFixed(2);};
-  const n=o.length,C=o.map(b=>b[3]),avg=(k,e)=>{e=e||0;const a=C.slice(n-k-e,n-e);return a.length===k?a.reduce((x,y)=>x+y,0)/k:null;};
-  const m60dn=n>=65&&avg(60)<avg(60,5);
-  const sys=(T.pos||[]).find(x=>x.id===id),pend=(T.pend||[]).find(x=>x.id===id),M=(T.pxmap||{})[id]||{};
-  const pvh=(PV.pos||[]).find(x=>x.id===id),pvq=(PV.pend||[]).find(x=>x.id===id),PM=(PV.pxmap||{})[id]||{};
-  const a3h=a3TiersOf(id,false).filter(t=>t.sl.st==='hold'&&t.sl.entry),a3s=a3h.find(t=>t.k==='short')||a3h.find(t=>t.k==='mid')||null;   // r1122:三清單持有中(短期/中期有真正的停損;長期只是參考)
-  const hold=own||sys||pvh||!!a3h.length,S=[],B=[];   // [價格, 說明]
-  if(sys) S.push([sys.stop,'盤中跌破就賣','AI Pick 停損']);
-  a3h.forEach(t=>{if(t.sl.lv&&t.sl.lv.sl&&t.k!=='long')S.push([t.sl.lv.sl,'盤中跌破就賣',(t.k==='short'?'短期清單':'中期清單')+'停損']);});
-  const vs=sys&&sys.sleeve==='g'?M.g_sell:M.v_sell;
-  if((own||sys)&&vs) S.push([vs,'收盤跌破 → 隔天開盤賣','AI Pick 模型轉弱']);
-  if((own||pvh)&&PM.sell) S.push([PM.sell,'收盤跌破 → 隔天開盤賣','量價籌碼轉弱']);
-  if(hold&&lv.d60&&lv.d60<px) S.push([lv.d60,m60dn?'收盤跌破就賣(季線已下彎)':'收盤跌破、且季線轉下彎就賣','季線']);
-  if(hold&&lv.d240&&lv.d240<px&&lv.d240>=px*0.7) S.push([lv.d240,'收盤跌破就賣','年線']);
-  S.sort((a,b)=>b[0]-a[0]);
-  const base=pvh?pvh.entry:(cost||null),tp=pvh?pvh.tp:(base?tk(base*(1+TP)):null);
-  if(pend) B.push([null,'AI Pick 已排定 <b>今天/明天 9:00 開盤買進</b>','AI Pick']);
-  else if(!sys){ if(M.buy_now) B.push([null,'<b>現在價位就符合</b> → 隔天 9:00 開盤買','AI Pick']);
-                 else if(M.buy) B.push([M.buy,`收盤${M.buy>px?'站上':'跌到'}這個價 → 隔天 9:00 開盤買`,'AI Pick']); }
-  if(pvq&&pvq.act==='buy') B.push([null,'量價籌碼組已排定 <b>9:00 開盤買進</b>','量價籌碼']);
-  else if(!pvh){ if(PM.buy_lo) B.push([PM.buy_lo,`<b>現在就符合</b>;收盤守在這個價以上都算 → 隔天 9:00 開盤買`,'量價籌碼']);
-                 else if(PM.buy) B.push([PM.buy,`收盤${PM.buy>px?'站上':'跌到'}這個價 → 隔天 9:00 開盤買`,'量價籌碼']); }
-  const POS0=posCalc(o,dates,id,px),zone=POS0&&POS0.z;   // r1142:突破買法只在「離 52 週高 ≤10%」有效(全市場 2016~2026:近高站上 60/120 日高每筆 +1.9~2.0%、低位置 −1.5~−1.8%、中間 −0.4~−0.8%)→ 不在近高區只認「創 52 週新高」
-  const up=(zone==='near'?['h60','h120','h250']:['h250']).filter(k=>lv[k]&&lv[k]>px).sort((a,b)=>lv[a]-lv[b]);
-  if(up.length) B.push([lv[up[0]],`收盤站上${LV_DEF[up[0]][0].replace('站上 ','').replace('站上','')} → 隔天 9:00 開盤買`+(zone&&zone!=='near'?'(位置低,只認創 52 週新高;站上 60/120 日高實測是負的,不當買點)':''),'技術突破']);
-  /* r1032:白話版——只講 4 件事:目前狀況、哪個價格範圍可以買、停損價、停利價 */
-  const fmt=v=>(+v).toLocaleString(),pct=v=>{const r=(v/px-1)*100;return `${r>=0?'+':''}${r.toFixed(1)}%`;};
-  const sellNow=hold&&S.some(x=>x[0]>=px);
-  const pend2=pend||(pvq&&pvq.act==='buy'),nowOK=pend2||M.buy_now||PM.buy_lo;
-  const trig=B.filter(x=>x[0]!=null&&Math.abs(x[0]/px-1)<=0.15).sort((a,b)=>Math.abs(a[0]-px)-Math.abs(b[0]-px))[0];   // r1142:超過 ±15% 的觸發價不當買點(低位置的 52 週高常在 +50% 以上,寫出來沒意義)
-  const farTrig=!trig&&B.find(x=>x[0]!=null&&x[0]>px*1.15);
-  const stopCand=S.filter(x=>x[0]<px);let stop=stopCand.length?stopCand[0][0]:null;
-  if(!hold){const ref=trig&&trig[0]?trig[0]:px;const c=[lv.d60,lv.d240].filter(v=>v&&v<ref&&v>=ref*0.7);stop=c.length?Math.max(...c):null;}   // 還沒買:買進後的停損(季線/年線)
-  const entry=(own&&cost)?cost:sys?sys.entry:pvh?pvh.entry:a3s?a3s.sl.entry:(a3h[0]?a3h[0].sl.entry:null);   // r1124:你自己設的持股成本優先(原本排在模型帳之後,設了也看不到)
-  const a3tp=a3s&&a3s.sl.lv&&a3s.sl.lv.tp||null;
-  const modelTp=!!(a3tp||pvh||sys||(trig&&trig[2]!=='技術突破')||nowOK);   // r1142:有模型帳或買點來自模型(三清單/量價籌碼/AI Pick)就照模型的停利;一般技術面買進改「不設固定停利、跌破季線出場」
-  const tpx=a3tp||tp||(entry?tk(entry*(1+TP)):(!nowOK&&trig)?tk(trig[0]*(1+TP)):tk(px*(1+TP)));   // 還沒買:以買進價 +25%
-  const halfTp=tk((entry||((!nowOK&&trig)?trig[0]:px))*1.30);
-  let buyTxt;
-  if(nowOK) buyTxt=`現在就可以買:明天 9:00 開盤價,<b>${fmt(tk(px*1.03))} 以下</b>才買(漲超過 3% 不追)`;
-  else if(trig&&trig[0]>px) buyTxt=`收盤站上 <b>${fmt(trig[0])}</b> 後,隔天開盤在 <b>${fmt(trig[0])}~${fmt(tk(trig[0]*1.03))}</b> 之間買(還差 ${pct(trig[0])})${trig[2]==='技術突破'?` <span style="font-size:11.5px;color:var(--dim)">(不用等量大或法人買超:實測突破日量 >1.5 倍、投信/外資買超、營收成長、跳空大小,都沒讓結果更好,只看價格就好)</span>`:''}`;
-  else if(trig) buyTxt=`跌到 <b>${fmt(trig[0])}</b> 附近(收盤 ≤ ${fmt(trig[0])})隔天開盤買(現在差 ${pct(trig[0])})`;
-  else buyTxt=farTrig?`上下 15% 內沒有買點,先觀望(位置低,突破買法實測沒優勢;要等創 52 週新高 ${fmt(farTrig[0])},還差 ${pct(farTrig[0])}——目前只看「做法」欄的錯殺低接或波段名單)`:'上下 15% 內都還沒有買點,先觀望';
-  const pnl=entry?(px/entry-1)*100:null;
-  let st;
-  if(sellNow) st=`已跌破停損價,<b style="color:var(--down)">依規則該賣</b>`;
-  else if(sys&&sys.xsig) st=`模型轉弱,<b style="color:var(--down)">明天開盤賣</b>`;
-  else if(hold) st=`${pnl!=null?`比成本 <b style="color:${pnl>=0?'var(--up)':'var(--down)'}">${pnl>=0?'+':''}${pnl.toFixed(1)}%</b>,`:''}還沒碰到停損,<b>續抱</b>`;
-  else st=nowOK?'<b style="color:var(--up)">已到買點</b>':'<b>還沒到買點</b>,先觀望';
-  /* r1034:這檔的技術/量能/籌碼現況(白話一句) */
-  let diagTxt='';
-  try{const so=(DATA.stocks||[]).find(x=>x.id===id)||{},cr=(so.c&&so.c.raw)||{};
-    const m20=avg(20),m60=avg(60),V=o.map(b=>b[4]||0),v5=V.slice(-5).reduce((a,b)=>a+b,0)/5,v20=V.slice(-20).reduce((a,b)=>a+b,0)/20;
-    const tr=m20&&m60?(px>m20&&m20>m60?'多頭走勢(站上月線、季線)':px<m20&&m20<m60?'空頭走勢(跌破月線、季線)':px>=m60?'整理中(季線之上)':'偏弱整理(季線之下)'):'';
-    const vr=v20?v5/v20:1,vt=vr>=1.3?'量能放大':vr<=0.7?'量能萎縮':'量能普通';
-    const z=v=>{v=+v||0;return `${v>=0?'買超':'賣超'} ${Math.abs(v).toLocaleString()} 張`;};
-    const ch=[cr.f5!=null?`外資 5 日${z(cr.f5)}`:'',cr.t5!=null&&cr.t5!==0?`投信${z(cr.t5)}`:'',cr.bigw?`大戶持股週${cr.bigw>0?'增':'減'} ${Math.abs(cr.bigw).toFixed(2)}%`:''].filter(Boolean).join('、');
-    diagTxt=[ch,cr.t5>0?`<span style="font-size:11.5px;color:var(--dim)">(投信買超 ✅ 實測之後 20 天平均比大盤 <b style="color:var(--up)">+0.52%</b>)</span>`:''].filter(Boolean).join(' ');}catch(e){}
-  const POS=posCalc(o,dates,id,px);   // r1055:📏 離 52 週高(除權息還原)
-  try{const so=(DATA.stocks||[]).find(x=>x.id===id)||{},cr=(so.c&&so.c.raw)||{};   // r1057:集保近 4 週(2015~2026 實測)
-    if(cr.pw4!=null){const z=POS&&POS.z;let v='';
-      if(cr.pw4<=-5)v=` ✅${VT_OK('股東人數 4 週減 ≥5%(籌碼集中)・實測',1.23)}`;
-      else if(cr.pw4>=5)v=` ✅${VT_OK('股東人數 4 週增 ≥5%(散戶湧入)・實測',z==='far'?-0.92:-0.55)}`;
-      else v=VT_OK('人數小幅變化,實測沒有明顯好壞',null);
-      let t=`集保 ${String(cr.tdw||'').slice(5).replace('-','/')}:近 4 週股東人數 <b>${cr.pw4>=0?'+':''}${cr.pw4}%</b>、400 張大戶 ${cr.bw4>=0?'+':''}${cr.bw4} 個百分點${v}`;
-      if(cr.bigw>=0.7&&z==='far')t+=`<br>大戶本週加碼,但位置低(離 52 週高 >20%) ✅${VT_OK('實測',-0.85)}`;
-      diagTxt=(diagTxt?diagTxt+'<br>':'')+t;}}catch(e){}
-  const stopSrc=hold?(stopCand[0]?stopCand[0][2]:''):(stop&&stop===lv.d60?'季線':stop&&stop===lv.d240?'年線':'');   // r1144:停損線來源(季線/年線/模型)
-  const L=(ic,lab,txt)=>`<div style="display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><div style="min-width:64px;font-weight:900">${ic} ${lab}</div><div>${txt}</div></div>`;
-  return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
-    <div style="padding:2px 0 2px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
-    ${(()=>{const t=a3PlanLine(id,false,px);return t?L('🤖','AI Pick',t):'';})()}
-    ${(()=>{const t=stratLine(o,id,px);return t?L('🧭','做法',t):'';})()}
-    ${(()=>{const t=posLine(POS,vtCalc(o),id);return t?L('📏','位置',t):'';})()}
-    ${(()=>{const t=vtTechLine(o,POS&&POS.z);return t?L('📈','技術',t):'';})()}
-    ${(()=>{const t=vtVolLine(o,POS&&POS.z);return t?L('📊','量價',t):'';})()}
-    ${diagTxt?L('💰','籌碼',diagTxt):''}
-    ${(()=>{const t=tvPlanLine(o,id,px);return t?L('🔄','轉折',t):'';})()}
-    ${L('🟢','買進',buyTxt)}
-    ${(()=>{const src=stopSrc,maStop=stop&&(src==='季線'||src==='年線')&&!modelTp;   // r1144:一般技術面買進的季線停損改「連續 2 天收盤跌破才賣」(實測 +4.9% → +5.3%、10/11 年正;當天跌破就賣常被洗掉)
-      return L('🛑','停損',stop?(maStop?`${hold?'':'買進後,'}<b>連續 2 天</b>收盤跌破 <b style="color:var(--down)">${fmt(stop)}</b>(${src},${pct(stop)})→ 第 3 天開盤賣 <span style="font-size:11.5px;color:var(--dim)">(實測:跌破當天就賣每筆 +4.9%,等連 2 天 +5.3%、被洗掉的次數較少;改硬停損 −10%/−15% 反而只剩 +3.4%/+4.3%)</span>`:`${hold?'':'買進後,'}跌破 <b style="color:var(--down)">${fmt(stop)}</b> 就賣(${pct(stop)})`):(hold?'下跌 30% 內沒有停損價':'買點下方沒有合適的停損價,買進後再看'));})()}
-    ${modelTp?L('🎯','停利',`${hold?'':'買進後,'}漲到 <b style="color:var(--up)">${fmt(tpx)}</b> 就賣(${pct(tpx)})`)
-      :L('🎯','停利',`<b>不設固定停利</b>:連續 2 天收盤跌破${stopSrc==='年線'?'年線':'季線'}(上面的停損價會跟著${stopSrc==='年線'?'年線':'季線'}走)就全部出場${(hold||trig)?`;想先落袋,漲到 <b style="color:var(--up)">${fmt(halfTp)}</b>(${pct(halfTp)})可以先賣一半——但實測這樣每筆少賺約 1%(+3.9% vs +4.9%),只是換勝率 37%→40%、心裡穩一點`:''} <span style="font-size:11.5px;color:var(--dim)">(全市場 2016~2026 實測,近高突破買進:跌破季線出場每筆 +5.2%、獲利因子 1.7;固定 +25% 停利 +2.2%、1.3;+30% 停利 +2.7%、1.4)</span>`)}
-    ${modelTp?'':L('➕','加碼',`<b>不加碼</b> <span style="font-size:11.5px;color:var(--dim)">(實測漲 5%/10%/20% 後再買一單位,按總投入算每筆只剩 +1.7%/+0.9%/+0.1%,因為加碼都加在高點、一起被季線洗出)</span>`)}
-    ${modelTp?'':L('🔁','再買回',`被季線洗出後,<b>再創 52 週新高就照買</b> <span style="font-size:11.5px;color:var(--dim)">(實測 90 天內再突破的 813 筆每筆 +4.9%,跟第一次買一樣,不用怕「追回去」)</span>`)}
-  </div>`;
+  const found=(DATA.stocks||[]).find(x=>x.id===id)||{id,market:'TW'};const so=Object.assign({},found,{price:px||found.price});
+  const core=ownStrategySummary(so,o,dates,own,cost);
+  const facts=[];try{const P=posCalc(o,dates,id,px),v=vtCalc(o);if(P)facts.push(posLine(P,v,id));if(v)facts.push(vtTechLine(o,P&&P.z),vtVolLine(o,P&&P.z));}catch(e){}
+  return core+(facts.filter(Boolean).length?`<details class="aip-fold"><summary>📊 位置與量價歷史觀察（參考）</summary>${facts.filter(Boolean).join('<br>')}</details>`:'');
 }
 function aiPickVerdict(id,own){
   const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||null;if(!T)return null;
@@ -1116,7 +1104,7 @@ function aiPickVerdict(id,own){
   if(tiers.length||pvp){
     const parts=tiers.map(({m,sl})=>sl.st==='pend'?`${m}清單:<b>下一交易日開盤買</b>`:`${m}清單:<b>持有中</b>・${md(sl.fill_d)} 買 ${sl.entry}`);
     if(pvp)parts.push(`🏆 主力 20 檔:持有中・${md(pvp.fill)} 買 ${pvp.entry}`);
-    const act=tiers.map(({m,sl})=>sl.lv?ln(`${m}參考價:🛑 停損 <b>${sl.lv.sl}</b>・🎯 停利 <b>${sl.lv.tp}</b>・➕ 加碼 <b>${sl.lv.add}</b>・🔁 再買回 <b>${sl.lv.re}</b>(現價即時比對,碰到會提示)`):'').join('')+tiers.map(({k,sl})=>ln(k==='short'?`🏃 短期:最多持 15 個交易日(第 15 天收盤賣),不設停損停利${sl.days!=null?`・已持有 ${sl.days} 天`:''}`:k==='mid'?`🌊 中期:每天收盤看量價籌碼排名${pvr?`(目前第 <b>${pvr[0]}</b> 名)`:''},掉出前 200 名 → 隔天開盤賣,不設停利停損`:`🏦 長期:候選池(營收持續成長、估值合理、年線上)由 AI 依最新產業新聞評未來性${sl.ai!=null?`(這檔 ${sl.ai}/10)`:''},持有到下一季第一個交易日重評`)).join('')+(pvp?ln(`🏆 主力 20 檔:停利 ${pvp.tp||'—'}${pvp.stop?`・停損 ${pvp.stop}`:''}・掉出前 200 名換股`):'');
+    const act=tiers.map(({k,sl})=>ln(newsEsc(aipPolicyText(sl,k,false)))).join('')+(pvp?ln(`主力20檔模型帳：停利 ${pvp.tp||'待資料'}、停損 ${pvp.stop||'待資料'}；依模型轉弱記錄出場`):'');
     return {cls:tiers.some(t=>t.sl.st==='pend')||pvq?'fst-brk':'fst-up',txt:`<span>🤖 AI Pick:${parts.join(';')}</span>`,act};}
   if(pvq)return {cls:'fst-brk',txt:`<span>🤖 AI Pick:🏆 主力 20 檔 <b>${pvq.act==='buy'?'下一交易日開盤買進':'下一交易日開盤賣出'}</b></span>`,act:''};
   const p=(T.pos||[]).find(x=>x.id===id);
@@ -1300,43 +1288,7 @@ function favMktBar(box,g){
       5 檔組合年化 +25.7%、最大回落 −43%、2022 年 −10%(舊 +18.6% / −40% / −24%);−35% 以上再深沒有更好(−40% 每筆 +4.2% 同 −35%)
    ⚠ 歷史只有「目前」的成分股:跌深後沒撐住被剔除的公司不在資料裡,跌深類結果可能偏樂觀 ══ */
 const US_VAL={dd:{th:35,tp:30,sl:20,hold:90,n:1332,avg:7.91,win:59,rnd:3.72,yrs:'11/11',old:'舊門檻 −25%/+20%/−15%/60 天每筆只 +3.3%'},jump:{x:1.14,big:1.16}};   // r1146:跌深門檻 −25% → −35%、出場 +30%/−20%/90 天(2016~2026 重測)
-function usPlan(o,s,dates,own,cost){
-  try{if(!o||o.length<61)return '';const n=o.length,px=+s.price||+o[n-1][3];if(!(px>0))return '';
-    const fmt=v=>'$'+(+v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}),pct=v=>{const d=(v/px-1)*100;return `${d>=0?'+':''}${d.toFixed(1)}%`;};
-    const dim=t=>`<span style="font-size:11.5px;color:var(--dim)">${t}</span>`,md=d=>String(d||'').slice(5).replace('-','/');
-    const C=o.map(b=>+b[3]),H=o.map(b=>+b[1]);
-    const hi60=Math.max(...H.slice(-60),px),dd=(px/hi60-1)*100;
-    const hi60p=Math.max(...H.slice(-61,-1)),ddp=(C[n-2]/hi60p-1)*100;          // 前一天收盤時離 60 日高多少(判斷是不是「第一天」)
-    const V=US_VAL.dd,trig=hi60*(1-V.th/100);
-    const P=posCalc(o,dates,null,px),v=vtCalc(o);
-  const L=(ic,lab,txt)=>`<div style="display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><div style="min-width:64px;font-weight:900">${ic} ${lab}</div><div>${txt}</div></div>`;
-    // 現況(事實,不下結論)
-    const ab=k=>v&&v[k]&&px>v[k];
-    const fact=[P?`離 52 週高 <b>${((P.pth-1)*100).toFixed(1)}%</b>(52 週高 ${fmt(P.hi)}${P.hiD?`,${md(P.hiD)}`:''})`:'',
-      v&&v.m60?`月線 ${fmt(v.m20)}${ab('m20')?'之上':'之下'}・季線 ${fmt(v.m60)}${ab('m60')?'之上':'之下'}${v.m240?`・年線 ${fmt(v.m240)}${ab('m240')?'之上':'之下'}`:''}`:'',
-      v?`K ${v.K.toFixed(0)}・RSI ${v.rsi.toFixed(0)}`:''].filter(Boolean).join('<br>');
-    const jump=v&&v.max20>=0.07?`<br>⚡ 近 20 天有單日大漲 <b>${(v.max20*100).toFixed(1)}%</b> ✅${VT_OK('美股實測',US_VAL.jump.x)}${dim('・大型股也成立')}`:'';
-    // 跌深低接
-    let ddTxt,buy,stop,tpx,ready=false;
-    if(dd<=-V.th&&ddp>-V.th){ready=true;ddTxt=`<b style="color:var(--up)">今天是第一天跌到離 60 日高 −${V.th}% 以下(${dd.toFixed(1)}%)→ 明天開盤買</b>`;buy=`<b style="color:var(--up)">明天開盤買</b>(現價 ${fmt(px)} 附近)`;stop=px*(1-V.sl/100);tpx=px*(1+V.tp/100);}
-    else if(dd<=-V.th){ddTxt=`已在跌深區(離 60 日高 ${dd.toFixed(1)}%);規則是跌破 −${V.th}% 的<b>第一天</b>買,之後不追加`;buy='已過第一天,依規則不追;等下一次跌深';}
-    else{ddTxt=`離 60 日高 ${dd.toFixed(1)}%;跌到 <b>${fmt(trig)}</b>(= 60 日高 ${fmt(hi60)} 的 −${V.th}%,比現價 ${pct(trig)})以下的第一天才符合`;buy=`收盤跌到 <b>${fmt(trig)}</b> 以下的第一天 → 隔天開盤買(現在差 ${pct(trig)})`;stop=trig*(1-V.sl/100);tpx=trig*(1+V.tp/100);}
-    const ddRow=`🎯 <b>跌深低接</b> ✅:${ddTxt} ${dim(`(美股 2016~2026 回測 ${V.n.toLocaleString()} 次:每筆平均 +${V.avg}%、勝率 ${V.win}%;隨機買同樣停利停損 +${V.rnd}%;${V.yrs} 年勝過隨機;${V.old})`)}`;
-    const a3h=a3TiersOf(s.id,true).filter(t=>t.sl.st==='hold'&&t.sl.entry),a3e=a3h.length?a3h[0].sl.entry:null;   // r1122:美股三清單持有中
-    const hold=(own&&cost>0)||!!a3e,base=(own&&cost>0)?cost:a3e,pnl=hold?(px/base-1)*100:null;
-    const st=hold?`比${(own&&cost>0)?'成本':'三清單進場價'} <b style="color:${pnl>=0?'var(--up)':'var(--down)'}">${pnl>=0?'+':''}${pnl.toFixed(1)}%</b>${a3h.length?',照清單的停損/停利':''}`:(ready?'<b style="color:var(--up)">符合跌深低接</b>':'<b>還沒到美股驗證過的買點</b>,先觀望');
-    return `<div class="actp" style="margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.6">
-      <div style="padding:2px 0 2px">📍 <b>目前 ${fmt(px)}</b>:${st}</div>
-      ${(()=>{const t=a3PlanLine(s.id,true,px);return t?L('🤖','AI Pick',t):'';})()}
-      ${L('🧭','做法',ddRow)}
-      ${L('📏','現況',`${fact}${jump}<div style="font-size:11.5px;color:var(--dim);margin-top:2px">美股實測(2013~2026):離 52 週高的位置、創新高、均線、KD/RSI、帶量突破、量價、站上 N 日高、跌破季線/年線,之後 20 天都<b>沒有穩定好壞</b>(跟台股不同),只當現況參考。</div>`)}
-      ${L('🟢','買進',buy)}
-      ${L('🛑','停損',stop?`買進後跌 ${V.sl}%(約 <b style="color:var(--down)">${fmt(stop)}</b>)就賣`:(hold?`美股的季線、年線實測都不適合當停損線;依跌深低接的規則是買進後 −${V.sl}%(成本 ${fmt(cost)} → <b style="color:var(--down)">${fmt(cost*(1-V.sl/100))}</b>)`:'等出現買點再算'))}
-      ${L('🎯','停利',tpx?`買進後漲 ${V.tp}%(約 <b style="color:var(--up)">${fmt(tpx)}</b>)就賣,或最多抱 ${V.hold} 個交易日`:(hold?`依跌深低接的規則是 +${V.tp}%(<b style="color:var(--up)">${fmt(cost*(1+V.tp/100))}</b>)或抱滿 ${V.hold} 天`:'等出現買點再算'))}
-      <div style="font-size:11.5px;color:var(--dim);margin-top:4px">⚠ 美股歷史只有目前的 S&P 500 成分股,跌深後沒撐住被剔除的公司不在資料裡,跌深類結果可能偏樂觀;務必照停損執行。</div>
-    </div>`;
-  }catch(e){return '';}
-}
+function usPlan(o,s,dates,own,cost){return ownStrategySummary(s,o,dates,own,cost);}
 /* r1074:美股最愛的 AI Pick 狀態——原本誤用台股 AI Pick 判斷,美股永遠顯示「沒有買進訊號」。美股 AI Pick 還在實戰驗證(未公開):
    一般使用者顯示「驗證中」;管理員看得到 AI 交易員(美股)目前是否持有 */
 function usPickVerdict(id){
@@ -1347,8 +1299,7 @@ function usPickVerdict(id){
   if(a3)['short','mid','long'].forEach(k=>{const m={short:'🏃 短期',mid:'🌊 中期',long:'🏦 長期'}[k];(a3[k]&&a3[k].slots||[]).forEach(sl=>{if((sl.cur||sl.id)===id&&(sl.st==='hold'||sl.st==='pend'))tiers.push({k,m,sl});});});
   if(tiers.length){
     const parts=tiers.map(({m,sl})=>sl.st==='pend'?`${m}清單:<b>下一交易日開盤買</b>`:`${m}清單:<b>持有中</b>・${md(sl.fill_d)} 買 $${sl.entry}`);
-    const act=tiers.map(({m,sl})=>sl.lv?ln(`${m}參考價:🛑 停損 <b>$${sl.lv.sl}</b>・🎯 停利 <b>$${sl.lv.tp}</b>・➕ 加碼 <b>$${sl.lv.add}</b>・🔁 再買回 <b>$${sl.lv.re}</b>`):'').join('')
-      +tiers.map(({k,sl})=>ln(k==='short'?'🏃 短期:每週模型(回測 25 週勝率 54%),到目標/停損當天賣':k==='mid'?`🌊 中期:跌深低接,停利 +${Math.round((sl.tp_r||0.30)*100)}% / 停損 −${Math.round((sl.sl_r||0.20)*100)}% / 最多 ${sl.hold_r||90} 天(參考・高波動${sl.tp_r&&sl.tp_r<0.3?';10/23 前進場的舊規則':''})`:'🏦 長期:每季第一個交易日檢視(參考)')).join('');
+    const act=tiers.map(({k,sl})=>ln(newsEsc(aipPolicyText(sl,k,true)))).join('');
     return {cls:tiers.some(t=>t.sl.st==='pend')?'fst-brk':'fst-up',txt:`<span>🤖 AI Pick:${parts.join(';')}</span>`,act};}
   if(adm&&p)return {cls:'fst-up',txt:`<span>🤖 AI 交易員(美股・驗證中・只有管理員看得到):<b>持有中</b>・${md(p.d0)} 買 ${p.entry}・停損 ${p.stop}</span>`};
   return {cls:'fst-wait',txt:`<span>🤖 AI Pick:不在美股三清單內${adm&&U?'(AI 交易員目前也沒有持有這檔)':''}</span>`};
@@ -11873,7 +11824,7 @@ function planBlock(s){
   const ok=!!a.bull&&T>=60;
   const why=[];
   if(!a.bull)why.push('均線空頭排列(月線在季線下方)——下跌趨勢中猜底勝率低,等股價重新站回均線帶、月線翻揚再評估');
-  if(T<60)why.push(`綜合評分 ${T} 分偏低——基本面、籌碼、技術至少一個面向不及格,好價格也救不了壞股票`);
+  if(T<60)why.push(`綜合評分 ${T} 分偏低——基本面、籌碼、技術至少一個面向不及格,分數不作買賣判定，請以上方操作規則為準`);
   const tone=ok?TONE.red:TONE.green;   // r1138:統一台股慣例 紅=偏多
   const row=(g,tag,price,desc,col)=>`<div style="margin-top:11px">
     <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
@@ -11904,9 +11855,9 @@ function planBlock(s){
   const rrBar=rr!=null&&rr>0?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:9px 13px;background:var(--panel2);border:1px solid var(--line);border-radius:10px">
       <span data-g="報酬風險比" style="font-size:12.5px;font-weight:800;color:var(--mut);cursor:help;border-bottom:1px dotted var(--dim)">報酬風險比</span>
       <b style="font-family:var(--mono);font-size:17px;color:${rr>=2?'var(--up)':rr<1?'var(--down)':'var(--txt)'}">${rr.toFixed(1)} : 1</b>
-      <span style="font-size:12.5px;color:var(--dim)">${rr>=2?'≥2,賺賠空間划算,值得列入觀察':rr<1?'<1,現在的位置追進不划算':'介於 1~2,可等更好的價位'}</span></div>`:'';
-  return `<div class="dim-block" style="border-left:4px solid ${tone}"><h3>📐 參考價位劇本(規則化) <span class="ds">${ok?'✓ 可留意布局':'✗ 先觀望'}</span></h3>
-    ${ok?`<div class="dim-note" style="margin:2px 0 4px"><b style="color:var(--up)">符合留意條件:多頭排列+綜合 ${T} 分</b></div>`:''}
+      <span style="font-size:12.5px;color:var(--dim)">${rr>=2?'≥2，僅為目標價假設下的幾何比值':rr<1?'<1，目標與風險距離的幾何比值':'介於1~2，非勝率或期望報酬'}</span></div>`:'';
+  return `<div class="dim-block" style="border-left:4px solid ${tone}"><h3>📐 參考價位劇本（未完整驗證） <span class="ds">${ok?'✓ 可留意布局':'✗ 先觀望'}</span></h3>
+    ${ok?`<div class="dim-note" style="margin:2px 0 4px"><b style="color:var(--up)">幾何條件:多頭排列；綜合 ${T} 分僅供參考，不是交易門檻</b></div>`:''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:12px;margin-top:8px">${buyCard}${sellCard}</div>
     ${rrBar}
     <div class="dim-note" style="margin-top:10px">把「${IM==='long'?'回檔到均線帶分批、跌破停損離場、到目標分批獲利':'回檔到均線帶分批、帶量突破追進、跌破停損離場、到目標分批獲利'}」${IM==='long'?'三':'四'}條常見紀律,套進這檔的實際數據自動算出的<b>${IM==='long'?'布局範本':'劇本範本'},不是投資建議</b>——它不知道你的成本與部位,價位每天隨數據更新,均線帶與近月高的位置可直接對照下方 K 線圖;到價要不要執行,由你自己決定。點虛線名詞可看白話解釋。</div></div>`;
@@ -12891,12 +12842,12 @@ async function applyKView(s){
     data=await yOHLC(s,_yr,kView.itv);
     for(let _t=0;_t<2&&!data;_t++){                 // 免費代理不穩:自動補打兩次
       await new Promise(r=>setTimeout(r,1100+_t*900));
-      if(location.hash!==KHASH)return;
+      if(location.hash!==KHASH||key!==`${s.id}|${kView.rng}|${kView.itv}`)return;
       data=await yOHLC(s,_yr,kView.itv);
     }
     if(data)KVC[key]=data;
   }
-  if(location.hash!==KHASH)return;
+  if(location.hash!==KHASH||key!==`${s.id}|${kView.rng}|${kView.itv}`)return;
   const box=document.getElementById('kbox');
   if(!data){
     if(box){
@@ -14882,7 +14833,9 @@ async function showDetail(id){
   if(s.market==='TW')setTimeout(()=>{try{loadRevTrend(s);}catch(e){}},300);
   curDivs=null;                                             // 換股先清除,避免沿用上一檔的除權息標記
   if(s.market==='TW')setTimeout(()=>{try{loadDivEvents(s);}catch(e){}},500);
-  const k=await loadK(s);
+  let k=await loadK(s);
+  // r1156:近期分片缺少時仍展示永久歷史圖，不把補救圖表塞回訊號資料庫。
+  if(!k){try{k=mergePriceHistory(null,await archDaily(s));if(k)k.archiveOnly=true;}catch(e){}}
   const kwrap=document.getElementById('kwrap');
   if(!kwrap||location.hash!=='#stock/'+id) return;
   if(!k){kwrap.innerHTML='<div class="chart-box"><h3>此檔 K 線資料暫缺(新上市或累積中),等下一次自動更新</h3></div>'; return;}
@@ -14957,7 +14910,7 @@ async function showDetail(id){
     </div>
     <div class="chart-box">
       <div class="ind-head" style="flex-wrap:wrap;gap:8px;row-gap:10px">
-        <h3>K線圖 <span class="ds" id="kMeta">日K · ${k.ohlc.length} 根${k.demo?'(範例資料)':''}</span></h3>
+        <h3>K線圖 <span class="ds" id="kMeta">日K · ${curOhlc.length} 根 · ${curDates[0]} ~ ${curDates[curDates.length-1]}${k.demo?'(範例資料)':''}${k.archiveOnly?'（永久歷史備援，近期資料待核對）':''}</span></h3>
         <div class="kseg-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
           <div class="ind-seg" id="rngSeg">${[['3m','3個月'],['6m','6個月'],['1y','1年'],['max','全部']].map(([v,n])=>
             `<button data-r="${v}" class="${v==='3m'?'on':''}">${n}</button>`).join('')}</div>
@@ -14993,6 +14946,7 @@ async function showDetail(id){
       </div>
       <div class="dim-note">規則:壓力/支撐取近 20、60 日高低點;參考買進區為多頭排列時「月線~季線」均線帶(拉回均線帶承接是常見打法),空頭排列時只標支撐帶、以觀望為主;樞紐點 P=(H+L+C)/3。以上為規則化參考價位,非投資建議——先想好停損再想獲利。</div>
     </div>
+    ${(()=>{try{if(document.getElementById('vBox'))return '';const en=favEntryOf(s.id);return ownStrategySummary(k.archiveOnly?Object.assign({},s,{historyOnly:true}):s,k.ohlc,k.dates,!!en,en&&en.px);}catch(e){return '';}})()}
     ${entryHTML(lv,k.ohlc,s.price??k.ohlc[k.ohlc.length-1][3])}
     ${(()=>{const b=scenarioBands(k.ohlc,s.price??k.ohlc[k.ohlc.length-1][3]);return `
     <div class="dim-block" style="border-left:4px solid #7FB4FF">
@@ -15004,7 +14958,7 @@ async function showDetail(id){
         <div><dt>保守情境(−1σ 統計下緣)</dt><dd class="neg">${b.dn.toFixed(1)}</dd></div>
         <div><dt>極端防守:前波低</dt><dd class="neg">${b.l60.toFixed(1)}</dd></div>
       </div>
-      <div class="dim-note">說明:樂觀/保守情境為近 120 日波動率的 ±1σ 統計推估(約 68% 機率落在此區間內);突破量測目標為型態學的平台高度投射,<b>前提是先帶量突破 ${b.h60.toFixed(1)} 且訊號未被跌破</b>。這是統計與型態推估、不是目標價預測——市場永遠可能走出區間之外,部位大小與停損才是你能控制的事。</div>
+      <div class="dim-note">說明:樂觀/保守情境為本次讀取日K樣本的歷史波動率 ±1σ 情境試算(未校準實際涵蓋率，不能視為68%預測機率);突破量測目標為型態學的平台高度投射,<b>前提是先帶量突破 ${b.h60.toFixed(1)} 且訊號未被跌破</b>。這是統計與型態推估、不是目標價預測——市場永遠可能走出區間之外,部位大小與停損才是你能控制的事。</div>
     </div>`})()}
     ${s.etf?'':planBlock(s)}   /* r398 整合:參考價位劇本自 AI 區移到走勢區,三套價位資訊(關鍵價位/情境推估/劇本)集中一處 */`;
   bindKControls(s);
@@ -15971,7 +15925,7 @@ const LEARN={
    ['三個清單是三種節奏','<b>🏃 短期(2~3 週)</b>:每週最後一個交易日收盤,挑「離 52 週高 10% 內 × 強勢訊號」(創新高、帶量突破、KD/RSI 高檔、投信外資買超、均線多頭)綜合分最高的 5 檔,下個交易日開盤買,最多持 15 個交易日,停利 +20%、停損 −15%(盤中碰到就出)。<br><b>🌊 中期(波段)</b>:量價籌碼模型(38 項量價技術 + 法人融資)排名前 5,掉出前 200 名賣;停損 = 進場價 − 4 ATR、停利 +25%(原回測設定)。<br><b>🏦 長期(最有未來性)</b>:不是存股。每季第一個交易日先用驗證過的量化條件圈出<b>候選池</b>——成交值前 40%、近 3 個月營收年增 10~100%(穩定成長不是暴衝)、連 6 個月營收成長、近 3 個月營收合計創 13 個月新高、本益比 10~35、離 52 週高 15% 內、站上年線(平均 11 檔);再由 AI 搜尋<b>最近 3 個月的產業與公司新聞</b>(需求、訂單、產能、技術、政策、競爭),給每檔「未來性」1~10 分(9~10 = 產業結構性成長且公司是關鍵供應者、能見度到明年以後;≤4 = 產業成熟或衰退),取最高 5 檔(同產業最多 2 檔)持有到下一季;每月第一班用最新新聞重新評分、更新分析。候選不到 5 檔就留空。'],
    ['台股回測(含手續費與證交稅)','<b>短期</b>:強勢訊號 5 / 10 / 20 天贏大盤 +0.5 / +1.1 / +1.5%,14 年全部正;但「一週就換」會被來回 0.585% 的成本吃光(年化 +13%、最大回落 −56%),持 2~3 週才划算(年化 +32~40%);緊停損(−5~−10%、1.5~3 ATR)反而更差,只有 −15% 災難停損 + 20% 停利有幫助(年化 +34.2%、回落 −34%,細節見下方「停損・停利」段)。<br><b>中期</b>:只持 5 檔、掉出前 200 名賣、4 ATR 停損 + 停利 +25%:2016~2026 年化 +41.5%、最大回落 −39%、最差的一年 −4%;只停損不停利 +38.5%、不停損不停利 +40.8%(回落 −37%),一年只換約 39 筆。<br><b>長期</b>:先用「十等分」看一年後哪些條件站得住——「近 3 個月營收合計創 13 個月新高」一年後比大盤 +2.9%(13 年中 9 年)、營收加速 +0.8%(10 年);但追最強動能、營收暴增(年增 >100%)、高波動、本益比最高的一年後都輸。<b>產業</b>:所屬產業營收成長前 1/3 的股票一年 +1.4%(效果弱,所以只當排序因子);「產業龍頭」(產業內成交值前 3 名)一年反而 −2.6~−5.6%——台積電這種例外是個案,整體看龍頭沒有溢酬,所以規則不獎勵龍頭,台積電要靠自己的營收創高進清單。候選池整體(平均 11 檔)一年比大盤 +13.1%(12 年中 9 年)、半年 +9.7%(13 年中 11 年);池內用量化綜合分取前 5 是一年 +14.7%、取前 12 是 +13.3%——<b>優勢來自候選池本身,池內怎麼排影響很小</b>,所以池內改交給 AI 依最新產業新聞排「未來性」,不會丟掉驗證過的優勢;但 AI 這一層沒有歷史新聞可以回測,標為參考。季換股年化 +28%、最大回落 −32%、最差的一年 −16%。另一條「大型高殖利率存股」規則(本益比 8~25、殖利率 ≥3%)一年比大盤 +9.0%(13 年中 10 年),比較穩但不是「未來性」,依 Frank 的定義不採用。'],
    ['美股為什麼標「參考」','美股歷史資料只有<b>目前</b>的 S&P 500 成分股,被剔除的公司不在裡面(倖存者偏差),所以跌深、高波動類策略的回測會偏樂觀。短期用現有每週模型(每週 walk-forward 驗證);中期的跌深低接每筆贏隨機 +1.9%,但 5 檔集中組合最大回落 −48%、2022 年 −39%;長期用「年線上、成交值前 20 的龍頭裡,近一年營收成長最高 5 檔」:一年比大盤 +15.8%,但只有 10 年資料、6 年贏;純龍頭版 +6.7%(13 年中 10 年)。這跟 2013 年以來大型科技股時代有關,標弱驗證。'],
-   ['怎麼看成績單','每個清單的進場價一律是「下個交易日開盤價」,網站自己逐日記帳,出場原因(到期、掉出排名、停利、停損、季檢視)都留著,不回頭修改。成績單累積的是真實紀錄,跟回測數字分開看:回測告訴你這套規則「歷史上」如何,成績單告訴你它「上線後」如何。'],
+   ['怎麼看成績單','每個清單的台股與美股中期／長期依下一交易日開盤成交，美股短期按每週模型買進條件及成交記錄,網站自己逐日記帳,出場原因(到期、掉出排名、停利、停損、季檢視)都留著,不回頭修改。成績單累積的是真實紀錄,跟回測數字分開看:回測告訴你這套規則「歷史上」如何,成績單告訴你它「上線後」如何。'],
    ['為什麼舊的兩組收掉一組','三清單上線前,台股 AI Pick 有兩個帳戶:<b>🏆 主力・量價籌碼組 20 檔</b>(回測年化 +43.7%、最大回落 −31%)與 <b>🌲 副組・每日交易</b>(樹模型 28 檔 + v2 模型 12 檔)。副組的問題:① 樹模型與主力組的每日報酬相關 0.82,等於同一件事做兩次,沒有分散效果;② 回測年化 +24.6%、滾動驗證 +14%,都輸主力組;v2 的選股超額報酬只有每年 +0.4%;③ 實盤 12 筆規則出場,勝率 8%、平均 −5.5%;④ 36 檔持股讓頁面看不清楚。所以 10/14 起副組<b>停止進場、持股在下一個交易日開盤結束清算</b>,紀錄全部留在戰績。主力 20 檔則是 🌊 中期清單的「完整版」(中期取它的前 5 名),繼續運作,收在中期卡片與進階區。'],
    ['停損・停利・加碼・再買回:三個清單分別回測後這樣定','用 2016~2026 的日線路徑,對三個清單各跑了 25 種停損(1.5~4 ATR、−5~−15%、結構支撐)、停利(+8~+40%、2/3 ATR、第一道壓力)、移動停利,再加「加碼後的後續報酬」和「停損後 10 天內站回再買」。結論三個清單真的不一樣:<br><b>🏃 短期(持 ≤15 天)</b>:緊停損是毒藥——1.5~3 ATR 或 −5~−10% 的停損把年化從 +32.6% 砍到 +7~27%、回落反而更深(強勢股常先洗再漲);只有 −15% 這種「災難停損」沒傷害(+34.2%)。停利 +15~25% 會把回落從 −38% 壓到 −30~34%、最差年從 −25% 變 −2~−17%。<b>採用:停利 +20% + 停損 −15%</b>(年化 +34.2%、回落 −34%、夏普 1.23、最差年 −10%),這就是模型的出場規則。加碼 +5% 後平均再 +2.2%(跟新買一檔差不多,可加可不加)。短期也試了「量 + 技術線」出場(同一組名單):收盤跌破 5 日線賣 → 年化 +1%、10 日線 +12%、20 日線 +30%;跌破進場日低點 −1%、訊號日低點 +21%;賺 8% 後跌破 10 日線 +32%(唯一接近固定停利的);乖離 5 日線 ≥8% 停利 +17%、乖離 20 日線 ≥15~20% +8~15%;爆量不漲(2 倍量收黑)隔天賣 +12%、3 倍量 +32%;爆量長上影 +25%;量縮收黑 +25%;進場日量不足 +26%。結論:<b>量與技術線用在「選股」最有效</b>(創新高、帶量突破、OBV 新高、均線多頭、KD/RSI 高檔都是驗證過的訊號),但用來「出場」都輸固定的 +20%/−15%——強勢股 2~3 週內常先洗掉短均線再漲,均線一破就賣等於把行情讓給別人。所以短期卡片上的 5/10/20 日線與今日量比只做即時觀察,不當出場規則。<br><b>🌊 中期(量價前 5)</b>:4 ATR 停損本來就是原回測的設定(有 +38.5% / 回落 −37%;沒有 +36.3% / −40%),更緊的停損都更差(≤2.5 ATR 或 ≤10% → +20~37%)。停利 +25% 最好(年化 +41.5%、最差年 −4%),+8~15% 也不錯但交易多一倍。<b>採用:4 ATR 停損 + 停利 +25%</b>。加碼 +10% 後平均再 +4.2%、61% 賺 → 可以加。<br><b>🏦 長期(季選、持到下一季)</b>:任何停利都傷(+8% → 年化 +3%;+40% → +20.7%;不設 +24.4%),因為報酬全靠少數大贏家;任何停損也都降年化,<b>但「停損後不補位、等下一季」能把回落從 −46% 壓到 −21~−28%</b>(−5%:+19.5%/−21%/夏普 1.20;−8%:+16.3%/−28%);停損後馬上換下一檔(補位)則全部更差(−5% 補位變成 −3%)。加碼 +10% 後平均再 +12.4%、56% 賺——長期贏家會續強,<b>加碼比停利有道理</b>。<b>模型不設停損停利;給你的參考:停損 −8%(停損後等下一季)、+40% 可減碼一半、+10% 可加碼</b>。<br><b>🔁 再買回</b>:停損後 10 個交易日內站回「停損價 + 1 ATR」再買,短期 −2.1%(勝率 30%)、中期 −1.7%(32%)、長期 −1.9%(24%)——三個清單都虧,所以這個價位只做提醒;真的要買回,請用新的理由(例如重新進清單),不要只因為它站回去了。到期/掉出排名/季檢視出場的,站回出場價時也會提醒(沒回測)。<br>以上全部含手續費與證交稅;停損停利都以盤中碰到為準(跳空用開盤價)。完整表格在專案文件「三清單停損停利研究_2026-10-14」。'],
    ['限制','台股歷史不含已下市股票;長期規則是從約 13 個變體裡挑的(每個條件都有十等分獨立支持,但仍有過度配適的可能);三個清單同一檔股票可能同時出現;任何一個清單都不是投資建議。完整研究:專案文件「AI_Pick三期制研究_2026-10-14」。']],
@@ -17192,7 +17146,7 @@ function entryPlan(lv,o,price){
       ['停損',+(lv.ma20*0.96).toFixed(2)+'(跌破月線約4%)'],
       ['目標參考',target+'(平台高度投射)'],
       ['提醒','現價已過突破點,直接追價的風險報酬比不佳']]}
-    :{title:'等待帶量突破再進場',rows:[
+    :{title:'帶量突破價位觀察（參考）',rows:[
       ['進場價','<b>'+brk+'</b>(帶量站上近月高 '+lv.h20.toFixed(1)+')'],
       ['距現價',((brk-price)/price*100>=0?'+':'')+((brk-price)/price*100).toFixed(1)+'%'],
       ['停損',brkStop+'(跌回突破點之下即出場)'],
@@ -17204,9 +17158,9 @@ function entryPlan(lv,o,price){
       ['距現價',((lv.zone[1]-price)/price*100).toFixed(1)+'% ~ '+((lv.zone[0]-price)/price*100).toFixed(1)+'%'],
       ['停損(全部出場)',lv.stop+'(買進區下緣−3%)'],
       ['出場參考','跌破季線收盤兩日不收回,左側邏輯失效']]}
-    :{cls:'l',title:'空頭排列 · 僅積極型小倉試單',rows:[
+    :{cls:'l',title:'空頭支撐帶觀察（參考）',rows:[
       ['觀察區',lv.l60.toFixed(2)+' ~ '+lv.l20.toFixed(2)+'(前波低支撐帶)'],
-      ['進場條件','支撐帶出現止跌K棒(長下影/紅K吞噬)+量縮'],
+      ['觀察條件','支撐帶的K棒與成交量，尚未驗證為買點'],
       ['停損',+(lv.l60*0.97).toFixed(2)+'(跌破前波低)'],
       ['建議','趨勢未轉多,以觀望為主、倉位嚴控']]};
   return {right,left};
@@ -17219,12 +17173,12 @@ function entryHTML(lv,o,price){
     <div class="entry-who">${who}</div>
     <div class="entry-rows">${p.rows.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</div></div>`;
   return `<div class="dim-block" style="border-left:4px solid var(--amber)">
-    <h3>建議進場點|右側 vs 左側(規則化) <span class="ds">現價 ${price}</span></h3>
+    <h3>進場情境參考|右側 vs 左側（未完整驗證） <span class="ds">現價 ${price}</span></h3>
     <div class="entry-grid">
-      ${card('r','右側交易者','適合:順勢操作、不猜底,用較高成本換「趨勢確認」的訊號,勝率優先。',ep.right)}
-      ${card('l','左側交易者','適合:逢低分批佈局、能承受浮虧與等待,用時間換「成本優勢」。',ep.left)}
+      ${card('r','右側交易者','觀察範例：順勢與突破價位；不代表勝率較高，實際執行以上方操作規則為準。',ep.right)}
+      ${card('l','左側交易者','觀察範例：均線與支撐帶；分批、加碼和止跌K棒尚非本頁已驗證買點。',ep.left)}
     </div>
-    <div class="dim-note">右側=突破/趨勢確認後才進(買得貴、錯得少);左側=拉回支撐分批接(買得便宜、要忍浮虧)。兩者擇一貫徹即可,最忌右側的價進場、左側的心態凹單。以上為規則化推估、非投資建議——先想好停損,再想獲利。</div>
+    <div class="dim-note">右側=突破/趨勢確認後才進(買得貴、錯得少);左側=拉回支撐分批接(買得便宜、要忍浮虧)。這些幾何價位不自動變成買賣訊號；美股均線突破與止跌K棒不列為已驗證買法，台股以既有突破／錯殺規則為準。</div>
   </div>`;
 }
 
@@ -22889,9 +22843,9 @@ function aipWeekBlock(w,compact){
 /* ═══ r1092:🤖 AI Pick 三清單——短期(2~3 週)/ 中期(波段)/ 長期(存股),各 5 檔;後端 aip3.py 每天收盤後產 aip3.json ═══ */
 let AIP3=null,AIP3_T=0;
 async function aip3Load(force){try{const live=(marketOpen()||(typeof usSession==='function'&&usSession()==='盤中'));
-  if(!force&&AIP3&&Date.now()-AIP3_T<(live?3:10)*60e3)return AIP3;
+  if(!force&&AIP3&&Date.now()-AIP3_T<(live?3:10)*60e3){if(window.GMKT==='US'){try{aipHydrateWeekly(AIP3,await aipLoadUS());}catch(e){}}return AIP3;}
   const r=await fT('aip3.json?v='+kv()+'_'+Math.floor(Date.now()/(live?180e3:600e3)),15000,{cache:live?'no-store':'default'});
-  if(r&&r.ok){const j=await r.json();if(j&&j.tw){AIP3=j;AIP3_T=Date.now();}}}catch(e){}return AIP3;}
+  if(r&&r.ok){const j=await r.json();if(j&&j.tw){AIP3=j;AIP3_T=Date.now();if(window.GMKT==='US'){try{aipHydrateWeekly(AIP3,await aipLoadUS());}catch(e){}}}}}catch(e){}return AIP3;}
 /* r1107:盤中小檔 aip3_live.json(後端盤中班每 5 分鐘寫,約 15 KB)——09:00 開盤成交、盤中停損/停利一分鐘內就出現,不用等晚上主班
    src = 它是從哪一版 aip3.json 算出來的:比手上的主檔新 → 先重抓主檔;比主檔舊 → 不倒退 */
 let AIP3L_T=0,AIP3L_U='';
@@ -22918,7 +22872,7 @@ async function aip3LiveLoad(force){
 setInterval(()=>{try{if(document.hidden||window.GMKT==='US'||!marketOpen())return;const b=document.getElementById('aip3Box');if(!b)return;aip3LiveLoad().then(ch=>{if(ch)renderAip3();});}catch(e){}},60e3);
 function aip3Px(id,us){                                 // 現價:台股=即時報價(DATA.stocks);美股=CNBC/Finnhub 即時(usPx),都沒有就用後端最後收盤
   if(us){const q=usPx(id);return q&&q.px?{px:q.px,rt:q.rt,lab:usRtLabel(q)}:{px:null,rt:0};}
-  const st=(DATA.stocks||[]).find(x=>x.id===id);return st&&st.price>0?{px:+st.price,rt:marketOpen()?1:0,lab:marketOpen()?'即時':'收盤'}:{px:null,rt:0};
+  const st=(DATA.stocks||[]).find(x=>x.id===id);return st&&st.price>0?{px:+st.price,rt:0,lab:st.dhd?'資料日 '+st.dhd:'最新可用價'}:{px:null,rt:0};
 }
 function aip3Tier(key,T,us){
   const meta={short:{ic:'🏃',nm:'短期',sub:'持 2~3 週',col:'#E8B44A'},mid:{ic:'🌊',nm:'中期',sub:'波段',col:'#5FB37A'},long:{ic:'🏦',nm:'長期',sub:'未來性',col:'#6FA8DC'}}[key];
@@ -22931,12 +22885,12 @@ function aip3Tier(key,T,us){
     const stC=p.st==='pend'?'var(--amber)':p.st==='done'?'var(--mut)':'var(--up)';
     const prov=key==='long'&&T.ai_done===false&&p.st==='pend';   // r1100:長期暫定名單——AI 未來性還沒評完,先不成交
     const tdy=!us&&aipIso(aipTpDate());   // r1107:台股盤中——選股日之後的第一個交易日開盤,後端盤中班 5 分鐘內記成交;出場帶時間
-    const stT=prov?'⏳ 等 AI 評分完成再成交':p.st==='pend'?(us?'下個交易日開盤買':(tdy&&p.sel_d&&p.sel_d<tdy&&marketOpen()?'今天 9:00 開盤買・盤中記帳中(約 5 分鐘)':'下個交易日 9:00 開盤買')):p.st==='done'?`已出場 ${md(p.xd)}${p.xt?' '+p.xt:''}`:p.st==='nofill'?'未成交':`持有 ${p.days||0} 天`;
+    const stT=prov?'⏳ 等 AI 評分完成再成交':p.st==='pend'?(us?(key==='short'?'等每週模型買進條件':'下個交易日開盤買'):(tdy&&p.sel_d&&p.sel_d<tdy&&marketOpen()?'今天 9:00 開盤買・盤中記帳中(約 5 分鐘)':'下個交易日 9:00 開盤買')):p.st==='done'?`已出場 ${md(p.xd)}${p.xt?' '+p.xt:''}`:p.st==='nofill'?'未成交':`持有 ${p.days||0} 天`;
     let extra='';
     if(p.st==='hold'){
       if(key==='short'&&!us)extra=`最多再 ${Math.max(0,15-(p.days||0))} 天`;
       else if(key==='mid'&&!us){const rk=((((AIPK||{}).trader||{}).pv||{}).rank_all||{})[p.id];extra=rk?`目前第 ${rk[0]} 名${rk[0]>150?'(接近 200 名出場線)':''}`:'';if(p.x_open)extra='📉 掉出 200 名,隔天開盤賣';}
-      else if(key==='mid'&&us&&p.entry)extra=`停利 $${(p.entry*1.2).toFixed(2)}・停損 $${(p.entry*0.85).toFixed(2)}・剩 ${Math.max(0,60-(p.days||0))} 天`;
+      else if(key==='mid'&&us&&p.entry)extra=aipPolicyText(p,key,us);
       else if(key==='long')extra='持有到下一季檢視';
     }
     const aiC=p.ai!=null?(p.ai>=8?'var(--up)':p.ai>=5?'var(--amber)':'var(--down)'):'';   // r1095:AI 未來性分數(1~10)
@@ -22946,11 +22900,11 @@ function aip3Tier(key,T,us){
       if(b.fin&&b.fin.q){const f=b.fin;const bad=(f.fcf4!=null&&f.fcf4<0)+(f.dr!=null&&f.dr>=70)+(f.cur!=null&&f.cur<100);const good=(f.fcf4!=null&&f.fcf4>0)+(f.dr!=null&&f.dr<=50)+(f.cash!=null&&f.debt!=null&&f.cash>=f.debt);const v=bad>=2?['體質偏弱','var(--down)']:good>=2&&!bad?['體質穩健','var(--up)']:['體質普通','var(--amber)'];
         out.push(`<span style="color:${v[1]};border-color:${v[1]}" title="${f.q}:自由現金流 ${f.fcf4??'—'} 億・現金 ${f.cash??'—'} vs 借款 ${f.debt??'—'} 億・流動比 ${f.cur??'—'}%・負債比 ${f.dr??'—'}%">🩺 ${v[0]}</span>`);}
       return out.join('');})();
-    const why=aiChip+irChip+(p.why||[]).slice(0,key==='long'?4:3).map(x=>`<span>${x}</span>`).join('')+(extra?`<span style="color:var(--amber);border-color:var(--amber)">${extra}</span>`:'');
+    const why=aiChip+irChip+(p.why||[]).slice(0,key==='long'?4:3).map(x=>`<span>${newsEsc(String(x).replace(/(?:14 年模型[:：])?贏大盤機率\s*(\d+(?:\.\d+)?)%/g,'模型參考分數 $1/100（不等於上漲機率）'))}</span>`).join('')+(extra?`<span style="color:var(--amber);border-color:var(--amber)">${extra}</span>`:'');
     return `<div class="a3-row"><div class="a3-nm"><a href="#stock/${p.id}">${p.name||p.id}</a><span class="c-code">${p.id}</span>${p.cur&&p.cur!==p.id?`<span class="dim" style="font-size:11px"> → 現持 ${p.cur}</span>`:''}<span class="a3-st" style="color:${stC}">${stT}</span></div>
       <div class="a3-px">${p.entry?`${cur}${(+p.entry).toLocaleString()}<small>進場 ${md(p.fill_d)}${p.ft?' '+p.ft:''}</small>`:`${cur}${p.sel_px!=null?(+p.sel_px).toLocaleString():'—'}<small>選股日收盤</small>`}</div>
       <div class="a3-ret" style="color:${cl(ret)}">${p.entry?fp(ret):'—'}<small>${px?`${p.st==='done'?'出場 ':'現價 '}${cur}${(+px).toLocaleString()}${p.st!=='done'&&q.rt?'・'+(q.lab||'即時'):''}`:''}</small></div>
-      <div class="a3-why">${why}</div>${aip3LvHTML(p,px,us)}${key==='short'?aip3TechHTML(p,px,us):''}${p.ind?`<div class="a3-ind">🏭 <b>產業分析</b>(${p.ai_eng==='claude'?'Claude':'AI'} 讀最近 90 天新聞${p.ai_d?'・'+md(p.ai_d)+' 評':''}・敘述非驗證):${p.ind}${p.ind_src?`<br><span class="dim">📰 依據:${p.ind_src}</span>`:''}</div>`:(key==='long'&&p.st!=='done'?'<div class="a3-ind dim">🏭 產業分析與未來性評分:下一班後端補上</div>':'')}${key==='long'&&p.st!=='done'&&(p.news||[]).length?`<div class="a3-ind a3-news">📰 <b>最近新聞</b>(Google News・90 天內${p.news_d?'・'+md(p.news_d)+' 抓':''}):${p.news.slice(0,3).map(n=>`<a href="${(n.u||'#').replace(/"/g,'')}" target="_blank" rel="noopener">${n.d?md(n.d)+' ':''}${n.s?n.s+':':''}${String(n.t||'').replace(/</g,'&lt;')}</a>`).join('<br>')}</div>`:''}</div>`;}).join('');
+      <div class="a3-why">${why}</div>${aip3LvHTML(p,px,us,key)}${key==='short'?aip3TechHTML(p,px,us):''}${p.ind?`<div class="a3-ind">🏭 <b>產業分析</b>(${p.ai_eng==='claude'?'Claude':'AI'} 讀最近 90 天新聞${p.ai_d?'・'+md(p.ai_d)+' 評':''}・敘述非驗證):${p.ind}${p.ind_src?`<br><span class="dim">📰 依據:${p.ind_src}</span>`:''}</div>`:(key==='long'&&p.st!=='done'?'<div class="a3-ind dim">🏭 產業分析與未來性評分:下一班後端補上</div>':'')}${key==='long'&&p.st!=='done'&&(p.news||[]).length?`<div class="a3-ind a3-news">📰 <b>最近新聞</b>(Google News・90 天內${p.news_d?'・'+md(p.news_d)+' 抓':''}):${p.news.slice(0,3).map(n=>`<a href="${(n.u||'#').replace(/"/g,'')}" target="_blank" rel="noopener">${n.d?md(n.d)+' ':''}${n.s?n.s+':':''}${String(n.t||'').replace(/</g,'&lt;')}</a>`).join('<br>')}</div>`:''}</div>`;}).join('');
   const vtab=(key==='short'&&!us)?`<details class="a3-full"><summary style="cursor:pointer;font-size:12.5px;color:var(--txt2)">🧪 為什麼規則是這樣:試過的 40 種改法(2016~2026 回測,含成本 0.6%)</summary>
       <div class="dim-note" style="margin:4px 0">同一套選股,只改一個條件;年化/最大回落/最差年。原規則(每週最後交易日選、持最多 15 日、+20% 停利、−15% 停損、同產業最多 2 檔)年化 +23.9%、回落 −29%、最差年 −3.4%;只有「同分時波動低者優先」在年化、回落、最差年三項同時更好,r1141 起採用,其餘不改;10/23 下午再試 10 種(收盤確認出場、續抱、檔數),沒有一種三項同時更好。</div>
       <table class="mini-tbl" style="width:100%;font-size:12.5px">${[['空頭(0050<200日線)不進場','+10.4%','−29%','−10%','更差:多頭回來時第一波都錯過'],['空頭縮半部位','+17.8%','−25%','−3%','取捨:少賺換小一點的回落'],['只選創 52 週新高','+18.0%','−31%','−14%','更差'],['只選均線多頭','+19.3%','−37%','−16%','更差'],['只選投信 5 日買超','+18.6%','−41%','−30%','更差'],['門檻拉高(綜合分 ≥5 / ≥6)','+21~22%','−29%','−3~−7%','略差'],['持 10 日 / 20 日','+17% / +14%','−34%','−25%','更差:15 日剛好'],['停利 +15%/停損 −10%','+17.9%','−39%','−27%','更差'],['停利 +25%','+26.1%','−46%','−6%','年化略高但回落大很多'],['不停利','+25.3%','−54%','−2%','回落太深'],['漲 8% 後停損移到成本','+6.1%','−44%','−22%','更差:被洗掉'],['移動停損(6~8%)','−5~−13%','−60~−80%','−40~−52%','最差:強勢股的震盪會一直被掃出'],['同產業最多 1 檔','+21.5%','−39%','−6%','略差'],['8 檔','+19.2%','−32%','−18%','更差'],['空位每天補(不等週末)','+13.8%','−38%','−7%','更差:週末選股的時點本身有效'],['停損改 2/3/4 ATR','+12.7~25.5%','−34~−42%','−8~−19%','更差或回落更大'],['等風險部位(ATR)','+20.9%','−30%','−5%','略差'],['排除 20 日已漲 >20%/30%','+9~15%','−34~−44%','−31~−42%','更差:強勢股本來就漲過'],['跳空 >3% 不追','+19.9%','−35%','−21%','更差'],['要求月營收 YoY>0 / 外資 20 日買超','+19.5~20.4%','−31~−32%','−18~−21%','更差'],['同分改成交值大/離高近優先','+28~30%','−32~−36%','−21~−35%','年化高但最差年很差'],['<b>同分改波動低者優先(r1141 採用)</b>','<b>+28.2%</b>','<b>−25%</b>','<b>+2.2%</b>','<b>全面較好、11 年全正;反向(高波動優先)+17.4%、只看波動 +6.3%</b>'],['(以下以採用版為基準)停損改收盤確認、隔天開盤賣','+30.7%','−28%','−7.4%','年化高一點但回落、最差年都差'],['停利改收盤確認、隔天開盤賣','+31.9%','−34%','+2.9%','年化 +3.7 點,回落多 8 點'],['停損停利都改收盤確認','+33.8%','−32%','+8.5%','年化、最差年更好,但回落 −25%→−32%;逐年 6 勝 4 敗 → 不採用,列為取捨'],['15 日後有獲利續抱到跌破 5 / 10 日線','+24.5 / +22.4%','−34 / −23%','−26 / −12%','更差:2022 年大虧'],['15 日後漲 ≥8% 才續抱(跌破 5 日線出)','+27.6%','−30%','−14%','更差'],['改 4 / 6 / 8 檔','+28.3 / +25.9 / +27.3%','−33 / −26 / −24%','−20 / −12 / −14%','5 檔最穩(唯一沒有負年)']].map(r=>`<tr><td>${r[0]}</td><td style="text-align:right">${r[1]}</td><td style="text-align:right">${r[2]}</td><td style="text-align:right">${r[3]}</td><td style="color:var(--dim)">${r[4]}</td></tr>`).join('')}</table></details>`:'';
@@ -22970,17 +22924,14 @@ function aip3Tier(key,T,us){
       <div class="dim-note" style="margin:4px 0">候選池是驗證過的部分(一年平均比大盤 +13%);池內排序交給 AI 讀最近 3 個月的產業新聞,這部分無法回測、標參考。粗體 = 入選。</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px 6px">${L.map(c=>`<a href="#stock/${c.id}" class="pv-pk" style="display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;color:inherit;text-decoration:none;${sel.has(c.id)?'font-weight:800;border-color:var(--a3c)':''}">${c.name||c.id} <b style="color:${c.ai==null?'var(--mut)':c.ai>=8?'var(--up)':c.ai>=5?'var(--amber)':'var(--down)'}">${c.ai!=null?c.ai+'/10':'未評'}</b></a>`).join('')}</div></details>`;})();
   return `<div class="a3-card" style="--a3c:${meta.col}"><div class="a3-h"><b>${meta.ic} ${meta.nm}</b><span class="dim">${meta.sub}</span><span class="a3-tag" style="color:${(T.note||'').startsWith('✅')?'var(--up)':(T.note||'').startsWith('⚠')?'var(--amber)':'var(--txt2)'}">${T.note||''}</span></div>
-    <div class="a3-rule">${T.rule||''}</div><div class="a3-val">${T.val||''}</div>
+    <div class="a3-rule">${T.rule||''}</div><div class="a3-val">${T.val||''}<div class="dim-note">既有研究摘要；不同研究口徑不能直接互比。實戰模型帳與你的成交不同，下面每筆帳面報酬未扣交易成本，不等於組合年化或最大回落。</div></div>
     <div style="margin-top:6px">${rows}${emptyRows}</div>${full20}${pool}${vtab}${foot}</div>`;
 }
 /* r1097:每檔參考價位——🛑 停損 / 🎯 停利 / ➕ 加碼 / 🔁 再買回,現價即時比對;模型帳仍照各清單規則進出 */
-function aip3LvHTML(p,px,us){
-  const L=p.lv;if(!L||p.st==='done')return '';
-  const c=us?'$':'';const dist=v=>(px&&v)?((v/px-1)*100):null;const f=v=>v==null?'':(v>0?'+':'')+v.toFixed(1)+'%';
-  const hitSl=!!(px&&px<=L.sl),hitTp=!!(px&&px>=L.tp),hitAdd=!!(px&&px>=L.add&&!hitTp);
-  const it=(ic,lab,v,src,hit,col)=>`<span class="a3-lvi${hit?' hit':''}" title="${(src||'').replace(/"/g,'')}" ${hit?`style="color:${col};border-color:${col}"`:''}><span class="l">${ic} ${lab}</span><b>${c}${(+v).toLocaleString()}</b><em>${f(dist(v))}</em></span>`;
-  const msg=hitSl?['🛑 現價已跌破停損參考價','var(--down)']:hitTp?['🎯 現價已到停利參考價','var(--up)']:hitAdd?['➕ 現價已到加碼參考價','var(--up)']:null;
-  return `<div class="a3-lv">${it('🛑','停損',L.sl,L.sl_src,hitSl,'var(--down)')}${it('🎯','停利',L.tp,L.tp_src,hitTp,'var(--up)')}${it('➕','加碼',L.add,L.add_src,hitAdd,'var(--up)')}${it('🔁','再買回',L.re,L.re_src,false,'')}${p.st==='pend'?'<span class="dim" style="font-size:11px">以選股日收盤估,成交後以進場價重算</span>':''}${msg?`<span class="a3-lvhit" style="color:${msg[1]}">${msg[0]}</span>`:''}</div>`;
+function aip3LvHTML(p,px,us,key){
+  if(!p.lv||p.st==='done')return '';const c=aipSlotPolicy(p,key,us),hit=aipExecutableSignal(p,key,us,px),f=v=>v>0?(us?'$':'')+v.toLocaleString(undefined,{maximumFractionDigits:2}):'待資料';
+  const it=(lab,v,active)=>`<span class="a3-lvi${active?' hit':''}"><span class="l">${lab}</span><b>${f(v)}</b><em>${px&&v?((v/px-1)*100).toFixed(1)+'%':''}</em></span>`;
+  return `<div class="a3-lv">${it(c.model?'🛑 模型停損':'🛑 風險觀察',c.sl,hit&&hit.k==='sl')}${it(c.model?'🎯 模型停利':'🎯 獲利觀察',c.tp,hit&&hit.k==='tp')}${it('➕ 加碼觀察',c.add,false)}${it('🔁 買回觀察',c.re,false)}<div class="dim-note">${newsEsc(c.rule)}${c.pending?'；待實際成交後重算':''}${c.asof?'；價位資料 '+newsEsc(c.asof):''}。加碼／買回僅保留舊參考價，不是模型執行訊號。</div>${hit?`<span class="a3-lvhit">已觸及模型${hit.k==='sl'?'停損':'停利'}價；成交與出場以模型帳記錄為準</span>`:''}</div>`;
 }
 function aip3TechHTML(p,px,us){
   /* r1099:短期清單的「量 + 技術線」即時觀察——5/10/20 日線在現價上下、今日量比(盤中累計 ÷ 20 日均量);只做觀察,出場仍照回測規則(均線/量能出場回測都更差) */
@@ -22996,26 +22947,16 @@ function aip3ReHTML(h,us){
   if(h.re==null||!h.re_until)return '';
   const today=us?(typeof usEtIso==='function'?usEtIso():aipIso(aipTpDate())):aipIso(aipTpDate());if(today>h.re_until)return '';
   const q=aip3Px(h.id,us);const px=q.px;const c=us?'$':'';const on=!!(px&&px>=h.re);
-  return `<span title="${(h.re_src||'').replace(/"/g,'')}" style="${on?'color:var(--up);font-weight:800':''}">🔁 再買回 ${c}${(+h.re).toLocaleString()}${px?`(現價 ${c}${(+px).toLocaleString()}${on?'・已站回,可買回':''})`:''}</span>`;
+  return `<span title="${(h.re_src||'').replace(/"/g,'')}" style="${on?'color:var(--up);font-weight:800':''}">🔁 再買回 ${c}${(+h.re).toLocaleString()}${px?`(現價 ${c}${(+px).toLocaleString()}${on?'・已站回觀察價，非買回訊號':''})`:''}</span>`;
 }
 function aip3Sweep(){
-  /* 到價提示:清單裡任何一檔現價碰到 停損/停利/加碼 參考價,或剛出場的股票站回「再買回價」,跳提示卡 + 瀏覽器通知(同一檔同一種一天一次) */
-  try{
-    if(!aipAlertOn()||!favAlertOn())return;
-    const us=window.GMKT==='US';if(us?!(typeof usSession==='function'&&usSession()==='盤中'):!marketOpen())return;
-    if(!AIP3){aip3Load();return;}   // r1119:沒開過 AI 分頁也要能提示 → 盤中先把三清單載起來(10 分鐘一次),下一輪再比
-    const M=us?AIP3.us:AIP3.tw;if(!M)return;const c=us?'$':'';
-    ['short','mid','long'].forEach(k=>{const T=M[k];if(!T)return;const nm={short:'🏃 短期',mid:'🌊 中期',long:'🏦 長期'}[k];
-      (T.slots||[]).forEach(p=>{const L=p.lv;if(!L||p.st!=='hold')return;const q=aip3Px(p.cur||p.id,us);const px=q.px;if(!px)return;
-        const r=(px/p.entry-1)*100,rt=(r>0?'+':'')+r.toFixed(2)+'%';let sig=null;
-        if(px<=L.sl)sig={k:'sl',title:`🤖 AI Pick ${nm}・跌破停損參考價`,text:`現價 ${c}${px} ≤ 停損參考 ${c}${L.sl}(${String(L.sl_src||'').split(/[(;,]/)[0]});${aipMD(p.fill_d)} 進場 ${c}${p.entry},帳面 ${rt}。${k==='long'?'長期清單的模型不停損(回測:停損會降年化),這是給你控風險的參考':'這是模型的出場規則,模型帳也會記錄出場'}`};
-        else if(px>=L.tp)sig={k:'tp',title:`🤖 AI Pick ${nm}・到停利參考價`,text:`現價 ${c}${px} ≥ 停利參考 ${c}${L.tp}(${String(L.tp_src||'').split(/[(;,]/)[0]});進場 ${c}${p.entry},帳面 ${rt}`};
-        else if(px>=L.add)sig={k:'add',title:`🤖 AI Pick ${nm}・到加碼參考價`,text:`現價 ${c}${px} ≥ 加碼參考 ${c}${L.add}(${String(L.add_src||'').split(/[(;,]/)[0]});進場 ${c}${p.entry},帳面 ${rt}`};
-        if(sig)try{favAlertFire({id:p.id,name:p.name},sig);}catch(e){}});
-      const today=aipIso(aipTpDate());
-      (T.hist||[]).slice(-15).forEach(h=>{if(h.re==null||!h.re_until||today>h.re_until)return;const q=aip3Px(h.id,us);const px=q.px;if(!px||px<h.re)return;
-        try{favAlertFire({id:h.id,name:h.name},{k:'re',title:`🤖 AI Pick ${nm}・賣出後站回再買回價`,text:`${aipMD(h.xd)} 以 ${c}${h.xp} 出場(${h.xw==='sl'?'停損':h.xw==='tp'?'停利':h.xw==='time'?'到期':h.xw==='rank'?'掉出排名':'季檢視'}),現價 ${c}${px} ≥ 再買回參考 ${c}${h.re}(${h.re_src||''}),當天也可以買回`});}catch(e){}});
-    });
+  try{if(!aipAlertOn()||!favAlertOn())return;const us=window.GMKT==='US';
+    if(us?!(typeof usSession==='function'&&usSession()==='盤中'):!marketOpen())return;
+    if(!AIP3){aip3Load();return;}const M=us?AIP3.us:AIP3.tw;if(!M)return;
+    ['short','mid','long'].forEach(k=>(M[k]&&M[k].slots||[]).forEach(p=>{
+      const q=aip3Px(p.cur||p.id,us);const sig=aipExecutableSignal(p,k,us,q.px);if(!sig)return;
+      favAlertFire({id:p.cur||p.id,name:p.name},{k:sig.k,title:`🤖 AI Pick ${k==='short'?'短期':'中期'}・觸及模型${sig.k==='sl'?'停損':'停利'}價`,text:`最新可用價 ${us?'$':''}${q.px}；本筆模型價位 ${sig.price}。${aipPolicyText(p,k,us)}。這是到價提示，實際成交以模型帳記錄為準。`});
+    }));
   }catch(e){}
 }
 const K3=5;
@@ -23024,12 +22965,12 @@ function renderAip3(){
   const J=AIP3;if(!J){box.innerHTML='<div class="dim-note">⏳ 三清單讀取中…(後端每天收盤後產生 aip3.json;第一次要等下一班)</div>';return;}
   const us=window.GMKT==='US';const M=us?J.us:J.tw;if(!M){box.innerHTML='<div class="dim-note">尚無資料</div>';return;}
   const tdy=aipIso(aipTpDate()),rtOn=!us&&J.rt&&J.rt.d===tdy;   // r1107:盤中記帳心跳 + 今天的成交/出場紀錄
-  const evs=us?[]:(J.rt_log||[]).filter(x=>String(x).startsWith(tdy)).map(x=>String(x).slice(11));
+  const evs=(J.rt_log||[]).filter(x=>String(x).startsWith(tdy)&&(/🇺🇸/.test(String(x))===us)).map(x=>String(x).slice(11));
   const evHtml=evs.length?`<details class="a3-evlog"><summary>📒 今天盤中記帳 ${evs.length} 筆・最新:${evs[evs.length-1]}</summary><ul>${evs.slice().reverse().map(x=>`<li>${x}</li>`).join('')}</ul></details>`:'';
-  const html=`<div class="dim-note" style="margin:0 0 8px">${us?'🇺🇸 美股':'🇹🇼 台股'}・更新 ${J.u||''}(K 線到 ${us?J.us_day:J.tw_day})${rtOn?`・<b style="color:var(--up)">⏱ 盤中記帳到 ${J.rt.t}</b>`:(!us&&marketOpen()?'・⏱ 盤中記帳每 5 分鐘一輪':'')}・三個清單各自獨立、各 5 檔;進場價一律是「下個交易日開盤價」,${us?'網站自己逐日記帳':'台股盤中就記帳(09:00 開盤成交、碰到停損停利當下出場),晚上再用官方日 K 核對'},不是回頭補的。${us?'<b>美股資料只有目前 S&P 500 成分股,歷史有倖存者偏差;中期、長期標示為參考。</b>':''}規則與回測:<a href="#learn/aip3" style="color:var(--t-blue)">怎麼驗證的&nbsp;→</a></div>
+  const html=`<div class="dim-note" style="margin:0 0 8px">${us?'🇺🇸 美股':'🇹🇼 台股'}・更新 ${J.u||''}(K 線到 ${us?J.us_day:J.tw_day})${rtOn?`・<b style="color:var(--up)">⏱ 盤中記帳到 ${J.rt.t}</b>`:(!us&&marketOpen()?'・⏱ 盤中記帳每 5 分鐘一輪':'')}・三個清單各自獨立、各 5 檔;台股與美股中期／長期依下一交易日開盤成交，美股短期按每週模型買進條件及成交記錄,${us?'網站自己逐日記帳':'台股盤中就記帳(09:00 開盤成交、碰到停損停利當下出場),晚上再用官方日 K 核對'},不是回頭補的。${us?'<b>美股資料只有目前 S&P 500 成分股,歷史有倖存者偏差;中期、長期標示為參考。</b>':''}規則與回測:<a href="#learn/aip3" style="color:var(--t-blue)">怎麼驗證的&nbsp;→</a></div>
     ${evHtml}${(()=>{try{if(us)return '';const e=(KCACHE['k/tw005.json']||{})['0050'];if(!(e&&e.o&&e.o.length>=200))return '';const C=e.o.map(x=>x[3]);const m200=C.slice(-200).reduce((a,b)=>a+b,0)/200;const last=C[C.length-1];   // r1139:大盤環境提醒(實證:0050 在 200 日線下時,近高強勢訊號 20 日超額只剩 +0.67%、不顯著;規則不變,只提醒部位)
       return last<m200?`<div class="aov-warn" style="margin:0 0 8px">🌧 大盤環境:0050 收在 200 日線之下(${last.toFixed(1)} vs ${m200.toFixed(1)})——實測這種時候「近 52 週高 × 強勢訊號」的優勢變弱(20 日比大盤 +0.67%,不顯著;多頭時 +1.1~1.9%)。但把短期清單在空頭「停做」回測反而更差(年化 +10.4% vs +23.9%)、「縮半部位」是取捨(年化 +17.8%、回落 −25% vs −29%)——規則不改,要不要縮部位由你決定。</div>`:'';}catch(x){return '';}})()}<div class="a3-grid">${['short','mid','long'].map(k=>M[k]?aip3Tier(k,M[k],us):'').join('')}</div>
-    <div class="dim-note">短期、中期、長期是三種不同節奏,不是同一檔股票的三種看法;同一檔可能同時出現在兩個清單。數字是模型帳上的紀錄,非投資建議。<br>🧭 每檔下面的 <b>🛑 停損 / 🎯 停利 / ➕ 加碼 / 🔁 再買回</b>:三個清單各自回測後分別定(短期 −15%/+20%、中期 4 ATR/+25%、長期 −8%/+40% 減碼一半);短期與中期的停損停利就是模型自己的出場規則,長期的是給你自己控風險的參考(回測:長期任何停損停利都會降年化,但停損不補位能把回落砍一半)。現價即時比對,碰到就跳提示;賣出後 10 個交易日內站回再買回價也會提示——但回測顯示停損後急著買回三個清單都虧,請當提醒不是建議。細節:<a href="#learn/aip3">看說明</a>。</div>`;
+    <div class="dim-note">短期、中期、長期是三種不同節奏,不是同一檔股票的三種看法;同一檔可能同時出現在兩個清單。數字是模型帳上的紀錄,非投資建議。<br>🧭 每檔下面的 <b>🛑 停損 / 🎯 停利 / ➕ 加碼 / 🔁 再買回</b>:每筆依市場與入場版本分列；台股短期−15%/+20%、中期4 ATR/+25%，美股中期舊持倉−15%/+20%/60日、新持倉−20%/+30%/90日。長期價格僅觀察，模型仍按季度檢視；加碼和買回價保留但不觸發買進通知。細節:<a href="#learn/aip3">看說明</a>。</div>`;
   if(box.__h!==html){box.innerHTML=html;box.__h=html;}
 }
 lazyRun('#aip3Box',()=>{aip3Load().then(()=>aip3LiveLoad(true)).then(()=>{try{if(window.GMKT!=='US'&&!(KCACHE['k/tw005.json']||{})['0050'])loadShard(KCACHE,'k/tw005.json').then(()=>renderAip3());}catch(e){}renderAip3();});},10*60*1000);
@@ -23174,10 +23115,10 @@ function defPlanRow(D,px){
     +`<span class="fd-c">停利依據:${D.tp1src}${/估/.test(D.tp1src)?'':'(上方壓力)'}${D.rr!=null?`・區內買進報酬風險比 ${D.rr}:1`:''}</span></div>`;
 }
 async function vBox(s){
-  try{if(!s||s.etf)return;const k=await loadK(s);if(!k||!k.ohlc)return;if(location.hash!=='#stock/'+s.id)return;
-    await lvLoad();try{await aipLoad();}catch(e){}const h=lvHTML(k.ohlc,s.id,s.price,true);if(!h)return;let box=document.getElementById('vBox');
-    if(!box){const sb=document.getElementById('sb-stk_k');if(!sb)return;box=document.createElement('div');box.id='vBox';box.dataset.jumpname='📋 買賣計畫';sb.prepend(box);}
-    let ap='',pp='';try{ap=actionPlan(k.ohlc,s.id,s.price,false,null,k.dates);}catch(e){}
+  try{if(!s)return;const k=await loadK(s);if(!k||!k.ohlc)return;if(location.hash!=='#stock/'+s.id)return;
+    await lvLoad();try{await Promise.all([aip3Load(),s.market==='US'?aipLoadUS():aipLoad()]);}catch(e){}if(location.hash!=='#stock/'+s.id)return;const h=lvHTML(k.ohlc,s.id,s.price,true)||'<div class="dim-note">此標的尚無股性統計</div>';let box=document.getElementById('vBox');
+    if(!box){const sb=document.getElementById('sb-stk_k');if(!sb)return;box=document.createElement('div');box.id='vBox';box.dataset.jumpname='📋 買賣計畫';const inline=document.querySelector('#kwrap .strategy-summary');if(inline)inline.replaceWith(box);else sb.prepend(box);}
+    let ap='',pp='';try{const en=favEntryOf(s.id);ap=ownStrategySummary(s,k.ohlc,k.dates,!!en,en&&en.px);}catch(e){}
     box.innerHTML=`<div class="dim-block" style="border-left:4px solid var(--amber)"><div style="font-weight:900;margin-bottom:4px">📋 買賣計畫(驗證過的規則)</div>${ap}${pp}<details class="aip-fold"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔自己的歷史表現(股性參考)</summary>${h}</details></div>`;
   }catch(e){}
 }
@@ -24077,23 +24018,23 @@ function favSignals(s,P,last,vol){   // 回傳今天該亮的訊號 [{k,title,te
   const out=[];
   if(!(last>0))return out;
   if(P.bull&&P.z0&&P.z1&&last<=P.z1*1.005&&last>=P.z0*0.995&&(!P.stop||last>=P.stop))
-    out.push({k:'buy',title:'🟢 買進時機・回檔到均線帶',text:`現價 ${last} 進入均線帶 ${P.z0}~${P.z1}(多頭排列未破停損 ${P.stop});左側分批參考`});
+    out.push({k:'buy',title:'📍 價位觀察・回檔到均線帶',text:`現價 ${last} 進入均線帶 ${P.z0}~${P.z1}(多頭排列未破停損 ${P.stop});僅觀察，不是已驗證買點`});
   if(P.h20&&last>=P.h20*1.003&&(P.prevC==null||P.prevC<=P.h20)){   // 今天才站上(昨收還在 20 日高下)才算突破,不天天重報
     const vt=(vol>0&&s.al&&s.al.v20>0)?`,量 ${Math.round(vol/s.al.v20*100)}% 均量`:'';
-    out.push({k:'buy',title:'🟢 買進時機・突破 20 日高',text:`現價 ${last} 站上 20 日高 ${P.h20}${vt};右側動能,守 ${P.l10||P.h20} 為出場線`});
+    out.push({k:'buy',title:'📍 價位觀察・突破20日高（未確認買點）',text:`現價 ${last} 站上 20 日高 ${P.h20}${vt};僅觀察，不採20日突破作為獨立買賣規則`});
   }
   if(P.pick&&P.pick.p&&!P.pick.p.entry&&last<=P.pick.p.buy_hi&&last>=P.pick.p.buy*0.97)
     out.push({k:'buy',title:'🟢 買進時機・到達 AI Pick 買價',text:`現價 ${last} 到達本週 AI Pick 建議買價 ${P.pick.p.buy}(追價上限 ${P.pick.p.buy_hi});目標 ${P.pick.p.target}、停損 ${P.pick.p.stop}`});
   if(P.l10&&last<P.l10&&(P.prevC==null||P.prevC>=P.l10*0.999))
-    out.push({k:'sell',title:'🔻 賣出訊號・跌破 10 日低',text:`現價 ${last} 跌破前 10 日最低 ${P.l10}(出場線);順勢部位宜減碼或出場`});
+    out.push({k:'sell',title:'📍 價位觀察・跌破10日低',text:`現價 ${last} 跌破前 10 日最低 ${P.l10}(出場線);不能因此推定模型出場；季線規則需兩日收盤確認`});
   else if(P.bull&&P.z0&&last<P.z0*0.995&&(P.prevC==null||P.prevC>=P.z0*0.995))
-    out.push({k:'sell',title:'🔻 賣出訊號・跌破均線帶',text:`現價 ${last} 跌破均線帶下緣 ${P.z0};多頭結構鬆動,守停損 ${P.stop}`});
+    out.push({k:'sell',title:'📍 價位觀察・跌破均線帶',text:`現價 ${last} 跌破均線帶下緣 ${P.z0};均線帶觀察；實際出場依各筆策略`});
   if(P.entry){
-    if(P.tp&&last>=P.tp)out.push({k:'tp',title:'🎯 停利到價',text:`現價 ${last} ≥ 停利 ${P.tp}(進場 ${P.entry}・${P.entrySrc} +${P.tpP}%);獲利 ${((last/P.entry-1)*100).toFixed(1)}%,可分批停利`});
-    if(P.sl&&last<=P.sl)out.push({k:'sl',title:'🛑 停損到價',text:`現價 ${last} ≤ 停損 ${P.sl}(進場 ${P.entry}・${P.entrySrc} −${P.slP}%);虧損 ${((last/P.entry-1)*100).toFixed(1)}%,依紀律執行`});
+    if(P.tp&&last>=P.tp)out.push({k:'tp',title:'🎯 自設風險觀察・停利到價',text:`現價 ${last} ≥ 停利 ${P.tp}(進場 ${P.entry}・${P.entrySrc} +${P.tpP}%);獲利 ${((last/P.entry-1)*100).toFixed(1)}%,此為自設／預設風險線，非模型出場指令`});
+    if(P.sl&&last<=P.sl)out.push({k:'sl',title:'🛑 自設風險觀察・停損到價',text:`現價 ${last} ≤ 停損 ${P.sl}(進場 ${P.entry}・${P.entrySrc} −${P.slP}%);虧損 ${((last/P.entry-1)*100).toFixed(1)}%,此為自設／預設風險線，非模型出場指令`});
   }
   if(P.pick&&P.pick.p&&P.pick.p.entry){
-    if(last>=P.pick.p.target)out.push({k:'tp',title:'🎯 AI Pick 到目標價',text:`現價 ${last} ≥ 目標 ${P.pick.p.target}(成交 ${P.pick.p.entry});可分批停利`});
+    if(last>=P.pick.p.target)out.push({k:'tp',title:'🎯 AI Pick 到目標價',text:`現價 ${last} ≥ 目標 ${P.pick.p.target}(成交 ${P.pick.p.entry});此為自設／預設風險線，非模型出場指令`});
     if(last<=P.pick.p.stop)out.push({k:'sl',title:'🛑 AI Pick 觸停損',text:`現價 ${last} ≤ 停損 ${P.pick.p.stop}(成交 ${P.pick.p.entry});依紀律出場`});
   }
   return out;

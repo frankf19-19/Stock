@@ -4,9 +4,9 @@
 
 台股
   🏃 短期(2~3 週):每週最後一個交易日收盤選「近 52 週高 × 強勢訊號」綜合分最高 5 檔(扣除持有中),
-       下個交易日開盤買,最多持 15 個交易日(第 15 天收盤出場),不設停損停利。
+       下個交易日開盤買,最多持15個交易日，停利+20%／停損−15%。
        回測 2016~2026(含成本):年化 +31.8%、最大回落 −37%、最差年 −25%。訊號 5/10/20 天贏大盤 +0.5/+1.1/+1.5%,14 年全正。
-  🌊 中期(波段):量價籌碼模型(主力組同一套)排名前 5 補進空位,下個交易日開盤買;掉出前 200 名 → 隔天開盤賣,不設停利停損。
+  🌊 中期(波段):量價籌碼模型(主力組同一套)排名前 5 補進空位,下個交易日開盤買;掉出前200名隔天開盤賣，另有進場4 ATR停損與+25%停利。
        回測 2016~2026(含成本):年化 +40.8%、最大回落 −37%、最差年 +9.9%、11 年全正,每年約 39 筆。
   🏦 長期(有未來性的成長股 + 產業):每季第一個交易日選:成交值前 40% + 近 3 月營收年增 10~100%(穩定成長、不是暴衝)+ 連 6 個月營收年增為正
        + 近 3 個月營收合計創 13 個月新高 + 本益比 10~35 + 離 52 週高 ≤15% + 站上年線
@@ -25,7 +25,7 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1146"
+VER = "r1156"
 NEWS_TTL_D = 7      # Google News RSS 快取天數(免費、不用金鑰)
 PROV_MAX_TD = 3     # 長期清單「暫定」最多等 3 個交易日:AI 評分沒評完(額度 429)就先不成交、下一班再補評;超過就用現有分數成交
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
@@ -568,11 +568,28 @@ def tech_of(p, us=False):
     except Exception: return None
 
 
+def execution_contract(p, key, us=False):
+    """r1156:回傳模型真正在用的價位；長期觀察線不能被前端當成出場。"""
+    if us and key == "short":
+        return p.get("execution") or {"source": "weekly", "sl": None, "tp": None}
+    buy = p.get("entry") or p.get("sel_px")
+    if not buy or buy <= 0: return {"source": "pending", "sl": None, "tp": None}
+    if key == "long": return {"source": "quarterly", "sl": None, "tp": None, "automatic": False}
+    if key == "short": sr, tr, hold = .15, .20, 15
+    elif us: sr, tr, hold = p.get("sl_r") or US_DIP["sl"], p.get("tp_r") or US_DIP["tp"], p.get("hold_r") or US_DIP["hold"]
+    else: sr, tr, hold = None, .25, None
+    sl = buy * (1 - sr) if sr else p.get("sl_px")
+    return {"source": "slot", "sl": _tk(sl, us, "down") if sl and sl > 0 else None,
+            "tp": _tk(buy * (1 + tr), us, "up"), "hold_max": hold, "automatic": True,
+            "anchor": buy, "d": p.get("last_d") or p.get("sel_d")}
+
+
 def tier_levels(T, key, us=False):
     for p in T["slots"]:
         if p.get("st") == "done": continue
         lv = levels(p, key, us, p.get("lv"))
         if lv: p["lv"] = lv
+        p["execution"] = execution_contract(p, key, us)
         t = tech_of(p, us)
         if t: p["tech"] = t
     hist_levels(T, key, us)
@@ -636,7 +653,7 @@ def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None, s
             p["last"], p["last_d"], p["days"] = round(o[3], 2), d, n
         if xd:
             p.update(xd=xd, xp=xp, xw=xw, ret=round((xp / p["entry"] - 1) * 100, 2), st="done", last=xp, last_d=xd, days=n)
-            T["hist"].append(p); T["hist"] = T["hist"][-400:]
+            T["hist"].append(p)  # r1156:已完成交易永久保留
             T.setdefault("_ev", []).append(("exit", p))                    # r1119
         else:
             p["ret"] = round((p["last"] / p["entry"] - 1) * 100, 2) if p["last"] and p["entry"] else None
@@ -779,7 +796,18 @@ def main():
                                "fill_d": L["fill"] if L else None, "entry": L["entry"] if L else None, "last": L.get("last") if L else None, "last_d": L.get("last_day") if L else None,
                                "ret": L.get("ret") if L else None, "days": L.get("hold") if L else 0, "why": (p.get("why") or [])[:3] + [f"買價 ${p.get('buy')}・目標 ${p.get('target')}・停損 ${p.get('stop')}"],
                                "st": "done" if (L and L.get("xd")) else ("hold" if L else ("nofill" if p.get("result") == "nofill" else "pend")),
-                               "xd": L.get("xd") if L else None, "xp": L.get("xp") if L else None, "xw": L.get("xw") if L else None, "cur": L["id"] if L else None})
+                               "xd": L.get("xd") if L else None, "xp": L.get("xp") if L else None, "xw": L.get("xw") if L else None, "cur": L["id"] if L else None,
+                               "execution": {"source": "weekly", "id": L["id"] if L else p["id"], "sl": L.get("stop") if L else p.get("stop"), "tp": L.get("target") if L else p.get("target"), "buy": p.get("buy"), "buy_hi": p.get("buy_hi"), "d": L.get("last_day") if L else w.get("ref_day"), "automatic": True}})
+        saved = {(h.get("source_week"), h.get("id"), h.get("fill_d"), h.get("xd")) for h in T.setdefault("hist", [])}
+        for ww in live:
+            for pick in ww.get("picks") or []:
+                for leg in pick.get("legs") or []:
+                    if not leg.get("xd") or not leg.get("entry"): continue
+                    ident = (ww.get("buy_week"), leg.get("id"), leg.get("fill"), leg.get("xd"))
+                    if ident in saved: continue
+                    h = dict(leg, id=leg.get("id") or pick["id"], name=leg.get("name") or pick.get("name"), fill_d=leg.get("fill"), st="done", source_week=ww.get("buy_week"), days=leg.get("hold"))
+                    T["hist"].append(h); saved.add(ident)
+        T["hist"].sort(key=lambda h: (h.get("xd") or "", h.get("id") or ""))
         T["sel_d"] = w.get("buy_week"); T["week"] = w.get("buy_week")
         r = [L["ret"] for ww in live for p in (ww.get("picks") or []) for L in (p.get("legs") or []) if L.get("xd") and L.get("ret") is not None]
         op = [L["ret"] for ww in live for p in (ww.get("picks") or []) for L in (p.get("legs") or [])[-1:] if not L.get("xd") and L.get("ret") is not None]
@@ -946,7 +974,7 @@ def run_intraday():
             elif p.get("x_open") and today > p["x_open"]: xp, xw, xt = round(op, 2), p.get("x_why", "rank"), "09:00"
             if xp:
                 p.update(xd=today, xt=xt, xp=xp, xw=xw, ret=round((xp / e - 1) * 100, 2), st="done", last=xp, last_d=today, days=n, rt=1)
-                T.setdefault("hist", []).append(p); T["hist"] = T["hist"][-400:]
+                T.setdefault("hist", []).append(p)  # r1156:永久保留
                 lab = {"sl": "🛑 停損", "tp": "🎯 停利", "rank": "📉 掉出排名", "quarter": "季檢視"}.get(xw, xw)
                 ev.append(f"{today} {xt} {lab} {nm[key]} {p['name']}({p['id']})@{xp}({p['ret']:+.2f}%)"); continue
             p["last"], p["last_d"], p["days"] = round(px, 2), today, n

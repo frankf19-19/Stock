@@ -3,8 +3,8 @@
 每週最後交易日收盤選 5 檔(同產業最多 2),下個交易日開盤買,最多 15 日,tp +20% / sl −15%(盤中觸及以該價出場;跳空以開盤)。"""
 import json, gzip, os, sys, glob, math, collections, pickle, time
 import numpy as np
-R = '/home/claude/repo2'
-CACHE = '/tmp/claude-0/-home-claude/ff72e86a-413d-5175-a594-8b5d63886f08/scratchpad/short_bt_cache.pkl'
+R = os.path.dirname(os.path.abspath(__file__))
+CACHE = os.environ.get('STOCK_BT_CACHE', os.path.join(R, '.cache', 'short_bt_cache.pkl'))
 
 def load_all():
     if os.path.exists(CACHE):
@@ -12,19 +12,19 @@ def load_all():
     K = collections.defaultdict(lambda: ([], []))
     for y in sorted(os.listdir(f'{R}/archive/k/tw')):
         for f in glob.glob(f'{R}/archive/k/tw/{y}/*.json.gz'):
-            j = json.load(gzip.open(f, 'rt'))
+            j = json.load(gzip.open(f, 'rt', encoding='utf-8'))
             for sid, e in j.items():
                 if not (e.get('d') and e.get('o')): continue
                 K[sid][0].extend(e['d']); K[sid][1].extend(e['o'])
     I = collections.defaultdict(lambda: ([], [], []))
     for y in sorted(os.listdir(f'{R}/archive/inst/tw')):
         for f in glob.glob(f'{R}/archive/inst/tw/{y}/*.json.gz'):
-            j = json.load(gzip.open(f, 'rt'))
+            j = json.load(gzip.open(f, 'rt', encoding='utf-8'))
             for sid, e in j.items():
                 if not e.get('d'): continue
                 I[sid][0].extend(e['d']); I[sid][1].extend(e.get('f') or [0]*len(e['d'])); I[sid][2].extend(e.get('t') or [0]*len(e['d']))
-    adj = (json.load(gzip.open(f'{R}/archive/adj_tw.json.gz', 'rt')).get('s') or {})
-    D = json.load(open(f'{R}/data.json'))
+    adj = (json.load(gzip.open(f'{R}/archive/adj_tw.json.gz', 'rt', encoding='utf-8')).get('s') or {})
+    D = json.load(open(f'{R}/data.json', encoding='utf-8'))
     sec = {s['id']: s.get('sector') or '' for s in D['stocks'] if s.get('market') == 'TW'}
     etf = {s['id'] for s in D['stocks'] if s.get('etf')}
     out = {}
@@ -50,7 +50,7 @@ def load_all():
         out[sid] = dict(d=dd, a=a, f=f_, t=t_, sec=sec.get(sid, ''))
     # 月營收 YoY(公布後次月 12 日起可用)
     for f in glob.glob(f'{R}/archive/rev/tw/*.json.gz'):
-        j = json.load(gzip.open(f, 'rt'))
+        j = json.load(gzip.open(f, 'rt', encoding='utf-8'))
         for sid, e in j.items():
             if sid not in out or not e.get('m'): continue
             m, r = e['m'], e['r']; mp = {m[i]: r[i] for i in range(len(m))}
@@ -59,6 +59,7 @@ def load_all():
                 y, mo = int(mm[:4]), int(mm[5:7]); pm = f'{y-1}-{mo:02d}'
                 if mp.get(pm) and r[i] is not None: yo[mm] = r[i] / mp[pm] - 1
             out[sid]['rev'] = yo
+    os.makedirs(os.path.dirname(os.path.abspath(CACHE)), exist_ok=True)
     pickle.dump(out, open(CACHE, 'wb'))
     return out
 
