@@ -16,7 +16,7 @@ update_data.py v4 — 三力選股儀表板(全市場版)
 
 第一次執行會回補約 130 個交易日的 K 線(約 10~15 分鐘),之後每天只補新的一天。
 """
-import json, os, time, glob, subprocess, datetime as dt
+import json, os, re, time, glob, subprocess, datetime as dt
 from io import StringIO
 import requests
 import pandas as pd
@@ -2014,7 +2014,7 @@ def fetch_margin_bulk():
             k_id  = next((k for k in keys if "代號" in k), None)
             k_y   = next((k for k in keys if "年度" in k), None)
             k_s   = next((k for k in keys if "季" in k), None)
-            k_rev = next((k for k in keys if "營業收入" in k), None)
+            k_rev = next((k for k in keys if k.strip().startswith("營業收入") and "%" not in k and "/" not in k), None)
             k_gm  = next((k for k in keys if "毛利率" in k), None)
             k_om  = next((k for k in keys if "營業利益率" in k), None)
             k_nm  = next((k for k in keys if "稅後純益率" in k), None)
@@ -2048,7 +2048,7 @@ def fetch_margin_mops(year, season):
         c_gm = next(c for c in df.columns if "毛利率" in str(c))
         c_om = next(c for c in df.columns if "營業利益率" in str(c))
         c_nm = next(c for c in df.columns if "稅後純益率" in str(c))
-        c_rv = next((c for c in df.columns if "營業收入" in str(c)), None)
+        c_rv = next((c for c in df.columns if str(c).strip().startswith("營業收入") and "%" not in str(c) and "/" not in str(c)), None)
         for _, row in df.iterrows():
             sid = str(row[c_id]).strip()
             if not (sid.isdigit() and len(sid) == 4): continue
@@ -2083,7 +2083,7 @@ def fetch_margin_mops(year, season):
                         ks = list(o[0].keys())
                         kk = lambda *ns: next((x for x in ks if all(n in x for n in ns)), None)
                         k_id, k_gm = kk("代號"), kk("毛利率")
-                        k_om, k_nm, k_rv = kk("營業利益率"), kk("稅後純益率"), kk("營業收入")
+                        k_om, k_nm, k_rv = kk("營業利益率"), kk("稅後純益率"), next((x for x in ks if str(x).strip().startswith("營業收入") and "%" not in str(x) and "/" not in str(x)), None)
                         if k_id and k_gm and k_om and k_nm:
                             for r0 in o:
                                 sid = str(r0.get(k_id, "")).strip()
@@ -2157,7 +2157,7 @@ def wayback_margins(want_qs):
             ks = list(arr[0].keys())
             kk = lambda *ns: next((x for x in ks if all(n in x for n in ns)), None)
             k_id, k_y, k_s = kk("代號"), kk("年度"), kk("季")
-            k_gm, k_om, k_nm, k_rv = kk("毛利率"), kk("營業利益率"), kk("稅後純益率"), kk("營業收入")
+            k_gm, k_om, k_nm, k_rv = kk("毛利率"), kk("營業利益率"), kk("稅後純益率"), next((x for x in ks if str(x).strip().startswith("營業收入") and "%" not in str(x) and "/" not in str(x)), None)
             if None in (k_id, k_gm, k_om, k_nm): continue
             n0 = sum(len(d) for d in res.values())
             for r0 in arr:
@@ -2258,16 +2258,21 @@ def append_margins(chips, cur):
             have = sum(1 for sid in cur if pq in (chips.get(sid, {}).get("fq") or []))
             if have >= 200:
                 print(f"    {pq}:已有 {have} 家,跳過"); continue
-            prev = fm_margin_quarter(pq)
+            prev = fm_margin_quarter(pq)                   # FinMind 歷史季 = 單季(實測)
+            mp2 = {}
             if len(prev) >= 200:
                 print(f"    {pq}:FinMind 回補 {len(prev)} 家")
             else:
                 y, s_ = int(pq[:4]), int(pq[-1])
-                mp2 = fetch_margin_mops(y, s_)
-                for sid, v in mp2.items(): prev.setdefault(sid, v)
-                print(f"    {pq}:FinMind {len(prev) - len(mp2) if len(prev) >= len(mp2) else 0} 家 + MOPS {len(mp2)} 家")
+                mp2 = {k: v for k, v in fetch_margin_mops(y, s_).items() if k not in prev}
+                print(f"    {pq}:FinMind {len(prev)} 家 + MOPS {len(mp2)} 家(MOPS 是累計,Q2 起拆單季)")
             for sid, (gm, om, nm, rv) in prev.items():
                 _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+            _n_ok = 0
+            for sid, (gm, om, nm, rv) in mp2.items():      # r1137:MOPS 營益分析是年初至今累計 → 只在能拆回單季時才寫(原本直接當單季寫入)
+                conv = ytd_to_quarter(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+                if conv: _put_margin(chips[sid], pq, *conv); _n_ok += 1
+            if mp2: print(f"    {pq}:MOPS 拆單季成功 {_n_ok}/{len(mp2)} 家")
             time.sleep(2)
         # 仍缺的季 → Wayback 快照終極備援(一次掃描補全部缺季)
         missing = [pq for pq in qs
@@ -2275,10 +2280,12 @@ def append_margins(chips, cur):
         if missing:
             print(f"  MOPS 未補齊 {len(missing)} 季({','.join(missing)}),改走 Wayback 快照…")
             wb = wayback_margins(missing)
-            for pq, data in wb.items():
-                print(f"    {pq}:Wayback 回補 {len(data)} 家")
+            for pq in sorted(wb):                           # r1137:Wayback 快照是 openapi 累計值 → 依季序拆單季,拆不了就不寫
+                data = wb[pq]; _n_ok = 0
                 for sid, (gm, om, nm, rv) in data.items():
-                    _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+                    conv = ytd_to_quarter(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+                    if conv: _put_margin(chips[sid], pq, *conv); _n_ok += 1
+                print(f"    {pq}:Wayback 回補 {_n_ok}/{len(data)} 家(累計拆單季)")
             still = [pq for pq in missing if pq not in wb]
             if still:
                 print(f"  [warn] 仍缺 {','.join(still)}(Archive 無該季快照)——"
@@ -2289,12 +2296,16 @@ def append_margins(chips, cur):
         if have_prev < 200:
             print(f"  上一季三率資料不足({have_prev} 家),回補 {pq}(FinMind→MOPS)…")
             prev = fm_margin_quarter(pq)
+            mp2 = {}
             if len(prev) < 200:
                 y, s_ = int(pq[:4]), int(pq[-1])
-                for sid, v in fetch_margin_mops(y, s_).items(): prev.setdefault(sid, v)
-            print(f"  回補結果:{len(prev)} 家")
+                mp2 = {k: v for k, v in fetch_margin_mops(y, s_).items() if k not in prev}
+            print(f"  回補結果:FinMind {len(prev)} 家 + MOPS {len(mp2)} 家")
             for sid, (gm, om, nm, rv) in prev.items():
                 _put_margin(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+            for sid, (gm, om, nm, rv) in mp2.items():      # r1137:MOPS 累計 → 拆單季
+                conv = ytd_to_quarter(chips.setdefault(sid, {}), pq, gm, om, nm, rv)
+                if conv: _put_margin(chips[sid], pq, *conv)
     # r1128:最新季(openapi)是累計值 → 先用 FinMind 單季;沒有的用同年前幾季拆回單季;都不行就不寫(寧缺勿錯)
     # r1133 實測:FinMind「全市場 date-only」查詢在最新一季也回累計值(2330 2026Q2 營收 2.40 兆 = openapi 同值),
     #   只有 EPS 是單季;個股 data_id 查詢才是單季 → FinMind 值只有在「跟 openapi 累計值明顯不同」時才當單季採用
@@ -2303,7 +2314,7 @@ def append_margins(chips, cur):
     for sid, (q, gm, om, nm, rv) in cur.items():
         e = chips.setdefault(sid, {})
         f = fmq.get(sid) if q == q_now else None
-        if f and f[3] and rv and (q[-1] == "1" or abs(f[3] - rv) / rv > 0.02):   # ① FinMind 真的是單季才用
+        if f and f[3] and rv and (q[-1] == "1" or f[3] < rv * 0.85):           # ① FinMind 真的是單季才用(單季必定明顯小於同季累計;r1137 原本「差 2% 就算單季」會把口徑差異當單季)
             _put_margin(e, q, *f); n_fm += 1; continue
         if f: n_cum += 1
         conv = ytd_to_quarter(e, q, gm, om, nm, rv)        # ② 累計拆回單季(Q1 本來就是單季)
@@ -2514,15 +2525,25 @@ def fetch_dividends(stocks):
             k_s1 = pk("盈餘轉增資", "股")
             if not (k_id and k_c1):
                 print(f"  [debug] 股利欄位:{keys[:10]}"); continue
-            agg = {}
+            k_per = pk("股利所屬")                          # r1137:依「股利所屬年(季)度」去重:季配取最近 4 季、半年配取最近 2 期、年配只取最近一個年度(原本把表內所有列全加,年配會算到兩年)
+            rows_by = {}
             for r in arr:
                 sid = str(r.get(k_id, "")).strip()
                 if sid not in by_id: continue
                 c0 = (numf(r.get(k_c1)) or 0) + ((numf(r.get(k_c2)) or 0) if k_c2 else 0)
                 s0 = (numf(r.get(k_s1)) or 0) if k_s1 else 0
                 if c0 <= 0 and s0 <= 0: continue
-                a0 = agg.setdefault(sid, [0.0, 0.0])       # 同年多次配息(季配/半年配)加總
-                a0[0] += c0; a0[1] += s0
+                per = str(r.get(k_per, "")).strip() if k_per else ""
+                rows_by.setdefault(sid, {})[per or f"_{len(rows_by.get(sid, {}))}"] = [c0, s0]   # 同期重複(更正決議)以後者為準
+            agg = {}
+            for sid, pm in rows_by.items():
+                ks = sorted(pm)
+                if any("季" in k for k in ks): take = [k for k in ks if "季" in k][-4:]
+                elif any("半年" in k for k in ks): take = [k for k in ks if "半年" in k][-2:]
+                elif ks and all(k.startswith("_") for k in ks): take = ks
+                else: take = ks[-1:]
+                a0 = agg.setdefault(sid, [0.0, 0.0])
+                for k in take: a0[0] += pm[k][0]; a0[1] += pm[k][1]
             for sid, (c0, s0) in agg.items():
                 st = by_id[sid]
                 dv = {"c": round(c0, 2)}
@@ -4020,7 +4041,11 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
     # 基本面(台股)—— 取「本次彙總 vs 站內逐月歷史」較新月份,卡片與營收趨勢圖同源不倒退
     f, f_kv = 50, {}
     rv = latest_rev(sid, rev_bulk, chips) if is_tw else None
-    if is_tw and rv:
+    _isfin = bool(re.search(r"金融|保險|銀行|證券|金控", str(c.get("sector") or "")))   # r1137:金融業月營收含投資/匯兌損益,波動與獲利無關 → 不用它打分
+    if is_tw and rv and _isfin:
+        yoy, ym = rv[0], rv[1]
+        f_kv["月營收YoY"], f_kv["資料年月"] = f"{yoy:+.1f}%(金融業不適用)", ym
+    elif is_tw and rv:
         yoy, ym = rv[0], rv[1]
         f_kv["月營收YoY"], f_kv["資料年月"] = f"{yoy:+.1f}%", ym
         f += 25 if yoy > 40 else 18 if yoy > 20 else 8 if yoy > 5 else -5 if yoy > -10 else -18
@@ -4044,18 +4069,16 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
             c_raw["f5"], c_raw["t5"] = int(f5), int(t5)
             c_raw["f20"], c_raw["t20"] = int(v["f20"]), int(v["t20"])
             c_raw["fst"] = int(v.get("fst", 0))
-            cs += 15 if f5 > 0 else -10
+            cs += 15 if f5 > 0 else (-10 if f5 < 0 else 0)   # r1137:外資 5 日 = 0(冷門股沒交易)原本當賣超扣 10 分
             cs += 12 if t5 > 0 else (-6 if t5 < 0 else 0)
-        if sid in tdcc:
-            big = tdcc[sid]; c_raw["big"], c_raw["big_date"] = big, tdcc_date
-            p = prev.get(sid, {})
-            if p.get("big") is not None and p.get("big_date") and p["big_date"] != tdcc_date:
-                c_raw["bigw"] = round(big - p["big"], 2)
-            elif p.get("bigw") is not None and p.get("big_date") == tdcc_date:
-                c_raw["bigw"] = p["bigw"]
+        _bd = (chips or {}).get(sid, {}).get("bd") or []; _bp = (chips or {}).get(sid, {}).get("bp") or []
+        if len(_bd) >= 1 and len(_bp) == len(_bd) and _bp[-1] is not None:   # r1137:改用分片已排好序的週序列(集保回舊週檔時原本會把週增減算反)
+            big = float(_bp[-1]); c_raw["big"], c_raw["big_date"] = big, str(_bd[-1])
+            if len(_bp) >= 2 and _bp[-2] is not None:
+                c_raw["bigw"] = round(big - float(_bp[-2]), 2)
             if "bigw" in c_raw:
                 c_kv["400張大戶"] = f"{big:.1f}%(週{c_raw['bigw']:+.2f})"
-                cs += 12 if c_raw["bigw"] > 0 else -8
+                cs += 12 if c_raw["bigw"] > 0 else (-8 if c_raw["bigw"] < 0 else 0)
             else:
                 c_kv["400張大戶"] = f"{big:.1f}%"
     else:
@@ -4303,8 +4326,16 @@ def append_eps(chips, cur):
         c = chips.setdefault(sid, {})
         qd = c.get("qe_d") or []; qe = c.get("qe") or []
         y, s_ = int(q[:4]), int(q[-1])
+        qec = c.setdefault("qec", {})                        # r1137:另存 openapi 的「累計 EPS」序列 → 單季 = 本季累計 − 上季累計(不必整年前幾季都有)
+        if e is not None:
+            qec[q] = round(float(e), 2)
+            if len(qec) > 12:
+                for k_ in sorted(qec)[:-12]: qec.pop(k_, None)
         fe = _FM_EPS.get((q, sid))
-        if fe is not None: e = fe; n_fm += 1
+        pq1 = f"{y}Q{s_ - 1}" if s_ > 1 else None
+        if fe is not None and (s_ == 1 or e is None or fe < e * 0.999 or e <= 0): e = fe; n_fm += 1   # r1137:單季 EPS 必小於同季累計,否則 FinMind 那份也是累計
+        elif s_ > 1 and pq1 in qec and e is not None:
+            e = round(e - qec[pq1], 2); n_dv += 1
         elif s_ > 1:
             prevq = [f"{y}Q{i}" for i in range(1, s_)]
             pos = {qd[i]: i for i in range(len(qd))}
@@ -4670,6 +4701,15 @@ def main():
     tdcc, tdcc_date = fetch_tdcc_bulk()
     append_tdcc(chips, tdcc, tdcc_date)     # 大戶逐週,保留 26 週
     seed_tdcc_history(chips)                # 由 tdcc.json 整段回灌大戶週歷史(分片歸零後可立即恢復)
+    try:                                    # r1137:集保股東人數(hdn)改由 archive/tdcc_hist 每週同步——原本寫 hdn 的程式已不存在,全市場停在 8/14
+        _nh = 0
+        for _sid, _th in _tdh().items():
+            if _sid in chips and _th.get("d") and _th.get("p"):
+                chips[_sid]["hdn"] = [{"d": d_.replace("-", ""), "n": p_} for d_, p_ in zip(_th["d"][-8:], _th["p"][-8:]) if p_]
+                _nh += 1
+        print(f"  集保股東人數:同步 {_nh} 檔(最新週 {max((v['d'][-1] for v in _tdh().values() if v.get('d')), default='—')})")
+    except Exception as _e:
+        print(f"  [warn] 股東人數同步: {_e}")
     clean_rev(chips)                        # r1061:先清掉舊版標錯月份造成的重複
     append_rev(chips, rev_bulk)             # 營收逐月,保留 13 個月
     backfill_rev_months(chips)              # 營收歷史被清空時逐月回補(補齊後自動略過)
@@ -4739,7 +4779,7 @@ def main():
         # 營收三率三升:最新季毛利/營益/淨利率皆高於上一季,且營收成長(月YoY>0 或 季營收QoQ>0)
         me = chips.get(c["id"], {})
         fq = me.get("fq") or []
-        if c["market"] == "TW" and len(fq) >= 2:
+        if c["market"] == "TW" and len(fq) >= 2 and prev_q(fq[-1]) == fq[-2] and fq[-1] >= prev_q(latest_due_quarter()):   # r1137:兩季要相鄰、最新季不能過期
             g, o2, n2, qr = me["gm"], me["om"], me["nm"], me.get("qr") or []
             if g[-1] > g[-2] and o2[-1] > o2[-2] and n2[-1] > n2[-2]:
                 _rv = latest_rev(c["id"], rev_bulk, chips)
@@ -4897,7 +4937,8 @@ def main():
                 s["eps"] = round(eps, 2)
                 rv = latest_rev(s["id"], rev_bulk, chips)
                 g = max(-0.5, min(1.0, rv[0] / 100.0)) if (rv and rv[0] is not None) else 0.0
-                if (1 + g) > 0.01:
+                if re.search(r"金融|保險|銀行|證券|金控", str(s.get("sector") or "")): g = None   # r1137:金融業不用月營收推預估本益比
+                if g is not None and (1 + g) > 0.01:
                     s["fpe"] = round(s["price"] / (eps * (1 + g)), 1)   # 簡易預估:EPS×(1+營收YoY)
             if 0 < pe < 500:
                 sec_pe.setdefault(s.get("sector") or "其他", []).append(pe)

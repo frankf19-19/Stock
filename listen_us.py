@@ -18,6 +18,7 @@ import sys
 import time
 
 import requests
+import urllib.error
 
 KEY = os.environ.get("GEMINI_KEY", "").strip()
 PV = 1
@@ -48,15 +49,24 @@ def sec_get(url, timeout=60, json_=True):
     for name, u in routes:
         for attempt in range(2 if name == "direct" else 1):
             try:
-                r = requests.get(u, headers=UA, timeout=timeout)
-                if r.status_code == 429:
-                    time.sleep(8); continue
-                if r.ok and (not json_ or r.text.lstrip().startswith(("{", "["))):
+                # fetch_usf 同款:urllib + 明示 gzip(SEC 對 requests 的連線直接回 403)
+                import urllib.request, gzip, io
+                req = urllib.request.Request(u, headers={"User-Agent": UA["User-Agent"], "Accept": "application/json, text/html, */*", "Accept-Encoding": "gzip, deflate"})
+                with urllib.request.urlopen(req, timeout=timeout) as rr:
+                    raw = rr.read()
+                    if rr.headers.get("Content-Encoding") == "gzip":
+                        raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
+                    txt = raw.decode("utf-8", "replace")
+                if (not json_) or txt.lstrip().startswith(("{", "[")):
                     _ROUTE["win"] = name
-                    return r.json() if json_ else r.text
-                if r.status_code == 404 and name == "direct":
+                    return json.loads(txt) if json_ else txt
+                last += f" | {name} 非JSON {txt[:50]!r}"
+            except urllib.error.HTTPError as e:
+                if e.code == 404 and name == "direct":
                     return None
-                last += f" | {name} {r.status_code} {r.text[:50]!r}"
+                if e.code == 429:
+                    time.sleep(8); continue
+                last += f" | {name} {e.code}"
             except Exception as e:
                 last += f" | {name} {str(e)[:50]}"
             time.sleep(1)
