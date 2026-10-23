@@ -24,7 +24,7 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1107"
+VER = "r1139"
 NEWS_TTL_D = 7      # Google News RSS 快取天數(免費、不用金鑰)
 PROV_MAX_TD = 3     # 長期清單「暫定」最多等 3 個交易日:AI 評分沒評完(額度 429)就先不成交、下一班再補評;超過就用現有分數成交
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
@@ -341,6 +341,28 @@ def news_rss(query, us=False, n=10):
     return out
 
 
+def ir_facts(sid, us=False):
+    """r1139:第一手公司資料——法說會簡報(台股)/財報新聞稿(美股)的 AI 整理 + 財務體質(chips.fin)。回 (文字, 法說日期, 摘要dict)"""
+    j = load(f"{'ir_us' if us else 'ir'}/{sid}.json", {}) or {}
+    c = next((x for x in (j.get("conf") or []) if x.get("ai")), None)
+    L = []; d = None; brief = {}
+    if c:
+        a = c["ai"]; d = c.get("d")
+        L.append(f"【{'財報新聞稿' if us else '法說會簡報'}重點({d},AI 讀完公司原始文件;語氣:{a.get('tone') or '—'})】")
+        if a.get("head"): L.append("標題:" + a["head"])
+        if a.get("summary"): L.append("摘要:" + a["summary"][:400])
+        if a.get("guidance"): L.append("公司指引:" + ";".join(a["guidance"][:4]))
+        if a.get("drivers"): L.append("成長動能:" + ";".join(a["drivers"][:4]))
+        if a.get("risks"): L.append("風險:" + ";".join(a["risks"][:3]))
+        brief = {"d": d, "tone": a.get("tone"), "head": a.get("head"), "g": (a.get("guidance") or [None])[0]}
+    if not us:
+        f = (chips(sid) or {}).get("fin") or {}
+        if f.get("q"):
+            L.append(f"【財務體質({f['q']},億元)】近四季營業現金流 {f.get('ocf4','—')}、自由現金流 {f.get('fcf4','—')};現金 {f.get('cash','—')} vs 借款 {f.get('debt','—')};流動比 {f.get('cur','—')}%、負債比 {f.get('dr','—')}%")
+            brief["fin"] = {k: f.get(k) for k in ("q", "fcf4", "cash", "debt", "cur", "dr")}
+    return ("\n".join(L), d, brief)
+
+
 def ai_future(p, us=False, prev=None):
     """r1095/r1102:AI 未來性評分——先用 Google News RSS(免費)抓最近 90 天公司新聞,再請 AI(有 ANTHROPIC_API_KEY 用 Claude,否則 Gemini、不開搜尋工具,
     免費額度比「搜尋 grounding」寬很多)讀新聞給 1~10 分;回 {"score","txt","src","news","d","eng"};沒金鑰 → None
@@ -360,7 +382,9 @@ def ai_future(p, us=False, prev=None):
         except Exception as e:
             log(f"  新聞 RSS 失敗 {p['id']}:{e}")
         nl = "\n".join(f"- {x['d']} {x['s']}:{x['t']}" for x in news[:10])
+        irt, ird, irb = ir_facts(p["id"], us)
         q = (f"你是產業研究員。請評估「{nm}({p['id']}){'(美股)' if us else '(台股)'}」(產業:{sec})未來 2~3 年的「未來性」。"
+             + (f"以下是公司自己的第一手資料(法說會簡報/財報新聞稿、財報三表),請優先採用:\n{irt}\n" if irt else "")
              + (f"以下是最近 90 天的新聞標題(日期 來源:標題),請以這些為主要依據,配合你對該產業的知識:\n{nl}\n" if news else "請用網路搜尋最近 3 個月的產業與公司新聞(需求、訂單、產能、技術、政策、競爭),只用有根據的事實。")
              + "輸出格式(繁體中文、純文字、三行):"
              "第一行「分數:N」,N 是 1~10 的整數——9~10=產業結構性成長、公司是關鍵供應者、能見度到明年以後;7~8=產業成長、公司受惠但競爭多或能見度較短;"
@@ -374,7 +398,7 @@ def ai_future(p, us=False, prev=None):
         if sc is not None: sc = max(1, min(10, sc))
         m2 = re.search(r"分析[::]\s*(.+?)(?=\n\s*依據[::]|$)", txt, re.S); ana = (m2.group(1) if m2 else txt).strip().replace("\n", " ")[:360]
         m3 = re.search(r"依據[::]\s*(.+)", txt, re.S); src = (m3.group(1) if m3 else "").strip().replace("\n", " ")[:220]
-        return {"score": sc, "txt": ana, "src": src, "d": NOW.strftime("%Y-%m-%d"), "eng": eng, "news": news[:6], "news_d": news_d}
+        return {"score": sc, "txt": ana, "src": src, "d": NOW.strftime("%Y-%m-%d"), "eng": eng, "news": news[:6], "news_d": news_d, "ir_d": ird, "ir": irb or None}
     except Exception as e:
         log(f"  AI 未來性略過:{e}"); return {"score": None, "txt": "", "src": "", "d": NOW.strftime("%Y-%m-%d")}
 
@@ -394,6 +418,10 @@ def ensure_ai(p, cache, us=False, max_age=AI_TTL_D):
     try: age = (NOW.date() - dt.date.fromisoformat((e or {}).get("d") or "2000-01-01")).days
     except Exception: age = 9999
     if e and e.get("score") is not None and "news" not in e: age = 9999       # r1102:舊的「搜尋 grounding」評分沒附新聞 → 用新聞版重評一次
+    try:                                                                    # r1139:有新的法說會/財報新聞稿整理 → 重評(第一手資料比新聞標題重要)
+        _, ird_now, _ = ir_facts(p["id"], us)
+        if ird_now and e and (e.get("ir_d") or "") < ird_now and not _AI["dead"]: age = 9999
+    except Exception: pass
     if not (e and e.get("score") is not None and age <= max_age):
         if _AI["dead"] or _time.time() - _T0 > AI_BUDGET_SEC:
             if e and e.get("news"): p["news"] = e["news"]; p["news_d"] = e.get("news_d")
@@ -411,6 +439,7 @@ def ensure_ai(p, cache, us=False, max_age=AI_TTL_D):
         cache[p["id"]] = e = r
     p["ai"] = e.get("score"); p["ai_d"] = e.get("d"); p["ind"] = e.get("txt") or ""; p["ind_src"] = e.get("src") or ""; p["ind_try"] = 1; p["ai_eng"] = e.get("eng")
     if e.get("news"): p["news"] = e["news"]; p["news_d"] = e.get("news_d")
+    if e.get("ir"): p["ir"] = e["ir"]                                      # r1139:法說會語氣/標題/指引 + 財務體質摘要,前端卡片直接顯示
     if p.get("ai0") is None: p["ai0"] = p["ai"]
     return True
 
@@ -781,6 +810,11 @@ def main():
             except Exception as e: log(f"  {k} 參考價位例外 {e}")
             if not (k == "short" and mk is us): perf(T)
             T["upd"] = NOW.strftime("%Y-%m-%d %H:%M")
+    try:                                                                    # r1139:美股短期標籤隨實戰成績誠實更新(回測 54% vs 實戰)
+        P = us["short"].get("perf") or {}
+        if P.get("n", 0) >= 20 and P.get("win") is not None:
+            us["short"]["note"] = ("✅ 已驗證・實戰同步" if P["win"] >= 48 else f"🟡 回測驗證・實戰觀察中(實戰 {P['n']} 筆勝率 {P['win']}%,低於回測 54%)")
+    except Exception: pass
     # r1119:晚班(台股補記)與美股的成交/出場 → rt_log(原本只有台股盤中班會寫,美股三清單的買賣從來沒推播、事件紀錄也沒有)
     try:
         nm = {"short": "🏃 短期", "mid": "🌊 中期", "long": "🏦 長期"}
@@ -797,6 +831,13 @@ def main():
             J["rt_log"] = ((J.get("rt_log") or []) + ev2)[-120:]
             for x in ev2: log("  " + x)
     except Exception as e: log(f"  事件紀錄略過 {e}")
+    try:                                                                    # r1139:每個槽位附上法說會語氣/標題/指引 + 財務體質(短/中期也顯示,只是資料不參與選股)
+        for mk, isus in ((tw, False), (us, True)):
+            for k, T in mk.items():
+                for p in T.get("slots") or []:
+                    b = ir_facts(p["id"], isus)[2]
+                    if b: p["ir"] = b
+    except Exception as e: log(f"  第一手資料附註略過 {e}")
     cut = (NOW - dt.timedelta(days=120)).strftime("%Y-%m-%d")
     out = {"ver": VER, "u": NOW.strftime("%Y-%m-%d %H:%M"), "tw_day": twd, "us_day": usd, "tw": tw, "us": us,
            "start": J.get("start") or NOW.strftime("%Y-%m-%d")}
