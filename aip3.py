@@ -15,8 +15,9 @@
        產業面的實證:產業營收成長前 1/3 的股票一年 +1.4%(弱);「產業龍頭」(產業內成交值前 3)一年反而 −2.6~−5.6% → 產業只當排序因子,不獎勵龍頭。
 美股(限制:只有目前 S&P 500 成分股,有倖存者偏差)
   🏃 短期:現有每週模型(walk-forward 驗證,回測 25 週勝率 54%、平均 +1.6%)最新一週前 5 名,成交/出場跟 aipick_us.json 一致。
-  🌊 中期(參考・高波動):跌深低接——第一天離 60 日高跌 ≥25% → 隔天開盤買,+20% 停利 / −15% 停損 / 最多 60 天;5 個槽位,沒機會就空著。
-       每筆贏隨機 +1.9%(14/14 年),但 5 檔組合回落 −48%、2022 年 −39%。
+  🌊 中期(參考・高波動):跌深低接——第一天離 60 日高跌 ≥35% → 隔天開盤買,+30% 停利 / −20% 停損 / 最多 90 天;5 個槽位,沒機會就空著。
+       r1146 重測(2016~2026,plan_bt 事件研究):舊 −25%/+20%/−15%/60 天每筆 +3.3%、贏隨機 +1.1%;新 −35%/+30%/−20%/90 天每筆 +7.9%、贏隨機 +4.2%、11 年全正、
+       5 檔組合年化 +25.7%、最大回落 −43%、2022 年 −10%(舊 +18.6% / −40% / −24%)。10/23 前進場的槽位照舊規則走完(tp_r/sl_r/hold_r 存在槽位上)。
   🏦 長期(弱驗證):年線上、成交值前 20 的龍頭裡,近一年營收成長最高 5 檔,每季檢視。一年比大盤 +15.8%(10 年中 6 年);純龍頭版 +6.7%(13 年中 10 年)。
 """
 import json, re, os, glob, datetime as dt
@@ -24,7 +25,7 @@ import json, re, os, glob, datetime as dt
 TZ = dt.timezone(dt.timedelta(hours=8))
 NOW = dt.datetime.now(TZ)
 OUT = "aip3.json"
-VER = "r1141"
+VER = "r1146"
 NEWS_TTL_D = 7      # Google News RSS 快取天數(免費、不用金鑰)
 PROV_MAX_TD = 3     # 長期清單「暫定」最多等 3 個交易日:AI 評分沒評完(額度 429)就先不成交、下一班再補評;超過就用現有分數成交
 LONG_RV = "r1095"   # 長期規則版本——改版且清單尚未成交時,重新選股
@@ -38,6 +39,7 @@ K = 5
 TIER_RULES = {"short": dict(hold_max=15, tp=0.20, sl=0.15),     # r1098:停利 +20% / 停損 −15%(回測 +34.2%、回落 −34%、最差年 −10%)
               "mid": dict(tp=0.25, sl_atr=4),                   # r1098:4 ATR 停損(原回測設定)+ 停利 +25%(回測 +41.5%)
               "long": {}}                                       # 長期:模型不停損不停利(回測都降年化),只有季檢視
+US_DIP = dict(th=0.35, tp=0.30, sl=0.20, hold=90)   # r1146:美股跌深低接(舊 th=0.25/tp=0.20/sl=0.15/hold=60,舊槽位帶 tp_r/sl_r/hold_r 照舊走完)
 LIVE_OUT = "aip3_live.json"
 AI_OUT = "aip3_ai.json"               # r1123:AI 未來性評分快取(56 KB,前端用不到)拆出去,aip3.json 減半
 
@@ -301,8 +303,8 @@ def us_dip_candidates(day):
         liq = sum(C[j] * V[j] for j in range(i - 19, i + 1)) / 20
         if liq < 2e7: continue
         dd = C[i] / max(H[i - 59:i + 1]) - 1; dd1 = C[i - 1] / max(H[i - 60:i]) - 1
-        if dd <= -0.25 and dd1 > -0.25:
-            out.append(dict(id=sid, name=s.get("name"), sector=s.get("sector"), liq=liq, px=C[i], why=[f"今天第一天離 60 日高 {dd*100:.0f}%", "停利 +20% / 停損 −15% / 最多 60 天"]))
+        if dd <= -US_DIP["th"] and dd1 > -US_DIP["th"]:
+            out.append(dict(id=sid, name=s.get("name"), sector=s.get("sector"), liq=liq, px=C[i], why=[f"今天第一天離 60 日高 {dd*100:.0f}%", f"停利 +{US_DIP['tp']*100:.0f}% / 停損 −{US_DIP['sl']*100:.0f}% / 最多 {US_DIP['hold']} 天"]))
     out.sort(key=lambda r: -r["liq"]); return out
 
 
@@ -502,8 +504,9 @@ def levels(p, key, us=False, prev=None):
             # r1098:依三清單各自的回測結果定(研究:專案文件「三清單停損停利研究_2026-10-14」)
             if us and key == "short":                                        # 美股短期 = 每週模型自己的結構目標/停損
                 sl, sls = stp, f"結構支撐({LV.get('stp_src')},每週模型規則)"; tp, tps = tgt, f"第一道壓力({LV.get('tgt_src')},每週模型規則)"; add, adds = buy * 1.05, "進場 +5%"
-            elif us and key == "mid":                                        # 美股中期 = 跌深低接規則 +20% / −15%
-                sl, sls = buy * 0.85, "進場 −15%(模型規則)"; tp, tps = buy * 1.20, "進場 +20%(模型規則)"; add, adds = buy * 1.10, "進場 +10%"
+            elif us and key == "mid":                                        # 美股中期 = 跌深低接規則(r1146:+30% / −20%;舊槽位 +20% / −15%)
+                _t, _s = p.get("tp_r") or US_DIP["tp"], p.get("sl_r") or US_DIP["sl"]
+                sl, sls = buy * (1 - _s), f"進場 −{_s*100:.0f}%(模型規則)"; tp, tps = buy * (1 + _t), f"進場 +{_t*100:.0f}%(模型規則)"; add, adds = buy * 1.10, "進場 +10%"
             elif key == "short":
                 sl, sls = buy * 0.85, "進場 −15%(災難停損;回測:緊停損會把年化從 +33% 砍到 +7~27%)"
                 tp, tps = buy * 1.20, "進場 +20%(回測:年化 +34.2%、回落 −34%、最差年 −10%)"
@@ -603,7 +606,9 @@ def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None, s
     r1098:sl_atr = 進場價 − N×ATR(14)(成交日前 14 根 K 算),中期清單用 4 ATR(原回測設定)"""
     exit_close_on = exit_close_on or {}
     keep = []
+    tp0, sl0, hold0 = tp, sl, hold_max
     for p in T["slots"]:
+        tp, sl, hold_max = p.get("tp_r") or tp0, p.get("sl_r") or sl0, p.get("hold_r") or hold0   # r1146:槽位自帶規則(美股中期改版時舊槽位照舊)
         B = raw_bars(p["id"], us)
         if not B: keep.append(p); continue
         if not p["fill_d"]:
@@ -782,12 +787,17 @@ def main():
                      "sum": round(sum(r), 2) if r else None, "open": len(op), "open_avg": round(sum(op) / len(op), 2) if op else None, "src": "aipick_us"}
     # ── 美股 中期 跌深低接 ──
     T = us["mid"]
-    fill_and_track(T, True, tp=0.20, sl=0.15, hold_max=60)
+    void = [p for p in T["slots"] if not p.get("fill_d") and not p.get("tp_r")]   # r1146:舊門檻(−25%)選到、還沒成交的待買作廢
+    if void: T["slots"] = [p for p in T["slots"] if p.get("fill_d") or p.get("tp_r")]; log(f"  美股跌深:規則改 −{US_DIP['th']*100:.0f}%,舊門檻待買 {len(void)} 檔作廢({'、'.join(p['id'] for p in void)})")
+    for p in T["slots"]: p.setdefault("tp_r", 0.20); p.setdefault("sl_r", 0.15); p.setdefault("hold_r", 60)   # r1146:改版前的槽位照舊規則走完
+    T["rule"] = f"跌深低接:第一天離 60 日高跌 ≥{US_DIP['th']*100:.0f}% → 隔天開盤買;停利 +{US_DIP['tp']*100:.0f}% / 停損 −{US_DIP['sl']*100:.0f}% / 最多 {US_DIP['hold']} 天;5 個槽位,沒機會就空著(10/23 前進場的照舊 +20%/−15%/60 天走完)"
+    T["val"] = "2016~2026 重測:每筆 +7.9%、贏隨機 +4.2%、11 年全正;5 檔組合年化 +25.7%、最大回落 −43%、2022 年 −10%(舊規則 −25%/+20%/−15%/60 天:每筆 +3.3%、年化 +18.6%、回落 −40%)"
+    fill_and_track(T, True, tp=US_DIP["tp"], sl=US_DIP["sl"], hold_max=US_DIP["hold"])
     if usd and T["sel_d"] != usd:
         held = {p["id"] for p in T["slots"]}
         if len(T["slots"]) < K:
             cand = [c for c in us_dip_candidates(usd) if c["id"] not in held]
-            for c in cand[:K - len(T["slots"])]: T["slots"].append(slot(c, usd))
+            for c in cand[:K - len(T["slots"])]: T["slots"].append(slot(c, usd, extra=dict(tp_r=US_DIP["tp"], sl_r=US_DIP["sl"], hold_r=US_DIP["hold"])))
             log(f"  美股跌深:觸發 {len(cand)},補進 {min(len(cand), K - len(held))} 檔")
         T["sel_d"] = usd
     # ── 美股 長期 ──
