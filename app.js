@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1154';
+const APP_BUILD='r1155';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -12769,14 +12769,11 @@ async function yOHLC(s,range,interval){
     return {dates:d.slice(),ohlc:k.map(r=>r.slice())};
   }
   let base=await loadK(s);
-  if(!base||base.demo||!base.ohlc||!base.ohlc.length)return await yextOHLC(s,range,interval);
-  if(range==='max'&&(interval==='1d'||interval==='1wk')){        // r967:「全部」真的給全部——接上 archive/ 2012 起的日 K(原本只有 k/ 分片的一年)
-    try{const A=await archDaily(s);
-      if(A&&A.d.length>base.dates.length){
-        const m=new Map();A.d.forEach((d,i)=>m.set(d,A.o[i]));base.dates.forEach((d,i)=>m.set(d,base.ohlc[i]));   // 最新幾天以 k/ 為準
-        const ds=[...m.keys()].sort();base={dates:ds,ohlc:ds.map(d=>m.get(d))};
-      }}catch(e){}
+  // r1155:長期日/週K同時讀台美股永久庫；近期分片缺漏也能顯示已存歷史。
+  if(range==='max'&&(interval==='1d'||interval==='1wk')&&!(base&&base.demo)){
+    try{base=mergePriceHistory(base,await archDaily(s));}catch(e){}
   }
+  if(!base||base.demo||!base.ohlc||!base.ohlc.length)return await yextOHLC(s,range,interval);
   if(interval==='1d'){
     let d=base.dates.slice(),o=base.ohlc.map(r=>r.slice());
     const takeD={'3mo':66,'6mo':130,'1y':252}[range];
@@ -12803,13 +12800,24 @@ async function yOHLC(s,range,interval){
   }
   return null;
 }
+// r1155:合併永久庫與近期庫,同日以近期官方更新優先；僅供圖表,不改買賣訊號輸入。
+function mergePriceHistory(recent,archive){
+  const m=new Map();
+  const add=(d,o)=>{if(!Array.isArray(d)||!Array.isArray(o))return;
+    d.forEach((day,i)=>{const b=o[i];if(/^\d{4}-\d{2}-\d{2}$/.test(day)&&Array.isArray(b)&&b.length>=4&&Number.isFinite(+b[3])&&+b[3]>0)m.set(day,b.slice());});};
+  if(archive)add(archive.d,archive.o);
+  if(recent)add(recent.dates,recent.ohlc);
+  if(!m.size)return recent;
+  const dates=[...m.keys()].sort();return {dates,ohlc:dates.map(d=>m.get(d))};
+}
 const ARCHK={};
-async function archDaily(s){          // r967:長期日 K(archive/k/tw/<年>/<分片>.json.gz,2012 起);瀏覽器內解壓,同檔快取
-  if(!s||s.market!=='TW'||typeof DecompressionStream==='undefined')return null;
-  if(ARCHK[s.id])return ARCHK[s.id];
-  const sh=twShardKey(s.id),y1=new Date().getFullYear(),ys=[];for(let y=2012;y<=y1;y++)ys.push(y);
+async function archDaily(s){          // r1155:台美股永久日 K,2012 起；只有選全部才讀長期分片。
+  if(!s||!['TW','US'].includes(s.market)||typeof DecompressionStream==='undefined')return null;
+  const key=s.market+':'+s.id;if(ARCHK[key])return ARCHK[key];
+  const market=s.market.toLowerCase(),sh=s.market==='TW'?twShardKey(s.id):String(s.id)[0].toLowerCase();
+  const y1=new Date().getFullYear(),ys=[];for(let y=2012;y<=y1;y++)ys.push(y);
   const one=async y=>{
-    try{const r=await fetch(`archive/k/tw/${y}/${sh}.json.gz`,{cache:'default'});if(!r.ok)return null;
+    try{const r=await fetch(`archive/k/${market}/${y}/${sh}.json.gz`,{cache:'default'});if(!r.ok)return null;
       const buf=await r.arrayBuffer();
       const txt=await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
       const j=JSON.parse(txt);return j[s.id]||null;}catch(e){return null;}
@@ -12821,7 +12829,7 @@ async function archDaily(s){          // r967:長期日 K(archive/k/tw/<年>/<�
   if(!d.length)return null;
   const idx=d.map((x,i)=>i).sort((a,b)=>d[a]<d[b]?-1:d[a]>d[b]?1:0);
   const out={d:idx.map(i=>d[i]),o:idx.map(i=>o[i])};
-  ARCHK[s.id]=out;return out;
+  ARCHK[key]=out;return out;
 }
 const MCACHE={};
 async function mK(s){
@@ -12917,11 +12925,11 @@ async function applyKView(s){
   const meta=document.getElementById('kMeta');
   if(meta){
     let depth='';
-    if(kView.itv!=='1mo'&&(kView.rng==='1y'||kView.rng==='all')){
+    if(kView.itv!=='1mo'&&(kView.rng==='1y'||kView.rng==='max')){
       const need=kView.itv==='1d'?252:52;
       if(data.ohlc.length<need)depth=' · 已顯示資料庫全部深度(每日累積加深;更長歷史請切月K)';
     }
-    meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}${data.synth?' · FRED官方收盤合成(開=前收,無影線)':''}${depth}`;
+    meta.textContent=`${ITV_ZH[kView.itv]} · ${data.ohlc.length} 根 · ${data.dates[0]} ~ ${data.dates[data.dates.length-1]}${kView.itv==='1d'?' · 跨 '+(Math.round((Date.parse(data.dates[data.dates.length-1])-Date.parse(data.dates[0]))/86400000)+1)+' 曆日':''}${data.synth?' · FRED官方收盤合成(開=前收,無影線)':''}${depth}`;
   }
   drawKChart();
 }
