@@ -74,10 +74,36 @@ def sec_get(url, timeout=60, json_=True):
     return None
 
 
+def filings_atom(cik, since):
+    """備援:www.sec.gov browse-edgar Atom(data.sec.gov/submissions 在 GitHub 機房回 403)。
+       Atom 沒有 Items 欄位 → 先收全部 8-K,Item 2.02 由 index 頁判斷(見 is_earnings_8k)。"""
+    t = sec_get(f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={int(cik):010d}&type=8-K&dateb=&owner=include&count=40&output=atom", json_=False)
+    if not t:
+        return []
+    out = []
+    for ent in re.findall(r"<entry>(.*?)</entry>", t, re.S):
+        form = (re.search(r"<filing-type>([^<]+)</filing-type>", ent) or [None, ""])[1].strip()
+        d = (re.search(r"<filing-date>([^<]+)</filing-date>", ent) or [None, ""])[1].strip()
+        acc = (re.search(r"<accession-number>([^<]+)</accession-number>", ent) or [None, ""])[1].strip()
+        if form not in ("8-K", "8-K/A") or not d or not acc or d < since:
+            continue
+        out.append({"d": d, "acc": acc, "doc": "", "rd": "", "chk": 1})
+    return out
+
+
+def is_earnings_8k(cik, acc):
+    """index 頁(-index.htm)有列 Items → 看有沒有 2.02"""
+    base = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc.replace('-', '')}"
+    t = sec_get(f"{base}/{acc}-index.htm", json_=False) or ""
+    return "2.02" in t
+
+
 def filings(cik, since):
     j = sec_get(f"https://data.sec.gov/submissions/CIK{int(cik):010d}.json")
     if not j:
-        log(f"    submissions 抓不到(CIK {cik})"); return []
+        fl = filings_atom(cik, since)
+        log(f"    submissions 抓不到(CIK {cik})→ Atom 備援 {len(fl)} 筆 8-K")
+        return fl
     rec = (j.get("filings") or {}).get("recent") or {}
     if ONLY:
         fs = rec.get("form") or []
@@ -229,7 +255,7 @@ def main():
             x = next((c for c in j["conf"] if c.get("acc") == f["acc"]), None)
             if not x:
                 x = {"d": f["d"], "acc": f["acc"], "rd": f.get("rd")}; j["conf"].append(x)
-            if not (x.get("ai") and x.get("pv") == PV) and (x.get("fail") or 0) < 2:
+            if not x.get("skip") and not (x.get("ai") and x.get("pv") == PV) and (x.get("fail") or 0) < 2:
                 queue.append((sym, x))
         touched[sym] = j
         if (i + 1) % 100 == 0:
@@ -241,6 +267,10 @@ def main():
         name = (S.get(sym) or {}).get("name") or sym
         log(f"▶ {sym} {name} {x['d']} {x['acc']}")
         try:
+            if x.get("chk"):                                   # Atom 備援來的:先確認是財報(Item 2.02)
+                if not is_earnings_8k(cik[sym], x["acc"]):
+                    x["ai"] = None; x["skip"] = 1; x["pv"] = PV; log("    非財報 8-K,略過"); continue
+                x.pop("chk", None)
             text, url = exhibit_text(cik[sym], x["acc"])
             if not text:
                 x["fail"] = (x.get("fail") or 0) + 1; x["pv"] = PV; log("    找不到新聞稿附件"); continue
