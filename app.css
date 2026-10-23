@@ -2615,3 +2615,9 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 
 /* r1136 法說會/財報體質小表 */
 .mini-tbl{border-collapse:collapse}.mini-tbl td{padding:3px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+
+/* r1156:操作規則與觀察價格分列，手機不用橫向捲動 */
+.strategy-summary{border-left:4px solid var(--amber)}
+.strategy-row{display:grid;grid-template-columns:minmax(78px,110px) minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--line);line-height:1.75;overflow-wrap:anywhere}
+.strategy-row>b{color:var(--txt2)}
+@media(max-width:600px){.strategy-row{grid-template-columns:1fr;gap:3px;padding:9px 0}}

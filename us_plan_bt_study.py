@@ -1,8 +1,8 @@
 """美股(S&P 500 現成分股)個股買賣計畫規則回測:跌深低接門檻/出場、52 週新高突破+季線停損、停損確認。"""
 import sys, os, glob, gzip, json, collections, numpy as np
-sys.path.insert(0, '/home/claude/repo2')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import plan_bt_study as PB
-R = '/home/claude/repo2'
+R = os.path.dirname(os.path.abspath(__file__))
 def load_us():
     K = collections.defaultdict(lambda: ([], []))
     for y in sorted(os.listdir(f'{R}/archive/k/us')):
@@ -19,7 +19,7 @@ def load_us():
             if not y or len(y) < 5 or not y[3] or not y[0]: continue
             dd.append(x); oo.append(y)
         if len(dd) < 300: continue
-        a = np.array(oo, dtype=float); a[:, 4] = a[:, 4] * a[:, 3] / 1000.0   # 讓 liq 單位接近台股(千元)——只用來過門檻
+        a = np.array(oo, dtype=float); a[:, 4] = a[:, 4] / 1000.0   # r1156:volume千股×股價=千美元；不能多乘一次股價
         out[sid] = dict(d=dd, a=a, f=np.zeros(len(dd)), t=np.zeros(len(dd)), sec='', rev={})
     return out
 S = load_us(); PB.prep(S); print('US stocks', len(S), flush=True)

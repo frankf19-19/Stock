@@ -2,7 +2,7 @@
 看每筆報酬、勝率、獲利因子、持有天數,對照「任意一天買、同樣出場規則」。"""
 import sys, os, pickle, collections, numpy as np, time
 sys.path.insert(0, os.path.dirname(__file__))
-from short_bt import load_all, roll_max
+from short_bt_study import load_all, roll_max
 
 def prep(S):
     for sid, e in S.items():
@@ -48,6 +48,7 @@ def simulate(S, ev, exit_rule, start='2016-01-01', sample_any=False, rng=None, m
             if max_gap is not None and px / C[i] - 1 > max_gap: continue
             xi, xp, why = exit_rule(e, ei)
             if xi is None: continue
+            if end is not None and d[xi] >= end: continue  # r1156:分段驗證不讀到區間後的出場
             r = xp / px - 1 - 0.006
             trades.append((sid, d[ei], r, xi - ei + 1, why))
             last_exit = xi
