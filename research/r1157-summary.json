@@ -1593,5 +1593,12 @@
       "title": "TWSE trading system",
       "url": "https://www.twse.com.tw/zh/products/system/trading.html"
     }
-  ]
+  ],
+  "code_sha256_lf": {
+    "portfolio_research.py": "17478c1139a8cf6d5f55116ec7d03869289489e88a435aef2f705229266e5837",
+    "strategy_upgrade_study.py": "a4341550bbb0115e09632420a7ed46b9dc768dcea6c0cc37a3f53fabad5e9d3a",
+    "individual_upgrade_study.py": "55bbee7538bf6e246db4879d1aaf565415ddf49526af25a4aa2a8d8fc7a25dd7",
+    "tw_dip_exit_audit.py": "47aa605daef0179e230d8f85d6464a6061b42a1950abf852b1f6e3bf43feff03"
+  },
+  "code_hash_note": "code_sha256 preserves original research-run working-file bytes, including Windows/mixed line endings. code_sha256_lf is portable: UTF-8, preserve BOM if present, normalize CRLF to LF. Git text normalization changes byte hashes but not research logic."
 }
