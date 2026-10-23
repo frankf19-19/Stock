@@ -29,7 +29,7 @@ try:
                           N(f"pdf {name} {rr.status_code} {len(b)} bytes ct={rr.headers.get('Content-Type')} head={b[:8]} url={u[:120]}")
                           if b[:4]==b'%PDF':
                               from pypdf import PdfReader; rd=PdfReader(io.BytesIO(b)); tx=''.join((pg.extract_text() or '') for pg in rd.pages[:5])
-                              N(f"pages={len(rd.pages)} text5={re.sub(r'\s+',' ',tx)[:500]}")
+                              tx2=re.sub(r'\s+',' ',tx)[:500]; N(f"pages={len(rd.pages)} text5={tx2}")
                               break
                       except Exception as e: N(f"pdf {name} ERR {str(e)[:120]}")
                   break
@@ -37,7 +37,7 @@ try:
   try:
       r=requests.post("https://mopsov.twse.com.tw/mops/web/ajax_t100sb02_2",headers=UA,timeout=60,
           data={"encodeURIComponent":"1","step":"1","firstin":"1","off":"1","TYPEK":"sii","co_id":"2330","year":"115"})
-      t=r.text; N(f"t100sb02_2 2330: len={len(t)} tr={t.count('<tr')} nasSTR={t.count('nas/STR')} head={re.sub(chr(92)+'s+',' ',t[:200])}")
+      t=r.text; hd=re.sub(r'\s+',' ',t[:200]); N(f"t100sb02_2 2330: len={len(t)} tr={t.count('<tr')} nasSTR={t.count('nas/STR')} head={hd}")
   except Exception as e: N(f"t100sb02_2 ERR {e}")
 except Exception:
     N('TRACE '+traceback.format_exc()[-800:].replace(chr(10),' | '))
