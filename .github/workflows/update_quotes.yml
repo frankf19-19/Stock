@@ -72,6 +72,7 @@ jobs:
               M=$((10#$(TZ=Asia/Taipei date +%M)))                                                    # r785:每 30 分鐘掃一輪 60 分 K 型態(約 3~6 分鐘,走 Worker 代理不用新 key)
               timeout 60 python notify.py || echo "推播本輪略過"                                              # r775:成交/出場/換股/到價 → Telegram(去重、每日上限)
               git add data.json 2>/dev/null || true
+              git add holidays.json 2>/dev/null || true   # r1149:臨時休市自動偵測會改行事曆
               git add notify_state.json 2>/dev/null || true
               git add hourly_scan.json 2>/dev/null || true
               git add signal_log.json 2>/dev/null || true

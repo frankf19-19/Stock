@@ -67,7 +67,7 @@ def main():
     now = dt.datetime.now(TP)
 
     # ── 1. 全台股報價(MIS 官方即時) ──
-    n, quotes = 0, {}
+    n, quotes = 0, {}; stale_n = [0]
     for i in range(0, len(tw), BATCH):
         chunk = tw[i:i + BATCH]
         arr = mis_get([f"{'otc' if ex == 'otc' else 'tse'}_{sid}.tw" for sid, ex in chunk])
@@ -81,7 +81,7 @@ def main():
             #   現在 z 缺就沿用上一筆真實成交價、不寫進走勢快照;另外記下今天官方開高低(o/h/l)與「真實成交」標記
             md = str(m.get("d") or "").strip()                # r1047:MIS 報價日期(YYYYMMDD)——休市日/開盤前 MIS 回的是前一個交易日的資料,不能當成今天
             if md and md != now.strftime("%Y%m%d"):
-                s["pz"] = 0
+                s["pz"] = 0; stale_n[0] += 1
                 continue
             last = px(m, "z") or px(m, "pz")                 # r1005:z 常在兩次撮合之間是 "-";pz(前一筆成交價)也是真實成交
             prev = px(m, "y")
@@ -220,8 +220,36 @@ def main():
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     print(f"盤中更新:{n} 檔(MIS官方{'+Worker備援' if PROXY else ''}),台北 {data['intraday']}")
-    if n < 100:
+    closed = unscheduled_closure(data, now, n, stale_n[0])   # r1149:颱風假/臨時休市自動偵測
+    if n < 100 and not closed:
         print("::warning::報價取得偏少,MIS 直連與 Worker 皆可能受阻,請檢查")
+
+
+def unscheduled_closure(data, now, n, stale):
+    """r1149:10/23 颱風假——行事曆只有證交所公告的假日,臨時休市要等下一個交易日有 K 棒才「學到」,整天網站都當成交易日。
+    改成當場判定:平日 09:20 後、行事曆說今天開盤,但 MIS 回來的報價全部是前一個交易日的日期(≥300 檔、今天 0 檔成交)
+    → 當天就寫進 holidays.json(tw + learned,之後 fetch_holidays 會保留),data.closed_today 讓前端/交易員立刻知道。
+    回傳 True 表示今天判定休市。若之後同一天又抓到今天的報價(誤判),自動撤銷。"""
+    today = now.strftime("%Y-%m-%d"); hm = now.hour * 60 + now.minute
+    try: H = json.load(open("holidays.json", encoding="utf-8"))
+    except Exception: H = {"tw": {}, "us": {}, "learned": {}}
+    tw = H.setdefault("tw", {}); learned = H.setdefault("learned", {})
+    ct = data.get("closed_today") or {}
+    if ct and ct.get("d") != today: data.pop("closed_today", None); ct = {}
+    if now.weekday() >= 5 or today in tw and not ct: return today in tw
+    if n == 0 and stale >= 300 and hm >= 9 * 60 + 20:
+        if today not in tw:
+            tw[today] = "臨時休市(自動偵測:整天沒有今天的成交資料,颱風假?)"; learned["tw:" + today] = tw[today]
+            H["tw"] = dict(sorted(tw.items())); H["updated"] = now.strftime("%Y-%m-%d %H:%M")
+            json.dump(H, open("holidays.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+            print(f"::notice::🏖 自動判定台股今天({today})臨時休市:MIS {stale} 檔報價都是前一交易日、今天 0 檔成交 → 已寫進 holidays.json")
+        data["closed_today"] = {"d": today, "t": now.strftime("%H:%M"), "why": "交易所整天沒有今天的成交資料(自動偵測,颱風假或臨時休市)"}
+        return True
+    if ct and n >= 100:                                        # 誤判撤銷:同一天後來抓到今天的成交
+        tw.pop(today, None); learned.pop("tw:" + today, None); data.pop("closed_today", None)
+        json.dump(H, open("holidays.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        print(f"::warning::撤銷 {today} 的臨時休市判定(後來抓到 {n} 檔今天的報價)")
+    return False
 
 if __name__ == "__main__":
     main()

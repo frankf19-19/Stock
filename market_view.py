@@ -346,11 +346,24 @@ def facts_text(F, CL):
     return "\n".join(L)
 
 
+def tw_closed_note():
+    """r1149:台股當天休市(國定假日/颱風假)→ 告訴模型沒有今天的台股盤後資料,別當成今天的行情寫"""
+    try: H = json.load(open("holidays.json", encoding="utf-8")).get("tw") or {}
+    except Exception: H = {}
+    nm = H.get(DATE)
+    if not nm: return ""
+    x = dt.date.fromisoformat(DATE)
+    for _ in range(10):
+        x += dt.timedelta(days=1)
+        if x.weekday() < 5 and x.isoformat() not in H: break
+    return f"\n【注意】台股今天({DATE})休市:{nm}。上面的台股數字是上一個交易日的,不是今天的行情;台股部分請寫成「休市期間國際市場的變化,對下個交易日({x.isoformat()})開盤的影響」,不要寫成今天台股怎麼走。\n"
+
+
 def prompt(F, CL, items):
     wd = "一二三四五六日"[dt.date.fromisoformat(DATE).weekday()]
     news = "\n".join(f"[{i}] ({x['s'] or '?'}{' ' + x['p'].strftime('%m/%d %H:%M') if x['p'] else ''}) {x['t']}" for i, x in enumerate(items))
     return f"""你是台灣的總經與盤勢研究員,要幫一般投資人寫今天({DATE} 週{wd},{'早上,美股剛收盤' if SLOT == 'am' else '晚上,台股盤後資料已出齊'})的「盤勢解讀」。
-讀者不懂術語,要白話、具體、有價位;語氣冷靜,不嚇人也不喊多。
+讀者不懂術語,要白話、具體、有價位;語氣冷靜,不嚇人也不喊多。{tw_closed_note()}
 
 【程式算好的數據(唯一可以用的數字來源)】
 {facts_text(F, CL)}
@@ -456,7 +469,7 @@ def main():
         A = ai_view(F, CL, items)
         if not A or len(A["causes"]) < 2 or not A["head"]:
             log("✗ AI 解讀失敗或有效原因不到 2 條,不發布"); sys.exit(0)
-    view = {"v": 1, "date": DATE, "slot": SLOT, "gen": NOW.strftime("%Y-%m-%dT%H:%M:%S+08:00"), "facts": F,
+    view = {"v": 1, "date": DATE, "slot": SLOT, "gen": NOW.strftime("%Y-%m-%dT%H:%M:%S+08:00"), "facts": F, "tw_closed": bool(tw_closed_note()),
             "check": CL, "period": period, **A}
     json.dump(view, open(fp, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     idx = []

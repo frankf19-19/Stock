@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1147';
+const APP_BUILD='r1149';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -584,7 +584,8 @@ function setBadges(extra){
     const today=nowT.toISOString().slice(0,10);
     const wd=nowT.getDay(),hm=nowT.getHours()*60+nowT.getMinutes();
     if(String(DATA.updated)<today&&wd>=1&&wd<=5){
-      tail=hm<15*60+55?'(盤後資料 15:40 搶先更新)':hm<18*60+45?'(15:40 首更未完成?18:30 將補跑)':' ⚠今日更新未完成,檢查 Actions';
+      const hn=(typeof holiTW==='function')&&holiTW(today);   // r1149:颱風假/國定假日:沒有今天的盤後資料是正常的
+      tail=hn?`(今日台股休市:${hn},沒有今天的盤後資料)`:hm<15*60+55?'(盤後資料 15:40 搶先更新)':hm<18*60+45?'(15:40 首更未完成?18:30 將補跑)':' ⚠今日更新未完成,檢查 Actions';
     }
   }
   document.getElementById('updBadge').textContent='盤後資料:'+_upd+tail+intr+(extra||'');
@@ -11591,7 +11592,9 @@ async function rtTick(){
     RT.failN=(RT.failN||0)+1;
     if(RT.failN>=3){
       const sb=document.getElementById('srcBadge');
-      if(sb){sb.textContent='⚠ 即時斷線 · 點我修復';sb.className='badge warn';sb.style.cursor='pointer';}
+      if(RT.failN===3)holiLoad();   // r1149:連續抓不到即時報價 → 先看行事曆是不是剛被後端標成臨時休市
+      const hn=(typeof holiTW==='function')&&holiTW();
+      if(sb){if(hn){sb.textContent='🏖 今日台股休市';sb.className='badge live';sb.style.cursor='';}else{sb.textContent='⚠ 即時斷線 · 點我修復';sb.className='badge warn';sb.style.cursor='pointer';}}
     }
   }else{
     if(RT.failN>=3){   // 從斷線中恢復:badge 變回綠燈
@@ -11711,7 +11714,8 @@ setTimeout(rtTick,3000);
 /* ── 開盤時段自動更新:台北週一至五 08:55–13:40,每 60 秒重抓 data.json ── */
 /* ═══ r904:休市行事曆(holidays.json:證交所官方 + NYSE 規則 + 從資料學到的颱風假)═══ */
 let HOLI=null;
-(async()=>{try{const r=await fetch('holidays.json',{cache:'no-cache'});if(r.ok){HOLI=await r.json();holiPaint();}}catch(e){}})();
+async function holiLoad(){try{const r=await fetch('holidays.json?v='+Math.floor(Date.now()/9e5),{cache:'no-cache'});if(r.ok){const j=await r.json();const was=holiTW();HOLI=j;holiPaint();if(!was&&holiTW()){try{setBadges();}catch(e){}}}}catch(e){}}
+holiLoad();setInterval(holiLoad,15*60*1000);   // r1149:每 15 分鐘重讀——颱風假是後端 09:20 後才自動判定寫進行事曆,早上就開著的頁面也要跟著變成「休市」
 const _isoIn=tz=>{const t=new Date(new Date().toLocaleString('en-US',{timeZone:tz}));return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;};
 function holiTW(iso){return HOLI&&HOLI.tw&&HOLI.tw[iso||_isoIn('Asia/Taipei')]||null;}
 function holiUS(iso){return HOLI&&HOLI.us&&HOLI.us[iso||_isoIn('America/New_York')]||null;}
@@ -26119,7 +26123,7 @@ function viewRender(j){
   const gen=(j.gen||'').slice(5,16).replace('T',' ').replace('-','/');
   box.innerHTML=`<div class="news-dates">${chips}</div>
     <div class="news-top" style="border-left-color:#8E7CC3">
-      <div class="news-date">🧭 盤勢解讀|${newsDay(j.date)} ${j.slot==='am'?'早上版(美股收盤後)':'晚上版(台股盤後)'}${latest?' <span style="font-size:12px;font-weight:800;color:var(--amber);border:1px solid var(--amber);border-radius:6px;padding:1px 6px;vertical-align:2px">最新</span>':''}</div>
+      <div class="news-date">🧭 盤勢解讀|${newsDay(j.date)} ${j.slot==='am'?'早上版(美股收盤後)':j.tw_closed?'晚上版(台股今天休市,只有國際市場)':'晚上版(台股盤後)'}${latest?' <span style="font-size:12px;font-weight:800;color:var(--amber);border:1px solid var(--amber);border-radius:6px;padding:1px 6px;vertical-align:2px">最新</span>':''}</div>
       <div class="news-mood" style="color:var(--txt);font-size:16px">${vwE(j.head)}</div>
       <div class="news-meta">${gen} 產生・解讀:${vwE(j.model||'')}${j.n_in?`(從 ${j.n_in} 則新聞標題)`:''}・數字全部由程式從站上資料計算</div>
     </div>
