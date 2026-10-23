@@ -55,8 +55,11 @@ def sec_get(url, timeout=60, json_=True):
 def filings(cik, since):
     j = sec_get(f"https://data.sec.gov/submissions/CIK{int(cik):010d}.json")
     if not j:
-        return []
+        log(f"    submissions 抓不到(CIK {cik})"); return []
     rec = (j.get("filings") or {}).get("recent") or {}
+    if ONLY:
+        fs = rec.get("form") or []
+        log(f"    submissions:{len(fs)} 筆,8-K {sum(1 for f in fs if f.startswith('8-K'))} 筆;最近 5 筆 {list(zip(fs[:5], (rec.get('filingDate') or [])[:5], (rec.get('items') or [])[:5]))}")
     out = []
     for i, form in enumerate(rec.get("form") or []):
         if form not in ("8-K", "8-K/A"):

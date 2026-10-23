@@ -39,7 +39,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: |
           python listen_us.py 2>&1 | tee /tmp/lu.txt
-          grep -E "✅|⏸|例外|找不到|非財報" /tmp/lu.txt | head -12 | sed 's/^/::notice::/' || true
+          grep -E "✅|⏸|例外|找不到|非財報|submissions|待分析" /tmp/lu.txt | head -12 | sed 's/^/::notice::/' || true
       - name: 提交
         run: |
           git config user.name "bot"
