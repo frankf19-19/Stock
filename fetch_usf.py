@@ -10,7 +10,7 @@ frames 一個請求=全市場一個科目一季,6 科目 × 9 季 ≈ 55 個請�
 """
 import json, time, datetime, urllib.request, sys
 
-UA = {"User-Agent": "Mozilla/5.0 (compatible; KLabResearch/1.0; +https://frankf19-19.github.io/Stock/)",
+UA = {"User-Agent": "Mozilla/5.0 (compatible; KLabResearch/1.0; klab@frankf19-19.github.io)",
       "Accept": "application/json",
       "Accept-Encoding": "gzip, deflate"}
 
