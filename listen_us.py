@@ -137,10 +137,8 @@ def exhibit_text(cik, acc):
     if ONLY: log(f"    附件 {names[:12]}")
     cands = [n for n in names if re.search(r"ex[-_]?99", n, re.I) and n.lower().endswith((".htm", ".html"))]
     cands.sort(key=lambda n: (0 if re.search(r"99[-_.]?1\b|991", n) else 1, len(n)))
-    if not cands:   # 沒有 ex99 命名 → 用最大的 htm(非主文件)
-        hs = [x for x in items if x.get("name", "").lower().endswith((".htm", ".html"))]
-        hs.sort(key=lambda x: -int(x.get("size") or 0))
-        cands = [x["name"] for x in hs[1:2]] or [x["name"] for x in hs[:1]]
+    if not cands:   # 沒有 EX-99 附件 → 不是財報新聞稿型的 8-K(純公告),不分析
+        return None, "NOEX99"
     for n in cands[:2]:
         t = sec_get(f"{base}/{n}", json_=False)
         if not t:
@@ -262,7 +260,7 @@ def main():
                 if f.get("chk"): x["chk"] = 1
                 j["conf"].append(x)
         for x in j["conf"]:   # 含之前失敗一次的(清單抓不到也要重試)
-            if x["d"] >= since and not x.get("skip") and not (x.get("ai") and x.get("pv") == PV) and (x.get("fail") or 0) < 2:
+            if x["d"] >= since and not x.get("skip") and not (x.get("ai") and x.get("pv") == PV) and (x.get("fail") or 0) < 3:
                 queue.append((sym, x))
         touched[sym] = j
         if (i + 1) % 100 == 0:
@@ -279,6 +277,8 @@ def main():
                     x["ai"] = None; x["skip"] = 1; x["pv"] = PV; log("    非財報 8-K,略過"); continue
                 x.pop("chk", None)
             text, url = exhibit_text(cik[sym], x["acc"])
+            if url == "NOEX99":
+                x["skip"] = 1; x["pv"] = PV; log("    沒有 EX-99 附件(非財報新聞稿),略過"); continue
             if not text:
                 x["fail"] = (x.get("fail") or 0) + 1; x["pv"] = PV; log("    找不到新聞稿附件"); continue
             x["url"] = url
