@@ -36,19 +36,31 @@ def log(*a):
     print(*a, flush=True)
 
 
+import urllib.parse as _up
+_ROUTE = {"win": None}
 def sec_get(url, timeout=60, json_=True):
-    for attempt in range(3):
-        try:
-            r = requests.get(url, headers=UA, timeout=timeout)
-            if r.status_code == 429:
-                time.sleep(10 * (attempt + 1)); continue
-            if r.ok:
-                return r.json() if json_ else r.text
-            if r.status_code == 404:
-                return None
-        except Exception as e:
-            log(f"    SEC {url[-60:]}:{str(e)[:60]}")
-        time.sleep(3)
+    """直連 → 公共代理(機房對 data.sec.gov 偶爾被擋;fetch_usf 同款路由)"""
+    q = _up.quote(url, safe="")
+    routes = [("direct", url), ("allorigins", "https://api.allorigins.win/raw?url=" + q),
+              ("corsproxy", "https://corsproxy.io/?url=" + q), ("codetabs", "https://api.codetabs.com/v1/proxy?quest=" + q)]
+    routes.sort(key=lambda r: 0 if r[0] == _ROUTE["win"] else 1)
+    last = ""
+    for name, u in routes:
+        for attempt in range(2 if name == "direct" else 1):
+            try:
+                r = requests.get(u, headers=UA, timeout=timeout)
+                if r.status_code == 429:
+                    time.sleep(8); continue
+                if r.ok and (not json_ or r.text.lstrip().startswith(("{", "["))):
+                    _ROUTE["win"] = name
+                    return r.json() if json_ else r.text
+                if r.status_code == 404 and name == "direct":
+                    return None
+                last = f"{name} {r.status_code} {r.text[:60]!r}"
+            except Exception as e:
+                last = f"{name} {str(e)[:60]}"
+            time.sleep(1)
+    log(f"    SEC 抓不到 {url[-70:]}:{last}")
     return None
 
 
