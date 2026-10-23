@@ -1,0 +1,65 @@
+name: 探針:法說會來源(暫時)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests pypdf
+      - run: |
+          python - <<'PY'
+          import os,requests,json,re,io,urllib.parse
+          UA={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","Accept":"*/*"}
+          def N(s): print("::notice::"+str(s)[:900])
+          PX=json.load(open("proxy.json"))["url"].rstrip("/")
+          def px(u): return PX+"/?url="+urllib.parse.quote(u,safe="")
+          # 1 swagger 找法說
+          for u in ("https://openapi.twse.com.tw/v1/swagger.json","https://www.tpex.org.tw/openapi/v1/swagger.json"):
+              try:
+                  t=requests.get(u,headers=UA,timeout=40).text
+                  hits=re.findall(r'"(/[^"]*)"\s*:\s*\{[^{}]{0,400}?(?:法說|法人說明)',t)
+                  paths=[p for p in re.findall(r'"(/v1/[^"]+)"',t) if 'sb' in p.lower() or 'ap38' in p or 'ap' in p]
+                  N(f"swagger {u.split('/')[2]} len={len(t)} 法說命中={hits[:5]} 含法說字樣={t.count('法說')} 含法人說明={t.count('法人說明')}")
+                  i=t.find('法說')
+                  if i>0: N("ctx: "+t[max(0,i-500):i+200].replace("\n"," "))
+              except Exception as e: N(f"swagger {u} ERR {e}")
+          # 2 猜端點
+          for u in ("https://openapi.twse.com.tw/v1/opendata/t187ap38_L","https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap38_O","https://openapi.twse.com.tw/v1/opendata/t187ap38_L_ci"):
+              try:
+                  r=requests.get(u,headers=UA,timeout=40); j=r.json() if r.ok else None
+                  N(f"{u.split('/')[-1]} {r.status_code} n={len(j) if isinstance(j,list) else '-'} first={str(j[:1])[:400] if isinstance(j,list) and j else r.text[:120]}")
+              except Exception as e: N(f"{u} ERR {str(e)[:120]}")
+          # 3 MOPS 法說會頁 直連 vs worker
+          for name,mk in (("direct",lambda u:u),("worker",px)):
+              try:
+                  r=requests.post(mk("https://mops.twse.com.tw/mops/web/ajax_t100sb02_1"),headers=UA,timeout=60,
+                      data={"encodeURIComponent":"1","step":"1","firstin":"1","off":"1","TYPEK":"sii","year":"115","month":"10"})
+                  t=r.text; links=re.findall(r'(FileDownLoad[^"\']+|/nas/[^"\']+\.pdf|https?://[^"\']+\.pdf)',t)[:3]
+                  N(f"MOPS t100sb02_1 {name} {r.status_code} len={len(t)} 含法說={t.count('法說')} tr={t.count('<tr')} links={links}")
+                  m=re.search(r'<tr[^>]*>.{0,1500}?</tr>',t,re.S)
+                  if m and t.count('<tr')>3: N("row: "+re.sub(r'\s+',' ',m.group(0))[:600])
+              except Exception as e: N(f"MOPS {name} ERR {str(e)[:120]}")
+          # 3b MOPS 新版 JSON API
+          for name,mk in (("direct",lambda u:u),("worker",px)):
+              try:
+                  r=requests.post(mk("https://mops.twse.com.tw/mops/api/t100sb02_1"),headers={**UA,"Content-Type":"application/json"},timeout=60,
+                      json={"TYPEK":"sii","year":"115","month":"10"})
+                  N(f"MOPS api t100sb02_1 {name} {r.status_code} {r.text[:500]}")
+              except Exception as e: N(f"MOPS api {name} ERR {str(e)[:120]}")
+          # 4 FinMind 三表
+          tok=os.environ.get("FINMIND_TOKEN","")
+          for ds in ("TaiwanStockBalanceSheet","TaiwanStockCashFlowsStatement","TaiwanStockFinancialStatements"):
+              try:
+                  j=requests.get("https://api.finmindtrade.com/api/v4/data",params={"dataset":ds,"data_id":"2330","start_date":"2026-06-30","end_date":"2026-06-30","token":tok},timeout=60).json()
+                  rows=j.get("data") or []; N(f"FM {ds} n={len(rows)} types={[r['type'] for r in rows][:40]}")
+              except Exception as e: N(f"FM {ds} ERR {str(e)[:100]}")
+          PY
