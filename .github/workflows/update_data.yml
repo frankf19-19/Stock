@@ -214,7 +214,7 @@ jobs:
             else
               step 主資料輕量 bash -c 'UD_FULL=0 python update_data.py 2>&1 | tee /tmp/ud.txt; test ${PIPESTATUS[0]} -eq 0 || echo "::warning::update_data.py 失敗,本輪略過主資料"'
             fi
-            grep -E "美股價格|台股價格|最新季三率|季EPS|信用交易:餘額|\[warn\]|連續 1[05] 檔" /tmp/ud.txt 2>/dev/null | head -8 | sed 's/^/::notice::/' || true   # r1118:log 讀不到 → 關鍵行放進 annotations
+            grep -E "美股價格|台股價格|最新季三率|季EPS|信用交易:餘額|財務體質|資產負債表欄位|\[warn\]|連續 1[05] 檔" /tmp/ud.txt 2>/dev/null | head -10 | sed 's/^/::notice::/' || true   # r1118:log 讀不到 → 關鍵行放進 annotations
             sync_live                                                                       # r1088:主資料可能跑很久,先拿回盤中迴圈最新的 spark/AI Pick 再續寫
             step 報價快照 timeout 300 python update_quotes.py || echo "報價快照失敗,不影響主資料"
             step 大盤週乖離 timeout 300 python fetch_bias.py || echo "大盤週乖離失敗,不影響主資料"        # r789
