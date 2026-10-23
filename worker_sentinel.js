@@ -55,14 +55,14 @@ async function sentinel(env, now) {
     const p = a.p;
     if (!a.cur) {                                                     // 等買進
       if (!a.inBuyWeek || a.iv.fill) continue;
-      if (cur <= p.buy) events.push({ sid: a.sid, kind: 'fill', title: `🤖 AI Pick 成交 ${a.name}`, body: `${T.hhmm} 現價 ${cur} ≤ 買價 ${p.buy}——限價成交。目標 ${p.target}、停損 ${p.stop}` });
-      else if (cur <= (p.buy_hi || p.buy)) events.push({ sid: a.sid, kind: 'chase', title: `🤖 AI Pick 追價成交 ${a.name}`, body: `${T.hhmm} 現價 ${cur} 在追價上限 ${p.buy_hi} 內——以現價買進。目標 ${p.target}、停損 ${p.stop}` });
+      if (cur <= p.buy) events.push({ sid: a.sid, kind: 'fill', title: `${a.name} 🤖AI Pick 成交`, body: `${T.hhmm} 現價 ${cur} ≤ 買價 ${p.buy}——限價成交。目標 ${p.target}、停損 ${p.stop}` });
+      else if (cur <= (p.buy_hi || p.buy)) events.push({ sid: a.sid, kind: 'chase', title: `${a.name} 🤖AI Pick 追價成交`, body: `${T.hhmm} 現價 ${cur} 在追價上限 ${p.buy_hi} 內——以現價買進。目標 ${p.target}、停損 ${p.stop}` });
     } else {                                                          // 持有中
       const L = a.cur; if (a.iv.exit && a.iv.exit.leg === (p.legs || []).length - 1) continue;
-      if (cur >= L.target) events.push({ sid: a.sid, kind: 'tp', title: `🎯 AI Pick 停利 ${a.name}`, body: `${T.hhmm} 現價 ${cur} ≥ 目標 ${L.target}(進場 ${L.entry},+${((L.target / L.entry - 1) * 100).toFixed(1)}%)——出場` });
-      else if (cur <= L.stop) events.push({ sid: a.sid, kind: 'sl', title: `🛑 AI Pick 停損 ${a.name}`, body: `${T.hhmm} 現價 ${cur} ≤ 停損 ${L.stop}(進場 ${L.entry},${((L.stop / L.entry - 1) * 100).toFixed(1)}%)——出場` });
-      else if (cur >= L.entry + (L.target - L.entry) * 0.8) events.push({ sid: a.sid, kind: 'near_tp', title: `📈 AI Pick 接近目標 ${a.name}`, body: `${T.hhmm} 現價 ${cur},距目標 ${L.target} 只差 ${((L.target / cur - 1) * 100).toFixed(1)}%` });
-      else if (cur <= L.entry - (L.entry - L.stop) * 0.8) events.push({ sid: a.sid, kind: 'near_sl', title: `⚠️ AI Pick 逼近停損 ${a.name}`, body: `${T.hhmm} 現價 ${cur},距停損 ${L.stop} 只剩 ${((cur / L.stop - 1) * 100).toFixed(1)}%` });
+      if (cur >= L.target) events.push({ sid: a.sid, kind: 'tp', title: `${a.name} 🎯AI Pick 停利`, body: `${T.hhmm} 現價 ${cur} ≥ 目標 ${L.target}(進場 ${L.entry},+${((L.target / L.entry - 1) * 100).toFixed(1)}%)——出場` });
+      else if (cur <= L.stop) events.push({ sid: a.sid, kind: 'sl', title: `${a.name} 🛑AI Pick 停損`, body: `${T.hhmm} 現價 ${cur} ≤ 停損 ${L.stop}(進場 ${L.entry},${((L.stop / L.entry - 1) * 100).toFixed(1)}%)——出場` });
+      else if (cur >= L.entry + (L.target - L.entry) * 0.8) events.push({ sid: a.sid, kind: 'near_tp', title: `${a.name} 📈AI Pick 接近目標`, body: `${T.hhmm} 現價 ${cur},距目標 ${L.target} 只差 ${((L.target / cur - 1) * 100).toFixed(1)}%` });
+      else if (cur <= L.entry - (L.entry - L.stop) * 0.8) events.push({ sid: a.sid, kind: 'near_sl', title: `${a.name} ⚠️AI Pick 逼近停損`, body: `${T.hhmm} 現價 ${cur},距停損 ${L.stop} 只剩 ${((cur / L.stop - 1) * 100).toFixed(1)}%` });
     }
   }
   if (!events.length) return `ok ${active.length} picks, no event`;

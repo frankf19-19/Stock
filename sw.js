@@ -42,10 +42,21 @@ self.addEventListener('fetch', e => {
 /* ═══ r784:Web Push ═══
    後端 notify.py 用 VAPID 推;這裡負責把 payload 變成系統通知、點了開對應頁面。
    payload:{title, body, url, tag} */
+/* r1152:AI Pick 推播的股票名稱原本放在標題最後(「🇺🇸 ⚠️ 美股 AI Pick 逼近停損 Astera Labs」),
+   iPhone 鎖屏只顯示到「美股 AI Pick…」就截斷,看不出是哪一檔 → 顯示前把名稱搬到最前面:
+   「🇺🇸 Astera Labs ⚠️逼近停損」;對不上格式就原樣顯示 */
+function aipTitle(t) {
+  try {
+    const m = String(t || '').match(/^\s*((?:🇺🇸|🇹🇼)\s*)?(\S+?)\s*(?:美股|台股)?\s*AI\s*Pick[\s・:：|｜-]+([^\s\d・:：|｜]{2,8})[\s・:：|｜-]+(.+?)\s*$/u);
+    if (!m) return t;
+    const flag = (m[1] || '').trim(), ic = m[2], act = m[3], name = m[4];
+    return `${flag ? flag + ' ' : ''}${name} ${ic}${act}`;
+  } catch (err) { return t; }
+}
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data ? e.data.text() : '' }; }
-  const title = d.title || 'K研所';
+  const title = aipTitle(d.title || 'K研所');
   e.waitUntil(self.registration.showNotification(title, {
     body: d.body || '',
     icon: './icon192.png',
