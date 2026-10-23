@@ -22,36 +22,40 @@ jobs:
           def N(s): print("::notice::"+str(s)[:900])
           PX=json.load(open("proxy.json"))["url"].rstrip("/")
           def px(u): return PX+"/?url="+urllib.parse.quote(u,safe="")
-          # 1 swagger 關鍵字
-          for u in ("https://openapi.twse.com.tw/v1/swagger.json","https://www.tpex.org.tw/openapi/v1/swagger.json"):
-              try:
-                  j=requests.get(u,headers=UA,timeout=40).json()
-                  hits=[(p,(v.get(m) or {}).get("summary","")) for p,v in j.get("paths",{}).items() for m in v if re.search("說明會|會議|行事曆|簡報|ap38|ap04|ap0[1-9]",p+(v.get(m) or {}).get("summary",""))]
-                  N(f"swagger {u.split('/')[2]} paths={len(j.get('paths',{}))} hits={hits[:30]}")
-              except Exception as e: N(f"swagger {u} ERR {e}")
-          # 2 MOPS 舊版 mopsov / 新版頁面
-          for u,data in (("https://mopsov.twse.com.tw/mops/web/ajax_t100sb02_1",{"encodeURIComponent":"1","step":"1","firstin":"1","off":"1","TYPEK":"sii","year":"115","month":"10"}),
-                         ("https://mops.twse.com.tw/mops/web/ajax_t100sb02_1",{"encodeURIComponent":"1","step":"1","firstin":"1","off":"1","TYPEK":"sii","year":"115","month":"10"})):
-              for name,mk in (("direct",lambda u:u),("worker",px)):
-                  try:
-                      r=requests.post(mk(u),headers=UA,timeout=60,data=data); t=r.text
-                      hd=re.sub(r'\s+',' ',t[:300]); N(f"{u.split('/')[2]} {name} {r.status_code} len={len(t)} 法說={t.count('法說')} tr={t.count('<tr')} head={hd}")
-                      links=re.findall(r'(FileDownLoad[^"\']+|/nas/[^"\']+|https?://[^"\']+\.(?:pdf|PDF))',t)[:3]
-                      if links: N(f"links {links}")
-                      m=re.search(r'<tr[^>]*>(?:(?!</tr>).){200,2000}</tr>',t,re.S)
-                      if m: N("row: "+re.sub(r'\s+',' ',m.group(0))[:700])
-                  except Exception as e: N(f"{u} {name} ERR {str(e)[:120]}")
-          # 2b 新版 MOPS 首頁 看它要什麼
+          import html as H
+          for typek in ("sii","otc"):
+              r=requests.post("https://mopsov.twse.com.tw/mops/web/ajax_t100sb02_1",headers=UA,timeout=60,
+                  data={"encodeURIComponent":"1","step":"1","firstin":"1","off":"1","TYPEK":typek,"year":"115","month":"10"})
+              t=r.text
+              rows=re.findall(r'<tr[^>]*>(.*?)</tr>',t,re.S)
+              drows=[x for x in rows if 'nas/STR' in x or 'FileDownLoad' in x]
+              N(f"{typek}: rows={len(rows)} 有簡報列={len(drows)}")
+              if drows:
+                  x=drows[0]; cells=[re.sub(r'<[^>]+>','',c).strip() for c in re.findall(r'<td[^>]*>(.*?)</td>',x,re.S)]
+                  N(f"cells {cells}")
+                  hrefs=re.findall(r'href=["\']([^"\']+)["\']',x); N(f"hrefs {hrefs}")
+                  oc=re.findall(r'onclick=["\']([^"\']+)["\']',x); N(f"onclick {oc[:4]}")
+                  # 試下載第一個簡報
+                  for h in hrefs:
+                      if 'nas/STR' in h or 'pdf' in h.lower():
+                          u=h if h.startswith('http') else ('https://mopsov.twse.com.tw'+h if h.startswith('/') else 'https://mopsov.twse.com.tw/'+h)
+                          u=H.unescape(u)
+                          for name,mk in (("direct",lambda u:u),("worker",px)):
+                              try:
+                                  rr=requests.get(mk(u),headers=UA,timeout=120); b=rr.content
+                                  N(f"pdf {name} {rr.status_code} {len(b)} bytes ct={rr.headers.get('Content-Type')} head={b[:8]} url={u[:120]}")
+                                  if b[:4]==b'%PDF':
+                                      from pypdf import PdfReader; rd=PdfReader(io.BytesIO(b)); tx=''.join((pg.extract_text() or '') for pg in rd.pages[:5])
+                                      N(f"pages={len(rd.pages)} text5={re.sub(r'\s+',' ',tx)[:500]}")
+                                      break
+                              except Exception as e: N(f"pdf {name} ERR {str(e)[:120]}")
+                          break
+          # 歷年法說會(單一公司)
           try:
-              r=requests.get("https://mops.twse.com.tw/mops/web/t100sb02_1",headers=UA,timeout=60); t=r.text
-              hd=re.sub(r'\s+',' ',t[:400]); N(f"mops page {r.status_code} len={len(t)} cookies={dict(r.cookies)} head={hd}")
-          except Exception as e: N(f"mops page ERR {e}")
-          # 2c 重大訊息 openapi(法說會公告會在這裡)
-          try:
-              j=requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap04_L",headers=UA,timeout=40).json()
-              hs=[x for x in j if '法人說明會' in json.dumps(x,ensure_ascii=False) or '法說' in json.dumps(x,ensure_ascii=False)]
-              N(f"t187ap04_L n={len(j)} 法說相關={len(hs)} keys={list(j[0].keys()) if j else ''} sample={str(hs[:1])[:700]}")
-          except Exception as e: N(f"t187ap04_L ERR {e}")
+              r=requests.post("https://mopsov.twse.com.tw/mops/web/ajax_t100sb02_2",headers=UA,timeout=60,
+                  data={"encodeURIComponent":"1","step":"1","firstin":"1","off":"1","TYPEK":"sii","co_id":"2330","year":"115"})
+              t=r.text; N(f"t100sb02_2 2330: len={len(t)} tr={t.count('<tr')} nasSTR={t.count('nas/STR')} head={re.sub(chr(92)+'s+',' ',t[:200])}")
+          except Exception as e: N(f"t100sb02_2 ERR {e}")
           # 4 FinMind 三表
           tok=os.environ.get("FINMIND_TOKEN","")
           for ds in ("TaiwanStockBalanceSheet","TaiwanStockCashFlowsStatement","TaiwanStockFinancialStatements"):
