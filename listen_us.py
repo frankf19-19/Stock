@@ -25,7 +25,7 @@ PV = 1
 MODELS = ["gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash"]
 DIR = "ir_us"
 IDX = "ir_us_index.json"
-UA = {"User-Agent": "Mozilla/5.0 (compatible; KLabResearch/1.0; klab@frankf19-19.github.io)", "Accept": "application/json, text/html, */*"}
+UA = {"User-Agent": "Mozilla/5.0 (compatible; KLabResearch/1.0; klab.research@gmail.com)", "Accept": "application/json, text/html, */*"}
 MAX_PER_RUN = int(os.environ.get("MAX_PER_RUN", "30") or 30)
 MONTHS_BACK = int(os.environ.get("MONTHS_BACK", "3") or 3)
 ONLY = os.environ.get("ONLY", "").strip().upper()
@@ -258,8 +258,11 @@ def main():
         for f in fl:
             x = next((c for c in j["conf"] if c.get("acc") == f["acc"]), None)
             if not x:
-                x = {"d": f["d"], "acc": f["acc"], "rd": f.get("rd")}; j["conf"].append(x)
-            if not x.get("skip") and not (x.get("ai") and x.get("pv") == PV) and (x.get("fail") or 0) < 2:
+                x = {"d": f["d"], "acc": f["acc"], "rd": f.get("rd")}
+                if f.get("chk"): x["chk"] = 1
+                j["conf"].append(x)
+        for x in j["conf"]:   # 含之前失敗一次的(清單抓不到也要重試)
+            if x["d"] >= since and not x.get("skip") and not (x.get("ai") and x.get("pv") == PV) and (x.get("fail") or 0) < 2:
                 queue.append((sym, x))
         touched[sym] = j
         if (i + 1) % 100 == 0:
