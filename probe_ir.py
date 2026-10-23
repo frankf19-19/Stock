@@ -1,55 +1,45 @@
-import os,requests,json,re,io,urllib.parse
-UA={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","Accept":"*/*"}
-def N(s): print("::notice::"+str(s)[:900])
-PX=json.load(open("proxy.json"))["url"].rstrip("/")
-def px(u): return PX+"/?url="+urllib.parse.quote(u,safe="")
-import html as H,traceback
+import os, requests, json, re, io, urllib.parse, traceback, time
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Accept": "*/*"}
+def N(s): print("::notice::" + str(s)[:900])
+H = "https://mopsov.twse.com.tw"
 try:
- if True:
-  for typek in ("sii","otc"):
-      r=requests.post("https://mopsov.twse.com.tw/mops/web/ajax_t100sb02_1",headers=UA,timeout=60,
-          data={"encodeURIComponent":"1","step":"1","firstin":"1","off":"1","TYPEK":typek,"year":"115","month":"10"})
-      t=r.text
-      rows=re.findall(r'<tr[^>]*>(.*?)</tr>',t,re.S)
-      drows=[x for x in rows if 'nas/STR' in x or 'FileDownLoad' in x]
-      N(f"{typek}: rows={len(rows)} 有簡報列={len(drows)}")
-      dr=[x for x in rows if '<td' in x][:3]
-      for x in dr[:2]:
-          raw=re.sub(r'\s+',' ',x)[:900]; N("RAW "+raw)
-      i=t.find('nas/STR'); ctx=re.sub(r'\s+',' ',t[max(0,i-700):i+300]); N("CTX "+ctx)
-      if not drows: drows=dr
-      if drows:
-          x=drows[0]; cells=[re.sub(r'<[^>]+>','',c).strip() for c in re.findall(r'<td[^>]*>(.*?)</td>',x,re.S)]
-          N(f"cells {cells}")
-          hrefs=re.findall(r'href=["\']([^"\']+)["\']',x); N(f"hrefs {hrefs}")
-          oc=re.findall(r'onclick=["\']([^"\']+)["\']',x); N(f"onclick {oc[:4]}")
-          # 試下載第一個簡報
-          for h in hrefs:
-              if 'nas/STR' in h or 'pdf' in h.lower():
-                  u=h if h.startswith('http') else ('https://mopsov.twse.com.tw'+h if h.startswith('/') else 'https://mopsov.twse.com.tw/'+h)
-                  u=H.unescape(u)
-                  for name,mk in (("direct",lambda u:u),("worker",px)):
-                      try:
-                          rr=requests.get(mk(u),headers=UA,timeout=120); b=rr.content
-                          N(f"pdf {name} {rr.status_code} {len(b)} bytes ct={rr.headers.get('Content-Type')} head={b[:8]} url={u[:120]}")
-                          if b[:4]==b'%PDF':
-                              from pypdf import PdfReader; rd=PdfReader(io.BytesIO(b)); tx=''.join((pg.extract_text() or '') for pg in rd.pages[:5])
-                              tx2=re.sub(r'\s+',' ',tx)[:500]; N(f"pages={len(rd.pages)} text5={tx2}")
-                              break
-                      except Exception as e: N(f"pdf {name} ERR {str(e)[:120]}")
-                  break
-  # 歷年法說會(單一公司)
-  try:
-      r=requests.post("https://mopsov.twse.com.tw/mops/web/ajax_t100sb02_2",headers=UA,timeout=60,
-          data={"encodeURIComponent":"1","step":"1","firstin":"1","off":"1","TYPEK":"sii","co_id":"2330","year":"115"})
-      t=r.text; hd=re.sub(r'\s+',' ',t[:200]); N(f"t100sb02_2 2330: len={len(t)} tr={t.count('<tr')} nasSTR={t.count('nas/STR')} head={hd}")
-  except Exception as e: N(f"t100sb02_2 ERR {e}")
+    for typek in ("sii", "otc"):
+        r = requests.post(f"{H}/mops/web/ajax_t100sb02_1", headers=UA, timeout=60,
+                          data={"encodeURIComponent": "1", "step": "1", "firstin": "1", "off": "1", "TYPEK": typek, "year": "115", "month": "10"})
+        t = r.text
+        rows = [x for x in re.findall(r'<tr[^>]*>(.*?)</tr>', t, re.S) if '<td' in x]
+        files = re.findall(r'fileName\.value="([^"]+)"', t)
+        N(f"{typek}: 列={len(rows)} 檔案={len(files)} 範例={files[:4]}")
+        # 下載第一個
+        for fn in files[:2]:
+            for way in ("post", "get"):
+                try:
+                    if way == "post":
+                        rr = requests.post(f"{H}/server-java/FileDownLoad", headers=UA, timeout=120,
+                                           data={"step": "9", "filePath": "/home/html/nas/STR/", "fileName": fn, "functionName": "t100sb02_1"})
+                    else:
+                        rr = requests.get(f"{H}/nas/STR/{fn}", headers=UA, timeout=120)
+                    b = rr.content
+                    N(f"{fn} {way} {rr.status_code} {len(b)}B ct={rr.headers.get('Content-Type')} head={b[:6]}")
+                    if b[:4] == b'%PDF':
+                        from pypdf import PdfReader
+                        rd = PdfReader(io.BytesIO(b)); tx = ''.join((pg.extract_text() or '') for pg in rd.pages[:6])
+                        tx2 = re.sub(r'\s+', ' ', tx)[:600]; N(f"  pages={len(rd.pages)} text={tx2}")
+                        break
+                    if b[:2] == b'PK':
+                        import zipfile
+                        z = zipfile.ZipFile(io.BytesIO(b)); names = [n for n in z.namelist() if n.startswith('ppt/slides/slide')]
+                        tx = ''
+                        for n in sorted(names)[:6]:
+                            tx += ' '.join(re.findall(r'<a:t>([^<]*)</a:t>', z.read(n).decode('utf-8', 'replace')))
+                        tx2 = re.sub(r'\s+', ' ', tx)[:600]; N(f"  pptx slides={len(names)} text={tx2}")
+                        break
+                except Exception as e:
+                    N(f"{fn} {way} ERR {str(e)[:150]}")
+            time.sleep(2)
+    # 影音連結/擇要訊息 欄位抽樣
+    cells = [[re.sub(r'<[^>]+>', '', c).strip() for c in re.findall(r'<td[^>]*>(.*?)</td>', x, re.S)] for x in rows[:40]]
+    vod = [c[9][:80] for c in cells if len(c) > 9 and 'http' in c[9]]
+    N(f"影音連結有 {len(vod)}/{len(cells)}:{vod[:3]}")
 except Exception:
-    N('TRACE '+traceback.format_exc()[-800:].replace(chr(10),' | '))
-# 4 FinMind 三表
-tok=os.environ.get("FINMIND_TOKEN","")
-for ds in ("TaiwanStockBalanceSheet","TaiwanStockCashFlowsStatement","TaiwanStockFinancialStatements"):
-    try:
-        j=requests.get("https://api.finmindtrade.com/api/v4/data",params={"dataset":ds,"data_id":"2330","start_date":"2026-06-30","end_date":"2026-06-30","token":tok},timeout=60).json()
-        rows=j.get("data") or []; N(f"FM {ds} n={len(rows)} types={[r['type'] for r in rows][:40]}")
-    except Exception as e: N(f"FM {ds} ERR {str(e)[:100]}")
+    N('TRACE ' + traceback.format_exc()[-800:].replace('\n', ' | '))
