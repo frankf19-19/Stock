@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1152';
+const APP_BUILD='r1153';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -16877,7 +16877,12 @@ function showLearnDetail(key){
     return [...a,...b].slice(0,8);
   }
   function paint(){
-    if(!list.length){drop.hidden=true;return;}
+    // r1153:無結果也給提示;清空查詢時不留下可重新開啟的舊清單。
+    if(!list.length){
+      drop.hidden=!inp.value.trim();
+      drop.innerHTML=drop.hidden?'':'<div class="qs-empty" role="status">找不到符合的股票,請試試代號或名稱。</div>';
+      return;
+    }
     drop.innerHTML=list.map((s,i)=>
       `<a href="#stock/${s.id}" class="${i===sel?'sel':''}" data-i="${i}">
         <b>${s.name}</b><span class="c-code">${s.id}</span>
@@ -16885,15 +16890,16 @@ function showLearnDetail(key){
         <span class="qp">${s.price??''} ${s.chg!=null?chgHtml(s.chg):''}</span></a>`).join('');
     drop.hidden=false;
   }
-  function go(s){if(!s)return;drop.hidden=true;inp.value='';inp.blur();location.hash='#stock/'+s.id;}
+  function go(s){if(!s)return;drop.hidden=true;list=[];sel=0;drop.innerHTML='';inp.value='';inp.blur();location.hash='#stock/'+s.id;}
   inp.addEventListener('input',()=>{sel=0;list=find(inp.value);paint();});
   inp.addEventListener('keydown',e=>{
-    if(e.key==='ArrowDown'){sel=Math.min(sel+1,list.length-1);paint();e.preventDefault();}
+    if(e.isComposing)return;
+    if(e.key==='ArrowDown'){sel=Math.max(0,Math.min(sel+1,list.length-1));paint();e.preventDefault();}
     else if(e.key==='ArrowUp'){sel=Math.max(sel-1,0);paint();e.preventDefault();}
-    else if(e.key==='Enter'){go(list[sel]);}
-    else if(e.key==='Escape'){drop.hidden=true;inp.blur();}
+    else if(e.key==='Enter'){e.preventDefault();go(list[sel]);}
+    else if(e.key==='Escape'){drop.hidden=true;inp.blur();e.stopPropagation();}
   });
-  inp.addEventListener('focus',()=>{if(list.length)drop.hidden=false;});
+  inp.addEventListener('focus',()=>{sel=0;list=find(inp.value);paint();});
   document.addEventListener('click',e=>{
     if(!e.target.closest('.qs-wrap'))drop.hidden=true;
   });
@@ -25744,6 +25750,14 @@ async function trendsLoad(){
   try{const r=await fT('trends.json?'+Math.floor(Date.now()/18e5),9000);if(r&&r.ok){const j=await r.json();if(j&&Array.isArray(j.trends)){TRENDS=j;TRENDS_T=Date.now();}}}catch(e){}
   return TRENDS;
 }
+// r1153:保留 AI 原文,無效日曆日期標示待核對,不猜測正確日期。
+function trendDateIssues(t,year){
+  const text=[t.thesis,t.risk,...(t.tw||[]).map(x=>x.why),...(t.us||[]).map(x=>x.why)].join(' ');
+  return [...new Set([...text.matchAll(/\b(\d{1,2})\/(\d{1,2})\b/g)].filter(m=>{
+    const month=+m[1],day=+m[2];
+    return month<1||month>12||day<1||day>new Date(year,month,0).getDate();
+  }).map(m=>m[0]))];
+}
 function trendsRender(T){
   const box=document.getElementById('trendBox');if(!box)return;
   if(!T||!(T.trends||[]).length){box.innerHTML='';return;}
@@ -25751,8 +25765,9 @@ function trendsRender(T){
   const live=id=>{const s=((window.DATA&&DATA.stocks)||[]).find(x=>x.id===id);return s&&s.price>0?{px:s.price,chg:s.chg}:null;};
   const chip=x=>{const q=live(x.id)||{px:x.px,chg:x.chg};const fl=(x.flags||[]).map(f=>`<span class="tr-flag">${esc(f)}</span>`).join('');
     return `<a class="tr-stk" href="#stock/${encodeURIComponent(x.id)}" title="${esc(x.why||'')}"><b>${esc(x.n||x.id)}</b> <span class="c-code">${esc(x.id)}</span>${q&&q.px!=null?` <span>${(+q.px).toLocaleString()}</span> <span style="color:${q.chg>=0?'var(--up)':'var(--down)'}">${q.chg>=0?'+':''}${(+q.chg||0).toFixed(2)}%</span>`:''}${x.yoy?` <span class="dim">營收 ${esc(x.yoy)}</span>`:''}${fl}</a>`;};
-  const card=t=>`<div class="news-card tr-card" style="border-left-color:${stC[t.stage]||'var(--line)'}">
+  const card=t=>{const issues=trendDateIssues(t,parseInt(T.date,10)||new Date().getFullYear());return `<div class="news-card tr-card" style="border-left-color:${stC[t.stage]||'var(--line)'}">
       <div class="news-head"><span class="news-cat" style="color:${stC[t.stage]||'var(--txt2)'};border-color:${stC[t.stage]||'var(--line)'}">${esc(t.stage)}</span><b class="news-ttl">${esc(t.name)}</b><span class="dim" style="font-size:12.5px">看 ${esc(t.horizon||'1~3 年')}${t.days>1?`・連續 ${t.days} 天出現(自 ${String(t.first||'').slice(5).replace('-','/')})`:'・今天新出現'}</span></div>
+      ${issues.length?`<div class="dim-note" role="note" style="color:var(--amber)">⚠️ AI 整理含無效日期 ${issues.map(esc).join('、')},日期待核對;原文保留,請以附上的新聞來源為準。</div>`:''}
       <div class="news-what">${esc(t.thesis)}</div>
       ${(t.chain||[]).length?`<div class="news-tags">${t.chain.map(c=>`<span class="news-grp">${esc(c)}</span>`).join('')}</div>`:''}
       ${(t.tw||[]).length?`<div class="tr-row"><span class="dim">🇹🇼 相關台股</span>${t.tw.map(chip).join('')}</div>`:''}
@@ -25760,7 +25775,7 @@ function trendsRender(T){
       ${(t.tw||[]).some(x=>x.why)?`<div class="tr-why">${t.tw.filter(x=>x.why).map(x=>`<div>▸ <b>${esc(x.n||x.id)}</b>:${esc(x.why)}</div>`).join('')}</div>`:''}
       ${t.risk?`<div class="news-why"><b>⚠️ 最大風險</b>${esc(t.risk)}</div>`:''}
       <div class="news-src">${(t.src||[]).map(x=>`<div>📎 ${esc(x.d.slice(5).replace('-','/'))} ${x.l?`<a href="${esc(x.l)}" target="_blank" rel="noopener" style="color:var(--txt2);text-decoration:none;border-bottom:1px dotted var(--line)">${esc(x.t)}</a>`:esc(x.t)}${x.s?` <span class="dim">— ${esc(x.s)}</span>`:''}</div>`).join('')}</div>
-    </div>`;
+    </div>`;};
   const gen=(T.gen||'').slice(5,16).replace('T',' ');
   box.innerHTML=`<div class="sec-title" style="margin-top:18px">🔭 未來產業趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">AI 從近 ${T.days_in||14} 天早報重點歸納・看 1~3 年・參考</span></div>
     <div class="dim-note" style="margin:0 0 8px">每天跟著早報更新(${esc(gen)} 產生);「連續 N 天出現」= 同一個趨勢連續幾天都被歸納出來,越久越不是一日行情。相關個股只列站內有資料的,價格即時;標籤是站內已驗證的名單(三清單、主力 20 檔),其餘個股與趨勢敘述<b>非驗證</b>、非投資建議。</div>

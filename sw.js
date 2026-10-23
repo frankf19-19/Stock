@@ -20,22 +20,42 @@ self.addEventListener('fetch', e => {
   const key = url.origin + url.pathname;            // 去掉查詢字串:每個檔案只留一份
   // r925:仍是網路優先,但網路 5 秒沒回應且本機有快取 → 先用快取把畫面開起來(背景照樣更新快取),
   //      不再「開起來就卡在載入中」;網路失敗也回快取
-  const net = fetch(req).then(r => {
+  // r1153:快取寫入納入 SW 生命週期;離線只對頁面導覽回傳 HTML。
+  const cached = () => caches.open(CACHE).then(c => c.match(key));
+  const net = fetch(req).then(async r => {
     try {
       const len = +(r.headers.get('content-length') || 0);
-      if (r && r.ok && r.type === 'basic' && (!len || len < 8e6)) {
-        const cp = r.clone();
-        caches.open(CACHE).then(c => c.put(key, cp));
+      if (r.ok && r.type === 'basic' && (!len || len < 8e6)) {
+        const c = await caches.open(CACHE);
+        await c.put(key, r.clone());
       }
-    } catch (err) {}
+    } catch (err) {} // 儲存空間不足不能阻擋正常網路回應
     return r;
   });
-  const fallback = () => caches.match(key).then(hit => hit || caches.match(url.origin + '/Stock/index.html') || caches.match('./index.html'));
+  e.waitUntil(net.catch(() => {}));
+  const fallback = async () => {
+    const hit = await cached();
+    if (hit) return hit;
+    if (req.mode === 'navigate') {
+      const c = await caches.open(CACHE);
+      const shell = await c.match(url.origin + '/Stock/index.html')
+        || await c.match(url.origin + '/Stock/');
+      if (shell) return shell;
+    }
+    return Response.error(); // JSON/JS 缺快取時維持失敗,讓呼叫端正確處理
+  };
   e.respondWith(new Promise(resolve => {
     let done = false;
-    const timer = setTimeout(() => { caches.match(key).then(hit => { if (hit && !done) { done = true; resolve(hit); } }); }, 5000);
+    const timer = setTimeout(() => {
+      cached().then(hit => {
+        if (hit && !done) { done = true; resolve(hit); }
+      }).catch(() => {});
+    }, 5000);
     net.then(r => { clearTimeout(timer); if (!done) { done = true; resolve(r); } })
-       .catch(() => { clearTimeout(timer); if (!done) { done = true; fallback().then(resolve); } });
+       .catch(() => {
+         clearTimeout(timer);
+         if (!done) { done = true; fallback().then(resolve, () => resolve(Response.error())); }
+       });
   }));
 });
 
