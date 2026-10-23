@@ -1,11 +1,14 @@
 """r1049:🎯 錯殺低接——實戰追蹤(每天收盤掃描全市場,記下訊號、隔天開盤虛擬買進,照規則出場,累積實戰成績)
-規則(2012~2026 回測驗證 ✅):離 60 日最高點跌 ≥30% 的第一天 → 隔天 9:00 開盤買;停利 +20%、停損 −15%、最多抱 60 個交易日。
+規則(2012~2026 回測驗證 ✅;r1143 門檻由 −30% 改 −40%):離 60 日最高點跌 ≥40% 的第一天 → 隔天 9:00 開盤買;停利 +20%、停損 −15%、最多抱 60 個交易日。
+   r1143 重測(2016~2026,全市場):門檻 −25% +1.7%/勝率 50% → −30% +3.2%/54% → −35% +4.8%/58% → −40% +6.4%/63%(2,583 次、獲利因子 2.1、11 年全正、前後半段都正)
+   → −45%/−50% 平均再高一點但樣本少、有年度轉負,取 −40%。實戰 10/8~10/22 的 −30% 訊號 40 檔平均 −5.6%,也印證 −30% 太早。
+   舊版(−30%)數據:
    營收好(近 3 月 YoY 都 >0 或近 3 月有創 13 個月新高):4,933 次、勝率 55%、平均 +3.18%;隨機買進同規則平均 +0.59%。
    營收不好也有效(平均 +2.93%),營收好略佳。注意:歷史資料不含已下市股票,跌深股的回測可能偏樂觀。
 另外輸出 rq:每檔的營收品質旗標(給前端判斷「有未來性」)。"""
 import json, gzip
 
-DD = -0.30; TP = 0.20; SL = 0.15; HOLD = 60; LIQ = 2e7
+DD = -0.40; TP = 0.20; SL = 0.15; HOLD = 60; LIQ = 2e7; RULE_V = 40   # r1143:−30% → −40%;新訊號標 r=40,舊紀錄沒有 r 欄位
 _REV = {}
 
 
@@ -42,6 +45,11 @@ def run(A, data, T, last, log=print):
     S = T.setdefault("os", {"open": [], "pend": [], "closed": [], "start": last})
     if S.get("done") == last: return S
     ev = []
+    # r1143:規則改 −40% 當天,舊門檻(沒有 r 欄位)還沒成交的待買單作廢,不再用 −30% 進場
+    old = [q for q in (S.get("pend") or []) if q.get("r") != RULE_V]
+    if old:
+        S["pend"] = [q for q in S["pend"] if q.get("r") == RULE_V]
+        ev.append(f"{last} 🎯 錯殺低接規則改為 −{int(abs(DD)*100)}%:舊門檻待買 {len(old)} 檔作廢(" + "、".join(q["name"] for q in old[:8]) + ")")
     # ① 待買:隔天開盤成交
     keep = []
     for q in S.get("pend") or []:
@@ -50,7 +58,7 @@ def run(A, data, T, last, log=print):
         if not d or last not in d: keep.append(q) if q.get("tries", 0) < 3 else None; q["tries"] = q.get("tries", 0) + 1; continue
         b = o[d.index(last)]; op = b[0]
         if not op: continue
-        S["open"].append({"id": q["id"], "name": q["name"], "sig_d": q["sig_d"], "fill": last, "entry": op, "tp": round(op * (1 + TP), 2), "sl": round(op * (1 - SL), 2), "q": q.get("q"), "n": 0})
+        S["open"].append({"id": q["id"], "name": q["name"], "sig_d": q["sig_d"], "fill": last, "entry": op, "tp": round(op * (1 + TP), 2), "sl": round(op * (1 - SL), 2), "q": q.get("q"), "n": 0, "r": q.get("r")})
     S["pend"] = keep
     # ② 出場(含今天剛買的,用今天日 K)
     still = []
@@ -70,7 +78,7 @@ def run(A, data, T, last, log=print):
             ev.append(f"{last} 🎯 錯殺低接{'停利' if why == 'tp' else '停損' if why == 'sl' else '到期'} {p['name']} {xp}({ret*100:+.1f}%)")
         else: still.append(p)
     S["open"] = still
-    # ③ 新訊號:今天第一次離 60 日高 ≥30%
+    # ③ 新訊號:今天第一次離 60 日高 ≥40%(r1143)
     try: from trader import has_jump
     except Exception: has_jump = lambda o, n=260: False
     rq = {}; sig = []
@@ -91,16 +99,21 @@ def run(A, data, T, last, log=print):
         dd = c[-1] / max(hh[-60:]) - 1; dd0 = c[-2] / max(hh[-61:-1]) - 1
         if dd <= DD and dd0 > DD and sid not in held:
             qq = rq.get(sid); qual = bool(qq and (qq[0] or qq[1]))
-            sig.append({"id": sid, "name": s.get("name"), "sig_d": last, "q": int(qual), "dd": round(dd * 100, 1), "px": c[-1]})
+            sig.append({"id": sid, "name": s.get("name"), "sig_d": last, "q": int(qual), "dd": round(dd * 100, 1), "px": c[-1], "r": RULE_V})
     for q in sig: S["pend"].append(q)
     if sig: ev.append(f"{last} 🎯 錯殺低接訊號:明天開盤買 " + "、".join(f"{q['name']}(離高點 {q['dd']}%{'・營收好' if q['q'] else ''})" for q in sig[:12]) + (f" 等 {len(sig)} 檔" if len(sig) > 12 else ""))
     S["sig"] = sig; S["rq"] = rq; S["rq_d"] = last
     cl = S["closed"]
-    S["stats"] = {"closed": len(cl), "win": round(100 * sum(1 for t in cl if t["ret"] > 0) / len(cl), 1) if cl else None,
-                  "avg": round(sum(t["ret"] for t in cl) / len(cl), 2) if cl else None, "open": len(S["open"])}
+    def _st(cl, op):
+        return {"closed": len(cl), "win": round(100 * sum(1 for t in cl if t["ret"] > 0) / len(cl), 1) if cl else None,
+                "avg": round(sum(t["ret"] for t in cl) / len(cl), 2) if cl else None, "open": len(op)}
+    S["stats"] = _st(cl, S["open"])
+    S["stats40"] = _st([t for t in cl if t.get("r") == RULE_V], [p for p in S["open"] if p.get("r") == RULE_V])   # r1143:新規則單獨計
+    S["stats30"] = _st([t for t in cl if not t.get("r")], [p for p in S["open"] if not p.get("r")])
     S["closed"] = cl[-400:]
-    S["rules"] = {"dd": DD, "tp": TP, "sl": SL, "hold": HOLD,
-                  "bt": {"good": [4933, 3.18, 55], "all": [8569, 3.10, 54], "bad": [4376, 2.93, 53], "rand": [48344, 0.59, 47], "years": "12/15", "range": "2012~2026"}}
+    S["rules"] = {"dd": DD, "tp": TP, "sl": SL, "hold": HOLD, "v": RULE_V,
+                  "bt": {"all": [2583, 6.42, 63], "good": [598, 7.23, 65], "pf": 2.13, "years": "11/11", "range": "2016~2026",
+                         "old30": [7305, 3.21, 54], "rand": [48344, 0.59, 47], "halves": [[753, 4.96, 58], [1831, 7.01, 64]]}}
     S["done"] = last
     for e in ev: log("os:" + e)
     return S

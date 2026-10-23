@@ -15,16 +15,27 @@ def prep(S):
         cv = np.concatenate([[0], np.cumsum(C*V)]); liq = np.full(n, np.nan); liq[19:] = (cv[20:] - cv[:-20]) / 20
         tr = np.maximum(H - L, np.maximum(abs(H - np.roll(C, 1)), abs(L - np.roll(C, 1)))); tr[0] = H[0]-L[0]
         ctr = np.concatenate([[0], np.cumsum(tr)]); atr = np.full(n, np.nan); atr[19:] = (ctr[20:] - ctr[:-20]) / 20
-        e['P'] = dict(ma20=ma(20), ma60=ma(60), ma240=ma(240), h20=hprev(20), h60=hprev(60), h120=hprev(120), h250=hprev(250), liq=liq, atr=atr,
+        f5 = np.full(n, 0.0); f5[4:] = np.convolve(e['f'], np.ones(5), 'valid'); t5 = np.full(n, 0.0); t5[4:] = np.convolve(e['t'], np.ones(5), 'valid')
+        vs = np.concatenate([[0], np.cumsum(V)]); vol5 = np.full(n, 1.0); vol5[4:] = np.maximum(vs[5:] - vs[:-5], 1); v20p = np.full(n, np.nan); v20p[20:] = (vs[20:-1] - vs[:-21]) / 20
+        lo60 = np.full(n, np.nan)
+        for i in range(59, n): lo60[i] = L[i-59:i+1].min()
+        e['P'] = dict(f5=f5/vol5, t5=t5/vol5, v20p=v20p, lo60=lo60, ma20=ma(20), ma60=ma(60), ma240=ma(240), h20=hprev(20), h60=hprev(60), h120=hprev(120), h250=hprev(250), liq=liq, atr=atr,
                       hi250=roll_max(H, 250))
 
-def simulate(S, ev, exit_rule, start='2016-01-01', sample_any=False, rng=None):
+def ry_at(e, i):
+    d = e['d'][i]; y, mo = int(d[:4]), int(d[5:7]); back = 1 if int(d[8:10]) >= 12 else 2
+    mm = mo - back; yy = y
+    if mm <= 0: mm += 12; yy -= 1
+    return (e.get('rev') or {}).get(f'{yy}-{mm:02d}')
+
+def simulate(S, ev, exit_rule, start='2016-01-01', sample_any=False, rng=None, max_gap=None, end=None):
     """ev(e,i)->bool 事件;exit_rule(e,i_entry)->(exit_i, exit_px, why)"""
     trades = []
     for sid, e in S.items():
         d = e['d']; a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']
         i0 = next((k for k, x in enumerate(d) if x >= start), None)
         if i0 is None: continue
+        n = n if end is None else min(n, next((k for k, x in enumerate(d) if x >= end), n))
         last_exit = -1
         for i in range(max(i0, 250), n - 2):
             if i <= last_exit: continue
@@ -34,6 +45,7 @@ def simulate(S, ev, exit_rule, start='2016-01-01', sample_any=False, rng=None):
             elif not ev(e, i): continue
             ei = i + 1; px = O[ei]
             if not px: continue
+            if max_gap is not None and px / C[i] - 1 > max_gap: continue
             xi, xp, why = exit_rule(e, ei)
             if xi is None: continue
             r = xp / px - 1 - 0.006
@@ -104,6 +116,82 @@ if __name__ == '__main__':
                '120日高・近高(≤10%)': lambda e, i: EV['站上 120 日高'](e, i) and near(e, i)}
         for en, ef in EV3.items():
             for xn in ('季線停損/+25%/60日', '季線停損/不停利/120日'): stats(simulate(S, ef, EX[xn]), f'{en} | {xn}')
+    if which == 'b3':
+        ev250 = EV['站上 250 日高']; xo = EX['季線停損/+25%/60日']; xn = EX['季線停損/不停利/120日']
+        F3 = {'250日高': ev250,
+              '250日高+量>1.5倍': lambda e, i: ev250(e, i) and e['a'][i][4] > 1.5 * e['P']['v20p'][i],
+              '250日高+量>2倍': lambda e, i: ev250(e, i) and e['a'][i][4] > 2.0 * e['P']['v20p'][i],
+              '250日高+量<1.2倍(無量)': lambda e, i: ev250(e, i) and e['a'][i][4] < 1.2 * e['P']['v20p'][i],
+              '250日高+投信5日買超': lambda e, i: ev250(e, i) and e['P']['t5'][i] >= 0.03,
+              '250日高+外資5日買超': lambda e, i: ev250(e, i) and e['P']['f5'][i] >= 0.05,
+              '250日高+法人都沒買': lambda e, i: ev250(e, i) and e['P']['t5'][i] < 0.03 and e['P']['f5'][i] < 0.05,
+              '250日高+月營收YoY>0': lambda e, i: ev250(e, i) and (ry_at(e, i) or -1) > 0,
+              '250日高+月營收YoY>20%': lambda e, i: ev250(e, i) and (ry_at(e, i) or -1) > 0.20,
+              '250日高+月營收YoY<0': lambda e, i: ev250(e, i) and ry_at(e, i) is not None and ry_at(e, i) <= 0,
+              '250日高+當天漲幅<5%': lambda e, i: ev250(e, i) and e['a'][i][3] / e['a'][i-1][3] - 1 < 0.05,
+              '250日高+當天漲幅≥5%': lambda e, i: ev250(e, i) and e['a'][i][3] / e['a'][i-1][3] - 1 >= 0.05,
+              '250日高+成交值前段(≥1億)': lambda e, i: ev250(e, i) and e['P']['liq'][i] >= 1e5,
+              '250日高+小型(<1億)': lambda e, i: ev250(e, i) and e['P']['liq'][i] < 1e5}
+        for en, ef in F3.items():
+            stats(simulate(S, ef, xo), f'{en} | 季線/+25%'); stats(simulate(S, ef, xn), f'{en} | 季線/不停利')
+        stats(simulate(S, ev250, xo, max_gap=0.03), '250日高 | 季線/+25% | 開盤跳空>3%不買')
+        stats(simulate(S, ev250, xn, max_gap=0.03), '250日高 | 季線/不停利 | 開盤跳空>3%不買')
+        # 錯殺低接
+        dip = lambda e, i: e['a'][i][3] / e['P']['h60'][i] - 1 <= -0.30 and e['a'][i-1][3] / e['P']['h60'][i-1] - 1 > -0.30
+        for xn2, xf in {'−15%/+20%/60日(現行)': mk_exit(sl=0.15, tp=0.20, hold=60), '−15%/+25%/60日': mk_exit(sl=0.15, tp=0.25, hold=60), '−10%/+20%/60日': mk_exit(sl=0.10, tp=0.20, hold=60),
+                        '−15%/+20%/40日': mk_exit(sl=0.15, tp=0.20, hold=40), '−15%/+20%/90日': mk_exit(sl=0.15, tp=0.20, hold=90), '−20%/+30%/90日': mk_exit(sl=0.20, tp=0.30, hold=90),
+                        '月線停損/+20%/60日': mk_exit(stop_ma='ma20', tp=0.20, hold=60)}.items():
+            stats(simulate(S, dip, xf), f'錯殺(60日高−30%第一天) | {xn2}')
+        stats(simulate(S, lambda e, i: dip(e, i) and (ry_at(e, i) or -1) > 0, mk_exit(sl=0.15, tp=0.20, hold=60)), '錯殺+營收YoY>0 | −15%/+20%/60日')
+        stats(simulate(S, lambda e, i: dip(e, i) and ry_at(e, i) is not None and ry_at(e, i) <= 0, mk_exit(sl=0.15, tp=0.20, hold=60)), '錯殺+營收YoY≤0 | −15%/+20%/60日')
+        stats(simulate(S, lambda e, i: dip(e, i) and e['P']['ma240'][i] and e['a'][i][3] > e['P']['ma240'][i], mk_exit(sl=0.15, tp=0.20, hold=60)), '錯殺+仍在年線上 | −15%/+20%/60日')
+        stats(simulate(S, lambda e, i: e['a'][i][3] / e['P']['h60'][i] - 1 <= -0.40 and e['a'][i-1][3] / e['P']['h60'][i-1] - 1 > -0.40, mk_exit(sl=0.15, tp=0.20, hold=60)), '錯殺改 −40% 第一天 | −15%/+20%/60日')
+        stats(simulate(S, lambda e, i: e['a'][i][3] / e['P']['h60'][i] - 1 <= -0.20 and e['a'][i-1][3] / e['P']['h60'][i-1] - 1 > -0.20, mk_exit(sl=0.15, tp=0.20, hold=60)), '錯殺改 −20% 第一天 | −15%/+20%/60日')
+    if which == 'b4':
+        def dipk(k): return lambda e, i: e['a'][i][3] / e['P']['h60'][i] - 1 <= -k and e['a'][i-1][3] / e['P']['h60'][i-1] - 1 > -k
+        x = mk_exit(sl=0.15, tp=0.20, hold=60)
+        for k in (0.25, 0.30, 0.35, 0.40, 0.45, 0.50):
+            stats(simulate(S, dipk(k), x), f'錯殺 −{int(k*100)}% 第一天 | −15%/+20%/60日')
+        for k in (0.35, 0.40):
+            stats(simulate(S, dipk(k), x, start='2016-01-01', end='2021-01-01'), f'錯殺 −{int(k*100)}% | 2016~2020')
+            stats(simulate(S, dipk(k), x, start='2021-01-01'), f'錯殺 −{int(k*100)}% | 2021~2026')
+            stats(simulate(S, dipk(k), mk_exit(sl=0.15, tp=0.20, hold=40)), f'錯殺 −{int(k*100)}% | −15%/+20%/40日')
+            stats(simulate(S, dipk(k), mk_exit(sl=0.15, tp=0.30, hold=60)), f'錯殺 −{int(k*100)}% | −15%/+30%/60日')
+            stats(simulate(S, dipk(k), mk_exit(sl=0.20, tp=0.30, hold=90)), f'錯殺 −{int(k*100)}% | −20%/+30%/90日')
+            stats(simulate(S, lambda e, i, f=dipk(k): f(e, i) and (ry_at(e, i) or -1) > 0, x), f'錯殺 −{int(k*100)}% +營收YoY>0 | −15%/+20%/60日')
+            stats(simulate(S, lambda e, i, f=dipk(k): f(e, i) and e['P']['liq'][i] >= 3e4, x), f'錯殺 −{int(k*100)}% +日成交值≥3000萬 | −15%/+20%/60日')
+            stats(simulate(S, lambda e, i, f=dipk(k): f(e, i) and e['P']['liq'][i] < 3e4, x), f'錯殺 −{int(k*100)}% +日成交值<3000萬 | −15%/+20%/60日')
+            stats(simulate(S, dipk(k), x, max_gap=0.0), f'錯殺 −{int(k*100)}% | 開高不買')
+        # 年度分布 −40%
+        tr = simulate(S, dipk(0.40), x)
+        import collections as C3
+        yy = C3.defaultdict(list)
+        for t in tr: yy[t[1][:4]].append(t[2])
+        for y in sorted(yy): print(f'   {y}: 筆 {len(yy[y]):4d} 平均 {np.mean(yy[y])*100:+.1f}% 勝率 {np.mean(np.array(yy[y])>0)*100:.0f}%')
+    if which == 'own2':
+        import collections as C2
+        for k in (0.30, 0.40):
+            dp = lambda e, i, k=k: e['a'][i][3] / e['P']['h60'][i] - 1 <= -k and e['a'][i-1][3] / e['P']['h60'][i-1] - 1 > -k
+            x = mk_exit(sl=0.15, tp=0.20, hold=60)
+            tr_a = simulate(S, dp, x, start='2013-01-01', end='2020-01-01'); tr_b = simulate(S, dp, x, start='2020-01-01')
+            pa = C2.defaultdict(list)
+            for t in tr_a: pa[t[0]].append(t[2])
+            good = {sid for sid, v in pa.items() if len(v) >= 3 and np.mean(v) > 0.03}; bad = {sid for sid, v in pa.items() if len(v) >= 3 and np.mean(v) <= 0}
+            stats([t for t in tr_b if t[0] in good], f'錯殺−{int(k*100)}% 前期(2013~19)自己有效 → 2020~26')
+            stats([t for t in tr_b if t[0] in bad], f'錯殺−{int(k*100)}% 前期自己無效 → 2020~26')
+            stats([t for t in tr_b if t[0] not in good and t[0] not in bad], f'錯殺−{int(k*100)}% 前期樣本少 → 2020~26')
+    if which == 'own':
+        # 每檔自己的歷史能不能預測:2012~2018 的「站上 250 日高」勝率/平均 → 2019~2026
+        ev250 = EV['站上 250 日高']; xo = EX['季線停損/+25%/60日']
+        tr_a = simulate(S, ev250, xo, start='2013-01-01', end='2019-01-01'); tr_b = simulate(S, ev250, xo, start='2019-01-01')
+        import collections as C2
+        pa = C2.defaultdict(list)
+        for t in tr_a: pa[t[0]].append(t[2])
+        good = {sid for sid, v in pa.items() if len(v) >= 5 and np.mean(v) > 0.02}; bad = {sid for sid, v in pa.items() if len(v) >= 5 and np.mean(v) <= 0}
+        stats([t for t in tr_b if t[0] in good], '前期(2013~18)自己突破有效的股票 → 2019~26')
+        stats([t for t in tr_b if t[0] in bad], '前期自己突破無效的股票 → 2019~26')
+        stats([t for t in tr_b if t[0] not in good and t[0] not in bad], '前期樣本少/中性 → 2019~26')
+        stats(tr_b, '全部 2019~26')
     if which == 'exit':
         EX2 = dict(EX); EX2.update({'季線停損/+20%/60日': mk_exit(stop_ma='ma60', tp=0.20, hold=60), '季線停損/+30%/60日': mk_exit(stop_ma='ma60', tp=0.30, hold=60),
             '季線停損/+25%/120日': mk_exit(stop_ma='ma60', tp=0.25, hold=120), '−10%/+20%/60日': mk_exit(sl=0.10, tp=0.20, hold=60), '−20%/+30%/90日': mk_exit(sl=0.20, tp=0.30, hold=90),
