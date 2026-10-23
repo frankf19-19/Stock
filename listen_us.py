@@ -95,7 +95,10 @@ def is_earnings_8k(cik, acc):
     """index 頁(-index.htm)有列 Items → 看有沒有 2.02"""
     base = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc.replace('-', '')}"
     t = sec_get(f"{base}/{acc}-index.htm", json_=False) or ""
-    return "2.02" in t
+    m = re.search(r"Items?\s*:?\s*</[^>]+>\s*<[^>]+>\s*([^<]{0,200})", t) or re.search(r"Items?[^<]{0,10}:\s*([^<]{0,200})", t)
+    items = (m.group(1) if m else "")
+    if ONLY: log(f"    index 頁 Items=「{items.strip()[:80]}」 len={len(t)}")
+    return bool(re.search(r"\b2\.02\b", items)) if items else ("Results of Operations" in t)
 
 
 def filings(cik, since):
@@ -128,9 +131,10 @@ def exhibit_text(cik, acc):
     base = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc.replace('-', '')}"
     j = sec_get(base + "/index.json")
     if not j:
-        return None, None
+        log("    index.json 抓不到"); return None, None
     items = (j.get("directory") or {}).get("item") or []
     names = [x.get("name", "") for x in items]
+    if ONLY: log(f"    附件 {names[:12]}")
     cands = [n for n in names if re.search(r"ex[-_]?99", n, re.I) and n.lower().endswith((".htm", ".html"))]
     cands.sort(key=lambda n: (0 if re.search(r"99[-_.]?1\b|991", n) else 1, len(n)))
     if not cands:   # 沒有 ex99 命名 → 用最大的 htm(非主文件)
