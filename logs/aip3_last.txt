@@ -1,3 +1,3 @@
-aip3:台股最後交易日 2026-10-16、美股 2026-10-16
+aip3:台股最後交易日 2026-10-22、美股 2026-10-22
 aip3 盤中小檔:11 KB
-aip3:完成 tw.short=5檔 tw.mid=5檔 tw.long=5檔 us.short=5檔 us.mid=5檔 us.long=5檔
+aip3:完成 tw.short=4檔 tw.mid=5檔 tw.long=5檔 us.short=5檔 us.mid=5檔 us.long=5檔
