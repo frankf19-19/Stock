@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1153';
+const APP_BUILD='r1154';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -10997,6 +10997,58 @@ async function fmRevStock(sid){                            // r701:FinMind「個
   FMREV_C[sid]=out;
   return out;
 }
+// r1154:事實與後續核對分列;不以投票推論半年漲跌,不使用大盤或新增買賣規則。
+function outlookObservation(s,e,ke){
+  const esc=newsEsc,lines=[],gaps=[];
+  const num=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?Number(v):null;
+  const last=a=>Array.isArray(a)&&a.length?a[a.length-1]:null;
+  const fmt=v=>num(v)===null?'未提供':Number(v).toLocaleString('zh-TW',{maximumFractionDigits:2});
+  const change=v=>(v>0?'+':'')+fmt(v);
+  const period=v=>v?String(v):'期間未提供';
+  e=e||{};
+  const ry=num(last(e.ry)),prior=Array.isArray(e.ry)&&e.ry.length>1?num(e.ry[e.ry.length-2]):null;
+  if(ry!==null){
+    lines.push('📈 營運｜'+period(last(e.rm))+' 營收年增 '+change(ry)+'%'+(prior!==null?'；前月 '+change(prior)+'%，變化 '+change(ry-prior)+' 個百分點':'；前月資料未提供')+'。下次核對：新月份年增率與增速是否延續，並留意同月基期。');
+  }else gaps.push('月營收');
+  const om=num(last(e.om));
+  if(om!==null){
+    const n=e.om.length,prev=n>1?num(e.om[n-2]):null;
+    const fq=last(e.fq),year=/^(\d{4})Q([1-4])$/.exec(String(fq||''));
+    const yidx=year&&Array.isArray(e.fq)?e.fq.indexOf((+year[1]-1)+'Q'+year[2]):-1;
+    const yearOm=yidx>=0?num(e.om[yidx]):null;
+    lines.push('🏭 獲利｜'+period(fq)+' 營益率 '+fmt(om)+'%'+(yearOm!==null?'；較去年同季 '+change(om-yearOm)+' 個百分點':prev!==null?'；較前季 '+change(om-prev)+' 個百分點（季節性未調整）':'；比較期間不足')+'。下次核對：下一季營益率與營收能否共同維持。');
+  }else gaps.push('季報營益率');
+  const cash=num(e.ocfr);
+  if(cash!==null)lines.push('💵 現金流｜近四季營業現金流／淨利 '+fmt(cash)+' 倍；公告日與現金流期間依財報資料，來源未提供時不推定。下次核對：下一份財報的現金流與淨利變化。');
+  const pe=num(s.pe);
+  if(pe!==null&&pe>0)lines.push('🧮 估值｜目前本益比 '+fmt(pe)+' 倍；僅列已知數值，尚未建立本公司歷史估值比較，不以跨公司固定門檻判斷低估或半年目標。');
+  if(Array.isArray(e.f)&&e.f.length>=40){
+    const n=e.f.length,tot=i=>{
+      const f=num(e.f[i]),t=Array.isArray(e.t)?num(e.t[i]):null,g=Array.isArray(e.g)?num(e.g[i]):null;
+      return f===null||t===null||g===null?null:f+t+g;
+    };
+    const recent=Array.from({length:20},(_,i)=>tot(n-20+i)),past=Array.from({length:20},(_,i)=>tot(n-40+i));
+    if(recent.every(x=>x!==null)&&past.every(x=>x!==null)){
+      lines.push('🏦 籌碼｜截至 '+period(last(e.d))+'，三大法人近20交易日合計 '+change(Math.round(recent.reduce((a,b)=>a+b,0)))+' 張，前20交易日 '+change(Math.round(past.reduce((a,b)=>a+b,0)))+' 張。這是已發生的資金變化，不推定領先財報或未來漲跌。');
+    }else gaps.push('完整三大法人40日資料');
+  }else gaps.push('法人40日資料');
+  const bp=num(last(e.bp));
+  if(bp!==null){
+    const n=Math.min(9,e.bp.length),old=num(e.bp[e.bp.length-n]);
+    lines.push('💰 大戶｜截至 '+period(last(e.bd))+'，400張大戶持股 '+fmt(bp)+'%'+(n>1&&old!==null?'；近'+(n-1)+'週變化 '+change(bp-old)+' 個百分點':'；週變化資料不足')+'。下次核對：新一週持股比率是否延續，不能據此認定特定大戶意圖。');
+  }
+  if(ke&&Array.isArray(ke.o)&&ke.o.length>=121){
+    const end=num(ke.o[ke.o.length-1]?.[3]),begin=num(ke.o[ke.o.length-121]?.[3]);
+    if(end!==null&&begin!==null&&begin>0)lines.push('🗓 本股價格回顧｜截至 '+period(last(ke.d))+'，近120交易日價格變化 '+change((end/begin-1)*100)+'%（依目前K線口徑，非未來預測或含息績效）。');
+  }
+  const target=num(s.tp?.m),price=num(s.price);
+  if(target!==null&&target>0&&price!==null&&price>0)lines.push('🎯 外部估計｜分析師平均目標價 '+fmt(target)+'，距現價 '+change((target/price-1)*100)+'%；來源日期與預估期限若未提供，無法確認是否仍適用，不當作半年可達價。');
+  if(!lines.length)return {title:'未來半年營運追蹤（參考）｜資料不足，暫無法判讀',lines:['⏳ 尚無足夠資料，不能視為持平。待補：'+gaps.join('、')],gaps};
+  if(gaps.length)lines.push('⏳ 待補資料：'+gaps.join('、')+'；缺資料不代表沒有風險或前景持平。');
+  lines.push('📎 資料期間見各列；公告日／來源更新時間未提供者不推定為今天。觀察不等於半年漲跌預測，進出場仍看另列的已驗證買賣計畫。');
+  return {title:'未來半年營運追蹤（參考）'+(ry===null&&om===null?'｜營運資料不足':''),lines,gaps};
+}
+
 async function fundAlertUI(s){                             // r496:基本面/前景體檢——四訊號規則判定,個股頁頂部直接警示
   try{
     if(!s||s.market!=='TW'||s.etf)return;
@@ -11079,104 +11131,13 @@ async function fundAlertUI(s){                             // r496:基本面/前
     if(s.eps!=null&&+s.eps<0)scan.push('EPS 為負');
     if(s.plg!=null&&+s.plg>=50)scan.push(`董監質押比 ${F1(s.plg)}%(過半,籌碼與經營風險)`);   // r701 ⑥
     if(e&&e.ocfr!=null&&isFinite(+e.ocfr)&&+e.ocfr<0.5)scan.push(`盈餘含金量僅 ${(+e.ocfr).toFixed(2)}(近四季營業現金流遠低於帳面淨利)`);   // r701 ⑩
-    // ── r497:未來半年前景評估(股價半年RS=市場投票、動能連續性、估值透支度、獲利外推) ──
-    const out=[];let oUp=0,oDn=0;
-    try{                                                   // ① 市場半年投票:個股 vs 加權 120 交易日相對強弱(股價領先基本面約半年)
-      const sh=shardOf(s);
-      await loadShard(KCACHE,sh);
-      const ke=(KCACHE[sh]||{})[s.id];
-      if(ke&&ke.o&&ke.o.length>=130){
-        const c=ke.o.map(x=>x[3]),n=c.length;
-        const stkR=(c[n-1]/c[n-121]-1)*100;
-        let twR=null;
-        try{const y=await yextData();const td=(((y||{}).series||{})['^TWII']||{}).d;
-          if(td&&td.c&&td.c.length>=121){const m=td.c.length;twR=(td.c[m-1]/td.c[m-121]-1)*100;}}catch(x){}
-        if(twR!=null){
-          const rs=stkR-twR;
-          let t=`市場半年投票:近120日本股 ${stkR>=0?'+':''}${F1(stkR)}% vs 加權 ${twR>=0?'+':''}${F1(twR)}%(相對 ${rs>=0?'+':''}${F1(rs)}pp)`;
-          if(rs>=15){oUp++;t+='——資金持續押注本檔前景優於大盤(股價常領先基本面約半年)';}
-          else if(rs<=-15){oDn++;t+='——市場已提前用腳投票看淡後市,留意基本面尚未反映的利空';}
-          else t+='——與大盤同步,市場未對前景下特別的注';
-          out.push('🗳 '+t);
-        }
-      }
-    }catch(x){}
-    try{                                                   // ② 動能連續性:月營收 YoY 連正/連負與加速度
-      if(e&&Array.isArray(e.ry)&&e.ry.length>=2){
-        let pos=0,neg=0;
-        for(let i=e.ry.length-1;i>=0;i--){if(+e.ry[i]>0&&neg===0)pos++;else if(+e.ry[i]<0&&pos===0)neg++;else break;}
-        const acc=e.ry.length>=3?(+e.ry[e.ry.length-1]-+e.ry[e.ry.length-3]):null;
-        if(pos>=2){oUp++;out.push(`📈 動能連續性:YoY 連 ${pos} 個月為正${acc!=null?(acc>0?'且加速(+'+F1(acc)+'pp/2月)':acc<-10?'但明顯減速('+F1(acc)+'pp/2月)——半年內動能可能觸頂':''):''}——成長慣性通常可延續 1~2 季`);}
-        else if(neg>=2){oDn++;out.push(`📉 動能連續性:YoY 連 ${neg} 個月為負——衰退慣性下,半年內反轉需要看到單月翻正的確認`);}
-      }
-    }catch(x){}
-    try{                                                   // ③ 估值透支度:本益比 vs 成長率(半年後的行情=現在的估值+未來的成長)
-      const pe=+s.pe;
-      if(pe>0&&ryL!=null){
-        if(pe>=40&&ryL<10){oDn++;out.push(`🧮 估值透支:PE ${F1(pe)} 倍但營收 YoY 僅 ${F1(ryL)}%——目前價格已預支未來成長,半年內若成長跟不上,估值修正風險高`);}
-        else if(pe<=15&&ryL>=15){oUp++;out.push(`🧮 估值低估:PE ${F1(pe)} 倍配 YoY +${F1(ryL)}%——成長未被充分定價,半年內有重估空間`);}
-        else out.push(`🧮 估值:PE ${F1(pe)} 倍、YoY ${ryL>=0?'+':''}${F1(ryL)}%——大致合理定價`);
-      }
-    }catch(x){}
-    try{                                                   // ④ 獲利趨勢外推
-      if(e&&Array.isArray(e.om)&&e.om.length>=2){
-        const d3=+e.om[e.om.length-1]-+e.om[e.om.length-2];
-        if(d3>=1){oUp++;out.push(`🏭 獲利外推:營益率季增 +${F1(d3)}pp——產品組合/議價力改善中,通常可延續 2~3 季`);}
-        else if(d3<=-1.5){oDn++;out.push(`🏭 獲利外推:營益率季減 ${F1(d3)}pp——若下季未止穩,半年獲利預期需下修`);}
-      }
-    }catch(x){}
-    try{                                                   // ⑤ 法人資金前瞻:20日 vs 前20日(法人動向常領先財報一季)
-      if(e&&Array.isArray(e.f)&&e.f.length>=40){
-        const tot2=i=>Math.round((+e.f[i]||0)+((e.t&&+e.t[i])||0)+((e.g&&+e.g[i])||0));
-        let a2=0,b2=0;const n2=e.f.length;
-        for(let i=n2-20;i<n2;i++)a2+=tot2(i);
-        for(let i=n2-40;i<n2-20;i++)b2+=tot2(i);
-        if(a2>0&&a2>b2&&a2>=500){oUp++;out.push(`🏦 法人前瞻:近20日買超 +${a2.toLocaleString()} 張且加碼中(前20日 ${b2>=0?'+':''}${b2.toLocaleString()})——法人建倉通常領先財報表態一季`);}
-        else if(a2<0&&a2<b2&&a2<=-500){oDn++;out.push(`🏦 法人前瞻:近20日賣超 ${a2.toLocaleString()} 張且擴大(前20日 ${b2>=0?'+':''}${b2.toLocaleString()})——法人退場是前景轉淡的領先訊號`);}
-      }
-    }catch(x){}
-    try{                                                   // ⑥ 大戶籌碼前瞻:400張大戶週趨勢(大戶吸籌常先於利多發酵)
-      if(e&&Array.isArray(e.bp)&&e.bp.length>=3){
-        const nB=Math.min(9,e.bp.length),dB=+e.bp[e.bp.length-1]-+e.bp[e.bp.length-nB];   // r1137:固定近 8 週
-        if(dB>=1){oUp++;out.push(`💰 大戶前瞻:400張大戶近${nB-1}週 +${F1(dB)}pp 持續吸籌——大戶加碼常領先題材與財報發酵`);}
-        else if(dB<=-1){oDn++;out.push(`💰 大戶前瞻:400張大戶近${nB-1}週 ${F1(dB)}pp 持續減碼——留意大戶已在提前撤出`);}
-      }
-    }catch(x){}
-    try{                                                   // ⑦ 中期趨勢結構:價 vs 季線 + 季線斜率(季線方向≈市場對半年基本面的定價)
-      const sh3=shardOf(s);
-      await loadShard(KCACHE,sh3);
-      const ke3=(KCACHE[sh3]||{})[s.id];
-      if(ke3&&ke3.o&&ke3.o.length>=70){
-        const c3=ke3.o.map(x=>x[3]),n3=c3.length;
-        const ma60=k=>{let x=0;for(let i=n3-60-k;i<n3-k;i++)x+=c3[i];return x/60;};
-        const mNow=ma60(0),mPrev=ma60(5),px3=c3[n3-1];
-        if(px3>mNow&&mNow>mPrev){oUp++;out.push(`📐 中期結構:股價站上季線且季線上彎(${F1((mNow/mPrev-1)*100)}%/週)——中期趨勢對前景投贊成票`);}
-        else if(px3<mNow&&mNow<mPrev){oDn++;out.push(`📐 中期結構:股價位於季線下且季線下彎——市場定價已轉趨保守,反轉需先收復季線`);}
-      }
-    }catch(x){}
-    try{                                                   // ⑧ 分析師目標價空間(僅 32 檔研究覆蓋股有此資料)
-      if(s.tp&&+s.tp.m>0&&+s.price>0){
-        const up2=(+s.tp.m/+s.price-1)*100;
-        if(up2>=20){oUp++;out.push(`🎯 目標價空間:分析師平均目標 ${Math.round(+s.tp.m).toLocaleString()},距現價 +${F1(up2)}%——研究圈預期半年內有重估空間(目標價通常偏樂觀,打折看待)`);}
-        else if(up2<=0){oDn++;out.push(`🎯 目標價空間:現價已超過分析師平均目標 ${Math.round(+s.tp.m).toLocaleString()}(${F1(up2)}%)——超漲段,上檔想像空間需靠上修支撐`);}
-      }
-    }catch(x){}
-    // 資料缺口誠實揭露:判不了的講明缺什麼,而不是無聲消失
-    const gaps=[];
-    if(!(e&&Array.isArray(e.ry)&&e.ry.length>=2))gaps.push('動能連續性(需≥2個月營收)');
-    if(!(e&&Array.isArray(e.om)&&e.om.length>=2))gaps.push('獲利外推(需≥2季三率)');
-    if(gaps.length)out.push(`<span style="color:var(--dim)">⏳ 資料累積中:${gaps.join('、')}——歷史回補完成後自動納入判讀</span>`);
-    let oTtl='',oCol='var(--dim)';
-    if(out.length){
-      if(oUp>=3&&oDn===0){oTtl='未來半年前景:明確看升(多面向同步支持)';oCol='var(--up)';}
-      else if(oUp>=2&&oDn===0){oTtl='未來半年前景:看升(前景未變、甚至更好)';oCol='var(--up)';}
-      else if(oDn>=3&&oUp===0){oTtl='未來半年前景:明確看降(多面向同步轉弱)';oCol='var(--down)';}
-      else if(oDn>=2&&oUp===0){oTtl='未來半年前景:看降(前景已出現變化,轉趨保守)';oCol='var(--down)';}
-      else if(oUp>=1&&oDn>=1){oTtl=`未來半年前景:多空拉鋸(${oUp} 升 vs ${oDn} 降,轉折觀察)`;oCol='var(--amber)';}
-      else if(oUp===1){oTtl='未來半年前景:偏正向(單一訊號支持,待更多面向確認)';oCol='var(--up)';}
-      else if(oDn===1){oTtl='未來半年前景:偏保守(出現一項轉弱訊號)';oCol='var(--amber)';}
-      else{oTtl='未來半年前景:大致持平(暫無明顯變化)';oCol='var(--amber)';}
-    }
+    // r1154:保留半年觀察區塊,改成自身事實與驗證條件,移除升降投票。
+    const shObs=shardOf(s);
+    await loadShard(KCACHE,shObs);
+    if(location.hash!=='#stock/'+s.id)return;
+    const observation=outlookObservation(s,e,(KCACHE[shObs]||{})[s.id]);
+    const out=observation.lines.map(newsEsc);
+    const oTtl=observation.title,oCol='var(--txt2)';
     // 技術趨勢列(短線=價 vs 月線+MA5/10 排列;中線=價 vs 季線)——用已載入的 K 分片,零額外請求
     try{
       const sh2=shardOf(s);
@@ -11325,7 +11286,7 @@ async function fundAlertUI(s){                             // r496:基本面/前
         ${out.map(x=>`<div style="font-size:12.8px;color:var(--txt2)">・${x}</div>`).join('')}
       </div>`:''}
       <div style="margin-top:6px;font-size:12.5px">深入:<a href="javascript:void 0" onclick="try{document.querySelector('[data-sec=stk_r]').scrollIntoView({behavior:'smooth'})}catch(e){}" style="color:var(--amber)">💰 營收與獲利</a> · <a href="javascript:void 0" onclick="try{document.querySelector('[data-sec=stk_v]').scrollIntoView({behavior:'smooth'})}catch(e){}" style="color:var(--amber)">💰 估值與未來性</a></div>
-      <div class="dim-note" style="margin-top:4px">規則化自動判讀(月營收動能/季三率/法人20日對比/集保大戶週趨勢;半年展望=股價半年相對強弱+動能連續性+估值透支度+獲利外推),每月10日營收與季報公布即滾動重判;非投資建議。此橫幅為全頁「摘要層」,各區塊是「深度層」——同主題不同深度,非重複資訊。</div></div>`;
+      <div class="dim-note" style="margin-top:4px">規則化自動判讀(月營收動能/季三率/法人20日對比/集保大戶週趨勢;半年追蹤列出本股已知資料與下一次核對項目,不使用大盤比較或升降票數推論未來),每月10日營收與季報公布即滾動重判;非投資建議。此橫幅為全頁「摘要層」,各區塊是「深度層」——同主題不同深度,非重複資訊。</div></div>`;
   }catch(e2){}
 }
 function stkForceUI(s){                                   // r485:每日版——分時資料源不可得,改用盤後法人+集保大戶(站上最可靠的大戶視角)
@@ -25758,6 +25719,22 @@ function trendDateIssues(t,year){
     return month<1||month>12||day<1||day>new Date(year,month,0).getDate();
   }).map(m=>m[0]))];
 }
+// r1154:永久首次、本次連續與重新收錄分開;舊資料不猜連續起日。
+function trendHistoryLabel(t,T){
+  const first=t.first_seen||t.first;
+  if(t.current_streak_days==null)return '歷史統計待更新';
+  const d=String(T.date||''),short=x=>String(x||'').slice(5).replace('-','/');
+  const parts=[];
+  if(first)parts.push('首次記錄 '+short(first));
+  if(t.current_streak_days>1)parts.push('本次連續 '+t.current_streak_days+' 天（自 '+short(t.current_streak_start)+'）');
+  else if(first===d)parts.push('首次收錄');
+  else parts.push('再度收錄');
+  parts.push('累計 '+t.total_seen_days+' 天');
+  parts.push('近 '+t.window_days+' 天收錄 '+t.seen_last_14_days+' 次');
+  if(t.missing_days)parts.push('缺 '+t.missing_days+' 天資料');
+  if(t.new_source_count!=null)parts.push('新增引用來源 '+t.new_source_count+' 則');
+  return parts.join('・');
+}
 function trendsRender(T){
   const box=document.getElementById('trendBox');if(!box)return;
   if(!T||!(T.trends||[]).length){box.innerHTML='';return;}
@@ -25766,7 +25743,7 @@ function trendsRender(T){
   const chip=x=>{const q=live(x.id)||{px:x.px,chg:x.chg};const fl=(x.flags||[]).map(f=>`<span class="tr-flag">${esc(f)}</span>`).join('');
     return `<a class="tr-stk" href="#stock/${encodeURIComponent(x.id)}" title="${esc(x.why||'')}"><b>${esc(x.n||x.id)}</b> <span class="c-code">${esc(x.id)}</span>${q&&q.px!=null?` <span>${(+q.px).toLocaleString()}</span> <span style="color:${q.chg>=0?'var(--up)':'var(--down)'}">${q.chg>=0?'+':''}${(+q.chg||0).toFixed(2)}%</span>`:''}${x.yoy?` <span class="dim">營收 ${esc(x.yoy)}</span>`:''}${fl}</a>`;};
   const card=t=>{const issues=trendDateIssues(t,parseInt(T.date,10)||new Date().getFullYear());return `<div class="news-card tr-card" style="border-left-color:${stC[t.stage]||'var(--line)'}">
-      <div class="news-head"><span class="news-cat" style="color:${stC[t.stage]||'var(--txt2)'};border-color:${stC[t.stage]||'var(--line)'}">${esc(t.stage)}</span><b class="news-ttl">${esc(t.name)}</b><span class="dim" style="font-size:12.5px">看 ${esc(t.horizon||'1~3 年')}${t.days>1?`・連續 ${t.days} 天出現(自 ${String(t.first||'').slice(5).replace('-','/')})`:'・今天新出現'}</span></div>
+      <div class="news-head"><span class="news-cat" style="color:${stC[t.stage]||'var(--txt2)'};border-color:${stC[t.stage]||'var(--line)'}">${esc(t.stage)}</span><b class="news-ttl">${esc(t.name)}</b><span class="dim" style="font-size:12.5px">看 ${esc(t.horizon||'1~3 年')}・${esc(trendHistoryLabel(t,T))}</span></div>
       ${issues.length?`<div class="dim-note" role="note" style="color:var(--amber)">⚠️ AI 整理含無效日期 ${issues.map(esc).join('、')},日期待核對;原文保留,請以附上的新聞來源為準。</div>`:''}
       <div class="news-what">${esc(t.thesis)}</div>
       ${(t.chain||[]).length?`<div class="news-tags">${t.chain.map(c=>`<span class="news-grp">${esc(c)}</span>`).join('')}</div>`:''}
@@ -25778,7 +25755,8 @@ function trendsRender(T){
     </div>`;};
   const gen=(T.gen||'').slice(5,16).replace('T',' ');
   box.innerHTML=`<div class="sec-title" style="margin-top:18px">🔭 未來產業趨勢 <span style="font-weight:400;font-size:13px;letter-spacing:0">AI 從近 ${T.days_in||14} 天早報重點歸納・看 1~3 年・參考</span></div>
-    <div class="dim-note" style="margin:0 0 8px">每天跟著早報更新(${esc(gen)} 產生);「連續 N 天出現」= 同一個趨勢連續幾天都被歸納出來,越久越不是一日行情。相關個股只列站內有資料的,價格即時;標籤是站內已驗證的名單(三清單、主力 20 檔),其餘個股與趨勢敘述<b>非驗證</b>、非投資建議。</div>
+    <div class="dim-note" style="margin:0 0 8px">每天跟著早報更新(${esc(gen)} 產生);統計截至 ${esc(T.date||'未提供')}；首次、本次連續與累計分列，漏跑不算連續。「新增引用來源」僅指本站首次引用的連結，重複歸納不代表每天有新產業證據。相關個股只列站內有資料的,價格即時;標籤是站內已驗證的名單(三清單、主力 20 檔),其餘個股與趨勢敘述<b>非驗證</b>、非投資建議。</div>
+    ${(T.history_warnings||[]).length?'<div class="dim-note" role="note">⚠️ 部分歷史日檔待核對；缺資料不視為未出現。</div>':''}
     ${T.trends.map(card).join('')}`;
   if(!document.getElementById('trCss')){const st=document.createElement('style');st.id='trCss';st.textContent=`.tr-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;font-size:13px}
     .tr-stk{display:inline-flex;flex-wrap:wrap;gap:3px 5px;align-items:center;padding:3px 9px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);color:var(--txt);text-decoration:none;font-size:13px}.tr-stk b,.tr-stk span{white-space:nowrap}

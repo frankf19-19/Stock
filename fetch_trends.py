@@ -4,7 +4,7 @@
 趨勢名稱、為什麼(引用早報哪幾則)、階段、受惠供應鏈環節、相關台股/美股(代號只留站內清單有的)、最大風險。
 每天跟著早報跑一次(news.yml);趨勢用 key 跨天對齊,算得出「連續幾天出現、第一次出現」。AI 歸納屬敘述、非驗證。"""
 import json, os, re, sys, time, datetime as dt
-import requests
+from trends_history import read_archive, trend_stats, publish, rebuild, archive_value
 
 TZ = dt.timezone(dt.timedelta(hours=8)); NOW = dt.datetime.now(TZ); TODAY = NOW.strftime("%Y-%m-%d")
 KEY = os.environ.get("GEMINI_KEY", "").strip(); FORCE = os.environ.get("FORCE", "") == "1"
@@ -89,8 +89,9 @@ def prompt(items, prev_keys):
 
 
 def gemini(p):
+    import requests  # r1154:純歷史重建不需要網路套件
     if not KEY: log("  ✗ 沒有 GEMINI_KEY"); return None
-    gc = {"maxOutputTokens": 8192, "temperature": 0.3, "responseMimeType": "application/json", "responseSchema": SCHEMA, "thinkingConfig": {"thinkingBudget": 2048}}
+    gc = {"maxOutputTokens": 8192, "temperature": 0.3, "responseMimeType": "application/json", "responseSchema": SCHEMA, "thinkingConfig": {"thinkingBudget": 0}}
     body = {"contents": [{"role": "user", "parts": [{"text": p}]}], "generationConfig": gc}
     for attempt, mdl in enumerate(["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash"]):
         try:
@@ -111,18 +112,9 @@ def gemini(p):
 
 def build(items, ai, prev):
     S = stocks(); F = pick_flags()
-    hist = [h for h in (prev.get("hist") or []) if h.get("d") and h["d"] != TODAY]
-    def streak(key):
-        """連續幾天出現(含今天)、第一次出現"""
-        n = 1; first = TODAY; d = dt.date.fromisoformat(TODAY)
-        by = {h["d"]: set(h.get("keys") or []) for h in hist}
-        while True:
-            d -= dt.timedelta(days=1); k = d.isoformat()
-            if k in by and key in by[k]: n += 1; first = k
-            elif k in by: break
-            elif (dt.date.fromisoformat(TODAY) - d).days > 3: break   # 沒跑的日子(假日/漏班)最多容忍 3 天
-        allfirst = min([h["d"] for h in hist if key in (h.get("keys") or [])] + [first])
-        return n, allfirst
+    # r1154:永久日檔/有效版本是統計來源,不再截斷 400 天。
+    hist, _, _ = read_archive(DIR, prev)
+    hist = [h for h in hist if h["d"] != TODAY]
     def stk(c, why, us=False):
         c = (c or "").strip().upper(); s = S.get(c)
         if not s or (s.get("market") == "US") != us: return None
@@ -131,41 +123,48 @@ def build(items, ai, prev):
                 "yoy": kv.get("月營收YoY"), "ma": tk.get("20/60MA"), "flags": F.get(c, [])}
     out = []
     for t in ai.get("trends") or []:
-        refs = [r for r in dict.fromkeys(t.get("refs") or []) if isinstance(r, int) and 0 <= r < len(items)]
-        if len(refs) < 1: log(f"  丟掉(沒有依據):{t.get('name')}"); continue
+        refs = [r for r in dict.fromkeys(t.get("refs") or []) if type(r) is int and 0 <= r < len(items)]
+        if len(refs) < 2: log(f"  丟掉(沒有依據):{t.get('name')}"); continue
         key = re.sub(r"[^a-z0-9-]", "", str(t.get("key") or "").lower()) or re.sub(r"\W", "", str(t.get("name") or ""))[:20]
         tw = [x for x in (stk(a.get("code"), a.get("why")) for a in (t.get("tw") or [])) if x][:6]
         us = [x for x in (stk(a.get("code"), a.get("why"), True) for a in (t.get("us") or [])) if x][:5]
         dropped = [a.get("code") for a in (t.get("tw") or []) + (t.get("us") or []) if a.get("code") and not any(x["id"] == str(a.get("code")).strip().upper() for x in tw + us)]
         if dropped: log(f"  {t.get('name')}:站內沒有的代號略過 {dropped}")
-        n, first = streak(key)
         src = []
-        for r in refs[:5]:
+        for r in refs:
             x = items[r]; src.append({"d": x["d"], "t": x["title"], "cat": x["cat"], "l": (x["src"][0].get("l") if x["src"] else ""), "s": (x["src"][0].get("s") if x["src"] else "")})
         out.append({"key": key, "name": (t.get("name") or "").strip(), "stage": t.get("stage") or "成形", "horizon": (t.get("horizon") or "").strip(),
                     "thesis": (t.get("thesis") or "").strip(), "chain": [c.strip() for c in (t.get("chain") or []) if c and c.strip()][:6],
-                    "tw": tw, "us": us, "risk": (t.get("risk") or "").strip(), "src": src, "days": n, "first": first})
+                    "tw": tw, "us": us, "risk": (t.get("risk") or "").strip(), "src": src, "days": 1, "first": TODAY})
     hist.append({"d": TODAY, "keys": [t["key"] for t in out]})
-    hist = sorted(hist, key=lambda h: h["d"])[-400:]
+    hist = sorted(hist, key=lambda h: h["d"])
+    for t in out:
+        stats = trend_stats(hist, t["key"], TODAY)
+        t.update(stats); t["days"] = stats["current_streak_days"]; t["first"] = stats["first_seen"]
     return {"v": 1, "date": TODAY, "gen": NOW.strftime("%Y-%m-%dT%H:%M:%S+08:00"), "model": ai.get("_model", ""), "n_in": len(items), "days_in": DAYS,
             "trends": out, "hist": hist}
 
 
 def main():
     os.makedirs(DIR, exist_ok=True)
+    # r1154:修復 latest 不需重新花 AI 額度;當日首版檔案即使 FORCE 也不覆寫。
+    if "--rebuild-history" in sys.argv:
+        T = rebuild(DIR, OUT); log(f"已重建 {T['history_days']} 天趨勢索引"); return
     day_file = f"{DIR}/{TODAY}.json"
-    if os.path.exists(day_file) and not FORCE: log(f"今天({TODAY})的趨勢已經產生過,跳過"); return
+    if os.path.exists(day_file) and not FORCE:
+        T = rebuild(DIR, OUT); log(f"今天({TODAY})已有首版,已從永久日檔同步索引"); return
     items = load_news()
     if len(items) < 20: log(f"✗ 早報重點太少({len(items)} 則),等累積幾天再歸納"); return
     try: prev = json.load(open(OUT, encoding="utf-8"))
     except Exception: prev = {}
-    prev_keys = [t["key"] for t in (prev.get("trends") or []) if t.get("key")]
+    history, _, _ = read_archive(DIR, prev)
+    prev_keys = sorted({key for h in history for key in (h.get("keys") or [])})
     ai = gemini(prompt(items, prev_keys))
     if not ai: log("✗ AI 歸納失敗,下一班再試"); return
+    archive_value(DIR, TODAY, {"date": TODAY, "gen": NOW.isoformat(), "ai": ai, "input": items}, "raw")
     T = build(items, ai, prev)
     if len(T["trends"]) < 3: log(f"✗ 有效趨勢只有 {len(T['trends'])} 個,不發布"); return
-    json.dump({k: v for k, v in T.items() if k != "hist"}, open(day_file, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    json.dump(T, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    T = publish(T, DIR, OUT, raw={"date": TODAY, "gen": NOW.isoformat(), "ai": ai, "input": items})
     log(f"✓ {TODAY} 趨勢 {len(T['trends'])} 個(模型 {T['model']},輸入 {len(items)} 則早報重點)")
     for t in T["trends"]: log(f"   {t['name']}[{t['stage']}・連續 {t['days']} 天] 台股 {[x['n'] for x in t['tw']]} 美股 {[x['id'] for x in t['us']]}")
 
