@@ -168,6 +168,8 @@ select:focus,input:focus,button:focus-visible{outline:2px solid var(--amber);out
 .qs-drop a:hover,.qs-drop a.sel{background:var(--panel2)}
 .qs-drop .c-code{font-size:12.5px}
 .qs-drop .qp{margin-left:auto;font-family:var(--mono);font-size:13px}
+/* r1153:查無結果提示沿用搜尋清單的閱讀間距。 */
+.qs-drop .qs-empty{padding:12px 13px;font-size:14px;color:var(--txt2);line-height:1.6}
 @media(max-width:760px){#qSearch{width:100%}.qs-wrap{width:100%;order:-1}}
 .btn-upd:disabled{opacity:.55;cursor:wait}
 .sec-title{font-size:18px;font-weight:900;letter-spacing:.05em;color:var(--txt);margin:32px 0 14px;display:flex;align-items:baseline;gap:10px;
