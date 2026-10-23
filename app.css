@@ -2610,3 +2610,6 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .vw-lvr.opt>span:first-child{color:#8E7CC3}
 .vw-bd.dg{color:var(--t-orange);border-color:var(--t-orange)}
 .vw-ckr.on .vw-bd.dg~*{}
+
+/* r1136 法說會/財報體質小表 */
+.mini-tbl{border-collapse:collapse}.mini-tbl td{padding:3px 6px;border-bottom:1px solid var(--line);vertical-align:top}

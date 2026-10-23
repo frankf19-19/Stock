@@ -1,4 +1,4 @@
-/* K研所 · build r1132 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
+/* K研所 · build r1136 · 主程式(由 index.html 抽出;執行順序與原內嵌完全相同) */
 /* ============================================================
    資料:優先讀取 data.json(由 update_data.py 每日產生)。
    讀不到時使用下方 DEMO 範例資料 —— 數字僅為版面示範,非真實行情!
@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1132';
+const APP_BUILD='r1136';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -2506,7 +2506,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
     const live=FGL.ok&&window.__fglT&&(Date.now()-window.__fglT<30000);
     diag.push(`<a href="javascript:void 0" onclick="fglPanel()" style="color:${live?'var(--up)':fk?'var(--amber)':'var(--dim)'};text-decoration:none" title="富果券商級即時行情設定">🐦 ${live?'富果 ✓ 逐筆':fk?'富果已設定':'接富果'}</a>`);
   }catch(e){}
-  diag.push('<span style="color:var(--dim)">build r1132</span>');
+  diag.push('<span style="color:var(--dim)">build r1136</span>');
   const dg=document.getElementById('diag');
   dg.innerHTML=diag.join('&ensp;·&ensp;'); dg.classList.add('show');
   try{if(typeof guardChip==='function')guardChip();}catch(e){}
@@ -5154,6 +5154,7 @@ ${R||'(無,請用你對這家公司與產業的既有知識,並標明「推估�
 【財務、股價、股性數據】
 ${rptDigest(F)||'(無)'}
 
+${F.ir_text?F.ir_text+'\n(以上法說會與財報體質是第一手公司資料,營運分析與指引請優先引用,並與研究筆記交叉比對)\n':''}
 【網站的量化參考】(規則計算,僅供參考——你可以不同意,但要說理由)
 ${JSON.stringify({網站評分:C.score,趨勢:C.regime,籌碼:C.chips,本益比區間估值:C.valuation,支撐分層:C.entry})}
 
@@ -5227,6 +5228,7 @@ async function rptFullRun2(s,boxId){
     const d=await rptData(s);
     try{await Promise.all([hscanLoad().catch(()=>{}),biasLoad().catch(()=>{}),etfRevLoad().catch(()=>{})]);}catch(e){}
     const F=rptFullFacts(s,d);window.__rptFacts=F;
+    try{if(s.market!=='US'){const irj=await irLoad(s.id);F.ir_text=irDigestForAI(irLatest(irj),d.e||{});}}catch(e){}   // r1136:法說會簡報重點 + 財報體質
     const C=rptCalc(F);
     const ck='rptAR1_'+s.id,today2=tpDay(Date.now()/1000);
     let N=null,fromCache=false,aiErr=null,status='';
@@ -12327,6 +12329,7 @@ async function confAI(){   // 法說 AI 聽讀結果(conf_ai.json,由 listen_con
 }
 function confOneLiner(g,c){   // 取「一句話結論」:AI 分析 → 擇要前段 → 空
   try{
+    if(g&&g.head)return (g.tone?'['+g.tone+'] ':'')+String(g.head).slice(0,80);   // r1136:v3 結構化標題
     if(g&&g.ai){
       const m=g.ai.match(/一句話結論[^\n]*\n+\s*([^\n]{5,120})/)||g.ai.match(/\*\*一句話結論\*\*[:::]?\s*([^\n]{5,120})/);
       if(m)return m[1].replace(/\*\*/g,'').trim();
@@ -12367,7 +12370,7 @@ async function renderConfHome(){   // 📣 首頁重要法說快報:近5天已�
         return `<div data-cid="${r.s.id}" style="cursor:pointer;padding:5px 0;border-bottom:1px dashed var(--line)">
           <b>${r.s.name}</b> <span class="c-code">${r.s.id}</span>
           <span class="ds" style="color:${fut?'var(--amber)':'var(--dim)'};font-weight:700"> ${fut?'將於':'已於'} ${r.c.d.slice(5)}</span>
-          ${r.g?` <span class="c-code" style="color:var(--amber)">🎧 AI已${{yt:'聽完影片',pdf:'讀完簡報',text:'分析'}[r.g.src]||'分析'}</span>`:''}
+          ${r.g?` <span class="c-code" style="color:var(--amber)">🎧 AI已${{yt:'聽完影片',pdf:'讀完簡報',pptx:'讀完簡報',text:'分析'}[r.g.src]||'分析'}</span>`:''}
           ${line?`<br><span style="color:var(--fg2,inherit)">${line}</span>`:''}
         </div>`;}).join('')}
     </div>`;
@@ -12473,10 +12476,115 @@ function confNewsHTML(s){
     `<a href="${n.link&&n.link!=='#'?n.link:'#'}" ${n.link&&n.link!=='#'?'target="_blank" rel="noopener"':''}>${n.title}</a><span class="c-code"> ${n.source||''}${n.time?' · '+n.time:''}</span>`
   ).join('<br>')}</div>`;
 }
-function confHTML(s){
+/* ══ r1136 法說會簡報 AI 讀完(ir/<代號>.json,listen_conf.py v3 產出)+ 財報體質(chips.fin) ══ */
+function irEsc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+async function irLoad(sid){
+  const now=Date.now(),k='__IR_'+sid;
+  if(window[k]&&now-(window[k].__ts||0)<600000)return window[k].j;
+  try{const r=await fetch(`ir/${sid}.json?t=${Math.floor(now/600000)}`);
+    if(r.ok){const j=await r.json();window[k]={j,__ts:now};return j;}
+    window[k]={j:null,__ts:now};}
+  catch(e){}
+  return null;
+}
+function irLatest(j){return j&&Array.isArray(j.conf)?(j.conf.find(c=>c&&c.ai)||null):null;}
+function irFileForm(c){   // 公開資訊觀測站的簡報要用表單 POST 下載(沒有直連網址)
+  if(!c||!(c.fm||c.fe))return '';
+  const one=(fn,lab)=>fn?`<form method="post" action="https://mopsov.twse.com.tw/server-java/FileDownLoad" target="_blank" style="display:inline"><input type="hidden" name="step" value="9"><input type="hidden" name="filePath" value="/home/html/nas/STR/"><input type="hidden" name="fileName" value="${irEsc(fn)}"><input type="hidden" name="functionName" value="t100sb02_1"><button type="submit" class="c-code" style="cursor:pointer;background:var(--panel);border:1px solid var(--line);color:var(--accent)">${lab}</button></form>`:'';
+  return one(c.fm,'📄 簡報原檔(中)')+' '+one(c.fe,'📄 English');
+}
+function irToneBadge(t){
+  const col=t==='正面'?'var(--down)':t==='保守'?'var(--up)':'var(--amber)';
+  return t?`<span class="c-code" style="color:${col};border-color:${col};font-weight:800">${irEsc(t)}</span>`:'';
+}
+function irAiHTML(c,s){
+  const a=c.ai||{};
+  const li=arr=>(arr||[]).filter(Boolean).map(x=>`<li>${irEsc(x)}</li>`).join('');
+  const nums=(a.numbers||[]).filter(x=>x&&x.k).map(x=>`<tr><td>${irEsc(x.k)}</td><td style="text-align:right"><b>${irEsc(x.v||'')}</b></td><td style="text-align:right;color:var(--dim)">${irEsc(x.chg||'')}</td></tr>`).join('');
+  const fmtT=t=>{if(!t)return '';const dg=String(t).replace(/[^\d]/g,'');return dg.length>=4?dg.slice(0,2)+':'+dg.slice(2,4):String(t).slice(0,5);};
+  return `<div class="dim-note" style="font-size:14px;line-height:1.75;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:11px 14px">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><b>🎧 AI 讀完公司簡報</b> ${irToneBadge(a.tone)} <span class="c-code">${irEsc(c.d)}${c.t?' '+fmtT(c.t):''}</span>${a.period?`<span class="c-code">期間 ${irEsc(a.period)}</span>`:''}${c.src==='pptx'?'<span class="c-code">pptx</span>':''}</div>
+    ${a.head?`<div style="font-size:16px;font-weight:800;margin:6px 0 4px">${irEsc(a.head)}</div>`:''}
+    ${a.summary?`<p style="margin:4px 0">${irEsc(a.summary)}</p>`:''}
+    ${nums?`<details open style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">📊 簡報關鍵數字</summary><table class="mini-tbl" style="width:100%;font-size:13px;margin-top:4px">${nums}</table></details>`:''}
+    ${(a.guidance||[]).length?`<div style="margin-top:6px"><b>🧭 公司指引/展望</b><ul class="ai-ul">${li(a.guidance)}</ul></div>`:''}
+    ${(a.drivers||[]).length?`<div><b style="color:var(--down)">🚀 成長動能</b><ul class="ai-ul">${li(a.drivers)}</ul></div>`:''}
+    ${a.capex?`<div><b>🏗️ 資本支出/擴產</b>:${irEsc(a.capex)}</div>`:''}
+    ${(a.products||[]).length?`<div><b>🧩 產品/業務結構</b>:${(a.products||[]).map(irEsc).join('、')}</div>`:''}
+    ${(a.risks||[]).length?`<div><b style="color:var(--up)">⚠️ 風險與保守訊號</b><ul class="ai-ul">${li(a.risks)}</ul></div>`:''}
+    ${(a.watch||[]).length?`<div><b>👀 接下來該盯</b><ul class="ai-ul">${li(a.watch)}</ul></div>`:''}
+    ${(a.quotes||[]).length?`<div style="color:var(--dim)">「${(a.quotes||[]).map(irEsc).join('」「')}」</div>`:''}
+    ${a.deep?`<details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">📝 深度分析全文(AI)</summary><div style="margin-top:6px">${mdLite(String(a.deep).replace(/\s*(#{2,4} )/g,'\n\n$1'))}</div></details>`:''}
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">${irFileForm(c)}${c.vod&&/^https?:/.test(c.vod)?`<a class="c-code" href="${irEsc(c.vod)}" target="_blank" rel="noopener">🎬 影音</a>`:''}${c.site&&/^https?:/.test(c.site)?`<a class="c-code" href="${irEsc(c.site)}" target="_blank" rel="noopener">公司 IR</a>`:''}</div>
+    <div class="dim-note" style="color:var(--dim);font-size:12px;margin-top:4px">AI(${irEsc(c.model||'Gemini')})讀完公開資訊觀測站的公司簡報整理;數字以簡報原文為準,非投資建議。${c.ts?'整理於 '+irEsc(c.ts):''}</div>
+  </div>`;
+}
+function irHistoryHTML(j,latest){
+  const rest=(j&&j.conf||[]).filter(c=>c!==latest);
+  if(!rest.length)return '';
+  const row=c=>`<tr><td class="c-code">${irEsc(c.d)}</td><td>${c.ai?irToneBadge(c.ai.tone)+' '+irEsc(c.ai.head||''):`<span style="color:var(--dim)">${irEsc((c.msg||'').slice(0,50))}${c.fm||c.fe?'(簡報待 AI 整理)':''}</span>`}</td><td style="white-space:nowrap">${irFileForm(c)}</td></tr>`;
+  return `<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">🗂️ 歷次法說會(${rest.length} 場)</summary><table class="mini-tbl" style="width:100%;font-size:13px;margin-top:4px">${rest.map(row).join('')}</table></details>`;
+}
+function finHealthHTML(e,s){   // chips.fin:近四季現金流 + 最新季資產負債(億元)
+  const f=e&&e.fin;if(!f||!f.q)return '';
+  const F=v=>v==null?'—':(+v).toLocaleString('zh-TW',{maximumFractionDigits:1});
+  const tags=[];
+  if(f.fcf4!=null)tags.push(f.fcf4>0?`<span class="c-code" style="color:var(--down)">自由現金流 +${F(f.fcf4)} 億</span>`:`<span class="c-code" style="color:var(--up)">自由現金流 ${F(f.fcf4)} 億(燒錢)</span>`);
+  if(f.cur!=null)tags.push(`<span class="c-code" style="color:${f.cur>=150?'var(--down)':f.cur<100?'var(--up)':'inherit'}">流動比 ${F(f.cur)}%</span>`);
+  if(f.dr!=null)tags.push(`<span class="c-code" style="color:${f.dr<=40?'var(--down)':f.dr>=70?'var(--up)':'inherit'}">負債比 ${F(f.dr)}%</span>`);
+  if(f.cash!=null&&f.debt!=null)tags.push(`<span class="c-code" style="color:${f.cash>=f.debt?'var(--down)':'inherit'}">現金 ${F(f.cash)} 億 vs 借款 ${F(f.debt)} 億${f.cash>=f.debt?'(淨現金)':''}</span>`);
+  if(e.ocfr!=null&&isFinite(+e.ocfr))tags.push(`<span class="c-code" style="color:${+e.ocfr>=1?'var(--down)':+e.ocfr<0.5?'var(--up)':'inherit'}">盈餘含金量 ${(+e.ocfr).toFixed(2)}</span>`);
+  const verdict=(()=>{
+    let good=0,bad=0;
+    if(f.fcf4!=null)(f.fcf4>0?good++:bad++);
+    if(f.cur!=null)(f.cur>=120?good++:f.cur<100?bad++:0);
+    if(f.dr!=null)(f.dr<=50?good++:f.dr>=70?bad++:0);
+    if(f.cash!=null&&f.debt!=null)(f.cash>=f.debt?good++:0);
+    if(e.ocfr!=null&&isFinite(+e.ocfr))(+e.ocfr>=0.8?good++:+e.ocfr<0.5?bad++:0);
+    return bad>=2?['體質偏弱','var(--up)']:good>=3&&!bad?['體質穩健','var(--down)']:['體質普通','var(--amber)'];
+  })();
+  return `<div class="dim-note" style="font-size:14px;line-height:1.8;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 13px">
+    <b>🩺 財報體質</b> <span class="c-code" style="color:${verdict[1]};font-weight:800">${verdict[0]}</span> <span class="c-code">${irEsc(f.q)} 資產負債表・近四季現金流</span><br>
+    ${tags.join(' ')}
+    <div style="margin-top:4px;color:var(--dim);font-size:12.5px">近四季營業現金流 ${F(f.ocf4)} 億、資本支出 ${F(f.capex4)} 億;總資產 ${F(f.ta)} 億、淨值 ${F(f.eq)} 億${f.inv!=null?`、存貨 ${F(f.inv)} 億`:''}${f.ar!=null?`、應收 ${F(f.ar)} 億`:''}。資料:FinMind 財報三表(公開資訊觀測站申報),每季更新。</div>
+  </div>`;
+}
+async function irSectionRefresh(s){   // 📣 法說會專區:ir 檔到位後整段重畫(含歷史與財報體質)
+  const b=document.getElementById('sb-stk_conf');if(!b)return;
+  const [j,e]=await Promise.all([irLoad(s.id),loadChips(s).catch(()=>null)]);
+  if(location.hash!==KHASH)return;
+  const latest=irLatest(j);
+  const parts=[];
+  const base=confHTML(s,{irLatest:latest});
+  if(base)parts.push(base);
+  if(latest)parts.push(irAiHTML(latest,s));
+  const hist=irHistoryHTML(j,latest);if(hist)parts.push(hist);
+  const fh=finHealthHTML(e,s);if(fh)parts.push(fh);
+  if(!parts.length)parts.push('<div class="dim-note" style="padding:14px 4px">此檔目前沒有法說會紀錄——公司公告法說後,每日更新會自動帶入排程、簡報 AI 整理與財報體質。</div>');
+  b.innerHTML=parts.join('');
+}
+function irDigestForAI(latest,e){   // 餵給 AI 分析師報告的法說會與財報體質文字
+  const L=[];
+  if(latest&&latest.ai){const a=latest.ai;
+    L.push(`【法說會重點】(${latest.d} 公司簡報,AI 讀完整理;語氣:${a.tone||'—'})`);
+    if(a.head)L.push('標題:'+a.head);
+    if(a.summary)L.push('摘要:'+a.summary);
+    if((a.numbers||[]).length)L.push('關鍵數字:'+(a.numbers||[]).map(x=>`${x.k} ${x.v}${x.chg?'('+x.chg+')':''}`).join('、'));
+    if((a.guidance||[]).length)L.push('公司指引:'+(a.guidance||[]).join(';'));
+    if((a.drivers||[]).length)L.push('成長動能:'+(a.drivers||[]).join(';'));
+    if(a.capex)L.push('資本支出:'+a.capex);
+    if((a.risks||[]).length)L.push('風險:'+(a.risks||[]).join(';'));
+  }
+  const f=e&&e.fin;
+  if(f&&f.q){L.push(`【財報體質】(${f.q},億元)近四季營業現金流 ${f.ocf4??'—'}、資本支出 ${f.capex4??'—'}、自由現金流 ${f.fcf4??'—'};現金 ${f.cash??'—'}、借款 ${f.debt??'—'}、淨值 ${f.eq??'—'}、總資產 ${f.ta??'—'};流動比 ${f.cur??'—'}%、負債比 ${f.dr??'—'}%${e.ocfr!=null?'、盈餘含金量 '+e.ocfr:''}`);}
+  return L.join('\n');
+}
+function confHTML(s,opts){
   const c=s&&s.conf;
   const news=confNewsHTML(s);
+  const hasIr=!!(opts&&opts.irLatest);
   if((!c||!c.d)&&!news)return '';
+  if(hasIr&&(!c||!c.d))return news?`<div class="dim-block" style="border-left:4px solid var(--line)"><h3>📣 法說會相關報導</h3>${news}</div>`:'';
   if(!c||!c.d){  // 無官方排程資料,但新聞有該公司法說報導 → 仍出卡
     return `<div class="dim-block" style="border-left:4px solid var(--line)">
       <h3>📣 法說會 <span class="ds" style="color:var(--dim)">相關報導</span></h3>
@@ -12493,7 +12601,7 @@ function confHTML(s){
     return dg.length>=4?dg.slice(0,2)+':'+dg.slice(2,4):String(t).slice(0,5);};   // 162154→16:21
   return `<div class="dim-block" style="border-left:4px solid ${fut?'var(--amber)':'var(--line)'}">
     <h3>📣 法說會 ${badge} <span class="ds">${c.d}${c.t?' · '+fmtT(c.t):''}</span></h3>
-    ${confSummaryHTML(s)}
+    ${hasIr&&opts.irLatest.d===c.d?'':confSummaryHTML(s)}
     ${c.msg?`<div class="dim-note"><b>公司擇要全文:</b>${c.msg}</div>`:''}
     ${confAnalyzeHTML(s)}
     ${news}
@@ -14529,7 +14637,7 @@ async function showDetail(id){
     ${isTW&&!s.etf&&s.sector?`<div class="sec-title" data-sec="stk_peer">🏘️ 同業比較 <span style="font-weight:400;font-size:13px;letter-spacing:0">${s.sector}・同產業估值與評分對照</span></div><div class="sec-body" id="sb-stk_peer">
     <div id="peerBox" class="dim-block"></div>
     </div>`:''}
-    <div class="sec-title" data-sec="stk_conf">📣 法說會專區 <span style="font-weight:400;font-size:13px;letter-spacing:0">排程・公司擇要重點・站內解讀・相關報導</span></div><div class="sec-body" id="sb-stk_conf">${ch||'<div class="dim-note" style="padding:14px 4px">此檔目前無已排程或近期召開的法說會資料——公司公告法說後,每日更新會自動帶入排程與站內解讀。</div>'}</div>`})()}
+    <div class="sec-title" data-sec="stk_conf">📣 法說會與財報體質 <span style="font-weight:400;font-size:13px;letter-spacing:0">AI 讀完公司簡報・指引與關鍵數字・歷次法說・現金流與負債</span></div><div class="sec-body" id="sb-stk_conf">${ch||'<div class="dim-note" style="padding:14px 4px">法說會紀錄與財報體質載入中…</div>'}</div>`})()}
     <div class="sec-title" data-sec="stk_ai">🤖 AI 綜合研判・投資策略 <span style="font-weight:400;font-size:13px;letter-spacing:0">規則化研判・投資論點・進出場規劃</span></div><div class="sec-body" id="sb-stk_ai">
     ${s.etf?'':(()=>{const v=aiVerdict(s);return `
     <div class="dim-block" style="border-left:4px solid var(--amber)">
@@ -14757,12 +14865,7 @@ async function showDetail(id){
   KHASH='#stock/'+s.id;
   try{stkLiveStart(s);}catch(e){}      // 報價迴圈 0 秒啟動
   try{fundAlertUI(s);}catch(e){}       // r496:基本面/前景體檢警示(頁面頂部)
-  try{confAI().then(j=>{               // 🎧 法說 AI 聽讀結果到位後就地刷新專區
-    if(j&&j.items&&j.items[s.id]){
-      const b=document.getElementById('sb-stk_conf');
-      if(b)b.innerHTML=confHTML(s);
-    }
-  });}catch(e){}
+  if(isTW&&!s.etf){try{irSectionRefresh(s);}catch(e){}}   // r1136:法說簡報 AI 整理 + 歷次法說 + 財報體質
   try{loadIntraDetail(s);}catch(e){}   // 走勢圖與 K 分片平行
   if(s.market==='TW')setTimeout(()=>{try{loadRevTrend(s);}catch(e){}},300);
   curDivs=null;                                             // 換股先清除,避免沿用上一檔的除權息標記
