@@ -56,11 +56,11 @@ def sec_get(url, timeout=60, json_=True):
                     return r.json() if json_ else r.text
                 if r.status_code == 404 and name == "direct":
                     return None
-                last = f"{name} {r.status_code} {r.text[:60]!r}"
+                last += f" | {name} {r.status_code} {r.text[:50]!r}"
             except Exception as e:
-                last = f"{name} {str(e)[:60]}"
+                last += f" | {name} {str(e)[:50]}"
             time.sleep(1)
-    log(f"    SEC 抓不到 {url[-70:]}:{last}")
+    log(f"    SEC 抓不到 {url[-70:]}:{last[:400]}")
     return None
 
 
