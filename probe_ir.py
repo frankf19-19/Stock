@@ -13,6 +13,11 @@ try:
       rows=re.findall(r'<tr[^>]*>(.*?)</tr>',t,re.S)
       drows=[x for x in rows if 'nas/STR' in x or 'FileDownLoad' in x]
       N(f"{typek}: rows={len(rows)} 有簡報列={len(drows)}")
+      dr=[x for x in rows if '<td' in x][:3]
+      for x in dr[:2]:
+          raw=re.sub(r'\s+',' ',x)[:900]; N("RAW "+raw)
+      i=t.find('nas/STR'); ctx=re.sub(r'\s+',' ',t[max(0,i-700):i+300]); N("CTX "+ctx)
+      if not drows: drows=dr
       if drows:
           x=drows[0]; cells=[re.sub(r'<[^>]+>','',c).strip() for c in re.findall(r'<td[^>]*>(.*?)</td>',x,re.S)]
           N(f"cells {cells}")
