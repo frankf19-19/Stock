@@ -159,9 +159,19 @@ def run(S, cal, mkt_ok, variant):
             if p.get('sl_px'): sl_eff = p['sl_px']
             if be and p['hi'] >= p['px'] * (1 + be): sl_eff = max(sl_eff or 0, p['px'] * 1.002)
             if trail and p['hi'] >= p['px'] * (1 + variant.get('trail_arm', 0.08)): sl_eff = max(sl_eff or 0, p['hi'] * (1 - trail))
-            if sl_eff and L <= sl_eff: ex = min(O, sl_eff); why = 'sl'
-            elif tp and H >= p['px'] * (1 + tp): ex = max(O, p['px'] * (1 + tp)); why = 'tp'
-            elif n >= hold_max: ex = C; why = 'time'
+            if p.get('sell_open'): ex = O; why = p['sell_open']   # 前一天收盤觸發 → 今天開盤賣
+            elif variant.get('close_sl') and sl_eff and C <= sl_eff: p['sell_open'] = 'sl'
+            elif (not variant.get('close_sl')) and sl_eff and L <= sl_eff: ex = min(O, sl_eff); why = 'sl'
+            elif variant.get('close_tp') and tp and C >= p['px'] * (1 + tp): p['sell_open'] = 'tp'
+            elif (not variant.get('close_tp')) and tp and H >= p['px'] * (1 + tp): ex = max(O, p['px'] * (1 + tp)); why = 'tp'
+            elif n >= hold_max:
+                X = variant.get('ext')
+                if X and n < X.get('max', 30) and C > p['px'] * (1 + X.get('min_r', 0)):
+                    m = X.get('ma', 5); cl = e['a'][max(0, k-m+1):k+1, 3]
+                    if C >= cl.mean(): pass          # 續抱
+                    else: ex = C; why = 'time'
+                else: ex = C; why = 'time'
+            if ex is None and p.get('sell_open') and n >= hold_max: pass
             if ex:
                 r = ex / p['px'] - 1 - 0.006   # 來回成本 0.6%
                 trades.append(dict(sid=sid, d0=e['d'][p['ei']], d1=d, r=r, why=why, size=p['size'], year=d[:4]))
@@ -287,6 +297,19 @@ if __name__ == '__main__':
         '漲10%後移動停損6%': dict(trail=0.06, trail_arm=0.10),
         '不停利+漲10%移動停損8%': dict(tp=0, trail=0.08, trail_arm=0.10),
         '持20日+漲8%移動停損8%': dict(hold=20, trail=0.08),
+        '採用版(低波動優先)': dict(sort='lowvol'),
+        '低波動+停損改收盤確認': dict(sort='lowvol', close_sl=True),
+        '低波動+停利改收盤確認': dict(sort='lowvol', close_tp=True),
+        '低波動+停損停利都收盤': dict(sort='lowvol', close_sl=True, close_tp=True),
+        '低波動+15日後獲利續抱到跌破5日線(最多30)': dict(sort='lowvol', ext=dict(ma=5, max=30)),
+        '低波動+15日後獲利續抱到跌破10日線(最多30)': dict(sort='lowvol', ext=dict(ma=10, max=30)),
+        '低波動+15日後漲≥8%續抱到跌破5日線(最多30)': dict(sort='lowvol', ext=dict(ma=5, max=30, min_r=0.08)),
+        '低波動+15日後獲利續抱到跌破5日線(最多45)': dict(sort='lowvol', ext=dict(ma=5, max=45)),
+        '低波動+15日後獲利續抱到跌破10日線(最多45)': dict(sort='lowvol', ext=dict(ma=10, max=45)),
+        '低波動+K=4': dict(sort='lowvol', K=4),
+        '低波動+K=6': dict(sort='lowvol', K=6),
+        '低波動+K=8': dict(sort='lowvol', K=8),
+        '低波動+等風險部位': dict(sort='lowvol', volsize=True),
     }
     sel = sys.argv[1:] or list(variants)
     for name in sel:
