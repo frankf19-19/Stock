@@ -2,3 +2,6 @@ __pycache__/
 
 # r1156:本機回測快取不提交
 .cache/
+
+# r1158: raw SEC staging stays local; immutable packs contain the exact gzip bytes
+/archive/sec_facts/[0-9]*/

@@ -20,6 +20,7 @@ import json, os, re, time, glob, subprocess, datetime as dt
 from io import StringIO
 import requests
 import pandas as pd
+from financial_integrity import cashflow_ttm, aligned_income, financial_retry_due
 
 TODAY = (dt.datetime.utcnow() + dt.timedelta(hours=8)).date()   # r1128:台北日期(GitHub 機器是 UTC;台北 00:00~08:00 跑的班原本會標成前一天)
 UA = {"User-Agent": "Mozilla/5.0"}
@@ -1150,10 +1151,23 @@ def fm_stock_margins(sid):
     except Exception:
         return []
 
+def save_fin_source(sid, payload, kind="fin_raw"):
+    """r1158: immutable provider/legacy financial snapshots; already included by archive/hist commit."""
+    import gzip, hashlib
+    from pathlib import Path
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(sid)):
+        raise ValueError("Invalid security id")
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    path = Path("archive/hist") / kind / str(sid) / (hashlib.sha256(raw).hexdigest() + ".json.gz")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists(): path.write_bytes(gzip.compress(raw, mtime=0))
+    return str(path).replace("\\", "/")
+
+
 def fm_stock_ocf(sid):
     """FinMind 個股現金流量表 → 近四季「營業活動現金流」合計(元);失敗回 None。"""
     try:
-        start = (dt.date.today() - dt.timedelta(days=560)).isoformat()
+        start = (dt.date.today() - dt.timedelta(days=1000)).isoformat()
         rows = _fm_raw({"dataset": "TaiwanStockCashFlowsStatement",
                         "data_id": sid, "start_date": start}, f"個股現金流 {sid}") or []
         byq = {}
@@ -1165,15 +1179,8 @@ def fm_stock_ocf(sid):
             if len(d0) == 10 and v0 is not None:
                 byq[d0] = v0                                # 現金流量表為累計數:取各季底累計
         if not byq: return None
-        ks = sorted(byq)
-        # 還原單季:同年度內「本季累計 − 上季累計」;跨年度第一季即累計本身
-        singles = {}
-        for i, k in enumerate(ks):
-            y0 = k[:4]
-            prevs = [x for x in ks[:i] if x[:4] == y0]
-            singles[k] = byq[k] - (byq[prevs[-1]] if prevs else 0)
-        last4 = [singles[k] for k in sorted(singles)[-4:]]
-        return sum(last4) if len(last4) >= 2 else None
+        # r1158: only four adjacent, reconstructible quarters qualify.
+        return cashflow_ttm(byq)[0]
     except Exception:
         return None
 
@@ -1183,7 +1190,7 @@ def fm_stock_fin(sid):
        近四季營業現金流 ocf4、資本支出 capex4、自由現金流 fcf4;最新季 現金 cash、借款 debt、淨值 eq、總資產 ta、
        流動比 cur(%)、負債比 dr(%)、存貨 inv、應收 ar、季別 q。失敗回 None。"""
     try:
-        start = (dt.date.today() - dt.timedelta(days=560)).isoformat()
+        start = (dt.date.today() - dt.timedelta(days=1000)).isoformat()
         cf = _fm_raw({"dataset": "TaiwanStockCashFlowsStatement", "data_id": sid, "start_date": start}, f"個股現金流 {sid}") or []
         time.sleep(0.35)
         bs = _fm_raw({"dataset": "TaiwanStockBalanceSheet", "data_id": sid, "start_date": start}, f"個股資產負債 {sid}") or []
@@ -1196,19 +1203,19 @@ def fm_stock_fin(sid):
                 if not re.search(key_pat, t0): continue
                 d0 = str(r.get("date", ""))[:10]; v0 = numf(r.get("value"))
                 if len(d0) == 10 and v0 is not None: byq[d0] = v0
-            ks = sorted(byq); sg = {}
-            for i, k in enumerate(ks):
-                prevs = [x for x in ks[:i] if x[:4] == k[:4]]
-                sg[k] = byq[k] - (byq[prevs[-1]] if prevs else 0)
-            last = [sg[k] for k in sorted(sg)[-4:]]
-            return (sum(last) if len(last) >= 2 else None), (sorted(sg)[-1] if sg else None)
+            return cashflow_ttm(byq)
         if _FIN_TYPES_LOGGED["n"] < 1 and cf:
             print(f"  [diag] 現金流量表欄位({sid}):{sorted(set(str(r.get('type','')) for r in cf))[:45]}")
-        ocf4, dcf = singles(r"^CashFlowsFromOperatingActivities$|營業活動")
-        capex4, _ = singles(r"^PropertyAndPlantAndEquipment$|AcquisitionOfPropertyPlantAndEquipment|PropertyPlantAndEquipment.*(Acqui|Purchase)|取得不動產|購置不動產")   # r1148:FinMind 現金流量表的資本支出欄叫 PropertyAndPlantAndEquipment(負值)
+        ocf4, cf_quality = singles(r"^CashFlowsFromOperatingActivities$|營業活動")
+        capex4, capex_quality = singles(r"^PropertyAndPlantAndEquipment$|AcquisitionOfPropertyPlantAndEquipment|PropertyPlantAndEquipment.*(Acqui|Purchase)|取得不動產|購置不動產")   # r1148:FinMind 現金流量表的資本支出欄叫 PropertyAndPlantAndEquipment(負值)
+        # r1158: preserve source components and actual fetch time, not an invented announcement time.
+        raw_ref = save_fin_source(sid, {"cf": cf, "bs": bs}) if cf or bs else None
+        out.update(cf_quality=cf_quality, capex_quality=capex_quality,
+                   source_raw=raw_ref, fetched_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+                   source="FinMind", published_at=None)
         if ocf4 is not None:
             out["ocf4"] = round(ocf4 / 1e8, 2)
-            if capex4 is not None:
+            if capex4 is not None and capex_quality["periods"] == cf_quality["periods"]:
                 out["capex4"] = round(abs(capex4) / 1e8, 2)
                 out["fcf4"] = round((ocf4 - abs(capex4)) / 1e8, 2)
         # 資產負債表(最新季)
@@ -1236,7 +1243,7 @@ def fm_stock_fin(sid):
             out["debt"] = round((sb + lb + cur_lb + bond) / 1e8, 2)
             if ta and tl is not None: out["dr"] = round(tl / ta * 100, 1)
             if ca and cl: out["cur"] = round(ca / cl * 100, 1)
-        return out or None
+        return out if cf or bs else None
     except Exception as e:
         print(f"  [warn] 財務體質 {sid}: {str(e)[:60]}")
         return None
@@ -1281,29 +1288,49 @@ def backfill_perstock(chips, comps, rev_n=250, q_n=120, cf_n=100):
             _put_margin(e, q, gm, om, nm, rv)
         okq += 1
     ldq2 = latest_due_quarter()
-    need_c = [sid for sid in tw
-              if ((chips.get(sid) or {}).get("ocfq") != ldq2 or not (chips.get(sid) or {}).get("fin")
-                  or (((chips.get(sid) or {}).get("fin") or {}).get("ocf4") is not None and ((chips.get(sid) or {}).get("fin") or {}).get("fcf4") is None))   # r1148:已抓過但缺自由現金流(舊 capex 欄名抓不到)的補一次
-              and len((chips.get(sid) or {}).get("fq") or []) >= 3][:cf_n]
+    # r1158: migrate legacy values before clearing unsafe derived fields; old numbers remain immutable.
+    for sid in tw:
+        e = chips.get(sid) or {}
+        fin = e.get("fin") or {}
+        if fin and not (fin.get("cf_quality") or {}).get("version"):
+            ref = save_fin_source(sid, {"legacy_fin": fin, "ocfr": e.get("ocfr"), "ocfq": e.get("ocfq")}, "fin_legacy")
+            e["fin"] = dict(fin, ocf4=None, capex4=None, fcf4=None, legacy_source=ref,
+                cf_quality={"version": 1, "complete": False, "missing_reason": "legacy_unverified"})
+            e["ocfr"] = None
+            e["ocfr_quality"] = {"complete": False}
+    need_c = [sid for sid in tw if financial_retry_due(chips.get(sid) or {}, ldq2, dt.date.today())
+              and len((chips.get(sid) or {}).get("fq") or []) >= 3]
+    need_c.sort(key=lambda sid: (((chips.get(sid) or {}).get("fin_fetch") or {}).get("attempt_date", ""), sid))
+    need_c = need_c[:cf_n]
     okc = 0
     okf = 0
     for sid in need_c:                                     # ⑩ 盈餘品質:近四季 OCF ÷ 近四季淨利(qr×nm 回推)+ r1136 財務體質(現金/借款/流動比/負債比/自由現金流)
         fin = fm_stock_fin(sid)
         time.sleep(0.35)
         e = chips.setdefault(sid, {})
-        e["ocfq"] = ldq2                                   # 成敗都記季戳,失敗者下季再試,不佔每輪額度
+        stamp = dt.date.today().isoformat()
+        e["fin_fetch"] = {"version": 1, "attempt_date": stamp, "status": "failed"}
         if not fin: continue
-        if fin.get("q"): e["fin"] = fin; okf += 1
-        ocf = (fin.get("ocf4") or 0) * 1e8 if fin.get("ocf4") is not None else None
-        if ocf is None: continue
-        try:
-            qr, nm = e.get("qr") or [], e.get("nm") or []
-            ni = sum((qr[i] or 0) * 1e6 * (nm[i] or 0) / 100 for i in range(max(0, len(qr) - 4), len(qr)))
-            if abs(ni) > 1e6:
-                e["ocfr"] = round(ocf / ni, 2)
-                okc += 1
-        except Exception:
-            pass
+        if e.get("fin"):
+            fin["previous_source"] = save_fin_source(sid, {"fin": e["fin"], "ocfr": e.get("ocfr")}, "fin_versions")
+        previous = e.get("fin") or {}
+        for key in ("q", "cash", "ta", "eq", "inv", "ar", "debt", "dr", "cur"):
+            if key not in fin and key in previous: fin[key] = previous[key]
+        e["fin"] = fin
+        e["ocfr"] = None
+        e["ocfr_quality"] = {"complete": False}
+        quality = fin.get("cf_quality") or {}
+        e["fin_fetch"]["status"] = "complete" if quality.get("complete") and fin.get("q") else "incomplete"
+        if quality.get("complete") and fin.get("q"):
+            e["ocfq"] = min(fin["q"], (quality.get("periods") or [fin["q"]])[-1])
+            e["fin_fetch"]["success_date"] = stamp
+        if fin.get("q"): okf += 1
+        ocf = fin.get("ocf4")
+        ni = aligned_income(e.get("fq") or [], e.get("qr") or [], e.get("nm") or [], quality.get("periods") or [])
+        if ocf is not None and ni is not None and ni > 1e6:
+            e["ocfr"] = round(ocf * 1e8 / ni, 2)
+            e["ocfr_quality"] = {"complete": True, "periods": quality["periods"], "income_basis": "revenue_times_net_margin_estimate"}
+            okc += 1
     print(f"  盈餘品質(OCF/淨利):更新 {okc}/{len(need_c)} 檔;財務體質:{okf} 檔(全市場已有 {sum(1 for v in chips.values() if isinstance(v, dict) and v.get('fin'))} 檔)")
     print(f"  個股磨補(FinMind data_id):營收 {okr}/{len(need_r)} 檔、季報 {okq}/{len(need_q)} 檔"
           f"(待補存量:營收 {sum(1 for sid in tw if len((chips.get(sid) or {}).get('rm') or [])<13)} 檔)")

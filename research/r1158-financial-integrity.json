@@ -1,0 +1,85 @@
+{
+  "generated_at": "2026-10-24T04:11:44.092340+00:00",
+  "base_commit": "b7da7a8446f76d0550faa635489ded5aecc4bece",
+  "scope": "r1158 local candidate; no deployment; current financial review, not a strategy return backtest",
+  "counts": {
+    "issuers": 523,
+    "securities": 527,
+    "revenue_ttm_issuers": 473,
+    "income_ttm_issuers": 466,
+    "revenue_ttm_securities": 476,
+    "raw_sources_verified": 523,
+    "packs": 66,
+    "packed_source_bytes": 126622470,
+    "raw_component_failures": 0
+  },
+  "errors": [],
+  "nvda_revenue_ttm": {
+    "value": 302970.0,
+    "period_start": "2025-07-28",
+    "period_end": "2026-07-26",
+    "method": "annual_plus_ytd_minus_comparable_ytd",
+    "components": [
+      {
+        "start": "2025-01-27",
+        "end": "2026-01-25",
+        "val": 215938000000,
+        "filed": "2026-02-25",
+        "accn": "0001045810-26-000021",
+        "form": "10-K"
+      },
+      {
+        "start": "2026-01-26",
+        "end": "2026-07-26",
+        "val": 177837000000,
+        "filed": "2026-08-26",
+        "accn": "0001045810-26-000075",
+        "form": "10-Q"
+      },
+      {
+        "start": "2025-01-27",
+        "end": "2025-07-27",
+        "val": 90805000000,
+        "filed": "2026-08-26",
+        "accn": "0001045810-26-000075",
+        "form": "10-Q"
+      }
+    ],
+    "concept": "Revenues",
+    "complete": true,
+    "unit": "USD_million",
+    "filed": "2026-08-26",
+    "published_at": null,
+    "time_precision": "filing_date_only",
+    "pit_eligible": false
+  },
+  "finra_publication_check": {
+    "settlement": "2026-03-31",
+    "publication": "2026-04-10",
+    "first_eligible_date_lower_bound": "2026-04-11",
+    "actual_next_market_session_example": "2026-04-13"
+  },
+  "limitations": [
+    "EPS and security/share basis remain unverified; do not use incomplete last-four records for PE/PEG",
+    "Taiwan full ten-year financial statement backfill not executed",
+    "Historical calendar-frame archive still lacks actual filing timestamps; not point-in-time eligible",
+    "FINRA calendar currently covers 28 published schedule rows; unknown older dates excluded, legacy statistics retained pending revalidation"
+  ],
+  "tests": {
+    "node": 62,
+    "python": 64,
+    "total": 126
+  },
+  "ui_checks": {
+    "NVDA": "actual TTM and missing-quarter state visible",
+    "2330": "unverified cash flow not used as TTM; balance sheet retained",
+    "GOOGL": "issuer data visible; per-security values not blindly copied",
+    "mobile": "390px override, no horizontal overflow on inspected financial card",
+    "console_errors_observed": []
+  },
+  "storage": {
+    "existing_tracked_bytes": 477768796,
+    "additional_source_pack_bytes": 126622470,
+    "combined_mib_approx": 576.4
+  }
+}

@@ -21,11 +21,15 @@ jobs:
       - name: 抓 SEC EDGAR frames 組 usf.json
         env: { PYTHONUNBUFFERED: "1" }
         run: python fetch_usf.py
+      - name: 核對實際會計期間與保存 SEC 原始資料
+        env: { PYTHONUNBUFFERED: "1" }
+        run: python fetch_sec_ttm.py --limit 120 --budget 480
       - name: 提交
         run: |
           git config user.name "bot"
           git config user.email "actions@users.noreply.github.com"
           git add usf.json
+          [ -f sec_ttm.json ] && git add sec_ttm.json archive/sec_facts/ || true
           [ -f us_cik.json ] && git add us_cik.json || true
           if ! git diff --cached --quiet; then
             git commit -m "usf: $(TZ=Asia/Taipei date +%m/%d)"

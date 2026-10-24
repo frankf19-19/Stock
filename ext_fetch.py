@@ -15,7 +15,7 @@ NOW = dt.datetime.now(TZ)
 D = "archive/ext"
 os.makedirs(D, exist_ok=True)
 UA = {"User-Agent": "Mozilla/5.0 (K-research personal dashboard)"}
-SEC_UA = {"User-Agent": "K-research personal dashboard frankccc199@gmail.com", "Accept-Encoding": "gzip, deflate"}   # SEC 規定要附聯絡信箱(Frank 同意用這個)
+SEC_UA = {"User-Agent": "KLabResearch/1.0 klab.research@gmail.com", "Accept-Encoding": "gzip, deflate"}   # r1158:依 AGENTS 使用專案聯絡信箱
 
 
 def log(*a): print(*a, flush=True)
@@ -298,6 +298,10 @@ def opt(backfill=False):
 
 # ══════════════════ 4. FINRA 空單餘額 ══════════════════
 def finra(backfill=False):
+    # r1158: publication calendar is archived independently; a fetch failure preserves known dates.
+    from finra_calendar import update_calendar
+    try: update_calendar()
+    except Exception as exc: log(f"FINRA publication calendar: {type(exc).__name__}; retained existing dates")
     P = f"{D}/finra_si.json.gz"
     A = gz_load(P, {"s": {}, "done": []})
     syms = set()
