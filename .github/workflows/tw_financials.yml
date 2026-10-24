@@ -1,0 +1,49 @@
+name: 台股十年以上財報回補
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '13 */4 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: tw-financial-history
+  cancel-in-progress: false
+jobs:
+  history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: 期間與保存回歸檢查
+        run: python -m unittest discover -s tests -p 'test_tw_financials.py'
+      - name: 分批回補並保留來源與修訂
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+          PYTHONUNBUFFERED: '1'
+        run: python fetch_tw_financials.py --limit 240 --seconds 900
+      - name: 提交已完成資料
+        if: always()
+        run: |
+          git config user.name 'kyansuo-bot'
+          git config user.email 'bot@users.noreply.github.com'
+          git add fundamentals/tw/ archive/tw_financial/
+          git diff --cached --quiet && exit 0
+          git commit -m "財報歷史: 分批回補與永久保存"
+          for i in 1 2 3 4 5; do
+            if git pull --rebase origin main && git push origin HEAD:main; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            sleep 8
+          done
+          echo '::error::資料提交仍保留於本班，合併衝突需檢查'
+          exit 1
+      - name: 推送失敗時保存成果
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tw-financial-history-${{ github.run_id }}
+          path: |
+            fundamentals/tw/
+            archive/tw_financial/
+          retention-days: 90

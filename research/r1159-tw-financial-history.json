@@ -1,0 +1,1299 @@
+{
+  "version": "r1159",
+  "stocks": 20,
+  "raw_sources": 60,
+  "hash_errors": [],
+  "source_bytes": 946912,
+  "derived_bytes": 194123,
+  "details": [
+    {
+      "id": "1301",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 14285183000.0,
+        "cash_conversion": 0.34178526662796427,
+        "fcf": -10714472000.0,
+        "net_income": 10447235000.0,
+        "ocf": 3570711000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 172061187000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2002",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 19054035000.0,
+        "cash_conversion": null,
+        "fcf": 8773662000.0,
+        "net_income": -1066777000.0,
+        "ocf": 27827697000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 316891045000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2303",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 47397887000.0,
+        "cash_conversion": 1.3162038196719033,
+        "fcf": 62221261000.0,
+        "net_income": 83284326000.0,
+        "ocf": 109619148000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 250707149000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2308",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 53933295000.0,
+        "cash_conversion": 1.2885280686307994,
+        "fcf": 64048015000.0,
+        "net_income": 91562856000.0,
+        "ocf": 117981310000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 654539408000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2317",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 177499062000.0,
+        "cash_conversion": 0.5507402713793074,
+        "fcf": -41644456000.0,
+        "net_income": 246676361000.0,
+        "ocf": 135854606000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 9310748978000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2330",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 1491122744000.0,
+        "cash_conversion": 1.1779035065009296,
+        "fcf": 1143556366000.0,
+        "net_income": 2236752922000.0,
+        "ocf": 2634679110000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 4440492429000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2344",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 11590442000.0,
+        "cash_conversion": 1.0975473478885058,
+        "fcf": 32434296000.0,
+        "net_income": 40111926000.0,
+        "ocf": 44024738000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 146491926000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2382",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 28909581000.0,
+        "cash_conversion": -0.07265181133076469,
+        "fcf": -35383390000.0,
+        "net_income": 89107331000.0,
+        "ocf": -6473809000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 2979709572000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2408",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 10973869000.0,
+        "cash_conversion": 1.2223535338875597,
+        "fcf": 97700121000.0,
+        "net_income": 88905531000.0,
+        "ocf": 108673990000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 180508491000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2454",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 18231888000.0,
+        "cash_conversion": 1.1311671218573642,
+        "fcf": 92063302000.0,
+        "net_income": 97505654000.0,
+        "ocf": 110295190000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 593617995000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2603",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 21657289000.0,
+        "cash_conversion": 1.4920579074891196,
+        "fcf": 62032057000.0,
+        "net_income": 56089878000.0,
+        "ocf": 83689346000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 374286523000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2615",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 17176529000.0,
+        "cash_conversion": 1.1598082515848167,
+        "fcf": 30237671000.0,
+        "net_income": 40881068000.0,
+        "ocf": 47414200000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 144951926000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2881",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": null,
+        "cash_conversion": -0.7935004275531947,
+        "fcf": null,
+        "net_income": 167563945000.0,
+        "ocf": -132962062000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 441005006000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2882",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": null,
+        "cash_conversion": -1.2906143355140833,
+        "fcf": null,
+        "net_income": 138240665000.0,
+        "ocf": -178415384000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 380432470000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "2891",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": null,
+        "cash_conversion": -0.8516535958047321,
+        "fcf": null,
+        "net_income": 86255087000.0,
+        "ocf": -73459455000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 253972974000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "3034",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 1390531000.0,
+        "cash_conversion": 1.0401072707720576,
+        "fcf": 16748530000.0,
+        "net_income": 17439606000.0,
+        "ocf": 18139061000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 99196280000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "3231",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 49191526000.0,
+        "cash_conversion": -2.93535454484841,
+        "fcf": -268259337000.0,
+        "net_income": 74630784000.0,
+        "ocf": -219067811000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 3030491758000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "3711",
+      "coverage": {
+        "balance": {
+          "first": "2017Q2",
+          "first_date": "2017-06-30",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 37,
+          "retained_quarters": 0,
+          "source_quarters": 37
+        },
+        "cashflow": {
+          "first": "2017Q2",
+          "first_date": "2017-06-30",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 37,
+          "retained_quarters": 0,
+          "source_quarters": 37
+        },
+        "income": {
+          "first": "2018Q2",
+          "first_date": "2018-06-30",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 33,
+          "retained_quarters": 0,
+          "source_quarters": 33
+        }
+      },
+      "ttm": {
+        "capex": 211093476000.0,
+        "cash_conversion": 2.704217302693163,
+        "fcf": -42261115000.0,
+        "net_income": 62432986000.0,
+        "ocf": 168832361000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 711209799000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "6505",
+      "coverage": {
+        "balance": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "cashflow": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        },
+        "income": {
+          "first": "2015Q1",
+          "first_date": "2015-03-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [],
+          "quarters": 46,
+          "retained_quarters": 0,
+          "source_quarters": 46
+        }
+      },
+      "ttm": {
+        "capex": 9769783000.0,
+        "cash_conversion": 0.5330998242750704,
+        "fcf": 19485570000.0,
+        "net_income": 54877814000.0,
+        "ocf": 29255353000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 652316692000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    },
+    {
+      "id": "6669",
+      "coverage": {
+        "balance": {
+          "first": "2015Q4",
+          "first_date": "2015-12-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [
+            "2016Q1",
+            "2016Q3",
+            "2017Q1"
+          ],
+          "quarters": 40,
+          "retained_quarters": 0,
+          "source_quarters": 40
+        },
+        "cashflow": {
+          "first": "2015Q4",
+          "first_date": "2015-12-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [
+            "2016Q1",
+            "2016Q3",
+            "2017Q1"
+          ],
+          "quarters": 40,
+          "retained_quarters": 0,
+          "source_quarters": 40
+        },
+        "income": {
+          "first": "2015Q4",
+          "first_date": "2015-12-31",
+          "last": "2026Q2",
+          "last_date": "2026-06-30",
+          "missing_quarters": [
+            "2016Q1",
+            "2016Q2",
+            "2016Q3",
+            "2017Q1",
+            "2017Q3",
+            "2018Q1"
+          ],
+          "quarters": 37,
+          "retained_quarters": 0,
+          "source_quarters": 37
+        }
+      },
+      "ttm": {
+        "capex": 14186050000.0,
+        "cash_conversion": -0.7782050850491764,
+        "fcf": -59544454000.0,
+        "net_income": 58285926000.0,
+        "ocf": -45358404000.0,
+        "periods": [
+          "2025Q3",
+          "2025Q4",
+          "2026Q1",
+          "2026Q2"
+        ],
+        "revenue": 1113924852000.0
+      },
+      "diagnostics": {
+        "balance": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "cashflow": {
+          "conflicts": [],
+          "invalid_rows": 0
+        },
+        "income": {
+          "conflicts": [],
+          "invalid_rows": 0
+        }
+      }
+    }
+  ],
+  "validation": {
+    "node_tests": 72,
+    "python_tests": 86,
+    "desktop": [
+      "2330",
+      "6669",
+      "2881"
+    ],
+    "mobile_width": 390,
+    "mobile_client_width": 380,
+    "mobile_scroll_width": 380,
+    "hash_errors": 0,
+    "external_widget_connection_error_seen": true
+  }
+}
