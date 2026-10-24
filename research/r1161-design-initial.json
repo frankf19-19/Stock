@@ -1,0 +1,91 @@
+{
+  "id": "r1161",
+  "created": "2026-10-24T13:24:08.527341+00:00",
+  "purpose": "Research individual differences without changing live strategy",
+  "as_of": "2026-10-23",
+  "evaluation_start": "2016-01-01",
+  "training": "prior 5 calendar years, outcomes of every exit variant completed before annual decision; no held-out claims because historical years already studied",
+  "costs": [
+    0.006,
+    0.01
+  ],
+  "base": {
+    "TW": {
+      "dip": 0.4,
+      "sl": 0.15,
+      "tp": 0.2,
+      "hold": 60
+    },
+    "US": {
+      "dip": 0.35,
+      "sl": 0.2,
+      "tp": 0.3,
+      "hold": 90
+    }
+  },
+  "exit_variants": [
+    "baseline",
+    "atr4_rr1.5",
+    "atr6_rr1.5",
+    "short_hold",
+    "long_hold"
+  ],
+  "policies": [
+    "baseline",
+    "atr4",
+    "atr6",
+    "own_drawdown_entry",
+    "own_drawdown_entry_atr4",
+    "rolling_global",
+    "rolling_vol_group",
+    "rolling_stock_shrink20",
+    "atr4_riskcap3pct"
+  ],
+  "entry_adaptation": {
+    "historical_daily_drawdown_quantile": 0.01,
+    "lookback_years": 5,
+    "minimum_sessions": 500,
+    "floor": 0.25,
+    "ceiling": 0.5,
+    "freeze": "annually using prior years only"
+  },
+  "selection": {
+    "global_min_n": 100,
+    "vol_group_min_n": 60,
+    "stock_min_n": 20,
+    "shrink_strength": 50,
+    "paired_improvement_threshold": "positive mean gain and mean-2.5*stock-clustered-SE > 0; otherwise baseline/global fallback",
+    "ranking": "mean paired net return gain, no after-the-fact parameter tuning"
+  },
+  "state_groups": {
+    "atr_percent": [
+      0.02,
+      0.04
+    ],
+    "signed_efficiency63": [
+      -0.2,
+      0.2
+    ],
+    "sector": "current classification descriptive only, not PIT selector"
+  },
+  "portfolio": {
+    "slots": 5,
+    "allocation_cap": 0.2,
+    "ranking": "signal-close raw-dollar-volume, descending; ticker tie",
+    "execution": "next market session open only, no future-aware replacements; cash plus marked open positions",
+    "boundary": "open positions stay marked, not counted as closed trades"
+  },
+  "gates": [
+    "positive event mean gain and win or PF gain in 2016-2020 and 2021-2023",
+    "no fewer positive years",
+    "CAGR and MDD cannot both deteriorate; tradeoffs reported, not auto adopted",
+    "final chronological audit 2024+ and 1% cost stress; no fresh unseen-data claim"
+  ],
+  "limitations": [
+    "present archive survivor bias; original exchange membership unavailable",
+    "US archive is Yahoo quoted OHLC, split conventions and cash dividends not fully reconstructed",
+    "TW adjusted-price wealth approximation, no explicit dividend-tax cash ledger",
+    "TW source suspicious discontinuities must be audited; cannot delete future losing events",
+    "no publication-time financial histories in selectors; no new paid data or model API"
+  ]
+}

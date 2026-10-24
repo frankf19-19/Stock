@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1160';
+const APP_BUILD='r1161';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1087,6 +1087,47 @@ function strategyRiskMath(entry,stop,target){
   const loss=entry*1.003-stop*.997,gain=target*.997-entry*1.003;
   return {loss,gain,ratio:gain/loss,breakeven:loss/(loss+gain)*100};
 }
+// r1161: 個股波動與策略樣本只作參考；不改已驗證進出場或舊倉規則。
+var STOCK_PROFILES=null,STOCK_PROFILES_PENDING=null;
+function stockProfilesLoad(){
+  if(STOCK_PROFILES_PENDING)return STOCK_PROFILES_PENDING;
+  if(typeof fT!=='function')return null;
+  STOCK_PROFILES_PENDING=(async()=>{try{
+    const r=await fT('strategy_profiles.json?v='+APP_BUILD,10000);if(!r.ok)return null;
+    const j=await r.json();if(j.schema!==1||j.version!=='r1161'||!j.research_only||!j.stocks)return null;
+    STOCK_PROFILES=j;return j;
+  }catch(e){return null;}})();
+  STOCK_PROFILES_PENDING.then(()=>{if(typeof refreshStrategySummaries==='function')refreshStrategySummaries();});
+  return STOCK_PROFILES_PENDING;
+}
+function stockProfileMetrics(s,o,dates,now=new Date()){
+  const check=strategyCloseCheck(s,o,dates,now);if(!check)return null;
+  const n=o.length-check.excluded,b=strategyAdjustedBars(s,o,dates).slice(0,n),last=b.slice(-21);
+  if(last.length!==21||!last.every(x=>x[1]>=Math.max(x[0],x[3])&&x[2]<=Math.min(x[0],x[3])))return null;
+  let tr=0;for(let i=1;i<last.length;i++)tr+=Math.max(last[i][1]-last[i][2],Math.abs(last[i][1]-last[i-1][3]),Math.abs(last[i][2]-last[i-1][3]));
+  const atr=tr/20,atrPct=100*atr/check.close;
+  if(!(atr>0&&Number.isFinite(atrPct)))return null;
+  return {asof:check.asof,atr,atrPct,stopAtr:(s.market==='US'?.20:.15)*check.close/atr,jump:check.jump,excluded:check.excluded};
+}
+function stockProfileSizing(entry,stop,budget){
+  entry=strategyNumber(entry);stop=strategyNumber(stop);budget=strategyNumber(budget);
+  if(!(entry>0&&stop>0&&stop<entry&&budget>0))return null;
+  const loss=entry*1.003-stop*.997,shares=Math.floor(budget/loss);
+  return {loss,shares,capital:shares*entry*1.003};
+}
+function stockProfileHTML(s,o,dates,own,cost,now=new Date()){
+  const esc=x=>newsEsc(String(x)),us=s.market==='US',fmt=v=>Number(v).toLocaleString(undefined,{maximumFractionDigits:2}),money=v=>(us?'US$':'NT$')+fmt(v);
+  if(s.etf)return '<div class="dim-note">個股策略適用性：ETF未納入本次跌深研究，不借用一般個股樣本。</div>';
+  const j=typeof STOCK_PROFILES!=='undefined'?STOCK_PROFILES:null;
+  if(!j)stockProfilesLoad();
+  const p=j&&j.stocks[s.market+':'+s.id],m=stockProfileMetrics(s,o,dates,now),valid=p&&Number.isInteger(p.completed)&&p.completed>=0&&/^\d{4}-\d{2}-\d{2}$/.test(p.as_of)&&/^\d{4}-\d{2}-\d{2}$/.test(p.history_start)&&p.history_start<=p.as_of&&p.as_of<=now.toISOString().slice(0,10);
+  let sample=valid?`本股完整跌深交易 <b>${p.completed} 筆</b>；研究期間 ${esc(j.evaluation_start)}～${esc(p.as_of)}。價格歷史自 ${esc(p.history_start)}，${fmt(p.bars)} 根。`:'本股研究樣本尚未取得；不以0筆或其他股票的結果代替。';
+  if(valid)sample+=p.completed===0?' 本規則沒有已完成樣本，不代表沒有歷史K線。':p.completed<20?' 本股樣本不足，不推定個別最佳停損或勝率。':'筆數達研究最低門檻，仍未證實本股獨立參數有效。';
+  const wave=m?(m.jump?`${esc(m.asof)} 近期價格有斷層，先核對除權、減資與分割；暫不解讀ATR風險距離。`:`截至 ${esc(m.asof)} 完整日K：20日ATR ${money(m.atr)}，約收盤價 <b>${fmt(m.atrPct)}%</b>；原跌深停損${us?'20':'15'}%約 <b>${fmt(m.stopAtr)} ATR</b>。${m.excluded?'尚未收盤或未來K線已排除。':''}`):'完整日K、日期或還原資料不足，暫不計算本股波動；盤中現價不冒充收盤。';
+  const entry=own?strategyNumber(cost):null,stop=entry>0?strategyPrice(entry*(us?.8:.85),us,'down'):null,budget=us?1000:10000,z=entry>0&&!s.historyOnly&&m&&!m.jump?stockProfileSizing(entry,stop,budget):null;
+  const risk=z?`僅假設採用跌深策略：自設成本 ${money(entry)}、停損 ${money(stop)}，每股計畫損失 ${money(z.loss)}（雙邊各0.3%成本）。假設損失預算 ${money(budget)}，理論上限 ${fmt(z.shares)} 股、約需資金 ${money(z.capital)}；不是建議買入量，仍須受可用資金與集中度限制。`:'填入實際成本後，可試算跌深策略的每股風險；不以現價或AI模型成本代替你的成本。';
+  return `<details class="stock-profile" open><summary>🔎 本股策略適用性與風險（參考）</summary><div class="strategy-row"><b>目前波動</b><span>${wave}</span></div><div class="strategy-row"><b>策略證據</b><span>${sample}</span></div><details><summary>依自設成本試算風險</summary><div class="dim-note">${esc(risk)} 跳空、滑價、最低手續費與成交限制可能增加損失；未依整張股數取整。此試算不套用AI Pick其他短中長期策略。</div></details><div class="dim-note">樣本僅為本次跌深策略、不重疊且已完成交易；研究快照不隨報價更新，非短線突破或AI Pick全部策略的勝率。ATR是波動描述，並非買點；沒有改用4 ATR停損。${valid?'研究快照截至 '+esc(p.as_of)+'；後續交易未計入。':''} <a href="https://github.com/frankf19-19/Stock/blob/main/research/r1161/Stock-r1161-個股進出場優化研究.md" target="_blank" rel="noopener">查看研究與限制</a></div></details>`;
+}
 function ownStrategySummary(s,o,dates,own,cost){
   // 一般技術面規則和 AI 模型帳分列；不把模型持有視為使用者有持股。
   if(!s||!Array.isArray(o)||!o.length)return '';
@@ -1112,7 +1153,7 @@ function ownStrategySummary(s,o,dates,own,cost){
   const accounts=tiers.map(({k,sl})=>({short:'短期',mid:'中期',long:'長期'})[k]+'：'+aipPolicyText(sl,k,us));
   if(!us&&typeof AIPK!=='undefined'&&AIPK){const pv=(AIPK.trader||{}).pv||{},p=(pv.pos||[]).find(x=>x.id===s.id);if(p)accounts.push(`主力20檔模型帳：進場 ${price(p.entry)}；停損 ${price(p.stop)}；停利 ${price(p.tp)}；依模型轉弱／已排定出場記錄執行，與自設持股分開`);}
 
-  return `<div class="dim-block strategy-summary" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 操作規則與價位 <span class="ds">現價 ${price(px)}</span></h3>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('收盤檢核',esc(strategyCloseText(s,rawO,dates)))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}${row('AI Pick 模型帳',accounts.length?accounts.map(esc).join('<br>'):'不在三清單／主力模型持倉中；不因此推定這檔適合或不適合買進')}<div class="dim-note">價格會隨資料更新；進場、收盤確認、隔日開盤成交是不同時間。模型帳不等於你的持股；下列均線帶、左右側與情境價位保留為觀察參考，不構成另一套已驗證買賣規則。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。</div></div>`;
+  return `<div class="dim-block strategy-summary" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 操作規則與價位 <span class="ds">現價 ${price(px)}</span></h3>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('收盤檢核',esc(strategyCloseText(s,rawO,dates)))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}${row('AI Pick 模型帳',accounts.length?accounts.map(esc).join('<br>'):'不在三清單／主力模型持倉中；不因此推定這檔適合或不適合買進')}${stockProfileHTML(s,rawO,dates,own,cost)}<div class="dim-note">價格會隨資料更新；進場、收盤確認、隔日開盤成交是不同時間。模型帳不等於你的持股；下列均線帶、左右側與情境價位保留為觀察參考，不構成另一套已驗證買賣規則。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。</div></div>`;
 }
 
 function refreshStrategySummaries(){
@@ -1122,7 +1163,7 @@ function refreshStrategySummaries(){
     const s=(DATA.stocks||[]).find(x=>x.id===el.dataset.id);if(!s)return;
     const ke=(KCACHE[shardOf(s)]||{})[s.id],k=ke&&ke.o?{ohlc:ke.o,dates:ke.d}:location.hash==='#stock/'+s.id?baseK:null;
     if(!k||!k.ohlc)return;const en=favEntryOf(s.id),so=el.dataset.history==='1'?Object.assign({},s,{historyOnly:true}):s;
-    const html=ownStrategySummary(so,k.ohlc,k.dates,!!en,en&&en.px);if(html&&el.outerHTML!==html)el.outerHTML=html;
+    const html=ownStrategySummary(so,k.ohlc,k.dates,!!en,en&&en.px);if(html&&el.outerHTML!==html){const t=document.createElement('template');t.innerHTML=html;const next=t.content.firstElementChild,old=el.querySelectorAll('.stock-profile, .stock-profile details');next.querySelectorAll('.stock-profile, .stock-profile details').forEach((x,i)=>{if(old[i])x.open=old[i].open;});el.replaceWith(next);}
   }catch(e){}});
 }
 setInterval(()=>{try{refreshStrategySummaries();}catch(e){}},15000);
