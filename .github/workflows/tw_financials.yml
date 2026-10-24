@@ -1,6 +1,7 @@
 name: 台股十年以上財報回補
 on:
   push:
+    branches: [main]
     paths:
       - 'fetch_tw_financials.py'
       - 'financial_integrity.py'
@@ -15,6 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   history:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

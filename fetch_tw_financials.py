@@ -107,7 +107,8 @@ def build_history(sid, sources, raw_refs, fetched_at, old=None, start=START):
         rows = (sources.get(kind) or {}).get('data') or []
         reports[kind], diag[kind] = normalize(kind, rows, sid, fetched_at[:10])
     # Source omissions never erase previously captured periods or replace known facts with nulls.
-    merged = {kind: dict(rows) for kind, rows in reports.items()}
+    # Keep current-response facts independent of preserved-history merges and CF recomputation.
+    merged = {kind: {n: dict(entry) for n, entry in rows.items()} for kind, rows in reports.items()}
     for kind in DATASETS:
         for prev in (old or {}).get('statements', {}).get(kind, []):
             n = quarter(prev.get('date'))

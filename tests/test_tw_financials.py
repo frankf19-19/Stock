@@ -107,6 +107,22 @@ class FinancialHistoryTests(unittest.TestCase):
         h=history(cf=rows(values[1:],'CashFlowsFromOperatingActivities'),old=old)
         self.assertEqual(len(h['quarters']),4);self.assertIsNone(h['ttm']['ocf'])
 
+    def test_retained_income_field_not_mistaken_for_current_fact(self):
+        values=[('2024-03-31',10),('2024-06-30',20),('2024-09-30',30),('2024-12-31',40)]
+        old=history(rows(values))
+        current=rows(values[:-1])+rows([('2024-12-31',1)],'EPS')
+        h=history(current,old=old)
+        self.assertEqual(h['quarters'][-1]['revenue'],40)
+        self.assertIsNone(h['ttm']['revenue'])
+
+    def test_retained_ytd_outside_ttm_window_not_current_component(self):
+        values=[('2024-03-31',10),('2024-06-30',30),('2024-09-30',60),('2024-12-31',100),('2025-03-31',20)]
+        old=history(cf=rows(values,'CashFlowsFromOperatingActivities'))
+        h=history(cf=rows(values[1:],'CashFlowsFromOperatingActivities'),old=old)
+        self.assertEqual(h['quarters'][1]['ocf'],20)
+        self.assertEqual(h['ttm']['periods'],['2024Q2','2024Q3','2024Q4','2025Q1'])
+        self.assertIsNone(h['ttm']['ocf'])
+
     def test_future_quarters_rejected(self):
         h=history(rows([('2027-03-31',100),('2024-03-31',1)]))
         self.assertEqual(len(h['quarters']),1);self.assertEqual(h['quarters'][0]['period'],'2024Q1')
