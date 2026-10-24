@@ -121,7 +121,8 @@ def main():
             pass
     if not t2c:
         print("對照表三路皆失敗(官方/Worker/快取),中止", flush=True); return 1
-    c2t = {c: t for t, c in t2c.items()}
+    c2t = {}
+    for ticker, cik in t2c.items(): c2t.setdefault(cik, []).append(ticker)
     print(f"對到 CIK:{len(t2c)} 檔(對不到者多為 ADR 別名/已下市,前端顯示不適用)", flush=True)
 
     # 3) frames 逐科目逐季
@@ -139,15 +140,21 @@ def main():
             lab = f"{y % 100}Q{q}"
             hit = 0
             for row in j.get("data") or []:
-                tk = c2t.get(int(row.get("cik", 0)))
-                if not tk: continue
+                tickers = c2t.get(int(row.get("cik", 0))) or []
+                if not tickers: continue
                 v = row.get("val")
                 if v is None: continue
-                cell = store[tk].setdefault(lab, {})
-                if key not in cell:                 # 營收兩標籤:先到先贏,不互相覆蓋
-                    cell[key] = float(v); hit += 1
+                for tk in tickers:
+                    if key == "eps" and len(tickers)>1: continue  # r1158: issuer data is not verified class-level EPS
+                    cell = store[tk].setdefault(lab, {})
+                    if key not in cell:
+                        cell[key] = float(v); hit += 1
             print(f"  {tag[:34]:<34} CY{y}Q{q}: 命中 {hit}", flush=True)
 
+    # r1158: retain the exact pre-refresh current file; never erase its original facts.
+    from fetch_sec_ttm import archive_bytes
+    from pathlib import Path
+    if Path("usf.json").exists(): archive_bytes("legacy_usf", Path("usf.json").read_bytes())
     # 4) 組裝輸出(百萬美元、EPS 兩位小數;至少 4 季營收才收錄)
     # r551 增量合併:載入既有 usf.json,新資料「補洞不清舊」——每天收斂更完整,單次失敗不倒退
     try:
@@ -171,10 +178,10 @@ def main():
         if not j: continue
         hit = 0
         for row in j.get("data") or []:
-            tk = c2t.get(int(row.get("cik", 0)))
+            tickers = c2t.get(int(row.get("cik", 0))) or []
             v = row.get("val")
-            if tk and v and v > 0:
-                shares[tk] = round(float(v) / 1e6, 1); hit += 1
+            if len(tickers)==1 and v and v > 0:
+                shares[tickers[0]] = round(float(v) / 1e6, 1); hit += 1
         print(f"  SharesOutstanding CY{y}Q{q}I: hit {hit}", flush=True)
     try:
         for tk, pe in json.load(open("usf.json", encoding="utf-8")).get("s", {}).items():
@@ -196,6 +203,9 @@ def main():
             eps.append(round(c["eps"], 2) if c.get("eps") is not None else None)
         if len(q_l) >= 4:
             out_s[tk] = {"q": q_l, "rev": rev, "gp": gp, "oi": oi, "ni": ni, "eps": eps}
+            out_s[tk]["issuer_cik"] = t2c.get(tk)
+            out_s[tk]["eps_periods_verified"] = False
+            out_s[tk]["multiple_security_mapping"] = len(c2t.get(t2c.get(tk), [])) > 1
             if shares.get(tk): out_s[tk]["sh"] = shares[tk]
     for tk, sh in shares.items():   # 財報不足4季者也保留股數(熱力圖仍可用)
         out_s.setdefault(tk, {"q": [], "rev": [], "gp": [], "oi": [], "ni": [], "eps": []})["sh"] = sh

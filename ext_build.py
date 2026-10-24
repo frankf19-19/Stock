@@ -9,6 +9,7 @@
       和「之前 60 天漲跌差不多的股票」比(避免『內部人都在大漲後賣』造成的假象)。
   ・空單(FINRA):超跌股裡,空單天數高 vs 低之後 60 天的表現。"""
 import os, sys, re, json, gzip, time, math, datetime as dt
+from finra_calendar import load_calendar, available_date
 import numpy as np, pandas as pd, requests, warnings
 warnings.filterwarnings("ignore")
 
@@ -393,9 +394,12 @@ def stats_form4():
 def finra_frame(cols, idx):
     A = gz(f"{E}/finra_si.json.gz", {}) or {}
     dtc = {}
+    calendar = load_calendar()
     for s, d in (A.get("s") or {}).items():
         if s not in cols: continue
-        ser = {pd.Timestamp(k) + pd.Timedelta(days=9): v[2] for k, v in d.items() if v and v[2] is not None and v[2] < 900}
+        # r1158: unknown publication dates are excluded, not shifted by a guessed offset.
+        ser = {pd.Timestamp(available_date(k, calendar)): v[2] for k, v in d.items()
+               if available_date(k, calendar) and v and len(v)>2 and v[2] is not None and v[2] < 900}
         if ser: dtc[s] = pd.Series(ser).sort_index()
     if not dtc: return None
     F = pd.DataFrame(dtc).sort_index()
@@ -406,7 +410,7 @@ def stats_finra():
     from bottom import load_us
     U = load_us(); c = U["c"]
     F = finra_frame(set(c.columns), c.index)
-    if F is None: return {}
+    if F is None or F.dropna(how="all").empty: return {"timing_policy": "official_publication_next_session_v1", "n": 0}
     b20 = c / c.rolling(20).mean() - 1
     q20 = b20.rolling(750, min_periods=250).quantile(0.05)
     over = b20 <= q20
@@ -419,7 +423,7 @@ def stats_finra():
     ok = on.get("n", 0) >= 200 and ((on.get("w60") or 0) - (off.get("w60") or 0) >= 3 or (on.get("m60") or 0) - (off.get("m60") or 0) >= 1)
     log(f"  空單:超跌+空單天數前 20% {on} vs 其他超跌 {off} {'✓' if ok else '✗'}")
     al_hi, al_lo = g(hi), g(~hi & F.notna())
-    return {"over_hi": {"name": "超跌而且空單回補天數高(前 20%)", "on": on, "off": off, "pass": bool(ok)},
+    return {"timing_policy": "official_publication_next_session_v1", "unknown_publication_excluded": True, "over_hi": {"name": "超跌而且空單回補天數高(前 20%)", "on": on, "off": off, "pass": bool(ok)},
             "all_hi": {"name": "空單回補天數高(前 20%,不分漲跌)", "on": al_hi, "off": al_lo,
                        "pass": bool(al_hi.get("n", 0) >= 500 and ((al_lo.get("w60") or 0) - (al_hi.get("w60") or 0) >= 3))},
             "period": f"{F.dropna(how='all').index[0].year}~{F.index[-1].year}"}
@@ -523,10 +527,16 @@ def daily(S):
     try:
         A = gz(f"{E}/finra_si.json.gz", {}) or {}
         cur = {}
+        calendar = load_calendar()
+        today = NOW.date().isoformat()
         for s, d in (A.get("s") or {}).items():
-            ks = sorted(d)[-6:]
+            ks = sorted(k for k in d if calendar.get(k) and calendar[k] <= today)[-6:]
             if ks: cur[s] = [[k] + d[k] for k in ks]
-        out["finra"] = {"cur": cur, "stats": S.get("finra")}
+        stats = S.get("finra") or {}
+        if stats.get("timing_policy") != "official_publication_next_session_v1":
+            stats = {"pending_revalidation": True, "legacy_stats": stats, "timing_policy": "legacy_unverified"}
+        out["finra"] = {"cur": cur, "publication_dates": calendar, "stats": stats,
+                        "unknown_publication_excluded": True}
     except Exception as e: log(f"  空單現況失敗 {e}")
     json.dump(out, open("ext.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     log(f"✓ ext.json:{', '.join(k for k in out if k not in ('v', 'u', 'stats_u'))}")

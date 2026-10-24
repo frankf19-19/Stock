@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1157';
+const APP_BUILD='r1158';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -4019,12 +4019,64 @@ function turnHtml(r){
   return head.join('')+tbl+`<div class="dim-note" style="margin-top:8px"><b>怎麼用這張表</b>:①看「波段幅度」——這檔平常一段漲跌約幾%,現在這段是否已達平均;②看「費時」——這檔平常幾天轉一次;③高點一個比一個低=空頭節奏,低點一個比一個高=多頭節奏。<br>轉折點以鋸齒法自動辨識(前後4根K的極值);「預估窗口」是節奏統計非保證——<b>價位到了、時間到了、量能背離三者共振時勝率最高</b>。個股日期為交易日回推之約略值。非投資建議。</div>`;
 }
 
+// r1158: data completeness is not a buy/sell signal; current SEC facts are not historical PIT data.
+function financialQuarterWindow(q,n=4){
+  if(!Array.isArray(q)||q.length<n)return false;
+  const a=q.slice(-n).map(v=>{const m=/^(\d{2}|\d{4})Q([1-4])$/.exec(String(v));return m?((+m[1]<100?2000:0)+ +m[1])*4+ +m[2]-1:NaN;});
+  return a.every((v,i)=>Number.isFinite(v)&&(!i||v===a[i-1]+1));
+}
+function financialSum(e,key,n=4){
+  const a=e&&e[key];if(!financialQuarterWindow(e&&e.q,n)||!Array.isArray(a)||a.length!==e.q.length)return null;
+  const w=a.slice(-n);return w.every(v=>typeof v==='number'&&Number.isFinite(v))?w.reduce((x,y)=>x+y,0):null;
+}
+function financialSafeChips(raw){
+  if(!raw)return raw;
+  const e={...raw},f=raw.fin&&{...raw.fin};
+  if(f){if(!f.cf_quality?.complete){f.ocf4=null;f.capex4=null;f.fcf4=null;}e.fin=f;}
+  if(!f?.cf_quality?.complete||!raw.ocfr_quality?.complete)e.ocfr=null;
+  return e;
+}
+function financialFinraStudyHTML(stats){
+  const verified=stats?.timing_policy==='official_publication_next_session_v1';
+  const study=verified?stats?.over_hi:(stats?.legacy_stats||stats)?.over_hi;
+  if(!study)return '<div class="dim-note">空單研究：已改按官方公布時間，樣本與結果待重算。</div>';
+  const detail=`<b>${extE(study.name||'空單研究')}</b>：60 天後上漲比例 ${study.on?.w60??'—'}%（其他超跌股 ${study.off?.w60??'—'}%）`;
+  if(!verified)return `<div class="dim-note">空單舊研究尚待依官方公布時間重算，不作買賣依據。<details><summary>保留的舊版統計（待重新驗證）</summary>${detail}</details></div>`;
+  return `<div class="ex-st">${extBadge(study.pass)} ${detail}</div>`;
+}
+function usCurrentMetric(e,key){
+  const m=e?.current_facts?.metrics?.[key];
+  return m?.complete===true&&m.unit==='USD_million'&&typeof m.value==='number'&&Number.isFinite(m.value)?m:null;
+}
+function usFinancialStatusHTML(e){
+  const c=e?.current_facts,rev=usCurrentMetric(e,'rev'),q=e?.q||[];
+  const esc=v=>String(v??'—').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
+  const stamp=c?.last_success?new Date(c.last_success).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}):'未記錄';
+  const src=c&&Number.isInteger(c.cik)?`<a href="https://data.sec.gov/api/xbrl/companyfacts/CIK${String(c.cik).padStart(10,'0')}.json" target="_blank" rel="noopener">SEC 原始財報</a>`:'SEC 季度摘要';
+  return `<div class="dim-note financial-data-status" style="border:1px solid var(--line);border-radius:8px;padding:9px;margin:8px 0;line-height:1.8"><b>資料狀態</b>｜${src}<br>季度摘要 ${q.length} 筆${q.length?'，'+esc(q[0])+'～'+esc(q.at(-1)):''}；${financialQuarterWindow(q)?'末四筆標籤連續，實際期間與每股口徑仍須核對':'末四筆不足或不連續，不以末四筆計算近四季估值'}。<br>${rev?`已核對十二個月營收 ${(rev.value/100).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2})} 億美元（${esc(rev.period_start)}～${esc(rev.period_end)}）；申報日期 ${esc(rev.filed)}。`:'完整十二個月營收尚待來源對帳。'}<br>每股盈餘與股別／分割口徑未完成核對前，本區近四季 EPS、本益比與 PEG 顯示 —。${c?.tickers?.length>1?'同公司多個代號共用營運事實，每股資料與股數分開核對。':''}<br>來源擷取 ${esc(stamp)}（台北）；申報日未提供時刻。頁首估值另有報價來源，此區暫不重算每股估值。這是目前回顧資料，不作當時已知的歷史回測。</div>`;
+}
+let __secCurrent=null;
+async function secCurrentData(){
+  if(!__secCurrent)__secCurrent=(async()=>{try{const r=await fT('sec_ttm.json?_='+Math.floor(Date.now()/36e5),8000);return r.ok?await r.json():null;}catch(x){return null;}})();
+  return __secCurrent;
+}
 let __usfCache=null,__usfAt=0;
 async function usfData(){                             // r530:美股基本面(SEC EDGAR 官方 XBRL,後端每日組 usf.json)
   if(__usfCache&&Date.now()-__usfAt<36e5)return __usfCache;
   try{
     const r=await fT('usf.json?_='+Math.floor(Date.now()/36e5),8000);
-    if(r.ok){__usfCache=await r.json();__usfAt=Date.now();}
+    if(r.ok){
+      const base=await r.json();
+      const current=await secCurrentData();
+      if(current?.version===1&&current.s&&current.issuers){
+        Object.entries(current.s).forEach(([ticker,cik])=>{
+          const facts=current.issuers[String(cik)];if(!facts)return;
+          const e=(base.s||={})[ticker]||{q:[],rev:[],gp:[],oi:[],ni:[],eps:[]};
+          base.s[ticker]={...e,current_facts:facts};
+        });
+      }
+      __usfCache=base;__usfAt=Date.now();
+    }
   }catch(e){}
   return __usfCache;
 }
@@ -4038,7 +4090,7 @@ function usfCalc(e){   // r551:usf 一檔的分數與摘要(全域套分與個�
   const jE=e.q.indexOf((+e.q[n].slice(0,2)-1)+e.q[n].slice(2));
   const epsY=(jE>=0&&e.eps[jE]!=null&&e.eps[n]!=null&&Math.abs(e.eps[jE])>0.005)?F1((e.eps[n]/Math.abs(e.eps[jE])-1)*100):null;
   const rise=a=>a[n]!=null&&a[n-1]!=null&&a[n]>a[n-1];
-  const t3=rise(gm)&&rise(om)&&rise(nm);
+  const t3=financialQuarterWindow(e.q,2)&&rise(gm)&&rise(om)&&rise(nm);
   let sc=50;
   if(revY!=null)sc+=revY>=20?18:revY>=8?12:revY>=0?5:revY>=-8?-6:-14;
   if(epsY!=null)sc+=epsY>=20?10:epsY>=0?5:-8;
@@ -4437,10 +4489,12 @@ function rptEpsSeries(d){   // r573:季度 TTM EPS 序列(台股:淨利=營收×
   try{
     const e=d.e||{};
     if(d.mkt==='US'&&d.usfRaw&&Array.isArray(d.usfRaw.q)){
+      // r1158: missing actual periods / share basis: do not fabricate historical TTM EPS.
+      if(!d.usfRaw.eps_periods_verified)return [];
       const q=d.usfRaw.q,ep=d.usfRaw.eps||[],out=[];
       for(let i=3;i<q.length;i++){
         const w=ep.slice(i-3,i+1);
-        if(w.some(v=>v==null))continue;
+        if(w.some(v=>v==null)||!financialQuarterWindow(q.slice(0,i+1)))continue;
         out.push({q:q[i],eps:+w.reduce((a,b)=>a+b,0).toFixed(2)});
       }
       return out;
@@ -4463,6 +4517,7 @@ function rptEpsSeries(d){   // r573:季度 TTM EPS 序列(台股:淨利=營收×
 }
 function rptPEOption(d,forPrint){   // r573:Forward PE Band 河流圖
   const k=d.k;
+  if(d.mkt==='US'&&!d.usfRaw?.eps_periods_verified)return null;
   let eps=rptEpsSeries(d);
   let epsNote='近四季 TTM EPS';
   if(!k||!k.d||k.d.length<60)return null;
@@ -4517,7 +4572,7 @@ function rptPEOption(d,forPrint){   // r573:Forward PE Band 河流圖
     lineStyle:{width:2,color:'#2E8B57'},itemStyle:{color:'#2E8B57'},data:closes});
   const curPE=+(closes[closes.length-1]/epsAt(Date.parse(dates[dates.length-1]))).toFixed(1);
   return {opt:{backgroundColor:forPrint?'#fff':'transparent',animation:false,
-      title:{text:'Forward PE Band(本益比河流圖)',left:'center',top:2,
+      title:{text:'本益比情境河流圖（參考）',left:'center',top:2,
         textStyle:{fontSize:13,fontWeight:800,color:forPrint?'#333':((window.CT&&CT.legend)||'#888')}},
       tooltip:{trigger:'axis',confine:true},
       grid:{left:56,right:52,top:34,bottom:40},
@@ -4812,9 +4867,9 @@ async function rptDrawPE(d){   // r571:站內互動版 PE 河流圖
     const host=document.getElementById('rptPeBox');
     if(!host)return;
     const r=rptPEOption(d,false);
-    if(!r){host.innerHTML='';return;}
-    host.innerHTML=`<h3 style="font-size:15px;margin-bottom:2px">Forward PE Band(本益比河流圖)</h3>
-      <div class="dim-note" style="margin-bottom:4px">目前本益比約 <b>${r.curPE} 倍</b>(近四季 EPS ${r.eps} 元);帶狀由下至上為 ${r.mult.join('x / ')}x——歷史評價區間分位。</div>
+    if(!r){host.innerHTML='<h3 style="font-size:15px">本益比情境河流圖</h3><div class="dim-note">連續季度、每股盈餘或股數口徑尚未核對，暫不繪製估值帶；原始財報仍保留供核對。</div>';return;}
+    host.innerHTML=`<h3 style="font-size:15px;margin-bottom:2px">本益比情境河流圖（參考）</h3>
+      <div class="dim-note" style="margin-bottom:4px">目前本益比約 <b>${r.curPE} 倍</b>(近四季 EPS ${r.eps} 元);帶狀由下至上為 ${r.mult.join('x / ')}x——情境區間分位。尚未依原始公告時間重播，不能作歷史買賣回測。</div>
       <div id="rptPeChart" style="height:300px"></div>`;
     try{await ensureECharts();}catch(x){}
     if(!window.echarts)return;
@@ -5393,6 +5448,7 @@ async function usFundBlock(s){                        // 📊 r530:美股財報�
     const sid=String(s.id).toUpperCase();const e=u&&u.s&&(u.s[sid]||u.s[AL[sid]]);
     if(location.hash!=='#stock/'+s.id)return;
     if(!e||!Array.isArray(e.q)||e.q.length<4){
+      if(e?.current_facts){box.innerHTML='<div class="dim-block"><h3>📊 財報速覽</h3>'+usFinancialStatusHTML(e)+'<div class="dim-note">季度明細不足，保留資料來源供核對。</div></div>';return;}
       box.innerHTML='<div class="dim-block"><h3>📊 財報速覽</h3><div class="dim-note">SEC 尚無此檔可對齊日曆季的 XBRL 財報(ADR/會計年度特殊者常見),請以下方外部連結查閱。</div></div>';return;
     }
     const N=e.q.length, F1=v=>v==null?null:+(+v).toFixed(1);
@@ -5403,18 +5459,20 @@ async function usFundBlock(s){                        // 📊 r530:美股財報�
     const epsY=(()=>{const j=e.q.indexOf((+e.q[i9].slice(0,2)-1)+e.q[i9].slice(2));
       return(j>=0&&e.eps[j]!=null&&e.eps[i9]!=null&&Math.abs(e.eps[j])>0.005)?F1((e.eps[i9]/Math.abs(e.eps[j])-1)*100):null;})();
     const rise=a=>a[i9]!=null&&a[i9-1]!=null&&a[i9]>a[i9-1];
-    const t3=rise(gm)&&rise(om)&&rise(nm);
+    const t3=financialQuarterWindow(e.q,2)&&rise(gm)&&rise(om)&&rise(nm);
     const sgn=v=>v==null?'—':(v>0?'+':'')+v+'%';
     const cls=v=>v==null?'flat':v>=0?'pos':'neg';
     const bn=v=>v==null?'—':v>=100?(v/100).toFixed(v>=10000?0:1)+' 億':v.toFixed(0)+' 百萬';   // r1014:單位是百萬美元,1 億 = 100 百萬(原本誤除 1000,NVDA 962 億顯示成 96 億)
     // r1014:估值——近四季 EPS、本益比、市值、股價營收比
-    const px=+s.price||null,eps4=e.eps.slice(-4).every(x=>x!=null)?e.eps.slice(-4).reduce((a,b)=>a+b,0):null,rev4=e.rev.slice(-4).every(x=>x!=null)?e.rev.slice(-4).reduce((a,b)=>a+b,0):null;
-    const pe=px&&eps4>0?px/eps4:null,mcap=px&&e.sh?px*e.sh:null,ps=mcap&&rev4?mcap/rev4:null;
-    const ni4=e.ni.slice(-4).every(x=>x!=null)?e.ni.slice(-4).reduce((a,b)=>a+b,0):null;
-    const revY4=(()=>{const a=e.rev.slice(-8);if(a.length<8||a.some(x=>x==null))return null;const c=a.slice(4).reduce((x,y)=>x+y,0),p=a.slice(0,4).reduce((x,y)=>x+y,0);return p>0?F1((c/p-1)*100):null;})();
-    const gro=revY4!=null?revY4:revY[i9];const peg=pe&&gro&&gro>0?pe/gro:null;
+    const px=+s.price||null,eps4=null,pe=null;
+    const revMetric=usCurrentMetric(e,'rev'),niMetric=usCurrentMetric(e,'ni');
+    const rev4=revMetric?.value??null,ni4=niMetric?.value??null;
+    const multiple=e.multiple_security_mapping||e.current_facts?.tickers?.length>1;
+    const mcap=!multiple&&px&&e.sh?px*e.sh:null,ps=mcap&&rev4>0?mcap/rev4:null;
+    const revY4=null,gro=revY[i9],peg=null;
     box.innerHTML=`<div class="dim-block" style="border-left:4px solid #6FA8DC">
       <h3>📊 財報速覽 <span class="ds">SEC 官方 XBRL · 近 ${N} 季</span>${t3?' <span style="background:rgba(198,40,40,.12);color:var(--up);font-weight:800;font-size:12px;padding:2px 8px;border-radius:10px">三率三升</span>':''}</h3>
+      ${usFinancialStatusHTML(e)}
       <div class="earn-metrics" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
         <div class="em-card"><div class="em-v flat" style="font-size:15px;padding-top:5px">${bn(e.rev[i9])} 美元</div><div class="em-l">${e.q[i9]} 營收</div></div>
         <div class="em-card"><div class="em-v ${cls(revY[i9])}">${sgn(revY[i9])}</div><div class="em-l">營收 YoY</div></div>
@@ -5426,11 +5484,11 @@ async function usFundBlock(s){                        // 📊 r530:美股財報�
       <div class="dim-note" style="margin:8px 0 4px;font-weight:800">💲 估值(以現價 ${px?'$'+px:'—'} 計)</div>
       <div class="earn-metrics" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
         <div class="em-card"><div class="em-v flat">${pe?pe.toFixed(1)+' 倍':(eps4!=null&&eps4<=0?'虧損':'—')}</div><div class="em-l">本益比(近四季 EPS ${eps4!=null?eps4.toFixed(2):'—'})</div></div>
-        <div class="em-card"><div class="em-v flat">${mcap?(mcap>=1e6?(mcap/1e6).toFixed(2)+' 兆':(mcap/100).toFixed(0)+' 億'):'—'}</div><div class="em-l">市值(美元)</div></div>
-        <div class="em-card"><div class="em-v flat">${ps?ps.toFixed(1)+' 倍':'—'}</div><div class="em-l">股價營收比 P/S</div></div>
+        <div class="em-card"><div class="em-v flat">${mcap?(mcap>=1e6?(mcap/1e6).toFixed(2)+' 兆':(mcap/100).toFixed(0)+' 億'):'—'}</div><div class="em-l">市值(美元，舊股數估算・參考)</div></div>
+        <div class="em-card"><div class="em-v flat">${ps?ps.toFixed(1)+' 倍':'—'}</div><div class="em-l">股價營收比 P/S(股數估算・參考)</div></div>
         <div class="em-card"><div class="em-v ${cls(gro)}">${sgn(gro)}</div><div class="em-l">${revY4!=null?'近四季':'最新一季'}營收年增</div></div>
-        <div class="em-card"><div class="em-v flat">${ni4!=null?bn(ni4)+' 美元':'—'}</div><div class="em-l">近四季淨利</div></div>
-        <div class="em-card"><div class="em-v flat">${peg?peg.toFixed(2):'—'}</div><div class="em-l">本益成長比(PEG,營收年增計)${peg?(peg<1?' 偏便宜':peg>2?' 偏貴':''):''}</div></div>
+        <div class="em-card"><div class="em-v flat">${ni4!=null?bn(ni4)+' 美元':'—'}</div><div class="em-l">十二個月淨利${niMetric?.period_end?'（截至 '+irEsc(niMetric.period_end)+'）':''}</div></div>
+        <div class="em-card"><div class="em-v flat">${peg?peg.toFixed(2):'—'}</div><div class="em-l">本益成長比(PEG，待每股資料核對)${peg?(peg<1?' 偏便宜':peg>2?' 偏貴':''):''}</div></div>
       </div>
       <div id="usfChart" style="height:250px;margin-top:8px"></div>
       ${(()=>{   // r539:美股財報健檢列——與台股同語言的好事/警訊
@@ -5438,7 +5496,7 @@ async function usFundBlock(s){                        // 📊 r530:美股財報�
         if(revY[i9]!=null&&revY[i9]>=15)good.push(`營收 YoY +${revY[i9]}%——高速成長`);
         else if(revY[i9]!=null&&revY[i9]>=5)good.push(`營收 YoY +${revY[i9]}%——穩健成長`);
         else if(revY[i9]!=null&&revY[i9]<0)warn.push(`營收 YoY ${revY[i9]}%——營收年減,留意需求循環`);
-        const acc=revY[i9]!=null&&revY[i9-1]!=null?revY[i9]-revY[i9-1]:null;
+        const acc=financialQuarterWindow(e.q,2)&&revY[i9]!=null&&revY[i9-1]!=null?revY[i9]-revY[i9-1]:null;
         if(acc!=null&&acc>=3&&revY[i9]>0)good.push(`成長率較上季 +${acc.toFixed(1)} 個百分點——動能加速`);
         if(acc!=null&&acc<=-5&&revY[i9]>0)mid2.push(`成長率較上季 ${acc.toFixed(1)} 個百分點——仍成長但在減速`);
         if(epsY!=null&&epsY>=15)good.push(`EPS YoY +${epsY}%——獲利跳增`);
@@ -12517,14 +12575,14 @@ function irHistoryHTML(j,latest){
   return `<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">🗂️ 歷次法說會(${rest.length} 場)</summary><table class="mini-tbl" style="width:100%;font-size:13px;margin-top:4px">${rest.map(row).join('')}</table></details>`;
 }
 function finHealthHTML(e,s){   // chips.fin:近四季現金流 + 最新季資產負債(億元)
-  const f=e&&e.fin;if(!f||!f.q)return '';
+  e=financialSafeChips(e);const f=e&&e.fin;if(!f||!f.q)return '';
   const F=v=>v==null?'—':(+v).toLocaleString('zh-TW',{maximumFractionDigits:1});
   const tags=[];
-  if(f.fcf4!=null)tags.push(f.fcf4>0?`<span class="c-code" style="color:var(--down)">自由現金流 +${F(f.fcf4)} 億</span>`:`<span class="c-code" style="color:var(--up)">自由現金流 ${F(f.fcf4)} 億(燒錢)</span>`);
-  if(f.cur!=null)tags.push(`<span class="c-code" style="color:${f.cur>=150?'var(--down)':f.cur<100?'var(--up)':'inherit'}">流動比 ${F(f.cur)}%</span>`);
-  if(f.dr!=null)tags.push(`<span class="c-code" style="color:${f.dr<=40?'var(--down)':f.dr>=70?'var(--up)':'inherit'}">負債比 ${F(f.dr)}%</span>`);
-  if(f.cash!=null&&f.debt!=null)tags.push(`<span class="c-code" style="color:${f.cash>=f.debt?'var(--down)':'inherit'}">現金 ${F(f.cash)} 億 vs 借款 ${F(f.debt)} 億${f.cash>=f.debt?'(淨現金)':''}</span>`);
-  if(e.ocfr!=null&&isFinite(+e.ocfr))tags.push(`<span class="c-code" style="color:${+e.ocfr>=1?'var(--down)':+e.ocfr<0.5?'var(--up)':'inherit'}">盈餘含金量 ${(+e.ocfr).toFixed(2)}</span>`);
+  if(f.fcf4!=null)tags.push(f.fcf4>0?`<span class="c-code" style="color:var(--up)">自由現金流 +${F(f.fcf4)} 億</span>`:`<span class="c-code" style="color:var(--down)">自由現金流 ${F(f.fcf4)} 億(燒錢)</span>`);
+  if(f.cur!=null)tags.push(`<span class="c-code" style="color:${f.cur>=150?'var(--up)':f.cur<100?'var(--down)':'inherit'}">流動比 ${F(f.cur)}%</span>`);
+  if(f.dr!=null)tags.push(`<span class="c-code" style="color:${f.dr<=40?'var(--up)':f.dr>=70?'var(--down)':'inherit'}">負債比 ${F(f.dr)}%</span>`);
+  if(f.cash!=null&&f.debt!=null)tags.push(`<span class="c-code" style="color:${f.cash>=f.debt?'var(--up)':'inherit'}">現金 ${F(f.cash)} 億 vs 借款 ${F(f.debt)} 億${f.cash>=f.debt?'(淨現金)':''}</span>`);
+  if(e.ocfr!=null&&isFinite(+e.ocfr))tags.push(`<span class="c-code" style="color:${+e.ocfr>=1?'var(--up)':+e.ocfr<0.5?'var(--down)':'inherit'}">盈餘含金量 ${(+e.ocfr).toFixed(2)}</span>`);
   const verdict=(()=>{
     let good=0,bad=0;
     if(f.fcf4!=null)(f.fcf4>0?good++:bad++);
@@ -12532,11 +12590,12 @@ function finHealthHTML(e,s){   // chips.fin:近四季現金流 + 最新季資產
     if(f.dr!=null)(f.dr<=50?good++:f.dr>=70?bad++:0);
     if(f.cash!=null&&f.debt!=null)(f.cash>=f.debt?good++:0);
     if(e.ocfr!=null&&isFinite(+e.ocfr))(+e.ocfr>=0.8?good++:+e.ocfr<0.5?bad++:0);
-    return bad>=2?['體質偏弱','var(--up)']:good>=3&&!bad?['體質穩健','var(--down)']:['體質普通','var(--amber)'];
+    return bad>=2?['體質偏弱','var(--down)']:good>=3&&!bad?['體質穩健','var(--up)']:['體質普通','var(--amber)'];
   })();
   return `<div class="dim-note" style="font-size:14px;line-height:1.8;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 13px">
-    <b>🩺 現金流與償債能力</b> <span class="c-code" style="color:${verdict[1]};font-weight:800">${verdict[0]}</span> <span class="c-code">${irEsc(f.q)} 資產負債表・近四季現金流</span><br>
+    <b>🩺 現金流與償債能力</b> <span class="c-code" style="color:${verdict[1]};font-weight:800">${verdict[0]}</span> <span class="c-code">${irEsc(f.q)} 資產負債表・${f.cf_quality?.complete?irEsc(f.cf_quality.period_end||'')+' 近四季現金流':'現金流期間待核對'}</span><br>
     ${tags.join(' ')}
+    <div class="financial-data-status">${f.cf_quality?.complete?'現金流已核對四個連續季度：'+irEsc((f.cf_quality.periods||[]).join('、')):'近四季現金流尚未完成核對，舊值保留於原始紀錄'}；公告時間 ${f.published_at?irEsc(f.published_at):'來源未提供'}；擷取 ${irEsc(f.fetched_at||'未記錄')}。體質標籤為參考。</div>
     <div style="margin-top:4px;color:var(--dim);font-size:12.5px">近四季營業現金流 ${F(f.ocf4)} 億、資本支出 ${F(f.capex4)} 億;總資產 ${F(f.ta)} 億、淨值 ${F(f.eq)} 億${f.inv!=null?`、存貨 ${F(f.inv)} 億`:''}${f.ar!=null?`、應收 ${F(f.ar)} 億`:''}。資料:FinMind 財報三表(公開資訊觀測站申報),每季更新。</div>
   </div>`;
 }
@@ -15746,11 +15805,16 @@ setTimeout(setupSections,400);
 /* ══════════════ 籌碼深度追蹤(法人130日/大戶52週/營收40月/信用130日)══════════════ */
 let curChips=null, chipCharts=[];
 const CCACHE={};
+const FINANCIAL_SAFE_SHARDS=new WeakSet();
 function disposeChipCharts(){chipCharts.forEach(c=>{try{c.dispose()}catch(e){}});chipCharts=[];}
 async function loadChips(s){
   if(s.market!=='TW'||DATA.source!=='live')return null;
   const sh=chipShardOf(s.id);
   await loadShard(CCACHE,sh);
+  const raw=CCACHE[sh];
+  if(raw&&typeof raw==='object'&&!FINANCIAL_SAFE_SHARDS.has(raw)){
+    Object.keys(raw).forEach(id=>{raw[id]=financialSafeChips(raw[id]);});FINANCIAL_SAFE_SHARDS.add(raw);
+  }
   return (CCACHE[sh]||{})[s.id]||null;
 }
 function fmtLot(v){return (v>0?'+':'')+Math.round(v).toLocaleString('zh-TW');}
@@ -26269,7 +26333,7 @@ async function extStockBox(s){
         ${St.buy_clu&&St.buy_clu.n?`<div class="ex-st">${extBadge(St.buy_clu.pass)} <b>30 天內 2 位以上買進</b>:${extStatLine(St.buy_clu)}</div>`:''}
         ${St.sell_big&&St.sell_big.n?`<div class="ex-st">${extBadge(St.sell_big.pass,'回測有效(警訊)')} <b>主管賣出 ≥ 100 萬美元</b>:${extStatLine(St.sell_big)}</div>`:''}
         ${si?`<div style="margin-top:10px"><b>🩳 空單</b> <span class="dim" style="font-size:12px">FINRA・每月兩次</span><div style="font-size:13.5px;margin-top:3px">${String(si[0]).slice(5).replace('-','/')} 空單 <b>${(si[1]/1e6).toFixed(1)}M 股</b>${si0?`(上期 ${(si0[1]/1e6).toFixed(1)}M,${si[1]>=si0[1]?'+':''}${((si[1]/si0[1]-1)*100).toFixed(1)}%)`:''}・回補天數 <b>${si[3]}</b> 天</div>
-          ${Fs.over_hi?`<div class="ex-st">${extBadge(Fs.over_hi.pass)} <b>${extE(Fs.over_hi.name)}</b>:60 天後上漲機率 ${Fs.over_hi.on.w60??'—'}%(其他超跌股 ${Fs.over_hi.off.w60??'—'}%)</div>`:''}</div>`:''}
+          ${financialFinraStudyHTML(Fs)}</div>`:''}
         <div class="dim-note">回測 ${extE(St.period||'')};和「之前漲跌差不多的股票」比。</div></div>`;
     }
     box.innerHTML=html;
