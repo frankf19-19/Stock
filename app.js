@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1159';
+const APP_BUILD='r1160';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -12542,9 +12542,59 @@ function irFileForm(c){   // 公開資訊觀測站的簡報要用表單 POST 下
   return one(c.fm,'📄 簡報原檔(中)')+' '+one(c.fe,'📄 English');
 }
 function irToneBadge(t){
-  const col=t==='正面'?'var(--down)':t==='保守'?'var(--up)':'var(--amber)';
+  const col=t==='正面'?'var(--up)':t==='保守'?'var(--down)':'var(--amber)';
   return t?`<span class="c-code" style="color:${col};border-color:${col};font-weight:800">${irEsc(t)}</span>`:'';
 }
+// r1160: check internal monetary-unit consistency; preserve all AI text and source records.
+function irMoneyUnit(unit){
+  const k=String(unit||'').toLowerCase().replace(/s$/,'');
+  return ({'兆':1e12,'十億':1e9,'億':1e8,'千萬':1e7,'百萬':1e6,'萬':1e4,'千':1e3,'百':1e2,'billion':1e9,'million':1e6,'thousand':1e3})[k]||null;
+}
+function irMoneyCurrency(s){return /新台幣|新臺幣|台幣|臺幣|TWD|NT\$/i.test(s)?'TWD':/美元|美金|USD|US\$/i.test(s)?'USD':null;}
+function irMoneyMentions(text){
+  const curr='(?:新台幣|新臺幣|台幣|臺幣|TWD|NT\\$|美元|美金|USD|US\\$)',unit='(?:十億|千萬|百萬|兆|億|萬|千|百|billions?|millions?|thousands?)';
+  const number='[+-]?(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?';
+  const patterns=[new RegExp('('+curr+')\\s*('+number+')\\s*('+unit+')','gi'),new RegExp('('+number+')\\s*('+unit+')\\s*(?:元)?\\s*('+curr+')','gi')];
+  const facts=[];String(text||'');
+  patterns.forEach((rx,p)=>{for(const m of String(text||'').matchAll(rx)){
+    const value=Number((p?m[1]:m[2]).replace(/,/g,'')),currency=irMoneyCurrency(p?m[3]:m[1]),u=p?m[2]:m[3];
+    if(!Number.isFinite(value)||!currency||!irMoneyUnit(u))continue;
+    if(facts.some(f=>m.index<f.end&&m.index+m[0].length>f.index))continue;
+    const prefix=String(text||'').slice(Math.max(0,m.index-80),m.index).split(/[，。；;\n]/).at(-1);
+    facts.push({value,currency,unit:u,scale:irMoneyUnit(u),index:m.index,end:m.index+m[0].length,prefix,raw:m[0]});
+  }});return facts;
+}
+function irMoneyTopic(text){
+  for(const [key,rx] of [['capex',/資本支出|资本支出|capex/i],['fcf',/自由現金|自由现金|free cash/i],['ocf',/營業.*現金|营业.*现金|operating cash/i],['net',/淨利|净利|稅後|税后|net income/i],['revenue',/營收|营收|營業收入|营业收入|revenue|sales/i],['assets',/總資產|总资产|total assets/i]])if(rx.test(String(text||'')))return key;
+  return null;
+}
+function irAiUnitIssues(a){
+  const refs=[];
+  for(const item of a?.numbers||[]){
+    if(!item||!irMoneyTopic(item.k))continue;
+    const exact=String(item.v??'').trim();let facts=irMoneyMentions(exact);
+    if(!facts.length&&/^[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(exact)){
+      const currency=irMoneyCurrency(item.k),u=String(item.k).match(/十億|千萬|百萬|兆|億|萬|千|百|billions?|millions?|thousands?/i)?.[0];
+      if(currency&&u)facts=[{value:Number(exact.replace(/,/g,'')),currency,unit:u,scale:irMoneyUnit(u)}];
+    }
+    for(const f of facts)if(f.value>=10&&f.scale)refs.push({...f,label:String(item.k),topic:irMoneyTopic(item.k)});
+  }
+  const fields=[['標題',a?.head],['摘要',a?.summary],...(a?.guidance||[]).map(x=>['公司指引',x]),['全文',a?.deep]],issues=[];
+  for(const [field,text] of fields){
+    for(const f of irMoneyMentions(text)){
+      const matches=refs.filter(r=>r.currency===f.currency&&r.value===f.value&&r.topic===irMoneyTopic(f.prefix));
+      if(!matches.length||new Set(matches.map(r=>r.scale)).size!==1||matches[0].scale===f.scale)continue;
+      const r=matches[0],key=[field,f.raw,r.label].join('|');if(issues.some(x=>x.key===key))continue;
+      issues.push({key,field,text:f.raw,label:r.label,tableValue:r.value,tableUnit:r.unit,currency:r.currency,ratio:f.scale/r.scale});
+    }
+  }
+  return issues;
+}
+function irAiUnitAuditHTML(a){
+  const issues=irAiUnitIssues(a);if(!issues.length)return '';
+  return `<details open class="ir-unit-audit" style="border:1px solid var(--amber);border-radius:7px;padding:8px 10px;margin:8px 0"><summary style="cursor:pointer;font-weight:700;color:var(--amber)">金額單位需核對：AI文字與表格有 ${issues.length} 處不一致</summary><ul style="margin:6px 0;padding-left:20px">${issues.map(x=>`<li>${irEsc(x.field)}「${irEsc(x.text)}」；同頁「${irEsc(x.label)}」列 ${irEsc(x.tableValue)} ${irEsc(x.tableUnit)}，單位不同。</li>`).join('')}</ul><div style="font-size:12px;color:var(--dim)">這是同頁一致性檢查，尚未核對原始簡報；AI原文與表格完整保留，請以原始資料確認。</div></details>`;
+}
+
 function irAiHTML(c,s){
   const a=c.ai||{};
   const li=arr=>(arr||[]).filter(Boolean).map(x=>`<li>${irEsc(x)}</li>`).join('');
@@ -12554,13 +12604,14 @@ function irAiHTML(c,s){
   return `<div class="dim-note" style="font-size:14px;line-height:1.75;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:11px 14px">
     <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><b>${us?'🎧 AI 讀完財報新聞稿(SEC 8-K)':'🎧 AI 讀完公司簡報'}</b> ${irToneBadge(a.tone)} <span class="c-code">${irEsc(c.d)}${c.t?' '+fmtT(c.t):''}</span>${a.period?`<span class="c-code">期間 ${irEsc(a.period)}</span>`:''}${c.src==='pptx'?'<span class="c-code">pptx</span>':''}</div>
     ${a.head?`<div style="font-size:16px;font-weight:800;margin:6px 0 4px">${irEsc(a.head)}</div>`:''}
+    ${irAiUnitAuditHTML(a)}
     ${a.summary?`<p style="margin:4px 0">${irEsc(a.summary)}</p>`:''}
     ${nums?`<details open style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">📊 簡報關鍵數字</summary><table class="mini-tbl" style="width:100%;font-size:13px;margin-top:4px">${nums}</table></details>`:''}
     ${(a.guidance||[]).length?`<div style="margin-top:6px"><b>🧭 公司指引/展望</b><ul class="ai-ul">${li(a.guidance)}</ul></div>`:''}
-    ${(a.drivers||[]).length?`<div><b style="color:var(--down)">🚀 成長動能</b><ul class="ai-ul">${li(a.drivers)}</ul></div>`:''}
+    ${(a.drivers||[]).length?`<div><b style="color:var(--up)">🚀 成長動能</b><ul class="ai-ul">${li(a.drivers)}</ul></div>`:''}
     ${a.capex?`<div><b>🏗️ 資本支出/擴產</b>:${irEsc(a.capex)}</div>`:''}
     ${(a.products||[]).length?`<div><b>🧩 產品/業務結構</b>:${(a.products||[]).map(irEsc).join('、')}</div>`:''}
-    ${(a.risks||[]).length?`<div><b style="color:var(--up)">⚠️ 風險與保守訊號</b><ul class="ai-ul">${li(a.risks)}</ul></div>`:''}
+    ${(a.risks||[]).length?`<div><b style="color:var(--down)">⚠️ 風險與保守訊號</b><ul class="ai-ul">${li(a.risks)}</ul></div>`:''}
     ${(a.watch||[]).length?`<div><b>👀 接下來該盯</b><ul class="ai-ul">${li(a.watch)}</ul></div>`:''}
     ${(a.quotes||[]).length?`<div style="color:var(--dim)">「${(a.quotes||[]).map(irEsc).join('」「')}」</div>`:''}
     ${a.deep?`<details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">📝 深度分析全文(AI)</summary><div style="margin-top:6px">${mdLite(String(a.deep).replace(/\s*(#{2,4} )/g,'\n\n$1'))}</div></details>`:''}
