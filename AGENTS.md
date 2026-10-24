@@ -230,11 +230,11 @@
 - **來源口徑**：新`fetch_tw_financials.py`個股data_id查詢。FinMind官方文件明列損益表金額已為單季、BS是季末餘額、CF是YTD，單位已為TWD元（EPS每股元）。第8節bulk歷史提醒不能套到這支個股回補；不再用0.85推測差分。半年報公司未確認單季時留空；EPS股數與分割基準未核對，不加總估值。只接受季末及擷取日以前資料，重複衝突留空。
 - **資料契約**：`fundamentals/tw/<sid>.json.gz`有完整statements、quarters、ttm、coverage、diagnostics與raw_sources。收入／淨利只合計最新相接四季；CF按同年度相鄰累計拆單季，缺前期不冒充整季；BS不相減；CF／淨利只同期間且正淨利才算比率。capex必須有取得設備的原文科目；金融業缺科目不填0。沒有公告時間，published_at=null、pit_eligible=false，僅目前回顧，禁止接歷史策略或把資料回填為當時已知。
 - **永久保存**：原回應canonical JSON按SHA256gzip保存於`archive/tw_financial/raw/<sid>/<kind>/`；替換前衍生檔存versions，每輪前索引存indexes。來源略掉舊季仍保留且標註，不以null清除舊事實，當期衝突除外；合併後重新算CF差分，避免沿用舊差值；TTM僅允許本次來源完整四季及本次YTD前期，保留舊季不冒充本次核對。`_config.yml`只將新原始歸檔目錄排除Pages建置，原始資料仍公開保存在GitHub並由網站連結；不是刪資料。網站按個股讀取，不在首頁載全市場。
-- **分批回補**：新`tw_financials.yml`每4小時一班、最多240請求／900秒；獨立tw-financial-history鎖，只寫新fundamentals/tw與archive/tw_financial，不動c/k故不占kdata。沿用既有Secret FINMIND_TOKEN，可無token讀免費層；不讀取或輸出Secret值。未回補優先，每檔每日最多一次自動嘗試，完整30天刷新，不完整7天重試。配額／網路失敗保留checkpoint，不把錯誤空回應當完成。沒有強制reset或-X theirs；推送失敗保留90天artifact供救回。API／排程延遲可能使回補較久，不能承諾完成日。
+- **分批回補**：新`tw_financials.yml`每4小時一班，回補程式／期間核心／此workflow更新時也執行、最多240請求／900秒；獨立tw-financial-history鎖，只寫新fundamentals/tw與archive/tw_financial，不動c/k故不占kdata。沿用既有Secret FINMIND_TOKEN，可無token讀免費層；不讀取或輸出Secret值。未回補優先，每檔每日最多一次自動嘗試，完整30天刷新，不完整7天重試。配額／網路失敗保留checkpoint，不把錯誤空回應當完成。沒有強制reset或-X theirs；推送失敗保留90天artifact供救回。API／排程延遲可能使回補較久，不能承諾完成日。
 - **前端**：r1159在「法說會與財報體質」新增本股長期營收／淨利／CF走勢、最近12季與可展開全部季表、三表實際範圍和缺季。缺值不當0、缺季走勢斷線；同來源核對後CF也用於原體質卡的記憶體副本，未改後台資料或分數。修正這一章快速切股舊回應覆蓋新股的競態。金融股指標僅參考，不套製造業好壞門檻。
 - **驗證**：72 Node＋86 Python＝158項通過；60份原始雜湊全相符。涵蓋單季／YTD／跨年、缺季／半年報、重複衝突／未來資料、來源縮水保存、修訂後CF重算、配額中止、gzip／已解壓、原物件不變及切股競態。實際本機2330桌面、390px手機，三條走勢與46季表正常，頁寬380／scrollWidth380、表格在區塊內捲動；2330初查console無error，金融股切換時另有既有TradingView外掛連線失敗，未見本批程式錯誤。暫存測試目錄需設為工作區.cache，Windows受限系統TEMP不一定可寫。
 - **接手／回退**：Claude先同步main並讀本節。新後台與前端獨立於既有摘要，回退只針對程式；保留所有raw、versions、indexes和後續機器人資料，禁止整個PR revert而刪來源。全市場完成數以fundamentals/tw/index.json為準。
-- **部署狀態**：r1159功能與下節r1160合併為同一批，以前端r1160部署；Frank已另行明確允許台股公開來源及後續排程公開保存。PR合併／正式站驗收後補上精確連結與提交。
+- **部署狀態**：r1159功能與下節r1160合併為同一批，以前端r1160部署；Frank已另行明確允許台股公開來源及後續排程公開保存。[PR #10](https://github.com/frankf19-19/Stock/pull/10)已squash合併為`d874c943ffdf1e2316ecb37751287d2bbc7df84b`；115檔Git blob SHA全相符，零額外修改／刪檔，保留同期bot資料。正式站與首班回補驗收接續。
 
 ---
 
@@ -246,7 +246,7 @@
 - **顏色與產生端**：法說irToneBadge正面改紅、保守綠，成長動能紅／風險綠，修正台灣慣例顛倒。listen_conf.py新提示要求摘要、numbers、指引、deep核對同一實際金額，billion＝10億、million＝0.01億，EPS／百分比分開；未額外呼叫Gemini或改寫舊AI資料。
 - **查核證據**：research/r1160-ai-unit-audit.json掃描現存2336個ir／ir_us檔、267份有AI內容的法說，這個保守規則僅指出1份，不把其餘266份當作核對正確。research/r1159-public-source-audit.json逐列查核台股111989列，只含date／stock_id／type／value／origin_name，60份來源雜湊全合；抽查2603來源再無登入抓取，canonical SHA一致。金鑰／帳戶／持股不在payload。
 - **驗證**：83 Node＋86 Python＝169項通過；實際2330頁顯示5處提示，正面標籤為紅，390px畫面clientWidth／scrollWidth均380，提示框在頁內。Python語法、完整JS語法與git diff --check通過。新版未改Cloudflare、登入、持股、推播或下單。
-- **換行與交接**：Windows write_text可能轉CRLF，瀏覽器上傳前需write_bytes確保LF；核對Git blob SHA而非僅視覺內容，以免整份app.js被誤判重寫。本地以獨立分支保存，不覆蓋後續bot資料。回退只處理程式，保留全部歷史／原始來源與修訂。正式部署證據待補。
+- **換行與交接**：Windows write_text可能轉CRLF，瀏覽器上傳前需write_bytes確保LF；核對Git blob SHA而非僅視覺內容，以免整份app.js被誤判重寫。本地以獨立分支保存，不覆蓋後續bot資料。回退只處理程式，保留全部歷史／原始來源與修訂。PR #10已合併（同第15節）；首個Pages班被同期bot新版接替屬正常，實際驗收以最後成功班及正式站檔案為準。補push paths觸發，回補程式更新後立即驗證／接續資料，保留4小時排程與手動補跑。正式驗收證據待補。
 
 ---
 
@@ -254,6 +254,7 @@
 
 | 日期 | 版本 | 誰 | 改了什麼 |
 |---|---|---|---|
+| 2026-10-24 | r1160 發布接續 | Codex | PR #10已合併，115檔SHA一致；財報回補補程式變更即執行，保留4小時排程與人工補跑入口 |
 | 2026-10-24 | r1160 | Codex | AI法說單位矛盾提示／原文保留、紅綠修正、產生端單位檢核；169項測試，合併r1159財報功能；Frank已明確核准台股公開來源及後續保存 |
 | 2026-10-24 | r1159 | Codex | 台股2015起三表回補與原始修訂永久保存；首批20檔60份來源、158項測試；長期走勢／全部季表／同期間CF、分批排程與Claude交接 |
 | 2026-10-24 | r1158 部署驗收 | Codex | PR #9合併、Pages成功；85檔／66包內容核對，正式站NVDA／2330／GOOGL與手機畫面已驗收；Claude依第14節接續 |

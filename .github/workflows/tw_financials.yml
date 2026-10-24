@@ -1,5 +1,10 @@
 name: 台股十年以上財報回補
 on:
+  push:
+    paths:
+      - 'fetch_tw_financials.py'
+      - 'financial_integrity.py'
+      - '.github/workflows/tw_financials.yml'
   workflow_dispatch:
   schedule:
     - cron: '13 */4 * * *'
