@@ -1,0 +1,3 @@
+# r1159: raw sources remain permanently in Git; the website only needs per-stock derived files.
+exclude:
+  - archive/tw_financial

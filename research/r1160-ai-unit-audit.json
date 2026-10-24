@@ -1,0 +1,63 @@
+{
+  "files": 2336,
+  "items": 267,
+  "flagged": [
+    {
+      "file": "../Stock/ir/2330.json",
+      "date": "2026-10-15",
+      "issues": [
+        {
+          "key": "摘要|美金 46.72 億|3Q26營業收入淨額(美金十億元)",
+          "field": "摘要",
+          "text": "美金 46.72 億",
+          "label": "3Q26營業收入淨額(美金十億元)",
+          "tableValue": 46.72,
+          "tableUnit": "十億",
+          "currency": "USD",
+          "ratio": 0.1
+        },
+        {
+          "key": "摘要|新台幣 1,494.24 億|3Q26營業收入淨額(新台幣十億元)",
+          "field": "摘要",
+          "text": "新台幣 1,494.24 億",
+          "label": "3Q26營業收入淨額(新台幣十億元)",
+          "tableValue": 1494.24,
+          "tableUnit": "十億",
+          "currency": "TWD",
+          "ratio": 0.1
+        },
+        {
+          "key": "摘要|新台幣 763.06 億|3Q26歸屬予母公司業主之本期淨利(新台幣十億元)",
+          "field": "摘要",
+          "text": "新台幣 763.06 億",
+          "label": "3Q26歸屬予母公司業主之本期淨利(新台幣十億元)",
+          "tableValue": 763.06,
+          "tableUnit": "十億",
+          "currency": "TWD",
+          "ratio": 0.1
+        },
+        {
+          "key": "全文|美金 46.72 億|3Q26營業收入淨額(美金十億元)",
+          "field": "全文",
+          "text": "美金 46.72 億",
+          "label": "3Q26營業收入淨額(美金十億元)",
+          "tableValue": 46.72,
+          "tableUnit": "十億",
+          "currency": "USD",
+          "ratio": 0.1
+        },
+        {
+          "key": "全文|新台幣 443.21 億|3Q26資本支出(新台幣十億元)",
+          "field": "全文",
+          "text": "新台幣 443.21 億",
+          "label": "3Q26資本支出(新台幣十億元)",
+          "tableValue": 443.21,
+          "tableUnit": "十億",
+          "currency": "TWD",
+          "ratio": 0.1
+        }
+      ]
+    }
+  ],
+  "limitation": "Conservative internal consistency scan only; not verification against original filings and not proof that unflagged AI text is accurate."
+}

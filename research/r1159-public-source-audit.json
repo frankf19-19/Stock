@@ -1,0 +1,459 @@
+{
+  "source": "FinMind public unauthenticated per-stock historical statements",
+  "source_documentation": "https://finmind.github.io/tutor/TaiwanMarket/Fundamental/",
+  "authentication_used": false,
+  "files": 60,
+  "rows": 111989,
+  "ids": [
+    "1301",
+    "2002",
+    "2303",
+    "2308",
+    "2317",
+    "2330",
+    "2344",
+    "2382",
+    "2408",
+    "2454",
+    "2603",
+    "2615",
+    "2881",
+    "2882",
+    "2891",
+    "3034",
+    "3231",
+    "3711",
+    "6505",
+    "6669"
+  ],
+  "only_row_fields": {
+    "date": 111989,
+    "origin_name": 111989,
+    "stock_id": 111989,
+    "type": 111989,
+    "value": 111989
+  },
+  "failures": [],
+  "contents": [
+    {
+      "path": "archive/tw_financial/raw/1301/balance/6778f459a46015219eb8499c31d28fdb1d739531ba29a7c5225dad92b271ff2f.json.gz",
+      "bytes": 31111,
+      "sha256": "6778f459a46015219eb8499c31d28fdb1d739531ba29a7c5225dad92b271ff2f",
+      "rows": 3922,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=1301&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/1301/cashflow/ab405910e9351dcc6c4af87d3ff195f7302d2618753fc8c87af13f9de88ccdcd.json.gz",
+      "bytes": 11650,
+      "sha256": "ab405910e9351dcc6c4af87d3ff195f7302d2618753fc8c87af13f9de88ccdcd",
+      "rows": 1299,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=1301&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/1301/income/bc0a91bfac1f9257183530584a85ebfcd195d57e8483f7ef71f66f8874c277ca.json.gz",
+      "bytes": 6174,
+      "sha256": "bc0a91bfac1f9257183530584a85ebfcd195d57e8483f7ef71f66f8874c277ca",
+      "rows": 684,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=1301&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2002/balance/e647cc7cfe643756d222cf8780a23e10928d0609c5d2ea8e0b9725028a7fa316.json.gz",
+      "bytes": 36978,
+      "sha256": "e647cc7cfe643756d222cf8780a23e10928d0609c5d2ea8e0b9725028a7fa316",
+      "rows": 4696,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2002&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2002/cashflow/4202b35b5a9989323ddc5dbacbbb36789921a06df114180d89a686c0731a9b60.json.gz",
+      "bytes": 12512,
+      "sha256": "4202b35b5a9989323ddc5dbacbbb36789921a06df114180d89a686c0731a9b60",
+      "rows": 1367,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2002&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2002/income/972e20877dd7ab66634e0b5a44993a35d533a3028938f16fcc3f4ee82bdb5fd8.json.gz",
+      "bytes": 7201,
+      "sha256": "972e20877dd7ab66634e0b5a44993a35d533a3028938f16fcc3f4ee82bdb5fd8",
+      "rows": 782,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2002&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2303/balance/adfd14a76f7e4d61cf31e3a53f7444205e6ab4ec5d58b156d7354d0d5c078bb5.json.gz",
+      "bytes": 36140,
+      "sha256": "adfd14a76f7e4d61cf31e3a53f7444205e6ab4ec5d58b156d7354d0d5c078bb5",
+      "rows": 4485,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2303&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2303/cashflow/0bbd6d421190b18b32581aeecd2ff715bc8d97b48038e9b02f28caa117ce920a.json.gz",
+      "bytes": 11954,
+      "sha256": "0bbd6d421190b18b32581aeecd2ff715bc8d97b48038e9b02f28caa117ce920a",
+      "rows": 1310,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2303&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2303/income/1808e550d5ed8eea8acf13166218b3f8dd31f143771b83391fd84346da0d9892.json.gz",
+      "bytes": 7548,
+      "sha256": "1808e550d5ed8eea8acf13166218b3f8dd31f143771b83391fd84346da0d9892",
+      "rows": 825,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2303&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2308/balance/e05be5f83b88c20826484fdebd857e9c591684254e8f490e1d23576b26f8c65c.json.gz",
+      "bytes": 36189,
+      "sha256": "e05be5f83b88c20826484fdebd857e9c591684254e8f490e1d23576b26f8c65c",
+      "rows": 4560,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2308&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2308/cashflow/45a448b0450187633a9a41719b07a1bc60994d6e5129b5f6991a219a444769a4.json.gz",
+      "bytes": 11310,
+      "sha256": "45a448b0450187633a9a41719b07a1bc60994d6e5129b5f6991a219a444769a4",
+      "rows": 1235,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2308&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2308/income/4d325907019ecb5ce49d5da5f653b48249952f6e1e9526b47d51f15605bc4625.json.gz",
+      "bytes": 7233,
+      "sha256": "4d325907019ecb5ce49d5da5f653b48249952f6e1e9526b47d51f15605bc4625",
+      "rows": 777,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2308&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2317/balance/673a1e7eb71b0097b595406a52cf0d13b9585ab6b39078b702fcdee401d3b009.json.gz",
+      "bytes": 38459,
+      "sha256": "673a1e7eb71b0097b595406a52cf0d13b9585ab6b39078b702fcdee401d3b009",
+      "rows": 4653,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2317&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2317/cashflow/abc9a8e4dd58801630ca3f935ea7229d7db7d16b22c76cc040420fc14425aa5b.json.gz",
+      "bytes": 12832,
+      "sha256": "abc9a8e4dd58801630ca3f935ea7229d7db7d16b22c76cc040420fc14425aa5b",
+      "rows": 1336,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2317&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2317/income/309e159d1fdee8968015302e53674cdab16d42de72ed28f677671d691cbf7def.json.gz",
+      "bytes": 7556,
+      "sha256": "309e159d1fdee8968015302e53674cdab16d42de72ed28f677671d691cbf7def",
+      "rows": 776,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2317&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2330/balance/9d169b841704095eca914fdbf8eb5f311a269eed8a48cca5561e8a4364db2c6c.json.gz",
+      "bytes": 36893,
+      "sha256": "9d169b841704095eca914fdbf8eb5f311a269eed8a48cca5561e8a4364db2c6c",
+      "rows": 4660,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2330&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2330/cashflow/a22702e1ac20cea98a041a99c107ad69795bfea9003897b8022e946ef8b3578a.json.gz",
+      "bytes": 13121,
+      "sha256": "a22702e1ac20cea98a041a99c107ad69795bfea9003897b8022e946ef8b3578a",
+      "rows": 1382,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2330&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2330/income/6e58a1a9635a785ebbdc919d65d1ae009eb148a086681cfbc60a73f36c566891.json.gz",
+      "bytes": 8165,
+      "sha256": "6e58a1a9635a785ebbdc919d65d1ae009eb148a086681cfbc60a73f36c566891",
+      "rows": 851,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2330&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2344/balance/15ba8ce93041faff3c4ad1b9096d1ef72b5ad42bc0de1043ded7d4ce590f43f4.json.gz",
+      "bytes": 31352,
+      "sha256": "15ba8ce93041faff3c4ad1b9096d1ef72b5ad42bc0de1043ded7d4ce590f43f4",
+      "rows": 4010,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2344&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2344/cashflow/38b17ae1983d041fc33a5e1ee96925a97bedb1a293e86c47b8e2d6dd3c30a1d9.json.gz",
+      "bytes": 10790,
+      "sha256": "38b17ae1983d041fc33a5e1ee96925a97bedb1a293e86c47b8e2d6dd3c30a1d9",
+      "rows": 1213,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2344&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2344/income/6087bd743eae1a96f534a861490c0233f1a16daec3104c81c02bf36bc090da6e.json.gz",
+      "bytes": 6889,
+      "sha256": "6087bd743eae1a96f534a861490c0233f1a16daec3104c81c02bf36bc090da6e",
+      "rows": 776,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2344&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2382/balance/b287020c148c8e27a238858b1658fbb35e81ee73d394ae0db370bff8f89cd775.json.gz",
+      "bytes": 30075,
+      "sha256": "b287020c148c8e27a238858b1658fbb35e81ee73d394ae0db370bff8f89cd775",
+      "rows": 3764,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2382&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2382/cashflow/c8c4775b13841b33474926aa64597833c6d6828f8dcd1cc470b9a4a94cd8ec94.json.gz",
+      "bytes": 11561,
+      "sha256": "c8c4775b13841b33474926aa64597833c6d6828f8dcd1cc470b9a4a94cd8ec94",
+      "rows": 1239,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2382&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2382/income/eea1bb79a142ce7dff3003f9ab674bf203bb6d79d26c2a17828d2857df7f21b6.json.gz",
+      "bytes": 7616,
+      "sha256": "eea1bb79a142ce7dff3003f9ab674bf203bb6d79d26c2a17828d2857df7f21b6",
+      "rows": 853,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2382&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2408/balance/9f0bb38460a64cead9311d75c007d1eff8c50a21cc1ef8e4f9630c33ccbffe62.json.gz",
+      "bytes": 29057,
+      "sha256": "9f0bb38460a64cead9311d75c007d1eff8c50a21cc1ef8e4f9630c33ccbffe62",
+      "rows": 3724,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2408&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2408/cashflow/8aa6084d10d70e348abc9af3402a6f1578b9a34735627dfe06a159f63761d2e3.json.gz",
+      "bytes": 10420,
+      "sha256": "8aa6084d10d70e348abc9af3402a6f1578b9a34735627dfe06a159f63761d2e3",
+      "rows": 1145,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2408&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2408/income/a3ce3e56e098ff8bea498e9f772c1353c94965e16662f91417325d78396cc955.json.gz",
+      "bytes": 6850,
+      "sha256": "a3ce3e56e098ff8bea498e9f772c1353c94965e16662f91417325d78396cc955",
+      "rows": 746,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2408&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2454/balance/c99e373f07f0ed082084d450eb265c7838510ff1f6f7840c489fd08e9376fd9c.json.gz",
+      "bytes": 35712,
+      "sha256": "c99e373f07f0ed082084d450eb265c7838510ff1f6f7840c489fd08e9376fd9c",
+      "rows": 4408,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2454&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2454/cashflow/1068a392cb2e21bffd41355c7aa6a1aad50b9d9965c79e7a9134e680c751b03f.json.gz",
+      "bytes": 10876,
+      "sha256": "1068a392cb2e21bffd41355c7aa6a1aad50b9d9965c79e7a9134e680c751b03f",
+      "rows": 1186,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2454&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2454/income/4739d5f28986368dc778516a7f5267abacc093d29871651a1c9a7d532327130d.json.gz",
+      "bytes": 7264,
+      "sha256": "4739d5f28986368dc778516a7f5267abacc093d29871651a1c9a7d532327130d",
+      "rows": 776,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2454&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2603/balance/61954eba0427b9179a4bc11a121e439d1adb8614a80420fba30c5a4609c0d289.json.gz",
+      "bytes": 35377,
+      "sha256": "61954eba0427b9179a4bc11a121e439d1adb8614a80420fba30c5a4609c0d289",
+      "rows": 4452,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2603&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2603/cashflow/e9c850aa1039ac4d9b63b848e05c87fe8b17deda75a8f3f458798ffd0d7df96e.json.gz",
+      "bytes": 12591,
+      "sha256": "e9c850aa1039ac4d9b63b848e05c87fe8b17deda75a8f3f458798ffd0d7df96e",
+      "rows": 1381,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2603&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2603/income/abed1a80bf2b97f860e555487ace00a0c2269915cb838eba4c8ad4658ce64e63.json.gz",
+      "bytes": 8148,
+      "sha256": "abed1a80bf2b97f860e555487ace00a0c2269915cb838eba4c8ad4658ce64e63",
+      "rows": 905,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2603&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2615/balance/43ed407921d8a0cef39baa47af11b08ad7f9425191acee7650042b9d26c60cc7.json.gz",
+      "bytes": 29583,
+      "sha256": "43ed407921d8a0cef39baa47af11b08ad7f9425191acee7650042b9d26c60cc7",
+      "rows": 3784,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2615&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2615/cashflow/f5a858481b425e8fb874c7bef52beb920b44822f07decac5a23f056fcf58c621.json.gz",
+      "bytes": 10537,
+      "sha256": "f5a858481b425e8fb874c7bef52beb920b44822f07decac5a23f056fcf58c621",
+      "rows": 1167,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2615&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2615/income/8852de78f3274b6d031bab4000c1de85ea64b753d1c4704019da2b7da9f5a2a0.json.gz",
+      "bytes": 6895,
+      "sha256": "8852de78f3274b6d031bab4000c1de85ea64b753d1c4704019da2b7da9f5a2a0",
+      "rows": 754,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2615&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2881/balance/18d36fcf1db51428f0c11383a833435958e00c6732d3c2b871e20159aca863d1.json.gz",
+      "bytes": 10396,
+      "sha256": "18d36fcf1db51428f0c11383a833435958e00c6732d3c2b871e20159aca863d1",
+      "rows": 1424,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2881&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2881/cashflow/e682fb9719a12523661fea06ad8339e97e01d7ea2d91882f005f2bf0916a54b1.json.gz",
+      "bytes": 8364,
+      "sha256": "e682fb9719a12523661fea06ad8339e97e01d7ea2d91882f005f2bf0916a54b1",
+      "rows": 888,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2881&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2881/income/c853a89ddc9ac77dd7744357eb88ae2f66332382fc62b0820ef890b5a71d70a9.json.gz",
+      "bytes": 7438,
+      "sha256": "c853a89ddc9ac77dd7744357eb88ae2f66332382fc62b0820ef890b5a71d70a9",
+      "rows": 760,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2881&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2882/balance/78dacf6af476208918248a09bc41711f64b371d20c578f4270393b458dd24bf3.json.gz",
+      "bytes": 10399,
+      "sha256": "78dacf6af476208918248a09bc41711f64b371d20c578f4270393b458dd24bf3",
+      "rows": 1424,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2882&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2882/cashflow/91aa5addb5febfc81c4c7b5730c01bd86071e9be279f5f65535e99354eac7e6f.json.gz",
+      "bytes": 8470,
+      "sha256": "91aa5addb5febfc81c4c7b5730c01bd86071e9be279f5f65535e99354eac7e6f",
+      "rows": 890,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2882&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2882/income/a4d13e2cb46b882e2039e72a8bc6563ce93dd8e18812d6604e6025b182cd9086.json.gz",
+      "bytes": 7479,
+      "sha256": "a4d13e2cb46b882e2039e72a8bc6563ce93dd8e18812d6604e6025b182cd9086",
+      "rows": 766,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2882&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2891/balance/b06d8fa68583b5d078de2a5914da444d163175d9749db3e5038371ac4a2d8854.json.gz",
+      "bytes": 10323,
+      "sha256": "b06d8fa68583b5d078de2a5914da444d163175d9749db3e5038371ac4a2d8854",
+      "rows": 1424,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=2891&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2891/cashflow/9d7a301b29ee8a029070a9745bf5c21e2f475be1f5eb5083f84a683c2b342b9f.json.gz",
+      "bytes": 8014,
+      "sha256": "9d7a301b29ee8a029070a9745bf5c21e2f475be1f5eb5083f84a683c2b342b9f",
+      "rows": 852,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=2891&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/2891/income/cd43e60ddca019eb52a55f7d9a0eb2d84f6cdc7775ba10d4d504ec79a1e78a24.json.gz",
+      "bytes": 7160,
+      "sha256": "cd43e60ddca019eb52a55f7d9a0eb2d84f6cdc7775ba10d4d504ec79a1e78a24",
+      "rows": 758,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=2891&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/3034/balance/fbe8491f911582f9e4c6c2f4eac9e0480450116cc158719f4e5b9d9667a6ae30.json.gz",
+      "bytes": 26130,
+      "sha256": "fbe8491f911582f9e4c6c2f4eac9e0480450116cc158719f4e5b9d9667a6ae30",
+      "rows": 3436,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=3034&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/3034/cashflow/c114a21b842fffa3d05c561fe88b496419ecc1814aa4b9eb3b3dd84d6c1bcbb2.json.gz",
+      "bytes": 9605,
+      "sha256": "c114a21b842fffa3d05c561fe88b496419ecc1814aa4b9eb3b3dd84d6c1bcbb2",
+      "rows": 1105,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=3034&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/3034/income/d9b4e5329db146604b83ca7fdb91311cb929c2aab3f71948b12a9bc9add57ee5.json.gz",
+      "bytes": 6257,
+      "sha256": "d9b4e5329db146604b83ca7fdb91311cb929c2aab3f71948b12a9bc9add57ee5",
+      "rows": 761,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=3034&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/3231/balance/adb0ed7a664081d3f41682b0edc6757eb254504649a374ff56e269ffeeb6d26f.json.gz",
+      "bytes": 31381,
+      "sha256": "adb0ed7a664081d3f41682b0edc6757eb254504649a374ff56e269ffeeb6d26f",
+      "rows": 3898,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=3231&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/3231/cashflow/09e9de27ca527d6b3f5dd2de1e922ef68f61ebabbfe947bb2d45095a78e30655.json.gz",
+      "bytes": 11981,
+      "sha256": "09e9de27ca527d6b3f5dd2de1e922ef68f61ebabbfe947bb2d45095a78e30655",
+      "rows": 1282,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=3231&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/3231/income/4c24c938603ffc25cc85c51d37e5346fbebed6396f95c795f74ee349deb54681.json.gz",
+      "bytes": 6962,
+      "sha256": "4c24c938603ffc25cc85c51d37e5346fbebed6396f95c795f74ee349deb54681",
+      "rows": 752,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=3231&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/3711/balance/f851bbd1a85fe68fbe7279651e5bf2fefb791184db403cbed0b3391fa7bb3291.json.gz",
+      "bytes": 26682,
+      "sha256": "f851bbd1a85fe68fbe7279651e5bf2fefb791184db403cbed0b3391fa7bb3291",
+      "rows": 3167,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=3711&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/3711/cashflow/351a7c5937d78812465d8c1f22e22c68887fdb9f5707cc900c3c708090cdaa4f.json.gz",
+      "bytes": 9472,
+      "sha256": "351a7c5937d78812465d8c1f22e22c68887fdb9f5707cc900c3c708090cdaa4f",
+      "rows": 998,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=3711&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/3711/income/eef0c5248a18f3d5b10fff21dac75964bb81f994296d13b40617977756d75671.json.gz",
+      "bytes": 5322,
+      "sha256": "eef0c5248a18f3d5b10fff21dac75964bb81f994296d13b40617977756d75671",
+      "rows": 542,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=3711&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/6505/balance/f49ef4cc249d3e0a3cdc9f9ad4468dd2df33bb5fac9cf9e0279389ede61bb306.json.gz",
+      "bytes": 33539,
+      "sha256": "f49ef4cc249d3e0a3cdc9f9ad4468dd2df33bb5fac9cf9e0279389ede61bb306",
+      "rows": 4232,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=6505&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/6505/cashflow/654178ea8eb44381368d889bf9049e05899e6ccb44c240e74c88bfe2dbb58b0c.json.gz",
+      "bytes": 11301,
+      "sha256": "654178ea8eb44381368d889bf9049e05899e6ccb44c240e74c88bfe2dbb58b0c",
+      "rows": 1272,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=6505&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/6505/income/3db1fd3119e89f18d8083248bc3fb31804598a0cfdfcb39b9ed7d95a973f4433.json.gz",
+      "bytes": 7205,
+      "sha256": "3db1fd3119e89f18d8083248bc3fb31804598a0cfdfcb39b9ed7d95a973f4433",
+      "rows": 776,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=6505&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/6669/balance/58c0bc62054bb3f1f2d65f284b9d340551ff2af55253be528ce78df1e871cdce.json.gz",
+      "bytes": 24282,
+      "sha256": "58c0bc62054bb3f1f2d65f284b9d340551ff2af55253be528ce78df1e871cdce",
+      "rows": 3140,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockBalanceSheet&data_id=6669&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/6669/cashflow/b63ae25be2f53ba4a739a94a98cd1d1392478356e1ed20699c3f698513df0680.json.gz",
+      "bytes": 9299,
+      "sha256": "b63ae25be2f53ba4a739a94a98cd1d1392478356e1ed20699c3f698513df0680",
+      "rows": 1017,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockCashFlowsStatement&data_id=6669&start_date=2015-01-01&end_date=2026-10-24"
+    },
+    {
+      "path": "archive/tw_financial/raw/6669/income/03f7ef27d215bca2fa4c7c225a287174b2d475bed0981cfde4e708da60bfb90d.json.gz",
+      "bytes": 5029,
+      "sha256": "03f7ef27d215bca2fa4c7c225a287174b2d475bed0981cfde4e708da60bfb90d",
+      "rows": 542,
+      "public_url": "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=6669&start_date=2015-01-01&end_date=2026-10-24"
+    }
+  ]
+}
