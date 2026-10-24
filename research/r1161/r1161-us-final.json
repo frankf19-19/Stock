@@ -1,0 +1,4706 @@
+{
+  "version": "r1161",
+  "generated": "2026-10-24T13:49:19.994045+00:00",
+  "source_commit": "21adb86029ad78a55c96b3001cd8142d0ecc488c",
+  "design": {
+    "id": "r1161",
+    "created": "2026-10-24T13:24:08.527341+00:00",
+    "purpose": "Research individual differences without changing live strategy",
+    "as_of": "2026-10-23",
+    "evaluation_start": "2016-01-01",
+    "training": "prior 5 calendar years, outcomes of every exit variant completed before annual decision; no held-out claims because historical years already studied",
+    "costs": [
+      0.006,
+      0.01
+    ],
+    "base": {
+      "TW": {
+        "dip": 0.4,
+        "sl": 0.15,
+        "tp": 0.2,
+        "hold": 60
+      },
+      "US": {
+        "dip": 0.35,
+        "sl": 0.2,
+        "tp": 0.3,
+        "hold": 90
+      }
+    },
+    "exit_variants": [
+      "baseline",
+      "atr4_rr1.5",
+      "atr6_rr1.5",
+      "short_hold",
+      "long_hold"
+    ],
+    "policies": [
+      "baseline",
+      "atr4",
+      "atr6",
+      "own_drawdown_entry",
+      "own_drawdown_entry_atr4",
+      "rolling_global",
+      "rolling_vol_group",
+      "rolling_stock_shrink20",
+      "atr4_riskcap3pct"
+    ],
+    "entry_adaptation": {
+      "historical_daily_drawdown_quantile": 0.01,
+      "lookback_years": 5,
+      "minimum_sessions": 500,
+      "floor": 0.25,
+      "ceiling": 0.5,
+      "freeze": "annually using prior years only"
+    },
+    "selection": {
+      "global_min_n": 100,
+      "vol_group_min_n": 60,
+      "stock_min_n": 20,
+      "shrink_strength": 50,
+      "paired_improvement_threshold": "positive paired mean gain and mean-3*max(stock-cluster SE, signal-quarter-cluster SE)>0; for single-stock groups use signal-year clusters, require 3 years; otherwise global/baseline fallback",
+      "ranking": "mean paired net return gain, no after-the-fact parameter tuning"
+    },
+    "state_groups": {
+      "atr_percent": [
+        0.02,
+        0.04
+      ],
+      "signed_efficiency63": [
+        -0.2,
+        0.2
+      ],
+      "sector": "current classification descriptive only, not PIT selector"
+    },
+    "portfolio": {
+      "slots": 5,
+      "allocation_cap": 0.2,
+      "ranking": "signal-close raw-dollar-volume, descending; ticker tie",
+      "execution": "next market session open only, no future-aware replacements; cash plus marked open positions",
+      "boundary": "open positions stay marked, not counted as closed trades"
+    },
+    "gates": [
+      "positive event mean gain and win or PF gain in 2016-2020 and 2021-2023",
+      "no fewer positive years",
+      "CAGR and MDD cannot both deteriorate; tradeoffs reported, not auto adopted",
+      "final chronological audit 2024+ and 1% cost stress; no fresh unseen-data claim"
+    ],
+    "limitations": [
+      "present archive survivor bias; original exchange membership unavailable",
+      "US archive is Yahoo quoted OHLC, split conventions and cash dividends not fully reconstructed",
+      "TW adjusted-price wealth approximation, no explicit dividend-tax cash ledger",
+      "TW source suspicious discontinuities must be audited; cannot delete future losing events",
+      "no publication-time financial histories in selectors; no new paid data or model API"
+    ],
+    "refinement_before_outcomes": {
+      "at": "2026-10-24T13:28:37.402298+00:00",
+      "reason": "account for shared market episodes as well as stock clustering; no outcome comparison had been run"
+    },
+    "execution_integrity_refinement": "No next-bar existence/liquidity eligibility when ranking candidates; zero-volume opens do not fill, no replacement. Hold count uses valid stock trading bars, suspension retains marked holdings. All baseline and variants rerun if implementation changes; prior drafts retained."
+  },
+  "markets": {
+    "US": {
+      "data": {
+        "stocks": 523,
+        "price_first": "2012-01-03",
+        "price_last": "2026-10-23",
+        "signature": "157ef4643371cfceefce0da3d24d135228f719d651b5ad8b79d287fe1d01e044",
+        "sources": [
+          {
+            "path": "archive\\k\\us\\2012\\a.json.gz",
+            "sha256": "895e069c3b6ad6bcd58ff9d55ca11c4d629b39bb60fa2faab493b9ffa132f4b9"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\b.json.gz",
+            "sha256": "3b9e273b4ad15bbe518cd30a2fde0bf3e6a912bb259a52631a7e89ea0caf740a"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\c.json.gz",
+            "sha256": "0518267bb02a65d27443f140e2db683ec3ba27d441261ec72f8f8d8949af4e6e"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\d.json.gz",
+            "sha256": "dedb9f0b3d5d22eadbc2116c79fa6ee4a9fe08eb02862479f42b8630d94c6d31"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\e.json.gz",
+            "sha256": "42f860be16fa82f101c0067f085833a3e627cb2961454b0da8345ceb2d3ab936"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\f.json.gz",
+            "sha256": "fe8a38cbcc072c8547320cc38ad526df3e158440cf34768b091291f52780d1b1"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\g.json.gz",
+            "sha256": "eeac7ae2f522283711cfd2d767f4cbd839f01897528d81911ccc04d124c8a37f"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\h.json.gz",
+            "sha256": "b64ff7455f95e1fcd2a417921e47281604fa11336599f0d16713d4ec5de7addb"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\i.json.gz",
+            "sha256": "8708c9ee9d22c8700a07ee9a5fc1527e0d4198fbdb67bd75e6bac02d0aa7043f"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\j.json.gz",
+            "sha256": "70115495af94fd66956d3931b8ea93e10fff2fe65a9c7512245dbdb36135f140"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\k.json.gz",
+            "sha256": "ed128cdd685ba4d5b610dc31c113b5a126760bc68d80ee38806a05c345c42505"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\l.json.gz",
+            "sha256": "0ef7ade41e46dc1c3db31b894fb42172a51aaa130381994cfbaccf554379e362"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\m.json.gz",
+            "sha256": "85d61ebab0e1b1896f59a6ec38d5c734d4b7a6cd64fc6d3d337a0ccaf15536ce"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\n.json.gz",
+            "sha256": "f40e7cb0789884314e821ebf32cd7b484b3d50b46027bc996a337b270b42d728"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\o.json.gz",
+            "sha256": "db0672300a3abe356631e4001f535b6e8957b56dfd85855fd7306ec1c946c30e"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\p.json.gz",
+            "sha256": "1bafba5aa49c8965d0bd123fd266dbbbf624b4b5c302c83a50bd87a759e58c54"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\q.json.gz",
+            "sha256": "455f6f6482be066d9425dfc6180cb41a13adc915f1f8fbc7dea02492d5522ef9"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\r.json.gz",
+            "sha256": "044bc57f19216c972c86dab3cfde655e5db060367946cdecf95714d55d80ac2b"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\s.json.gz",
+            "sha256": "d91c1203ecf61eb234c15b53913d4e5dad43ee4e57a0ff7218e6c4decfaae834"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\t.json.gz",
+            "sha256": "983d5545ae43899a01348bb8210c32a7d527f2a7f8080563e18b7e9e28716620"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\u.json.gz",
+            "sha256": "ccc94ed887f5defaea17e79e3d53776fa408fcdaa146be5f77c0f57aa470a5ee"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\v.json.gz",
+            "sha256": "cac90d67c17bcb5ef15ad0b2d3aa5e33561e8fd5dd1a51779bd072f640ab52d5"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\w.json.gz",
+            "sha256": "5a6010e964a3f86e69cf3d02e8cb696268b22d8e276750ed90a9cfbb94612059"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\x.json.gz",
+            "sha256": "aa046bcd2ab6ac18fb07834da73d41ac6e8538606031566e93fc02ac54725903"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\y.json.gz",
+            "sha256": "6874c0730950cbcfdfe3e344220aac8636f06eaecd6fa34167bf3f0f30beeab1"
+          },
+          {
+            "path": "archive\\k\\us\\2012\\z.json.gz",
+            "sha256": "4e1d6bcc15d77fee6476f8ce2f7ee09138410317c7444544ccd05fe5ba31a729"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\a.json.gz",
+            "sha256": "4ba2f9156b3e3c931c9ca3b91f86cd39e1a39a076307048c79c622c7aa5f770c"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\b.json.gz",
+            "sha256": "bdec07ccb29f0f305aea61244f61005c36270c20ad49208ef99c19bc9fb33d55"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\c.json.gz",
+            "sha256": "b08d4ae9eac8e9bc7da31faba10a86a87ae12ce2e254cee0d97a9f7727f0d631"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\d.json.gz",
+            "sha256": "3c3f2c9a2b866b27c9f2b5e356f3480624d8b4a5cc09f3d4c99a1f3cb11668fa"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\e.json.gz",
+            "sha256": "a0cc54a23b2427e2b0e9f68eefa608bb27f9fc4fb09a05f18e33ba7af297bb52"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\f.json.gz",
+            "sha256": "7ab7304bc9cce40e964d8e07320b346bc73182123f3d4ce8d6a1b30294d8eb13"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\g.json.gz",
+            "sha256": "d6e0f5fdfb16030d062be1c1a9383162dd40850f50e91b8d0d178c59a4dc95d6"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\h.json.gz",
+            "sha256": "463437565faf44d80fb2922bf8270281761f0e5a399b41cd171849a205216c0a"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\i.json.gz",
+            "sha256": "b4841c594701a628667efdaa23e49c5009a33fbd844b879711b056e610f4c697"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\j.json.gz",
+            "sha256": "adf2f5f15823fabc4e71e58c0c7be96a14137b42b371504bdc4e4ca2cbaac921"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\k.json.gz",
+            "sha256": "2723bdb521d441598bc79b4950262e3f0426f116abd3dc31d08225e5b573426f"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\l.json.gz",
+            "sha256": "87e6ad7b3d5492739d3fdcb60b58c52cacf266efdbea108fbbd01ec75091d818"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\m.json.gz",
+            "sha256": "25e4e2785bdf006b06973b44b9f37fd1bdffdc76920add1706e4a22e37f1b526"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\n.json.gz",
+            "sha256": "dfacb45b5041b8471727a4e1b513bafaf6ffbf42087305524ecfc36d83317d4f"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\o.json.gz",
+            "sha256": "53c5de83bd1b7736dc083d0b45e432b56bdb6647f46d6904c81d507d8452fe12"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\p.json.gz",
+            "sha256": "6440c8b3ebbc4c2003ee2b8d3db2053855e2b964efe9e0d22376aae86bec4f67"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\q.json.gz",
+            "sha256": "1405f3605c6a6eb52f49d8aaf80831e773a86f86e585291b355cb03e5ff84662"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\r.json.gz",
+            "sha256": "a71cd7a8c73b7ab0b3ca73f044703f6d0fb70579d5572930b8ab78b315b31fd6"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\s.json.gz",
+            "sha256": "98f0d69bb552a310f9ce2ac20b8b06de1c6afd5fca9e3008c8f2b3a8c434bcf4"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\t.json.gz",
+            "sha256": "81a16b1d30dd242d99808f6e0bd20fe67e45adfa32ae69b3a86bdf63a6498612"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\u.json.gz",
+            "sha256": "5243d5957f43ef132055d1412c1f075f281c7a31ddb41225cba192da443e02f7"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\v.json.gz",
+            "sha256": "7ac6eeaf3598ff2bbcffe81d7d60f46f2395cdc8d871912ed4c0f7fb4433e724"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\w.json.gz",
+            "sha256": "da2a4545cc4b53ebf0d9e622a3c6fe5a7bfe2efe0143dbc74c4aa95412830071"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\x.json.gz",
+            "sha256": "41c529bad592590b566e21136b65fc377ec4dab385237a25e2d6f0e78e0dfa5b"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\y.json.gz",
+            "sha256": "80b9a74e6db0382bac20179ac85e43d78b19c0d4feaea0702ae2f6ed5157e190"
+          },
+          {
+            "path": "archive\\k\\us\\2013\\z.json.gz",
+            "sha256": "76053472c8fcab3f003f36c521e23a3527eed70e33e1d2e777077b141decec03"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\a.json.gz",
+            "sha256": "7469b2b56f94e65fd1cd4e9de0270ab52a34d9bc50c959bc9a1212b949b0cbad"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\b.json.gz",
+            "sha256": "8db70a33f0c5fd2aed84b3dc9a975916c4cdc63587c3dfbeb46d55ebc3d59ec1"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\c.json.gz",
+            "sha256": "248b6bb439ecc02d7c83ebf64bb14d63c9f28eaf9744b7026138dd7090707c71"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\d.json.gz",
+            "sha256": "44da5fe6fd237c7608ed82aea98121e9e2724b55c0c8d0bc4bae9188ca8fe899"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\e.json.gz",
+            "sha256": "557f6539b081b7b49bb862a3cd92bcf9bbd45165311a04ad19e400fa452f18fb"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\f.json.gz",
+            "sha256": "0e367c66270f899346232ea09aaa5131c6499a8d1c60d94df653b92cb8738fb3"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\g.json.gz",
+            "sha256": "ba39ce25be1577801a8ce6517211e4befc25598ab9755cf7c9364858acfcb58f"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\h.json.gz",
+            "sha256": "921c6e67813e30736a7cb4dd76faa74e5bd93e9531c00388e5189f4ec9030b3e"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\i.json.gz",
+            "sha256": "1b5d5cbf49ec9781658dedba36a731754627d335ca09c76abf5493f7712089fe"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\j.json.gz",
+            "sha256": "f28e6ae3422e06cbab60ed57400ae6e0bb3223dd71c53aa7eb9eddd81ebd3419"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\k.json.gz",
+            "sha256": "b2043dda7d776bae81504b412640b653a8368996c7efa0bd85ec04aed2ff6cc6"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\l.json.gz",
+            "sha256": "0b5303aeb260128f161fd85ab3f7f9751c13db2f2229e741d75146d3acbd8057"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\m.json.gz",
+            "sha256": "989eb85e7fdc5179e60580490877529a2835300a814b012ae97ac0d5b114ce6e"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\n.json.gz",
+            "sha256": "2a08e680e9e6dfd3b01c13a74a68a3a9183d711c8e1aa213686d08d708342625"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\o.json.gz",
+            "sha256": "c730e055f41567cacd073efc70f3d9a3425d31a230048c2ccfa3e95d50cc83b4"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\p.json.gz",
+            "sha256": "113172eff2176c5a0ecb30952bf25848806e9543e0faeb91885ceeb26d3daa96"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\q.json.gz",
+            "sha256": "af45e7bd49f9da70be93273f8304b7e39b50257d9741aa7762e04c1c26e68a34"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\r.json.gz",
+            "sha256": "748eee5c01b637a233f6f059d814725945694b85fb47fc4dc08d23d7b2310f4c"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\s.json.gz",
+            "sha256": "200adfba3852049d7040b0bf2cd386e0604aa129ac36de8a5b76dc0094418394"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\t.json.gz",
+            "sha256": "755c531c6d7bbfc967b225575220703d94a70023a19fa0200c9bd379ef7abb76"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\u.json.gz",
+            "sha256": "571120dba0ff8e179e4dc56f030291749580e1faa55de5376385b42b395051c1"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\v.json.gz",
+            "sha256": "174e54d5ce0aecbd4ae6528c603e47975dcf5b8ab8c1ddb64316221c941c1256"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\w.json.gz",
+            "sha256": "4ef965ca65999348b4570817992912b892ff96b39cd2015a7b16d9c59349042b"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\x.json.gz",
+            "sha256": "f1f626e8aab1d3fc06b3f16de629dd8aba6ce0fc950e9b511a48fb0a3118d472"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\y.json.gz",
+            "sha256": "3ae9da2826a53e2f1d850962d56d520268fa03bd6ec9caab95952d805b15dafb"
+          },
+          {
+            "path": "archive\\k\\us\\2014\\z.json.gz",
+            "sha256": "1ad3ee473d8eda8852903dcfab1ff02e809ac97942b458f431db4fd53cb064cf"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\a.json.gz",
+            "sha256": "4e6337a09c72c6f0067c0a436daa8f82d62f9f8750154267177ecd8bec0bd540"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\b.json.gz",
+            "sha256": "e078ee4f3211b5b345278676db47232402dac6cab01abe40e4ec10a1f06e2eed"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\c.json.gz",
+            "sha256": "b36a915f83bc94651e6567e3803054c48656afcf2dce18be8f8a0520066b9b50"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\d.json.gz",
+            "sha256": "8cb4fe3baa5b9eaa506be3b84391524eaf39644d9792bf853a897b195ae2ea02"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\e.json.gz",
+            "sha256": "843c9e7df2c3e8800d55556be035c907e7b8554eea25e155e059fe959770dde5"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\f.json.gz",
+            "sha256": "11bc278d56efeca1571a55066ef050f3ae582a18b55a726ffdbf00e5fccb1043"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\g.json.gz",
+            "sha256": "4ce95ea6b7ad9c05d63e95eb95288c251ee45de2f0ae91fc03377e2fce173c8c"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\h.json.gz",
+            "sha256": "b06dfab57654716ccbbdc9f87903c134489ddbaa1a33c5e297dc957617ca7090"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\i.json.gz",
+            "sha256": "ad238db6ad1a03072ead35d98da97b93c7ba04ea61a000596afe5fadbb228645"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\j.json.gz",
+            "sha256": "939743f602aac73fb8d73ad6ddbc6da99c0de72b00e459b277c24f173a1ae4d7"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\k.json.gz",
+            "sha256": "4aaca5b27ea3e93314b41cd81f11f1b3b60e04d6c4259d21910f43b4828d153f"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\l.json.gz",
+            "sha256": "03322a14032c38ee2f873a6258be0b753a5760047d4850d4eb4bd4a1bb32bfeb"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\m.json.gz",
+            "sha256": "108049e9f41c5bb5ab60bbb609776639d8ad558f0f9558c7cc338b8a77d7b4bb"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\n.json.gz",
+            "sha256": "feab3f1f5fa46e43650d2d6978dde12cc2c7aa4e3ea84bdfbbc12d5e34ec4d25"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\o.json.gz",
+            "sha256": "d6707f4609e95fe21de29349bcc0754a873e1869d84ac7936b28a4cb7fce794b"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\p.json.gz",
+            "sha256": "a18e1251c7efb3b4ae09471b7819c6e4ae2dd82430c4b1091656e65773670725"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\q.json.gz",
+            "sha256": "293be1423e42da3934869b81448da0b8606d36cccece95b3c75d9b60fc628223"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\r.json.gz",
+            "sha256": "a16cec2caa2210e9fef55bc97dd1929a04ecc8c6b7b3a882991acc15d321337e"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\s.json.gz",
+            "sha256": "bb84e30dcebe23d91ac0b5d2c9214400b42bdf66ef6d7ecef2f72b7df7fa7bdc"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\t.json.gz",
+            "sha256": "38c75f67cd34fdb43d855f260ca8e104d516aa4aeaeccc8b5a737164455f969e"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\u.json.gz",
+            "sha256": "aa15711955a1a91ce8c75084fceeb5f68a4deccc717f39437867f179367a3b11"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\v.json.gz",
+            "sha256": "5dea420cf8f85d60a950b89070b9e680497d46e25d2c844fab7f1e66117ebb25"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\w.json.gz",
+            "sha256": "da9c0e404573ed5281b404e06398b20e1356bd555d0e230d682ae58c83b72d51"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\x.json.gz",
+            "sha256": "37652797408473ceb547685908ce140871916a03c59ac034db737a9c09215ed0"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\y.json.gz",
+            "sha256": "c5011a60587eeb1ced88f9608bcda5a0445ec391991c455268b0556e699b27e8"
+          },
+          {
+            "path": "archive\\k\\us\\2015\\z.json.gz",
+            "sha256": "1d9bcc948d779bfdce80abd6581b8317798b38596a09e107c8f6e291cd690856"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\a.json.gz",
+            "sha256": "559bb6bdaef381a141fdc62d77c8c880cff9687be52a9f694363f940df8bc8c4"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\b.json.gz",
+            "sha256": "5a768f0645966a5d6cccab0b87e50e5eb843205868dd32c0d09656fcb81d45d9"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\c.json.gz",
+            "sha256": "8945c4f0efc6ab4399de9823efadfaa1dd817ba66bef35d02aabe13b31ac02ee"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\d.json.gz",
+            "sha256": "66b726184df8e6740ead056dfd27c1d747ccd179f391c96870a290924b04ce0d"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\e.json.gz",
+            "sha256": "334967480cc84d3879042c90a518f31b43d7407643e061aafd0ee768a63d5a9d"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\f.json.gz",
+            "sha256": "198e018dec2b3cec98254eb965f649fcf969881c91ef2baa6a0efdda38116868"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\g.json.gz",
+            "sha256": "68de3a8ba62a919982ef7f707063d309f6a44922b5b86016aff286297e2360dc"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\h.json.gz",
+            "sha256": "a949ad4ac857a8765d1f4ec7c793a0cbcc261ee086e04ea98bb23a4287949c12"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\i.json.gz",
+            "sha256": "28ef083004c2662109260ad7fe136ab1707916e3f38d3f7f968de55f46e27e39"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\j.json.gz",
+            "sha256": "ea6017561601fa5572e5b48697ce122da22dbd6631f3a96bb546cec719f67eb6"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\k.json.gz",
+            "sha256": "17d29d26bbd6643bdf2a53834563651f53162ead81c3251b41f2f0176629dc9f"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\l.json.gz",
+            "sha256": "89eb04348c4b16089368c8de27f1237cf02b900832c48f94c26b189f983c27f9"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\m.json.gz",
+            "sha256": "23d1550100e6b453f419894e2b87c493c43c0a5616a916448c9f83b925d7720d"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\n.json.gz",
+            "sha256": "7a5089e53c9d91424adbaae096e0992c1c0d00cadfd33ca2c782b7d86a04a40d"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\o.json.gz",
+            "sha256": "e9d94b44b474ee988951f7fa57f5d77fcb40ee2df8eb1302e77322d553258122"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\p.json.gz",
+            "sha256": "780382d3c9c977262ebc379d68493d11ce319fd11508f973b4dc1ec6d0ff5f2a"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\q.json.gz",
+            "sha256": "f36c017ad8c0b42bc52aaa160526907f821f3790c04b7c6dfe4f6e107b808531"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\r.json.gz",
+            "sha256": "ab95d9c6bf93cf405aa7f41cb56e554fdd6bc351520e2ad6f3715c4ad360aa85"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\s.json.gz",
+            "sha256": "7637f7be32a288e03b2cac5f29f494a6de54f630fc38d258dd29f591d7ea788f"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\t.json.gz",
+            "sha256": "7bbe6236e4f5999328dfa8f04c5de92c7a76289bb749975ac84dad18590a8f33"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\u.json.gz",
+            "sha256": "689090d84d12615b48f85b15634990776ade1d294bdda1c373304347b85b6eef"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\v.json.gz",
+            "sha256": "835145c131aff81a6efe096ce76d2b6cea30316b1173029ab27bc872d5de6e2b"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\w.json.gz",
+            "sha256": "c40cadfef459b74ee954c35a42a3757fca194faa479e64e6d9147c701dcf3d7f"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\x.json.gz",
+            "sha256": "2e260fa65881953922ee01e54df010ea154d3d209803eb9c93cbc9ec56728812"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\y.json.gz",
+            "sha256": "348a3aeef1511cfce7f0cac5df1c2cea690ae2f40f9f805337e11ffcd7681c83"
+          },
+          {
+            "path": "archive\\k\\us\\2016\\z.json.gz",
+            "sha256": "788e588212b9f72376cfb3ee0ae2cd27d4e443279c45e7fad1b54019ad344a13"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\a.json.gz",
+            "sha256": "35fbced4417e83d94fe23be9c0960ec205d2d9078ea75c9b1cb13ff9002c608f"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\b.json.gz",
+            "sha256": "c1451eee75bb3073f93e98bef286688cead89fd807fb6294f61129f4796a1d95"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\c.json.gz",
+            "sha256": "6ce6c021e28e261dd0601b9ba9220e16623aff7d930b747b049dc07f1665475b"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\d.json.gz",
+            "sha256": "73ad2fff4a255fd4ddb6a749324198bda97c6e5a6768aae57f9e51189af6e0a2"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\e.json.gz",
+            "sha256": "b70c1b2a2de5c907e983342c0f885cec05384ea74561862a26ea7853bae937b1"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\f.json.gz",
+            "sha256": "60ebb1e6692e5d2d39aeb937cb29244a93022a35c281fa7fdd1ea72cfc0060c0"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\g.json.gz",
+            "sha256": "af0376a6b186acca66251a9bd86ff70ed476c21370a60e56d8bd6ae19e277da4"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\h.json.gz",
+            "sha256": "6fb1e0160ed754bb252470dc27f633fdcce187c80a33aeb116ee03ddf73bc515"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\i.json.gz",
+            "sha256": "00a3dff95156532a4c21df20a8cc795ac1e05d118b5d59e6c31be62273a0e394"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\j.json.gz",
+            "sha256": "debd35806f1ce5a55ce8c7b2909b34975d13d066fe05ff02fffae1c679ceb79e"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\k.json.gz",
+            "sha256": "87e6e8e474f47708cc170da4747b705a9f37e5f9163e53dbb6df2bb523eba934"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\l.json.gz",
+            "sha256": "68edbedba131c25b9490e89268eb9f7ecc26011512c2c8dcd842de3028fe82fe"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\m.json.gz",
+            "sha256": "d97f25df025ff231c9125f281fdac6125841221497363014e28b6c47c60c7d65"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\n.json.gz",
+            "sha256": "aba4037540f254f701a46324df54235e99a0fc328d69f1bfc765ba43164c7f34"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\o.json.gz",
+            "sha256": "317c67340822ad48a2671cf88c4b235af9597b1528c1a1166c57b52ef4b38c36"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\p.json.gz",
+            "sha256": "44cb25e3ca50474ba89939c2bcdde760510a88a478434b4fe90d609de367dced"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\q.json.gz",
+            "sha256": "0f970cdfecbe41b31bfd7d0c9ca354ff368eeeee91e754174b58ef0178dc351f"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\r.json.gz",
+            "sha256": "eef7fa001f7f311766143f9abc60fca122e2cfc799cc181751da9f97dd611539"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\s.json.gz",
+            "sha256": "e4085e761db318cfad3d93070e38307808280d323ddd75989893df9c49e57dbd"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\t.json.gz",
+            "sha256": "dcd90efdb6a5f4035f65b1a33cb5a006c487f0c8cd24ff4e5501215f85853906"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\u.json.gz",
+            "sha256": "f2340001cdb3b2663d00b1f6fe42fd60526dad9a0773aa2c9c99de93707cbc41"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\v.json.gz",
+            "sha256": "5b8cf00b6a1e5cc9392e38f09b94abba1cd1a585857a89bcb3c0c9a92a47cf99"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\w.json.gz",
+            "sha256": "6eebc49467ed772931c02fad58091920776d8166c43abd623aa93ebb865941a6"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\x.json.gz",
+            "sha256": "d81b48eed4d48f8d72ef3eaad83e76ab9b0bc6c572657bf9e34541e70811c4ee"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\y.json.gz",
+            "sha256": "fbfb3d78cf07720df8317a65babac4bc3b04d7334b50b902898babf91b9a29a2"
+          },
+          {
+            "path": "archive\\k\\us\\2017\\z.json.gz",
+            "sha256": "9f04b2b8afd2973d2a5e2105893b3f22006bdce19f80edcb7140a7a495b5f329"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\a.json.gz",
+            "sha256": "e82e80c653df4323bad2b78e67c1017fd10efa09fb3aeda6fc73edb15e695ecb"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\b.json.gz",
+            "sha256": "0c282a309aa7f8e3f15342657f347c287b0b0864d63a381c066a8c897175ef2f"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\c.json.gz",
+            "sha256": "02aa9ff6f87681b617fdf2e5519914900f9f21ab3f69afa691e385064edee8bb"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\d.json.gz",
+            "sha256": "89950d0a21a2b831d5355851fbb49ec51fe677cea3b2c5c03a4365193773abf9"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\e.json.gz",
+            "sha256": "31a6c2cc3b27f7ecdb3866077e9296deaea8055427b44c117f06f8ba62aca275"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\f.json.gz",
+            "sha256": "1e40e0054a3362be641c3b73f54bdcf75359ebc0c69062710f400a20e3d5aa99"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\g.json.gz",
+            "sha256": "e6d62b56df74b4dca6d40a82d26182fc2e657f28ecc433be099f1b3078cfead7"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\h.json.gz",
+            "sha256": "739dc99bcdde802820312f5071a1fc0a068e446502529152402680328f1eab77"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\i.json.gz",
+            "sha256": "226b3e2511f86947660a0f6b74cb46c8a83d8851ea0956233786863486e2756d"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\j.json.gz",
+            "sha256": "e7c93fb01557bf42727e9684814a0bc327a2c176fc6cac620a339df1bbd5779a"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\k.json.gz",
+            "sha256": "55027d4a817224d388388467ad0a744ea31512a1aba20eff7363d537d128c216"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\l.json.gz",
+            "sha256": "1e12fd02d98deb06d6c34eb981b9cb7e6d4d91bdbe0bba9a70f2ec96e4c56966"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\m.json.gz",
+            "sha256": "81003d61e80f5071000bd2378513ae74c1987eb7ae5a78449b71e3c131fa005c"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\n.json.gz",
+            "sha256": "6ec01f46f28c437fc61e9b01e2dfcfbad69adc48accd71d1ac48dcbf41ec0064"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\o.json.gz",
+            "sha256": "991016ac763816629567cbcfe19c5b41ae016afb1a4463b887ff13878e25e48d"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\p.json.gz",
+            "sha256": "10e3501a5d95d4a632f113dc5f4daa6bc106a41554679de6bffc140665b6f49b"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\q.json.gz",
+            "sha256": "bd448f032452a4f644b8c544d518d918a2a645ab00415386ce201c954d1328dc"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\r.json.gz",
+            "sha256": "3db844caeda19033fad67e89fd1a1ba9bac4919559f8ede7f40447f5975ac6f0"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\s.json.gz",
+            "sha256": "2c55163703cae54e4901a648f9067a6a0e791535c217bbd8f1e9610a1c6595c8"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\t.json.gz",
+            "sha256": "d2a1575ec78a4f710608b0dc16d7ff958ebee0f3187f9b0e138d65b7ad5f9828"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\u.json.gz",
+            "sha256": "051c66ff2c82acc1c30ca18a070161ed6281eaa8884747f5997b436a1db39540"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\v.json.gz",
+            "sha256": "5306d4a64b5f8312f92ef570ff167f2d0f5df15b3b2481877ae784263a35a206"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\w.json.gz",
+            "sha256": "6bec62a8bbec87edf175e81686babbbce16bfcfe2fe2f88f8b4c418c8992e933"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\x.json.gz",
+            "sha256": "c39b5f15476c9499f9b255f78b72c41065a94080f0c46496ad433cab3189d809"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\y.json.gz",
+            "sha256": "65ceee129c7774058e85e9ab97270d82dfd0e099b22988bc97cf8fcf35f6d0ca"
+          },
+          {
+            "path": "archive\\k\\us\\2018\\z.json.gz",
+            "sha256": "e8c8cbc1d2f7472e8544c6d6d1cec22ef3fae7541c6705eb1a92c7ca220a2702"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\a.json.gz",
+            "sha256": "5f68d62fdfb522b26abbc43f12c26d2a72ffac6505b898c95e146901459c1d86"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\b.json.gz",
+            "sha256": "6b5e8c7f099fa2247fd4f5330bf3426352ac2a17451fbe1020e69a696358e106"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\c.json.gz",
+            "sha256": "e1e5b5a29769e048e6f332775b98d841e9ffe99a215bd5a1ee43f527033bf825"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\d.json.gz",
+            "sha256": "063437763e5e291a080cbfe35f601b549a263a0c00efd795afdca15f6692710e"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\e.json.gz",
+            "sha256": "20308d3e7f64e60359e0d627cff068df3714b54eed31e03977d5ff983af8b1d3"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\f.json.gz",
+            "sha256": "b8da9fa12bd3fdf4d9b3e324cdda22103113e11cb836a6dea26082db8b492df0"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\g.json.gz",
+            "sha256": "75417b5c8f6b4270b724880637f7efece0950dd2e30f4337fab9e6e6ab656a2c"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\h.json.gz",
+            "sha256": "0fde19012b397b253e48ddc421520edca7e377d965286526d0ee90253e6f0714"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\i.json.gz",
+            "sha256": "2a2d32cbd351734942fdce669061ddb50f0b08da2d310104c1d491cad2e6a25c"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\j.json.gz",
+            "sha256": "7c2fcaf0dd62f261e47c86062bea0bd0812a68b95634c4f658dc09e94958b47b"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\k.json.gz",
+            "sha256": "f16c692c63847caee5cccdf915dc4dc8f3adccbafdfaed611366987ba3c7040d"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\l.json.gz",
+            "sha256": "2411cf40a12605501e5ac7259bc6bd391a32771501b4272d1166876f6d540f4c"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\m.json.gz",
+            "sha256": "aec3caff54395cef4a1c7f57bb5108b7abfefe93087e3a8b9ec24cb9aeaeacf5"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\n.json.gz",
+            "sha256": "70b8ecda2abab7ed2c472d4be544036b54e4378241e3e5b77f9ada5852832bd5"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\o.json.gz",
+            "sha256": "0b28a52fa2147572ccda7758efadd5eeb85e7ae5a8fb53853e46f736c9913854"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\p.json.gz",
+            "sha256": "8dc4e4c3a063c539cd55bdcf654d4f077c2a4c22cf5de6238f0d4d5cccf7732a"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\q.json.gz",
+            "sha256": "3520a40adaf5a955e10eb68e3e6f3f108289acdc5bf0d6e720f70fe749d386f2"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\r.json.gz",
+            "sha256": "6db0017a9f2c37349887a7663d92764cfc685fff15a3fbc7ebd9cee61d618fab"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\s.json.gz",
+            "sha256": "699097b08134f674eaff11b3f0b2f767ca3991939369a30bbbffe5ec91428759"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\t.json.gz",
+            "sha256": "447173bd3c594c18a33b842bc355c041f01d01d604569ff480f10bc3da20fabb"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\u.json.gz",
+            "sha256": "53663d99c05820bd5dc59f10390039a8ad72f52beffe30860ebd66ebfac28e93"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\v.json.gz",
+            "sha256": "12eba7091e6188b6f8fbc2b17da4fffe42d1ef8b3f02eca43efdc10b653ed39d"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\w.json.gz",
+            "sha256": "fbcf352170841dcc1000ae291ae3ad38f6123f323dd8cabb4f7b0b3187b7a778"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\x.json.gz",
+            "sha256": "8a76dae14f838311323b50ae094776a4407b59731966d8d00668240549c3dff6"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\y.json.gz",
+            "sha256": "65c07adca84af4bbcd0490427b4deae0610486cc401c2c41d77eba650e048caa"
+          },
+          {
+            "path": "archive\\k\\us\\2019\\z.json.gz",
+            "sha256": "5a1091bbac860994413e06b7e69caa6446cd0abf66ba4cc6f33bc5b7ee958bcd"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\a.json.gz",
+            "sha256": "bc5268b1b71ffc1e75b80aadad38da2a1c165c83639e40f7c3313a38f5d17f2e"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\b.json.gz",
+            "sha256": "fff5e7a70309c309d994c33b3f54f56721f351eef83000b44ccc66e3e6797582"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\c.json.gz",
+            "sha256": "062855fcb9dda0ee41c7a742c1d887e872515fee51a57caf75ca8357b67bd7d5"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\d.json.gz",
+            "sha256": "d28ed61057327796416582b7fb236f1ab0bdaf2a95b68389b81af1b95738f509"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\e.json.gz",
+            "sha256": "b1ce481fcd86984dc8ed8eaa3db944053ef69d65bebbcbeeaac6e54220029074"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\f.json.gz",
+            "sha256": "3d3835a62abd7181dc6a34c66cdc9ebf68f8c64eb42c7b201632826be251d537"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\g.json.gz",
+            "sha256": "1e8a3770d49be1b57172fe46c71aaedbf3cd78237c3c913c307fc62af46c47a5"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\h.json.gz",
+            "sha256": "e2a6680da8acf30c120fdbcb1ac2085e633133dd5bc1d131bdc573cb059cd12e"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\i.json.gz",
+            "sha256": "b21aa35061708b30a9b1cfcba0b513915436b8b0ba89d6f3765397a08f2094af"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\j.json.gz",
+            "sha256": "99c7e5245dc88dec4f72dad4b583d795027cd9443620910d3d3ff51f20a0b613"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\k.json.gz",
+            "sha256": "109e24ffdcd48dfdbfc344733efce795a8e6994e186448f263183f98afc14d65"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\l.json.gz",
+            "sha256": "36596acc3cb9e0d1c4681614fff0674ecff9b7c74fb0422c435f60ab4adf4454"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\m.json.gz",
+            "sha256": "8fc74f3fcc6527ee21d2ce6434a5b238592129a7886e3efb530c2abd96574a04"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\n.json.gz",
+            "sha256": "0292382b2f25f55ade6006ae4e83b33d2ed4ee270b975fda77db20072de3db25"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\o.json.gz",
+            "sha256": "ee3dfb9f5a52f04b7c8f40a9c642260141697d41f60d6661cdede187417882c3"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\p.json.gz",
+            "sha256": "b199ef3dff20eafeafa0978c6a195f025ae5af371757c21ef0883f9e1cc92a67"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\q.json.gz",
+            "sha256": "56fd6a01d8a77efff94d907c44eac52fccde4d27dee28a288fcc362e882a2f33"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\r.json.gz",
+            "sha256": "5375363496847d077e8d886574556666fa60b2673235b0de53353dea3593e1c9"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\s.json.gz",
+            "sha256": "c4d87041974696137d188d740d6bc9ba196fbdd792fde875f6acdb61d65d78d2"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\t.json.gz",
+            "sha256": "219589211bb281310c90b695a16bd7392607ee7455faf8677b9f212ca762e255"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\u.json.gz",
+            "sha256": "3588d3fa9367efcccd191c331347c6b7e7bd3e8bce445f359370ebf1c838167d"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\v.json.gz",
+            "sha256": "2936f5738277d88329f2842698620e84566122ec259e29be864277ef4099ee57"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\w.json.gz",
+            "sha256": "9d1257e8e1b86ff4c2e8610c755e3f7492cc4926f4d40bfa1c263760cf4b824e"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\x.json.gz",
+            "sha256": "94098ce498016c720a8bb1416aa072bd06e22cceee826d136d45d287d861abbb"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\y.json.gz",
+            "sha256": "ee6a7aec5ec7681d9135480bb8600dae35a1182caf09ead875887e1671035e58"
+          },
+          {
+            "path": "archive\\k\\us\\2020\\z.json.gz",
+            "sha256": "b27155cd358437c881a8928106cd255acff253b2c0c3a42ea37ef2f52f5afe26"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\a.json.gz",
+            "sha256": "d1c8099dd550a74026b0f7c40917480dc746b171eac80f968308c281fbe35a6c"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\b.json.gz",
+            "sha256": "6df9bbb9ed6153d4d96f1dc11cc647f1d8fdc4d021fd2e6fb38a4ebfd1e0e481"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\c.json.gz",
+            "sha256": "89fcc7aed1371bde67823a75064f0eed1d182949a0501225ad880b0842348ba9"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\d.json.gz",
+            "sha256": "3ba1934c9d36409eaafad3cef8c5a198164bb25a8a77f9316578d28543aa79bf"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\e.json.gz",
+            "sha256": "5b7649d77eab74904299ab0dcef4ce245bf7cbde3518c90bedaa5d6104d1376a"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\f.json.gz",
+            "sha256": "e0996a8d690cd8bd10b266ca86469fee7d3d4dd89513c037791cf510f814c03c"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\g.json.gz",
+            "sha256": "6782fd3d30c222a1eaaf1500a189fa50a162f076278d7f31542291d708f46fa0"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\h.json.gz",
+            "sha256": "6ab6a0fba178e11fae91e2552117c735b0018a5c887760c47f7c4800c399fd7f"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\i.json.gz",
+            "sha256": "cf27ad4bf848d0f9ef4e0fd65aea2377dff1255194ca61a849e4f69ee036c092"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\j.json.gz",
+            "sha256": "291426d90bf596f460591bb33298cc493ce9f19ffcffd5c4fe12cb9bd34faa06"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\k.json.gz",
+            "sha256": "7751126084f2333f56b75f087ba69de451a739c602530366ce1630d3c93265ba"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\l.json.gz",
+            "sha256": "c1579a34f047daa700037ec8ce85e54b2c20bab57e853f0ecb2d43b33dc3120d"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\m.json.gz",
+            "sha256": "365363b4d4370d321a0e03a4aa790bca8c7d15fcc63c0888b0d7d4911aaaf94f"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\n.json.gz",
+            "sha256": "6488d8c9411ab5d196fde782a6caadcf3aed9d688c6a7f250a48c7dd2fbf5416"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\o.json.gz",
+            "sha256": "f2f9800a996c33a51259477803f2214a37e322a71b398cceb3038b389f76f48e"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\p.json.gz",
+            "sha256": "870e95247bc76823ca9a4d04d69a33638024852115b6aef509cd51a5724554cb"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\q.json.gz",
+            "sha256": "42a2698264b53f85a0da29ddc752a94f03feb74ebf51e9aebb98eb102bc5e426"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\r.json.gz",
+            "sha256": "63390102111bde73b63e7d3a87bbaf5f1ab8d69950ff6924e9bff5bf00514d4f"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\s.json.gz",
+            "sha256": "6495bfb90a5e36c413f6e5e55f6b0cf574a9d300e9b7672b5b11b25dbb1e4c55"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\t.json.gz",
+            "sha256": "d52fc50ceed33910873018d34f67e8608ef4a881c042bda1470391732ef2b195"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\u.json.gz",
+            "sha256": "d7be212a241790d66e0a03d65594970b3e3f70299b24ababae1619bccaa9f34c"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\v.json.gz",
+            "sha256": "0c58826d0ae51c9ff785eabd4dbe09f4945e5fb63a2a06f4847a0e4bd4911d0c"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\w.json.gz",
+            "sha256": "531b19d1061e7a76c80c0b116727487721aa246505245591b95e801d3b3ecd50"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\x.json.gz",
+            "sha256": "b9c91c1da79ce7c7a26a823006da4dcaced27ad4dd5adea8d3083824d9b954d8"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\y.json.gz",
+            "sha256": "2170cfe2193cee488adcee2740a01f0e566878d71c36bc3c9541050756771428"
+          },
+          {
+            "path": "archive\\k\\us\\2021\\z.json.gz",
+            "sha256": "e847214e3c2925d122b84de14419f873972c06b8ac54c6f8a358aa7db363a72f"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\a.json.gz",
+            "sha256": "44a1ae0fe69b8af65893077df7969fb3b1e82ee1738d450244464f9d7936d574"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\b.json.gz",
+            "sha256": "5fc7d0addb4bebce2614b01e412f6c1d8b6012f3fae0222eaf7cdd2b005bf66d"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\c.json.gz",
+            "sha256": "b7a52da7a06cbac03a6c42cec77b984430f1fe9c37148d0417ca6c3bee1ecfbd"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\d.json.gz",
+            "sha256": "921724b0955dc3c0456c591fe458a38577fa034f8d5126f7e140103469078a17"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\e.json.gz",
+            "sha256": "4ee8f0f420309b70f5c61afee849284efb29119b8387daa7da825b92fbbdd885"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\f.json.gz",
+            "sha256": "de21570f558d6ad6c5c08fdf8eca6521b39155c78c48b0f59f16ae4613ea83e6"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\g.json.gz",
+            "sha256": "9a24ecd7b8a1adf7c81a6cdef1403e692ed60473fa675579332c45fd275866d1"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\h.json.gz",
+            "sha256": "0004d5d765c4dff9fa9fea7e88bfcf674343388262a031cefc7f0a97897303bb"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\i.json.gz",
+            "sha256": "2d0b799826fcec5a7f4620b6b6e019d73be85564c110efb1b64e25e5b8995f3c"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\j.json.gz",
+            "sha256": "532bdfdf56c0450271e0f0bd883133155b052e2cf1c065a63b9ef84d00a9bc04"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\k.json.gz",
+            "sha256": "fe6705e292b4046b6f524e07471290d12f4a6ab1a27a81cb10c74eb71087cce9"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\l.json.gz",
+            "sha256": "7abf18407d82947692135e2f36322d76f0afe2b3e6f56032329a5c2586025d14"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\m.json.gz",
+            "sha256": "7d6c085339f033cf10c99a911c555a6ed5f5011487fae1bf190c99d5f37c506f"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\n.json.gz",
+            "sha256": "37fa543a53d8d3cc8d0912f145005a2f13090f29b4ebe428cd79ab64af77ddec"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\o.json.gz",
+            "sha256": "de473ba27082bf2f9a50c59db1f4714ec67fce826a41692a82dce4884cd92254"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\p.json.gz",
+            "sha256": "aa546c1279871a064bf80759a4a337bb6e8c6aa27128bfe15d62f97dcab8cd80"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\q.json.gz",
+            "sha256": "a99a5f0a2a1eb51e344bc374c66bc4bd017b10e5eda4396873640dfcd957dba0"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\r.json.gz",
+            "sha256": "6530de854414434f7df75d03c70509d28b4289e185fa20e6e0c973ee3b0a2567"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\s.json.gz",
+            "sha256": "204e649a8294c6ce99843e32db4d615021d163e09a069a2d2332b5fce0159314"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\t.json.gz",
+            "sha256": "d74f7522a001c9bfbf6cbfd39de7eddbddd51dcb234dd64072409cedc128a582"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\u.json.gz",
+            "sha256": "111f4ef564b2c0863325c5aaed8de35b2f0b04f0b4b1c9c16268826b72d6d3d1"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\v.json.gz",
+            "sha256": "7812050f2b69c96cf673a4a3a0ef66d161772c8442c76a910b9db2cebfc5a92a"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\w.json.gz",
+            "sha256": "2641a0e58804deb62f93b1e57b3985e7ffb2933e3f6c09d42ba7bab2435f8c68"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\x.json.gz",
+            "sha256": "dd35a771b13e5bfbfd8391b02d58f1be23fbeb718960db13ea673514916932f4"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\y.json.gz",
+            "sha256": "a54a8f99563ad33063693a11b79ccffdcdecc88bae8dec00eb063498b931319b"
+          },
+          {
+            "path": "archive\\k\\us\\2022\\z.json.gz",
+            "sha256": "2c358ff0c3b25cbef9fc7bcc1d31e54dcef991d0c2b91d2af2fbc9d81f839e4a"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\a.json.gz",
+            "sha256": "b7296d5fa89b35307e16c831b08e4157d54bc472bd5858567d28c67b91b05b50"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\b.json.gz",
+            "sha256": "23cd717158e80965b7ad5c07a93d1871c4d0484ad4136386450524a78e352c97"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\c.json.gz",
+            "sha256": "1f9d24cf764ab9b3aa72550f7ca864e5f6ee0b843fd7aba74a1f15483aade946"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\d.json.gz",
+            "sha256": "5a15f03b4585ebc81e8b395b447aabcd8638d023b20b5a98465571b0103ffb9c"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\e.json.gz",
+            "sha256": "b27b1be957b05bee1c23b3f58641c463ecc3dcec05bb27209f423f8f0abd5dc1"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\f.json.gz",
+            "sha256": "d253f59087a2e453487de1152ad11e585a816d86949e5de7b4a78685a9c8f457"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\g.json.gz",
+            "sha256": "3640040e3c2d3e07dac595f98923022caeae1ede6da33b99d24c0f7c0cfe1474"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\h.json.gz",
+            "sha256": "bc07a1105ffff89048e3b2586f49cb99637af357c629c04814a23b8a071a04b9"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\i.json.gz",
+            "sha256": "bbfc944c761c0a11aa800725d7b82dbc07601bdacf76bd806c6e75bb0aa0f63f"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\j.json.gz",
+            "sha256": "a25160d9412df9b95018b9e8bd583a5b487ebde0dfacd4325def06b90d47f5cb"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\k.json.gz",
+            "sha256": "e7876bcfa5291261373c7cf5b70f9277ba96f654b7e154524b569a65dbdccd60"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\l.json.gz",
+            "sha256": "c94484dcea4fac6a8ba262e453f9824cf768527a8f54e6bbac7361c3d75906b4"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\m.json.gz",
+            "sha256": "b2f8a2fa06b3f6946968fa2ecbb64d91285793ee9d3aa96b4ed0344ee4067885"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\n.json.gz",
+            "sha256": "1cc260aeca026d44f89cad692bea0bb8709fa7b139b632a7eb40a8698c9c90dd"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\o.json.gz",
+            "sha256": "26cd215dd56cce7f1b54d32241f050146ef927d5635c35c3d5c077b2520d3208"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\p.json.gz",
+            "sha256": "45bca813f3e496a256736690533d4f9adb9bfc8d32eef2ee66aa0c0887ef024e"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\q.json.gz",
+            "sha256": "df410bdcc1f61528d899d814f59dde702486d2ad4ff1980210ad3efb0208e23a"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\r.json.gz",
+            "sha256": "f571930832500035de380621ed2aa4027fc1dc29daf09540a73e048a5353c89a"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\s.json.gz",
+            "sha256": "e3734f1be76b99b2cfc12fbef1e9f35a905267699a5e8e0051d23705b0ff7537"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\t.json.gz",
+            "sha256": "f590b802f072fe0e416243793509b3085ebe4e990d921f4f4e9a9a7554ac2bd6"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\u.json.gz",
+            "sha256": "2a7c8d208366e7f17a7fec7cc6a211dbe7c89ceb66a43a41ea270f1526705b83"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\v.json.gz",
+            "sha256": "4c95b716e4129559014cba866e8c9094d1d777e1eb4c4468a9891454108322a2"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\w.json.gz",
+            "sha256": "7d7712ff8d412b0bdc4fdff5ccc92a397471d7ae5f82a322866982f3cde0c02c"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\x.json.gz",
+            "sha256": "ce56029f05b4e55e1c3d40910ada87576305c1b4727f3138c38cef8bab6815d4"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\y.json.gz",
+            "sha256": "149076b98b21c08f6155bde8f54fe3858fe7d5f1b3ac7b17e7e4de60843f6553"
+          },
+          {
+            "path": "archive\\k\\us\\2023\\z.json.gz",
+            "sha256": "3f72957ef65681107b2fcbea48ad7cdb340571717fd62de22ccf0bdb27b6462d"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\a.json.gz",
+            "sha256": "ad67b095315530ea0bda60d7b2a38d111b68f8acb05630a72b0a412f28eee9aa"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\b.json.gz",
+            "sha256": "42857eed63962edf4914ed62999acc2b33ae2506ec7498843e174ab1c8057164"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\c.json.gz",
+            "sha256": "58890e242702ab4dc34d57dc189084c5b8d19c116361cd34b4ebb14084b1d60b"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\d.json.gz",
+            "sha256": "1189f5860e7242a5ca6050c8080db3dfdb13c7b1d47df47b5d764cd90f718029"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\e.json.gz",
+            "sha256": "4dcc3352affafb6da93260178eabfb342db963100d781ba93229a7c382d58ad2"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\f.json.gz",
+            "sha256": "b4344b7bd01358d42447a5ee851479a7b24abd9c31a12e4621e701dbd79e0e43"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\g.json.gz",
+            "sha256": "6cc876412e93432ad2cf0541ab8a48df272689912ccda8302649099e3e8b2324"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\h.json.gz",
+            "sha256": "7f80aec1f2c0fb19830bbc23b935d2902d1ebbae09995ec130721e91f15116e2"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\i.json.gz",
+            "sha256": "77ab664fc8ca018d3f94f58965f4107d8fa4ec92665e93a1c4b0e211a11c29f4"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\j.json.gz",
+            "sha256": "1b3cd786da2dca8919943e4e0afccdfefdc42346ac6bf32b230953543aec3b61"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\k.json.gz",
+            "sha256": "c7079c4e7b1546476101dacd9caf106e9aff6169176a78631cc3d382b1a77e30"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\l.json.gz",
+            "sha256": "2fc46fa35ad248d7541dc51da6b1c478f9cdec6a5d7c2f5b4df6db1d83d508f8"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\m.json.gz",
+            "sha256": "29a477bdf3b56b9f6ecfa3d355c34f7ee1fde8737892cf34bf382e8039b53c89"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\n.json.gz",
+            "sha256": "0b082901b49b109ab37ccb0e82e5ffa2c920b8008b20d5d7927ae668c559b0f7"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\o.json.gz",
+            "sha256": "9c29cf34e0a799cf5a738c701df8941968da92ece5efb4751ffde01402ec4530"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\p.json.gz",
+            "sha256": "6cf22062fdc021c80007dfa1ea4308320d4fd20ddc15aedd51ab558c68a59ff0"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\q.json.gz",
+            "sha256": "2edd4ceaf98786797a3f9e75a3f218532137d98397cb328cd74cf0c022c956e1"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\r.json.gz",
+            "sha256": "37fc4f4ac8f7f89f85f368f90970433de50aab64a2f9d08c3479c8ff805114cd"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\s.json.gz",
+            "sha256": "22e4ba3a5340335ec19b532fe030f9a1561d7130495f58471d0642d1e5342060"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\t.json.gz",
+            "sha256": "708ad8ae3d50978e06e69c6e78616773c093406dfef619cc548934308d0f657b"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\u.json.gz",
+            "sha256": "dabff6aed4e04948a75d58c4af5253cb432be322cec0398b0fe752d91a14b463"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\v.json.gz",
+            "sha256": "74b75ce797e86ca638532137fdad2d491c337c74ac9c3f5d7f484d99e0c90ec1"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\w.json.gz",
+            "sha256": "b61cb6a2acf707260196e2b3a99dcebc0ef6dcd81c2a4572af2e0f46bc687dd0"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\x.json.gz",
+            "sha256": "528d061b0c4efafed76def20347c2692de9042e260660c4ebafac6f18e1b27a1"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\y.json.gz",
+            "sha256": "aa3f42a5a166c7f75fdd2034ea9f3fcb00db96162084acf09745851dddf242da"
+          },
+          {
+            "path": "archive\\k\\us\\2024\\z.json.gz",
+            "sha256": "e56047a2f6ce9314ef8b39e6836b055b07aa491227f9e6c8103ddefb5a67c63b"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\a.json.gz",
+            "sha256": "8815c18500df8d160d0c8510878fa1797f2fc54b8ba8a4c0fb93f9e11187cdac"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\b.json.gz",
+            "sha256": "94cdb306ae6b76e2701f0209750bbb9bc043f89c29500a2c3b801d717058c51f"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\c.json.gz",
+            "sha256": "92167c22840a8112b33b38d27ef5da969430247637b86d573baf4c742b0bd3fe"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\d.json.gz",
+            "sha256": "21665690c0f8b5b5a8ad9f473cb93846952b7d49c8cd12c7c74157a247d3f59c"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\e.json.gz",
+            "sha256": "dbc5cbc62ef2f9264994ee53a54f302b908846c21ae95d1ca72ca01ebc10e6f0"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\f.json.gz",
+            "sha256": "71948103df100fe42c7538e3911ec7ead4ba4eb257798d4e4c817742f100b74d"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\g.json.gz",
+            "sha256": "461ef9d325ef11eeb70be30c9a363f8013f4ee4e7968fda58780ab66cd82481b"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\h.json.gz",
+            "sha256": "5c2db984f19e7015d6ccff58160b9411960f4a5f7374ea5a76c1d76f77a16be1"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\i.json.gz",
+            "sha256": "c9a6b2fb617a8ac8228f50877a9c378461508477c03cfc440b57d498b525f06d"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\j.json.gz",
+            "sha256": "8129ca5ef14419ebdb58751c952394a30300277c5e1db2f2f05398e995021f2b"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\k.json.gz",
+            "sha256": "be5628ac8f1273a5ca9922f8acf50c75002f9302abb46be5b39fcfa0934a2fb9"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\l.json.gz",
+            "sha256": "3e0ad1a7aa58df80fa1445622de6e31411937e660d3f7b5cc2bef96eb7198eca"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\m.json.gz",
+            "sha256": "de9b3b6a1d1713eaefe8f9238fab640e902c0b74ae19bc92352f80837a882944"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\n.json.gz",
+            "sha256": "6a4f571d3db9c0e806d60d7de07b9193221aebb7bc42ee444c0f5127207431da"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\o.json.gz",
+            "sha256": "d4990e4c624655a6ca29061437c4825735674dee79e3237dd1031d72f06825ba"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\p.json.gz",
+            "sha256": "d48b7d8d0f20e7cf6dd502e2d5c36cc9bc0616f8bd3210df84d177ae15d91ffc"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\q.json.gz",
+            "sha256": "dc5594e81ec6f99a33ef77aed7c1d418ee26daf69217c51226fa488d253cb3f2"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\r.json.gz",
+            "sha256": "da04db4d92cec1d2bbff7197579f1f280fe885369490de61ba6b66cbdec3be3e"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\s.json.gz",
+            "sha256": "b8f7152ad568de98beedba9f2bfd47a9023d4a6d0db211a451ca367d1afd4ca9"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\t.json.gz",
+            "sha256": "ec89782a06817c7d590f0b9e1cb28284c8f27b4f5248ed99bfd43bb78d4c167f"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\u.json.gz",
+            "sha256": "4fd67ebecca22a720aa6780f54bdd4e217249c99798e3568e8b7e04f6bc82c84"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\v.json.gz",
+            "sha256": "b908e1f392c8bbac4d1e271060fe8b8a64b71ab3cd881bc617eac9d8a9e3a263"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\w.json.gz",
+            "sha256": "087527e9e09b2929a0f5db3e07b9bec3f3612b3de7dc73b17f4159814e49aa10"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\x.json.gz",
+            "sha256": "3b6fde00935d1bc771c73673e7ef7948749d076f761dd08270cc34c9b9ff864f"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\y.json.gz",
+            "sha256": "82dd7be709105f2ea46e2b872a6dea7daa2d51c8a0ddae27e6b914467dfecf94"
+          },
+          {
+            "path": "archive\\k\\us\\2025\\z.json.gz",
+            "sha256": "be239169f5db30afecdf2d0d7bcf6158c5754e1a68c4eb9820f5de29b5350203"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\a.json.gz",
+            "sha256": "8edd4aa3f331fc9a7f7ea24826d117d437c2b59b1370d7edd83ba11e5239641b"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\b.json.gz",
+            "sha256": "1973f156fe806d4e49d15529ef0f4111a92f4fe2473ada1fefcd9cf214e3d6ec"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\c.json.gz",
+            "sha256": "267cdb77fbae2a984f50041268caeed4a64a3beeda7e0b33620923ded441b338"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\d.json.gz",
+            "sha256": "1014f22d6978998f0024576287bdecbf8aa03c0af5b38d6cc68109932a95a788"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\e.json.gz",
+            "sha256": "14efb4f34aa2f39fd7e03ef4a462ee4dc16346995a67e0e32a2d653cbb502c62"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\f.json.gz",
+            "sha256": "0e2b53c4bb9df8a84fcb927476942f018cd2cfffe6a004dd1e4ea1c7118823ba"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\g.json.gz",
+            "sha256": "ca30e7a5e6a553c86a081a41899ce0f8986cb0d70d133d2990b636bcebd34043"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\h.json.gz",
+            "sha256": "232baacd724b3a6aad1ff35022dc15ad386ad150dfb14784834677f049636452"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\i.json.gz",
+            "sha256": "49d0f3b96dcba938538f79b413c3f3eb172f65c3b3c82f5a732a7ef986d003c6"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\j.json.gz",
+            "sha256": "8a7833847a0bc5740226ce52189925cadd906d1539398807ca000327fb844ae4"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\k.json.gz",
+            "sha256": "3603ab5c7159fc6dfa6175fc1e6ddd02eb7877d153b9f3055109734e1c8584a4"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\l.json.gz",
+            "sha256": "1e9e0f27f845c1bb290f4737a87fbfeb83975d7ce6c0f17d2a9fc7962369dcf8"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\m.json.gz",
+            "sha256": "5de820f3161228bc53eeefb21fb803ce904865f5c3233aa594c2e7980b953b99"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\n.json.gz",
+            "sha256": "796633ee49f59bc6736d9254c59d84904b652f3dd849e90caa1bff89e97f00dc"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\o.json.gz",
+            "sha256": "8f5a6edb94303b6b31981abe4fca4fd5256f955c77f547804b6b02a16cabc607"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\p.json.gz",
+            "sha256": "a4935feadc48a9884b7169d5885d3bad93de401c2f4dcc85fe74b9034628957d"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\q.json.gz",
+            "sha256": "5bca6c8a8bc731af133004cde37ccbd5a4a7815f2eeaa627bba2e3660f63840e"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\r.json.gz",
+            "sha256": "822a949e14d259f4bcd34c79aff4e8d2605275f0854879d7e8323bb3dd3ec91b"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\s.json.gz",
+            "sha256": "cedb12c7c853a943b3a168528c5e8d7e369414fd9ea669e51b136e9c755cb9ab"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\t.json.gz",
+            "sha256": "76a21ffa5d894cca60608cfc2d025c101babd0da0a966c9c0ab94549b6925297"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\u.json.gz",
+            "sha256": "ea6928f2683bfdc2cb91b7aad43b1c17821c3570eb82baa2e2412dffee072ff1"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\v.json.gz",
+            "sha256": "40fddf3c033ca1cc07568982c797e72df280f818bdfcc06dea308e48851aa60e"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\w.json.gz",
+            "sha256": "2b1edb5bd269b533a5ca2d3715aaef4a0e6c976eed6bd905e0ca24ef94e30ba2"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\x.json.gz",
+            "sha256": "d6aa90a6eacb7536903d747e6578460d82c25cdd9a2f5b200993c74ca4aff74f"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\y.json.gz",
+            "sha256": "96275794dc1749147b64c6f7bc36ee50a1abf64e6f3f12501542cea1bf3e6b51"
+          },
+          {
+            "path": "archive\\k\\us\\2026\\z.json.gz",
+            "sha256": "2086b4b05d0db716e7609de640c597f9ae080c328b15d5d542b787b179de7762"
+          },
+          {
+            "path": "data.json",
+            "sha256": "1a721320ac37f201b992dec5e6f0a217cce6ed3824cb7cd1917f06964738d364"
+          }
+        ],
+        "serial_completed_trades": 1298,
+        "stocks_with_any_completed": 423,
+        "stocks_with_20_completed_full_history": 2,
+        "median_completed_per_stock": 2.0,
+        "count_distribution": {
+          "1-4": 344,
+          "0": 100,
+          "10-19": 19,
+          "5-9": 58,
+          "20+": 2
+        },
+        "tw_known_discontinuities": 0,
+        "largest_discontinuities": []
+      },
+      "annual_models": [
+        {
+          "year": 2016,
+          "train_earliest": "2011-01-01",
+          "cutoff": "2016-01-01",
+          "latest_label": "2015-12-28",
+          "global_selected": "baseline",
+          "global_diagnostics": {
+            "n": 104,
+            "reason": "uncertainty_fallback",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": 0.0010416074247371022,
+                "shrunk_gain": 0.0010416074247371022,
+                "cluster_se": 0.008530239002916816,
+                "eligible": false
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.0011151472267946505,
+                "shrunk_gain": 0.0011151472267946505,
+                "cluster_se": 0.013345822151749176,
+                "eligible": false
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.015194898372955167,
+                "shrunk_gain": -0.015194898372955167,
+                "cluster_se": 0.020780219790160172,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": -0.010310310939058688,
+                "shrunk_gain": -0.010310310939058688,
+                "cluster_se": 0.015420628055831602,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "baseline",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "baseline",
+              "n": 13,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 2,
+              "selected": "baseline",
+              "n": 91,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.00044928265649072947,
+                  "shrunk_gain": 0.00044928265649072947,
+                  "cluster_se": 0.008669239186245204,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.006100952963944357,
+                  "shrunk_gain": 0.006100952963944357,
+                  "cluster_se": 0.016420259332145023,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.01609446607604177,
+                  "shrunk_gain": -0.01609446607604177,
+                  "cluster_se": 0.024109040922423802,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": -0.008809456386380077,
+                  "shrunk_gain": -0.008809456386380077,
+                  "cluster_se": 0.01494603136276888,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 0,
+          "individual_changes": 0
+        },
+        {
+          "year": 2017,
+          "train_earliest": "2012-01-01",
+          "cutoff": "2017-01-01",
+          "latest_label": "2016-09-26",
+          "global_selected": "baseline",
+          "global_diagnostics": {
+            "n": 235,
+            "reason": "uncertainty_fallback",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": 0.0014150920841377176,
+                "shrunk_gain": 0.0014150920841377176,
+                "cluster_se": 0.010089777240463933,
+                "eligible": false
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.011263253004651504,
+                "shrunk_gain": 0.011263253004651504,
+                "cluster_se": 0.010856791138975743,
+                "eligible": false
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.011375419711041066,
+                "shrunk_gain": -0.011375419711041066,
+                "cluster_se": 0.01118577219831783,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": 0.009046895325242381,
+                "shrunk_gain": 0.009046895325242381,
+                "cluster_se": 0.009606341555485632,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "baseline",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "baseline",
+              "n": 35,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 2,
+              "selected": "baseline",
+              "n": 200,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.009905408967298898,
+                  "shrunk_gain": 0.009905408967298898,
+                  "cluster_se": 0.013562649755516845,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.017893162299114355,
+                  "shrunk_gain": 0.017893162299114355,
+                  "cluster_se": 0.013226012188900642,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.012078015942244481,
+                  "shrunk_gain": -0.012078015942244481,
+                  "cluster_se": 0.013420932955947606,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.009687757252403999,
+                  "shrunk_gain": 0.009687757252403999,
+                  "cluster_se": 0.009677641960958893,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 0,
+          "individual_changes": 0
+        },
+        {
+          "year": 2018,
+          "train_earliest": "2013-01-01",
+          "cutoff": "2018-01-01",
+          "latest_label": "2017-11-28",
+          "global_selected": "baseline",
+          "global_diagnostics": {
+            "n": 252,
+            "reason": "uncertainty_fallback",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": 0.0003259359484426325,
+                "shrunk_gain": 0.0003259359484426325,
+                "cluster_se": 0.009785559587359622,
+                "eligible": false
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.014824174241080864,
+                "shrunk_gain": 0.014824174241080864,
+                "cluster_se": 0.010708887737609338,
+                "eligible": false
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.01102101120450124,
+                "shrunk_gain": -0.01102101120450124,
+                "cluster_se": 0.010337980456219205,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": 0.00829091444678019,
+                "shrunk_gain": 0.00829091444678019,
+                "cluster_se": 0.00905649983457972,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "baseline",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "baseline",
+              "n": 42,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 2,
+              "selected": "baseline",
+              "n": 210,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.010335963568879893,
+                  "shrunk_gain": 0.010335963568879893,
+                  "cluster_se": 0.012757510758094743,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.020235034645057437,
+                  "shrunk_gain": 0.020235034645057437,
+                  "cluster_se": 0.01326008634031957,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.012870791418367342,
+                  "shrunk_gain": -0.012870791418367342,
+                  "cluster_se": 0.012821205378603064,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.009563071356968465,
+                  "shrunk_gain": 0.009563071356968465,
+                  "cluster_se": 0.009234610051297358,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 0,
+          "individual_changes": 0
+        },
+        {
+          "year": 2019,
+          "train_earliest": "2014-01-01",
+          "cutoff": "2019-01-01",
+          "latest_label": "2018-12-21",
+          "global_selected": "baseline",
+          "global_diagnostics": {
+            "n": 268,
+            "reason": "uncertainty_fallback",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": -0.004237915761316868,
+                "shrunk_gain": -0.004237915761316868,
+                "cluster_se": 0.010103566059562035,
+                "eligible": false
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.005160698810805492,
+                "shrunk_gain": 0.005160698810805492,
+                "cluster_se": 0.010161940603634267,
+                "eligible": false
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.011684731174045072,
+                "shrunk_gain": -0.011684731174045072,
+                "cluster_se": 0.00982747726970226,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": 0.0013993081140691657,
+                "shrunk_gain": 0.0013993081140691657,
+                "cluster_se": 0.010330569472626314,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "baseline",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "baseline",
+              "n": 47,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 2,
+              "selected": "baseline",
+              "n": 221,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.004784354888459589,
+                  "shrunk_gain": 0.004784354888459589,
+                  "cluster_se": 0.013323024483833103,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.008467487564952114,
+                  "shrunk_gain": 0.008467487564952114,
+                  "cluster_se": 0.012755528804923828,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.014352909261805947,
+                  "shrunk_gain": -0.014352909261805947,
+                  "cluster_se": 0.012418479965010271,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.0019200607724846627,
+                  "shrunk_gain": 0.0019200607724846627,
+                  "cluster_se": 0.010344083912030996,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 0,
+          "individual_changes": 0
+        },
+        {
+          "year": 2020,
+          "train_earliest": "2015-01-01",
+          "cutoff": "2020-01-01",
+          "latest_label": "2019-12-26",
+          "global_selected": "baseline",
+          "global_diagnostics": {
+            "n": 335,
+            "reason": "uncertainty_fallback",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": 0.0032102268970375884,
+                "shrunk_gain": 0.0032102268970375884,
+                "cluster_se": 0.00839460928579084,
+                "eligible": false
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.0215226471994699,
+                "shrunk_gain": 0.0215226471994699,
+                "cluster_se": 0.011577186663858183,
+                "eligible": false
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.021412932071047972,
+                "shrunk_gain": -0.021412932071047972,
+                "cluster_se": 0.012732404427689019,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": -0.001220240167868157,
+                "shrunk_gain": -0.001220240167868157,
+                "cluster_se": 0.00825895688541833,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "baseline",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "baseline",
+              "n": 49,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 2,
+              "selected": "baseline",
+              "n": 286,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.0162497686860324,
+                  "shrunk_gain": 0.0162497686860324,
+                  "cluster_se": 0.008968247894960178,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.026376492001223474,
+                  "shrunk_gain": 0.026376492001223474,
+                  "cluster_se": 0.01274224065562072,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.021925709898317977,
+                  "shrunk_gain": -0.021925709898317977,
+                  "cluster_se": 0.014108248780154837,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": -0.0014805626950255568,
+                  "shrunk_gain": -0.0014805626950255568,
+                  "cluster_se": 0.008345208459149316,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 0,
+          "individual_changes": 0
+        },
+        {
+          "year": 2021,
+          "train_earliest": "2016-01-01",
+          "cutoff": "2021-01-01",
+          "latest_label": "2020-12-18",
+          "global_selected": "atr6_rr1.5",
+          "global_diagnostics": {
+            "n": 1179,
+            "reason": "accepted_gain",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": 0.04934689464165648,
+                "shrunk_gain": 0.04934689464165648,
+                "cluster_se": 0.015261747685353284,
+                "eligible": true
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.05540566336912568,
+                "shrunk_gain": 0.05540566336912568,
+                "cluster_se": 0.015191099712757403,
+                "eligible": true
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.025646877981168943,
+                "shrunk_gain": -0.025646877981168943,
+                "cluster_se": 0.005738284901279251,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": 0.0017339008064698833,
+                "shrunk_gain": 0.0017339008064698833,
+                "cluster_se": 0.004092542257946306,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "atr6_rr1.5",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "atr6_rr1.5",
+              "n": 46,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 2,
+              "selected": "atr6_rr1.5",
+              "n": 1133,
+              "reason": "accepted_gain",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.053637164605463854,
+                  "shrunk_gain": 0.053637164605463854,
+                  "cluster_se": 0.014339684786522965,
+                  "eligible": true
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.05795648413269237,
+                  "shrunk_gain": 0.05795648413269237,
+                  "cluster_se": 0.015330923836444991,
+                  "eligible": true
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.02639765088342905,
+                  "shrunk_gain": -0.02639765088342905,
+                  "cluster_se": 0.005901518760126732,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.0017523858881485486,
+                  "shrunk_gain": 0.0017523858881485486,
+                  "cluster_se": 0.00406332446619937,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 0,
+          "individual_changes": 0
+        },
+        {
+          "year": 2022,
+          "train_earliest": "2017-01-01",
+          "cutoff": "2022-01-01",
+          "latest_label": "2021-12-31",
+          "global_selected": "atr6_rr1.5",
+          "global_diagnostics": {
+            "n": 1127,
+            "reason": "accepted_gain",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": 0.0514985681113254,
+                "shrunk_gain": 0.0514985681113254,
+                "cluster_se": 0.01515987418284989,
+                "eligible": true
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.0573707625094168,
+                "shrunk_gain": 0.0573707625094168,
+                "cluster_se": 0.015309570757297086,
+                "eligible": true
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.02796056963645972,
+                "shrunk_gain": -0.02796056963645972,
+                "cluster_se": 0.006165068240821518,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": 0.0010034253194661023,
+                "shrunk_gain": 0.0010034253194661023,
+                "cluster_se": 0.003950692994567013,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "atr6_rr1.5",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "atr6_rr1.5",
+              "n": 28,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 2,
+              "selected": "atr6_rr1.5",
+              "n": 1099,
+              "reason": "accepted_gain",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.05420513010750766,
+                  "shrunk_gain": 0.05420513010750766,
+                  "cluster_se": 0.0146051962161743,
+                  "eligible": true
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.05900474246219861,
+                  "shrunk_gain": 0.05900474246219861,
+                  "cluster_se": 0.015548328618773996,
+                  "eligible": true
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.0280087773830273,
+                  "shrunk_gain": -0.0280087773830273,
+                  "cluster_se": 0.006315978762476032,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.0011488356307786435,
+                  "shrunk_gain": 0.0011488356307786435,
+                  "cluster_se": 0.003971056070331349,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 0,
+          "individual_changes": 0
+        },
+        {
+          "year": 2023,
+          "train_earliest": "2018-01-01",
+          "cutoff": "2023-01-01",
+          "latest_label": "2022-12-29",
+          "global_selected": "baseline",
+          "global_diagnostics": {
+            "n": 1483,
+            "reason": "uncertainty_fallback",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": 0.03052284693841192,
+                "shrunk_gain": 0.03052284693841192,
+                "cluster_se": 0.020295454892996674,
+                "eligible": false
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.03142889067619087,
+                "shrunk_gain": 0.03142889067619087,
+                "cluster_se": 0.022442495576202294,
+                "eligible": false
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.01838960952869942,
+                "shrunk_gain": -0.01838960952869942,
+                "cluster_se": 0.008053765947138377,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": 0.003859603188542269,
+                "shrunk_gain": 0.003859603188542269,
+                "cluster_se": 0.004103023435064207,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "baseline",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "baseline",
+              "n": 45,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 2,
+              "selected": "baseline",
+              "n": 1438,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.03206963018891767,
+                  "shrunk_gain": 0.03206963018891767,
+                  "cluster_se": 0.02031434472752386,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.03247320832479231,
+                  "shrunk_gain": 0.03247320832479231,
+                  "cluster_se": 0.022897747707163366,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.019026053378133477,
+                  "shrunk_gain": -0.019026053378133477,
+                  "cluster_se": 0.007840383280046687,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.002822932043953926,
+                  "shrunk_gain": 0.002822932043953926,
+                  "cluster_se": 0.0035155393240542637,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 2,
+          "individual_changes": 1
+        },
+        {
+          "year": 2024,
+          "train_earliest": "2019-01-01",
+          "cutoff": "2024-01-01",
+          "latest_label": "2023-12-22",
+          "global_selected": "baseline",
+          "global_diagnostics": {
+            "n": 1587,
+            "reason": "uncertainty_fallback",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": 0.02919679447595351,
+                "shrunk_gain": 0.02919679447595351,
+                "cluster_se": 0.019521393448118523,
+                "eligible": false
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.031507775495757055,
+                "shrunk_gain": 0.031507775495757055,
+                "cluster_se": 0.020971252683609484,
+                "eligible": false
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.018936669903200355,
+                "shrunk_gain": -0.018936669903200355,
+                "cluster_se": 0.007863547137846653,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": 0.004194676620465632,
+                "shrunk_gain": 0.004194676620465632,
+                "cluster_se": 0.0038497815184991035,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "baseline",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "baseline",
+              "n": 73,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": -0.0406063349768309,
+                  "shrunk_gain": -0.0406063349768309,
+                  "cluster_se": 0.024862012546780048,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": -0.008831850558381657,
+                  "shrunk_gain": -0.008831850558381657,
+                  "cluster_se": 0.00820778292217638,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.024012024336184642,
+                  "shrunk_gain": -0.024012024336184642,
+                  "cluster_se": 0.02084456251547523,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.026853080732001162,
+                  "shrunk_gain": 0.026853080732001162,
+                  "cluster_se": 0.020034365222220803,
+                  "eligible": false
+                }
+              }
+            },
+            {
+              "bucket": 2,
+              "selected": "baseline",
+              "n": 1514,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.03256246716423176,
+                  "shrunk_gain": 0.03256246716423176,
+                  "cluster_se": 0.019209553061058898,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.033452816910520676,
+                  "shrunk_gain": 0.033452816910520676,
+                  "cluster_se": 0.021533545625533623,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.018691953342032684,
+                  "shrunk_gain": -0.018691953342032684,
+                  "cluster_se": 0.007812858149232545,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.0031021644010851205,
+                  "shrunk_gain": 0.0031021644010851205,
+                  "cluster_se": 0.003386656156906052,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 2,
+          "individual_changes": 1
+        },
+        {
+          "year": 2025,
+          "train_earliest": "2020-01-01",
+          "cutoff": "2025-01-01",
+          "latest_label": "2024-12-10",
+          "global_selected": "baseline",
+          "global_diagnostics": {
+            "n": 1645,
+            "reason": "uncertainty_fallback",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": 0.03193979533002713,
+                "shrunk_gain": 0.03193979533002713,
+                "cluster_se": 0.018460559590577224,
+                "eligible": false
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.03460543905393899,
+                "shrunk_gain": 0.03460543905393899,
+                "cluster_se": 0.019936350455194513,
+                "eligible": false
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.019863161515446714,
+                "shrunk_gain": -0.019863161515446714,
+                "cluster_se": 0.007597207787645591,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": 0.005253843153100153,
+                "shrunk_gain": 0.005253843153100153,
+                "cluster_se": 0.003862229709085869,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "baseline",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "baseline",
+              "n": 84,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": -0.014840115257487466,
+                  "shrunk_gain": -0.014840115257487466,
+                  "cluster_se": 0.03148056768776736,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": -0.00487624118849626,
+                  "shrunk_gain": -0.00487624118849626,
+                  "cluster_se": 0.005781901345576849,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.014261674801912608,
+                  "shrunk_gain": -0.014261674801912608,
+                  "cluster_se": 0.02234634684684052,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.02752448887219187,
+                  "shrunk_gain": 0.02752448887219187,
+                  "cluster_se": 0.015559919247665347,
+                  "eligible": false
+                }
+              }
+            },
+            {
+              "bucket": 2,
+              "selected": "baseline",
+              "n": 1561,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.0344570999356333,
+                  "shrunk_gain": 0.0344570999356333,
+                  "cluster_se": 0.018491948872031733,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.03673001377550501,
+                  "shrunk_gain": 0.03673001377550501,
+                  "cluster_se": 0.020554949923506483,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.02016458680944855,
+                  "shrunk_gain": -0.02016458680944855,
+                  "cluster_se": 0.007512900707849582,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.00405542275566024,
+                  "shrunk_gain": 0.00405542275566024,
+                  "cluster_se": 0.003429478476745036,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 4,
+          "individual_changes": 3
+        },
+        {
+          "year": 2026,
+          "train_earliest": "2021-01-01",
+          "cutoff": "2026-01-01",
+          "latest_label": "2025-12-11",
+          "global_selected": "baseline",
+          "global_diagnostics": {
+            "n": 1051,
+            "reason": "uncertainty_fallback",
+            "estimates": {
+              "atr4_rr1.5": {
+                "paired_mean_gain": 0.015194426441112277,
+                "shrunk_gain": 0.015194426441112277,
+                "cluster_se": 0.015543827145832866,
+                "eligible": false
+              },
+              "atr6_rr1.5": {
+                "paired_mean_gain": 0.0307596407822479,
+                "shrunk_gain": 0.0307596407822479,
+                "cluster_se": 0.025884666017328684,
+                "eligible": false
+              },
+              "short_hold": {
+                "paired_mean_gain": -0.011509430157346063,
+                "shrunk_gain": -0.011509430157346063,
+                "cluster_se": 0.009104583183150041,
+                "eligible": false
+              },
+              "long_hold": {
+                "paired_mean_gain": 0.005123940980649376,
+                "shrunk_gain": 0.005123940980649376,
+                "cluster_se": 0.004018898313348361,
+                "eligible": false
+              }
+            }
+          },
+          "group_diagnostics": [
+            {
+              "bucket": 0,
+              "selected": "baseline",
+              "n": 0,
+              "reason": "insufficient_events"
+            },
+            {
+              "bucket": 1,
+              "selected": "baseline",
+              "n": 117,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": -0.01664810357427154,
+                  "shrunk_gain": -0.01664810357427154,
+                  "cluster_se": 0.02410102866875953,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": -0.005072415721216507,
+                  "shrunk_gain": -0.005072415721216507,
+                  "cluster_se": 0.006442048925840983,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.00984122329757924,
+                  "shrunk_gain": -0.00984122329757924,
+                  "cluster_se": 0.01871099641063014,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.011067555675481807,
+                  "shrunk_gain": 0.011067555675481807,
+                  "cluster_se": 0.017779577560081323,
+                  "eligible": false
+                }
+              }
+            },
+            {
+              "bucket": 2,
+              "selected": "baseline",
+              "n": 934,
+              "reason": "uncertainty_fallback",
+              "estimates": {
+                "atr4_rr1.5": {
+                  "paired_mean_gain": 0.01918326585417428,
+                  "shrunk_gain": 0.01918326585417428,
+                  "cluster_se": 0.017447627794777213,
+                  "eligible": false
+                },
+                "atr6_rr1.5": {
+                  "paired_mean_gain": 0.03524823886672898,
+                  "shrunk_gain": 0.03524823886672898,
+                  "cluster_se": 0.028904823054036008,
+                  "eligible": false
+                },
+                "short_hold": {
+                  "paired_mean_gain": -0.011718402536995652,
+                  "shrunk_gain": -0.011718402536995652,
+                  "cluster_se": 0.009290579165922542,
+                  "eligible": false
+                },
+                "long_hold": {
+                  "paired_mean_gain": 0.0043793982405044155,
+                  "shrunk_gain": 0.0043793982405044155,
+                  "cluster_se": 0.0029604753742789565,
+                  "eligible": false
+                }
+              }
+            }
+          ],
+          "stocks_with_20_closed_events": 6,
+          "individual_changes": 5
+        }
+      ],
+      "results": [
+        {
+          "period": "development",
+          "policy": "baseline",
+          "n": 90,
+          "cagr_pct": 26.86,
+          "mdd_pct": -43.433,
+          "avg_pct": 7.57,
+          "win_pct": 61.11,
+          "profit_factor": 2.087,
+          "positive_years": 4,
+          "years": 5,
+          "yearly_pct": {
+            "2016": 43.864,
+            "2017": 22.211,
+            "2018": 11.672,
+            "2019": 73.788,
+            "2020": -3.849
+          },
+          "final_nav": 3.28083,
+          "exposure_pct": 63.11,
+          "open_positions": 2,
+          "worst_year_pct": -3.849,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 92
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "development",
+          "policy": "atr4",
+          "n": 90,
+          "cagr_pct": 38.461,
+          "mdd_pct": -47.017,
+          "avg_pct": 10.723,
+          "win_pct": 65.56,
+          "profit_factor": 2.377,
+          "positive_years": 5,
+          "years": 5,
+          "yearly_pct": {
+            "2016": 55.138,
+            "2017": 29.697,
+            "2018": 11.371,
+            "2019": 117.717,
+            "2020": 4.099
+          },
+          "final_nav": 5.078791,
+          "exposure_pct": 59.6,
+          "open_positions": 2,
+          "worst_year_pct": 4.099,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 92
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "development",
+          "policy": "atr6",
+          "n": 68,
+          "cagr_pct": 29.264,
+          "mdd_pct": -39.628,
+          "avg_pct": 11.636,
+          "win_pct": 66.18,
+          "profit_factor": 2.6,
+          "positive_years": 5,
+          "years": 5,
+          "yearly_pct": {
+            "2016": 52.647,
+            "2017": 24.741,
+            "2018": 4.957,
+            "2019": 77.424,
+            "2020": 1.621
+          },
+          "final_nav": 3.603354,
+          "exposure_pct": 67.01,
+          "open_positions": 2,
+          "worst_year_pct": 1.621,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr6_rr1.5": 70
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "development",
+          "policy": "own_drawdown_entry",
+          "n": 85,
+          "cagr_pct": 13.799,
+          "mdd_pct": -32.684,
+          "avg_pct": 4.131,
+          "win_pct": 56.47,
+          "profit_factor": 1.62,
+          "positive_years": 4,
+          "years": 5,
+          "yearly_pct": {
+            "2016": 34.275,
+            "2017": 8.442,
+            "2018": -13.116,
+            "2019": 25.113,
+            "2020": 20.479
+          },
+          "final_nav": 1.90697,
+          "exposure_pct": 85.93,
+          "open_positions": 4,
+          "worst_year_pct": -13.116,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 89
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "development",
+          "policy": "own_drawdown_entry_atr4",
+          "n": 103,
+          "cagr_pct": 14.756,
+          "mdd_pct": -36.927,
+          "avg_pct": 4.092,
+          "win_pct": 58.25,
+          "profit_factor": 1.656,
+          "positive_years": 3,
+          "years": 5,
+          "yearly_pct": {
+            "2016": 54.526,
+            "2017": 2.042,
+            "2018": -5.396,
+            "2019": 42.534,
+            "2020": -6.48
+          },
+          "final_nav": 1.988454,
+          "exposure_pct": 85.59,
+          "open_positions": 1,
+          "worst_year_pct": -6.48,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 104
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "development",
+          "policy": "rolling_global",
+          "n": 90,
+          "cagr_pct": 26.86,
+          "mdd_pct": -43.433,
+          "avg_pct": 7.57,
+          "win_pct": 61.11,
+          "profit_factor": 2.087,
+          "positive_years": 4,
+          "years": 5,
+          "yearly_pct": {
+            "2016": 43.864,
+            "2017": 22.211,
+            "2018": 11.672,
+            "2019": 73.788,
+            "2020": -3.849
+          },
+          "final_nav": 3.28083,
+          "exposure_pct": 63.11,
+          "open_positions": 2,
+          "worst_year_pct": -3.849,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 92
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "development",
+          "policy": "rolling_vol_group",
+          "n": 90,
+          "cagr_pct": 26.86,
+          "mdd_pct": -43.433,
+          "avg_pct": 7.57,
+          "win_pct": 61.11,
+          "profit_factor": 2.087,
+          "positive_years": 4,
+          "years": 5,
+          "yearly_pct": {
+            "2016": 43.864,
+            "2017": 22.211,
+            "2018": 11.672,
+            "2019": 73.788,
+            "2020": -3.849
+          },
+          "final_nav": 3.28083,
+          "exposure_pct": 63.11,
+          "open_positions": 2,
+          "worst_year_pct": -3.849,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 92
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "development",
+          "policy": "rolling_stock_shrink20",
+          "n": 90,
+          "cagr_pct": 26.86,
+          "mdd_pct": -43.433,
+          "avg_pct": 7.57,
+          "win_pct": 61.11,
+          "profit_factor": 2.087,
+          "positive_years": 4,
+          "years": 5,
+          "yearly_pct": {
+            "2016": 43.864,
+            "2017": 22.211,
+            "2018": 11.672,
+            "2019": 73.788,
+            "2020": -3.849
+          },
+          "final_nav": 3.28083,
+          "exposure_pct": 63.11,
+          "open_positions": 2,
+          "worst_year_pct": -3.849,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 92
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "development",
+          "policy": "atr4_riskcap3pct",
+          "n": 90,
+          "cagr_pct": 24.717,
+          "mdd_pct": -31.339,
+          "avg_pct": 10.723,
+          "win_pct": 65.56,
+          "profit_factor": 2.377,
+          "positive_years": 5,
+          "years": 5,
+          "yearly_pct": {
+            "2016": 33.316,
+            "2017": 20.686,
+            "2018": 6.714,
+            "2019": 69.369,
+            "2020": 3.618
+          },
+          "final_nav": 3.013223,
+          "exposure_pct": 41.97,
+          "open_positions": 2,
+          "worst_year_pct": 3.618,
+          "min_cash": 0.099100082159,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 92
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "validation",
+          "policy": "baseline",
+          "n": 71,
+          "cagr_pct": 18.31,
+          "mdd_pct": -43.813,
+          "avg_pct": 4.104,
+          "win_pct": 50.7,
+          "profit_factor": 1.46,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2021": 40.662,
+            "2022": -29.637,
+            "2023": 66.876
+          },
+          "final_nav": 1.651639,
+          "exposure_pct": 83.04,
+          "open_positions": 3,
+          "worst_year_pct": -29.637,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 74
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "validation",
+          "policy": "atr4",
+          "n": 59,
+          "cagr_pct": 17.973,
+          "mdd_pct": -45.93,
+          "avg_pct": 4.997,
+          "win_pct": 50.85,
+          "profit_factor": 1.484,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2021": 44.93,
+            "2022": -37.727,
+            "2023": 81.454
+          },
+          "final_nav": 1.637656,
+          "exposure_pct": 83.79,
+          "open_positions": 3,
+          "worst_year_pct": -37.727,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 62
+          },
+          "flagged_gap_trades": 1,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "validation",
+          "policy": "atr6",
+          "n": 54,
+          "cagr_pct": 11.705,
+          "mdd_pct": -54.905,
+          "avg_pct": 3.426,
+          "win_pct": 51.85,
+          "profit_factor": 1.322,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2021": 43.338,
+            "2022": -50.727,
+            "2023": 97.012
+          },
+          "final_nav": 1.391427,
+          "exposure_pct": 86.6,
+          "open_positions": 4,
+          "worst_year_pct": -50.727,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr6_rr1.5": 58
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "validation",
+          "policy": "own_drawdown_entry",
+          "n": 46,
+          "cagr_pct": -3.325,
+          "mdd_pct": -41.509,
+          "avg_pct": -0.24,
+          "win_pct": 47.83,
+          "profit_factor": 0.977,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2021": 20.661,
+            "2022": -28.828,
+            "2023": 5.27
+          },
+          "final_nav": 0.904021,
+          "exposure_pct": 77.22,
+          "open_positions": 2,
+          "worst_year_pct": -28.828,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 48
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "validation",
+          "policy": "own_drawdown_entry_atr4",
+          "n": 54,
+          "cagr_pct": -9.093,
+          "mdd_pct": -55.943,
+          "avg_pct": -2.105,
+          "win_pct": 42.59,
+          "profit_factor": 0.806,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2021": 24.507,
+            "2022": -50.084,
+            "2023": 21.06
+          },
+          "final_nav": 0.752379,
+          "exposure_pct": 72.91,
+          "open_positions": 2,
+          "worst_year_pct": -50.084,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 56
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "validation",
+          "policy": "rolling_global",
+          "n": 60,
+          "cagr_pct": 9.32,
+          "mdd_pct": -54.905,
+          "avg_pct": 2.977,
+          "win_pct": 53.33,
+          "profit_factor": 1.289,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2021": 43.338,
+            "2022": -50.727,
+            "2023": 84.724
+          },
+          "final_nav": 1.304639,
+          "exposure_pct": 85.91,
+          "open_positions": 3,
+          "worst_year_pct": -50.727,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr6_rr1.5": 40,
+            "baseline": 23
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "validation",
+          "policy": "rolling_vol_group",
+          "n": 60,
+          "cagr_pct": 9.32,
+          "mdd_pct": -54.905,
+          "avg_pct": 2.977,
+          "win_pct": 53.33,
+          "profit_factor": 1.289,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2021": 43.338,
+            "2022": -50.727,
+            "2023": 84.724
+          },
+          "final_nav": 1.304639,
+          "exposure_pct": 85.91,
+          "open_positions": 3,
+          "worst_year_pct": -50.727,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr6_rr1.5": 40,
+            "baseline": 23
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "validation",
+          "policy": "rolling_stock_shrink20",
+          "n": 58,
+          "cagr_pct": 11.256,
+          "mdd_pct": -54.905,
+          "avg_pct": 3.704,
+          "win_pct": 55.17,
+          "profit_factor": 1.369,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2021": 43.338,
+            "2022": -50.727,
+            "2023": 94.659
+          },
+          "final_nav": 1.374809,
+          "exposure_pct": 86.19,
+          "open_positions": 3,
+          "worst_year_pct": -50.727,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr6_rr1.5": 40,
+            "baseline": 20,
+            "long_hold": 1
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "validation",
+          "policy": "atr4_riskcap3pct",
+          "n": 59,
+          "cagr_pct": 11.564,
+          "mdd_pct": -33.907,
+          "avg_pct": 4.997,
+          "win_pct": 50.85,
+          "profit_factor": 1.484,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2021": 28.469,
+            "2022": -24.367,
+            "2023": 42.664
+          },
+          "final_nav": 1.386197,
+          "exposure_pct": 55.04,
+          "open_positions": 3,
+          "worst_year_pct": -24.367,
+          "min_cash": 0.223072374204,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 62
+          },
+          "flagged_gap_trades": 1,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "final_audit",
+          "policy": "baseline",
+          "n": 68,
+          "cagr_pct": 8.31,
+          "mdd_pct": -41.029,
+          "avg_pct": 3.325,
+          "win_pct": 51.47,
+          "profit_factor": 1.345,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2024": 2.981,
+            "2025": 22.002,
+            "2026": -0.4
+          },
+          "final_nav": 1.251361,
+          "exposure_pct": 87.25,
+          "open_positions": 5,
+          "worst_year_pct": -0.4,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 73
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "final_audit",
+          "policy": "atr4",
+          "n": 59,
+          "cagr_pct": 12.795,
+          "mdd_pct": -37.439,
+          "avg_pct": 4.641,
+          "win_pct": 49.15,
+          "profit_factor": 1.473,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2024": 32.357,
+            "2025": 16.245,
+            "2026": -8.848
+          },
+          "final_nav": 1.402453,
+          "exposure_pct": 86.73,
+          "open_positions": 5,
+          "worst_year_pct": -8.848,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 64
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "final_audit",
+          "policy": "atr6",
+          "n": 52,
+          "cagr_pct": 28.582,
+          "mdd_pct": -34.921,
+          "avg_pct": 8.714,
+          "win_pct": 55.77,
+          "profit_factor": 1.903,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2024": 44.849,
+            "2025": 39.92,
+            "2026": -0.024
+          },
+          "final_nav": 2.026243,
+          "exposure_pct": 88.51,
+          "open_positions": 5,
+          "worst_year_pct": -0.024,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr6_rr1.5": 57
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "final_audit",
+          "policy": "own_drawdown_entry",
+          "n": 49,
+          "cagr_pct": -1.221,
+          "mdd_pct": -44.403,
+          "avg_pct": 0.501,
+          "win_pct": 46.94,
+          "profit_factor": 1.052,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2024": 1.677,
+            "2025": -16.146,
+            "2026": 13.309
+          },
+          "final_nav": 0.966077,
+          "exposure_pct": 87.91,
+          "open_positions": 5,
+          "worst_year_pct": -16.146,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 54
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "final_audit",
+          "policy": "own_drawdown_entry_atr4",
+          "n": 58,
+          "cagr_pct": 26.346,
+          "mdd_pct": -40.332,
+          "avg_pct": 7.159,
+          "win_pct": 58.62,
+          "profit_factor": 1.93,
+          "positive_years": 3,
+          "years": 3,
+          "yearly_pct": {
+            "2024": 34.373,
+            "2025": 34.962,
+            "2026": 6.357
+          },
+          "final_nav": 1.928814,
+          "exposure_pct": 85.35,
+          "open_positions": 4,
+          "worst_year_pct": 6.357,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 63
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "final_audit",
+          "policy": "rolling_global",
+          "n": 68,
+          "cagr_pct": 8.31,
+          "mdd_pct": -41.029,
+          "avg_pct": 3.325,
+          "win_pct": 51.47,
+          "profit_factor": 1.345,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2024": 2.981,
+            "2025": 22.002,
+            "2026": -0.4
+          },
+          "final_nav": 1.251361,
+          "exposure_pct": 87.25,
+          "open_positions": 5,
+          "worst_year_pct": -0.4,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 73
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "final_audit",
+          "policy": "rolling_vol_group",
+          "n": 68,
+          "cagr_pct": 8.31,
+          "mdd_pct": -41.029,
+          "avg_pct": 3.325,
+          "win_pct": 51.47,
+          "profit_factor": 1.345,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2024": 2.981,
+            "2025": 22.002,
+            "2026": -0.4
+          },
+          "final_nav": 1.251361,
+          "exposure_pct": 87.25,
+          "open_positions": 5,
+          "worst_year_pct": -0.4,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 73
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "final_audit",
+          "policy": "rolling_stock_shrink20",
+          "n": 68,
+          "cagr_pct": 8.31,
+          "mdd_pct": -41.029,
+          "avg_pct": 3.325,
+          "win_pct": 51.47,
+          "profit_factor": 1.345,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2024": 2.981,
+            "2025": 22.002,
+            "2026": -0.4
+          },
+          "final_nav": 1.251361,
+          "exposure_pct": 87.25,
+          "open_positions": 5,
+          "worst_year_pct": -0.4,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 68,
+            "long_hold": 5
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "final_audit",
+          "policy": "atr4_riskcap3pct",
+          "n": 59,
+          "cagr_pct": 8.062,
+          "mdd_pct": -22.66,
+          "avg_pct": 4.641,
+          "win_pct": 49.15,
+          "profit_factor": 1.473,
+          "positive_years": 2,
+          "years": 3,
+          "yearly_pct": {
+            "2024": 16.622,
+            "2025": 14.316,
+            "2026": -6.74
+          },
+          "final_nav": 1.243326,
+          "exposure_pct": 60.36,
+          "open_positions": 5,
+          "worst_year_pct": -6.74,
+          "min_cash": 0.24450728991,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 64
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full",
+          "policy": "baseline",
+          "n": 234,
+          "cagr_pct": 22.625,
+          "mdd_pct": -43.433,
+          "avg_pct": 6.09,
+          "win_pct": 56.84,
+          "profit_factor": 1.755,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 43.864,
+            "2017": 22.211,
+            "2018": 11.672,
+            "2019": 73.788,
+            "2020": -3.849,
+            "2021": 71.407,
+            "2022": -26.063,
+            "2023": 66.875,
+            "2024": 7.419,
+            "2025": 22.002,
+            "2026": -0.4
+          },
+          "final_nav": 9.056685,
+          "exposure_pct": 75.28,
+          "open_positions": 5,
+          "worst_year_pct": -26.063,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 239
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full",
+          "policy": "atr4",
+          "n": 215,
+          "cagr_pct": 29.708,
+          "mdd_pct": -47.017,
+          "avg_pct": 8.418,
+          "win_pct": 58.6,
+          "profit_factor": 1.964,
+          "positive_years": 9,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 55.138,
+            "2017": 29.697,
+            "2018": 11.371,
+            "2019": 117.717,
+            "2020": 4.099,
+            "2021": 51.723,
+            "2022": -37.723,
+            "2023": 81.454,
+            "2024": 72.032,
+            "2025": 21.658,
+            "2026": -8.845
+          },
+          "final_nav": 16.612513,
+          "exposure_pct": 74.19,
+          "open_positions": 5,
+          "worst_year_pct": -37.723,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 220
+          },
+          "flagged_gap_trades": 1,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full",
+          "policy": "atr6",
+          "n": 179,
+          "cagr_pct": 26.17,
+          "mdd_pct": -54.905,
+          "avg_pct": 9.006,
+          "win_pct": 60.34,
+          "profit_factor": 2.043,
+          "positive_years": 9,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 52.647,
+            "2017": 24.741,
+            "2018": 4.957,
+            "2019": 77.424,
+            "2020": 1.621,
+            "2021": 50.508,
+            "2022": -50.727,
+            "2023": 97.012,
+            "2024": 61.906,
+            "2025": 44.593,
+            "2026": -0.024
+          },
+          "final_nav": 12.321757,
+          "exposure_pct": 78.97,
+          "open_positions": 5,
+          "worst_year_pct": -50.727,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr6_rr1.5": 184
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full",
+          "policy": "own_drawdown_entry",
+          "n": 187,
+          "cagr_pct": 4.844,
+          "mdd_pct": -49.479,
+          "avg_pct": 2.453,
+          "win_pct": 52.41,
+          "profit_factor": 1.3,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 34.275,
+            "2017": 8.442,
+            "2018": -13.116,
+            "2019": 25.113,
+            "2020": 20.479,
+            "2021": 19.929,
+            "2022": -28.828,
+            "2023": 5.27,
+            "2024": 2.399,
+            "2025": -16.146,
+            "2026": 13.309
+          },
+          "final_nav": 1.667109,
+          "exposure_pct": 85.25,
+          "open_positions": 5,
+          "worst_year_pct": -28.828,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 192
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full",
+          "policy": "own_drawdown_entry_atr4",
+          "n": 218,
+          "cagr_pct": 9.928,
+          "mdd_pct": -55.943,
+          "avg_pct": 3.357,
+          "win_pct": 54.59,
+          "profit_factor": 1.433,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 54.526,
+            "2017": 2.042,
+            "2018": -5.396,
+            "2019": 42.534,
+            "2020": -6.48,
+            "2021": 17.887,
+            "2022": -50.084,
+            "2023": 21.06,
+            "2024": 36.751,
+            "2025": 34.962,
+            "2026": 6.357
+          },
+          "final_nav": 2.780585,
+          "exposure_pct": 82.78,
+          "open_positions": 4,
+          "worst_year_pct": -50.084,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 223
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full",
+          "policy": "rolling_global",
+          "n": 222,
+          "cagr_pct": 17.494,
+          "mdd_pct": -54.905,
+          "avg_pct": 5.306,
+          "win_pct": 56.76,
+          "profit_factor": 1.62,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 43.864,
+            "2017": 22.211,
+            "2018": 11.672,
+            "2019": 73.788,
+            "2020": -3.849,
+            "2021": 46.422,
+            "2022": -50.727,
+            "2023": 84.724,
+            "2024": 7.419,
+            "2025": 22.002,
+            "2026": -0.4
+          },
+          "final_nav": 5.707223,
+          "exposure_pct": 76.55,
+          "open_positions": 5,
+          "worst_year_pct": -50.727,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 188,
+            "atr6_rr1.5": 39
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full",
+          "policy": "rolling_vol_group",
+          "n": 222,
+          "cagr_pct": 17.494,
+          "mdd_pct": -54.905,
+          "avg_pct": 5.306,
+          "win_pct": 56.76,
+          "profit_factor": 1.62,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 43.864,
+            "2017": 22.211,
+            "2018": 11.672,
+            "2019": 73.788,
+            "2020": -3.849,
+            "2021": 46.422,
+            "2022": -50.727,
+            "2023": 84.724,
+            "2024": 7.419,
+            "2025": 22.002,
+            "2026": -0.4
+          },
+          "final_nav": 5.707223,
+          "exposure_pct": 76.55,
+          "open_positions": 5,
+          "worst_year_pct": -50.727,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 188,
+            "atr6_rr1.5": 39
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full",
+          "policy": "rolling_stock_shrink20",
+          "n": 220,
+          "cagr_pct": 18.066,
+          "mdd_pct": -54.905,
+          "avg_pct": 5.518,
+          "win_pct": 57.27,
+          "profit_factor": 1.651,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 43.864,
+            "2017": 22.211,
+            "2018": 11.672,
+            "2019": 73.788,
+            "2020": -3.849,
+            "2021": 46.422,
+            "2022": -50.727,
+            "2023": 94.659,
+            "2024": 7.431,
+            "2025": 22.002,
+            "2026": -0.4
+          },
+          "final_nav": 6.014826,
+          "exposure_pct": 76.63,
+          "open_positions": 5,
+          "worst_year_pct": -50.727,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 180,
+            "atr6_rr1.5": 39,
+            "long_hold": 6
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full",
+          "policy": "atr4_riskcap3pct",
+          "n": 215,
+          "cagr_pct": 18.859,
+          "mdd_pct": -33.908,
+          "avg_pct": 8.418,
+          "win_pct": 58.6,
+          "profit_factor": 1.964,
+          "positive_years": 9,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 33.316,
+            "2017": 20.686,
+            "2018": 6.714,
+            "2019": 69.369,
+            "2020": 3.618,
+            "2021": 31.452,
+            "2022": -24.367,
+            "2023": 42.664,
+            "2024": 37.637,
+            "2025": 17.854,
+            "2026": -6.74
+          },
+          "final_nav": 6.465479,
+          "exposure_pct": 50.57,
+          "open_positions": 5,
+          "worst_year_pct": -24.367,
+          "min_cash": 0.099100082159,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 220
+          },
+          "flagged_gap_trades": 1,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full_cost1pct",
+          "policy": "baseline",
+          "n": 234,
+          "cagr_pct": 20.566,
+          "mdd_pct": -43.836,
+          "avg_pct": 5.667,
+          "win_pct": 56.84,
+          "profit_factor": 1.691,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 42.141,
+            "2017": 21.308,
+            "2018": 10.48,
+            "2019": 71.558,
+            "2020": -6.463,
+            "2021": 68.765,
+            "2022": -27.714,
+            "2023": 63.539,
+            "2024": 5.684,
+            "2025": 19.42,
+            "2026": -2.009
+          },
+          "final_nav": 7.54252,
+          "exposure_pct": 75.29,
+          "open_positions": 5,
+          "worst_year_pct": -27.714,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 239
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full_cost1pct",
+          "policy": "atr4",
+          "n": 215,
+          "cagr_pct": 27.68,
+          "mdd_pct": -47.477,
+          "avg_pct": 7.985,
+          "win_pct": 58.6,
+          "profit_factor": 1.901,
+          "positive_years": 9,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 53.012,
+            "2017": 28.795,
+            "2018": 10.192,
+            "2019": 114.323,
+            "2020": 1.577,
+            "2021": 49.805,
+            "2022": -38.678,
+            "2023": 77.98,
+            "2024": 69.612,
+            "2025": 19.015,
+            "2026": -10.198
+          },
+          "final_nav": 14.012035,
+          "exposure_pct": 74.19,
+          "open_positions": 5,
+          "worst_year_pct": -38.678,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 220
+          },
+          "flagged_gap_trades": 1,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full_cost1pct",
+          "policy": "atr6",
+          "n": 179,
+          "cagr_pct": 24.51,
+          "mdd_pct": -55.624,
+          "avg_pct": 8.571,
+          "win_pct": 60.34,
+          "profit_factor": 1.979,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 51.058,
+            "2017": 23.9,
+            "2018": 3.943,
+            "2019": 75.379,
+            "2020": -0.012,
+            "2021": 48.502,
+            "2022": -51.478,
+            "2023": 94.09,
+            "2024": 59.625,
+            "2025": 41.966,
+            "2026": -1.224
+          },
+          "final_nav": 10.6793,
+          "exposure_pct": 78.96,
+          "open_positions": 5,
+          "worst_year_pct": -51.478,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr6_rr1.5": 184
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full_cost1pct",
+          "policy": "own_drawdown_entry",
+          "n": 187,
+          "cagr_pct": 3.444,
+          "mdd_pct": -52.329,
+          "avg_pct": 2.044,
+          "win_pct": 51.87,
+          "profit_factor": 1.246,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 32.441,
+            "2017": 7.321,
+            "2018": -14.149,
+            "2019": 23.786,
+            "2020": 18.02,
+            "2021": 18.615,
+            "2022": -29.69,
+            "2023": 3.719,
+            "2024": 1.154,
+            "2025": -17.306,
+            "2026": 11.771
+          },
+          "final_nav": 1.441727,
+          "exposure_pct": 85.25,
+          "open_positions": 5,
+          "worst_year_pct": -29.69,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 192
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full_cost1pct",
+          "policy": "own_drawdown_entry_atr4",
+          "n": 218,
+          "cagr_pct": 8.22,
+          "mdd_pct": -56.72,
+          "avg_pct": 2.944,
+          "win_pct": 54.59,
+          "profit_factor": 1.372,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 51.425,
+            "2017": 0.717,
+            "2018": -6.814,
+            "2019": 40.877,
+            "2020": -8.312,
+            "2021": 16.951,
+            "2022": -51.035,
+            "2023": 19.237,
+            "2024": 34.635,
+            "2025": 32.674,
+            "2026": 4.854
+          },
+          "final_nav": 2.34766,
+          "exposure_pct": 82.77,
+          "open_positions": 4,
+          "worst_year_pct": -51.035,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 223
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full_cost1pct",
+          "policy": "rolling_global",
+          "n": 222,
+          "cagr_pct": 15.631,
+          "mdd_pct": -55.624,
+          "avg_pct": 4.885,
+          "win_pct": 56.76,
+          "profit_factor": 1.562,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 42.141,
+            "2017": 21.308,
+            "2018": 10.48,
+            "2019": 71.558,
+            "2020": -6.463,
+            "2021": 44.486,
+            "2022": -51.478,
+            "2023": 81.169,
+            "2024": 5.684,
+            "2025": 19.42,
+            "2026": -2.009
+          },
+          "final_nav": 4.801832,
+          "exposure_pct": 76.55,
+          "open_positions": 5,
+          "worst_year_pct": -51.478,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 188,
+            "atr6_rr1.5": 39
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full_cost1pct",
+          "policy": "rolling_vol_group",
+          "n": 222,
+          "cagr_pct": 15.631,
+          "mdd_pct": -55.624,
+          "avg_pct": 4.885,
+          "win_pct": 56.76,
+          "profit_factor": 1.562,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 42.141,
+            "2017": 21.308,
+            "2018": 10.48,
+            "2019": 71.558,
+            "2020": -6.463,
+            "2021": 44.486,
+            "2022": -51.478,
+            "2023": 81.169,
+            "2024": 5.684,
+            "2025": 19.42,
+            "2026": -2.009
+          },
+          "final_nav": 4.801832,
+          "exposure_pct": 76.55,
+          "open_positions": 5,
+          "worst_year_pct": -51.478,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 188,
+            "atr6_rr1.5": 39
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full_cost1pct",
+          "policy": "rolling_stock_shrink20",
+          "n": 220,
+          "cagr_pct": 16.209,
+          "mdd_pct": -55.624,
+          "avg_pct": 5.097,
+          "win_pct": 57.27,
+          "profit_factor": 1.592,
+          "positive_years": 8,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 42.141,
+            "2017": 21.308,
+            "2018": 10.48,
+            "2019": 71.558,
+            "2020": -6.463,
+            "2021": 44.486,
+            "2022": -51.478,
+            "2023": 91.189,
+            "2024": 5.696,
+            "2025": 19.42,
+            "2026": -2.009
+          },
+          "final_nav": 5.067995,
+          "exposure_pct": 76.63,
+          "open_positions": 5,
+          "worst_year_pct": -51.478,
+          "min_cash": 0.0,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "baseline": 180,
+            "atr6_rr1.5": 39,
+            "long_hold": 6
+          },
+          "flagged_gap_trades": 0,
+          "open_flagged_gaps": 0
+        },
+        {
+          "period": "full_cost1pct",
+          "policy": "atr4_riskcap3pct",
+          "n": 215,
+          "cagr_pct": 17.571,
+          "mdd_pct": -34.372,
+          "avg_pct": 7.985,
+          "win_pct": 58.6,
+          "profit_factor": 1.901,
+          "positive_years": 9,
+          "years": 11,
+          "yearly_pct": {
+            "2016": 31.884,
+            "2017": 19.996,
+            "2018": 5.905,
+            "2019": 67.406,
+            "2020": 2.055,
+            "2021": 30.346,
+            "2022": -25.156,
+            "2023": 40.819,
+            "2024": 36.292,
+            "2025": 15.981,
+            "2026": -7.563
+          },
+          "final_nav": 5.747742,
+          "exposure_pct": 50.55,
+          "open_positions": 5,
+          "worst_year_pct": -25.156,
+          "min_cash": 0.099262166341,
+          "cancelled_unavailable_open": 0,
+          "exit_choices": {
+            "atr4_rr1.5": 220
+          },
+          "flagged_gap_trades": 1,
+          "open_flagged_gaps": 0
+        }
+      ],
+      "event_groups": {
+        "volatility": {
+          "high": {
+            "n": 1218,
+            "mean_pct": 7.760856578431813,
+            "win_pct": 58.78489326765188,
+            "pf": 1.962414414392963,
+            "positive_years": 11,
+            "years": 11,
+            "yearly_mean_pct": {
+              "2016": 17.01718110231197,
+              "2017": 15.325626662497152,
+              "2018": 11.028127715890339,
+              "2019": 15.191246533447508,
+              "2020": 7.286511982962289,
+              "2021": 3.870891807360595,
+              "2022": 3.658029267612827,
+              "2023": 15.529455913121618,
+              "2024": 7.999658194897985,
+              "2025": 9.288755450086931,
+              "2026": 4.839290805407098
+            }
+          },
+          "middle": {
+            "n": 80,
+            "mean_pct": 8.718135487512294,
+            "win_pct": 68.75,
+            "pf": 2.491644432606174,
+            "positive_years": 9,
+            "years": 11,
+            "yearly_mean_pct": {
+              "2016": 7.774077805487514,
+              "2017": 7.456394105243118,
+              "2018": 18.172683661452474,
+              "2019": 20.022719253927377,
+              "2020": -20.649376601648395,
+              "2021": 29.222333000997015,
+              "2022": 13.731667811789775,
+              "2023": 0.8178084307129432,
+              "2024": -5.892987844060742,
+              "2025": 18.582878250969898,
+              "2026": 10.502106472051667
+            }
+          }
+        },
+        "direction": {
+          "choppy": {
+            "n": 542,
+            "mean_pct": 7.614382336196869,
+            "win_pct": 57.38007380073801,
+            "pf": 1.8946803123994604,
+            "positive_years": 11,
+            "years": 11,
+            "yearly_mean_pct": {
+              "2016": 15.370885645713356,
+              "2017": 29.222333000997036,
+              "2018": 4.829709823333339,
+              "2019": 19.599829134202803,
+              "2020": 12.128213489411689,
+              "2021": 7.417898459453376,
+              "2022": 3.2863619937173314,
+              "2023": 7.858162644977784,
+              "2024": 8.91539930942968,
+              "2025": 5.28016758924787,
+              "2026": 4.627584291391572
+            }
+          },
+          "down": {
+            "n": 754,
+            "mean_pct": 7.976704451748422,
+            "win_pct": 60.87533156498674,
+            "pf": 2.0633420405830547,
+            "positive_years": 10,
+            "years": 11,
+            "yearly_mean_pct": {
+              "2016": 15.36581144574054,
+              "2017": 10.637576161214405,
+              "2018": 13.619646597757399,
+              "2019": 12.51080263449999,
+              "2020": 4.90769317892907,
+              "2021": -2.8161813687170003,
+              "2022": 5.516998689055646,
+              "2023": 15.191819411928147,
+              "2024": 3.836929125530817,
+              "2025": 14.334235118135135,
+              "2026": 6.094946372762761
+            }
+          },
+          "up": {
+            "n": 2,
+            "mean_pct": 4.3718843469591375,
+            "win_pct": 50.0,
+            "pf": 1.4269717624148024,
+            "positive_years": 1,
+            "years": 2,
+            "yearly_mean_pct": {
+              "2024": -20.478564307078738,
+              "2026": 29.222333000997015
+            }
+          }
+        },
+        "sector_current_descriptive": {
+          "美股·工業": {
+            "n": 153,
+            "mean_pct": 11.889545813495307,
+            "win_pct": 66.66666666666666,
+            "pf": 2.753919508272586,
+            "positive_years": 9,
+            "years": 10,
+            "yearly_mean_pct": {
+              "2016": 17.755139669055474,
+              "2017": 29.222333000997015,
+              "2018": 12.582822287366135,
+              "2020": 11.811169431145425,
+              "2021": 5.24841788753255,
+              "2022": 10.330300328668415,
+              "2023": -0.5982053838484402,
+              "2024": 24.56489642280305,
+              "2025": 15.308614546085971,
+              "2026": 7.921948440393124
+            }
+          },
+          "美股·能源": {
+            "n": 75,
+            "mean_pct": 0.14410474814303567,
+            "win_pct": 48.0,
+            "pf": 1.0134313542508122,
+            "positive_years": 6,
+            "years": 9,
+            "yearly_mean_pct": {
+              "2016": 16.79710867397808,
+              "2017": -20.47856430707875,
+              "2018": 3.123665084019225,
+              "2019": 3.4289508348615994,
+              "2020": -8.482203723423035,
+              "2022": 19.642120118117294,
+              "2023": -20.478564307078763,
+              "2024": 14.08759872665497,
+              "2025": 12.208115723713497
+            }
+          },
+          "美股·資訊科技": {
+            "n": 383,
+            "mean_pct": 8.586308143131339,
+            "win_pct": 59.00783289817232,
+            "pf": 2.0880567095100906,
+            "positive_years": 11,
+            "years": 11,
+            "yearly_mean_pct": {
+              "2016": 11.218560751372827,
+              "2017": 20.35233724277512,
+              "2018": 14.840905888143109,
+              "2019": 27.68906404315209,
+              "2020": 11.879059410376199,
+              "2021": 14.324683903178991,
+              "2022": 2.6965602378528315,
+              "2023": 22.065995448312968,
+              "2024": 1.9028312405497148,
+              "2025": 9.851416576217527,
+              "2026": 3.6083454125505883
+            }
+          },
+          "美股·原物料": {
+            "n": 48,
+            "mean_pct": 7.156548885275062,
+            "win_pct": 62.5,
+            "pf": 2.0213550842973973,
+            "positive_years": 6,
+            "years": 8,
+            "yearly_mean_pct": {
+              "2016": -7.736317795584425,
+              "2018": 2.317869988355359,
+              "2020": 6.160792512741528,
+              "2022": 8.294276646296975,
+              "2023": 9.599115891910385,
+              "2024": 29.234207385806478,
+              "2025": -0.04270554542812703,
+              "2026": 13.044759553802542
+            }
+          },
+          "美股·公用事業": {
+            "n": 40,
+            "mean_pct": 9.755746418752418,
+            "win_pct": 62.5,
+            "pf": 2.4186341712443915,
+            "positive_years": 5,
+            "years": 9,
+            "yearly_mean_pct": {
+              "2016": 29.222333000997036,
+              "2017": -1.199425915800989,
+              "2018": -20.478564307078763,
+              "2019": -3.189554090363733,
+              "2020": 12.45317317190676,
+              "2023": 29.222333000997025,
+              "2024": 4.371884346959131,
+              "2025": -14.52727372856164,
+              "2026": 29.222333000997015
+            }
+          },
+          "美股·醫療保健": {
+            "n": 118,
+            "mean_pct": 12.361541709777338,
+            "win_pct": 69.49152542372882,
+            "pf": 3.1382703177135327,
+            "positive_years": 10,
+            "years": 11,
+            "yearly_mean_pct": {
+              "2016": 8.873144386678536,
+              "2017": 29.222333000997036,
+              "2018": 8.756789098271254,
+              "2019": 13.471764467471194,
+              "2020": 20.48632239164146,
+              "2021": -9.542929418541174,
+              "2022": 6.081325961479807,
+              "2023": 9.234059761652503,
+              "2024": 5.4080158548110235,
+              "2025": 13.238883510379212,
+              "2026": 10.812476500011053
+            }
+          },
+          "美股·必需消費": {
+            "n": 31,
+            "mean_pct": 10.828507354487641,
+            "win_pct": 70.96774193548387,
+            "pf": 3.131361005461308,
+            "positive_years": 6,
+            "years": 9,
+            "yearly_mean_pct": {
+              "2016": 29.222333000997036,
+              "2018": 29.222333000997015,
+              "2019": -7.075064399561493,
+              "2020": 9.009025401520478,
+              "2022": -8.487725884169283,
+              "2023": 24.496190745344503,
+              "2024": -8.945219476986088,
+              "2025": 24.159883879140757,
+              "2026": 20.246085357350008
+            }
+          },
+          "美股·非必需消費": {
+            "n": 165,
+            "mean_pct": 6.791794176692756,
+            "win_pct": 56.96969696969697,
+            "pf": 1.8092481344881735,
+            "positive_years": 11,
+            "years": 11,
+            "yearly_mean_pct": {
+              "2016": 22.75039215761447,
+              "2017": 8.249627391636299,
+              "2018": 5.051665468704728,
+              "2019": 24.894076049995718,
+              "2020": 3.0954149129734527,
+              "2021": 8.315534231086087,
+              "2022": 1.042161200206561,
+              "2023": 11.922928155548727,
+              "2024": 4.605621057789872,
+              "2025": 15.828792641938568,
+              "2026": 13.592842300713553
+            }
+          },
+          "美股·通訊服務": {
+            "n": 76,
+            "mean_pct": 0.9566538594689546,
+            "win_pct": 44.73684210526316,
+            "pf": 1.0858278226070766,
+            "positive_years": 5,
+            "years": 10,
+            "yearly_mean_pct": {
+              "2016": 29.222333000997036,
+              "2018": 29.222333000997025,
+              "2019": 29.222333000997036,
+              "2020": 1.1324166748222932,
+              "2021": -8.053339980059802,
+              "2022": -0.8951035932366337,
+              "2023": 11.606192613607728,
+              "2024": -1.7730446260179462,
+              "2025": -3.5348748257555824,
+              "2026": -2.3058241413056546
+            }
+          },
+          "美股·房地產": {
+            "n": 44,
+            "mean_pct": 4.20568906153532,
+            "win_pct": 52.27272727272727,
+            "pf": 1.4723201246131763,
+            "positive_years": 5,
+            "years": 7,
+            "yearly_mean_pct": {
+              "2016": 29.222333000997036,
+              "2018": 25.328628051814462,
+              "2020": 2.66820093606026,
+              "2022": 17.231380995875842,
+              "2023": 29.222333000997036,
+              "2025": -0.0894107728866278,
+              "2026": -20.478564307078745
+            }
+          },
+          "美股·金融": {
+            "n": 165,
+            "mean_pct": 6.819502199808953,
+            "win_pct": 58.78787878787879,
+            "pf": 1.8332264935215132,
+            "positive_years": 8,
+            "years": 9,
+            "yearly_mean_pct": {
+              "2016": 26.146281120093366,
+              "2018": 29.342147664150414,
+              "2020": 3.95875953999938,
+              "2021": -23.482873259105077,
+              "2022": 3.1264373661570892,
+              "2023": 9.426265174246168,
+              "2024": 28.240696061282357,
+              "2025": 9.772111102083834,
+              "2026": 7.460105632980047
+            }
+          }
+        }
+      },
+      "oracle_diagnostic": {
+        "invalid_future_aware_do_not_deploy": true,
+        "baseline_common_events": {
+          "n": 2492,
+          "mean_pct": 9.417524879581448,
+          "win_pct": 62.7207062600321,
+          "pf": 2.3227810808110267,
+          "positive_years": 11,
+          "years": 11,
+          "yearly_mean_pct": {
+            "2016": 17.239486796817495,
+            "2017": 18.091984663965828,
+            "2018": 9.8713249930472,
+            "2019": 16.90628611362131,
+            "2020": 12.252839658580168,
+            "2021": 6.342448259527401,
+            "2022": 3.6550240422023283,
+            "2023": 9.28432878187583,
+            "2024": 3.830538913453352,
+            "2025": 9.170509453642694,
+            "2026": 7.740634916201317
+          }
+        },
+        "hindsight_best_per_stock": {
+          "n": 2492,
+          "mean_pct": 16.410853161370646,
+          "win_pct": 70.9470304975923,
+          "pf": 3.7978200760482412,
+          "positive_years": 11,
+          "years": 11,
+          "yearly_mean_pct": {
+            "2016": 22.719066509918427,
+            "2017": 22.968641213391123,
+            "2018": 15.436772600186776,
+            "2019": 21.145975210409613,
+            "2020": 21.349881722012977,
+            "2021": 7.039488894594277,
+            "2022": 6.410266610484233,
+            "2023": 14.207921834410072,
+            "2024": 11.223817544929702,
+            "2025": 20.668727348819885,
+            "2026": 12.196167143110454
+          }
+        }
+      },
+      "profile_examples": [
+        {
+          "id": "NVDA",
+          "name": "Nvidia",
+          "as_of": "2026-10-23",
+          "atr20_pct": 2.8460371634432833,
+          "fixed_stop_atr_multiple": 7.027315123251224,
+          "own_entry_threshold_pct": 42.57056977569519,
+          "completed_baseline": {
+            "n": 7,
+            "mean_pct": 7.92194844039312,
+            "win_pct": 57.14285714285714,
+            "pf": 1.902629016553069,
+            "positive_years": 3,
+            "years": 5,
+            "yearly_mean_pct": {
+              "2018": -20.47856430707875,
+              "2019": 29.222333000997036,
+              "2020": 29.222333000997036,
+              "2022": -3.911598537720166,
+              "2025": 29.222333000997015
+            }
+          },
+          "current_quote_for_context_only": 210.96,
+          "latest_model": "baseline"
+        },
+        {
+          "id": "TSLA",
+          "name": "Tesla, Inc.",
+          "as_of": "2026-10-23",
+          "atr20_pct": 3.2058997367148927,
+          "fixed_stop_atr_multiple": 6.238498282074827,
+          "own_entry_threshold_pct": 50.0,
+          "completed_baseline": {
+            "n": 10,
+            "mean_pct": 12.042569081586914,
+            "win_pct": 70.0,
+            "pf": 2.9315832479426898,
+            "positive_years": 6,
+            "years": 8,
+            "yearly_mean_pct": {
+              "2016": 29.222333000997015,
+              "2018": 29.222333000997015,
+              "2019": 29.222333000997015,
+              "2020": -20.478564307078763,
+              "2021": 6.334977940658826,
+              "2022": 12.5636786879061,
+              "2024": 29.68980642265848,
+              "2025": -20.47856430707875
+            }
+          },
+          "current_quote_for_context_only": 372.22,
+          "latest_model": "baseline"
+        },
+        {
+          "id": "AAPL",
+          "name": "Apple Inc.",
+          "as_of": "2026-10-23",
+          "atr20_pct": 1.8309008555611201,
+          "fixed_stop_atr_multiple": 10.923584387026002,
+          "own_entry_threshold_pct": 25.0,
+          "completed_baseline": {
+            "n": 1,
+            "mean_pct": 29.222333000997036,
+            "win_pct": 100.0,
+            "pf": null,
+            "positive_years": 1,
+            "years": 1,
+            "yearly_mean_pct": {
+              "2018": 29.222333000997036
+            }
+          },
+          "current_quote_for_context_only": 347.73,
+          "latest_model": "baseline"
+        },
+        {
+          "id": "KO",
+          "name": "Coca-Cola Company (The)",
+          "as_of": "2026-10-23",
+          "atr20_pct": 1.635206558084358,
+          "fixed_stop_atr_multiple": 12.23087071240099,
+          "own_entry_threshold_pct": 25.0,
+          "completed_baseline": {
+            "n": 1,
+            "mean_pct": 23.14948858275536,
+            "win_pct": 100.0,
+            "pf": null,
+            "positive_years": 1,
+            "years": 1,
+            "yearly_mean_pct": {
+              "2020": 23.14948858275536
+            }
+          },
+          "current_quote_for_context_only": 92.71,
+          "latest_model": "baseline"
+        },
+        {
+          "id": "JPM",
+          "name": "JPMorgan Chase",
+          "as_of": "2026-10-23",
+          "atr20_pct": 1.8458592194945393,
+          "fixed_stop_atr_multiple": 10.83506249489422,
+          "own_entry_threshold_pct": 25.0,
+          "completed_baseline": {
+            "n": 1,
+            "mean_pct": 2.9433524616275353,
+            "win_pct": 100.0,
+            "pf": null,
+            "positive_years": 1,
+            "years": 1,
+            "yearly_mean_pct": {
+              "2020": 2.9433524616275353
+            }
+          },
+          "current_quote_for_context_only": 331.58,
+          "latest_model": "baseline"
+        },
+        {
+          "id": "MSFT",
+          "name": "Microsoft",
+          "as_of": "2026-10-23",
+          "atr20_pct": 2.1527711578425746,
+          "fixed_stop_atr_multiple": 9.290351149094379,
+          "own_entry_threshold_pct": 25.0,
+          "completed_baseline": {
+            "n": 0
+          },
+          "current_quote_for_context_only": 524.51,
+          "latest_model": "baseline"
+        }
+      ],
+      "frozen_finalists": [],
+      "eligible": [],
+      "bootstrap": {
+        "atr4": {
+          "daily_nav_log_return_delta_annualized_pct": 5.6245976102628,
+          "block_sessions": 20,
+          "repetitions": 300,
+          "p025": -6.381951448852618,
+          "p975": 15.710122958531343,
+          "limitation": "fixed-rule paired block bootstrap; not a correction for all model searches"
+        },
+        "atr6": {
+          "daily_nav_log_return_delta_annualized_pct": 2.8543623525844817,
+          "block_sessions": 20,
+          "repetitions": 300,
+          "p025": -8.953016404877692,
+          "p975": 13.534971663317968,
+          "limitation": "fixed-rule paired block bootstrap; not a correction for all model searches"
+        },
+        "own_drawdown_entry": {
+          "daily_nav_log_return_delta_annualized_pct": -15.691236369739153,
+          "block_sessions": 20,
+          "repetitions": 300,
+          "p025": -29.06856469163739,
+          "p975": -3.2775224853905245,
+          "limitation": "fixed-rule paired block bootstrap; not a correction for all model searches"
+        },
+        "own_drawdown_entry_atr4": {
+          "daily_nav_log_return_delta_annualized_pct": -10.948202070541017,
+          "block_sessions": 20,
+          "repetitions": 300,
+          "p025": -23.519283344411534,
+          "p975": 1.9451402960132926,
+          "limitation": "fixed-rule paired block bootstrap; not a correction for all model searches"
+        },
+        "rolling_global": {
+          "daily_nav_log_return_delta_annualized_pct": -4.281317926342812,
+          "block_sessions": 20,
+          "repetitions": 300,
+          "p025": -10.679503559949081,
+          "p975": 2.120672650449139,
+          "limitation": "fixed-rule paired block bootstrap; not a correction for all model searches"
+        },
+        "rolling_vol_group": {
+          "daily_nav_log_return_delta_annualized_pct": -4.281317926342812,
+          "block_sessions": 20,
+          "repetitions": 300,
+          "p025": -10.679503559949081,
+          "p975": 2.120672650449139,
+          "limitation": "fixed-rule paired block bootstrap; not a correction for all model searches"
+        },
+        "rolling_stock_shrink20": {
+          "daily_nav_log_return_delta_annualized_pct": -3.794609721289194,
+          "block_sessions": 20,
+          "repetitions": 300,
+          "p025": -10.417856757404167,
+          "p975": 2.551178786146671,
+          "limitation": "fixed-rule paired block bootstrap; not a correction for all model searches"
+        },
+        "atr4_riskcap3pct": {
+          "daily_nav_log_return_delta_annualized_pct": -3.1247449382496266,
+          "block_sessions": 20,
+          "repetitions": 300,
+          "p025": -13.857594841493926,
+          "p975": 5.187538335233638,
+          "limitation": "fixed-rule paired block bootstrap; not a correction for all model searches"
+        }
+      },
+      "decision": "research_only_no_live_rule_change"
+    }
+  },
+  "complete": true
+}
