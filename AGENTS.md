@@ -247,6 +247,8 @@
 - **查核證據**：research/r1160-ai-unit-audit.json掃描現存2336個ir／ir_us檔、267份有AI內容的法說，這個保守規則僅指出1份，不把其餘266份當作核對正確。research/r1159-public-source-audit.json逐列查核台股111989列，只含date／stock_id／type／value／origin_name，60份來源雜湊全合；抽查2603來源再無登入抓取，canonical SHA一致。金鑰／帳戶／持股不在payload。
 - **驗證**：83 Node＋86 Python＝169項通過；實際2330頁顯示5處提示，正面標籤為紅，390px畫面clientWidth／scrollWidth均380，提示框在頁內。Python語法、完整JS語法與git diff --check通過。新版未改Cloudflare、登入、持股、推播或下單。
 - **部分回應隔離補強**：合併保留舊季前，逐季複製current-response欄位，避免淺層copy使retained欄位／重算CF寫回本次來源集合。新增兩個會先失敗的回歸：本季只有EPS卻保留舊Revenue，以及TTM窗外缺YTD前期。歷史仍顯示保留值，但TTM不把它算成新核對。push限定main且job再檢查refs/heads/main，避免測試分支或手動選錯分支把尚未合併程式隨資料推回main。原首班回補只抓未入庫股票（old=None），這個保留舊值的邊界不影響該批。完整驗證更新為83 Node＋88 Python＝171項。
+- **排隊班資料同步**：checkout明確ref: main，且仍保留main雙重限制。Actions事件SHA可能比前一班剛寫入的100檔資料舊，不能用事件快照作為排隊班起點；否則重抓同批、產生add/add衝突。修正前的舊事件班若衝突，保留artifact，讓最新main新班接續，不要-X theirs或reset刪資料。
+- **已上線證據**：PR #10合併`d874c943ffdf1e2316ecb37751287d2bbc7df84b`，PR #11隔離補強合併`93158ef4da09e28944d9147de8eb59b3482a4843`。[Pages 40091030452](https://github.com/frankf19-19/Stock/actions/runs/40091030452)成功；正式站meta／JS均r1160，2330三表46季、可展開2015Q1、5處AI單位提示，手機clientWidth／scrollWidth均380，檢查console error空。[首班40091357295](https://github.com/frankf19-19/Stock/actions/runs/40091357295)成功，240請求新增80檔，`2d44a9691324c98b763ecb8472ba244b0f8b9718`索引100／1925檔；這不是全市場已完成。
 - **換行與交接**：Windows write_text可能轉CRLF，瀏覽器上傳前需write_bytes確保LF；核對Git blob SHA而非僅視覺內容，以免整份app.js被誤判重寫。本地以獨立分支保存，不覆蓋後續bot資料。回退只處理程式，保留全部歷史／原始來源與修訂。PR #10已合併（同第15節）；首個Pages班被同期bot新版接替屬正常，實際驗收以最後成功班及正式站檔案為準。補push paths觸發，回補程式更新後立即驗證／接續資料，保留4小時排程與手動補跑。正式驗收證據待補。
 
 ---
@@ -255,6 +257,7 @@
 
 | 日期 | 版本 | 誰 | 改了什麼 |
 |---|---|---|---|
+| 2026-10-24 | r1160 排隊班修正 | Codex | checkout最新main再回補，避開過期事件快照；正式站r1160與171項已驗收，首班成功新增80檔、累計100檔 |
 | 2026-10-24 | r1160 來源隔離 | Codex | 本次來源與保留舊值逐季隔離，新增2個先失敗再通過回歸，171項驗證；回補限定main，避免測試分支寫回正式站 |
 | 2026-10-24 | r1160 發布接續 | Codex | PR #10已合併，115檔SHA一致；財報回補補程式變更即執行，保留4小時排程與人工補跑入口 |
 | 2026-10-24 | r1160 | Codex | AI法說單位矛盾提示／原文保留、紅綠修正、產生端單位檢核；169項測試，合併r1159財報功能；Frank已明確核准台股公開來源及後續保存 |

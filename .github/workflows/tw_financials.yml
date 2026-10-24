@@ -21,6 +21,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with: {ref: main}
       - uses: actions/setup-python@v5
         with: {python-version: '3.11'}
       - name: 期間與保存回歸檢查
