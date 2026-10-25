@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1163';
+const APP_BUILD='r1164';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1089,6 +1089,13 @@ function strategyRiskMath(entry,stop,target){
 }
 // r1161: 個股波動與策略樣本只作參考；不改已驗證進出場或舊倉規則。
 var STOCK_PROFILES=null,STOCK_PROFILES_PENDING=null;
+// r1164: 展開說明保留原生開合；不把點擊或鍵盤啟動交給外層股票卡。
+function strategyStopCardEvent(e){
+  if(e&&(e.type==='click'||e.key==='Enter'||e.key===' '))e.stopPropagation();
+}
+function strategyCardInteractiveTarget(target){
+  return !!(target&&target.closest&&target.closest('a,button,input,select,textarea,details,summary,.strategy-summary,.fav-plan-slot'));
+}
 function stockProfilesLoad(){
   if(STOCK_PROFILES_PENDING)return STOCK_PROFILES_PENDING;
   if(typeof fT!=='function')return null;
@@ -1127,7 +1134,7 @@ function stockProfileHTML(s,o,dates,own,cost,now=new Date()){
   const wave=m?(m.jump?'近期價格有大幅跳動，先核對原因，暫不解讀價格起伏。':`最近20個交易日，用來衡量價格起伏的數字約為每股 ${money(m.atr)}（約收盤價的${fmt(m.atrPct)}%）。這不是${esc(s.name||s.id)}的股價，也不是買進、停損或停利價；不代表明天一定漲跌這個金額。資料截至 ${esc(m.asof)}。`):'目前資料不足，暫不說明價格起伏。';
   const entry=own?strategyNumber(cost):null,stop=entry>0?strategyPrice(entry*(us?.8:.85),us,'down'):null,budget=us?1000:10000,z=entry>0&&!s.historyOnly&&m&&!m.jump?stockProfileSizing(entry,stop,budget):null;
   const risk=z?`僅假設採用跌深策略：自設成本 ${money(entry)}、停損 ${money(stop)}，每股計畫損失 ${money(z.loss)}（雙邊各0.3%成本）。假設損失預算 ${money(budget)}，理論上限 ${fmt(z.shares)} 股、約需資金 ${money(z.capital)}；不是建議買入量，仍須受可用資金與集中度限制。`:'填入實際成本後，可試算跌深策略的每股風險；不以現價或AI模型成本代替你的成本。';
-  return `<details class="stock-profile"><summary>價格起伏與歷史研究：想了解再展開</summary><p>${wave}</p><details class="plan-more"><summary>這套買法的歷史資料夠不夠？</summary><p>${sample}</p><p>這裡只計算「大跌後承接」買法，0筆不代表這檔股票沒有人交易，也不代表沒有股價歷史；不能據此判斷這檔股票是否適合買進。</p></details><details class="plan-more"><summary>已填成本：查看風險試算</summary><p>${esc(risk)} 跳空、滑價、最低手續費與成交限制可能增加損失；未依整張股數取整。此試算不套用AI Pick其他短中長期策略。</p></details><details class="plan-more"><summary>指標原始數字與研究限制</summary><p>${technicalWave}</p><p>ATR是平均真實波幅，用來描述價格起伏，並非買點；沒有改用4 ATR停損。樣本僅為本次跌深策略、不重疊且已完成交易；研究快照不隨報價更新，非短線突破或AI Pick全部策略的勝率。${valid?'研究快照截至 '+esc(p.as_of)+'；後續交易未計入。':''}</p><a href="https://github.com/frankf19-19/Stock/blob/main/research/r1161/Stock-r1161-個股進出場優化研究.md" target="_blank" rel="noopener">查看完整研究與限制</a></details></details>`;
+  return `<details class="stock-profile" onclick="strategyStopCardEvent(event)" onkeydown="strategyStopCardEvent(event)"><summary>價格起伏與歷史研究：想了解再展開</summary><p>${wave}</p><details class="plan-more"><summary>這套買法的歷史資料夠不夠？</summary><p>${sample}</p><p>這裡只計算「大跌後承接」買法，0筆不代表這檔股票沒有人交易，也不代表沒有股價歷史；不能據此判斷這檔股票是否適合買進。</p></details><details class="plan-more"><summary>已填成本：查看風險試算</summary><p>${esc(risk)} 跳空、滑價、最低手續費與成交限制可能增加損失；未依整張股數取整。此試算不套用AI Pick其他短中長期策略。</p></details><details class="plan-more"><summary>指標原始數字與研究限制</summary><p>${technicalWave}</p><p>ATR是平均真實波幅，用來描述價格起伏，並非買點；沒有改用4 ATR停損。樣本僅為本次跌深策略、不重疊且已完成交易；研究快照不隨報價更新，非短線突破或AI Pick全部策略的勝率。${valid?'研究快照截至 '+esc(p.as_of)+'；後續交易未計入。':''}</p><a href="https://github.com/frankf19-19/Stock/blob/main/research/r1161/Stock-r1161-個股進出場優化研究.md" target="_blank" rel="noopener">查看完整研究與限制</a></details></details>`;
 }
 // r1162: 先說明價格用途與下一步；研究指標和不同模型的價位分開收合。
 // r1163: 價位表僅套既有策略百分比；未成交清楚標示假設基準，不接入成交或通知。
@@ -1188,7 +1195,7 @@ function ownStrategySummary(s,o,dates,own,cost){
   const accounts=tiers.map(({k,sl})=>({short:'短期',mid:'中期',long:'長期'})[k]+'：'+(sl.st==='pend'?'尚未成交；':strategyNumber(sl.entry)>0?'模擬買入價 '+price(sl.entry)+'；':'未提供買入價；')+aipPolicyText(sl,k,us));
   if(!us&&typeof AIPK!=='undefined'&&AIPK){const pv=(AIPK.trader||{}).pv||{},p=(pv.pos||[]).find(x=>x.id===s.id);if(p)accounts.push(`主力20檔模型帳：進場 ${price(p.entry)}；停損 ${price(p.stop)}；停利 ${price(p.tp)}；依模型轉弱／已排定出場記錄執行，與自設持股分開`);}
 
-  return `<div class="dim-block strategy-summary" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 ${esc(s.name||s.id)}（${esc(s.id)}）的買賣計畫</h3>${strategyPlainHTML(s,rawO,dates,own,cost)}<details class="plan-more plan-models"><summary>AI 模擬帳戶怎麼做？${accounts.length?'（'+accounts.length+'項紀錄）':''}</summary><p>以下是系統模擬交易的紀錄，與你的持股分開。不同模型的價格不要混成同一張買賣單。</p>${accounts.length?accounts.map(x=>'<p>'+esc(x)+'</p>').join(''):'本股目前沒有三清單或主力模型持倉紀錄；不因此推定適合或不適合買進。'}</details>${stockProfileHTML(s,rawO,dates,own,cost)}<details class="plan-more"><summary>完整規則與條件檢核（詳細資料）</summary>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('收盤檢核',esc(strategyCloseText(s,rawO,dates)))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}<p>價格會隨資料更新；收盤確認與下一交易日開盤成交是不同時間。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。模型帳不等於你的持股。</p></details></div>`;
+  return `<div class="dim-block strategy-summary" onclick="strategyStopCardEvent(event)" onkeydown="strategyStopCardEvent(event)" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 ${esc(s.name||s.id)}（${esc(s.id)}）的買賣計畫</h3>${strategyPlainHTML(s,rawO,dates,own,cost)}<details class="plan-more plan-models"><summary>AI 模擬帳戶怎麼做？${accounts.length?'（'+accounts.length+'項紀錄）':''}</summary><p>以下是系統模擬交易的紀錄，與你的持股分開。不同模型的價格不要混成同一張買賣單。</p>${accounts.length?accounts.map(x=>'<p>'+esc(x)+'</p>').join(''):'本股目前沒有三清單或主力模型持倉紀錄；不因此推定適合或不適合買進。'}</details>${stockProfileHTML(s,rawO,dates,own,cost)}<details class="plan-more"><summary>完整規則與條件檢核（詳細資料）</summary>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('收盤檢核',esc(strategyCloseText(s,rawO,dates)))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}<p>價格會隨資料更新；收盤確認與下一交易日開盤成交是不同時間。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。模型帳不等於你的持股。</p></details></div>`;
 }
 
 function refreshStrategySummaries(){
@@ -1210,7 +1217,7 @@ function actionPlan(o,id,px,own,cost,dates){
   const found=(DATA.stocks||[]).find(x=>x.id===id)||{id,market:'TW'};const so=Object.assign({},found,{price:px||found.price});
   const core=ownStrategySummary(so,o,dates,own,cost);
   const facts=[];try{const P=posCalc(o,dates,id,px),v=vtCalc(o);if(P)facts.push(posLine(P,v,id));if(v)facts.push(vtTechLine(o,P&&P.z),vtVolLine(o,P&&P.z));}catch(e){}
-  return core+(facts.filter(Boolean).length?`<details class="aip-fold"><summary>📊 位置與量價歷史觀察（參考）</summary>${facts.filter(Boolean).join('<br>')}</details>`:'');
+  return core+(facts.filter(Boolean).length?`<details class="aip-fold" onclick="strategyStopCardEvent(event)" onkeydown="strategyStopCardEvent(event)"><summary>📊 位置與量價歷史觀察（參考）</summary>${facts.filter(Boolean).join('<br>')}</details>`:'');
 }
 function aiPickVerdict(id,own){
   const T=(typeof AIPK!=='undefined'&&AIPK&&AIPK.trader)||null;if(!T)return null;
@@ -1381,6 +1388,7 @@ function renderFav(force){
   box.querySelectorAll('.r-card').forEach(c=>c.onclick=e=>{
     const st=e.target.closest('.fav-tg');
     if(st){e.stopPropagation();favToggle(st.dataset.fav);return;}
+    if(strategyCardInteractiveTarget(e.target))return;
     location.hash='#stock/'+c.dataset.id;
   });
   try{favMktBar(box,g);}catch(e7){}                                  // r1074:🇹🇼/🇺🇸 切換(最愛頁看不到首頁的市場切換)
@@ -11983,9 +11991,10 @@ function render(){
     c.onclick=e=>{
       const st=e.target.closest('.fav-tg');
       if(st){e.stopPropagation();favToggle(st.dataset.fav);if(mkt==='FAV')render();return;}
+      if(strategyCardInteractiveTarget(e.target))return;
       location.hash='#stock/'+c.dataset.id;
     };
-    c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();location.hash='#stock/'+c.dataset.id;}};
+    c.onkeydown=e=>{if(strategyCardInteractiveTarget(e.target))return;if(e.key==='Enter'||e.key===' '){e.preventDefault();location.hash='#stock/'+c.dataset.id;}};
   });
 }
 
