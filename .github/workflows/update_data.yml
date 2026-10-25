@@ -71,6 +71,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: 設定個股通知 Node
+        if: steps.dedupe.outputs.dup != '1'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: 安裝套件
         if: steps.dedupe.outputs.dup != '1'
         run: pip install requests pandas lxml html5lib beautifulsoup4 pypdf pywebpush   # r784:Web Push

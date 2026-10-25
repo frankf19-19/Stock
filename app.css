@@ -2653,3 +2653,6 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 #bellPanel .sb-cats{grid-template-columns:1fr}#bellPanel .notify-option{overflow-wrap:anywhere}#bellPanel .notify-presets button{max-width:100%;white-space:normal}
 
 #pushCatsRetry[hidden]{display:none}
+
+/* r1169: 個股計畫與最愛通知有直接入口。 */
+.plan-notice-link{border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:var(--panel);color:var(--t-gold);font-weight:700;cursor:pointer;margin:8px 0}
