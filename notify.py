@@ -25,7 +25,7 @@
   LINE_TOKEN / LINE_USER_ID   選配;都設了才會同時推 LINE
   SB_SERVICE_KEY / SB_UID     選配;讀最愛名單與持股成本(三級訊號需要)
 """
-import json, os, re, datetime as dt
+import json, os, re, datetime as dt, hashlib, html, math
 import requests
 
 TZ = dt.timezone(dt.timedelta(hours=8))
@@ -217,14 +217,48 @@ def log_signals(ev, prices):
     if n: log(f"  訊號記錄:+{n} 筆(累積 {len(L['items'])})")
 
 
-def send_push_to(subs, title, body, url=SITE + "#aipick"):
+# r1168: preference filtering and presentation only; no new trading signal.
+NOTICE_LABELS={'fill':'模型已買進','rot':'模型換股買進','rotbuy':'模型換股買進','exit':'模型已賣出','buy':'到模型買價・待確認','chase':'進入模型追價範圍','tp':'模型目標到價','sl':'模型停損到價','exp':'模型到期提醒','fz':'回到均線區・觀察','fh':'突破近期高價・觀察','fl':'跌破近期低價・風險','fb':'跌破均線區・風險','ftp':'持股停利線到價','fsl':'持股停損線到價'}
+
+def filter_notice_events(events,cats):
+    if not isinstance(cats,list):return list(events)
+    if not cats:return []
+    sel=set(cats)
+    if 'btm_v1' not in sel:sel.update(('btmm','btms'))
+    if 'ins_v1' not in sel:sel.update(('ins','insb'))
+    return [e for e in events if ({'rot':'fill','rotbuy':'fill'}.get(str(e[0]).split('|')[0],str(e[0]).split('|')[0]) in sel or cat_of(e[0]) in sel)]
+
+def notice_important(event):
+    return event[1]==1 or str(event[0]).split('|')[0] in ('sl','fsl','tp','ftp')
+
+def notice_priority(event):
+    prefix=str(event[0]).split('|')[0]
+    return (0 if prefix in ('sl','fsl') else 1 if event[1]==1 else 2 if prefix in ('tp','ftp') else 3,event[1])
+
+def notice_summary(events,data):
+    ordered=sorted(events,key=notice_priority);by={str(s['id']):s for s in data.get('stocks',[])}
+    def info(e):
+        key,_,text=e;prefix=str(key).split('|')[0]
+        candidates=re.findall(r'[（(]([A-Z0-9.-]+)[）)]',text)+str(key).split('|')[1:]
+        sid=next((x for x in candidates if x in by),None)
+        name=(by[sid].get('name') or sid) if sid else 'K研所'
+        return sid,f"{name}{'（'+sid+'）' if sid else ''}｜{NOTICE_LABELS.get(prefix,CAT_NAME.get(cat_of(key),'通知'))}",html.unescape(re.sub(r'<[^>]+>','',text))
+    if not ordered:return {'title':'K研所','body':'','url':SITE,'tag':'kyansuo-empty'}
+    sid,title,_=info(ordered[0]);body='\n\n'.join(info(e)[2] for e in ordered[:4])
+    if len(ordered)>4:body+=f"\n另有 {len(ordered)-4} 則，請開啟網站查看。"
+    if len(ordered)>1:title+=f' 等{len(ordered)}則'
+    prefix=str(ordered[0][0]).split('|')[0]
+    tag=f'kyansuo-{prefix}-{sid}-{TODAY}' if len(ordered)==1 and sid and prefix in ('fz','fh','fl','fb','ftp','fsl') else 'kyansuo-'+hashlib.sha256('|'.join(str(e[0]) for e in ordered).encode()).hexdigest()[:20]
+    return {'title':title,'body':body,'url':SITE+'#stock/'+sid if len(ordered)==1 and sid else SITE+'#port' if all(cat_of(e[0])=='port' for e in ordered) else SITE+'#fav' if all(cat_of(e[0]) in ('fav','port') for e in ordered) else SITE+'#aipick','tag':tag}
+
+def send_push_to(subs, title, body, url=SITE + "#aipick", tag=None):
     """r784:Web Push。subs = [{endpoint, keys:{p256dh,auth}}, ...];回傳 (成功數, 失效的 endpoint 清單)。"""
     if not VAPID_PRIVATE or not subs: return 0, []
     try:
         from pywebpush import webpush, WebPushException
     except Exception:
         log("  pywebpush 未安裝,跳過 Web Push"); return 0, []
-    payload = json.dumps({"title": title, "body": body[:900], "url": url, "tag": "kyansuo-" + TODAY}, ensure_ascii=False)
+    payload = json.dumps({"title": title, "body": body[:900], "url": url, "tag": tag or "kyansuo-" + TODAY}, ensure_ascii=False)
     ok, dead = 0, []
     for sb in subs:
         if not isinstance(sb, dict) or not sb.get("endpoint") or not sb.get("keys"): continue
@@ -379,6 +413,8 @@ def collect_fav_events(data, aip, prices, ud):
     ev = []
     favs = [str(x) for x in (ud.get("fav_ids") or [])]
     port = {str(p.get("id")): p for p in (ud.get("port1") or []) if p.get("id")}
+    fav_set=set(favs)
+    favs=list(dict.fromkeys(favs+list(port)))
     if not favs: return ev
     by = {s["id"]: s for s in data.get("stocks") or []}
     picks = {}
@@ -391,42 +427,43 @@ def collect_fav_events(data, aip, prices, ud):
         px = prices.get(sid)
         if not px: continue
         nm = s.get("name") or sid
-        try: ev.extend(lead_signal(sid, nm))                     # r779:主力進出(法人日資料)
-        except Exception: pass
-        try:                                                     # r1070:🧺 全部券商——有券商「剛開始」持續吃貨(bk_acc.py)
-            ac = (_acc().get("s") or {}).get(sid) or {}
-            nw = [x for x in (ac.get("now") or []) if x.get("new")]
-            if nw:
-                def _h(x):
-                    h = x.get("h") or {}
-                    return f";它在這檔過去 {h['n']} 次這樣吃,之後 20 天比大盤 {h['avg']:+.1f}%、漲 {h['win']}%" if h.get("n") else ";它在這檔過去沒有同樣紀錄"
-                lines = "\n".join(f"{'★ ' if x.get('star') else ''}{x['n']}:近 {x['w']} 天買 {x['bd']} 天、賣 {x['sd']} 天,淨買 {x['net']:+,} 張(佔成交 {x['sh']}%)" + _h(x) for x in nw[:3])
-                ev.append((f"kb_acc|{ac.get('d')}|{sid}", 3, f"🧺 <b>{nm}</b>({sid})有券商開始持續吃貨({md(ac.get('d'))} 止)\n{lines}\n⚠ 實測:分點過去的成績對之後預測力弱,只當參考"))
-        except Exception: pass
-        a = s.get("al") or {}
-        lv = fav_levels(sid, px) or {}
-        h20, l10, prev = lv.get("h20"), lv.get("l10"), lv.get("prevC")
-        bull, z0, z1, stop = bool(a.get("bull")), a.get("z0"), a.get("z1"), a.get("stop")
-        if bull and z0 and z1 and z0 * 0.995 <= px <= z1 * 1.005 and (not stop or px >= stop):
-            ev.append((f"fz|{TODAY}|{sid}", 3, f"⭐🟢 <b>{nm}</b>({sid})回檔到均線帶\n現價 {px} 進入 {z0}~{z1}(多頭排列未破停損 {stop});左側分批參考"))
-        if h20 and px >= h20 * 1.003 and (prev is None or prev <= h20):
-            ev.append((f"fh|{TODAY}|{sid}", 3, f"⭐🟢 <b>{nm}</b>({sid})突破 20 日高\n現價 {px} 站上 {h20};守 {l10 or h20} 為出場線"))
-        if l10 and px < l10 and (prev is None or prev >= l10 * 0.999):
-            ev.append((f"fl|{TODAY}|{sid}", 3, f"⭐🔻 <b>{nm}</b>({sid})跌破 10 日低\n現價 {px} 跌破 {l10}(出場線);順勢部位宜減碼或出場"))
-        elif bull and z0 and px < z0 * 0.995 and (prev is None or prev >= z0 * 0.995):
-            ev.append((f"fb|{TODAY}|{sid}", 3, f"⭐🔻 <b>{nm}</b>({sid})跌破均線帶\n現價 {px} 跌破下緣 {z0};多頭結構鬆動,守停損 {stop}"))
-        # 停利/停損:進場價 = 持股成本 > AI Pick 成交價
-        entry, src = None, None
-        pc = port.get(sid)
-        if pc and float(pc.get("cost") or 0) > 0: entry, src = float(pc["cost"]), "持股成本"
-        elif sid in picks:
-            legs = picks[sid][1].get("legs") or []
-            if legs and legs[-1].get("entry") and not legs[-1].get("xd"): entry, src = float(legs[-1]["entry"]), "AI Pick 成交"
+        if sid in fav_set:
+            try: ev.extend(lead_signal(sid, nm))                     # r779:主力進出(法人日資料)
+            except Exception: pass
+            try:                                                     # r1070:🧺 全部券商——有券商「剛開始」持續吃貨(bk_acc.py)
+                ac = (_acc().get("s") or {}).get(sid) or {}
+                nw = [x for x in (ac.get("now") or []) if x.get("new")]
+                if nw:
+                    def _h(x):
+                        h = x.get("h") or {}
+                        return f";它在這檔過去 {h['n']} 次這樣吃,之後 20 天比大盤 {h['avg']:+.1f}%、漲 {h['win']}%" if h.get("n") else ";它在這檔過去沒有同樣紀錄"
+                    lines = "\n".join(f"{'★ ' if x.get('star') else ''}{x['n']}:近 {x['w']} 天買 {x['bd']} 天、賣 {x['sd']} 天,淨買 {x['net']:+,} 張(佔成交 {x['sh']}%)" + _h(x) for x in nw[:3])
+                    ev.append((f"kb_acc|{ac.get('d')}|{sid}", 3, f"🧺 <b>{nm}</b>({sid})有券商開始持續吃貨({md(ac.get('d'))} 止)\n{lines}\n⚠ 實測:分點過去的成績對之後預測力弱,只當參考"))
+            except Exception: pass
+            a = s.get("al") or {}
+            lv = fav_levels(sid, px) or {}
+            h20, l10, prev = lv.get("h20"), lv.get("l10"), lv.get("prevC")
+            bull, z0, z1, stop = bool(a.get("bull")), a.get("z0"), a.get("z1"), a.get("stop")
+            if bull and z0 and z1 and z0 * 0.995 <= px <= z1 * 1.005 and (not stop or px >= stop):
+                ev.append((f"fz|{TODAY}|{sid}", 3, f"⭐📍 <b>{nm}</b>({sid})回到均線觀察區\n最新可用價 {px}｜均線區 {z0}～{z1}\n下一步：查看個股計畫；這是價格觀察，不是買進確認。"))
+            if h20 and px >= h20 * 1.003 and (prev is None or prev <= h20):
+                ev.append((f"fh|{TODAY}|{sid}", 3, f"⭐📍 <b>{nm}</b>({sid})突破近期高價（觀察）\n最新可用價 {px}｜前20日高 {h20}\n下一步：查看個股條件；不單獨當成買進訊號。"))
+            if l10 and px < l10 and (prev is None or prev >= l10 * 0.999):
+                ev.append((f"fl|{TODAY}|{sid}", 3, f"⭐⚠ <b>{nm}</b>({sid})跌破近期低價\n最新可用價 {px}｜前10日低 {l10}\n下一步：優先查看持有策略；不代表模型已賣出。"))
+            elif bull and z0 and px < z0 * 0.995 and (prev is None or prev >= z0 * 0.995):
+                ev.append((f"fb|{TODAY}|{sid}", 3, f"⭐⚠ <b>{nm}</b>({sid})跌破均線區\n最新可用價 {px}｜均線下緣 {z0}\n下一步：查看持有策略的出場條件；不是成交紀錄。"))
+        # r1168: only the user's synchronized holding cost; model cost is never personal cost.
+        entry,src=None,None
+        pc=port.get(sid)
+        try:
+            value=float((pc or {}).get('cost') or 0)
+            if math.isfinite(value) and value>0:entry,src=value,'持股成本'
+        except (TypeError,ValueError):pass
         if entry:
             tp, sl = round(entry * (1 + FAV_TP / 100), 2), round(entry * (1 - FAV_SL / 100), 2)
             g = (px / entry - 1) * 100
-            if px >= tp: ev.append((f"ftp|{TODAY}|{sid}", 3, f"⭐🎯 <b>{nm}</b>({sid})停利到價\n現價 {px} ≥ {tp}(進場 {entry}・{src} +{FAV_TP:.0f}%);獲利 {g:+.1f}%,可分批停利"))
-            if px <= sl: ev.append((f"fsl|{TODAY}|{sid}", 3, f"⭐🛑 <b>{nm}</b>({sid})停損到價\n現價 {px} ≤ {sl}(進場 {entry}・{src} −{FAV_SL:.0f}%);虧損 {g:+.1f}%,依紀律執行"))
+            if px >= tp: ev.append((f"ftp|{TODAY}|{sid}", 3, f"⭐🎯 <b>{nm}</b>({sid})停利到價\n最新可用價 {px}｜停利觀察線 {tp}\n依{src} {entry} ＋{FAV_TP:.0f}%計算；損益 {g:+.1f}%。下一步：查看你的持有計畫；不是已賣出紀錄。"))
+            if px <= sl: ev.append((f"fsl|{TODAY}|{sid}", 3, f"⭐🛑 <b>{nm}</b>({sid})停損到價\n最新可用價 {px}｜停損觀察線 {sl}\n依{src} {entry} −{FAV_SL:.0f}%計算；損益 {g:+.1f}%。下一步：優先處理風險，核對實際部位；不是模型成交指令。"))
     return ev
 
 
@@ -936,12 +973,8 @@ def main():
         except Exception: pass
         sent_u = sent.get(rc["key"])
         if not isinstance(sent_u, dict): sent_u = sent[rc["key"]] = {}
-        cats = (rc.get("ud") or {}).get("cats")                 # r795:使用者類別過濾(沒設 = 全收)
-        if isinstance(cats, list) and cats:                     # r805:可細到「事件種類」(鍵前綴),也相容舊的大類名
-            sel = set(cats)
-            if "btm_v1" not in sel: sel |= {"btmm", "btms"}      # r1127:新種類預設開(使用者在通知設定存過一次後就照他的選擇)
-            if "ins_v1" not in sel: sel |= {"ins", "insb"}       # r1130
-            ev = [e for e in ev if (str(e[0]).split("|")[0] in sel) or (cat_of(e[0]) in sel)]
+        cats=(rc.get("ud") or {}).get("cats")
+        ev=filter_notice_events(ev,cats)
         lk = f"{TODAY}|{rc['key']}|lead"
         new = [(k, lv, t) for k, lv, t in ev if k not in sent_u]
         if not new: continue
@@ -954,20 +987,18 @@ def main():
         new = kept
         if not new: continue
         dk = f"{TODAY}|{rc['key']}"
-        if daily.get(dk, 0) >= NOTIFY_DAILY_MAX:                 # r795:一級(事實)永遠推;二三級才受每日上限
-            new = [e for e in new if e[1] == 1]
-            if not new: log(f"  {rc['key']} 今日已達上限(一級仍會推)"); continue
-        new.sort(key=lambda x: x[1])
+        if daily.get(dk, 0) >= NOTIFY_DAILY_MAX:                 # r1168:已勾選的成交／停損／停利不受一般提醒上限；未勾選仍不推。
+            new = [e for e in new if notice_important(e)]
+            if not new: log(f"  {rc['key']} 今日已達上限(成交與停損停利仍推)"); continue
+        new.sort(key=notice_priority)
         daily[lk] = n_lead
-        head = f"🤖 <b>K研所 AI Pick</b> {NOW.strftime('%m/%d %H:%M')}"
+        head = f"🔔 <b>K研所通知</b> {NOW.strftime('%m/%d %H:%M')}"
         text = f"{head}\n\n" + "\n\n".join(t for _, _, t in new) + f"\n\n{SITE}#aipick"
         # r1015:先試手機推播;推播成功 → 每日交易不再重複發 Telegram;沒訂閱/推播失敗 → 每日交易照發 Telegram(避免整個沒通知)
         ok_push = False
         if rc.get("subs"):
-            plain = re.sub(r"</?b>", "", "\n\n".join(t for _, _, t in new))
-            _nm = "落底燈號" if all(cat_of(k) == "btm" for k, _, _ in new) else "內部人買賣" if all(cat_of(k) == "ins" for k, _, _ in new) else "AI Pick"   # r1127/r1130
-            title = f"K研所 {_nm}・{len(new)} 則" if len(new) > 1 else f"K研所 {_nm}"
-            n_ok, dead = send_push_to(rc["subs"], title, plain)
+            summary=notice_summary(new,data)
+            n_ok,dead=send_push_to(rc["subs"],summary['title'],summary['body'],summary['url'],tag=summary['tag'])
             ok_push = n_ok > 0
             if dead:                                                    # 清掉失效訂閱,免得每輪都撞牆
                 if SB_SERVICE:

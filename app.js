@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1167';
+const APP_BUILD='r1168';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -624,7 +624,7 @@ function showFavPage(){
       <div class="c-full" style="margin-top:4px">在個股頁點名稱旁的 ☆、或在選股清單卡片點星星即可收藏;收藏存在你的帳號裡,換裝置登入就在。</div>
     </div>
     <button class="btn-ghost" id="favAlTg" style="margin-left:auto;padding:7px 14px;font-weight:800"></button></div>
-    <div class="dim-note" style="margin-top:6px">🔔 最愛提醒:每檔最愛到 <b>買進時機</b>(回檔均線帶/突破 20 日高/到達 AI Pick 買價)、<b>賣出訊號</b>(跌破 10 日低或均線帶)、<b>停利/停損</b>(需進場價:持股成本 › 自設 › AI Pick 成交價)時,會跳頁內提醒+瀏覽器通知,並列在首頁頂端;每檔每種一天一次。</div>
+    <div class="dim-note" style="margin-top:6px">🔔 最愛提醒:每檔最愛到 <b>價格觀察區</b>(均線帶／近期高低價)、<b>模型買價</b>或<b>自設停利／停損</b>(只用你的自設／持股成本，不拿AI模型成本代替)時,會跳頁內提醒+瀏覽器通知,並列在首頁頂端;每檔每種一天一次。</div>
     <div class="favAlertBar fal-bar" id="favAlertBar2" hidden style="margin-top:10px"></div>
     <div class="radar" id="favBox" style="margin-top:14px"></div>
   </div>`;
@@ -9342,7 +9342,8 @@ function alToast(type,s,title,text){
   while(box.children.length>=4)box.removeChild(box.firstChild);
   const el=document.createElement('div');
   el.className='toast '+(type==='dip'?'dip':'');
-  el.innerHTML=`<div class="tt">${type==='dip'?'🎯 下殺至買進區':'🚀 帶量突破'} <span class="cls">✕</span></div>
+  const heading=s.id&&s.id!=='系統'?pushStockTitle(s,{title:title||'價格觀察'}):'K研所｜通知設定提示';
+  el.innerHTML=`<div class="tt">${newsEsc(heading)} <span class="cls">✕</span></div>
     <div class="tx"><b>${s.name}(${s.id})</b> ${text}</div>`;
   el.onclick=e=>{
     if(e.target.classList.contains('cls')||!s.id||s.id==='系統'){el.remove();return;}
@@ -9351,7 +9352,7 @@ function alToast(type,s,title,text){
   box.appendChild(el);
   setTimeout(()=>{try{el.remove();}catch(e){}},20000);
   if(SB_USER&&'Notification' in window&&Notification.permission==='granted'){   // r873:沒登入不跳通知
-    try{const n=new Notification(title,{body:`${s.name}(${s.id})`+text.replace(/<[^>]+>/g,''),icon:'icon.png',tag:s.id+type});
+    try{const n=new Notification(heading,{body:text.replace(/<[^>]+>/g,''),icon:'icon.png',tag:s.id+type});
         n.onclick=()=>{window.focus();location.hash='#stock/'+s.id;};}catch(e){}
   }
 }
@@ -9363,8 +9364,8 @@ function alertCheck(s,m,last){
     const key=s.id+'|dip';
     if(!seen[key]){
       alMark(key);
-      alToast('dip',s,'🎯 好股下殺至買進區',
-        `現價 ${last},回到均線帶 ${a.z0}~${a.z1}(綜合 ${total(s)} 分);左側分批參考區,停損 ${a.stop}`);
+      alToast('dip',s,'📍 回到均線區（價格觀察）',
+        `最新可用價 ${last}｜均線區 ${a.z0}～${a.z1}。下一步：查看個股計畫；僅觀察，不是買進確認。`);
     }
   }
   // 條件二:帶量突破近月高(整理區上緣)
@@ -9375,8 +9376,8 @@ function alertCheck(s,m,last){
       const key=s.id+'|brk';
       if(!seen[key]){
         alMark(key);
-        alToast('brk',s,'🚀 帶量突破整理區',
-          `現價 ${last} 站上近月高 ${a.h20},量能已達同時段均量 ${Math.round(vol/(a.v20*prog)*100)}%(綜合 ${total(s)} 分)`);
+        alToast('brk',s,'📍 帶量突破（價格觀察）',
+          `最新可用價 ${last}｜近月高 ${a.h20}；量能為同時段均量 ${Math.round(vol/(a.v20*prog)*100)}%。下一步：查看個股條件；不是已成交或追價指令。`);
       }
     }
   }
@@ -9787,11 +9788,11 @@ function gemBlock(s,g){
       <span><b style="font-size:14px">${label}</b><br><span style="font-size:12.5px;color:var(--dim,#8B95AB)">${desc}</span></span></div>`;
   const render=()=>{
     if(!panel)return;
-    panel.innerHTML=`<div style="font-weight:800;font-size:14.5px;margin-bottom:2px">🔔 盤中警訊設定</div>
-      ${row('on','盤中警訊 總開關',AL.on?'開啟中:盤中符合勾選策略時會跳出通知':'關閉中:不會跳出任何盤中通知',AL.on)}
+    panel.innerHTML=`<div style="font-weight:800;font-size:14.5px;margin-bottom:2px">🔔 通知與價格提醒</div>
+      ${row('on','全市場技術觀察開關',AL.on?'此類觀察已開啟；最愛與模型通知在下方獨立設定。':'此類觀察已關閉；不影響下方的最愛與模型推播。',AL.on)}
       <div style="border-top:1px solid rgba(140,150,170,.25);margin:4px 0"></div>
-      ${row('dip','🎯 下殺至買進區','多頭好股回檔到月線~季線均線帶且未破停損(左側分批參考)',AL.dip,!AL.on)}
-      ${row('brk','🚀 帶量突破','站上近月高且量能達同時段均量 115% 以上(右側突破參考)',AL.brk,!AL.on)}
+      ${row('dip','📍 回檔接近均線（觀察）','既有多頭股回到均線區；不是新個股計畫的買進確認。',AL.dip,!AL.on)}
+      ${row('brk','📍 帶量突破（觀察）','觀察放量站上近期高價；不是已成交或可以追價的指令。',AL.brk,!AL.on)}
       <div style="font-size:12px;color:var(--dim,#8B95AB);margin-top:6px">僅台股盤中檢查「綜合 66 分以上或有投資論點」的個股;每檔同型通知一天只跳一次。設定即時生效並記住。</div>
       <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)"><div id="bellPush" class="sb-tg" style="margin:0"><div class="sb-note">⏳</div></div></div>`;
     setTimeout(()=>{try{sbPushPaint('bellPush');}catch(e){}},0);
@@ -9826,7 +9827,7 @@ function gemBlock(s,g){
     if(!localStorage.getItem('al_intro')){
       localStorage.setItem('al_intro','1');
       setTimeout(()=>{try{alToast('brk',{name:'小提示',id:'系統'},'',
-        '盤中警訊預設為<b>關閉</b>,網站不會主動跳通知。想接收「🎯 下殺至買進區 / 🚀 帶量突破」提醒,點右上角 🔔 開啟並勾選想要的策略。');}catch(e){}},2500);
+        '盤中警訊預設為<b>關閉</b>,網站不會主動跳通知。想接收「📍 回到均線區／帶量突破（觀察）」提醒,點右上角 🔔 開啟並勾選想要的策略。');}catch(e){}},2500);
     }
   }catch(e){}
 })();
@@ -22548,13 +22549,30 @@ async function pushApi(path,body){
 }
 /* r805:通知可細到「事件種類」。存的是事件鍵前綴(後端 notify.py 用同一套前綴);舊帳號存的大類名也相容。 */
 const PUSH_GROUPS=[
-  ['AI Pick',[['fill','已買進 / 換股買進(事實)'],['exit','已出場:到目標 / 停損 / 到期(事實)'],['buy','到買價・可買進'],['chase','進入追價區'],['tp','盤中到目標'],['sl','盤中觸停損'],['exp','今日到期結算提醒']]],
-  ['最愛',[['fz','回檔到均線帶'],['fh','突破 20 日高'],['fl','跌破 10 日低'],['fb','跌破均線帶']]],
+  ['AI Pick',[['fill','模型已買進／換股'],['exit','模型已賣出／到期出場'],['buy','到模型買價（待確認）'],['chase','進入模型追價範圍'],['tp','盤中到目標'],['sl','盤中觸停損'],['exp','今日到期結算提醒']]],
+  ['最愛價格觀察',[['fz','回到均線區（觀察）'],['fh','突破近期高價（觀察）'],['fl','跌破近期低價（風險）'],['fb','跌破均線區（風險）']]],
   ['持股',[['ftp','停利到價'],['fsl','停損到價']]],
   ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_t1','⏰ 關鍵分點達標後的預期發動日(最愛/持股)'],['kb_t2','⏰ 預期到高點/低點日(最愛/持股)'],['kb_acc','🧺 最愛有券商開始持續吃貨(全部券商・參考)'],['kb_sb','🔁 關鍵分點連買 ≥3 日'],['kb_ss','🔁 關鍵分點連賣 ≥3 日'],['bk_sb','🔁 任一券商連買 ≥5 日'],['bk_ss','🔁 任一券商連賣 ≥5 日'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
   ['市場',[['bias','大盤週乖離進入低檔 / 高檔']]],
   ['🎯 落底燈號',[['btmm','大盤(台股・美股三大):新的落底燈亮起 / 止跌確認'],['btms','最愛・持股:落底燈亮 3 盞以上 / 止跌確認']]],   // r1127
   ['👔 內部人買賣',[['ins','最愛・持股(台股):董監大股東申報在市場賣股'],['insb','最愛・持股(美股):主管/董事在市場買進']]]];   // r1130
+// r1168: 保留事件鍵相容性；選項說明、快速選擇及頁內提醒共用勾選。
+const PUSH_KIND_HELP={fill:'模型帳已記錄買進；不是你的實際成交。',exit:'模型帳已記錄賣出，附成交價與原因。',buy:'價格到模型買區；仍須核對條件及成交記錄。',chase:'價格進入模型的追價範圍，先看上限。',tp:'觸及這筆模型目標價；不等於已成交。',sl:'觸及這筆模型停損價，優先查看持倉狀態。',exp:'這筆模型預定結算日；不是已賣出紀錄。',fz:'現價回到均線區；只作價格觀察，不是買進確認。',fh:'現價突破前20日高；不單獨當作買進訊號。',fl:'現價低於前10日低；提醒風險，不是模型已賣出。',fb:'現價低於均線區；實際出場仍看持有的策略。',ftp:'網站依自設／持股成本；台股排程依已同步持股成本＋15%。',fsl:'網站依自設／持股成本；台股排程依已同步持股成本−7%。'};
+const PUSH_ESSENTIAL=['fill','exit','tp','sl','ftp','fsl'];
+function pushOptionsHTML(){const esc=x=>newsEsc(String(x)),selected=new Set(pushCatsGet());return PUSH_GROUPS.map(([g,ks])=>`<div class="sb-catg"><div class="sb-catg-h">${esc(g)} <a href="javascript:void 0" data-catg="${esc(g)}">全選這一類</a></div><div class="sb-cats">${ks.map(([k,n])=>`<label class="notify-option"><input type="checkbox" data-cat="${k}" ${selected.has(k)?'checked':''}><span><b>${esc(n)}</b>${PUSH_KIND_HELP[k]?'<small>'+esc(PUSH_KIND_HELP[k])+'</small>':''}</span></label>`).join('')}</div></div>`).join('');}
+function pushPresetKinds(name){return name==='essential'?PUSH_ESSENTIAL.slice():name==='price'?['fz','fh','fl','fb']:[];}
+function pushSignalKind(sig){
+ if(sig.kind)return sig.kind;const t=String(sig.title||'');
+ if(/主力開始連買/.test(t))return 'lead_s3';if(/主力大買/.test(t))return 'lead_b';if(/主力大賣/.test(t))return 'lead_x';
+ if(/已買進|換股買進/.test(t))return 'fill';if(/已賣出|已出場/.test(t))return 'exit';
+ if(/回檔到均線帶/.test(t))return 'fz';if(/突破20日高/.test(t))return 'fh';if(/跌破10日低/.test(t))return 'fl';if(/跌破均線帶/.test(t))return 'fb';
+ if(/自設風險/.test(t))return sig.k==='sl'?'fsl':'ftp';
+ return ['buy','chase','tp','sl','exp'].includes(sig.k)?sig.k:null;
+}
+function pushKindSelected(kind){return !!kind&&pushCatsGet().includes(kind);}
+function pushStockTitle(s,sig){return `${s.name||s.id}（${s.id}）｜${sig.title}`;}
+function pushStockTag(s,sig,kind,day){let tag='kyansuo-'+kind+'-'+s.id+'-'+day;if(sig.source){let h=2166136261;for(const x of String(sig.source)){h=Math.imul(h^x.charCodeAt(0),16777619);}tag+='-'+(h>>>0).toString(16);}return tag;}
+
 const PUSH_KINDS=PUSH_GROUPS.flatMap(g=>g[1].map(x=>x[0]));
 const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_t1','kb_t2','kb_acc','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:[],bias:['bias'],btm:['btmm','btms'],ins:['ins','insb']};
 /* r817:舊帳號存的細項名單裡沒有新種類 → 預設補上(新種類預設開) */
@@ -22624,7 +22642,7 @@ async function sbPushPaint(boxId,compact){                         // r810:細�
   if(compact){
     const sup0=pushSupport();const on0=sup0==='ok'?await pushThisDeviceOn():false;const n0=pushSubsGet().length;
     box.innerHTML=`<div class="sb-tg-h">📱 推播通知 ${on0?'<span class="sb-tg-ok">✓ 此裝置已開啟</span>':`<span class="sb-tg-no">${n0?`其他 ${n0} 台已開啟`:'未開啟'}</span>`}</div>
-      <div class="sb-note">開關與 22 種通知細項在右上 <b>🔔 鈴鐺</b> 裡設定。</div>`;return;}
+      <div class="sb-note">開關與通知細項在右上 <b>🔔 鈴鐺</b> 裡設定。</div>`;return;}
   const sup=pushSupport();
   const n=pushSubsGet().length;
   if(sup==='none'){box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-no">此瀏覽器不支援</span></div><div class="sb-note">換 Chrome/Edge,或 iPhone 先「加入主畫面」再開。</div>`;return;}
@@ -22634,12 +22652,16 @@ async function sbPushPaint(boxId,compact){                         // r810:細�
     box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-ok">✓ 此裝置已開啟</span>${n>1?`<span class="sb-tg-no">共 ${n} 台裝置</span>`:''}</div>
       <div class="sb-note">AI Pick 成交/出場/換股/到價、最愛與持股訊號、主力進出——關掉網頁也會跳通知。</div>
       <div class="sb-cats-h">要收哪些通知 <a href="javascript:void 0" data-catall="1">全選</a>・<a href="javascript:void 0" data-catall="0">全不選</a></div>
-      ${PUSH_GROUPS.map(([g,ks])=>`<div class="sb-catg"><div class="sb-catg-h">${g} <a href="javascript:void 0" data-catg="${g}">全選</a></div><div class="sb-cats">${ks.map(([k,n])=>`<label><input type="checkbox" data-cat="${k}" ${pushCatsGet().includes(k)?'checked':''}> ${n}</label>`).join('')}</div></div>`).join('')}
-      <div class="sb-note" style="margin-top:8px">⚡ <b>AI Pick 即時哨兵</b>:盤中每分鐘由 Cloudflare 直接盯即時價,成交/追價/停利/停損/接近目標/逼近停損 1 分鐘內推到手機(不經 GitHub)。</div>
+      <div class="notify-presets"><button type="button" data-catpreset="essential">只選成交與停損停利</button><button type="button" data-catpreset="price">只選最愛價格觀察</button></div><p class="sb-note">目前勾選會保留。想減少提醒可自行選上方模式；價格觀察不代表可以買進。台股持股的排程提醒固定＋15%／−7%，本機自訂值不會套用。</p>${pushOptionsHTML()}<div class="sb-note" id="pushSettingStatus" role="status" aria-live="polite"></div><button type="button" class="sb-alt" id="pushCatsRetry" hidden>重試同步通知設定</button>
+      <div class="sb-note" style="margin-top:8px">⚡ <b>AI Pick 即時哨兵</b>:由現有背景服務另行監看模型價位。實際收到時間依報價與裝置狀態，到價提醒不等於已成交。</div>
       <button class="sb-alt" id="sbPushTest">🔔 測試即時推播</button>
       <button class="sb-alt" id="sbPushOff">關閉此裝置推播</button>`;
-    const saveCats=()=>{const sel=[...box.querySelectorAll('input[data-cat]:checked')].map(x=>x.dataset.cat);sel.push('btm_v1','ins_v1');/* r1127:標記看過落底燈號選項 */try{localStorage.setItem('pushCats',JSON.stringify(sel));}catch(e){}pushApi('/push/sync',pushProfile()).then(()=>sbToast('通知設定已更新',0)).catch(()=>{});};
+    let catSaving=false,catPending=null;
+    const catFlush=async()=>{if(catSaving)return;catSaving=true;while(catPending){const payload=catPending;catPending=null;try{await pushApi('/push/sync',payload);const status=box.querySelector('#pushSettingStatus');if(status)status.textContent=catPending?'還有變更待同步…':'設定已同步';const retry=box.querySelector('#pushCatsRetry');if(retry)retry.hidden=true;}catch(e){const status=box.querySelector('#pushSettingStatus');if(status)status.textContent='已保存在這個瀏覽器，背景推播尚未同步成功；請稍後重試。';const retry=box.querySelector('#pushCatsRetry');if(retry)retry.hidden=false;}}catSaving=false;};
+    const saveCats=()=>{const sel=[...box.querySelectorAll('input[data-cat]:checked')].map(x=>x.dataset.cat);sel.push('btm_v1','ins_v1');/* r1127:標記看過落底燈號選項 */try{localStorage.setItem('pushCats',JSON.stringify(sel));}catch(e){const status=box.querySelector('#pushSettingStatus');if(status)status.textContent='這個瀏覽器無法保存設定，尚未同步；請檢查儲存空間後重試。';return;}catPending=pushProfile();catFlush();};
+    box.querySelector('#pushCatsRetry').onclick=()=>{catPending=pushProfile();catFlush();};
     box.querySelectorAll('input[data-cat]').forEach(cb=>cb.onchange=saveCats);
+    box.querySelectorAll('[data-catpreset]').forEach(a=>a.onclick=()=>{const ks=new Set(pushPresetKinds(a.dataset.catpreset));box.querySelectorAll('input[data-cat]').forEach(cb=>cb.checked=ks.has(cb.dataset.cat));saveCats();});
     box.querySelectorAll('[data-catall]').forEach(a=>a.onclick=()=>{box.querySelectorAll('input[data-cat]').forEach(cb=>cb.checked=a.dataset.catall==='1');saveCats();});
     box.querySelectorAll('[data-catg]').forEach(a=>a.onclick=()=>{const g=PUSH_GROUPS.find(x=>x[0]===a.dataset.catg);if(!g)return;const ks=new Set(g[1].map(x=>x[0]));box.querySelectorAll('input[data-cat]').forEach(cb=>{if(ks.has(cb.dataset.cat))cb.checked=true;});saveCats();});
     document.getElementById('sbPushOff').onclick=async()=>{await pushDisable();sbPushPaint(boxId);};
@@ -23327,7 +23349,7 @@ function aip3Sweep(){
     if(!AIP3){aip3Load();return;}const M=us?AIP3.us:AIP3.tw;if(!M)return;
     ['short','mid','long'].forEach(k=>(M[k]&&M[k].slots||[]).forEach(p=>{
       const q=aip3Px(p.cur||p.id,us);const sig=aipExecutableSignal(p,k,us,q.px);if(!sig)return;
-      favAlertFire({id:p.cur||p.id,name:p.name},{k:sig.k,title:`🤖 AI Pick ${k==='short'?'短期':'中期'}・觸及模型${sig.k==='sl'?'停損':'停利'}價`,text:`最新可用價 ${us?'$':''}${q.px}；本筆模型價位 ${sig.price}。${aipPolicyText(p,k,us)}。這是到價提示，實際成交以模型帳記錄為準。`});
+      favAlertFire({id:p.cur||p.id,name:p.name},{k:sig.k,source:`${us?'US':'TW'}|${k}|${p.entry}|${p.fill_d||p.sel_d||''}`,title:`🤖 AI Pick ${k==='short'?'短期':'中期'}・觸及模型${sig.k==='sl'?'停損':'停利'}價`,text:`最新可用價 ${us?'$':''}${q.px}；本筆模型價位 ${sig.price}。${aipPolicyText(p,k,us)}。這是到價提示，實際成交以模型帳記錄為準。`});
     }));
   }catch(e){}
 }
@@ -24395,20 +24417,20 @@ function favSignals(s,P,last,vol){   // 回傳今天該亮的訊號 [{k,title,te
   const out=[];
   if(!(last>0))return out;
   if(P.bull&&P.z0&&P.z1&&last<=P.z1*1.005&&last>=P.z0*0.995&&(!P.stop||last>=P.stop))
-    out.push({k:'buy',title:'📍 價位觀察・回檔到均線帶',text:`現價 ${last} 進入均線帶 ${P.z0}~${P.z1}(多頭排列未破停損 ${P.stop});僅觀察，不是已驗證買點`});
+    out.push({k:'buy',kind:'fz',title:'📍 價位觀察・回檔到均線帶',text:`最新可用價 ${last}｜均線區 ${P.z0}～${P.z1}\n下一步：查看個股計畫；僅觀察，不是已驗證買點。`});
   if(P.h20&&last>=P.h20*1.003&&(P.prevC==null||P.prevC<=P.h20)){   // 今天才站上(昨收還在 20 日高下)才算突破,不天天重報
     const vt=(vol>0&&s.al&&s.al.v20>0)?`,量 ${Math.round(vol/s.al.v20*100)}% 均量`:'';
-    out.push({k:'buy',title:'📍 價位觀察・突破20日高（未確認買點）',text:`現價 ${last} 站上 20 日高 ${P.h20}${vt};僅觀察，不採20日突破作為獨立買賣規則`});
+    out.push({k:'buy',kind:'fh',title:'📍 價位觀察・突破20日高（未確認買點）',text:`最新可用價 ${last}｜前20日高 ${P.h20}${vt}\n下一步：查看個股條件；僅觀察，不採20日突破作為獨立買賣規則。`});
   }
   if(P.pick&&P.pick.p&&!P.pick.p.entry&&last<=P.pick.p.buy_hi&&last>=P.pick.p.buy*0.97)
     out.push({k:'buy',title:'🟢 買進時機・到達 AI Pick 買價',text:`現價 ${last} 到達本週 AI Pick 建議買價 ${P.pick.p.buy}(追價上限 ${P.pick.p.buy_hi});目標 ${P.pick.p.target}、停損 ${P.pick.p.stop}`});
   if(P.l10&&last<P.l10&&(P.prevC==null||P.prevC>=P.l10*0.999))
-    out.push({k:'sell',title:'📍 價位觀察・跌破10日低',text:`現價 ${last} 跌破前 10 日最低 ${P.l10}(出場線);不能因此推定模型出場；季線規則需兩日收盤確認`});
+    out.push({k:'sell',kind:'fl',title:'📍 價位觀察・跌破10日低',text:`最新可用價 ${last}｜前10日低 ${P.l10}\n下一步：查看持有策略；不能因此推定模型出場，季線規則需兩日收盤確認。`});
   else if(P.bull&&P.z0&&last<P.z0*0.995&&(P.prevC==null||P.prevC>=P.z0*0.995))
-    out.push({k:'sell',title:'📍 價位觀察・跌破均線帶',text:`現價 ${last} 跌破均線帶下緣 ${P.z0};均線帶觀察；實際出場依各筆策略`});
+    out.push({k:'sell',kind:'fb',title:'📍 價位觀察・跌破均線帶',text:`最新可用價 ${last}｜均線下緣 ${P.z0}\n下一步：查看持有策略；均線帶觀察，實際出場依各筆策略。`});
   if(P.entry){
-    if(P.tp&&last>=P.tp)out.push({k:'tp',title:'🎯 自設風險觀察・停利到價',text:`現價 ${last} ≥ 停利 ${P.tp}(進場 ${P.entry}・${P.entrySrc} +${P.tpP}%);獲利 ${((last/P.entry-1)*100).toFixed(1)}%,此為自設／預設風險線，非模型出場指令`});
-    if(P.sl&&last<=P.sl)out.push({k:'sl',title:'🛑 自設風險觀察・停損到價',text:`現價 ${last} ≤ 停損 ${P.sl}(進場 ${P.entry}・${P.entrySrc} −${P.slP}%);虧損 ${((last/P.entry-1)*100).toFixed(1)}%,此為自設／預設風險線，非模型出場指令`});
+    if(P.tp&&last>=P.tp)out.push({k:'tp',kind:'ftp',title:'🎯 自設風險觀察・停利到價',text:`現價 ${last} ≥ 停利 ${P.tp}(進場 ${P.entry}・${P.entrySrc} +${P.tpP}%);獲利 ${((last/P.entry-1)*100).toFixed(1)}%,此為自設／預設風險線，非模型出場指令`});
+    if(P.sl&&last<=P.sl)out.push({k:'sl',kind:'fsl',title:'🛑 自設風險觀察・停損到價',text:`現價 ${last} ≤ 停損 ${P.sl}(進場 ${P.entry}・${P.entrySrc} −${P.slP}%);虧損 ${((last/P.entry-1)*100).toFixed(1)}%,此為自設／預設風險線，非模型出場指令`});
   }
   if(P.pick&&P.pick.p&&P.pick.p.entry){
     if(last>=P.pick.p.target)out.push({k:'tp',title:'🎯 AI Pick 到目標價',text:`現價 ${last} ≥ 目標 ${P.pick.p.target}(成交 ${P.pick.p.entry});此為自設／預設風險線，非模型出場指令`});
@@ -24419,8 +24441,11 @@ function favSignals(s,P,last,vol){   // 回傳今天該亮的訊號 [{k,title,te
 function favAlertLog(){const d=alSeen().d;try{const o=JSON.parse(localStorage.getItem('favAlertLog')||'null');if(o&&o.d===d&&Array.isArray(o.items))return o;}catch(e){}return {d,items:[]};}
 function favAlertLogPush(it){const o=favAlertLog();o.items.unshift(it);o.items=o.items.slice(0,30);try{localStorage.setItem('favAlertLog',JSON.stringify(o));}catch(e){}}
 function favAlertFire(s,sig){
-  const key='fav|'+s.id+'|'+sig.k+'|'+sig.title;
-  const seen=alSeen().k;if(seen[key])return false;
+  if(!SB_USER)return false;
+  const kind=pushSignalKind(sig);if(!pushKindSelected(kind))return false;
+  const source=sig.source||(/AI Pick|主力/.test(sig.title)?sig.title:'');
+  const key='fav2|'+s.id+'|'+kind+'|'+source,legacy='fav|'+s.id+'|'+sig.k+'|'+sig.title;
+  const seen=alSeen().k;if(seen[key]||seen[legacy])return false;
   alMark(key);
   if(!SB_USER)return;                                        // r882:未登入不記錄、不跳提醒
   const tp=aipTpDate();
@@ -24430,12 +24455,12 @@ function favAlertFire(s,sig){
     if(box){
       while(box.children.length>=4)box.removeChild(box.firstChild);
       const el=document.createElement('div');el.className='toast fal-'+sig.k;
-      el.innerHTML=`<div class="tt">${/^🤖/.test(sig.title)?'🤖 AI Pick 提示!!':'⭐ 最愛提醒!!'} ${sig.title} <span class="cls">✕</span></div><div class="tx"><b>${s.name}(${s.id})</b> ${sig.text}</div>`;
+      el.innerHTML=`<div class="tt">${newsEsc(pushStockTitle(s,sig))} <span class="cls">✕</span></div><div class="tx">${newsEsc(sig.text).replace(/\n/g,'<br>')}</div>`;
       el.onclick=e=>{if(e.target.classList.contains('cls')){el.remove();return;}location.hash='#stock/'+s.id;el.remove();};
       box.appendChild(el);setTimeout(()=>{try{el.remove();}catch(e){}},30000);
     }
   }catch(e){}
-  try{if(SB_USER&&'Notification' in window&&Notification.permission==='granted'){const n=new Notification('K研所 '+(/^🤖/.test(sig.title)?'AI Pick 提示 ':'最愛提醒 ')+sig.title,{body:`${s.name}(${s.id})${sig.text}`,icon:'icon.png',tag:'fav'+s.id+sig.k});n.onclick=()=>{window.focus();location.hash='#stock/'+s.id;};}}catch(e){}
+  try{if(SB_USER&&'Notification' in window&&Notification.permission==='granted'){const n=new Notification(pushStockTitle(s,sig),{body:sig.text,icon:'icon.png',tag:pushStockTag(s,sig,kind,alSeen().d)});n.onclick=()=>{window.focus();location.hash='#stock/'+s.id;};}}catch(e){}
   renderFavAlertBar();
   return true;
 }
@@ -24619,7 +24644,7 @@ function aipFillSweep(){
             seen[base+'|out']=1;dirty=true;
             if(!first&&L.xd>=cutoff){
               const r=L.ret,why=L.xw==='tp'?'到目標':L.xw==='sl'?'觸停損':'到期';
-              favAlertFire({id:L.id,name:L.name},{k:L.xw==='sl'?'sl':'tp',
+              favAlertFire({id:L.id,name:L.name},{k:L.xw==='sl'?'sl':'tp',kind:'exit',source:base+'|out',
                 title:`🤖 AI Pick・已賣出(${why})`,
                 text:`${aipMD(L.fill)} 買 ${L.entry} → ${aipMD(L.xd)} 賣 ${L.xp},持有 ${L.hold||'—'} 個交易日,實現損益 ${r>0?'+':''}${r}%`});
             }
