@@ -2643,3 +2643,6 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 
 /* r1165: 先用完整句子回答跌到多少買，細節一行說清。 */
 .direct-buy{font-size:16px;line-height:1.8;margin:12px 0;color:var(--gold,#d8b65b)}.plan-distance{line-height:1.8;margin:10px 0 16px}.direct-dip-plan h4{font-size:18px}.direct-dip-plan .plan-prices small{font-size:13px}.direct-dip-plan .plan-price-row{padding:10px 0}
+
+/* r1166: 本股現況價位先讀，極端跌深保留為備案。 */
+.stock-context{margin:12px 0;border-left:3px solid var(--accent,#d6b45d)}.context-tag{font-size:12px;color:var(--dim);line-height:1.7}.original-dip-plan{margin-top:16px}.stock-context .plan-prices{margin-top:12px}
