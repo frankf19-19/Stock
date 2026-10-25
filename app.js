@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1161';
+const APP_BUILD='r1162';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1123,10 +1123,32 @@ function stockProfileHTML(s,o,dates,own,cost,now=new Date()){
   const p=j&&j.stocks[s.market+':'+s.id],m=stockProfileMetrics(s,o,dates,now),valid=p&&Number.isInteger(p.completed)&&p.completed>=0&&/^\d{4}-\d{2}-\d{2}$/.test(p.as_of)&&/^\d{4}-\d{2}-\d{2}$/.test(p.history_start)&&p.history_start<=p.as_of&&p.as_of<=now.toISOString().slice(0,10);
   let sample=valid?`本股完整跌深交易 <b>${p.completed} 筆</b>；研究期間 ${esc(j.evaluation_start)}～${esc(p.as_of)}。價格歷史自 ${esc(p.history_start)}，${fmt(p.bars)} 根。`:'本股研究樣本尚未取得；不以0筆或其他股票的結果代替。';
   if(valid)sample+=p.completed===0?' 本規則沒有已完成樣本，不代表沒有歷史K線。':p.completed<20?' 本股樣本不足，不推定個別最佳停損或勝率。':'筆數達研究最低門檻，仍未證實本股獨立參數有效。';
-  const wave=m?(m.jump?`${esc(m.asof)} 近期價格有斷層，先核對除權、減資與分割；暫不解讀ATR風險距離。`:`截至 ${esc(m.asof)} 完整日K：20日ATR ${money(m.atr)}，約收盤價 <b>${fmt(m.atrPct)}%</b>；原跌深停損${us?'20':'15'}%約 <b>${fmt(m.stopAtr)} ATR</b>。${m.excluded?'尚未收盤或未來K線已排除。':''}`):'完整日K、日期或還原資料不足，暫不計算本股波動；盤中現價不冒充收盤。';
+  const technicalWave=m?(m.jump?`${esc(m.asof)} 近期價格有斷層，先核對除權、減資與分割；暫不解讀ATR風險距離。`:`截至 ${esc(m.asof)} 完整日K：20日ATR ${money(m.atr)}，約收盤價 <b>${fmt(m.atrPct)}%</b>；原跌深停損${us?'20':'15'}%約 <b>${fmt(m.stopAtr)} ATR</b>。${m.excluded?'尚未收盤或未來K線已排除。':''}`):'完整日K、日期或還原資料不足，暫不計算本股波動；盤中現價不冒充收盤。';
+  const wave=m?(m.jump?'近期價格有大幅跳動，先核對原因，暫不解讀價格起伏。':`最近20個交易日，用來衡量價格起伏的數字約為每股 ${money(m.atr)}（約收盤價的${fmt(m.atrPct)}%）。這不是${esc(s.name||s.id)}的股價，也不是買進、停損或停利價；不代表明天一定漲跌這個金額。資料截至 ${esc(m.asof)}。`):'目前資料不足，暫不說明價格起伏。';
   const entry=own?strategyNumber(cost):null,stop=entry>0?strategyPrice(entry*(us?.8:.85),us,'down'):null,budget=us?1000:10000,z=entry>0&&!s.historyOnly&&m&&!m.jump?stockProfileSizing(entry,stop,budget):null;
   const risk=z?`僅假設採用跌深策略：自設成本 ${money(entry)}、停損 ${money(stop)}，每股計畫損失 ${money(z.loss)}（雙邊各0.3%成本）。假設損失預算 ${money(budget)}，理論上限 ${fmt(z.shares)} 股、約需資金 ${money(z.capital)}；不是建議買入量，仍須受可用資金與集中度限制。`:'填入實際成本後，可試算跌深策略的每股風險；不以現價或AI模型成本代替你的成本。';
-  return `<details class="stock-profile" open><summary>🔎 本股策略適用性與風險（參考）</summary><div class="strategy-row"><b>目前波動</b><span>${wave}</span></div><div class="strategy-row"><b>策略證據</b><span>${sample}</span></div><details><summary>依自設成本試算風險</summary><div class="dim-note">${esc(risk)} 跳空、滑價、最低手續費與成交限制可能增加損失；未依整張股數取整。此試算不套用AI Pick其他短中長期策略。</div></details><div class="dim-note">樣本僅為本次跌深策略、不重疊且已完成交易；研究快照不隨報價更新，非短線突破或AI Pick全部策略的勝率。ATR是波動描述，並非買點；沒有改用4 ATR停損。${valid?'研究快照截至 '+esc(p.as_of)+'；後續交易未計入。':''} <a href="https://github.com/frankf19-19/Stock/blob/main/research/r1161/Stock-r1161-個股進出場優化研究.md" target="_blank" rel="noopener">查看研究與限制</a></div></details>`;
+  return `<details class="stock-profile"><summary>價格起伏與歷史研究：想了解再展開</summary><p>${wave}</p><details class="plan-more"><summary>這套買法的歷史資料夠不夠？</summary><p>${sample}</p><p>這裡只計算「大跌後承接」買法，0筆不代表這檔股票沒有人交易，也不代表沒有股價歷史；不能據此判斷這檔股票是否適合買進。</p></details><details class="plan-more"><summary>已填成本：查看風險試算</summary><p>${esc(risk)} 跳空、滑價、最低手續費與成交限制可能增加損失；未依整張股數取整。此試算不套用AI Pick其他短中長期策略。</p></details><details class="plan-more"><summary>指標原始數字與研究限制</summary><p>${technicalWave}</p><p>ATR是平均真實波幅，用來描述價格起伏，並非買點；沒有改用4 ATR停損。樣本僅為本次跌深策略、不重疊且已完成交易；研究快照不隨報價更新，非短線突破或AI Pick全部策略的勝率。${valid?'研究快照截至 '+esc(p.as_of)+'；後續交易未計入。':''}</p><a href="https://github.com/frankf19-19/Stock/blob/main/research/r1161/Stock-r1161-個股進出場優化研究.md" target="_blank" rel="noopener">查看完整研究與限制</a></details></details>`;
+}
+// r1162: 先說明價格用途與下一步；研究指標和不同模型的價位分開收合。
+function strategyPlainHTML(s,raw,dates,own,cost){
+  const esc=x=>newsEsc(String(x)),us=s.market==='US',money=v=>strategyNumber(v)>0?(+v).toLocaleString(undefined,{maximumFractionDigits:2})+(us?' 美元／股':' 元／股'):'資料不足';
+  const px=strategyNumber(s.price),en=own&&strategyNumber(cost)>0?+cost:null,r=strategyCloseCheck(s,raw,dates),name=esc(s.name||s.id);
+  const header=`<div class="plain-quote"><span>${name}・最新可用報價</span><strong>${money(px)}</strong><small>這是每一股的價格。報價時間請看頁首；下列條件使用完整交易日的收盤資料。</small></div>`;
+  const ownLine=en?`你填的買進成本：${money(en)}。下面兩種買法各有自己的出場規則，請按你實際採用的買法看。`:'尚未填入你的買進成本，因此還不能列出你的固定停損、停利金額。AI模擬帳戶的買入價不會當成你的成本。';
+  if(s.historyOnly||s.etf||!r||r.jump)return header+`<p class="plain-status">${s.etf?'這檔是ETF，尚未驗證適用的買賣規則。':r&&r.jump?'近期價格有大幅跳動，需要先核對除權、減資或分割。':'完整收盤資料尚未對齊，目前無法確認買進或賣出條件。'}</p><p>${esc(ownLine)}</p>`;
+  const b=strategyAdjustedBars(s,raw,dates).slice(0,raw.length-r.excluded),h=w=>b.length>=w?Math.max(...b.slice(-w).map(x=>+x[1])):null,hi60=h(60),hi250=h(250),dip=hi60*(us?.65:.60);
+  const row=(label,text)=>`<div class="plain-plan-line"><b>${label}</b><p>${text}</p></div>`;
+  const ready=r.liquid&&(r.dip==='first'||(!us&&r.breaks.length));
+  let status=!r.liquid?'成交量資料不足或成交金額未達這套規則的要求，暫不確認可執行買點。':ready?'這個收盤有符合進場條件；只對應該收盤後的下一交易日開盤，已過時點需重新確認。':'這個收盤尚未確認新的買點，先等下列條件成立。';
+  if(r.dip==='already'&&!ready)status='股價仍在大跌範圍，但這次不是首次符合條件，不能每天重複當成新買點。';
+  let cards='';
+  if(!us){
+    const near=hi250&&r.close>=hi250*.9,refs=[60,120,250].map(h).filter(x=>x>0),level=near&&refs.length?Math.min(...refs):hi250;
+    cards+=`<section class="plain-plan-card"><h4>買法一：等股價向上創高</h4>${row('買進要等',level?`留意 ${money(level)} 附近的前波高點。${!near?'目前離近一年高點超過10%，還不符合這套買法的範圍。':''}要收盤確認突破前60、120或250日高點，且接近近一年高點；符合後才看下一交易日開盤，不是盤中碰到就買。`:'至少需要250個交易日資料，才能列出這套買法的創高參考價。')}${row('持有後怎麼賣',`最近60日平均收盤價目前是 <strong>${money(r.ma60)}</strong>，這條線會每天更新。連續2天收盤都低於各天的這條線，才依規則在下一交易日開盤出場；盤中跌過一次不算。${r.below2?'最近這次收盤已連續2天低於平均線，請核對是否已過對應出場時點。':r.below?'最近這次收盤只低於平均線1天，尚未達到連續2天的出場條件。':'最近這次收盤尚未達到上述出場條件。'}`)}${row('賺到哪裡賣','這套買法沒有固定停利價；持有到上面的收盤出場條件成立。')}</section>`;
+  }
+  const stop=en?strategyPrice(en*(us?.8:.85),us,'down'):null,target=en?strategyPrice(en*(us?1.3:1.2),us,'up'):null;
+  cards+=`<section class="plain-plan-card"><h4>${us?'買法：':'買法二：'}等明顯大跌後再承接</h4>${row('這個低價怎麼來',`近60日最高價為 ${money(hi60)}。這套規則要求從高點下跌${us?'35':'40'}%，所以觀察門檻約 <strong>${money(dip)}</strong>。這不是合理價、目標價，也不表示一定會跌到這裡。`)}${row('買進要等',`首次收盤符合上述跌幅，且成交金額足夠，才在下一交易日開盤進場。${r.dip==='first'?'最近這次收盤首次符合跌幅條件。':r.dip==='already'?'最近收盤已在範圍內，但不是首次，不重複當成新買點。':'最近這次收盤還沒跌到上述幅度。'}開盤成交價可能不同，停損與停利要按實際成交價重算。`)}${row('停損價',en?`若你確實採用這套買法，按你填的成本 ${money(en)}，停損為 <strong>${money(stop)}</strong>（成本下方${us?'20':'15'}%）。`:`需要你的實際買進成本才能計算：停損為成本下方${us?'20':'15'}%，不是把目前股價直接扣掉這個比例。`)}${row('停利價',en?`同一筆交易的停利為 <strong>${money(target)}</strong>（成本上方${us?'30':'20'}%）；最長持有${us?'90':'60'}交易日。`:`需要實際成本才能列出金額：停利為成本上方${us?'30':'20'}%，最長持有${us?'90':'60'}交易日。`)}</section>`;
+  return header+`<div class="plain-status"><strong>最近一次收盤：${esc(r.asof)}，${money(r.close)}</strong><p>${esc(status)}</p></div><p class="plain-cost">${esc(ownLine)}</p><div class="plain-plan-grid">${cards}</div>`;
 }
 function ownStrategySummary(s,o,dates,own,cost){
   // 一般技術面規則和 AI 模型帳分列；不把模型持有視為使用者有持股。
@@ -1142,7 +1164,7 @@ function ownStrategySummary(s,o,dates,own,cost){
   if(s.historyOnly){buy='近期報價／日K尚未對齊，暫不提供可執行買點';stop='先核對最新完整交易日資料；歷史圖不作即時出場判斷';take='近期資料待補，暫不推定停利';}
   else if(s.etf){buy='ETF尚未完成個別策略回測；不套用一般個股突破或跌深買點';stop=entry?'你已填入成本 '+price(entry)+'；ETF風險線須依自行設定規則':'尚未填實際成本；不推定停損價';take='ETF未建立固定停利規則，幾何價位僅供觀察';}
   else if(us){buy=trig?`跌深觀察 ${price(trig)}：第一天「收盤」離60日高跌35%以上，下一交易日開盤才可執行；盤中到價未確認`:'至少需要60根日K';stop=entry?`${price(strategyPrice(entry*.8,true,'down'))}（採跌深策略時，成本−20%）`:'若採跌深策略，實際成交成本−20%';take=entry?`${price(strategyPrice(entry*1.3,true,'up'))}（採跌深策略時，成本+30%），或最多90交易日`:'若採跌深策略，實際成交成本+30%，或最多90交易日';}
-  else if(hi250&&m60){const near=px>=hi250*.9,breakout=near&&n>=120?Math.min(...[Math.max(...high.slice(-60)),Math.max(...high.slice(-120)),hi250].filter(x=>x>=px)):hi250;
+  else if(hi250&&m60){const near=px>=hi250*.9,breakout=near&&n>=120?Math.min(...[Math.max(...high.slice(-60)),Math.max(...high.slice(-120)),hi250].filter(x=>x>=px),hi250):hi250;
     buy=`技術突破觀察 ${price(breakout)}：收盤確認創高後，下一交易日開盤執行；不是碰價即買${!near?'（目前離52週高超過10%，不把60／120日突破當買點）':''}。錯殺低接另看 ${price(trig)}（第一天收盤跌深40%）`;
     stop=`技術突破：季線目前 ${price(m60)}，連續2個完整交易日收盤跌破各日季線，下一交易日開盤出場；單次盤中跌破未確認。錯殺低接：${entry?price(strategyPrice(entry*.85,false,'down'))+'（成本−15%）':'成交後以成本−15%計算'}`;
     take+=`。錯殺低接：${entry?price(strategyPrice(entry*1.2,false,'up'))+'（成本+20%）':'成交後以成本+20%計算'}，或最多60交易日`;
@@ -1150,10 +1172,10 @@ function ownStrategySummary(s,o,dates,own,cost){
   const holdings=own?`你已設定進場成本${entry?'，自設成本 '+price(entry)+'，帳面 '+((px/entry-1)*100).toFixed(1)+'%':'，尚未填成本，不能把現價當成本'}`:'你尚未設定進場成本；AI Pick 是獨立模型帳';
   const trend=m20&&m60?`現價${px>=m20?'在月線上':'在月線下'}、${px>=m60?'在季線上':'在季線下'}；月線 ${price(m20)}、季線 ${price(m60)}`:'均線歷史不足';
   const tiers=a3TiersOf(s.id,us),esc=x=>newsEsc(String(x)),row=(k,v)=>`<div class="strategy-row"><b>${k}</b><span>${v}</span></div>`;
-  const accounts=tiers.map(({k,sl})=>({short:'短期',mid:'中期',long:'長期'})[k]+'：'+aipPolicyText(sl,k,us));
+  const accounts=tiers.map(({k,sl})=>({short:'短期',mid:'中期',long:'長期'})[k]+'：'+(sl.st==='pend'?'尚未成交；':strategyNumber(sl.entry)>0?'模擬買入價 '+price(sl.entry)+'；':'未提供買入價；')+aipPolicyText(sl,k,us));
   if(!us&&typeof AIPK!=='undefined'&&AIPK){const pv=(AIPK.trader||{}).pv||{},p=(pv.pos||[]).find(x=>x.id===s.id);if(p)accounts.push(`主力20檔模型帳：進場 ${price(p.entry)}；停損 ${price(p.stop)}；停利 ${price(p.tp)}；依模型轉弱／已排定出場記錄執行，與自設持股分開`);}
 
-  return `<div class="dim-block strategy-summary" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 操作規則與價位 <span class="ds">現價 ${price(px)}</span></h3>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('收盤檢核',esc(strategyCloseText(s,rawO,dates)))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}${row('AI Pick 模型帳',accounts.length?accounts.map(esc).join('<br>'):'不在三清單／主力模型持倉中；不因此推定這檔適合或不適合買進')}${stockProfileHTML(s,rawO,dates,own,cost)}<div class="dim-note">價格會隨資料更新；進場、收盤確認、隔日開盤成交是不同時間。模型帳不等於你的持股；下列均線帶、左右側與情境價位保留為觀察參考，不構成另一套已驗證買賣規則。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。</div></div>`;
+  return `<div class="dim-block strategy-summary" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 ${esc(s.name||s.id)}（${esc(s.id)}）的買賣計畫</h3>${strategyPlainHTML(s,rawO,dates,own,cost)}<details class="plan-more plan-models"><summary>AI 模擬帳戶怎麼做？${accounts.length?'（'+accounts.length+'項紀錄）':''}</summary><p>以下是系統模擬交易的紀錄，與你的持股分開。不同模型的價格不要混成同一張買賣單。</p>${accounts.length?accounts.map(x=>'<p>'+esc(x)+'</p>').join(''):'本股目前沒有三清單或主力模型持倉紀錄；不因此推定適合或不適合買進。'}</details>${stockProfileHTML(s,rawO,dates,own,cost)}<details class="plan-more"><summary>完整規則與條件檢核（詳細資料）</summary>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('收盤檢核',esc(strategyCloseText(s,rawO,dates)))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}<p>價格會隨資料更新；收盤確認與下一交易日開盤成交是不同時間。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。模型帳不等於你的持股。</p></details></div>`;
 }
 
 function refreshStrategySummaries(){
@@ -1163,7 +1185,7 @@ function refreshStrategySummaries(){
     const s=(DATA.stocks||[]).find(x=>x.id===el.dataset.id);if(!s)return;
     const ke=(KCACHE[shardOf(s)]||{})[s.id],k=ke&&ke.o?{ohlc:ke.o,dates:ke.d}:location.hash==='#stock/'+s.id?baseK:null;
     if(!k||!k.ohlc)return;const en=favEntryOf(s.id),so=el.dataset.history==='1'?Object.assign({},s,{historyOnly:true}):s;
-    const html=ownStrategySummary(so,k.ohlc,k.dates,!!en,en&&en.px);if(html&&el.outerHTML!==html){const t=document.createElement('template');t.innerHTML=html;const next=t.content.firstElementChild,old=el.querySelectorAll('.stock-profile, .stock-profile details');next.querySelectorAll('.stock-profile, .stock-profile details').forEach((x,i)=>{if(old[i])x.open=old[i].open;});el.replaceWith(next);}
+    const html=ownStrategySummary(so,k.ohlc,k.dates,!!en,en&&en.px);if(html&&el.outerHTML!==html){const t=document.createElement('template');t.innerHTML=html;const next=t.content.firstElementChild,old=el.querySelectorAll('details');next.querySelectorAll('details').forEach((x,i)=>{if(old[i])x.open=old[i].open;});el.replaceWith(next);}
   }catch(e){}});
 }
 setInterval(()=>{try{refreshStrategySummaries();}catch(e){}},15000);
