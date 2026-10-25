@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1166';
+const APP_BUILD='r1167';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1172,7 +1172,7 @@ function stockContextPlan(s,raw,dates,now=new Date()){
   const p=stockContextScenario(r.close,avg(n,20),avg(n,60),avg(n-10,60),hi(20),hi(60),lo(20),lo(60),tr/20);if(!p)return null;
   const us=s.market==='US';for(const k of ['entry','stop','target','low'])p[k]=us?Math.floor(p[k]*100+1e-9)/100:strategyPrice(p[k],false,'down');p.confirm=us?Math.ceil(p.confirm*100-1e-9)/100:strategyPrice(p.confirm,false,'up');
   p.low=Math.max(p.low,us?Math.round((p.stop+.01)*100)/100:strategyBreakPrice(p.stop));if(![p.entry,p.stop,p.target,p.low,p.confirm].every(v=>Number.isFinite(v)&&v>0)||p.low>p.entry||p.stop>=p.entry||p.target<=p.entry)return null;const math=strategyRiskMath(p.entry,p.stop,p.target);p.netRR=math&&math.ratio;p.valid=p.valid&&!!math&&math.ratio>1;
-  p.asof=r.asof;p.close=r.close;p.price=strategyNumber(s.price)||r.close;p.invalidated=p.price<=p.stop||p.price>=p.target;
+  p.asof=r.asof;p.close=r.close;p.price=strategyNumber(s.price)||r.close;p.reclaimed=p.kind==='reclaim'&&p.close>=p.confirm;p.invalidated=p.price<=p.stop||p.price>=p.target||p.reclaimed;
   return p;
 }
 function stockContextEvidence(e,kind,asof){
@@ -1185,18 +1185,19 @@ function stockContextEvidence(e,kind,asof){
 function stockContextHTML(s,raw,dates){
   const p=stockContextPlan(s,raw,dates),esc=x=>newsEsc(String(x)),us=s.market==='US',money=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:2})+(us?' 美元／股':' 元／股');
   if(!p)return '<section class="stock-context plain-plan-card"><h4>這檔目前適合怎麼買賣？</h4><p>完整資料、流動性或價格連續性尚未通過檢查，暫不提供新的進出場價。下方保留原策略條件。</p></section>';
-  const title={pullback:'上升趨勢：等拉回，不追高',range:'盤整整理：靠近支撐再評估',reclaim:'走勢轉弱：先等站回關鍵價'}[p.kind];
+  const title=p.reclaimed?'反彈已站回：不追認為新買點':{pullback:'上升趨勢：等拉回，不追高',range:'盤整整理：靠近支撐再評估',reclaim:'走勢轉弱：先等站回關鍵價'}[p.kind];
   const row=(k,v,note)=>`<div class="plan-price-row"><dt>${k}</dt><dd><strong>${v}</strong><small>${note}</small></dd></div>`;
   let action=p.kind==='reclaim'?`現在先不買。收盤先站回 ${money(p.confirm)}，才評估下一交易日 ${money(p.entry)} 以下承接；開盤高於上限不追。`:`先等回到 ${money(p.low)}～${money(p.entry)}，當日收盤不低於前一日，才評估下一交易日 ${money(p.entry)} 以下承接；開盤高於上限不追。`;
   if(!p.valid)action='現在先不買：這檔目前支撐與上方壓力太近，計畫的獲利空間不足以配合停損風險。等價格結構改善再評估。';
   if(p.invalidated)action='現在先不買：最新報價已越過這份收盤計畫的停損或賣出參考價，原計畫暫停，等新的完整收盤重算。';
+  if(p.reclaimed)action=`最近完整收盤已站上 ${money(p.confirm)}，這條收復線已是過去條件。現在先不買，也不追價；這份等待站回的計畫暫停，重新評估下一個有效機會。`;
   const j=STOCK_CONTEXT_PROFILES;if(!j)stockContextLoad();const e=j&&j.stocks[s.market+':'+s.id],a=e&&e.periods&&e.periods.first&&e.periods.first[p.kind],z=e&&e.periods&&e.periods.second&&e.periods.second[p.kind];
   const valid=e&&/^\d{4}-\d{2}-\d{2}$/.test(e.asof)&&e.asof<=p.asof&&a&&z;
   const sample=valid?`本股這種情境：2016～2020年 ${a.n} 筆、2021年至 ${e.asof} 共 ${z.n} 筆（含期末估值）。${a.n<10||z.n<10?'前後期樣本不足，還不能把這個價位當成已驗證買點。':'已有歷史檢查，但尚未證明優於原策略，仍是條件參考。'}`:'本股這種情境的研究資料尚未取得，不借用其他股票的勝率。';
   const evidence=stockContextEvidence(e,p.kind,p.asof);
   if(p.valid&&!p.invalidated&&evidence!=='positive'){const why=evidence==='unstable'?'本股這種買法的前後期表現不穩定':evidence==='small'?'本股這種買法的前後期樣本不足':'本股這種買法的歷史資料尚未取得';action='目前先不買：'+why+'。下面只列重新評估與退出價位，不能直接照價進場。';}
   const details=valid?`<p>前期每筆平均 ${a.avg_pct==null?'資料不足':a.avg_pct+'%'}；後期 ${z.avg_pct==null?'資料不足':z.avg_pct+'%'}。各期 ${a.n}／${z.n} 筆包含期末未平倉估值，不是組合年化。以預先發出的價位、後續收盤確認、下一交易日限價模擬，來回成本0.6%；不是實際委託成交。完整研究固定截止，不隨即時價改寫。</p>`:'';
-  return `<section class="stock-context plain-plan-card" data-evidence="${evidence}" data-research-loaded="${!!j}" data-research-key="${esc(s.market+':'+s.id)}"><h4>${esc(s.name||s.id)}：${title}</h4><p class="context-tag">依本股現況評估・新買法仍在研究，尚未證實有效</p><p class="direct-buy"><strong>${esc(action)}</strong></p><dl class="plan-prices">${row(p.kind==='reclaim'?'先站回才評估':evidence==='positive'&&p.valid&&!p.invalidated?'買入評估區':'下次評估價位',p.kind==='reclaim'?money(p.confirm):money(p.low)+'～'+money(p.entry),p.kind==='reclaim'?'先看完整收盤能否站回；不是跌到就買。':evidence==='positive'&&p.valid&&!p.invalidated?'價格回到這一帶且收盤止跌，再評估，盤中碰價不直接買。':'僅供下次重新評估，目前不採用這個買法。')}${p.kind==='reclaim'?row(evidence==='positive'&&p.valid&&!p.invalidated?'確認後買價上限':'重新評估的價格上限',money(p.entry),evidence==='positive'&&p.valid&&!p.invalidated?'下一交易日只考慮此價以下，超過不追。':'目前不採用；需要先重新通過價格與歷史檢查。'):''}${row('跌破就退出',money(p.stop),'僅適用在這份計畫價附近新買的部位；跳空可能賣在更低價格。')}${row('反彈先賣參考價',money(p.target),'本股近期高點壓力；到價評估獲利出場，不保證會漲到。')}</dl><p class="dim-note">${esc(p.asof)} 完整收盤計畫；最新可用報價 ${money(p.price)}。支撐破壞或報價越過賣價即暫停；最長試算40交易日。${p.netRR?'按買價上限與雙邊各0.3%費用，計畫賺賠比約 '+p.netRR.toFixed(2)+' 倍；不是勝率。':''} 價格僅適用這份新計畫；實際買入成本不同要重算，不套用到你原有持股或AI模型帳。</p><details class="plan-more"><summary>這檔的價格依據與歷史檢查</summary><p>${esc(sample)}</p>${details}<p>本股前後期各至少10筆已完成樣本、平均報酬為正、獲利因子至少1.1且至少一半有交易年份為正，才保留進一步評估資格；這仍未證明是有效新策略。上升看20日均線拉回；盤整看20／60日低點；轉弱看站回較近均線。退出價在本股低點下方保留半個20日平均波幅，反彈價看近期高點；買價同時檢查獲利空間，不以固定跌幅套全部股票。均線、低點和波動會更新，價格不是合理價或保證買點。財報僅保留原頁判讀，本情境未使用目前財報回填歷史。</p><a href="https://github.com/frankf19-19/Stock/blob/main/research/r1166/README.md" target="_blank" rel="noopener">查看完整規則、檢查結果與限制</a></details></section>`;
+  return `<section class="stock-context plain-plan-card" data-evidence="${evidence}" data-research-loaded="${!!j}" data-research-key="${esc(s.market+':'+s.id)}"><h4>${esc(s.name||s.id)}：${title}</h4><p class="context-tag">依本股現況評估・新買法仍在研究，尚未證實有效</p><p class="direct-buy"><strong>${esc(action)}</strong></p><dl class="plan-prices">${row(p.kind==='reclaim'?(p.reclaimed?'已站回的評估線':'先站回才評估'):evidence==='positive'&&p.valid&&!p.invalidated?'買入評估區':'下次評估價位',p.kind==='reclaim'?money(p.confirm):money(p.low)+'～'+money(p.entry),p.kind==='reclaim'?(p.reclaimed?'已在這條線上，不能把過去條件追認成新買點。':'先看完整收盤能否站回；不是跌到就買。'):evidence==='positive'&&p.valid&&!p.invalidated?'價格回到這一帶且收盤止跌，再評估，盤中碰價不直接買。':'僅供下次重新評估，目前不採用這個買法。')}${p.kind==='reclaim'?row(evidence==='positive'&&p.valid&&!p.invalidated?'確認後買價上限':'重新評估的價格上限',money(p.entry),evidence==='positive'&&p.valid&&!p.invalidated?'下一交易日只考慮此價以下，超過不追。':'目前不採用；需要先重新通過價格與歷史檢查。'):''}${row('跌破就退出',money(p.stop),'僅適用在這份計畫價附近新買的部位；跳空可能賣在更低價格。')}${row('反彈先賣參考價',money(p.target),'本股近期高點壓力；到價評估獲利出場，不保證會漲到。')}</dl><p class="dim-note">${esc(p.asof)} 完整收盤計畫；最新可用報價 ${money(p.price)}。支撐破壞或報價越過賣價即暫停；最長試算40交易日。${p.netRR?'按買價上限與雙邊各0.3%費用，計畫賺賠比約 '+p.netRR.toFixed(2)+' 倍；不是勝率。':''} 價格僅適用這份新計畫；實際買入成本不同要重算，不套用到你原有持股或AI模型帳。</p><details class="plan-more"><summary>這檔的價格依據與歷史檢查</summary><p>${esc(sample)}</p>${details}<p>本股前後期各至少10筆已完成樣本、平均報酬為正、獲利因子至少1.1且至少一半有交易年份為正，才保留進一步評估資格；這仍未證明是有效新策略。上升看20日均線拉回；盤整看20／60日低點；轉弱看站回較近均線。退出價在本股低點下方保留半個20日平均波幅，反彈價看近期高點；買價同時檢查獲利空間，不以固定跌幅套全部股票。均線、低點和波動會更新，價格不是合理價或保證買點。財報僅保留原頁判讀，本情境未使用目前財報回填歷史。</p><a href="https://github.com/frankf19-19/Stock/blob/main/research/r1166/README.md" target="_blank" rel="noopener">查看完整規則、檢查結果與限制</a></details></section>`;
 }
 
 function strategyPlainHTML(s,raw,dates,own,cost){
