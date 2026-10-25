@@ -2627,3 +2627,11 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .stock-profile>summary{cursor:pointer;font-weight:600;margin-bottom:8px}
 .stock-profile .strategy-row{min-width:0}
 .stock-profile details>summary{cursor:pointer;font-size:12px;margin-top:8px}
+
+/* r1162: 先看價格用途與動作，研究／模型分開展開。 */
+.plain-quote{display:grid;gap:5px;margin:10px 0 14px}.plain-quote>strong{font-size:25px;line-height:1.3}.plain-quote small{color:var(--dim);line-height:1.6}
+.plain-status{padding:12px;border-left:3px solid var(--gold,#d8b65b);background:var(--card,rgba(128,128,128,.08));line-height:1.7}.plain-status p{margin:5px 0 0}.plain-cost{line-height:1.7}
+.plain-plan-grid{display:grid;gap:12px}.plain-plan-card{border:1px solid var(--border,#7775);border-radius:10px;padding:14px;min-width:0;overflow-wrap:anywhere}.plain-plan-card h4{font-size:16px;margin:0 0 12px}.plain-plan-line>b{font-size:13px;color:var(--dim)}.plain-plan-line p{line-height:1.8;margin:4px 0 12px}.plain-plan-line:last-child p{margin-bottom:0}
+.plan-more{margin-top:12px;border-top:1px solid var(--border,#7775);padding-top:10px;overflow-wrap:anywhere}.plan-more summary{cursor:pointer;font-weight:600;font-size:14px}.plan-more p,.stock-profile p{font-size:14px;line-height:1.8}
+
+.strategy-summary>h3{justify-content:flex-start;text-align:left}
