@@ -17,7 +17,7 @@ test('美股價格計畫保留20／30／90及美分價格',()=>{const c=ctx(),p=
 test('未成交的低接門檻不因四捨五入提高到真實觸發價以上',()=>{const c=ctx(),b=dates.map(()=>[100,120.007,98,100,1e6]),h=c.strategyPlainHTML({...tw,market:'US'},b,dates,false,null);assert.match(h,/78 美元／股/);assert.doesNotMatch(h,/78.01 美元／股/);});
 test('缺成本或無效數字不產生假價格',()=>{const c=ctx();for(const x of [null,0,-1,NaN,Infinity])assert.equal(c.strategyDipPricePlan(tw,x),null);});
 
-test('主畫面直接回答跌到多少買，創高改成另一套收合策略',()=>{const h=ctx().strategyPlainHTML(tw,bars,dates,false,null),main=h.split('<details')[0];assert.match(main,/首次收盤跌到 72 元／股 以下，下一交易日開盤買入/);assert.match(main,/跌到多少停損/);assert.match(main,/漲到多少停利/);assert.doesNotMatch(main,/進場觀察／假設買價|買法一|未成交試算/);assert.match(h,/另一種策略：向上創高才買/);});
+test('主畫面直接回答跌到多少買，創高改成另一套收合策略',()=>{const h=ctx().strategyPlainHTML(tw,bars,dates,false,null),main=h.slice(h.indexOf('original-dip-plan')).split('<details')[0];assert.match(main,/首次收盤跌到 72 元／股 以下，下一交易日開盤買入/);assert.match(main,/跌到多少停損/);assert.match(main,/漲到多少停利/);assert.doesNotMatch(main,/進場觀察／假設買價|買法一|未成交試算/);assert.match(h,/另一種策略：向上創高才買/);});
 test('目前100、買入價72，清楚說還要跌28元及28%',()=>{const h=ctx().strategyPlainHTML(tw,bars,dates,false,null);assert.match(h,/還要再跌 28 元／股（28.0%）/);});
 test('買入價格依每檔自己的價格歷史計算，不使用同一固定金額',()=>{const c=ctx(),a=c.strategyPlainHTML(tw,bars,dates,false,null),b=c.strategyPlainHTML({...tw,id:'TEST',price:200},bars.map(x=>x.map((v,i)=>i<4?v*2:v)),dates,false,null);assert.match(a,/72 元／股 以下/);assert.match(b,/144 元／股 以下/);});
 test('已在跌深區但非首次達價不重複買入',()=>{const b=bars.map(x=>x.slice());[100,90,82,75,70,70].forEach((v,i)=>{b[b.length-6+i]=[v,120,v-2,v,1e6];});const h=ctx().strategyPlainHTML({...tw,price:70},b,dates,false,null);assert.match(h,/這次不是首次達價，不重複買入/);assert.match(h,/已到此價以下/);});

@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1165';
+const APP_BUILD='r1166';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1145,6 +1145,60 @@ function strategyDipPricePlan(s,entry,actual=false){
 function strategyBreakPrice(level){
   level=strategyNumber(level);return level>0?strategyPrice(level+Math.max(1e-7,level*1e-10),false,'up'):null;
 }
+// r1166: 依本股走勢產生條件價位參考；不接入成交、排序或通知。
+var STOCK_CONTEXT_PROFILES=null,STOCK_CONTEXT_PENDING=null,STOCK_CONTEXT_ERROR='',STOCK_CONTEXT_RETRY=0;
+function stockContextLoad(){
+  if(STOCK_CONTEXT_PROFILES)return Promise.resolve(STOCK_CONTEXT_PROFILES);
+  if(STOCK_CONTEXT_PENDING)return STOCK_CONTEXT_PENDING;
+  if(typeof fT!=='function'||Date.now()<STOCK_CONTEXT_RETRY)return null;
+  STOCK_CONTEXT_PENDING=(async()=>{try{const r=await fT('context_profiles.json?v='+APP_BUILD,15000);if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();if(j.schema!==1||j.version!=='r1166'||j.research_only!==true||!j.stocks)throw new Error('research schema');STOCK_CONTEXT_PROFILES=j;STOCK_CONTEXT_ERROR='';return j;}catch(e){STOCK_CONTEXT_ERROR=String(e&&e.message||e);STOCK_CONTEXT_RETRY=Date.now()+60000;return null;}})();
+  STOCK_CONTEXT_PENDING.then(j=>{if(j&&typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);else STOCK_CONTEXT_PENDING=null;});return STOCK_CONTEXT_PENDING;
+}
+function stockContextScenario(c,ma20,ma60,ma60past,hi20,hi60,lo20,lo60,atr){
+  if(![c,ma20,ma60,ma60past,hi20,hi60,lo20,lo60,atr].every(v=>Number.isFinite(v)&&v>0)||hi20<lo20||hi60<lo60)return null;
+  let kind,stop,target,confirm,entry;
+  if(c>=ma60&&ma20>=ma60&&ma60-ma60past>.25*atr){kind='pullback';stop=lo20-.5*atr;target=hi60;confirm=ma20;entry=Math.min(ma20,c-.25*atr,(target+1.5*stop)/2.5);}
+  else if(c<ma60-.5*atr||ma60-ma60past<-.25*atr){kind='reclaim';const lines=[ma20,ma60].filter(x=>x>c);confirm=lines.length?Math.min(...lines):ma20;entry=confirm+.25*atr;stop=lo20-.5*atr;target=hi60;}
+  else{kind='range';stop=lo60-.5*atr;target=hi20;confirm=lo20;entry=Math.min(lo20+.25*atr,c-.25*atr,(target+1.5*stop)/2.5);}
+  const risk=entry-stop,reward=target-entry;
+  return {kind,entry,stop,target,confirm,low:entry-.25*atr,rr:risk>0?reward/risk:null,valid:stop>0&&risk>=.5*atr&&reward>0&&reward/risk>=1.5-1e-9,atr,hold:40};
+}
+function stockContextPlan(s,raw,dates,now=new Date()){
+  const r=strategyCloseCheck(s,raw,dates,now);if(!r||r.jump||!r.liquid||s.historyOnly||s.etf)return null;
+  const b=strategyAdjustedBars(s,raw,dates).slice(0,raw.length-r.excluded),n=b.length;if(n<71)return null;
+  if(!b.slice(-71).every(x=>x[1]>=Math.max(x[0],x[3])&&x[2]<=Math.min(x[0],x[3])))return null;
+  const avg=(end,w)=>b.slice(end-w,end).reduce((z,x)=>z+(+x[3]),0)/w,hi=w=>Math.max(...b.slice(-w).map(x=>+x[1])),lo=w=>Math.min(...b.slice(-w).map(x=>+x[2]));
+  let tr=0;for(let i=n-20;i<n;i++)tr+=Math.max(b[i][1]-b[i][2],Math.abs(b[i][1]-b[i-1][3]),Math.abs(b[i][2]-b[i-1][3]));
+  const p=stockContextScenario(r.close,avg(n,20),avg(n,60),avg(n-10,60),hi(20),hi(60),lo(20),lo(60),tr/20);if(!p)return null;
+  const us=s.market==='US';for(const k of ['entry','stop','target','low'])p[k]=us?Math.floor(p[k]*100+1e-9)/100:strategyPrice(p[k],false,'down');p.confirm=us?Math.ceil(p.confirm*100-1e-9)/100:strategyPrice(p.confirm,false,'up');
+  p.low=Math.max(p.low,us?Math.round((p.stop+.01)*100)/100:strategyBreakPrice(p.stop));if(![p.entry,p.stop,p.target,p.low,p.confirm].every(v=>Number.isFinite(v)&&v>0)||p.low>p.entry||p.stop>=p.entry||p.target<=p.entry)return null;const math=strategyRiskMath(p.entry,p.stop,p.target);p.netRR=math&&math.ratio;p.valid=p.valid&&!!math&&math.ratio>1;
+  p.asof=r.asof;p.close=r.close;p.price=strategyNumber(s.price)||r.close;p.invalidated=p.price<=p.stop||p.price>=p.target;
+  return p;
+}
+function stockContextEvidence(e,kind,asof){
+  if(!e||!/^\d{4}-\d{2}-\d{2}$/.test(e.asof)||e.asof>asof)return 'missing';
+  const a=e.periods&&e.periods.first&&e.periods.first[kind],z=e.periods&&e.periods.second&&e.periods.second[kind];
+  if(!a||!z||![a.n,z.n].every(x=>Number.isInteger(x)&&x>=0))return 'missing';
+  if((a.n-(a.boundary_marks||0))<10||(z.n-(z.boundary_marks||0))<10)return 'small';
+  return [a,z].every(x=>Number.isFinite(x.avg_pct)&&x.avg_pct>0&&Number.isFinite(x.pf)&&x.pf>=1.1&&x.positive_years>=Math.ceil(x.years/2))?'positive':'unstable';
+}
+function stockContextHTML(s,raw,dates){
+  const p=stockContextPlan(s,raw,dates),esc=x=>newsEsc(String(x)),us=s.market==='US',money=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:2})+(us?' 美元／股':' 元／股');
+  if(!p)return '<section class="stock-context plain-plan-card"><h4>這檔目前適合怎麼買賣？</h4><p>完整資料、流動性或價格連續性尚未通過檢查，暫不提供新的進出場價。下方保留原策略條件。</p></section>';
+  const title={pullback:'上升趨勢：等拉回，不追高',range:'盤整整理：靠近支撐再評估',reclaim:'走勢轉弱：先等站回關鍵價'}[p.kind];
+  const row=(k,v,note)=>`<div class="plan-price-row"><dt>${k}</dt><dd><strong>${v}</strong><small>${note}</small></dd></div>`;
+  let action=p.kind==='reclaim'?`現在先不買。收盤先站回 ${money(p.confirm)}，才評估下一交易日 ${money(p.entry)} 以下承接；開盤高於上限不追。`:`先等回到 ${money(p.low)}～${money(p.entry)}，當日收盤不低於前一日，才評估下一交易日 ${money(p.entry)} 以下承接；開盤高於上限不追。`;
+  if(!p.valid)action='現在先不買：這檔目前支撐與上方壓力太近，計畫的獲利空間不足以配合停損風險。等價格結構改善再評估。';
+  if(p.invalidated)action='現在先不買：最新報價已越過這份收盤計畫的停損或賣出參考價，原計畫暫停，等新的完整收盤重算。';
+  const j=STOCK_CONTEXT_PROFILES;if(!j)stockContextLoad();const e=j&&j.stocks[s.market+':'+s.id],a=e&&e.periods&&e.periods.first&&e.periods.first[p.kind],z=e&&e.periods&&e.periods.second&&e.periods.second[p.kind];
+  const valid=e&&/^\d{4}-\d{2}-\d{2}$/.test(e.asof)&&e.asof<=p.asof&&a&&z;
+  const sample=valid?`本股這種情境：2016～2020年 ${a.n} 筆、2021年至 ${e.asof} 共 ${z.n} 筆（含期末估值）。${a.n<10||z.n<10?'前後期樣本不足，還不能把這個價位當成已驗證買點。':'已有歷史檢查，但尚未證明優於原策略，仍是條件參考。'}`:'本股這種情境的研究資料尚未取得，不借用其他股票的勝率。';
+  const evidence=stockContextEvidence(e,p.kind,p.asof);
+  if(p.valid&&!p.invalidated&&evidence!=='positive'){const why=evidence==='unstable'?'本股這種買法的前後期表現不穩定':evidence==='small'?'本股這種買法的前後期樣本不足':'本股這種買法的歷史資料尚未取得';action='目前先不買：'+why+'。下面只列重新評估與退出價位，不能直接照價進場。';}
+  const details=valid?`<p>前期每筆平均 ${a.avg_pct==null?'資料不足':a.avg_pct+'%'}；後期 ${z.avg_pct==null?'資料不足':z.avg_pct+'%'}。各期 ${a.n}／${z.n} 筆包含期末未平倉估值，不是組合年化。以預先發出的價位、後續收盤確認、下一交易日限價模擬，來回成本0.6%；不是實際委託成交。完整研究固定截止，不隨即時價改寫。</p>`:'';
+  return `<section class="stock-context plain-plan-card" data-evidence="${evidence}" data-research-loaded="${!!j}" data-research-key="${esc(s.market+':'+s.id)}"><h4>${esc(s.name||s.id)}：${title}</h4><p class="context-tag">依本股現況評估・新買法仍在研究，尚未證實有效</p><p class="direct-buy"><strong>${esc(action)}</strong></p><dl class="plan-prices">${row(p.kind==='reclaim'?'先站回才評估':evidence==='positive'&&p.valid&&!p.invalidated?'買入評估區':'下次評估價位',p.kind==='reclaim'?money(p.confirm):money(p.low)+'～'+money(p.entry),p.kind==='reclaim'?'先看完整收盤能否站回；不是跌到就買。':evidence==='positive'&&p.valid&&!p.invalidated?'價格回到這一帶且收盤止跌，再評估，盤中碰價不直接買。':'僅供下次重新評估，目前不採用這個買法。')}${p.kind==='reclaim'?row(evidence==='positive'&&p.valid&&!p.invalidated?'確認後買價上限':'重新評估的價格上限',money(p.entry),evidence==='positive'&&p.valid&&!p.invalidated?'下一交易日只考慮此價以下，超過不追。':'目前不採用；需要先重新通過價格與歷史檢查。'):''}${row('跌破就退出',money(p.stop),'僅適用在這份計畫價附近新買的部位；跳空可能賣在更低價格。')}${row('反彈先賣參考價',money(p.target),'本股近期高點壓力；到價評估獲利出場，不保證會漲到。')}</dl><p class="dim-note">${esc(p.asof)} 完整收盤計畫；最新可用報價 ${money(p.price)}。支撐破壞或報價越過賣價即暫停；最長試算40交易日。${p.netRR?'按買價上限與雙邊各0.3%費用，計畫賺賠比約 '+p.netRR.toFixed(2)+' 倍；不是勝率。':''} 價格僅適用這份新計畫；實際買入成本不同要重算，不套用到你原有持股或AI模型帳。</p><details class="plan-more"><summary>這檔的價格依據與歷史檢查</summary><p>${esc(sample)}</p>${details}<p>本股前後期各至少10筆已完成樣本、平均報酬為正、獲利因子至少1.1且至少一半有交易年份為正，才保留進一步評估資格；這仍未證明是有效新策略。上升看20日均線拉回；盤整看20／60日低點；轉弱看站回較近均線。退出價在本股低點下方保留半個20日平均波幅，反彈價看近期高點；買價同時檢查獲利空間，不以固定跌幅套全部股票。均線、低點和波動會更新，價格不是合理價或保證買點。財報僅保留原頁判讀，本情境未使用目前財報回填歷史。</p><a href="https://github.com/frankf19-19/Stock/blob/main/research/r1166/README.md" target="_blank" rel="noopener">查看完整規則、檢查結果與限制</a></details></section>`;
+}
+
 function strategyPlainHTML(s,raw,dates,own,cost){
   const esc=x=>newsEsc(String(x)),us=s.market==='US',money=v=>strategyNumber(v)>0?(+v).toLocaleString(undefined,{maximumFractionDigits:2})+(us?' 美元／股':' 元／股'):'資料不足';
   const px=strategyNumber(s.price),en=own&&strategyNumber(cost)>0?+cost:null,r=strategyCloseCheck(s,raw,dates),name=esc(s.name||s.id);
@@ -1172,7 +1226,7 @@ function strategyPlainHTML(s,raw,dates,own,cost){
 
   cards=`<section class="plain-plan-card direct-dip-plan"><h4>${name}：跌到多少可以買？</h4>${dipTable}<details class="plan-more"><summary>查看價格怎麼算與進出場條件</summary>${row('這個低價怎麼來',`近60日最高價為 ${money(hi60)}。這套規則要求從高點下跌${us?'35':'40'}%，所以理論門檻約 <strong>${money(dip)}</strong>，按可交易價格跳動列出的進場觀察價為 <strong>${money(trigger)}</strong>。這不是合理價、目標價，也不表示一定會跌到這裡。`)}${row('買進要等',`首次收盤符合上述跌幅，且成交金額足夠，才在下一交易日開盤進場。${r.dip==='first'?'最近這次收盤首次符合跌幅條件。':r.dip==='already'?'最近收盤已在範圍內，但不是首次，不重複當成新買點。':'最近這次收盤還沒跌到上述幅度。'}開盤成交價可能不同，停損與停利要按實際成交價重算。`)}${row('停損價',en?`若你確實採用這套買法，按你填的成本 ${money(en)}，停損為 <strong>${money(stop)}</strong>（成本下方${us?'20':'15'}%）。`:`上表停損 ${money(stop)} 是按假設買價 ${money(plan&&plan.entry)} 計算，不是把目前股價直接扣掉${us?'20':'15'}%；實際成交後重算。`)}${row('停利價',en?`同一筆交易的停利為 <strong>${money(target)}</strong>（成本上方${us?'30':'20'}%）；最長持有${us?'90':'60'}交易日。`:`上表停利 ${money(target)} 與停損使用同一假設買價；實際成交後重算，最長持有${us?'90':'60'}交易日。`)}</details></section>`;
   cards+=otherCards?`<details class="plan-more plan-breakout"><summary>另一種策略：向上創高才買（展開）</summary>${otherCards}</details>`:'';
-  return header+`<div class="plain-status"><strong>最近一次收盤：${esc(r.asof)}，${money(r.close)}</strong><p>${esc(status)}</p></div><div class="plain-plan-grid">${cards}</div>`;
+  return header+stockContextHTML(s,raw,dates)+`<details class="plan-more original-dip-plan"><summary>極端大跌備案：原跌深策略（不是主要買價）</summary><div class="plain-status"><strong>最近一次收盤：${esc(r.asof)}，${money(r.close)}</strong><p>${esc(status)}</p></div><div class="plain-plan-grid">${cards}</div></details>`;
 }
 function ownStrategySummary(s,o,dates,own,cost){
   // 一般技術面規則和 AI 模型帳分列；不把模型持有視為使用者有持股。
@@ -1202,10 +1256,10 @@ function ownStrategySummary(s,o,dates,own,cost){
   return `<div class="dim-block strategy-summary" onclick="strategyStopCardEvent(event)" onkeydown="strategyStopCardEvent(event)" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 ${esc(s.name||s.id)}（${esc(s.id)}）的買賣計畫</h3>${strategyPlainHTML(s,rawO,dates,own,cost)}<details class="plan-more plan-models"><summary>AI 模擬帳戶怎麼做？${accounts.length?'（'+accounts.length+'項紀錄）':''}</summary><p>以下是系統模擬交易的紀錄，與你的持股分開。不同模型的價格不要混成同一張買賣單。</p>${accounts.length?accounts.map(x=>'<p>'+esc(x)+'</p>').join(''):'本股目前沒有三清單或主力模型持倉紀錄；不因此推定適合或不適合買進。'}</details>${stockProfileHTML(s,rawO,dates,own,cost)}<details class="plan-more"><summary>完整規則與條件檢核（詳細資料）</summary>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('收盤檢核',esc(strategyCloseText(s,rawO,dates)))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}<p>價格會隨資料更新；收盤確認與下一交易日開盤成交是不同時間。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。模型帳不等於你的持股。</p></details></div>`;
 }
 
-function refreshStrategySummaries(){
-  if(document.hidden)return;
+function refreshStrategySummaries(force=false){
+  if(document.hidden&&!force)return;
   document.querySelectorAll('.strategy-summary[data-id]').forEach(el=>{try{
-    const r=el.getBoundingClientRect();if(!r.width||!r.height||r.bottom<0||r.top>innerHeight*1.5)return;
+    const r=el.getBoundingClientRect();if(!force&&(!r.width||!r.height||r.bottom<0||r.top>innerHeight*1.5))return;
     const s=(DATA.stocks||[]).find(x=>x.id===el.dataset.id);if(!s)return;
     const ke=(KCACHE[shardOf(s)]||{})[s.id],k=ke&&ke.o?{ohlc:ke.o,dates:ke.d}:location.hash==='#stock/'+s.id?baseK:null;
     if(!k||!k.ohlc)return;const en=favEntryOf(s.id),so=el.dataset.history==='1'?Object.assign({},s,{historyOnly:true}):s;
