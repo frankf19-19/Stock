@@ -2635,3 +2635,8 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .plan-more{margin-top:12px;border-top:1px solid var(--border,#7775);padding-top:10px;overflow-wrap:anywhere}.plan-more summary{cursor:pointer;font-weight:600;font-size:14px}.plan-more p,.stock-profile p{font-size:14px;line-height:1.8}
 
 .strategy-summary>h3{justify-content:flex-start;text-align:left}
+
+/* r1163: 先列進場／停損／停利價格，且標明試算基準。 */
+.plan-action{font-weight:600;line-height:1.7;color:var(--gold,#d8b65b)}.plan-basis{padding:9px;background:var(--card,rgba(128,128,128,.08));line-height:1.7}
+.plan-prices{margin:12px 0 18px}.plan-price-row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;padding:12px 0;border-bottom:1px solid var(--border,#7775)}.plan-price-row dt{font-size:14px;line-height:1.6}.plan-price-row dd{margin:0;min-width:0}.plan-price-row dd>strong{display:block;font-size:20px;line-height:1.4;overflow-wrap:anywhere}.plan-price-row small{display:block;margin-top:5px;color:var(--dim);font-size:13px;line-height:1.7}
+@media(max-width:600px){.plan-price-row{grid-template-columns:1fr;gap:4px}.plan-price-row dd>strong{font-size:22px}}
