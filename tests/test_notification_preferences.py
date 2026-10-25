@@ -19,7 +19,7 @@ class NoticeTests(unittest.TestCase):
   stock={'id':'2330','name':'台積電','market':'TW','al':{'bull':True,'z0':115,'z1':125}}
   aip={'weeks':[{'picks':[{'id':'2330','legs':[{'entry':100}]}]}]} if model else {}
   ud={'fav_ids':['2330'] if fav else [],'port1':[{'id':'2330','cost':cost}] if cost is not None else []}
-  with patch.object(N,'lead_signal',return_value=[]),patch.object(N,'_acc',return_value={}),patch.object(N,'fav_levels',return_value={}):
+  with patch.object(N,'plan_price_events',return_value={}),patch.object(N,'lead_signal',return_value=[]),patch.object(N,'_acc',return_value={}),patch.object(N,'fav_levels',return_value={}):
    return N.collect_fav_events({'stocks':[stock]},aip,{'2330':px},ud)
  def test_model_cost_never_becomes_user_cost(self):
   r=self.fixture();self.assertFalse(any(e[0].startswith(('ftp|','fsl|')) for e in r))

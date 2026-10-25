@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1168';
+const APP_BUILD='r1169';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1182,6 +1182,21 @@ function stockContextEvidence(e,kind,asof){
   if((a.n-(a.boundary_marks||0))<10||(z.n-(z.boundary_marks||0))<10)return 'small';
   return [a,z].every(x=>Number.isFinite(x.avg_pct)&&x.avg_pct>0&&Number.isFinite(x.pf)&&x.pf>=1.1&&x.positive_years>=Math.ceil(x.years/2))?'positive':'unstable';
 }
+// r1169: one bundle shared by page observations and the read-only Node background bridge.
+function stockContextNoticeInput(s,raw,dates,now=new Date()){
+ const current=stockContextPlan(s,raw,dates,now),check=strategyCloseCheck(s,raw,dates,now);if(!current||!check)return null;
+ const n=raw.length-check.excluded;if(n<2)return null;
+ const previous=stockContextPlan(Object.assign({},s,{price:+raw[n-2][3]}),raw.slice(0,n-1),dates.slice(0,n-1),now);
+ const profiles=typeof STOCK_CONTEXT_PROFILES!=='undefined'&&STOCK_CONTEXT_PROFILES;
+ for(const p of [current,previous])if(p)p.evidence=stockContextEvidence(profiles&&profiles.stocks[s.market+':'+s.id],p.kind,p.asof);
+ return {market:s.market,id:s.id,price:strategyNumber(s.price),current,previous,prevClose:+strategyAdjustedBars(s,raw,dates)[n-2][3],now:now.getTime()};
+}
+function stockContextPriceNotices(s,raw,dates,now=new Date()){
+ if(typeof StockPlanNotices==='undefined')return [];
+ if(!STOCK_CONTEXT_PROFILES)stockContextLoad();
+ const input=stockContextNoticeInput(s,raw,dates,now);return input?StockPlanNotices.events(input):[];
+}
+
 function stockContextHTML(s,raw,dates){
   const p=stockContextPlan(s,raw,dates),esc=x=>newsEsc(String(x)),us=s.market==='US',money=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:2})+(us?' 美元／股':' 元／股');
   if(!p)return '<section class="stock-context plain-plan-card"><h4>這檔目前適合怎麼買賣？</h4><p>完整資料、流動性或價格連續性尚未通過檢查，暫不提供新的進出場價。下方保留原策略條件。</p></section>';
@@ -1197,7 +1212,7 @@ function stockContextHTML(s,raw,dates){
   const evidence=stockContextEvidence(e,p.kind,p.asof);
   if(p.valid&&!p.invalidated&&evidence!=='positive'){const why=evidence==='unstable'?'本股這種買法的前後期表現不穩定':evidence==='small'?'本股這種買法的前後期樣本不足':'本股這種買法的歷史資料尚未取得';action='目前先不買：'+why+'。下面只列重新評估與退出價位，不能直接照價進場。';}
   const details=valid?`<p>前期每筆平均 ${a.avg_pct==null?'資料不足':a.avg_pct+'%'}；後期 ${z.avg_pct==null?'資料不足':z.avg_pct+'%'}。各期 ${a.n}／${z.n} 筆包含期末未平倉估值，不是組合年化。以預先發出的價位、後續收盤確認、下一交易日限價模擬，來回成本0.6%；不是實際委託成交。完整研究固定截止，不隨即時價改寫。</p>`:'';
-  return `<section class="stock-context plain-plan-card" data-evidence="${evidence}" data-research-loaded="${!!j}" data-research-key="${esc(s.market+':'+s.id)}"><h4>${esc(s.name||s.id)}：${title}</h4><p class="context-tag">依本股現況評估・新買法仍在研究，尚未證實有效</p><p class="direct-buy"><strong>${esc(action)}</strong></p><dl class="plan-prices">${row(p.kind==='reclaim'?(p.reclaimed?'已站回的評估線':'先站回才評估'):evidence==='positive'&&p.valid&&!p.invalidated?'買入評估區':'下次評估價位',p.kind==='reclaim'?money(p.confirm):money(p.low)+'～'+money(p.entry),p.kind==='reclaim'?(p.reclaimed?'已在這條線上，不能把過去條件追認成新買點。':'先看完整收盤能否站回；不是跌到就買。'):evidence==='positive'&&p.valid&&!p.invalidated?'價格回到這一帶且收盤止跌，再評估，盤中碰價不直接買。':'僅供下次重新評估，目前不採用這個買法。')}${p.kind==='reclaim'?row(evidence==='positive'&&p.valid&&!p.invalidated?'確認後買價上限':'重新評估的價格上限',money(p.entry),evidence==='positive'&&p.valid&&!p.invalidated?'下一交易日只考慮此價以下，超過不追。':'目前不採用；需要先重新通過價格與歷史檢查。'):''}${row('跌破就退出',money(p.stop),'僅適用在這份計畫價附近新買的部位；跳空可能賣在更低價格。')}${row('反彈先賣參考價',money(p.target),'本股近期高點壓力；到價評估獲利出場，不保證會漲到。')}</dl><p class="dim-note">${esc(p.asof)} 完整收盤計畫；最新可用報價 ${money(p.price)}。支撐破壞或報價越過賣價即暫停；最長試算40交易日。${p.netRR?'按買價上限與雙邊各0.3%費用，計畫賺賠比約 '+p.netRR.toFixed(2)+' 倍；不是勝率。':''} 價格僅適用這份新計畫；實際買入成本不同要重算，不套用到你原有持股或AI模型帳。</p><details class="plan-more"><summary>這檔的價格依據與歷史檢查</summary><p>${esc(sample)}</p>${details}<p>本股前後期各至少10筆已完成樣本、平均報酬為正、獲利因子至少1.1且至少一半有交易年份為正，才保留進一步評估資格；這仍未證明是有效新策略。上升看20日均線拉回；盤整看20／60日低點；轉弱看站回較近均線。退出價在本股低點下方保留半個20日平均波幅，反彈價看近期高點；買價同時檢查獲利空間，不以固定跌幅套全部股票。均線、低點和波動會更新，價格不是合理價或保證買點。財報僅保留原頁判讀，本情境未使用目前財報回填歷史。</p><a href="https://github.com/frankf19-19/Stock/blob/main/research/r1166/README.md" target="_blank" rel="noopener">查看完整規則、檢查結果與限制</a></details></section>`;
+  return `<section class="stock-context plain-plan-card" data-evidence="${evidence}" data-research-loaded="${!!j}" data-research-key="${esc(s.market+':'+s.id)}"><h4>${esc(s.name||s.id)}：${title}</h4><p class="context-tag">依本股現況評估・新買法仍在研究，尚未證實有效</p><p class="direct-buy"><strong>${esc(action)}</strong></p><dl class="plan-prices">${row(p.kind==='reclaim'?(p.reclaimed?'已站回的評估線':'先站回才評估'):evidence==='positive'&&p.valid&&!p.invalidated?'買入評估區':'下次評估價位',p.kind==='reclaim'?money(p.confirm):money(p.low)+'～'+money(p.entry),p.kind==='reclaim'?(p.reclaimed?'已在這條線上，不能把過去條件追認成新買點。':'先看完整收盤能否站回；不是跌到就買。'):evidence==='positive'&&p.valid&&!p.invalidated?'價格回到這一帶且收盤止跌，再評估，盤中碰價不直接買。':'僅供下次重新評估，目前不採用這個買法。')}${p.kind==='reclaim'?row(evidence==='positive'&&p.valid&&!p.invalidated?'確認後買價上限':'重新評估的價格上限',money(p.entry),evidence==='positive'&&p.valid&&!p.invalidated?'下一交易日只考慮此價以下，超過不追。':'目前不採用；需要先重新通過價格與歷史檢查。'):''}${row('跌破就退出',money(p.stop),'僅適用在這份計畫價附近新買的部位；跳空可能賣在更低價格。')}${row('反彈先賣參考價',money(p.target),'本股近期高點壓力；到價評估獲利出場，不保證會漲到。')}</dl><p class="dim-note">${esc(p.asof)} 完整收盤計畫；最新可用報價 ${money(p.price)}。支撐破壞或報價越過賣價即暫停；最長試算40交易日。${p.netRR?'按買價上限與雙邊各0.3%費用，計畫賺賠比約 '+p.netRR.toFixed(2)+' 倍；不是勝率。':''} 價格僅適用這份新計畫；實際買入成本不同要重算，不套用到你原有持股或AI模型帳。</p><button type="button" class="plan-notice-link" onclick="event.stopPropagation();document.getElementById('alertBtn').click()">🔔 設定這些價位的最愛通知</button><p class="dim-note">加入最愛並勾選「最愛個股計畫」後，會以這些價位提醒；先不買的結論仍保留。</p><details class="plan-more"><summary>這檔的價格依據與歷史檢查</summary><p>${esc(sample)}</p>${details}<p>本股前後期各至少10筆已完成樣本、平均報酬為正、獲利因子至少1.1且至少一半有交易年份為正，才保留進一步評估資格；這仍未證明是有效新策略。上升看20日均線拉回；盤整看20／60日低點；轉弱看站回較近均線。退出價在本股低點下方保留半個20日平均波幅，反彈價看近期高點；買價同時檢查獲利空間，不以固定跌幅套全部股票。均線、低點和波動會更新，價格不是合理價或保證買點。財報僅保留原頁判讀，本情境未使用目前財報回填歷史。</p><a href="https://github.com/frankf19-19/Stock/blob/main/research/r1166/README.md" target="_blank" rel="noopener">查看完整規則、檢查結果與限制</a></details></section>`;
 }
 
 function strategyPlainHTML(s,raw,dates,own,cost){
@@ -22550,6 +22565,7 @@ async function pushApi(path,body){
 /* r805:通知可細到「事件種類」。存的是事件鍵前綴(後端 notify.py 用同一套前綴);舊帳號存的大類名也相容。 */
 const PUSH_GROUPS=[
   ['AI Pick',[['fill','模型已買進／換股'],['exit','模型已賣出／到期出場'],['buy','到模型買價（待確認）'],['chase','進入模型追價範圍'],['tp','盤中到目標'],['sl','盤中觸停損'],['exp','今日到期結算提醒']]],
+  ['最愛個股計畫',[['fp_confirm','完整收盤站回評估價'],['fp_entry','到個股買入評估區／上限'],['fp_stop','跌破個股計畫防守價'],['fp_target','到個股反彈賣價']]],
   ['最愛價格觀察',[['fz','回到均線區（觀察）'],['fh','突破近期高價（觀察）'],['fl','跌破近期低價（風險）'],['fb','跌破均線區（風險）']]],
   ['持股',[['ftp','停利到價'],['fsl','停損到價']]],
   ['主力與分點',[['kb_b2','🔥 兩家以上關鍵分點同日進場'],['kb_x2','🔥 兩家以上關鍵分點同日出場'],['kb_t1','⏰ 關鍵分點達標後的預期發動日(最愛/持股)'],['kb_t2','⏰ 預期到高點/低點日(最愛/持股)'],['kb_acc','🧺 最愛有券商開始持續吃貨(全部券商・參考)'],['kb_sb','🔁 關鍵分點連買 ≥3 日'],['kb_ss','🔁 關鍵分點連賣 ≥3 日'],['bk_sb','🔁 任一券商連買 ≥5 日'],['bk_ss','🔁 任一券商連賣 ≥5 日'],['kb_b','🎯 關鍵分點進場'],['kb_x','🎯 關鍵分點出場'],['bk_b','分點主力連 3 日買'],['bk_x','分點主力連 3 日賣'],['lead_b','主力大買(法人)'],['lead_x','主力大賣(法人)'],['lead_s3','主力開始連買']]],
@@ -22557,10 +22573,10 @@ const PUSH_GROUPS=[
   ['🎯 落底燈號',[['btmm','大盤(台股・美股三大):新的落底燈亮起 / 止跌確認'],['btms','最愛・持股:落底燈亮 3 盞以上 / 止跌確認']]],   // r1127
   ['👔 內部人買賣',[['ins','最愛・持股(台股):董監大股東申報在市場賣股'],['insb','最愛・持股(美股):主管/董事在市場買進']]]];   // r1130
 // r1168: 保留事件鍵相容性；選項說明、快速選擇及頁內提醒共用勾選。
-const PUSH_KIND_HELP={fill:'模型帳已記錄買進；不是你的實際成交。',exit:'模型帳已記錄賣出，附成交價與原因。',buy:'價格到模型買區；仍須核對條件及成交記錄。',chase:'價格進入模型的追價範圍，先看上限。',tp:'觸及這筆模型目標價；不等於已成交。',sl:'觸及這筆模型停損價，優先查看持倉狀態。',exp:'這筆模型預定結算日；不是已賣出紀錄。',fz:'現價回到均線區；只作價格觀察，不是買進確認。',fh:'現價突破前20日高；不單獨當作買進訊號。',fl:'現價低於前10日低；提醒風險，不是模型已賣出。',fb:'現價低於均線區；實際出場仍看持有的策略。',ftp:'網站依自設／持股成本；台股排程依已同步持股成本＋15%。',fsl:'網站依自設／持股成本；台股排程依已同步持股成本−7%。'};
+const PUSH_KIND_HELP={fp_confirm:'對應個股頁「先站回才評估」；盤中碰到不算收盤確認。',fp_entry:'對應本股評估區／價格上限；先不買的結論仍保留。',fp_stop:'依個股頁本股防守價，不套固定7%；不是你的持股成本停損。',fp_target:'依本股反彈賣價，不套固定15%；不是已賣出或保證獲利。',fill:'模型帳已記錄買進；不是你的實際成交。',exit:'模型帳已記錄賣出，附成交價與原因。',buy:'價格到模型買區；仍須核對條件及成交記錄。',chase:'價格進入模型的追價範圍，先看上限。',tp:'觸及這筆模型目標價；不等於已成交。',sl:'觸及這筆模型停損價，優先查看持倉狀態。',exp:'這筆模型預定結算日；不是已賣出紀錄。',fz:'現價回到均線區；只作價格觀察，不是買進確認。',fh:'現價突破前20日高；不單獨當作買進訊號。',fl:'現價低於前10日低；提醒風險，不是模型已賣出。',fb:'現價低於均線區；實際出場仍看持有的策略。',ftp:'網站依自設／持股成本；台股排程依已同步持股成本＋15%。',fsl:'網站依自設／持股成本；台股排程依已同步持股成本−7%。'};
 const PUSH_ESSENTIAL=['fill','exit','tp','sl','ftp','fsl'];
 function pushOptionsHTML(){const esc=x=>newsEsc(String(x)),selected=new Set(pushCatsGet());return PUSH_GROUPS.map(([g,ks])=>`<div class="sb-catg"><div class="sb-catg-h">${esc(g)} <a href="javascript:void 0" data-catg="${esc(g)}">全選這一類</a></div><div class="sb-cats">${ks.map(([k,n])=>`<label class="notify-option"><input type="checkbox" data-cat="${k}" ${selected.has(k)?'checked':''}><span><b>${esc(n)}</b>${PUSH_KIND_HELP[k]?'<small>'+esc(PUSH_KIND_HELP[k])+'</small>':''}</span></label>`).join('')}</div></div>`).join('');}
-function pushPresetKinds(name){return name==='essential'?PUSH_ESSENTIAL.slice():name==='price'?['fz','fh','fl','fb']:[];}
+function pushPresetKinds(name){return name==='essential'?PUSH_ESSENTIAL.slice():name==='price'?['fz','fh','fl','fb']:name==='plan'?['fp_confirm','fp_entry','fp_stop','fp_target']:[];}
 function pushSignalKind(sig){
  if(sig.kind)return sig.kind;const t=String(sig.title||'');
  if(/主力開始連買/.test(t))return 'lead_s3';if(/主力大買/.test(t))return 'lead_b';if(/主力大賣/.test(t))return 'lead_x';
@@ -22571,10 +22587,10 @@ function pushSignalKind(sig){
 }
 function pushKindSelected(kind){return !!kind&&pushCatsGet().includes(kind);}
 function pushStockTitle(s,sig){return `${s.name||s.id}（${s.id}）｜${sig.title}`;}
-function pushStockTag(s,sig,kind,day){let tag='kyansuo-'+kind+'-'+s.id+'-'+day;if(sig.source){let h=2166136261;for(const x of String(sig.source)){h=Math.imul(h^x.charCodeAt(0),16777619);}tag+='-'+(h>>>0).toString(16);}return tag;}
+function pushStockTag(s,sig,kind,day){if(sig.planKey)return 'kyansuo-plan-'+sig.planKey.replace(/\|/g,'-');let tag='kyansuo-'+kind+'-'+s.id+'-'+day;if(sig.source){let h=2166136261;for(const x of String(sig.source)){h=Math.imul(h^x.charCodeAt(0),16777619);}tag+='-'+(h>>>0).toString(16);}return tag;}
 
 const PUSH_KINDS=PUSH_GROUPS.flatMap(g=>g[1].map(x=>x[0]));
-const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_t1','kb_t2','kb_acc','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:[],bias:['bias'],btm:['btmm','btms'],ins:['ins','insb']};
+const PUSH_CAT_KINDS={aip:['fill','exit','buy','chase','tp','sl','exp'],fav:['fz','fh','fl','fb','fp_confirm','fp_entry','fp_stop','fp_target'],port:['ftp','fsl'],lead:['kb_b2','kb_x2','kb_t1','kb_t2','kb_acc','kb_sb','kb_ss','bk_sb','bk_ss','kb_b','kb_x','bk_b','bk_x','lead_b','lead_x','lead_s3'],h60:[],bias:['bias'],btm:['btmm','btms'],ins:['ins','insb']};
 /* r817:舊帳號存的細項名單裡沒有新種類 → 預設補上(新種類預設開) */
 (function(){try{const a=JSON.parse(localStorage.getItem('pushCats')||'null');if(Array.isArray(a)&&!a.includes('lead')){let ch=false;['kb_b2','kb_x2','kb_sb','kb_ss','bk_sb','bk_ss','kb_t1','kb_t2'].forEach(k=>{if(!a.includes(k)){a.push(k);ch=true;}});if(ch)localStorage.setItem('pushCats',JSON.stringify(a));}
   if(Array.isArray(a)&&!a.includes('lead')&&!localStorage.getItem('pushCatsAcc1')){if(!a.includes('kb_acc'))a.push('kb_acc');localStorage.setItem('pushCats',JSON.stringify(a));localStorage.setItem('pushCatsAcc1','1');}}catch(e){}})();   // r1070:🧺 新種類只預設打開一次(之後使用者可關)
@@ -22652,13 +22668,13 @@ async function sbPushPaint(boxId,compact){                         // r810:細�
     box.innerHTML=`<div class="sb-tg-h">🔔 推播通知 <span class="sb-tg-ok">✓ 此裝置已開啟</span>${n>1?`<span class="sb-tg-no">共 ${n} 台裝置</span>`:''}</div>
       <div class="sb-note">AI Pick 成交/出場/換股/到價、最愛與持股訊號、主力進出——關掉網頁也會跳通知。</div>
       <div class="sb-cats-h">要收哪些通知 <a href="javascript:void 0" data-catall="1">全選</a>・<a href="javascript:void 0" data-catall="0">全不選</a></div>
-      <div class="notify-presets"><button type="button" data-catpreset="essential">只選成交與停損停利</button><button type="button" data-catpreset="price">只選最愛價格觀察</button></div><p class="sb-note">目前勾選會保留。想減少提醒可自行選上方模式；價格觀察不代表可以買進。台股持股的排程提醒固定＋15%／−7%，本機自訂值不會套用。</p>${pushOptionsHTML()}<div class="sb-note" id="pushSettingStatus" role="status" aria-live="polite"></div><button type="button" class="sb-alt" id="pushCatsRetry" hidden>重試同步通知設定</button>
+      <div class="notify-presets"><button type="button" data-catpreset="plan">只選個股計畫價位</button><button type="button" data-catpreset="essential">只選成交與停損停利</button><button type="button" data-catpreset="price">只選最愛價格觀察</button></div><p class="sb-note">目前勾選會保留。想減少提醒可自行選上方模式；價格觀察不代表可以買進。台股持股的排程提醒固定＋15%／−7%，本機自訂值不會套用。</p>${pushOptionsHTML()}<div class="sb-note" id="pushSettingStatus" role="status" aria-live="polite"></div><button type="button" class="sb-alt" id="pushCatsRetry" hidden>重試同步通知設定</button>
       <div class="sb-note" style="margin-top:8px">⚡ <b>AI Pick 即時哨兵</b>:由現有背景服務另行監看模型價位。實際收到時間依報價與裝置狀態，到價提醒不等於已成交。</div>
       <button class="sb-alt" id="sbPushTest">🔔 測試即時推播</button>
       <button class="sb-alt" id="sbPushOff">關閉此裝置推播</button>`;
     let catSaving=false,catPending=null;
     const catFlush=async()=>{if(catSaving)return;catSaving=true;while(catPending){const payload=catPending;catPending=null;try{await pushApi('/push/sync',payload);const status=box.querySelector('#pushSettingStatus');if(status)status.textContent=catPending?'還有變更待同步…':'設定已同步';const retry=box.querySelector('#pushCatsRetry');if(retry)retry.hidden=true;}catch(e){const status=box.querySelector('#pushSettingStatus');if(status)status.textContent='已保存在這個瀏覽器，背景推播尚未同步成功；請稍後重試。';const retry=box.querySelector('#pushCatsRetry');if(retry)retry.hidden=false;}}catSaving=false;};
-    const saveCats=()=>{const sel=[...box.querySelectorAll('input[data-cat]:checked')].map(x=>x.dataset.cat);sel.push('btm_v1','ins_v1');/* r1127:標記看過落底燈號選項 */try{localStorage.setItem('pushCats',JSON.stringify(sel));}catch(e){const status=box.querySelector('#pushSettingStatus');if(status)status.textContent='這個瀏覽器無法保存設定，尚未同步；請檢查儲存空間後重試。';return;}catPending=pushProfile();catFlush();};
+    const saveCats=()=>{const sel=[...box.querySelectorAll('input[data-cat]:checked')].map(x=>x.dataset.cat);const prior=typeof pushCatsGet==='function'?pushCatsGet():[];for(const k of prior)if(!PUSH_KINDS.includes(k)&&!['btm_v1','ins_v1'].includes(k)&&!sel.includes(k))sel.push(k);sel.push('btm_v1','ins_v1');/* r1127:標記看過落底燈號選項 */try{localStorage.setItem('pushCats',JSON.stringify(sel));}catch(e){const status=box.querySelector('#pushSettingStatus');if(status)status.textContent='這個瀏覽器無法保存設定，尚未同步；請檢查儲存空間後重試。';return;}catPending=pushProfile();catFlush();};
     box.querySelector('#pushCatsRetry').onclick=()=>{catPending=pushProfile();catFlush();};
     box.querySelectorAll('input[data-cat]').forEach(cb=>cb.onchange=saveCats);
     box.querySelectorAll('[data-catpreset]').forEach(a=>a.onclick=()=>{const ks=new Set(pushPresetKinds(a.dataset.catpreset));box.querySelectorAll('input[data-cat]').forEach(cb=>cb.checked=ks.has(cb.dataset.cat));saveCats();});
@@ -24443,10 +24459,12 @@ function favAlertLogPush(it){const o=favAlertLog();o.items.unshift(it);o.items=o
 function favAlertFire(s,sig){
   if(!SB_USER)return false;
   const kind=pushSignalKind(sig);if(!pushKindSelected(kind))return false;
+  let planSeen={};if(sig.planKey){try{planSeen=JSON.parse(localStorage.getItem('planNoticeSeenV1')||'{}')||{};}catch(e){}if(planSeen[sig.planKey])return false;}
   const source=sig.source||(/AI Pick|主力/.test(sig.title)?sig.title:'');
   const key='fav2|'+s.id+'|'+kind+'|'+source,legacy='fav|'+s.id+'|'+sig.k+'|'+sig.title;
   const seen=alSeen().k;if(seen[key]||seen[legacy])return false;
   alMark(key);
+  if(sig.planKey){const cut=Date.now()-40*864e5;for(const k of Object.keys(planSeen))if(!Number.isFinite(planSeen[k])||planSeen[k]<cut)delete planSeen[k];planSeen[sig.planKey]=Date.now();try{localStorage.setItem('planNoticeSeenV1',JSON.stringify(planSeen));}catch(e){}}
   if(!SB_USER)return;                                        // r882:未登入不記錄、不跳提醒
   const tp=aipTpDate();
   favAlertLogPush({id:s.id,name:s.name,k:sig.k,title:sig.title,text:sig.text,t:`${String(tp.getHours()).padStart(2,'0')}:${String(tp.getMinutes()).padStart(2,'0')}`});
@@ -24508,16 +24526,20 @@ function leadSignals(s,e,k){
 async function favAlertSweep(){
   try{
     if(!DATA||!DATA.stocks||!favAlertOn())return;
-    const ids=favList().slice(0,40);
+    const watchPlan=['fp_confirm','fp_entry','fp_stop','fp_target'].some(pushKindSelected);
+    if(watchPlan){await adj1Load();await stockContextLoad();}
+    const ids=favList();
     if(!ids.length)return;
     let loads=0;
     for(const id of ids){
       const s=DATA.stocks.find(x=>x.id===id);
-      if(!s||s.market!=='TW'||s.etf||!(s.price>0))continue;
+      if(!s||s.etf||!(s.price>0))continue;
       const sh=shardOf(s);
       let o=null,dts=null;
       if(KCACHE[sh]&&KCACHE[sh]!=='loading'&&KCACHE[sh][id]&&Array.isArray(KCACHE[sh][id].o)){o=KCACHE[sh][id].o;dts=KCACHE[sh][id].d;}
-      else if(loads<2&&FAV_K_LOADS<60){loads++;FAV_K_LOADS++;try{const k=await loadK(s);if(k&&!k.demo){o=k.ohlc;dts=k.dates;}}catch(e){}}
+      else if(loads<2&&(FAV_K_LOADS<60||watchPlan)){loads++;FAV_K_LOADS++;try{const k=await loadK(s);if(k&&!k.demo){o=k.ohlc;dts=k.dates;}}catch(e){}}
+      if(watchPlan&&o&&dts)stockContextPriceNotices(s,o,dts).forEach(g=>favAlertFire(s,g));
+      if(s.market!=='TW')continue;
       const P=favPlanOf(s,o,dts);
       const sigs=favSignals(s,P,+s.price,0);
       sigs.forEach(g=>favAlertFire(s,g));

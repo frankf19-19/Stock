@@ -1,0 +1,16 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const notices=require('../plan_notices.js');
+const now=Date.parse('2026-10-25T12:00:00Z'),p={kind:'reclaim',asof:'2026-10-22',entry:2425,low:2415,confirm:2420,stop:2365,target:2590,close:2385,valid:true,evidence:'small',reclaimed:false};
+const run=(price,more={})=>notices.events({market:'TW',id:'2330',price,current:{...p},prevClose:2390,now,...more});
+test('盤中到2422只觀察評估區，不冒充收盤站回',()=>{const r=run(2422);assert.equal(r.length,1);assert.equal(r[0].kind,'fp_entry');assert.equal(r[0].level,2425);assert.match(r[0].text,/仍須完整收盤站回 2,420/);assert.match(r[0].text,/目前先不買/);});
+test('當前2385低於評估區、不會因低於2425上限就假稱可以買',()=>assert.equal(run(2385).length,0));
+test('防守2365、反彈2590使用個股頁相同價位，未用成本百分比代替',()=>{assert.equal(run(2365)[0].kind,'fp_stop');assert.equal(run(2365)[0].level,2365);assert.equal(run(2590)[0].level,2590);assert.match(run(2365)[0].text,/不是成交或持股賣出指令/);});
+test('收盤換版不漏原防守2365已破，通知標明原計畫日期',()=>{const current={...p,asof:'2026-10-23',close:2350,stop:2300,low:2370,entry:2390,confirm:2380};const r=run(2350,{current,previous:p,prevClose:2385});const stop=r.find(x=>x.kind==='fp_stop');assert.equal(stop.level,2365);assert.equal(stop.asof,'2026-10-22');assert.match(stop.text,/完整收盤 2026-10-23/);assert.match(stop.text,/不因今天重算較低價而漏掉風險/);});
+test('站回通知只能用完整收盤，盤中報價高於線仍不是確認',()=>{assert.equal(run(2500).some(x=>x.kind==='fp_confirm'),false);const r=run(2430,{current:{...p,asof:'2026-10-23',close:2430,reclaimed:true},previous:p,prevClose:2385});assert.ok(r.some(x=>x.kind==='fp_confirm'&&x.level===2420));});
+test('上升／盤整使用買入區，轉弱使用收復線到上限之間',()=>{const r=run(2418,{current:{...p,kind:'pullback',evidence:'positive'}});assert.equal(r[0].kind,'fp_entry');assert.equal(run(2418).length,0);});
+test('缺資料、無效價、未來或過舊計畫不出到價訊息',()=>{for(const current of [null,{...p,asof:'2026-01-01'},{...p,asof:'2026-11-01'},{...p,stop:NaN}])assert.equal(run(2400,{current}).length,0);assert.equal(run(NaN).length,0);});
+test('同一計畫事件鍵不隨報價或文案改動，價位換版才換識別',()=>{const a=run(2422)[0],b=run(2423)[0];assert.equal(a.planKey,b.planKey);const z=run(2423,{current:{...p,entry:2430}})[0];assert.notEqual(a.planKey,z.planKey);});
+test('台美共用條件、美股保留美元價格',()=>{const q={...p,entry:101.25,low:100.5,confirm:101,stop:95.2,target:110.75,close:99};const r=run(101.1,{market:'US',id:'AAPL',current:q,prevClose:100});assert.match(r[0].text,/美元／股/);assert.match(r[0].planKey,/fp_entry\|US\|AAPL/);});
+test('背景橋接直接使用網頁計畫與adj1y來源，2330四價完全一致',()=>{const {build}=require('../build_plan_notices.cjs'),r=build(require('node:path').join(__dirname,'..'),new Date(now)),row=r.stocks['TW:2330'];assert.ok(Object.keys(r.stocks).length>1000);assert.ok([row.current.confirm,row.current.entry,row.current.stop,row.current.target].every(x=>Number.isFinite(x)&&x>0));assert.ok(row.current.stop<row.current.entry&&row.current.entry<row.current.target);assert.equal(r.code_sha256,require('node:crypto').createHash('sha256').update(fs.readFileSync(require('node:path').join(__dirname,'../app.js'))).digest('hex'));assert.equal(r.version,'r1169');});
+
+test('無效曆日不產生價位提醒',()=>assert.equal(run(2422,{current:{...p,asof:'2026-02-31'},now:Date.parse('2026-03-04T12:00:00Z')}).length,0));

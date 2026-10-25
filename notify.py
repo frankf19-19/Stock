@@ -25,7 +25,8 @@
   LINE_TOKEN / LINE_USER_ID   選配;都設了才會同時推 LINE
   SB_SERVICE_KEY / SB_UID     選配;讀最愛名單與持股成本(三級訊號需要)
 """
-import json, os, re, datetime as dt, hashlib, html, math
+import json, os, re, datetime as dt, hashlib, html, math, subprocess, shutil
+from pathlib import Path
 import requests
 
 TZ = dt.timezone(dt.timedelta(hours=8))
@@ -39,6 +40,7 @@ LEAD_DAILY_MAX = 3          # r795:主力進出每人每日最多 3 則(最吵�
 CAT_OF = {"fill": "aip", "rot": "aip", "rotbuy": "aip", "exit": "aip", "buy": "aip", "tp": "aip", "sl": "aip", "chase": "aip", "exp": "aip",
           "fz": "fav", "fh": "fav", "fl": "fav", "fb": "fav", "ftp": "port", "fsl": "port",
           "lead_b": "lead", "lead_x": "lead", "lead_s": "lead", "lead_s3": "lead", "bk_b": "lead", "bk_x": "lead", "kb_b": "lead", "kb_x": "lead", "kb_b2": "lead", "kb_x2": "lead", "kb_sb": "lead", "kb_ss": "lead", "kb_acc": "lead", "bk_sb": "lead", "bk_ss": "lead", "kb_t1": "lead", "kb_t2": "lead", "hs": "h60", "bias": "bias", "btmm": "btm", "btms": "btm", "ins": "ins", "insb": "ins"}
+CAT_OF.update({k:'fav' for k in ('fp_confirm','fp_entry','fp_stop','fp_target')})
 CAT_NAME = {"aip": "AI Pick", "fav": "最愛訊號", "port": "持股停利停損", "lead": "主力進出", "h60": "60 分 K 突破", "bias": "大盤週乖離", "btm": "落底燈號", "ins": "內部人買賣"}
 def cat_of(key):
     p = str(key).split("|")[0]
@@ -194,6 +196,7 @@ def log_signals(ev, prices):
     have = set(x["k"] for x in L.get("items") or [])
     n = 0
     for k, lv, txt in ev:
+        if str(k).split('|')[0] in ('fp_confirm','fp_entry','fp_stop','fp_target'):continue  # Price observations are not buy/sell predictions.
         if k in have: continue
         parts = str(k).split("|")
         sid = next((p for p in parts[1:] if re.match(r"^\d{4,6}[A-Z]?$", p)), None)
@@ -218,7 +221,7 @@ def log_signals(ev, prices):
 
 
 # r1168: preference filtering and presentation only; no new trading signal.
-NOTICE_LABELS={'fill':'模型已買進','rot':'模型換股買進','rotbuy':'模型換股買進','exit':'模型已賣出','buy':'到模型買價・待確認','chase':'進入模型追價範圍','tp':'模型目標到價','sl':'模型停損到價','exp':'模型到期提醒','fz':'回到均線區・觀察','fh':'突破近期高價・觀察','fl':'跌破近期低價・風險','fb':'跌破均線區・風險','ftp':'持股停利線到價','fsl':'持股停損線到價'}
+NOTICE_LABELS={'fp_confirm':'收盤站回個股評估價','fp_entry':'到個股評估區・觀察','fp_stop':'跌破個股計畫防守價','fp_target':'到個股反彈賣價','fill':'模型已買進','rot':'模型換股買進','rotbuy':'模型換股買進','exit':'模型已賣出','buy':'到模型買價・待確認','chase':'進入模型追價範圍','tp':'模型目標到價','sl':'模型停損到價','exp':'模型到期提醒','fz':'回到均線區・觀察','fh':'突破近期高價・觀察','fl':'跌破近期低價・風險','fb':'跌破均線區・風險','ftp':'持股停利線到價','fsl':'持股停損線到價'}
 
 def filter_notice_events(events,cats):
     if not isinstance(cats,list):return list(events)
@@ -229,11 +232,11 @@ def filter_notice_events(events,cats):
     return [e for e in events if ({'rot':'fill','rotbuy':'fill'}.get(str(e[0]).split('|')[0],str(e[0]).split('|')[0]) in sel or cat_of(e[0]) in sel)]
 
 def notice_important(event):
-    return event[1]==1 or str(event[0]).split('|')[0] in ('sl','fsl','tp','ftp')
+    return event[1]==1 or str(event[0]).split('|')[0] in ('sl','fsl','tp','ftp','fp_stop','fp_target')
 
 def notice_priority(event):
     prefix=str(event[0]).split('|')[0]
-    return (0 if prefix in ('sl','fsl') else 1 if event[1]==1 else 2 if prefix in ('tp','ftp') else 3,event[1])
+    return (0 if prefix in ('sl','fsl','fp_stop') else 1 if event[1]==1 else 2 if prefix in ('tp','ftp','fp_target') else 3,event[1])
 
 def notice_summary(events,data):
     ordered=sorted(events,key=notice_priority);by={str(s['id']):s for s in data.get('stocks',[])}
@@ -248,7 +251,7 @@ def notice_summary(events,data):
     if len(ordered)>4:body+=f"\n另有 {len(ordered)-4} 則，請開啟網站查看。"
     if len(ordered)>1:title+=f' 等{len(ordered)}則'
     prefix=str(ordered[0][0]).split('|')[0]
-    tag=f'kyansuo-{prefix}-{sid}-{TODAY}' if len(ordered)==1 and sid and prefix in ('fz','fh','fl','fb','ftp','fsl') else 'kyansuo-'+hashlib.sha256('|'.join(str(e[0]) for e in ordered).encode()).hexdigest()[:20]
+    tag='kyansuo-plan-'+str(ordered[0][0]).replace('|','-') if len(ordered)==1 and prefix.startswith('fp_') else f'kyansuo-{prefix}-{sid}-{TODAY}' if len(ordered)==1 and sid and prefix in ('fz','fh','fl','fb','ftp','fsl') else 'kyansuo-'+hashlib.sha256('|'.join(str(e[0]) for e in ordered).encode()).hexdigest()[:20]
     return {'title':title,'body':body,'url':SITE+'#stock/'+sid if len(ordered)==1 and sid else SITE+'#port' if all(cat_of(e[0])=='port' for e in ordered) else SITE+'#fav' if all(cat_of(e[0]) in ('fav','port') for e in ordered) else SITE+'#aipick','tag':tag}
 
 def send_push_to(subs, title, body, url=SITE + "#aipick", tag=None):
@@ -408,6 +411,37 @@ def _acc():
     return _ACC
 
 
+# r1169: exact browser plan + one shared event contract. Never approximate with fixed percentages.
+_PLAN_NOTICE_CACHE=None
+_PLAN_KINDS={'fp_confirm','fp_entry','fp_stop','fp_target'}
+def plan_price_events():
+    global _PLAN_NOTICE_CACHE
+    if _PLAN_NOTICE_CACHE is not None:return _PLAN_NOTICE_CACHE
+    _PLAN_NOTICE_CACHE={}
+    try:
+        root=Path(__file__).resolve().parent;node=shutil.which('node')
+        if not node:raise RuntimeError('Node runtime unavailable')
+        result=subprocess.run([node,str(root/'build_plan_notices.cjs')],cwd=root,capture_output=True,text=True,encoding='utf-8',timeout=25,check=True)
+        snapshot=json.loads(result.stdout)
+        if snapshot.get('schema')!=1 or snapshot.get('version')!='r1169':raise RuntimeError('Plan contract schema mismatch')
+        if snapshot.get('code_sha256')!=hashlib.sha256((root/'app.js').read_bytes()).hexdigest():raise RuntimeError('Plan code changed while calculating')
+        _PLAN_NOTICE_CACHE=snapshot.get('stocks') or {}
+    except Exception as e:log('  個股計畫價位通知暫停：無法核對同源計畫（其他通知照常）。')
+    return _PLAN_NOTICE_CACHE
+
+def collect_plan_price_events(stock,price,cats):
+    if isinstance(cats,list) and 'fav' not in cats and not (_PLAN_KINDS & set(cats)):return []
+    sid=str(stock['id']);row=plan_price_events().get(str(stock.get('market'))+':'+sid)
+    try:
+        if not row or abs(float(row['price'])-float(price))>1e-8:return []
+    except (KeyError,TypeError,ValueError):return []
+    out=[]
+    for event in row.get('events') or []:
+        if event.get('kind') not in _PLAN_KINDS or not str(event.get('planKey','')).startswith(event['kind']+'|'):continue
+        text=f"<b>{html.escape(str(stock.get('name') or sid))}</b>({sid}){html.escape(event['title'])}\n{html.escape(event['text'])}"
+        out.append((event['planKey'],3,text))
+    return out
+
 def collect_fav_events(data, aip, prices, ud):
     """三級:最愛的六種訊號 + 持股停利/停損。鏡射前端 favSignals 的門檻。"""
     ev = []
@@ -423,10 +457,12 @@ def collect_fav_events(data, aip, prices, ud):
         for p in w.get("picks") or []: picks[p["id"]] = (w, p)
     for sid in favs:
         s = by.get(sid)
-        if not s or s.get("market") != "TW" or s.get("etf"): continue
+        if not s or s.get("etf"): continue
         px = prices.get(sid)
         if not px: continue
         nm = s.get("name") or sid
+        if sid in fav_set:ev.extend(collect_plan_price_events(s,px,ud.get("cats")))
+        if s.get("market")!="TW":continue
         if sid in fav_set:
             try: ev.extend(lead_signal(sid, nm))                     # r779:主力進出(法人日資料)
             except Exception: pass

@@ -74,7 +74,7 @@ function aipTitle(t) {
   } catch (err) { return t; }
 }
 // r1168: 只對已知獨立事件tag靜默更新；未升級的哨兵tag保留原提醒方式。
-function noticeRenotify(tag){return !/^kyansuo-(?:[0-9a-f]{20}$|(?:fz|fh|fl|fb|ftp|fsl)-)/.test(String(tag||''));}
+function noticeRenotify(tag){return !/^kyansuo-(?:[0-9a-f]{20}$|(?:plan|fz|fh|fl|fb|ftp|fsl)-)/.test(String(tag||''));}
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data ? e.data.text() : '' }; }
