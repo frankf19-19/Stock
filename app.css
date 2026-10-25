@@ -2646,3 +2646,10 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 
 /* r1166: 本股現況價位先讀，極端跌深保留為備案。 */
 .stock-context{margin:12px 0;border-left:3px solid var(--accent,#d6b45d)}.context-tag{font-size:12px;color:var(--dim);line-height:1.7}.original-dip-plan{margin-top:16px}.stock-context .plan-prices{margin-top:12px}
+
+/* r1168: 原生勾選加白話說明，手機保持單欄。 */
+.sb-cats .notify-option{align-items:flex-start;padding:8px;border:1px solid var(--line);border-radius:8px;min-width:0}.notify-option input{margin-top:3px;flex-shrink:0}.notify-option span{min-width:0}.notify-option b{font-weight:650}.notify-option small{display:block;color:var(--dim);font-size:11px;line-height:1.6;margin-top:3px}.notify-presets{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.notify-presets button{border:1px solid var(--line);background:var(--bg);color:var(--txt);padding:7px 9px;border-radius:7px;cursor:pointer}.sb-cats .notify-option:has(input:checked){border-color:var(--t-gold)}
+
+#bellPanel .sb-cats{grid-template-columns:1fr}#bellPanel .notify-option{overflow-wrap:anywhere}#bellPanel .notify-presets button{max-width:100%;white-space:normal}
+
+#pushCatsRetry[hidden]{display:none}
