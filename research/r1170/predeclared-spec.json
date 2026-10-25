@@ -1,0 +1,36 @@
+{
+  "models": [
+    "trend20",
+    "trend60",
+    "break20",
+    "break60",
+    "range20",
+    "reclaim60"
+  ],
+  "periods": {
+    "development": [
+      "2016-01-01",
+      "2021-01-01"
+    ],
+    "validation": [
+      "2021-01-01",
+      "2024-01-01"
+    ],
+    "recent_audit": [
+      "2024-01-01",
+      null
+    ]
+  },
+  "roundtrip_cost": 0.006,
+  "selection": "development only; >=10 completed, positive mean, PF>=1.1, >=half positive years; highest mean among eligible; ties fixed model order",
+  "qualification": "selected model must independently pass validation with >=6 completed; recent_audit is descriptive and cannot choose or replace the model",
+  "orders": "prior-close levels, confirmation close, next market session one-day limit ceiling, gap below stop cancels",
+  "limitations": [
+    "Research-only conditional templates, not validated live trading recommendations.",
+    "Existing universe survivorship bias; historical periods previously examined, not unseen.",
+    "Daily-bar conservative assumptions; no queue/limit lock/slippage simulation.",
+    "Adjusted research prices; not a guarantee of historical legal ticks or future execution.",
+    "Event averages are not portfolio CAGR or drawdown; boundary losses retained.",
+    "No current financial statements backfilled into historical signals."
+  ]
+}
