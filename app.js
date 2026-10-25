@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1164';
+const APP_BUILD='r1165';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1153,8 +1153,8 @@ function strategyPlainHTML(s,raw,dates,own,cost){
   if(s.historyOnly||s.etf||!r||r.jump)return header+`<p class="plain-status">${s.etf?'這檔是ETF，尚未驗證適用的買賣規則。':r&&r.jump?'近期價格有大幅跳動，需要先核對除權、減資或分割。':'完整收盤資料尚未對齊，目前無法確認買進或賣出條件。'}</p><p>${esc(ownLine)}</p>`;
   const b=strategyAdjustedBars(s,raw,dates).slice(0,raw.length-r.excluded),h=w=>b.length>=w?Math.max(...b.slice(-w).map(x=>+x[1])):null,hi60=h(60),hi250=h(250),dip=hi60*(us?.65:.60);
   const row=(label,text)=>`<div class="plain-plan-line"><b>${label}</b><p>${text}</p></div>`;
-  const ready=r.liquid&&(r.dip==='first'||(!us&&r.breaks.length));
-  let status=!r.liquid?'成交量資料不足或成交金額未達這套規則的要求，暫不確認可執行買點。':ready?'這個收盤有符合進場條件；只對應該收盤後的下一交易日開盤，已過時點需重新確認。':'目前策略：等待，不新增買進。最近這個收盤尚未符合新的進場條件。';
+  const ready=r.liquid&&r.dip==='first'; // r1165: 主畫面專注回檔買入，創高策略另列。
+  let status=!r.liquid?'成交量資料不足或成交金額未達這套規則的要求，暫不確認可執行買點。':ready?'這個收盤有符合進場條件；只對應該收盤後的下一交易日開盤，已過時點需重新確認。':'回檔買入策略：目前等待，最近收盤還沒達到買入條件。';
   if(r.dip==='already'&&!ready)status='股價仍在大跌範圍，但這次不是首次符合條件，不能每天重複當成新買點。';
   const priceRow=(label,value,note)=>`<div class="plan-price-row"><dt>${label}</dt><dd><strong>${value}</strong><small>${note}</small></dd></div>`;
   let cards='';
@@ -1165,10 +1165,14 @@ function strategyPlainHTML(s,raw,dates,own,cost){
   }
   const trigger=us?Math.floor(dip*100+1e-9)/100:strategyPrice(dip,false,'down'),plan=strategyDipPricePlan(s,en||trigger,!!en),stop=plan&&plan.stop,target=plan&&plan.target;
   const dipState=en?(px<=stop?'若這筆採用大跌承接策略：目前可用報價已到停損範圍，依原規則出場。':px>=target?'若這筆採用大跌承接策略：目前可用報價已到停利範圍，依原規則出場。':'若這筆採用大跌承接策略：持有追蹤，尚未碰到以下停損或停利價。'):!r.liquid?'等待：成交金額或資料條件未通過。':r.dip==='first'?'這個收盤首次符合跌深條件，只對應該收盤後下一交易日開盤；表內為尚未成交試算。':r.dip==='already'?'等待：已在跌深區，但不是首次，不重複進場。':'等待：尚未跌到這套策略的進場條件。';
-  const dipTable=plan?`<p class="plan-action">${esc(dipState)}</p><p class="plan-basis">${en?'按你的實際買入成本計算':'未成交試算：假設以進場觀察價買入，不是現在的買進訊號'}</p><dl class="plan-prices">${priceRow(en?'你的買入成本':'進場觀察／假設買價',money(plan.entry),en?'僅適用你採用大跌承接策略的這筆持股。':'首次收盤達到跌幅門檻後，仍須等下一交易日開盤；開盤價不同就重算全部價位。')}${priceRow('停損賣出價',money(stop),`按${en?'你的成本':'上述假設買價'}下方${us?'20':'15'}%計算並依價格跳動取整。`)}${priceRow('停利賣出價',money(target),`按同一${en?'成本':'假設買價'}上方${us?'30':'20'}%計算並依價格跳動取整。`)}${priceRow('最長持有',plan.hold+'交易日','停損或停利先到就先出場；跳空、費用與實際成交價可能影響損益。')}</dl>`:'';
+  const basisPx=px||r.close,distance=Math.max(0,basisPx-trigger),distanceText=basisPx>trigger?`${px?'目前報價':'最近收盤'} ${money(basisPx)}，還要再跌 ${money(distance)}（${(distance/basisPx*100).toFixed(1)}%）才到這個買入價。`:`${px?'目前報價':'最近收盤'}已到此價以下；仍須核對是否首次收盤達價。`;
+  const buySentence=!r.liquid?`買入條件價為 ${money(trigger)} 以下；成交資料或成交金額尚未符合要求，目前先不買。`:r.dip==='already'?`買入條件價為 ${money(trigger)} 以下，但這次不是首次達價，不重複買入。`:`首次收盤跌到 ${money(trigger)} 以下，下一交易日開盤買入；只在條件成立後執行。`;
+  const dipTable=plan?`<p class="direct-buy"><strong>${esc(buySentence)}</strong></p><p class="plan-distance">${esc(distanceText)}</p><dl class="plan-prices">${priceRow('跌到多少買',money(trigger)+' 以下','首次收盤達價後，下一交易日開盤買；盤中跌到不算確認。')}${en?priceRow('你的買進成本',money(en),'下面的停損、停利改按這個成本計算，僅適用採用這套策略的持股。'):''}${priceRow('跌到多少停損',money(stop),'持有後跌到這個價位，依這套策略停損賣出。')}${priceRow('漲到多少停利',money(target),'持有後漲到這個價位，依這套策略停利賣出。')}</dl><p class="plan-basis">${en?'停損／停利按你填的成本 '+money(en)+' 計算。':'停損／停利先按買在 '+money(trigger)+' 計算；實際成交後按成本重算。'}</p><p class="dim-note">最長持有 ${plan.hold} 交易日。依 ${esc(r.asof)} 完整收盤計算，買入價會隨本股資料更新；跳空、費用可能影響實際損益。</p>${en?'<p class="plan-action">'+esc(dipState)+'</p>':''}`:'';
+  const otherCards=cards;
 
-  cards+=`<section class="plain-plan-card"><h4>${us?'買法：':'買法二：'}等明顯大跌後再承接</h4>${dipTable}<details class="plan-more"><summary>查看價格怎麼算與進出場條件</summary>${row('這個低價怎麼來',`近60日最高價為 ${money(hi60)}。這套規則要求從高點下跌${us?'35':'40'}%，所以理論門檻約 <strong>${money(dip)}</strong>，按可交易價格跳動列出的進場觀察價為 <strong>${money(trigger)}</strong>。這不是合理價、目標價，也不表示一定會跌到這裡。`)}${row('買進要等',`首次收盤符合上述跌幅，且成交金額足夠，才在下一交易日開盤進場。${r.dip==='first'?'最近這次收盤首次符合跌幅條件。':r.dip==='already'?'最近收盤已在範圍內，但不是首次，不重複當成新買點。':'最近這次收盤還沒跌到上述幅度。'}開盤成交價可能不同，停損與停利要按實際成交價重算。`)}${row('停損價',en?`若你確實採用這套買法，按你填的成本 ${money(en)}，停損為 <strong>${money(stop)}</strong>（成本下方${us?'20':'15'}%）。`:`上表停損 ${money(stop)} 是按假設買價 ${money(plan&&plan.entry)} 計算，不是把目前股價直接扣掉${us?'20':'15'}%；實際成交後重算。`)}${row('停利價',en?`同一筆交易的停利為 <strong>${money(target)}</strong>（成本上方${us?'30':'20'}%）；最長持有${us?'90':'60'}交易日。`:`上表停利 ${money(target)} 與停損使用同一假設買價；實際成交後重算，最長持有${us?'90':'60'}交易日。`)}</details></section>`;
-  return header+`<div class="plain-status"><strong>最近一次收盤：${esc(r.asof)}，${money(r.close)}</strong><p>${esc(status)}</p></div><p class="plain-cost">${esc(ownLine)}</p><div class="plain-plan-grid">${cards}</div>`;
+  cards=`<section class="plain-plan-card direct-dip-plan"><h4>${name}：跌到多少可以買？</h4>${dipTable}<details class="plan-more"><summary>查看價格怎麼算與進出場條件</summary>${row('這個低價怎麼來',`近60日最高價為 ${money(hi60)}。這套規則要求從高點下跌${us?'35':'40'}%，所以理論門檻約 <strong>${money(dip)}</strong>，按可交易價格跳動列出的進場觀察價為 <strong>${money(trigger)}</strong>。這不是合理價、目標價，也不表示一定會跌到這裡。`)}${row('買進要等',`首次收盤符合上述跌幅，且成交金額足夠，才在下一交易日開盤進場。${r.dip==='first'?'最近這次收盤首次符合跌幅條件。':r.dip==='already'?'最近收盤已在範圍內，但不是首次，不重複當成新買點。':'最近這次收盤還沒跌到上述幅度。'}開盤成交價可能不同，停損與停利要按實際成交價重算。`)}${row('停損價',en?`若你確實採用這套買法，按你填的成本 ${money(en)}，停損為 <strong>${money(stop)}</strong>（成本下方${us?'20':'15'}%）。`:`上表停損 ${money(stop)} 是按假設買價 ${money(plan&&plan.entry)} 計算，不是把目前股價直接扣掉${us?'20':'15'}%；實際成交後重算。`)}${row('停利價',en?`同一筆交易的停利為 <strong>${money(target)}</strong>（成本上方${us?'30':'20'}%）；最長持有${us?'90':'60'}交易日。`:`上表停利 ${money(target)} 與停損使用同一假設買價；實際成交後重算，最長持有${us?'90':'60'}交易日。`)}</details></section>`;
+  cards+=otherCards?`<details class="plan-more plan-breakout"><summary>另一種策略：向上創高才買（展開）</summary>${otherCards}</details>`:'';
+  return header+`<div class="plain-status"><strong>最近一次收盤：${esc(r.asof)}，${money(r.close)}</strong><p>${esc(status)}</p></div><div class="plain-plan-grid">${cards}</div>`;
 }
 function ownStrategySummary(s,o,dates,own,cost){
   // 一般技術面規則和 AI 模型帳分列；不把模型持有視為使用者有持股。
