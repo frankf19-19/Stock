@@ -1,6 +1,6 @@
 """個股「買賣計畫」通用規則回測:全市場 2016~2026,事件=收盤站上 N 日高(隔天開盤買),出場=停損/停利/最長持有。
 看每筆報酬、勝率、獲利因子、持有天數,對照「任意一天買、同樣出場規則」。"""
-import sys, os, pickle, collections, numpy as np, time
+import sys, os, pickle, collections, json, numpy as np, time
 sys.path.insert(0, os.path.dirname(__file__))
 from short_bt_study import load_all, roll_max
 
@@ -203,6 +203,59 @@ if __name__ == '__main__':
             else: fresh.append(t)
             last[sid] = (t[1], t[4])
         stats(re_, '再買回(上次被季線洗出 90 天內又突破)'); stats(fresh, '其他')
+    if which == 'mcap':
+        # r1177:「大型/中小型」改用市值(實收資本額/10 元面額 = 股數,× 當天收盤)而不是成交值;波動 × 市值 3×3 類
+        import collections as CC
+        CAP = json.load(open('/home/claude/repo2/cap.json' if os.path.exists('/home/claude/repo2/cap.json') else 'cap.json'))['c']
+        def mc(e, sid, i): c = CAP.get(sid); return (c * 1e8 / 10) * e['a'][i][3] if c else None   # 元
+        def typ(e, i, sid):
+            a = e['P']['atr'][i] / e['a'][i][3]; m = mc(e, sid, i)
+            if m is None: return None
+            v = '低波動' if a < 0.025 else ('中波動' if a < 0.04 else '高波動')
+            z = '大型' if m >= 5e10 else ('中型' if m >= 1e10 else '小型')   # ≥500 億 / 100~500 億 / <100 億
+            return v + '・' + z
+        def mk_x2(hold=120):
+            def f(e, ei):
+                a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; below = 0
+                for k in range(ei, min(n, ei + hold)):
+                    below = below + 1 if (C[k] < P['ma60'][k] and k > ei) else 0
+                    if below >= 2:
+                        xi = k + 1 if k + 1 < n else k; return xi, (O[k+1] if k + 1 < n else C[k]), 'ma'
+                    if k == ei + hold - 1: return k, C[k], 'time'
+                return None, None, None
+            return f
+        def dipk(k): return lambda e, i: e['a'][i][3] / e['P']['h60'][i] - 1 <= -k and e['a'][i-1][3] / e['P']['h60'][i-1] - 1 > -k
+        def dipk_conf(k):
+            def f(e, i):
+                H = e['a'][:, 1]; C = e['a'][:, 3]; P = e['P']
+                if not (C[i] / P['h60'][i] - 1 <= -k): return False
+                if not (C[i] > H[i-1] and C[i-1] <= H[i-2]): return False
+                return any(C[j] / P['h60'][j] - 1 <= -k and C[j-1] / P['h60'][j-1] - 1 > -k for j in range(i-10, i))
+            return f
+        x1520 = mk_exit(sl=0.15, tp=0.20, hold=60)
+        METH = {'突破(52週新高)': (EV['站上 250 日高'], mk_x2()), '錯殺−40%首日': (dipk(0.40), x1520), '跌−25%止跌': (dipk_conf(0.25), x1520), '跌−30%止跌': (dipk_conf(0.30), x1520), '隨機買(−15/+20)': (None, x1520)}
+        rng = np.random.default_rng(11)
+        res = {}
+        for nm, (ev, xf) in METH.items():
+            for pn, a_, b_ in (('A', '2016-01-01', '2021-01-01'), ('B', '2021-01-01', None)):
+                tr = simulate(S, ev, xf, start=a_, end=b_, sample_any=ev is None, rng=rng)
+                g = CC.defaultdict(list)
+                for t in tr:
+                    e = S[t[0]]; i = e['d'].index(t[1]) - 1; ty = typ(e, i, t[0])
+                    if ty: g[ty].append(t[2])
+                res[(nm, pn)] = g
+            print('done', nm, flush=True)
+        TY = [v + '・' + z for v in ('低波動', '中波動', '高波動') for z in ('大型', '中型', '小型')]
+        st = lambda L: f"{np.mean(L)*100:+6.2f}%({len(L):4d},勝{(np.array(L)>0).mean()*100:3.0f}%)" if len(L) >= 20 else f"   —   ({len(L):4d})"
+        for ty in TY:
+            print(f'\n[{ty}]')
+            for nm in METH: print(f'  {nm:14} A {st(res[(nm,"A")].get(ty,[]))} | B {st(res[(nm,"B")].get(ty,[]))}')
+        # 目前各類股票檔數
+        cnt = CC.Counter()
+        for sid, e in S.items():
+            if e['d'][-1] < '2026-10' or not (e['P']['liq'][-1] >= 2e4): continue
+            t = typ(e, len(e['d']) - 1, sid); cnt[t] += 1
+        print('\n目前各類檔數:', dict(cnt))
     if which == 'dipt':
         # 依類型找「比較容易等到」的跌深買點:各類型測多個門檻,出場 −15%/+20%/60 日;對照同類型隨機日買同出場
         import collections as CC
