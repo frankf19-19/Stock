@@ -2574,8 +2574,10 @@ def fetch_dividends(stocks):
                 else: take = ks[-1:]
                 a0 = agg.setdefault(sid, [0.0, 0.0])
                 for k in take: a0[0] += pm[k][0]; a0[1] += pm[k][1]
-                if need > len(take) and take:                  # 表內只剩最近一兩期(季配/半年配)→ 年化,並標 est
+                if need > len(take) and len(take) >= 2:        # 表內只剩部分期數(季配/半年配)→ 年化,並標 est
                     a0[0] *= need / len(take); a0[1] *= need / len(take); est.add(sid)
+                elif need > len(take) and take:                # r1181:只有 1 期不年化(特別股利、改配息頻率時 ×4/×2 會放大成好幾倍:亞泥 23.9%、麗豐 35.4%、南寶 20.1%)
+                    est.add(sid)
             for sid, (c0, s0) in agg.items():
                 st = by_id[sid]
                 dv = {"c": round(c0, 2)}
@@ -2584,6 +2586,7 @@ def fetch_dividends(stocks):
                 px = st.get("price")
                 if px and px > 0 and c0 > 0:
                     dv["y"] = round(c0 / px * 100, 2)
+                    if dv["y"] > 15 and sid in est: dv["chk"] = 1   # r1181:推估殖利率 >15% 多半是特別股利,前端不拿來當條件
                 st["dv"] = dv
                 got += 1
             _diag("股利分派openapi", url, 200, len(agg))

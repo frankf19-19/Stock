@@ -2,10 +2,11 @@
 只用價格/量/產業(美股沒有可回測的歷史估值與籌碼);兩期(2016~2020 / 2021~2026)差距都 ≥0.8% 才採用;
 另外用股票隨機分兩半做交叉驗證(一半挑條件、另一半驗證總分)。"""
 import sys, os, json, zlib, collections as CC, numpy as np
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); sys.path.insert(0, '/home/claude/repo2')
 import plan_bt_study as PB
-src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'us_plan_bt_study.py')).read().split("S = load_us()")[0]
+src = open('/home/claude/repo2/us_plan_bt_study.py').read().split("S = load_us()")[0]
 exec(src)
+R = '/home/claude/repo2'
 S = load_us(); PB.prep(S)
 D = json.load(open('/home/claude/repo2/data.json'))
 SEC = {s['id']: s.get('sector') or '' for s in D['stocks'] if s.get('market') == 'US'}
