@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1174';
+const APP_BUILD='r1175';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1220,7 +1220,9 @@ function stockOperationFacts(s,raw,dates,own,cost,now=new Date()){
  const dipEntry=strategyPrice(hi(b.slice(-60))*(us?.65:.60),us,'down'),en=own&&strategyNumber(cost)>0?+cost:null;
  let models=a3TiersOf(s.id,us).filter(x=>x.sl&&x.sl.st!=='pend').length;
  if(!us&&typeof AIPK!=='undefined'&&AIPK)models+=(((AIPK.trader||{}).pv||{}).pos||[]).filter(x=>x.id===s.id).length;
- return {check:r,breakEligible:ws,breakEntry,signalEntry,nextBelowPrice,dipEntry,dipHypothetical:strategyDipPricePlan(s,dipEntry,false),cost:en,ownDip:en?strategyDipPricePlan(s,en,true):null,models};
+ // r1175:股票類型(20 日平均真實波幅/收盤 × 20 日均成交值)——依類型決定最適合的買法(plan_bt_study.py type 模式驗證)
+ let atrp=null,liq20=null;try{const t=b.slice(-21);if(t.length===21){let z=0;for(let k=1;k<21;k++){const H=+t[k][1],L=+t[k][2],pc=+t[k-1][3];z+=Math.max(H-L,Math.abs(H-pc),Math.abs(L-pc));}atrp=z/20/(+t[20][3]);liq20=t.slice(1).reduce((n,x)=>n+(+x[3])*(+x[4]),0)/20;}}catch(e){}
+ return {check:r,breakEligible:ws,breakEntry,signalEntry,nextBelowPrice,dipEntry,dipHypothetical:strategyDipPricePlan(s,dipEntry,false),cost:en,ownDip:en?strategyDipPricePlan(s,en,true):null,models,atrp,liq20};
 }
 /* r1173:Frank「要很明確的買賣價格、防守價格,現在超級模糊」→ 卡片最上面一張價格表:
    每種已驗證買法各一欄,只寫 買進價 / 防守價 / 賣出價 三個數字 + 一句怎麼用;長篇條件收進下方「完整條件」(內容全保留)。
@@ -1236,21 +1238,34 @@ function stockPriceBoxHTML(s,f,opts={}){
     const md=d=>d.slice(5).replace('-','/'),nxt=nx?`${md(nx)} 開盤`:'下個交易日開盤',cfx=cf?`${md(cf)} `:'',sgx=sig?`${md(sig)} 開盤`:nxt;
     const col=(title,state,rows,foot)=>`<div class="pbx-col"><div class="pbx-h">${title}</div>${state?`<div class="pbx-st">${state}</div>`:''}${rows.map(([ic,lab,v,how,cls])=>`<div class="pbx-r"><span class="pbx-l">${ic} ${lab}</span><b class="pbx-v ${cls||''}">${fm(v)}</b>${how?`<span class="pbx-how">${how}</span>`:''}</div>`).join('')}${foot?`<div class="pbx-foot">${foot}</div>`:''}</div>`;
     const cols=[];
+    /* r1175:依股票類型挑買法(全市場 2016~2020 決定、2021~2026 驗證,每筆含成本 0.6%):
+       低/中波動(20 日平均波動 <4%)→ 只用突破買法(錯殺 −40% 十年幾乎沒發生:低波動 0~1 筆、中波動 52 筆,−30% 版 2021 後轉負)
+       高波動・大型(日成交值 ≥1 億)→ 突破 +4.5%→+7.5%、錯殺 +4.3%→+6.9%,兩種都用
+       高波動・中小型 → 錯殺 −40% 為主(+5.7%→+7.6%、勝率 66%);突破 +7.0%→+2.3% 轉弱,降為第二 */
+    const TB={'低波動・大型':[5.0,null],'中波動・大型':[5.2,null],'高波動・大型':[7.5,6.9],'低波動・中小型':[5.3,null],'中波動・中小型':[4.3,null],'高波動・中小型':[2.3,7.6]};
+    let ty=null,vol=null;if(!us&&f.atrp>0&&f.liq20>0){vol=f.atrp<0.025?'低波動':f.atrp<0.04?'中波動':'高波動';ty=vol+'・'+(f.liq20>=1e5?'大型':'中小型');}
+    const tyLine=ty?`<div class="pbx-type">這檔屬於 <b>${ty}股</b>(每天平均波動 ${(f.atrp*100).toFixed(1)}%、日成交值約 ${(f.liq20/1e5).toFixed(f.liq20>=1e6?0:1)} 億)→ 最適合:<b>${vol!=='高波動'?'🚀 突破買法':ty==='高波動・大型'?'🚀 突破買法、🎯 錯殺低接都適用':'🎯 錯殺低接(突破近年轉弱)'}</b></div>`:'';
+    const fitBreak=!ty||ty!=='高波動・中小型',fitDip=!ty||vol==='高波動';   // 突破點太遠時,下方欄位會標「目前不適用」
+    let dipCol='',brkCol='',skipNote='';
     if(!us){
       const conf=r.breaks.length>0,be=conf?f.signalEntry:f.breakEntry,ma=f.nextBelowPrice||P(r.ma60,'down');
-      if(be>0){const half=P(be*1.30,'up');
-        cols.push(col('🚀 突破買法',conf?`<b class="pbx-ok">✅ ${md(r.asof)} 收盤已符合 → ${sgx}買</b>`:'',[
+      const far=be>0&&!conf&&be>px*1.15;   // r1175:突破點離現價超過 15% → 位置太低,突破買法實測沒優勢(r1142),只標價不給計畫
+      if(far){brkCol=col('🚀 突破買法 <span class="pbx-sub">目前不適用</span>','',[['🟢','買進',be,`還要漲 ${((be/px-1)*100).toFixed(0)}%,離 52 週高太遠;漲回 ${fm(P(be/1.15,'up'))} 以上才開始看`,'pbx-buy']],'');}
+      else if(be>0){const half=P(be*1.30,'up');
+        brkCol=(col(`🚀 突破買法${ty?(fitBreak?' <span class="pbx-fit">⭐ 適合這檔</span>':' <span class="pbx-sub">第二選擇</span>'):''}`,conf?`<b class="pbx-ok">✅ ${md(r.asof)} 收盤已符合 → ${sgx}買</b>`:'',[
           ['🟢','買進',be,conf?`${sgx}直接買(開盤價)`:`${cfx}收盤站上這個價 → ${nxt}買 ${gap(be)}`,'pbx-buy'],
           ['🛑','防守',ma,'連續 2 天收盤低於季線就賣(這是目前季線,會每天變)','pbx-stop'],
           ['🎯','賣出',half,'漲到這裡先賣一半;剩下等跌破季線再賣','pbx-tp']],
-          '回測(全市場 2016~2026):每筆平均 +5.3%、11 年 10 年賺;勝率約 4 成,靠少數大漲賺錢'));
-      }else cols.push(col('🚀 突破買法','<span class="pbx-na">目前離 52 週高太遠或剛突破過,沒有突破買點</span>',[['🛑','防守',ma,'若已用這個買法持有:連續 2 天收盤低於季線就賣','pbx-stop']],''));
+          ty?`同類型股票回測(2021~2026):每筆平均 +${TB[ty][0].toFixed(1)}%;勝率約 4 成,靠少數大漲賺錢`:'回測(全市場 2016~2026):每筆平均 +5.3%、11 年 10 年賺;勝率約 4 成,靠少數大漲賺錢'));
+      }else brkCol=(col('🚀 突破買法','<span class="pbx-na">目前離 52 週高太遠或剛突破過,沒有突破買點</span>',[['🛑','防守',ma,'若已用這個買法持有:連續 2 天收盤低於季線就賣','pbx-stop']],''));
       const d=f.dipHypothetical,dfirst=r.dip==='first';
-      if(d){cols.push(col('🎯 錯殺低接',dfirst?`<b class="pbx-ok">✅ ${md(r.asof)} 第一天跌破 −40% → ${sgx}買</b>`:r.dip==='already'?'<span class="pbx-na">已在錯殺區但不是第一天,規則不追加</span>':'',[
+      if(d&&!fitDip){skipNote=`🎯 錯殺低接(跌到 ${fm(d.entry)} 才買)不列:${ty}股很少跌到 −40%(全市場 2016~2026 只有 ${({'低波動・大型':0,'低波動・中小型':1,'中波動・大型':31,'中波動・中小型':52})[ty]??'很少'} 筆),這個價位對這檔沒有參考價值`;}
+      else if(d){dipCol=(col(`🎯 錯殺低接${ty?' <span class="pbx-fit">⭐ 適合這檔</span>':''}`,dfirst?`<b class="pbx-ok">✅ ${md(r.asof)} 第一天跌破 −40% → ${sgx}買</b>`:r.dip==='already'?'<span class="pbx-na">已在錯殺區但不是第一天,規則不追加</span>':'',[
           ['🟢','買進',d.entry,dfirst?`${sgx}直接買(開盤價)`:`${cfx}收盤第一次跌到這裡以下 → ${nxt}買 ${gap(d.entry)}`,'pbx-buy'],
           ['🛑','防守',d.stop,'買進價 −15%,碰到就賣','pbx-stop'],
           ['🎯','賣出',d.target,'買進價 +20%,碰到就賣;最多抱 60 個交易日','pbx-tp']],
-          '回測:每筆平均 +6.4%、勝率 63%、11 年都賺'));}
+          ty&&TB[ty][1]?`同類型股票回測(2021~2026):每筆平均 +${TB[ty][1].toFixed(1)}%、勝率約 65%`:'回測:每筆平均 +6.4%、勝率 63%、11 年都賺'));}
+      if(ty==='高波動・中小型'||(brkCol.includes('目前不適用')&&dipCol)){if(dipCol)cols.push(dipCol);if(brkCol)cols.push(brkCol);}else{if(brkCol)cols.push(brkCol);if(dipCol)cols.push(dipCol);}
     }else{
       const d=f.dipHypothetical,dfirst=r.dip==='first';
       if(d)cols.push(col('🎯 跌深低接',dfirst?`<b class="pbx-ok">✅ ${md(r.asof)} 第一天跌破 −35% → ${sgx}買</b>`:r.dip==='already'?'<span class="pbx-na">已在跌深區但不是第一天,規則不追加</span>':'',[
@@ -1264,7 +1279,8 @@ function stockPriceBoxHTML(s,f,opts={}){
     if(f.cost>0){const c=f.cost,pl=(px/c-1)*100;
       own=us?`<div class="pbx-own">💼 你的持股(成本 <b>${fm(c)}</b>,目前 <b style="color:${pl>=0?'var(--up)':'var(--down)'}">${pl>=0?'+':''}${pl.toFixed(1)}%</b>):🛑 防守 <b class="pbx-stop">${fm(f.ownDip&&f.ownDip.stop)}</b>・🎯 賣出 <b class="pbx-tp">${fm(f.ownDip&&f.ownDip.target)}</b>(照跌深低接規則)</div>`
         :`<div class="pbx-own">💼 你的持股(成本 <b>${fm(c)}</b>,目前 <b style="color:${pl>=0?'var(--up)':'var(--down)'}">${pl>=0?'+':''}${pl.toFixed(1)}%</b>):🛑 防守 <b class="pbx-stop">${fm(f.nextBelowPrice||P(r.ma60,'down'))}</b>(連 2 天收盤低於季線就賣)・🎯 先賣一半 <b class="pbx-tp">${fm(P(c*1.30,'up'))}</b>(成本 +30%)${r.below2?` <b style="color:var(--down)">⚠ 到 ${md(r.asof)} 已連 2 天收在季線下,依規則 ${nxt}賣</b>`:r.below?` <span style="color:var(--amber)">${md(r.asof)} 收在季線下(第 1 天,還不用賣)</span>`:''}</div>`;}
-    return `<div class="pbx" data-pbx="${s.market}:${s.id}"><div class="pbx-top pbx-asof">價格條件用 ${r.asof} 收盤算</div><div class="pbx-grid">${cols.join('')}</div>${own}<div class="pbx-note">${cols.length>1?'兩種買法擇一用,不是兩個都要買;':''}「買進」都是看收盤、下個交易日開盤才買,盤中碰到不算。</div></div>`;
+    const tyLine2=tyLine&&brkCol.includes('目前不適用')&&dipCol?tyLine.replace('</div>','<br><span class="pbx-sub" style="margin:0">這檔目前離 52 週高太遠,突破買法先不看 → 用 🎯 錯殺低接</span></div>'):tyLine;
+    return `<div class="pbx" data-pbx="${s.market}:${s.id}"><div class="pbx-top pbx-asof">價格條件用 ${r.asof} 收盤算</div>${tyLine2}<div class="pbx-grid">${cols.join('')}</div>${skipNote?`<div class="pbx-skip">${skipNote}</div>`:''}${own}<div class="pbx-note">${cols.length>1?'兩種買法擇一用,不是兩個都要買;':''}「買進」都是看收盤、下個交易日開盤才買,盤中碰到不算。</div></div>`;
   }catch(e){return '';}
 }
 function stockContextHTML(s,raw,dates,own=false,cost=null){
