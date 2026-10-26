@@ -528,7 +528,7 @@ if __name__ == '__main__':
                         if h != te_h or p_ != pn: continue
                         sc = sum(v_ for k_, v_ in sel.items() if F.get(k_)); B_[max(-3, min(3, sc))].append(r)
                     print(f'    第 {te_h} 半(沒用來挑條件)期 {pn}:' + '  '.join(f"{k_:+d}:{m_(B_[k_]):+.1f}%({len(B_[k_])})" for k_ in sorted(B_)), flush=True)
-    if which in ('entry2', 'brd2', 'brd4', 'sector'):
+    if which in ('entry2', 'brd2', 'brd4', 'sector', 'recent'):
         # r1182:①買進價格怎麼掛(隔天開盤 / 跳空太多不追 / 掛訊號日收盤 / 掛收盤−2%,5 天內沒成交就放棄)
         #        ②大盤狀態(全市場站上季線比例、全市場 20 日平均漲跌)對各買法的影響
         import collections as CC
@@ -577,6 +577,56 @@ if __name__ == '__main__':
                 return None
             return g
         m_ = lambda L: np.mean(L) * 100 if L else float('nan')
+        if which == 'recent':
+            # r1185:現行規則在最近一年(2025-10 起,沒參與任何規則挑選的時間)表現;還沒出場的用最後收盤算帳面
+            def gx4(ma=None, conf=2, hold=120, tp=None, sl=None):
+                def f(e, ei, px):
+                    a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; below = 0
+                    for k in range(ei, min(n, ei + hold)):
+                        if sl and L[k] <= px * (1 - sl): return k, min(O[k], px * (1 - sl)) if k > ei else px * (1 - sl), 'sl'
+                        if tp and H[k] >= px * (1 + tp): return k, max(O[k], px * (1 + tp)) if k > ei else px * (1 + tp), 'tp'
+                        if ma:
+                            below = below + 1 if (C[k] < P[ma][k] and k > ei) else 0
+                            if below >= conf: xi = k + 1 if k + 1 < n else k; return xi, (O[k+1] if k + 1 < n else C[k]), 'ma'
+                        if k == ei + hold - 1: return k, C[k], 'time'
+                    return n - 1, C[n-1], 'open'
+                return f
+            RG = {'突破・低波動': (G['突破・低波動'][0], G['突破・低波動'][2], gx4(sl=.15, tp=.3, hold=90), None),
+                  '突破・中波動': (G['突破・中波動'][0], G['突破・中波動'][2], gx4(ma='ma60'), None),
+                  '突破・高波動': (G['突破・高波動'][0], G['突破・高波動'][2], gx4(ma='ma60'), None),
+                  '跌25%止跌・高波動 弱市': (G['跌25%止跌・高波動'][0], G['跌25%止跌・高波動'][2], gx4(sl=.2, tp=.5, hold=120), True),
+                  '跌25%止跌・高波動 非弱市(不買)': (G['跌25%止跌・高波動'][0], G['跌25%止跌・高波動'][2], gx4(sl=.2, tp=.5, hold=120), False),
+                  '錯殺−40% 弱市': (G['錯殺−40%首日・全部'][0], G['錯殺−40%首日・全部'][2], gx4(sl=.2, tp=.5, hold=120), True),
+                  '錯殺−40% 非弱市(不買)': (G['錯殺−40%首日・全部'][0], G['錯殺−40%首日・全部'][2], gx4(sl=.2, tp=.5, hold=120), False)}
+            rnd = np.random.default_rng(7)
+            for gn, (ev, okv, xf, weak) in RG.items():
+                T = []
+                for sid, e in S.items():
+                    d = e['d']; a = e['a']; n = len(a); P = e['P']; last = -1
+                    for i in range(250, n - 1):
+                        if d[i] < '2025-10-01' or i <= last: continue
+                        if not (P['liq'][i] >= 2e4) or not ev(e, i) or not okv(vol_of(e, i)): continue
+                        if weak is not None:
+                            b = BR.get(d[i])
+                            if b is None or (b < 0.35) != weak: continue
+                        px = a[i+1][0]
+                        if not px: continue
+                        xi, xp, why = xf(e, i + 1, px)
+                        last = xi; T.append((d[i][:7], xp / px - 1 - 0.006, why))
+                if not T: print(f'{gn}: 0 筆'); continue
+                r = [t[1] for t in T]; op = sum(t[2] == 'open' for t in T)
+                mo = CC.defaultdict(list)
+                for t in T: mo[t[0]].append(t[1])
+                print(f'{gn:24} {len(T):5} 筆(未出場 {op}) 每筆 {m_(r):+6.2f}% 勝 {np.mean([x>0 for x in r])*100:3.0f}% | ' + ' '.join(f"{k[2:]}:{m_(v):+.0f}({len(v)})" for k, v in sorted(mo.items())), flush=True)
+            # 隨便哪天買(同期間、同流動性)對照:持有 60 日
+            R0 = []
+            for sid, e in S.items():
+                d = e['d']; a = e['a']; n = len(a)
+                for i in range(250, n - 1):
+                    if d[i] < '2025-10-01' or not (e['P']['liq'][i] >= 2e4) or rnd.random() > 0.02: continue
+                    j = min(n - 1, i + 60); R0.append(a[j][3] / a[i+1][0] - 1 - 0.006)
+            print(f'隨便哪天買抱 60 日(對照)         {len(R0):5} 筆 每筆 {m_(R0):+6.2f}% 勝 {np.mean([x>0 for x in R0])*100:3.0f}%')
+            raise SystemExit
         if which == 'sector':
             # r1184:同一買法,不同產業有沒有穩定差別?(兩期都同方向、差 ≥2%、各期 ≥30 筆才算)
             def gx3(ma=None, conf=2, hold=120, tp=None, sl=None):

@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1184';
+const APP_BUILD='r1185';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1274,8 +1274,8 @@ function stockCondHTML(s,f,g,trig){
     const pe=+s.pe>0?+s.pe:null,pb=+s.pb>0?+s.pb:null,dy=s.dv&&+s.dv.y>0&&!s.dv.chk&&!(s.dv.est&&+s.dv.y>10)?+s.dv.y:null;   // r1181:推估(est)殖利率 >10% 多半是特別股利被年化放大,不當條件
     let big4=null,hold4=null,mf20=null,secRel=null;
     if(ch){const bp=(ch.bp||[]).map(Number);if(bp.length>=5&&isFinite(bp[bp.length-1])&&isFinite(bp[bp.length-5]))big4=bp[bp.length-1]-bp[bp.length-5];
-      const H=(ch.hdn||[]).filter(x=>x&&x.n>0);if(H.length>=2){const last=H[H.length-1],t0=Date.parse(String(last.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'));const old=[...H].reverse().find(x=>t0-Date.parse(String(x.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'))>=25*864e5);if(old&&t0-Date.parse(String(old.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'))<=40*864e5)hold4=last.n/old.n-1;}
-      const mf=(ch.mf||[]).map(Number);if(mf.length>=21&&mf[mf.length-21]>0)mf20=mf[mf.length-1]/mf[mf.length-21]-1;}
+      const H=(ch.hdn||[]).filter(x=>x&&x.n>0);if(H.length>=2){const last=H[H.length-1],t0=Date.parse(String(last.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'));const old=[...H].reverse().find(x=>t0-Date.parse(String(x.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'))>=25*864e5);if(old&&t0-Date.parse(String(old.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'))<=40*864e5&&old.n>=200&&last.n>=200&&last.n/old.n<3&&last.n/old.n>1/3)hold4=last.n/old.n-1;}   // r1185:集保偶有股東人數記成 1 的錯(東訊 1→14,007、嘉鋼 2,231→1),兩邊 ≥200 人且 4 週變化在 3 倍內才採用
+      const mf=(ch.mf||[]).map(Number);if(mf.length>=21&&mf[mf.length-21]>=100&&mf[mf.length-1]>0)mf20=mf[mf.length-1]/mf[mf.length-21]-1;}   // r1185:融資歸零多半是暫停融資(處置、全額交割),不是散戶洗出;基期 <100 張也不算
     if(!SECSTR)secStrLoad();else{const z=SECSTR.s&&SECSTR.s[s.sector];if(z&&isFinite(SECSTR.mkt))secRel=z.r20-SECSTR.mkt;}
     if(g==='low'){   // r1181:股票分兩半交叉驗證後,只有本益比、殖利率兩半都站得住;其餘(營收>20%、量縮、外資投信都賣、前漲>20%、長紅、淨值比、大戶、股東人數)換一批股票就不穩,拿掉
       add(pe!=null&&pe<12,P,`本益比 ${(+pe).toFixed(1)} 倍(<12)`,'多 +2.1~2.6%');
