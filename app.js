@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1178';
+const APP_BUILD='r1179';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1229,12 +1229,61 @@ function stockOperationFacts(s,raw,dates,own,cost,now=new Date()){
    const inZone=cross>=0&&dd(n-1)<=-K&&n-1-cross<=10,conf=inZone&&cross<n-1&&(+b[n-1][3])>(+b[n-2][1])&&(+b[n-2][3])<=(+b[n-3][1]);
    const zone=strategyPrice(Math.max(...b.slice(-60).map(x=>+x[1]))*(1-K),false,'down'),trig=strategyPrice(+b[n-1][1]+Math.max(1e-7,(+b[n-1][1])*1e-10),false,'up');
    dipc={K,zone,inZone,conf,trig,crossAgo:cross>=0?n-1-cross:null,left:inZone?10-(n-1-cross):null};}}catch(e){}
- return {check:r,breakEligible:ws,breakEntry,signalEntry,nextBelowPrice,dipEntry,dipHypothetical:strategyDipPricePlan(s,dipEntry,false),cost:en,ownDip:en?strategyDipPricePlan(s,en,true):null,models,atrp,liq20,dipc};
+ // r1179:本股條件(plan_bt_study.py filt9 驗證)用的量價輸入;法人/營收在 stockCondHTML 讀籌碼分片
+ let cond=null;try{const n=b.length,C=i=>+b[i][3],V=i=>+b[i][4]||0,avg=(w,end)=>{let z=0;for(let k=end-w+1;k<=end;k++)z+=C(k);return z/w;};
+   if(n>=241)cond={c20:C(n-1)/C(n-21)-1,dayRet:C(n-1)/C(n-2)-1,volR:V(n-1)/(b.slice(-21,-1).reduce((z,x)=>z+(+x[4]||0),0)/20||1),aboveYear:C(n-1)>avg(240,n-1),ma20gt60:avg(20,n-1)>avg(60,n-1),
+     dates:dates.slice(0,raw.length-r.excluded).slice(-20),vol20:b.slice(-20).reduce((z,x)=>z+(+x[4]||0),0)};}catch(e){}
+ return {check:r,breakEligible:ws,breakEntry,signalEntry,nextBelowPrice,dipEntry,dipHypothetical:strategyDipPricePlan(s,dipEntry,false),cost:en,ownDip:en?strategyDipPricePlan(s,en,true):null,models,atrp,liq20,dipc,cond};
 }
 /* r1173:Frank「要很明確的買賣價格、防守價格,現在超級模糊」→ 卡片最上面一張價格表:
    每種已驗證買法各一欄,只寫 買進價 / 防守價 / 賣出價 三個數字 + 一句怎麼用;長篇條件收進下方「完整條件」(內容全保留)。
    數字全部來自既有規則(r1142~r1146 回測):台股 創 52 週新高突破(季線連 2 天出場、+30% 可先賣一半)、錯殺低接 −40%(−15%/+20%/60 天);
    美股 跌深 −35%(−20%/+30%/90 天)。不新增任何規則。 */
+/* r1179:🔎 本股條件——同一買法、同一類型裡,個股條件能不能再分出好壞(plan_bt_study.py filt9,2016~2020 / 2021~2026 兩期都差 ≥0.8% 才採用)
+   g='low' 低波動突破、'mid' 中波動突破、'dip' 高波動跌 25% 止跌;trig=今天就是訊號日(才看「當天量/當天漲幅」) */
+var STOCK_COND_PENDING={};
+function stockCondHTML(s,f,g,trig){
+  try{
+    const k=f&&f.cond;if(!k||s.market!=='TW')return '';
+    const sh=typeof chipShardOf==='function'?chipShardOf(s.id):null,ch=sh&&CCACHE[sh]?(CCACHE[sh][s.id]||null):undefined;
+    if(ch===undefined&&!STOCK_COND_PENDING[s.id]&&typeof loadChips==='function'){STOCK_COND_PENDING[s.id]=1;loadChips(s).then(()=>{try{refreshStrategySummaries(true);}catch(e){}}).catch(()=>{});}
+    let f20=null,t20=null,ry=null,r3=null,acc=null;
+    if(ch){const d=ch.d||[],ix={};d.forEach((x,i)=>ix[x]=i);let sf=0,st=0,hit=0;(k.dates||[]).forEach(x=>{const i=ix[x];if(i!=null){sf+=+((ch.f||[])[i])||0;st+=+((ch.t||[])[i])||0;hit++;}});
+      if(hit>=15&&k.vol20>0){f20=sf/k.vol20;t20=st/k.vol20;}
+      const Y=(ch.ry||[]).filter(v=>v!=null&&isFinite(+v)).map(Number);if(Y.length){ry=Y[Y.length-1]/100;if(Y.length>=3)r3=Y.slice(-3).every(v=>v>0);if(Y.length>=2)acc=Y[Y.length-1]>Y[Y.length-2];}}
+    const P=[],M=[],add=(ok,arr,txt,eff)=>{if(ok)arr.push(`${txt} <span class="pbx-eff">(${eff})</span>`);};
+    const both=f20!=null&&t20!=null&&f20<-0.02&&t20<=0;
+    if(g==='low'){
+      add(ry!=null&&ry>0.20,P,`月營收年增 ${(ry*100).toFixed(0)}%(>20%)`,'每筆多 +1.3~2.0%');
+      add(trig&&k.volR<1,P,'突破當天量縮(低於均量)','多 +2.2%');
+      add(both,M,'外資、投信近 20 日都在賣','少 −3.1%');
+      add(k.c20>0.20,M,`突破前 20 天已漲 ${(k.c20*100).toFixed(0)}%(>20%)`,'少 −1.8~1.9%');
+      add(trig&&k.dayRet>0.05,M,`突破當天大漲 ${(k.dayRet*100).toFixed(1)}%`,'少 −1.0~3.0%');
+    }else if(g==='mid'){
+      add(f20!=null&&f20>0.02,P,'外資近 20 日買超','多 +1.5~2.1%');
+      add(t20!=null&&t20>0.01,P,'投信近 20 日買超','多 +1.0~1.5%');
+      add(k.c20>0.20,P,`前 20 天已漲 ${(k.c20*100).toFixed(0)}%(這類股強者恆強)`,'多 +0.8~4.0%');
+      add(both,M,'外資、投信近 20 日都在賣','少 −2.4~9.5%');
+      add(trig&&k.volR<1,M,'突破當天量縮(低於均量)','少 −2.7~4.8%');
+      add(trig&&k.dayRet>0.05,M,`突破當天大漲 ${(k.dayRet*100).toFixed(1)}%`,'少 −1.6~3.0%');
+      add(k.ma20gt60,M,'月線已在季線上(這類股剛轉強時突破較好)','少 −1.6~3.1%');
+    }else if(g==='dip'){
+      add(f20!=null&&f20>0.02,P,'外資近 20 日買超','多 +1.9~3.8%');
+      add(t20!=null&&t20>0.01,P,'投信近 20 日買超','多 +3.3~11%');
+      add(k.c20<-0.10,P,`近 20 天急跌 ${(k.c20*100).toFixed(0)}%`,'多 +4.6~9.8%');
+      add(trig&&k.dayRet>0.05,P,`止跌當天長紅 +${(k.dayRet*100).toFixed(1)}%`,'多 +5.4~7.7%');
+      add(acc===true,P,'營收年增率比上月好(加速)','多 +4.9~6.5%');
+      add(k.aboveYear,M,'股價還在年線上(跌得還不夠深)','少 −7.9~13.2%');
+      add(k.ma20gt60,M,'月線還在季線上','少 −3.2~9.5%');
+      add(r3===true,M,'近 3 個月營收都成長(好消息多半已反映)','少 −2.1~7.3%');
+    }else return '';
+    const tip=!trig?(g==='dip'?'<div class="pbx-cond-tip">確認那天若收長紅(>5%),實測更好</div>':'<div class="pbx-cond-tip">突破那天若大漲超過 5%,實測較差'+(g==='low'?';量縮突破較好':';量縮突破較差')+'</div>'):'';
+    const wait=ch===undefined?'<span class="pbx-sub" style="margin:0">(法人、營收資料載入中)</span>':'';
+    if(!P.length&&!M.length)return `<div class="pbx-cond"><b>🔎 本股條件</b>:沒有特別加分或扣分的條件 ${wait}${tip}</div>`;
+    const v=P.length-M.length,verdict=v>0?'<b style="color:var(--up)">條件偏好</b>':v<0?'<b style="color:var(--down)">條件偏差,這次要更小心</b>':'<b>好壞互抵</b>';
+    return `<div class="pbx-cond"><b>🔎 本股條件</b>(加分 ${P.length}、扣分 ${M.length} → ${verdict}) ${wait}${P.map(x=>`<div class="pbx-cond-r">✅ ${x}</div>`).join('')}${M.map(x=>`<div class="pbx-cond-r">⚠️ ${x}</div>`).join('')}${tip}<div class="pbx-cond-tip">同買法、同類型股票裡比較(2016~2020 和 2021~2026 兩期都成立);用 ${f.check.asof} 收盤的條件看</div></div>`;
+  }catch(e){return '';}
+}
 function stockPriceBoxHTML(s,f,opts={}){
   try{
     if(!f||!f.check)return '';
@@ -1244,7 +1293,7 @@ function stockPriceBoxHTML(s,f,opts={}){
     const gap=v=>{if(!(v>0&&px>0))return '';const g=(v/px-1)*100;return `<span class="pbx-gap">${Math.abs(g)<0.05?'就在現價':(g>0?'還要漲 ':'還要跌 ')+Math.abs(g).toFixed(1)+'%'}</span>`;};
     let nx='',cf='',sig='';try{const q=typeof StockOperationPlan!=='undefined'&&StockOperationPlan.schedule(s.market,r.asof,opts.now??Date.now(),opts.calendar);if(q){if(q.order)nx=q.order;if(q.confirm)cf=q.confirm;if(q.signalOrder&&!q.missed)sig=q.signalOrder;}}catch(e){}
     const md=d=>d.slice(5).replace('-','/'),nxt=nx?`${md(nx)} 開盤`:'下個交易日開盤',cfx=cf?`${md(cf)} `:'',sgx=sig?`${md(sig)} 開盤`:nxt;
-    const col=(title,state,rows,foot)=>`<div class="pbx-col"><div class="pbx-h">${title}</div>${state?`<div class="pbx-st">${state}</div>`:''}${rows.map(([ic,lab,v,how,cls])=>`<div class="pbx-r"><span class="pbx-l">${ic} ${lab}</span><b class="pbx-v ${cls||''}">${fm(v)}</b>${how?`<span class="pbx-how">${how}</span>`:''}</div>`).join('')}${foot?`<div class="pbx-foot">${foot}</div>`:''}</div>`;
+    const col=(title,state,rows,foot,extra)=>`<div class="pbx-col"><div class="pbx-h">${title}</div>${state?`<div class="pbx-st">${state}</div>`:''}${rows.map(([ic,lab,v,how,cls])=>`<div class="pbx-r"><span class="pbx-l">${ic} ${lab}</span><b class="pbx-v ${cls||''}">${fm(v)}</b>${how?`<span class="pbx-how">${how}</span>`:''}</div>`).join('')}${extra||''}${foot?`<div class="pbx-foot">${foot}</div>`:''}</div>`;
     const cols=[];
     /* r1175:依股票類型挑買法(全市場 2016~2020 決定、2021~2026 驗證,每筆含成本 0.6%):
        低/中波動(20 日平均波動 <4%)→ 只用突破買法(錯殺 −40% 十年幾乎沒發生:低波動 0~1 筆、中波動 52 筆,−30% 版 2021 後轉負)
@@ -1276,7 +1325,7 @@ function stockPriceBoxHTML(s,f,opts={}){
             ['🎯','賣出',P(be*1.30,'up'),'買進價 +30%,碰到就賣;最多抱 90 個交易日','pbx-tp']]:[
             ['🛑','防守',ma,'連續 2 天收盤低於季線就賣(這是目前季線,會每天變)','pbx-stop'],
             ['🎯','賣出',half,'漲到這裡可先賣一半;剩下等跌破季線再賣(這類股靠抱住大漲賺錢,固定停利實測較差)','pbx-tp']])],
-          ty?(vol==='低波動'?`同類型股票回測(2021~2026):每筆平均 +${({'低波動・大型':8.0,'低波動・中型':6.2,'低波動・小型':5.8})[ty]||6.2}%、勝率約 5~7 成`:`同類型股票回測(2021~2026):每筆平均 +${TB[ty][0].toFixed(1)}%;勝率約 4 成,靠少數大漲賺錢`):'回測(全市場 2016~2026):每筆平均 +5.3%、11 年 10 年賺;勝率約 4 成,靠少數大漲賺錢'));
+          ty?(vol==='低波動'?`同類型股票回測(2021~2026):每筆平均 +${({'低波動・大型':8.0,'低波動・中型':6.2,'低波動・小型':5.8})[ty]||6.2}%、勝率約 5~7 成`:`同類型股票回測(2021~2026):每筆平均 +${TB[ty][0].toFixed(1)}%;勝率約 4 成,靠少數大漲賺錢`):'回測(全市場 2016~2026):每筆平均 +5.3%、11 年 10 年賺;勝率約 4 成,靠少數大漲賺錢',(vol==='低波動'||vol==='中波動')?stockCondHTML(s,f,vol==='低波動'?'low':'mid',conf):''));
       }else brkCol=(col('🚀 突破買法','<span class="pbx-na">目前離 52 週高太遠或剛突破過,沒有突破買點</span>',[['🛑','防守',ma,'若已用這個買法持有:連續 2 天收盤低於季線就賣','pbx-stop']],''));
       const d=f.dipHypothetical,dfirst=r.dip==='first';
       if(d&&!fitDip){skipNote=`跌下來接不列:${vol}股很少跌那麼深,跌 15%~40%(有沒有等止跌)實測也贏不了隨便哪天買,這類股票只適合等突破`;}
@@ -1287,7 +1336,7 @@ function stockPriceBoxHTML(s,f,opts={}){
           ['🟢','買進',q.conf?r.close:q.inZone?q.trig:q.zone,how,'pbx-buy'],
           ['🛑','防守',sl,'買進價 −20%,碰到就賣','pbx-stop'],
           ['🎯','賣出',tp2,'買進價 +30%,碰到就賣;最多抱 90 個交易日','pbx-tp']],
-          `同類型股票回測(2021~2026):每筆平均 +${({'高波動・大型':5.5,'高波動・中型':4.9,'高波動・小型':5.1})[ty]||5.0}%、勝率約 53~54%;每檔平均約半年出現一次`);
+          `同類型股票回測(2021~2026):每筆平均 +${({'高波動・大型':5.5,'高波動・中型':4.9,'高波動・小型':5.1})[ty]||5.0}%、勝率約 53~54%;每檔平均約半年出現一次`,stockCondHTML(s,f,'dip',q.conf));
         skipNote=`更深的買點:跌到 ${fm(d.entry)}(−40%)第一天${dfirst?`(${md(r.asof)} 已發生 → ${sgx}買,防守 ${fm(d.stop)}、賣出 ${fm(d.target)})`:''}買(防守 −20%、賣出 +30%),每筆平均約 +10%、勝率 63%,但每檔約 1 年才一次`;}
       else if(d&&ty&&vol==='高波動'&&f.dipc&&!dfirst){const q=f.dipc;
         dipCol=col(`🎯 跌深止跌 <span class="pbx-fit">⭐ 適合這檔</span>`,'<span class="pbx-na">這一波已跌破 −25% 超過 10 個交易日,這次止跌訊號已過期,不追</span>',[
