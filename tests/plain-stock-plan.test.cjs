@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync('app.js','utf8'),core=source.slice(source.indexOf('function strategyNumber('),source.indexOf('function refreshStrategySummaries('));
 function ctx(){const c={newsEsc:x=>String(x).replace(/</g,'&lt;'),a3TiersOf:()=>[],ADJ1:{}};vm.createContext(c);vm.runInContext(core,c);return c;}
 const dates=Array.from({length:270},(_,i)=>new Date(Date.UTC(2025,0,1+i)).toISOString().slice(0,10)),bars=dates.map(()=>[100,120,98,100,1e6]),tw={id:'2330',name:'台積電',market:'TW',price:100};
-test('主畫面先列股票名稱與每股價格，研究指標不搶版面',()=>{const h=ctx().ownStrategySummary(tw,bars,dates,false,null),main=h.split('<details')[0];assert.match(main,/台積電（2330）/);assert.match(main,/100 元／股/);assert.match(main,/最新可用報價/);assert.doesNotMatch(main,/ATR|0 筆|完整跌深交易/);});
+test('r1174:卡片頂端已有股名與現價，計畫內不再重複股名／報價，研究指標不搶版面',()=>{const h=ctx().ownStrategySummary(tw,bars,dates,false,null),main=h.split('<details')[0];assert.match(main,/買賣計畫/);assert.doesNotMatch(main,/台積電（2330）|plain-quote|台積電：/);assert.doesNotMatch(main,/ATR|0 筆|完整跌深交易/);});
 test('兩種買法各自說明價格用途，低接門檻不叫合理價',()=>{const h=ctx().strategyPlainHTML(tw,bars,dates,false,null);assert.match(h,/買法一/);assert.match(h,/跌到多少可以買/);assert.match(h,/72 元／股/);assert.match(h,/不是合理價、目標價/);assert.match(h,/盤中碰到就買/);});
 test('成本80的低接停損68、停利96，沒有用現價100重算',()=>{const h=ctx().strategyPlainHTML(tw,bars,dates,true,80);assert.match(h,/68 元／股/);assert.match(h,/96 元／股/);assert.doesNotMatch(h,/85 元／股|120 元／股<\/strong>（成本上方/);});
 test('未持有的停損停利須明列假設基準；技術突破不虛構固定停利',()=>{const h=ctx().strategyPlainHTML(tw,bars,dates,false,null);assert.match(h,/停損／停利先按買在/);assert.match(h,/實際成交後按成本重算/);assert.match(h,/沒有固定停利價/);assert.doesNotMatch(h,/停損為 <strong>/);});
