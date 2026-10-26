@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1183';
+const APP_BUILD='r1184';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1253,6 +1253,12 @@ function mktA60(){if(!SECSTR){secStrLoad();return null;}return SECSTR&&isFinite(
 function mktWeakHTML(kind,trig){const m=mktA60();if(!m)return '<div class="pbx-cond"><b>🌧 大盤有沒有一起跌</b>:<span class="pbx-sub" style="margin:0">(市場資料載入中)</span></div>';
   const weak=m.v<0.35,pc=Math.round(m.v*100),R=kind==='k40'?{w:'+22.5%、勝率 71%',o:'−3.4%、勝率 29%'}:{w:'+16~28%、勝率 65~81%',o:'−3.0%、勝率 36%'};   // r1183:用新出場 −20%/+50%/120 日
   return `<div class="pbx-cond ${weak?'pbx-cond-good':'pbx-cond-bad'}"><b>🌧 大盤有沒有一起跌</b>:${m.asof?m.asof.slice(5).replace('-','/')+' ':''}全市場只有 <b>${pc}%</b> 的股票站在季線上 → ${weak?`<b style="color:var(--up)">大盤一起跌,這種才是錯殺,可以買</b> <span class="pbx-eff">(歷史每筆 ${R.w})</span>`:`<b style="color:var(--down)">大盤沒有一起跌,${trig?'這次不買':'現在不買'}</b> <span class="pbx-eff">(個股自己跌多半有原因;歷史每筆 ${R.o})</span>`}<div class="pbx-cond-tip">規則:要買的那天收盤,全市場站上季線的股票要 <b>少於 35%</b>(現在 ${pc}%)。2016~2026 兩期、逐年都成立</div></div>`;}
+/* r1184:產業差異(plan_bt_study.py sector):同買法下,兩期都差 ≥2%、且股票隨機分兩半也同方向才列;測了 13~15 個產業,仍可能有巧合 → 標「參考」 */
+function secNoteHTML(s,g){const sc=s&&s.sector;if(!sc||s.market!=='TW')return '';
+  const T={low:{'半導體業':['good','+6.7% / +9.6%','+3.5% / +6.1%'],'生技醫療業':['zero','+0.2% / +1.8%','+3.5% / +6.1%']},
+           mid:{'電機機械':['good','+9.9% / +7.6%','+5.3% / +4.8%'],'汽車工業':['bad','+2.1% / +2.3%','+5.3% / +4.8%'],'生技醫療業':['zero','−1.2% / +0.2%','+5.3% / +4.8%'],'紡織纖維':['zero','−6.5% / −0.8%','+5.3% / +4.8%']},
+           k40:{'電子零組件業':['good','+29.6% / +23.3%','+25.4% / +19.0%']}}[g];const x=T&&T[sc];if(!x)return '';
+  return `<div class="pbx-cond${x[0]==='good'?' pbx-cond-good':' pbx-cond-bad'}"><b>🏭 產業(${sc})</b>:這個產業用這個買法歷史${x[0]==='good'?'<b style="color:var(--up)">比平均好</b>':x[0]==='zero'?'<b style="color:var(--down)">幾乎不賺,不建議用</b>':'<b style="color:var(--down)">比平均差</b>'} <span class="pbx-eff">(每筆 ${x[1]},全部股票 ${x[2]};2016~20 / 2021~26)</span><div class="pbx-cond-tip">參考:兩期、股票分兩半都成立,但測了十多個產業,仍可能有巧合</div></div>`;}
 function stockCondHTML(s,f,g,trig){
   try{
     const k=f&&f.cond;if(!k||s.market!=='TW')return '';
@@ -1333,7 +1339,8 @@ function stockPriceBoxHTML(s,f,opts={}){
     try{const c=typeof CAPC!=='undefined'&&CAPC&&CAPC[s.id];if(c>0&&px>0)mcap=c*1e8/10*px;}catch(e){}
     if(!us&&f.atrp>0){vol=f.atrp<0.025?'低波動':f.atrp<0.04?'中波動':'高波動';if(mcap)ty=vol+'・'+(mcap>=5e10?'大型':mcap>=1e10?'中型':'小型');}
     const mcTxt=mcap?(mcap>=1e12?(mcap/1e12).toFixed(1)+' 兆':Math.round(mcap/1e8).toLocaleString()+' 億'):'';
-    const best=vol?(vol!=='高波動'?'🚀 突破買法':ty==='高波動・小型'?'🎯 跌深止跌(這類股突破近年轉弱)':'🎯 跌深止跌、🚀 突破買法都適用'):'';
+    const secZero=!us&&vol&&vol!=='高波動'&&({'低波動':['生技醫療業'],'中波動':['生技醫療業','紡織纖維']}[vol]||[]).includes(s.sector);   // r1184
+    const best=vol?(vol!=='高波動'?(secZero?'🚀 突破買法(但這個產業用起來歷史幾乎不賺,見下方)':'🚀 突破買法'):ty==='高波動・小型'?'🎯 跌深止跌(這類股突破近年轉弱)':'🎯 跌深止跌、🚀 突破買法都適用'):'';
     const tyLine=vol?`<div class="pbx-type">這檔屬於 <b>${ty||vol}股</b>(每天平均波動 ${(f.atrp*100).toFixed(1)}%${mcTxt?'、市值約 '+mcTxt:''})→ 最適合:<b>${best}</b></div>`:'';
     if(!ty&&vol)ty=vol+'・中型';   // 市值資料缺(少數上櫃/新股):依波動判斷,數字用中型
     const fitBreak=!ty||ty!=='高波動・小型',fitDip=!ty||vol==='高波動';   // 突破點太遠時,下方欄位會標「目前不適用」
@@ -1350,7 +1357,7 @@ function stockPriceBoxHTML(s,f,opts={}){
             ['🎯','賣出',P(be*1.30,'up'),'買進價 +30%,碰到就賣;最多抱 90 個交易日','pbx-tp']]:[
             ['🛑','防守',ma,'連續 2 天收盤低於季線就賣(這是目前季線,會每天變)','pbx-stop'],
             ['🎯','賣出',half,'漲到這裡可先賣一半;剩下等跌破季線再賣(這類股靠抱住大漲賺錢,固定停利實測較差)','pbx-tp']])],
-          ty?(vol==='低波動'?`同類型股票回測(2021~2026):每筆平均 +${({'低波動・大型':8.0,'低波動・中型':6.2,'低波動・小型':5.8})[ty]||6.2}%、勝率約 5~7 成`:`同類型股票回測(2021~2026):每筆平均 +${TB[ty][0].toFixed(1)}%;勝率約 4 成,靠少數大漲賺錢`):'回測(全市場 2016~2026):每筆平均 +5.3%、11 年 10 年賺;勝率約 4 成,靠少數大漲賺錢',(vol==='低波動'||vol==='中波動')?stockCondHTML(s,f,vol==='低波動'?'low':'mid',conf):''));
+          ty?(vol==='低波動'?`同類型股票回測(2021~2026):每筆平均 +${({'低波動・大型':8.0,'低波動・中型':6.2,'低波動・小型':5.8})[ty]||6.2}%、勝率約 5~7 成`:`同類型股票回測(2021~2026):每筆平均 +${TB[ty][0].toFixed(1)}%;勝率約 4 成,靠少數大漲賺錢`):'回測(全市場 2016~2026):每筆平均 +5.3%、11 年 10 年賺;勝率約 4 成,靠少數大漲賺錢',(vol==='低波動'||vol==='中波動')?secNoteHTML(s,vol==='低波動'?'low':'mid')+stockCondHTML(s,f,vol==='低波動'?'low':'mid',conf):''));
       }else brkCol=(col('🚀 突破買法','<span class="pbx-na">目前離 52 週高太遠或剛突破過,沒有突破買點</span>',[['🛑','防守',ma,'若已用這個買法持有:連續 2 天收盤低於季線就賣','pbx-stop']],''));
       const d=f.dipHypothetical,dfirst=r.dip==='first';
       if(d&&!fitDip){skipNote=`跌下來接不列:${vol}股很少跌那麼深,跌 15%~40%(有沒有等止跌)實測也贏不了隨便哪天買,這類股票只適合等突破`;}
@@ -1372,7 +1379,7 @@ function stockPriceBoxHTML(s,f,opts={}){
           ['🟢','買進',d.entry,dfirst?(mOK?`${sgx}直接買(開盤價)`:'大盤沒一起跌,這次不買'):`${cfx}收盤第一次跌到這裡以下,而且那天全市場站上季線的股票少於 35% → ${nxt}買 ${gap(d.entry)}`,'pbx-buy'],
           ['🛑','防守',d.stop,'買進價 −20%,碰到就賣','pbx-stop'],
           ['🎯','賣出',d.target,'買進價 +50%,碰到就賣;最多抱 120 個交易日','pbx-tp']],
-          '回測(2016~2026,大盤一起跌時才買,−20%/+50%/120 日):1,390 次、每筆 +22.5%(前後兩期 +25.4% / +19.0%)、勝率 71%;大盤沒跌時買每筆 −3.4%',mktWeakHTML('k40',dfirst)));}
+          '回測(2016~2026,大盤一起跌時才買,−20%/+50%/120 日):1,390 次、每筆 +22.5%(前後兩期 +25.4% / +19.0%)、勝率 71%;大盤沒跌時買每筆 −3.4%',mktWeakHTML('k40',dfirst)+secNoteHTML(s,'k40')));}
       if(ty==='高波動・小型'||(brkCol.includes('目前不適用')&&dipCol)){if(dipCol)cols.push(dipCol);if(brkCol)cols.push(brkCol);}else{if(brkCol)cols.push(brkCol);if(dipCol)cols.push(dipCol);}
     }else{
       const d=f.dipHypothetical,dfirst=r.dip==='first';

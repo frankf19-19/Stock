@@ -622,8 +622,13 @@ if __name__ == '__main__':
                     flag = '✅好' if da > 2 and db > 2 else '❌差' if da < -2 and db < -2 else ''
                     # 拿掉最好的那一檔仍成立?
                     rows.append((min(da, db) if flag == '✅好' else -min(-da, -db) if flag else 0, sc, len(v['A']), m_(v['A']), len(v['B']), m_(v['B']), len(v['ids']), flag))
+                import zlib
+                allm = m_([r for _, _, r, _ in T])
                 for _, sc, na, ma_, nb, mb, ni, flag in sorted(rows, key=lambda x: -x[3]-x[5]):
-                    print(f'  {sc:10} A {ma_:+6.2f}%({na:4}) B {mb:+6.2f}%({nb:4}) {ni:3} 檔 {flag}')
+                    hv = [m_([r for p, c, r, sid in T if c == sc and zlib.crc32(sid.encode()) % 2 == h]) - allm for h in (0, 1)]
+                    hn = [len({sid for p, c, r, sid in T if c == sc and zlib.crc32(sid.encode()) % 2 == h}) for h in (0, 1)]
+                    ok = flag and ((flag == '✅好' and min(hv) > 1) or (flag == '❌差' and max(hv) < -1))
+                    print(f'  {sc:10} A {ma_:+6.2f}%({na:4}) B {mb:+6.2f}%({nb:4}) {ni:3} 檔 {flag} 股票兩半 {hv[0]:+.1f}({hn[0]})/{hv[1]:+.1f}({hn[1]}){" ★兩半也成立" if ok else ""}')
             raise SystemExit
         if which == 'brd4':
             # r1183:①大盤一起跌時才買的跌深類,出場要不要放寬;②突破持有中,大盤寬度崩(<x%)要不要先賣
