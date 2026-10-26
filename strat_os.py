@@ -58,7 +58,7 @@ def run(A, data, T, last, log=print):
         if not d or last not in d: keep.append(q) if q.get("tries", 0) < 3 else None; q["tries"] = q.get("tries", 0) + 1; continue
         b = o[d.index(last)]; op = b[0]
         if not op: continue
-        S["open"].append({"id": q["id"], "name": q["name"], "sig_d": q["sig_d"], "fill": last, "entry": op, "tp": round(op * (1 + TP), 2), "sl": round(op * (1 - SL), 2), "q": q.get("q"), "n": 0, "r": q.get("r"), "hold": HOLD})
+        S["open"].append({"id": q["id"], "name": q["name"], "sig_d": q["sig_d"], "fill": last, "entry": op, "tp": round(op * (1 + TP), 2), "sl": round(op * (1 - SL), 2), "q": q.get("q"), "n": 0, "r": q.get("r"), "hold": HOLD, "b60": q.get("b60"), "mkt": q.get("mkt")})
     S["pend"] = keep
     # ② 出場(含今天剛買的,用今天日 K)
     still = []
@@ -84,7 +84,7 @@ def run(A, data, T, last, log=print):
     # ③ 新訊號:今天第一次離 60 日高 ≥40%(r1143)
     try: from trader import has_jump
     except Exception: has_jump = lambda o, n=260: False
-    rq = {}; sig = []
+    rq = {}; sig = []; br = [0, 0]   # r1182:市場寬度(流動股站上季線比例);<35% 時錯殺 −40% 每筆 +16.8%、其他 −1.2%(plan_bt_study.py brd2)
     held = {p["id"] for p in S["open"]} | {q["id"] for q in S["pend"]}
     for s in data.get("stocks", []):
         sid = str(s.get("id", ""))
@@ -99,10 +99,14 @@ def run(A, data, T, last, log=print):
         c = [b[3] for b in o]; hh = [b[1] for b in o]; v = [b[4] or 0 for b in o]
         liq = sum(c[-k] * v[-k] for k in range(1, 21)) / 20 * 1000
         if liq < LIQ: continue
+        br[1] += 1; br[0] += c[-1] > sum(c[-60:]) / 60
         dd = c[-1] / max(hh[-60:]) - 1; dd0 = c[-2] / max(hh[-61:-1]) - 1
         if dd <= DD and dd0 > DD and sid not in held:
             qq = rq.get(sid); qual = bool(qq and (qq[0] or qq[1]))
             sig.append({"id": sid, "name": s.get("name"), "sig_d": last, "q": int(qual), "dd": round(dd * 100, 1), "px": c[-1], "r": RULE_V})
+    b60 = round(br[0] / br[1], 3) if br[1] >= 200 else None
+    for q in sig: q["b60"] = b60; q["mkt"] = int(b60 is not None and b60 < 0.35)   # 只記錄不過濾:實戰照舊全買,另算「大盤一起跌」那批的成績
+    S["b60"] = [last, b60]
     for q in sig: S["pend"].append(q)
     if sig: ev.append(f"{last} 🎯 錯殺低接訊號:明天開盤買 " + "、".join(f"{q['name']}(離高點 {q['dd']}%{'・營收好' if q['q'] else ''})" for q in sig[:12]) + (f" 等 {len(sig)} 檔" if len(sig) > 12 else ""))
     S["sig"] = sig; S["rq"] = rq; S["rq_d"] = last
@@ -112,11 +116,14 @@ def run(A, data, T, last, log=print):
                 "avg": round(sum(t["ret"] for t in cl) / len(cl), 2) if cl else None, "open": len(op)}
     S["stats"] = _st(cl, S["open"])
     S["stats40"] = _st([t for t in cl if t.get("r") == RULE_V], [p for p in S["open"] if p.get("r") == RULE_V])   # r1143:新規則單獨計
+    S["statsMkt"] = _st([t for t in cl if t.get("mkt") == 1], [p for p in S["open"] if p.get("mkt") == 1])   # r1182:大盤一起跌(站上季線 <35%)時的訊號
+    S["statsNoMkt"] = _st([t for t in cl if t.get("mkt") == 0], [p for p in S["open"] if p.get("mkt") == 0])
     S["stats30"] = _st([t for t in cl if not t.get("r")], [p for p in S["open"] if not p.get("r")])
     S["closed"] = cl  # r1157:錯殺交易永久保存，不截400筆
     S["rules"] = {"dd": DD, "tp": TP, "sl": SL, "hold": HOLD, "v": RULE_V,
                   "bt": {"all": [2301, 10.43, 63], "good": [598, 7.23, 65], "pf": 2.48, "years": "10/11", "range": "2016~2026",
-                         "old30": [7305, 3.21, 54], "rand": [48344, 0.59, 47], "halves": [[753, 4.96, 58], [1831, 7.01, 64]]}}
+                         "old30": [7305, 3.21, 54], "rand": [48344, 0.59, 47], "halves": [[753, 4.96, 58], [1831, 7.01, 64]],
+                         "mkt": {"weak": [1485, 16.8, 76], "other": [816, -1.2, 39], "th": 0.35}}}
     S["done"] = last
     for e in ev: log("os:" + e)
     return S

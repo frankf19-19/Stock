@@ -474,7 +474,16 @@ if __name__ == '__main__':
         m_ = lambda L: np.mean(L) * 100 if L else float('nan')
         import zlib
         half = lambda sid: zlib.crc32(sid.encode()) % 2
+        T3 = []
+        if os.environ.get('BRD3'):
+            brd = CC.defaultdict(lambda: [0, 0])
+            for sid, e in S.items():
+                C_ = e['a'][:, 3]; P_ = e['P']
+                for i in range(60, len(C_)):
+                    if P_['liq'][i] >= 2e4: brd[e['d'][i]][1] += 1; brd[e['d'][i]][0] += C_[i] > P_['ma60'][i]
+            BR = {d: v[0] / v[1] for d, v in brd.items() if v[1] >= 50}
         for g, (ev, xf, okt) in G.items():
+            if os.environ.get('BRD3') and g != 'dip': continue
             T = []   # (half, period, ret, feats)
             for pn, a_, b_ in (('A', '2016-01-01', '2021-01-01'), ('B', '2021-01-01', None)):
                 for t in simulate(S, ev, xf, start=a_, end=b_):
@@ -487,6 +496,17 @@ if __name__ == '__main__':
                          '營收YoY>20%': x['ry'] is not None and x['ry'] > 0.20, '近3月營收都成長': x['r3'] is True, '營收加速': x['acc'] is True}
                     F.update(new_feats(t[0], e, i))
                     T.append((half(t[0]), pn, t[2], {k_: bool(v_) for k_, v_ in F.items()}))
+                    if os.environ.get('BRD3'): T3.append((pn, t[2], BR.get(e['d'][i]), score(g, x, new_feats(t[0], e, i))))
+            if os.environ.get('BRD3'):
+                # r1182:大盤寬度 × 本股總分(前端同一套,dip 用現行條件)
+                print(f'\n######## {GN[g]} 大盤寬度 × 本股總分 ########')
+                for pn in ('A', 'B'):
+                    for nm, f_ in (('大盤弱(<35%站上季線)', lambda b: b is not None and b < 0.35), ('其他', lambda b: b is not None and b >= 0.35)):
+                        B_ = CC.defaultdict(list)
+                        for p_, r, b, sc in T3:
+                            if p_ == pn and f_(b): B_[max(-3, min(3, sc))].append(r)
+                        print(f'  期{pn} {nm}:' + '  '.join(f"{k_:+d}:{m_(B_[k_]):+.1f}%({len(B_[k_])})" for k_ in sorted(B_)), flush=True)
+                T3.clear(); continue
             print(f'\n######## {GN[g]}:{len(T)} 筆 ########', flush=True)
             for tr_h in (0, 1):
                 te_h = 1 - tr_h
@@ -508,7 +528,7 @@ if __name__ == '__main__':
                         if h != te_h or p_ != pn: continue
                         sc = sum(v_ for k_, v_ in sel.items() if F.get(k_)); B_[max(-3, min(3, sc))].append(r)
                     print(f'    第 {te_h} 半(沒用來挑條件)期 {pn}:' + '  '.join(f"{k_:+d}:{m_(B_[k_]):+.1f}%({len(B_[k_])})" for k_ in sorted(B_)), flush=True)
-    if which == 'entry2':
+    if which in ('entry2', 'brd2'):
         # r1182:①買進價格怎麼掛(隔天開盤 / 跳空太多不追 / 掛訊號日收盤 / 掛收盤−2%,5 天內沒成交就放棄)
         #        ②大盤狀態(全市場站上季線比例、全市場 20 日平均漲跌)對各買法的影響
         import collections as CC
@@ -557,6 +577,36 @@ if __name__ == '__main__':
                 return None
             return g
         m_ = lambda L: np.mean(L) * 100 if L else float('nan')
+        if which == 'brd2':
+            # r1182:跌深類在大盤弱時才好?逐年、不同門檻、集中在幾段行情?
+            for gn in ('跌25%止跌・高波動', '錯殺−40%首日・全部', '突破・中波動', '突破・高波動'):
+                ev, xf, okv = G[gn]; R = []
+                for sid, e in S.items():
+                    d = e['d']; a = e['a']; n = len(a); P = e['P']; last = -1
+                    for i in range(250, n - 2):
+                        if d[i] < '2016-01-01' or i <= last: continue
+                        if not (P['liq'][i] >= 2e4) or not ev(e, i) or not okv(vol_of(e, i)): continue
+                        px = a[i+1][0]
+                        if not px: continue
+                        xi, xp, _ = xf(e, i + 1, px)
+                        if xi is None: continue
+                        last = xi; R.append((d[i], xp / px - 1 - 0.006, BR.get(d[i]), C60 := None))
+                print(f'\n######## {gn}:{len(R)} 筆 ########')
+                for th in (0.25, 0.35, 0.45, 0.55):
+                    w = [r for _, r, b, _ in R if b is not None and b < th]; o = [r for _, r, b, _ in R if b is not None and b >= th]
+                    print(f'  門檻 {th*100:.0f}%:弱 {len(w)} 筆 {m_(w):+.2f}% 勝{np.mean([x>0 for x in w])*100 if w else 0:.0f}% | 其他 {len(o)} 筆 {m_(o):+.2f}% 勝{np.mean([x>0 for x in o])*100 if o else 0:.0f}%')
+                Y = CC.defaultdict(lambda: ([], []))
+                for d, r, b, _ in R:
+                    if b is None: continue
+                    Y[d[:4]][0 if b < 0.35 else 1].append(r)
+                print('  逐年(弱<35% / 其他):' + '  '.join(f"{y}:{m_(w):+.1f}({len(w)})/{m_(o):+.1f}({len(o)})" for y, (w, o) in sorted(Y.items())))
+                mo = CC.Counter(d[:7] for d, r, b, _ in R if b is not None and b < 0.35)
+                print(f'  弱的訊號分布在 {len(mo)} 個月;最多的月份:' + '、'.join(f'{k} {v}' for k, v in mo.most_common(8)))
+                # 去掉最多的 3 個月後
+                top = {k for k, _ in mo.most_common(3)}
+                w = [r for d, r, b, _ in R if b is not None and b < 0.35 and d[:7] not in top]
+                print(f'  去掉最多的 3 個月後:弱 {len(w)} 筆 {m_(w):+.2f}%')
+            raise SystemExit
         for gn, (ev, xf, okv) in G.items():
             R = []   # per signal: period, open_ret, gap, lim0_ret, lim2_ret, breadth, mk20
             for pn, a_, b_ in (('A', '2016-01-01', '2021-01-01'), ('B', '2021-01-01', '2099-01-01')):
