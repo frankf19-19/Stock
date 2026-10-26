@@ -203,6 +203,66 @@ if __name__ == '__main__':
             else: fresh.append(t)
             last[sid] = (t[1], t[4])
         stats(re_, '再買回(上次被季線洗出 90 天內又突破)'); stats(fresh, '其他')
+    if which == 'exit9':
+        # r1178:依市值×波動 9 類重驗「賣出」規則;進場:突破(52週新高)、跌 25% 止跌
+        import collections as CC
+        CAP = json.load(open('/home/claude/repo2/cap.json'))['c']
+        def typ(e, i, sid):
+            a = e['P']['atr'][i] / e['a'][i][3]; c = CAP.get(sid)
+            if not c: return None
+            m = c * 1e8 / 10 * e['a'][i][3]
+            return ('低波動' if a < 0.025 else '中波動' if a < 0.04 else '高波動') + '・' + ('大型' if m >= 5e10 else '中型' if m >= 1e10 else '小型')
+        def gx(ma='ma60', conf=2, hold=120, tp=None, half=None, sl=None):
+            def f(e, ei):
+                a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; px = O[ei]; below = 0; got = 0.0; hs = False
+                for k in range(ei, min(n, ei + hold)):
+                    if sl and L[k] <= px * (1 - sl):
+                        xp = min(O[k], px * (1 - sl)); return k, (got + xp * 0.5 if hs else xp), 'sl'
+                    if tp and H[k] >= px * (1 + tp):
+                        xp = max(O[k], px * (1 + tp)); return k, (got + xp * 0.5 if hs else xp), 'tp'
+                    if half and not hs and H[k] >= px * (1 + half): hs = True; got = max(O[k], px * (1 + half)) * 0.5
+                    if ma:
+                        below = below + 1 if (C[k] < P[ma][k] and k > ei) else 0
+                        if below >= conf:
+                            xi = k + 1 if k + 1 < n else k; xp = O[k+1] if k + 1 < n else C[k]; return xi, (got + xp * 0.5 if hs else xp), 'ma'
+                    if k == ei + hold - 1: return k, (got + C[k] * 0.5 if hs else C[k]), 'time'
+                return None, None, None
+            return f
+        def dipk_conf(k):
+            def f(e, i):
+                H = e['a'][:, 1]; C = e['a'][:, 3]; P = e['P']
+                if not (C[i] / P['h60'][i] - 1 <= -k): return False
+                if not (C[i] > H[i-1] and C[i-1] <= H[i-2]): return False
+                return any(C[j] / P['h60'][j] - 1 <= -k and C[j-1] / P['h60'][j-1] - 1 > -k for j in range(i-10, i))
+            return f
+        E = {
+          '突破': (EV['站上 250 日高'], {
+            '季線連2天(現行)': gx(), '季線連3天': gx(conf=3), '月線連2天': gx(ma='ma20'), '季線連2天+30%先賣半': gx(half=0.30),
+            '季線連2天+50%先賣半': gx(half=0.50), '固定+25%/季線': gx(tp=0.25), '季線連2天/250日': gx(hold=250), '−15%/+30%/90日': gx(ma=None, sl=0.15, tp=0.30, hold=90)}),
+          '跌25%止跌': (dipk_conf(0.25), {
+            '−15%/+20%/60日(現行)': gx(ma=None, sl=0.15, tp=0.20, hold=60), '−15%/+25%/60日': gx(ma=None, sl=0.15, tp=0.25, hold=60),
+            '−15%/+30%/90日': gx(ma=None, sl=0.15, tp=0.30, hold=90), '−20%/+30%/90日': gx(ma=None, sl=0.20, tp=0.30, hold=90),
+            '−10%/+20%/60日': gx(ma=None, sl=0.10, tp=0.20, hold=60), '−15%/+20%/40日': gx(ma=None, sl=0.15, tp=0.20, hold=40),
+            '−15%/月線連2天/90日': gx(ma='ma20', sl=0.15, hold=90), '−15%/+15%先賣半,季線連2天': gx(ma='ma60', sl=0.15, half=0.15, hold=120)})}
+        TY = [v + '・' + z for v in ('低波動', '中波動', '高波動') for z in ('大型', '中型', '小型')]
+        for en, (ev, XS) in E.items():
+            print(f'\n######## 進場:{en} ########', flush=True)
+            R = {}
+            for xn, xf in XS.items():
+                for pn, a_, b_ in (('A', '2016-01-01', '2021-01-01'), ('B', '2021-01-01', None)):
+                    tr = simulate(S, ev, xf, start=a_, end=b_); g = CC.defaultdict(list)
+                    for t in tr:
+                        e = S[t[0]]; i = e['d'].index(t[1]) - 1; ty = typ(e, i, t[0])
+                        if ty: g[ty].append(t[2]); g['全部'].append(t[2])
+                    R[(xn, pn)] = g
+            for ty in TY + ['全部']:
+                rows = []
+                for xn in XS:
+                    a, b = R[(xn, 'A')].get(ty, []), R[(xn, 'B')].get(ty, [])
+                    if len(a) < 30 or len(b) < 30: continue
+                    pf = lambda L: (np.array(L)[np.array(L) > 0].sum() / max(1e-9, -np.array(L)[np.array(L) < 0].sum()))
+                    rows.append(f'   {xn:22} A {np.mean(a)*100:+6.2f}% PF{pf(a):4.2f} 勝{(np.array(a)>0).mean()*100:3.0f}%({len(a)}) | B {np.mean(b)*100:+6.2f}% PF{pf(b):4.2f} 勝{(np.array(b)>0).mean()*100:3.0f}%({len(b)})')
+                if rows: print(f'[{ty}]'); print('\n'.join(rows), flush=True)
     if which == 'mcap':
         # r1177:「大型/中小型」改用市值(實收資本額/10 元面額 = 股數,× 當天收盤)而不是成交值;波動 × 市值 3×3 類
         import collections as CC

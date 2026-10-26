@@ -8,7 +8,7 @@
 另外輸出 rq:每檔的營收品質旗標(給前端判斷「有未來性」)。"""
 import json, gzip
 
-DD = -0.40; TP = 0.20; SL = 0.15; HOLD = 60; LIQ = 2e7; RULE_V = 40   # r1143:−30% → −40%;新訊號標 r=40,舊紀錄沒有 r 欄位
+DD = -0.40; TP = 0.30; SL = 0.20; HOLD = 90; LIQ = 2e7; RULE_V = 40   # r1178:出場 −15%/+20%/60 → −20%/+30%/90(每筆 +6.4% → +10.4%、勝率 63%);已進場的 open 部位帶自己的 tp/sl 價照原規則走完   # r1143:−30% → −40%;新訊號標 r=40,舊紀錄沒有 r 欄位
 _REV = {}
 
 
@@ -58,7 +58,7 @@ def run(A, data, T, last, log=print):
         if not d or last not in d: keep.append(q) if q.get("tries", 0) < 3 else None; q["tries"] = q.get("tries", 0) + 1; continue
         b = o[d.index(last)]; op = b[0]
         if not op: continue
-        S["open"].append({"id": q["id"], "name": q["name"], "sig_d": q["sig_d"], "fill": last, "entry": op, "tp": round(op * (1 + TP), 2), "sl": round(op * (1 - SL), 2), "q": q.get("q"), "n": 0, "r": q.get("r")})
+        S["open"].append({"id": q["id"], "name": q["name"], "sig_d": q["sig_d"], "fill": last, "entry": op, "tp": round(op * (1 + TP), 2), "sl": round(op * (1 - SL), 2), "q": q.get("q"), "n": 0, "r": q.get("r"), "hold": HOLD})
     S["pend"] = keep
     # ② 出場(含今天剛買的,用今天日 K)
     still = []
@@ -74,7 +74,7 @@ def run(A, data, T, last, log=print):
         elif op and op >= p["tp"]: xp, why = op, "tp"
         elif l and l <= p["sl"]: xp, why = p["sl"], "sl"
         elif h and h >= p["tp"]: xp, why = p["tp"], "tp"
-        elif p["n"] >= HOLD: xp, why = c, "time"
+        elif p["n"] >= (p.get("hold") or 60): xp, why = c, "time"   # r1178:每筆帶自己的最長持有天數(10/27 前進場的照原 60 天)
         if xp:
             ret = xp * (1 - 0.004425) / (p["entry"] * 1.001425) - 1
             S["closed"].append({**p, "xd": last, "xp": xp, "why": why, "ret": round(ret * 100, 2)})
@@ -115,7 +115,7 @@ def run(A, data, T, last, log=print):
     S["stats30"] = _st([t for t in cl if not t.get("r")], [p for p in S["open"] if not p.get("r")])
     S["closed"] = cl  # r1157:錯殺交易永久保存，不截400筆
     S["rules"] = {"dd": DD, "tp": TP, "sl": SL, "hold": HOLD, "v": RULE_V,
-                  "bt": {"all": [2583, 6.42, 63], "good": [598, 7.23, 65], "pf": 2.13, "years": "11/11", "range": "2016~2026",
+                  "bt": {"all": [2301, 10.43, 63], "good": [598, 7.23, 65], "pf": 2.48, "years": "10/11", "range": "2016~2026",
                          "old30": [7305, 3.21, 54], "rand": [48344, 0.59, 47], "halves": [[753, 4.96, 58], [1831, 7.01, 64]]}}
     S["done"] = last
     for e in ev: log("os:" + e)
