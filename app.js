@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1172';
+const APP_BUILD='r1173';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1222,6 +1222,51 @@ function stockOperationFacts(s,raw,dates,own,cost,now=new Date()){
  if(!us&&typeof AIPK!=='undefined'&&AIPK)models+=(((AIPK.trader||{}).pv||{}).pos||[]).filter(x=>x.id===s.id).length;
  return {check:r,breakEligible:ws,breakEntry,signalEntry,nextBelowPrice,dipEntry,dipHypothetical:strategyDipPricePlan(s,dipEntry,false),cost:en,ownDip:en?strategyDipPricePlan(s,en,true):null,models};
 }
+/* r1173:Frank「要很明確的買賣價格、防守價格,現在超級模糊」→ 卡片最上面一張價格表:
+   每種已驗證買法各一欄,只寫 買進價 / 防守價 / 賣出價 三個數字 + 一句怎麼用;長篇條件收進下方「完整條件」(內容全保留)。
+   數字全部來自既有規則(r1142~r1146 回測):台股 創 52 週新高突破(季線連 2 天出場、+30% 可先賣一半)、錯殺低接 −40%(−15%/+20%/60 天);
+   美股 跌深 −35%(−20%/+30%/90 天)。不新增任何規則。 */
+function stockPriceBoxHTML(s,f,opts={}){
+  try{
+    if(!f||!f.check)return '';
+    const r=f.check,us=s.market==='US',px=+s.price||r.close,P=(v,d)=>strategyPrice(v,us,d||'near');
+    const fm=v=>v>0?(us?'$':'')+(+v).toLocaleString(undefined,{minimumFractionDigits:us?2:0,maximumFractionDigits:2}):'—';
+    const gap=v=>{if(!(v>0&&px>0))return '';const g=(v/px-1)*100;return `<span class="pbx-gap">${Math.abs(g)<0.05?'就在現價':(g>0?'還要漲 ':'還要跌 ')+Math.abs(g).toFixed(1)+'%'}</span>`;};
+    let nx='',cf='',sig='';try{const q=typeof StockOperationPlan!=='undefined'&&StockOperationPlan.schedule(s.market,r.asof,opts.now??Date.now(),opts.calendar);if(q){if(q.order)nx=q.order;if(q.confirm)cf=q.confirm;if(q.signalOrder&&!q.missed)sig=q.signalOrder;}}catch(e){}
+    const md=d=>d.slice(5).replace('-','/'),nxt=nx?`${md(nx)} 開盤`:'下個交易日開盤',cfx=cf?`${md(cf)} `:'',sgx=sig?`${md(sig)} 開盤`:nxt;
+    const col=(title,state,rows,foot)=>`<div class="pbx-col"><div class="pbx-h">${title}</div>${state?`<div class="pbx-st">${state}</div>`:''}${rows.map(([ic,lab,v,how,cls])=>`<div class="pbx-r"><span class="pbx-l">${ic} ${lab}</span><b class="pbx-v ${cls||''}">${fm(v)}</b>${how?`<span class="pbx-how">${how}</span>`:''}</div>`).join('')}${foot?`<div class="pbx-foot">${foot}</div>`:''}</div>`;
+    const cols=[];
+    if(!us){
+      const conf=r.breaks.length>0,be=conf?f.signalEntry:f.breakEntry,ma=f.nextBelowPrice||P(r.ma60,'down');
+      if(be>0){const half=P(be*1.30,'up');
+        cols.push(col('🚀 突破買法',conf?`<b class="pbx-ok">✅ ${md(r.asof)} 收盤已符合 → ${sgx}買</b>`:'',[
+          ['🟢','買進',be,conf?`${sgx}直接買(開盤價)`:`${cfx}收盤站上這個價 → ${nxt}買 ${gap(be)}`,'pbx-buy'],
+          ['🛑','防守',ma,'連續 2 天收盤低於季線就賣(這是目前季線,會每天變)','pbx-stop'],
+          ['🎯','賣出',half,'漲到這裡先賣一半;剩下等跌破季線再賣','pbx-tp']],
+          '回測(全市場 2016~2026):每筆平均 +5.3%、11 年 10 年賺;勝率約 4 成,靠少數大漲賺錢'));
+      }else cols.push(col('🚀 突破買法','<span class="pbx-na">目前離 52 週高太遠或剛突破過,沒有突破買點</span>',[['🛑','防守',ma,'若已用這個買法持有:連續 2 天收盤低於季線就賣','pbx-stop']],''));
+      const d=f.dipHypothetical,dfirst=r.dip==='first';
+      if(d){cols.push(col('🎯 錯殺低接',dfirst?`<b class="pbx-ok">✅ ${md(r.asof)} 第一天跌破 −40% → ${sgx}買</b>`:r.dip==='already'?'<span class="pbx-na">已在錯殺區但不是第一天,規則不追加</span>':'',[
+          ['🟢','買進',d.entry,dfirst?`${sgx}直接買(開盤價)`:`${cfx}收盤第一次跌到這裡以下 → ${nxt}買 ${gap(d.entry)}`,'pbx-buy'],
+          ['🛑','防守',d.stop,'買進價 −15%,碰到就賣','pbx-stop'],
+          ['🎯','賣出',d.target,'買進價 +20%,碰到就賣;最多抱 60 個交易日','pbx-tp']],
+          '回測:每筆平均 +6.4%、勝率 63%、11 年都賺'));}
+    }else{
+      const d=f.dipHypothetical,dfirst=r.dip==='first';
+      if(d)cols.push(col('🎯 跌深低接',dfirst?`<b class="pbx-ok">✅ ${md(r.asof)} 第一天跌破 −35% → ${sgx}買</b>`:r.dip==='already'?'<span class="pbx-na">已在跌深區但不是第一天,規則不追加</span>':'',[
+          ['🟢','買進',d.entry,dfirst?`${sgx}直接買(開盤價)`:`${cfx}收盤第一次跌到這裡以下 → ${nxt}買 ${gap(d.entry)}`,'pbx-buy'],
+          ['🛑','防守',d.stop,'買進價 −20%,碰到就賣','pbx-stop'],
+          ['🎯','賣出',d.target,'買進價 +30%,碰到就賣;最多抱 90 個交易日','pbx-tp']],
+          '回測(2016~2026):每筆平均 +7.9%、勝率 59%、11 年都賺;美股其他技術訊號實測沒用'));
+    }
+    if(!cols.length)return '';
+    let own='';
+    if(f.cost>0){const c=f.cost,pl=(px/c-1)*100;
+      own=us?`<div class="pbx-own">💼 你的持股(成本 <b>${fm(c)}</b>,目前 <b style="color:${pl>=0?'var(--up)':'var(--down)'}">${pl>=0?'+':''}${pl.toFixed(1)}%</b>):🛑 防守 <b class="pbx-stop">${fm(f.ownDip&&f.ownDip.stop)}</b>・🎯 賣出 <b class="pbx-tp">${fm(f.ownDip&&f.ownDip.target)}</b>(照跌深低接規則)</div>`
+        :`<div class="pbx-own">💼 你的持股(成本 <b>${fm(c)}</b>,目前 <b style="color:${pl>=0?'var(--up)':'var(--down)'}">${pl>=0?'+':''}${pl.toFixed(1)}%</b>):🛑 防守 <b class="pbx-stop">${fm(f.nextBelowPrice||P(r.ma60,'down'))}</b>(連 2 天收盤低於季線就賣)・🎯 先賣一半 <b class="pbx-tp">${fm(P(c*1.30,'up'))}</b>(成本 +30%)${r.below2?` <b style="color:var(--down)">⚠ 到 ${md(r.asof)} 已連 2 天收在季線下,依規則 ${nxt}賣</b>`:r.below?` <span style="color:var(--amber)">${md(r.asof)} 收在季線下(第 1 天,還不用賣)</span>`:''}</div>`;}
+    return `<div class="pbx" data-pbx="${s.market}:${s.id}"><div class="pbx-top">📍 <b>${s.name||s.id}</b> 現價 <b>${fm(px)}</b> <span class="pbx-asof">(價格條件用 ${r.asof} 收盤算)</span></div><div class="pbx-grid">${cols.join('')}</div>${own}<div class="pbx-note">${cols.length>1?'兩種買法擇一用,不是兩個都要買;':''}「買進」都是看收盤、下個交易日開盤才買,盤中碰到不算。</div></div>`;
+  }catch(e){return '';}
+}
 function stockContextHTML(s,raw,dates,own=false,cost=null){
  const legacy=stockContextLegacyHTML(s,raw,dates);
  if(typeof StockTradeResearch==='undefined'&&typeof StockOperationPlan==='undefined')return legacy;
@@ -1229,7 +1274,9 @@ function stockContextHTML(s,raw,dates,own=false,cost=null){
  let calendar=null;try{if(typeof HOLI==='object')calendar=HOLI;}catch(e){}
  const e=STOCK_TRADE_PROFILES&&STOCK_TRADE_PROFILES.stocks[s.market+':'+s.id];
  const research=typeof StockTradeResearch==='undefined'?'<p>研究資料待載入。</p>':StockTradeResearch.render(s,e,{check:strategyCloseCheck(s,raw,dates),calendar});
- const primary=typeof StockOperationPlan==='undefined'?research:StockOperationPlan.render(s,stockOperationFacts(s,raw,dates,own,cost),{calendar})+'<details class="plan-more operation-research"><summary>其他六種買法研究結果（不代表整檔股票不能買）</summary>'+research+'</details>';
+ const facts=stockOperationFacts(s,raw,dates,own,cost),box=stockPriceBoxHTML(s,facts,{calendar});
+ const full=typeof StockOperationPlan==='undefined'?research:StockOperationPlan.render(s,facts,{calendar})+'<details class="plan-more operation-research"><summary>其他六種買法研究結果（不代表整檔股票不能買）</summary>'+research+'</details>';
+ const primary=box?box+'<details class="plan-more pbx-full"><summary>完整條件與說明(確認時間、已持有怎麼處理、其他研究)</summary>'+full+'</details>':full;   // r1173:價格表在上,原說明全部保留在收合區
  return primary+'<details class="plan-more legacy-context-observations"><summary>原三種情境觀察價與通知（參考）</summary><p class="dim-note">下面保留舊觀察價及其通知設定，與上方六種買法的候選分開；未通過的研究價不作買進通知。你的原通知勾選保留。</p>'+legacy+'</details>';
 }
 function stockContextLegacyHTML(s,raw,dates){
