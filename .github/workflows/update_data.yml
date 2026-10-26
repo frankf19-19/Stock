@@ -170,6 +170,7 @@ jobs:
             [ -f aipick.json ] && git add aipick.json
             [ -f aipick_us.json ] && git add aipick_us.json      # r890:美股 AI Pick
             [ -f aip3.json ] && git add aip3.json                # r1092
+            [ -f sector_str.json ] && git add sector_str.json    # r1180
             [ -f aip3_ai.json ] && git add aip3_ai.json          # r1123:AI 評分快取拆檔
             [ -f aip3_live.json ] && git add aip3_live.json      # r1107:三清單盤中小檔
             [ -f aitrader.json ] && git add aitrader.json        # r894:AI 交易員
@@ -245,6 +246,7 @@ jobs:
             step AI複核 timeout 1500 python aipick_review.py || echo "AI 複核失敗,不影響選股"   # r943:獨立步驟,每檔存一次
             git fetch -q origin main && git checkout -q origin/main -- aipick_us.json 2>/dev/null || true       # r1091:先拿美股盤中班(yext.yml)剛記的觸發紀錄,再做美股結算
             step AIPick美股 bash -c 'AIPICK_MKT=US timeout 900 python aipick.py || echo "美股 AI Pick 失敗,不影響主資料"'   # r890
+            step 產業強弱 timeout 120 python sector_strength.py || echo "產業強弱失敗,沿用上一版"   # r1180:前端「本股條件」用
             step AIPick三期 timeout 1200 python aip3.py || echo "三期制 AI Pick 失敗,不影響主資料"       # r1092:短期/中期/長期 各 5 檔;r1095:長期加 AI 未來性評分(最多 24 次搜尋)
             step AI交易員 bash -c 'AITRADER_MKT=TW timeout 600 python aitrader.py; AITRADER_MKT=US timeout 600 python aitrader.py; true'   # r894
             step 推播 timeout 300 python notify.py || echo "推播失敗,不影響主資料"

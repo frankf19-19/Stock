@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1179';
+const APP_BUILD='r1180';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1241,7 +1241,8 @@ function stockOperationFacts(s,raw,dates,own,cost,now=new Date()){
    美股 跌深 −35%(−20%/+30%/90 天)。不新增任何規則。 */
 /* r1179:🔎 本股條件——同一買法、同一類型裡,個股條件能不能再分出好壞(plan_bt_study.py filt9,2016~2020 / 2021~2026 兩期都差 ≥0.8% 才採用)
    g='low' 低波動突破、'mid' 中波動突破、'dip' 高波動跌 25% 止跌;trig=今天就是訊號日(才看「當天量/當天漲幅」) */
-var STOCK_COND_PENDING={};
+var STOCK_COND_PENDING={},SECSTR=null,SECSTR_P=null;
+function secStrLoad(){if(SECSTR||SECSTR_P)return;SECSTR_P=(async()=>{try{const r=await fT('sector_str.json?v='+Math.floor(Date.now()/36e5),8000);if(r&&r.ok){SECSTR=await r.json();try{refreshStrategySummaries(true);}catch(e){}}}catch(e){}})();}
 function stockCondHTML(s,f,g,trig){
   try{
     const k=f&&f.cond;if(!k||s.market!=='TW')return '';
@@ -1253,12 +1254,24 @@ function stockCondHTML(s,f,g,trig){
       const Y=(ch.ry||[]).filter(v=>v!=null&&isFinite(+v)).map(Number);if(Y.length){ry=Y[Y.length-1]/100;if(Y.length>=3)r3=Y.slice(-3).every(v=>v>0);if(Y.length>=2)acc=Y[Y.length-1]>Y[Y.length-2];}}
     const P=[],M=[],add=(ok,arr,txt,eff)=>{if(ok)arr.push(`${txt} <span class="pbx-eff">(${eff})</span>`);};
     const both=f20!=null&&t20!=null&&f20<-0.02&&t20<=0;
+    /* r1180:新因素(plan_bt_study.py filt9b):估值、籌碼集中度、融資、產業強弱 */
+    const pe=+s.pe>0?+s.pe:null,pb=+s.pb>0?+s.pb:null,dy=s.dv&&+s.dv.y>0?+s.dv.y:null;
+    let big4=null,hold4=null,mf20=null,secRel=null;
+    if(ch){const bp=(ch.bp||[]).map(Number);if(bp.length>=5&&isFinite(bp[bp.length-1])&&isFinite(bp[bp.length-5]))big4=bp[bp.length-1]-bp[bp.length-5];
+      const H=(ch.hdn||[]).filter(x=>x&&x.n>0);if(H.length>=2){const last=H[H.length-1],t0=Date.parse(String(last.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'));const old=[...H].reverse().find(x=>t0-Date.parse(String(x.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'))>=25*864e5);if(old&&t0-Date.parse(String(old.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'))<=40*864e5)hold4=last.n/old.n-1;}
+      const mf=(ch.mf||[]).map(Number);if(mf.length>=21&&mf[mf.length-21]>0)mf20=mf[mf.length-1]/mf[mf.length-21]-1;}
+    if(!SECSTR)secStrLoad();else{const z=SECSTR.s&&SECSTR.s[s.sector];if(z&&isFinite(SECSTR.mkt))secRel=z.r20-SECSTR.mkt;}
     if(g==='low'){
-      add(ry!=null&&ry>0.20,P,`月營收年增 ${(ry*100).toFixed(0)}%(>20%)`,'每筆多 +1.3~2.0%');
+      add(ry!=null&&ry>0.20,P,`月營收年增 ${((+ry)*100).toFixed(0)}%(>20%)`,'每筆多 +1.3~2.0%');
       add(trig&&k.volR<1,P,'突破當天量縮(低於均量)','多 +2.2%');
       add(both,M,'外資、投信近 20 日都在賣','少 −3.1%');
       add(k.c20>0.20,M,`突破前 20 天已漲 ${(k.c20*100).toFixed(0)}%(>20%)`,'少 −1.8~1.9%');
       add(trig&&k.dayRet>0.05,M,`突破當天大漲 ${(k.dayRet*100).toFixed(1)}%`,'少 −1.0~3.0%');
+      add(pe!=null&&pe<12,P,`本益比 ${(+pe).toFixed(1)} 倍(<12)`,'多 +2.1~2.6%');
+      add(dy!=null&&dy>5,P,`殖利率 ${(+dy).toFixed(1)}%(>5%)`,'多 +1.5~2.9%');
+      add(pb!=null&&pb<1.2,P,`股價淨值比 ${(+pb).toFixed(2)}(<1.2)`,'多 +1.1~1.8%');
+      add(big4!=null&&big4<=-1,M,`400 張大戶 4 週減 ${Math.abs(big4).toFixed(1)} 個百分點`,'少 −1.4~8.1%');
+      add(hold4!=null&&hold4>=0.03,M,`股東人數 4 週增 ${(hold4*100).toFixed(0)}%(散戶進場)`,'少 −1.6~3.6%');
     }else if(g==='mid'){
       add(f20!=null&&f20>0.02,P,'外資近 20 日買超','多 +1.5~2.1%');
       add(t20!=null&&t20>0.01,P,'投信近 20 日買超','多 +1.0~1.5%');
@@ -1267,6 +1280,9 @@ function stockCondHTML(s,f,g,trig){
       add(trig&&k.volR<1,M,'突破當天量縮(低於均量)','少 −2.7~4.8%');
       add(trig&&k.dayRet>0.05,M,`突破當天大漲 ${(k.dayRet*100).toFixed(1)}%`,'少 −1.6~3.0%');
       add(k.ma20gt60,M,'月線已在季線上(這類股剛轉強時突破較好)','少 −1.6~3.1%');
+      add(hold4!=null&&hold4<=-0.03,P,`股東人數 4 週減 ${Math.abs(hold4*100).toFixed(0)}%(籌碼集中)`,'多 +2.4~4.4%');
+      add(big4!=null&&big4<=-1,P,`400 張大戶 4 週減 ${Math.abs(big4).toFixed(1)} 個百分點(這類突破實測反而較好)`,'多 +3.2~3.7%');
+      add(pe!=null&&pe<12,M,`本益比 ${(+pe).toFixed(1)} 倍(<12,這類股便宜多半代表沒成長)`,'少 −2.2~2.5%');
     }else if(g==='dip'){
       add(f20!=null&&f20>0.02,P,'外資近 20 日買超','多 +1.9~3.8%');
       add(t20!=null&&t20>0.01,P,'投信近 20 日買超','多 +3.3~11%');
@@ -1276,12 +1292,24 @@ function stockCondHTML(s,f,g,trig){
       add(k.aboveYear,M,'股價還在年線上(跌得還不夠深)','少 −7.9~13.2%');
       add(k.ma20gt60,M,'月線還在季線上','少 −3.2~9.5%');
       add(r3===true,M,'近 3 個月營收都成長(好消息多半已反映)','少 −2.1~7.3%');
+      add(dy!=null&&dy>5,P,`殖利率 ${(+dy).toFixed(1)}%(>5%)`,'多 +6.0~13.3%');
+      add(pb!=null&&pb<1.2,P,`股價淨值比 ${(+pb).toFixed(2)}(<1.2)`,'多 +8.6~11.5%');
+      add(pe!=null&&pe<12,P,`本益比 ${(+pe).toFixed(1)} 倍(<12)`,'多 +2.5~7.8%');
+      add(mf20!=null&&mf20<-0.15,P,`融資 20 日減 ${Math.abs(mf20*100).toFixed(0)}%(散戶籌碼洗出)`,'多 +6.0~13.5%');
+      add(hold4!=null&&hold4<=-0.03,P,`股東人數 4 週減 ${Math.abs(hold4*100).toFixed(0)}%`,'多 +2.1~4.0%');
+      add(pb!=null&&pb>5,M,`股價淨值比 ${(+pb).toFixed(1)}(>5,很貴)`,'少 −8.2~9.7%');
+      add(pe!=null&&pe>40,M,`本益比 ${(+pe).toFixed(0)} 倍(>40)`,'少 −6.4~7.4%');
+      add(secRel!=null&&secRel<-0.05,M,`所屬產業近 20 日弱於大盤 ${Math.abs(secRel*100).toFixed(1)}%`,'少 −2.4~6.6%');
+      add(hold4!=null&&hold4>=0.03,M,`股東人數 4 週增 ${(hold4*100).toFixed(0)}%(散戶進場)`,'少 −2.9~8.9%');
+      add(big4!=null&&big4<=-1,M,`400 張大戶 4 週減 ${Math.abs(big4).toFixed(1)} 個百分點`,'少 −3.3~5.6%');
     }else return '';
     const tip=!trig?(g==='dip'?'<div class="pbx-cond-tip">確認那天若收長紅(>5%),實測更好</div>':'<div class="pbx-cond-tip">突破那天若大漲超過 5%,實測較差'+(g==='low'?';量縮突破較好':';量縮突破較差')+'</div>'):'';
     const wait=ch===undefined?'<span class="pbx-sub" style="margin:0">(法人、營收資料載入中)</span>':'';
     if(!P.length&&!M.length)return `<div class="pbx-cond"><b>🔎 本股條件</b>:沒有特別加分或扣分的條件 ${wait}${tip}</div>`;
-    const v=P.length-M.length,verdict=v>0?'<b style="color:var(--up)">條件偏好</b>':v<0?'<b style="color:var(--down)">條件偏差,這次要更小心</b>':'<b>好壞互抵</b>';
-    return `<div class="pbx-cond"><b>🔎 本股條件</b>(加分 ${P.length}、扣分 ${M.length} → ${verdict}) ${wait}${P.map(x=>`<div class="pbx-cond-r">✅ ${x}</div>`).join('')}${M.map(x=>`<div class="pbx-cond-r">⚠️ ${x}</div>`).join('')}${tip}<div class="pbx-cond-tip">同買法、同類型股票裡比較(2016~2020 和 2021~2026 兩期都成立);用 ${f.check.asof} 收盤的條件看</div></div>`;
+    /* r1180:總分(加分數−扣分數)兩期都單調(filt9b);≤−2 不建議、≥+2 條件很好。各組歷史每筆平均(2016~2020 / 2021~2026) */
+    const v=P.length-M.length,BK={low:{lo:'−1~−4%',mid:'+1~+8%',hi:'+4~+11%(勝率 6~7 成)'},mid:{lo:'約 0%(勝率 3 成)',mid:'+3~+7%',hi:'+6~+12%'},dip:{lo:'−6%~+0.5%',mid:'+2~+10%',hi:'+13~+23%(勝率 7~9 成)'}}[g];
+    const verdict=v>=2?`<b style="color:var(--up)">條件很好</b> <span class="pbx-eff">(同分數歷史每筆 ${BK.hi})</span>`:v<=-2?`<b style="color:var(--down)">這次不建議買</b> <span class="pbx-eff">(同分數歷史每筆 ${BK.lo})</span>`:`<b>普通</b> <span class="pbx-eff">(同分數歷史每筆 ${BK.mid})</span>`;
+    return `<div class="pbx-cond${v<=-2?' pbx-cond-bad':v>=2?' pbx-cond-good':''}"><b>🔎 本股條件 總分 ${v>0?'+':''}${v}</b>(加分 ${P.length}、扣分 ${M.length})→ ${verdict} ${wait}${P.map(x=>`<div class="pbx-cond-r">✅ ${x}</div>`).join('')}${M.map(x=>`<div class="pbx-cond-r">⚠️ ${x}</div>`).join('')}${tip}<div class="pbx-cond-tip">同買法、同類型股票裡比較(2016~2020 和 2021~2026 兩期都成立);用 ${f.check.asof} 收盤的條件看</div></div>`;
   }catch(e){return '';}
 }
 function stockPriceBoxHTML(s,f,opts={}){

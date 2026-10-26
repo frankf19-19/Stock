@@ -2694,3 +2694,6 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 /* r1179:本股條件 */
 .pbx-cond{margin-top:6px;padding:6px 8px;border-radius:8px;background:var(--panel);font-size:12.5px;line-height:1.55}
 .pbx-cond-r{margin-top:2px}.pbx-eff{color:var(--dim);font-size:11.5px}.pbx-cond-tip{color:var(--dim);font-size:11.5px;margin-top:3px}
+
+/* r1180:本股條件總分 */
+.pbx-cond-bad{border:1px solid var(--down)}.pbx-cond-good{border:1px solid var(--up)}
