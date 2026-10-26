@@ -203,6 +203,147 @@ if __name__ == '__main__':
             else: fresh.append(t)
             last[sid] = (t[1], t[4])
         stats(re_, '再買回(上次被季線洗出 90 天內又突破)'); stats(fresh, '其他')
+    if which == 'filt9b':
+        # r1180:①驗證 r1179「本股條件」合計分數兩期是否單調;②新因素:融資、本益比/殖利率/淨值比、大戶持股/股東人數、產業強弱
+        import collections as CC, glob as GL, gzip as GZ
+        CAP = json.load(open('/home/claude/repo2/cap.json'))['c']
+        RR = '/home/claude/repo2/archive'
+        def load_yearly(sub, keys):
+            out = CC.defaultdict(lambda: {k: {} for k in keys})
+            for f in GL.glob(f'{RR}/{sub}/tw/*/*.json.gz'):
+                j = json.load(GZ.open(f, 'rt'))
+                for sid, e in j.items():
+                    if sid not in S: continue
+                    for k in keys:
+                        vs = e.get(k) or []
+                        for d, v in zip(e.get('d') or [], vs): out[sid][k][d] = v
+            return out
+        MG = load_yearly('margin', ['mb']); PE = load_yearly('per', ['pe', 'pb', 'dy'])
+        TD = json.load(GZ.open(f'{RR}/tdcc_hist.json.gz', 'rt'))['s']
+        print('aux loaded', len(MG), len(PE), len(TD), flush=True)
+        # 產業 20 日報酬(等權),每日
+        secmap = CC.defaultdict(list)
+        for sid, e in S.items(): secmap[e.get('sec') or ''].append(sid)
+        SR = CC.defaultdict(dict)   # sec -> date -> mean r20
+        MK = {}
+        alld = CC.defaultdict(list)
+        for sid, e in S.items():
+            C = e['a'][:, 3]; sec = e.get('sec') or ''
+            for i in range(20, len(C)):
+                if not (e['P']['liq'][i] >= 2e4): continue
+                alld[(sec, e['d'][i])].append(C[i] / C[i-20] - 1)
+        mk = CC.defaultdict(list)
+        for (sec, d), L in alld.items():
+            if len(L) >= 5: SR[sec][d] = float(np.mean(L))
+            mk[d] += L
+        MK = {d: float(np.mean(L)) for d, L in mk.items()}
+        print('sector strength ready', flush=True)
+        def vol_of(e, i): a = e['P']['atr'][i] / e['a'][i][3]; return '低' if a < 0.025 else '中' if a < 0.04 else '高'
+        def size_of(e, i, sid):
+            c = CAP.get(sid); m = c * 1e8 / 10 * e['a'][i][3] if c else None
+            return None if m is None else ('大' if m >= 5e10 else '中' if m >= 1e10 else '小')
+        def gx(ma='ma60', conf=2, hold=120, tp=None, sl=None):
+            def f(e, ei):
+                a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; px = O[ei]; below = 0
+                for k in range(ei, min(n, ei + hold)):
+                    if sl and L[k] <= px * (1 - sl): return k, min(O[k], px * (1 - sl)), 'sl'
+                    if tp and H[k] >= px * (1 + tp): return k, max(O[k], px * (1 + tp)), 'tp'
+                    if ma:
+                        below = below + 1 if (C[k] < P[ma][k] and k > ei) else 0
+                        if below >= conf: xi = k + 1 if k + 1 < n else k; return xi, (O[k+1] if k + 1 < n else C[k]), 'ma'
+                    if k == ei + hold - 1: return k, C[k], 'time'
+                return None, None, None
+            return f
+        def dipk_conf(k):
+            def f(e, i):
+                H = e['a'][:, 1]; C = e['a'][:, 3]; P = e['P']
+                if not (C[i] / P['h60'][i] - 1 <= -k): return False
+                if not (C[i] > H[i-1] and C[i-1] <= H[i-2]): return False
+                return any(C[j] / P['h60'][j] - 1 <= -k and C[j-1] / P['h60'][j-1] - 1 > -k for j in range(i-10, i))
+            return f
+        ev250 = EV['站上 250 日高']
+        G = {'low': (ev250, gx(ma=None, sl=0.15, tp=0.30, hold=90), lambda v, z: v == '低'),
+             'mid': (ev250, gx(), lambda v, z: v == '中'),
+             'dip': (dipk_conf(0.25), gx(ma=None, sl=0.20, tp=0.30, hold=90), lambda v, z: v == '高')}
+        GN = {'low': '突破・低波動', 'mid': '突破・中波動', 'dip': '跌25%止跌・高波動'}
+        def ry_back(e, i, b):
+            d = e['d'][i]; y, mo = int(d[:4]), int(d[5:7]); back = (1 if int(d[8:10]) >= 12 else 2) + b
+            mm = mo - back; yy = y
+            while mm <= 0: mm += 12; yy -= 1
+            return (e.get('rev') or {}).get(f'{yy}-{mm:02d}')
+        def base_feats(e, i):
+            a = e['a']; C = a[:, 3]; V = a[:, 4]; P = e['P']
+            r3 = [ry_back(e, i, b) for b in range(3)]
+            f20 = e['f'][max(0, i-19):i+1].sum() / max(1, V[max(0, i-19):i+1].sum()); t20 = e['t'][max(0, i-19):i+1].sum() / max(1, V[max(0, i-19):i+1].sum())
+            return dict(ry=r3[0], r3=None if any(x is None for x in r3) else all(x > 0 for x in r3), acc=None if r3[0] is None or r3[1] is None else r3[0] > r3[1],
+                        f20=f20, t20=t20, c20=C[i] / C[i-20] - 1, dayRet=C[i] / C[i-1] - 1, volR=V[i] / max(1, V[i-20:i].mean()),
+                        aboveYear=bool(P['ma240'][i]) and C[i] > P['ma240'][i], ma20gt60=P['ma20'][i] > P['ma60'][i])
+        def score(g, x):   # 與前端 stockCondHTML 同一套
+            p = m = 0; both = x['f20'] < -0.02 and x['t20'] <= 0
+            if g == 'low':
+                p += (x['ry'] is not None and x['ry'] > 0.20) + (x['volR'] < 1); m += both + (x['c20'] > 0.20) + (x['dayRet'] > 0.05)
+            elif g == 'mid':
+                p += (x['f20'] > 0.02) + (x['t20'] > 0.01) + (x['c20'] > 0.20); m += both + (x['volR'] < 1) + (x['dayRet'] > 0.05) + x['ma20gt60']
+            else:
+                p += (x['f20'] > 0.02) + (x['t20'] > 0.01) + (x['c20'] < -0.10) + (x['dayRet'] > 0.05) + (x['acc'] is True)
+                m += x['aboveYear'] + x['ma20gt60'] + (x['r3'] is True)
+            return int(p) - int(m)
+        def nearest_before(dmap, d, look=40):
+            # dmap: date->value,取 d 當天或之前最近一筆
+            if d in dmap: return dmap[d]
+            return None
+        def new_feats(sid, e, i):
+            d = e['d'][i]; out = {}
+            mb = MG.get(sid, {}).get('mb', {}); d20 = e['d'][i-20]
+            if d in mb and d20 in mb and mb[d20] and mb[d20] > 0:
+                ch = mb[d] / mb[d20] - 1; out['融資20日增>15%'] = ch > 0.15; out['融資20日減>15%'] = ch < -0.15
+            pe = PE.get(sid) or {}
+            if pe and d in pe['pe']:
+                v = pe['pe'][d]
+                if v and v > 0: out['本益比<12'] = v < 12; out['本益比>40'] = v > 40
+            if pe and d in pe['dy'] and pe['dy'][d] is not None: out['殖利率>5%'] = pe['dy'][d] > 5
+            if pe and d in pe['pb'] and pe['pb'][d]: out['淨值比<1.2'] = pe['pb'][d] < 1.2; out['淨值比>5'] = pe['pb'][d] > 5
+            td = TD.get(sid)
+            if td:
+                ds = td['d']; import bisect
+                j = bisect.bisect_right(ds, d) - 1
+                if j >= 4:
+                    b4 = td.get('b4') or []; pp = td.get('p') or []
+                    if len(b4) > j and b4[j] is not None and b4[j-4] is not None:
+                        out['大戶(400張)4週增≥1點'] = b4[j] - b4[j-4] >= 1.0; out['大戶4週減≥1點'] = b4[j] - b4[j-4] <= -1.0
+                    if len(pp) > j and pp[j] and pp[j-4]:
+                        out['股東人數4週減≥3%'] = pp[j] / pp[j-4] - 1 <= -0.03; out['股東人數4週增≥3%'] = pp[j] / pp[j-4] - 1 >= 0.03
+            sec = e.get('sec') or ''
+            sr = SR.get(sec, {}).get(d); mr = MK.get(d)
+            if sr is not None and mr is not None:
+                out['產業20日強過大盤5%'] = sr - mr > 0.05; out['產業20日弱於大盤5%'] = sr - mr < -0.05
+            return out
+        m_ = lambda L: np.mean(L) * 100 if L else float('nan')
+        for g, (ev, xf, okt) in G.items():
+            SC = {'A': CC.defaultdict(list), 'B': CC.defaultdict(list)}
+            NF = CC.defaultdict(lambda: {'A': ([], []), 'B': ([], [])})
+            base = {'A': [], 'B': []}
+            for pn, a_, b_ in (('A', '2016-01-01', '2021-01-01'), ('B', '2021-01-01', None)):
+                for t in simulate(S, ev, xf, start=a_, end=b_):
+                    e = S[t[0]]; i = e['d'].index(t[1]) - 1
+                    v, z = vol_of(e, i), size_of(e, i, t[0])
+                    if z is None or not okt(v, z): continue
+                    base[pn].append(t[2])
+                    sc = max(-2, min(2, score(g, base_feats(e, i))))
+                    SC[pn][sc].append(t[2])
+                    for fn, fv in new_feats(t[0], e, i).items(): NF[fn][pn][0 if fv else 1].append(t[2])
+            print(f'\n######## {GN[g]}:全部 A {m_(base["A"]):+.2f}%({len(base["A"])}) B {m_(base["B"]):+.2f}%({len(base["B"])}) ########', flush=True)
+            print('  ① 本股條件合計分數(≤−2 … ≥+2):')
+            for sc in (-2, -1, 0, 1, 2):
+                a, b = SC['A'].get(sc, []), SC['B'].get(sc, [])
+                print(f'     {sc:+d}: A {m_(a):+6.2f}%({len(a):4d},勝{(np.array(a)>0).mean()*100 if a else 0:3.0f}%) | B {m_(b):+6.2f}%({len(b):4d},勝{(np.array(b)>0).mean()*100 if b else 0:3.0f}%)')
+            print('  ② 新因素:')
+            for fn, d in sorted(NF.items()):
+                (ay, an), (by, bn) = d['A'], d['B']
+                if min(len(ay), len(an), len(by), len(bn)) < 30: continue
+                da, db = m_(ay) - m_(an), m_(by) - m_(bn)
+                flag = '  ✅加分' if da > 0.8 and db > 0.8 else ('  ❌扣分' if da < -0.8 and db < -0.8 else '')
+                print(f'     {fn:18} 符合 A {m_(ay):+6.2f}%({len(ay):4d}) B {m_(by):+6.2f}%({len(by):4d}) | 不符合 A {m_(an):+6.2f}% B {m_(bn):+6.2f}% | 差 A {da:+5.2f} B {db:+5.2f}{flag}', flush=True)
     if which == 'filt9':
         # r1179:同一買法、同一類型裡,個股條件(營收、法人、漲幅、量能、位置)能不能再分出好壞?兩期都要成立
         import collections as CC
