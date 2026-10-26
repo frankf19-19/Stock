@@ -203,6 +203,84 @@ if __name__ == '__main__':
             else: fresh.append(t)
             last[sid] = (t[1], t[4])
         stats(re_, '再買回(上次被季線洗出 90 天內又突破)'); stats(fresh, '其他')
+    if which == 'filt9':
+        # r1179:同一買法、同一類型裡,個股條件(營收、法人、漲幅、量能、位置)能不能再分出好壞?兩期都要成立
+        import collections as CC
+        CAP = json.load(open('/home/claude/repo2/cap.json'))['c']
+        def vol_of(e, i): a = e['P']['atr'][i] / e['a'][i][3]; return '低' if a < 0.025 else '中' if a < 0.04 else '高'
+        def size_of(e, i, sid):
+            c = CAP.get(sid); m = c * 1e8 / 10 * e['a'][i][3] if c else None
+            return None if m is None else ('大' if m >= 5e10 else '中' if m >= 1e10 else '小')
+        def gx(ma='ma60', conf=2, hold=120, tp=None, sl=None):
+            def f(e, ei):
+                a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; px = O[ei]; below = 0
+                for k in range(ei, min(n, ei + hold)):
+                    if sl and L[k] <= px * (1 - sl): return k, min(O[k], px * (1 - sl)), 'sl'
+                    if tp and H[k] >= px * (1 + tp): return k, max(O[k], px * (1 + tp)), 'tp'
+                    if ma:
+                        below = below + 1 if (C[k] < P[ma][k] and k > ei) else 0
+                        if below >= conf: xi = k + 1 if k + 1 < n else k; return xi, (O[k+1] if k + 1 < n else C[k]), 'ma'
+                    if k == ei + hold - 1: return k, C[k], 'time'
+                return None, None, None
+            return f
+        def dipk_conf(k):
+            def f(e, i):
+                H = e['a'][:, 1]; C = e['a'][:, 3]; P = e['P']
+                if not (C[i] / P['h60'][i] - 1 <= -k): return False
+                if not (C[i] > H[i-1] and C[i-1] <= H[i-2]): return False
+                return any(C[j] / P['h60'][j] - 1 <= -k and C[j-1] / P['h60'][j-1] - 1 > -k for j in range(i-10, i))
+            return f
+        ev250 = EV['站上 250 日高']
+        # 每一組:進場、出場、哪些類型
+        G = {
+          '突破・低波動(固定−15/+30/90)': (ev250, gx(ma=None, sl=0.15, tp=0.30, hold=90), lambda v, z: v == '低'),
+          '突破・中波動(季線連2天)': (ev250, gx(), lambda v, z: v == '中'),
+          '突破・高波動中大型(季線連2天)': (ev250, gx(), lambda v, z: v == '高' and z in ('大', '中')),
+          '跌25%止跌・高波動(−20/+30/90)': (dipk_conf(0.25), gx(ma=None, sl=0.20, tp=0.30, hold=90), lambda v, z: v == '高'),
+        }
+        def feats(e, i):
+            a = e['a']; C = a[:, 3]; V = a[:, 4]; P = e['P']
+            ry = ry_at(e, i)
+            # 近 3 個月營收 YoY 都 >0
+            def ry_back(b):
+                d = e['d'][i]; y, mo = int(d[:4]), int(d[5:7]); back = (1 if int(d[8:10]) >= 12 else 2) + b
+                mm = mo - back; yy = y
+                while mm <= 0: mm += 12; yy -= 1
+                return (e.get('rev') or {}).get(f'{yy}-{mm:02d}')
+            r3 = [ry_back(b) for b in range(3)]
+            f20 = e['f'][max(0, i-19):i+1].sum() / max(1, V[max(0, i-19):i+1].sum()); t20 = e['t'][max(0, i-19):i+1].sum() / max(1, V[max(0, i-19):i+1].sum())
+            return {
+              '月營收YoY>0': None if ry is None else ry > 0,
+              '月營收YoY>20%': None if ry is None else ry > 0.20,
+              '近3月營收YoY都>0': None if any(x is None for x in r3) else all(x > 0 for x in r3),
+              '營收加速(本月YoY>前月)': None if r3[0] is None or r3[1] is None else r3[0] > r3[1],
+              '外資20日買超': f20 > 0.02, '投信20日買超': t20 > 0.01, '外資投信都賣': f20 < -0.02 and t20 <= 0,
+              '前20日已漲>20%': C[i] / C[i-20] - 1 > 0.20, '前20日跌>10%': C[i] / C[i-20] - 1 < -0.10,
+              '當天量>2倍均量': V[i] > 2 * V[i-20:i].mean(), '當天量<均量': V[i] < V[i-20:i].mean(),
+              '站在年線上': bool(P['ma240'][i]) and C[i] > P['ma240'][i],
+              '月線>季線(多頭)': P['ma20'][i] > P['ma60'][i],
+              '當天收長紅(>5%)': C[i] / C[i-1] - 1 > 0.05,
+            }
+        for gn, (ev, xf, okt) in G.items():
+            rows = CC.defaultdict(lambda: {'A': ([], []), 'B': ([], [])})
+            base = {'A': [], 'B': []}
+            for pn, a_, b_ in (('A', '2016-01-01', '2021-01-01'), ('B', '2021-01-01', None)):
+                for t in simulate(S, ev, xf, start=a_, end=b_):
+                    e = S[t[0]]; i = e['d'].index(t[1]) - 1
+                    v, z = vol_of(e, i), size_of(e, i, t[0])
+                    if z is None or not okt(v, z): continue
+                    base[pn].append(t[2])
+                    for fn, fv in feats(e, i).items():
+                        if fv is None: continue
+                        rows[fn][pn][0 if fv else 1].append(t[2])
+            m = lambda L: np.mean(L) * 100 if L else float('nan')
+            print(f'\n######## {gn}:全部 A {m(base["A"]):+.2f}%({len(base["A"])}) | B {m(base["B"]):+.2f}%({len(base["B"])}) ########', flush=True)
+            for fn, d in rows.items():
+                (ay, an), (by, bn) = d['A'], d['B']
+                if min(len(ay), len(an), len(by), len(bn)) < 30: continue
+                da, db = m(ay) - m(an), m(by) - m(bn)
+                flag = '  ✅加分' if da > 0.8 and db > 0.8 else ('  ❌扣分' if da < -0.8 and db < -0.8 else '')
+                print(f'  {fn:18} 符合 A {m(ay):+6.2f}%({len(ay):4d}) B {m(by):+6.2f}%({len(by):4d}) | 不符合 A {m(an):+6.2f}% B {m(bn):+6.2f}% | 差 A {da:+5.2f} B {db:+5.2f}{flag}', flush=True)
     if which == 'exit9':
         # r1178:依市值×波動 9 類重驗「賣出」規則;進場:突破(52週新高)、跌 25% 止跌
         import collections as CC
