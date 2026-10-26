@@ -528,7 +528,7 @@ if __name__ == '__main__':
                         if h != te_h or p_ != pn: continue
                         sc = sum(v_ for k_, v_ in sel.items() if F.get(k_)); B_[max(-3, min(3, sc))].append(r)
                     print(f'    第 {te_h} 半(沒用來挑條件)期 {pn}:' + '  '.join(f"{k_:+d}:{m_(B_[k_]):+.1f}%({len(B_[k_])})" for k_ in sorted(B_)), flush=True)
-    if which in ('entry2', 'brd2'):
+    if which in ('entry2', 'brd2', 'brd4'):
         # r1182:①買進價格怎麼掛(隔天開盤 / 跳空太多不追 / 掛訊號日收盤 / 掛收盤−2%,5 天內沒成交就放棄)
         #        ②大盤狀態(全市場站上季線比例、全市場 20 日平均漲跌)對各買法的影響
         import collections as CC
@@ -577,6 +577,56 @@ if __name__ == '__main__':
                 return None
             return g
         m_ = lambda L: np.mean(L) * 100 if L else float('nan')
+        if which == 'brd4':
+            # r1183:①大盤一起跌時才買的跌深類,出場要不要放寬;②突破持有中,大盤寬度崩(<x%)要不要先賣
+            def gx2(ma=None, conf=2, hold=120, tp=None, sl=None, brx=None):
+                def f(e, ei, px):
+                    a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; d = e['d']; below = 0
+                    for k in range(ei, min(n, ei + hold)):
+                        if sl and L[k] <= px * (1 - sl): return k, min(O[k], px * (1 - sl)) if k > ei else px * (1 - sl), 'sl'
+                        if tp and H[k] >= px * (1 + tp): return k, max(O[k], px * (1 + tp)) if k > ei else px * (1 + tp), 'tp'
+                        if ma:
+                            below = below + 1 if (C[k] < P[ma][k] and k > ei) else 0
+                            if below >= conf: xi = k + 1 if k + 1 < n else k; return xi, (O[k+1] if k + 1 < n else C[k]), 'ma'
+                        if brx and k > ei:
+                            b = BR.get(d[k]); b0 = BR.get(d[k-1])
+                            if b is not None and b < brx and (b0 is None or b0 >= brx): xi = k + 1 if k + 1 < n else k; return xi, (O[k+1] if k + 1 < n else C[k]), 'br'
+                        if k == ei + hold - 1: return k, C[k], 'time'
+                    return None, None, None
+                return f
+            def run(ev, okv, xf, need_weak=None):
+                out = {'A': [], 'B': []}
+                for sid, e in S.items():
+                    d = e['d']; a = e['a']; n = len(a); P = e['P']; last = -1
+                    for i in range(250, n - 2):
+                        if d[i] < '2016-01-01' or i <= last: continue
+                        if not (P['liq'][i] >= 2e4) or not ev(e, i) or not okv(vol_of(e, i)): continue
+                        if need_weak is not None:
+                            b = BR.get(d[i])
+                            if b is None or (b < 0.35) != need_weak: continue
+                        px = a[i+1][0]
+                        if not px: continue
+                        xi, xp, _ = xf(e, i + 1, px)
+                        if xi is None: continue
+                        last = xi; out['A' if d[i] < '2021-01-01' else 'B'].append((xp / px - 1 - 0.006, xi - i))
+                return out
+            def show(nm, o):
+                f_ = lambda L: f"{m_([x[0] for x in L]):+6.2f}% 勝{np.mean([x[0]>0 for x in L])*100 if L else 0:3.0f}% {len(L):5}筆 {np.mean([x[1] for x in L]) if L else 0:5.1f}天"
+                print(f'  {nm:28} A {f_(o["A"])} | B {f_(o["B"])}', flush=True)
+            for gn in ('跌25%止跌・高波動', '錯殺−40%首日・全部'):
+                ev, _, okv = G[gn]; print(f'\n######## {gn}(只在大盤一起跌時買)出場比較 ########')
+                for nm, xf in (('−20%/+30%/90日(現行)', gx2(sl=.2, tp=.3, hold=90)), ('−20%/+40%/90日', gx2(sl=.2, tp=.4, hold=90)), ('−20%/+50%/120日', gx2(sl=.2, tp=.5, hold=120)),
+                               ('−25%/+30%/90日', gx2(sl=.25, tp=.3, hold=90)), ('−15%/+30%/90日', gx2(sl=.15, tp=.3, hold=90)), ('−20%/+20%/60日', gx2(sl=.2, tp=.2, hold=60)),
+                               ('不停損/+30%/90日', gx2(tp=.3, hold=90)), ('季線連2天/120日', gx2(ma='ma60', hold=120)), ('−20%+季線連2天/120日', gx2(ma='ma60', sl=.2, hold=120))):
+                    show(nm, run(ev, okv, xf, True))
+            for gn, base in (('突破・低波動', dict(sl=.15, tp=.3, hold=90)), ('突破・中波動', dict(ma='ma60')), ('突破・高波動', dict(ma='ma60'))):
+                ev, _, okv = G[gn]; print(f'\n######## {gn} 持有中大盤寬度崩就先賣? ########')
+                show('現行', run(ev, okv, gx2(**base)))
+                for th in (0.20, 0.30, 0.40):
+                    show(f'+ 寬度跌破 {th*100:.0f}% 隔天賣', run(ev, okv, gx2(**base, brx=th)))
+                show('只在寬度 >80% 時買(過熱?)', run(lambda e, i: ev(e, i) and (BR.get(e['d'][i]) or 0) > 0.8, okv, gx2(**base)))
+                show('只在寬度 ≤80% 時買', run(lambda e, i: ev(e, i) and (BR.get(e['d'][i]) or 1) <= 0.8, okv, gx2(**base)))
+            raise SystemExit
         if which == 'brd2':
             # r1182:跌深類在大盤弱時才好?逐年、不同門檻、集中在幾段行情?
             for gn in ('跌25%止跌・高波動', '錯殺−40%首日・全部', '突破・中波動', '突破・高波動'):

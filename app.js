@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1182';
+const APP_BUILD='r1183';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -993,10 +993,10 @@ function osHTML(){
     const open=(OS.open||[]).map(p=>{const r=p.px?(p.px/p.entry-1)*100:null;return `<div style="font-size:12.5px"><a href="#stock/${p.id}"><b>${p.name}</b></a> ${md(p.fill)} 買 ${p.entry}・停利 ${p.tp}・停損 ${p.sl}${p.r?'':'<span style="color:var(--dim)">・舊規則</span>'}${r!=null?`・<b style="color:${r>=0?'var(--up)':'var(--down)'}">${fp(r)}</b>`:''}</div>`;}).join('');
     return `<div class="dim-block" style="margin-top:16px;border-left:4px solid #E06666">
       <div style="font-weight:900;font-size:16px">🎯 錯殺低接・實戰追蹤 <span style="font-weight:400;font-size:13px;color:var(--dim)">離 60 日高跌 ≥${Math.abs(Math.round((R.dd!=null?R.dd:-0.4)*100))}% 的第一天 → 隔天開盤買</span></div>
-      <div class="dim-note" style="margin:4px 0 8px">停利 +${Math.round((R.tp||0.3)*100)}%、停損 −${Math.round((R.sl||0.2)*100)}%、最多抱 ${R.hold||90} 天(10/27 起由 +20%/−15%/60 天放寬;之前進場的照原規則走完)。回測 ${bt.range||'2016~2026'}:全市場 ${((bt.all||[])[0]||0).toLocaleString()} 次、勝率 ${(bt.all||[])[2]}%、平均 +${(bt.all||[])[1]}%${bt.pf?`、獲利因子 ${bt.pf}`:''}${bt.years?`、${bt.years} 年都正`:''}${bt.old30?`;舊門檻 −30% 只有 +${bt.old30[1]}%/勝率 ${bt.old30[2]}%(10/23 起改 −40%)`:''}。歷史資料不含已下市股票,可能偏樂觀——所以這裡用每天的實際訊號持續追蹤成績。</div>
+      <div class="dim-note" style="margin:4px 0 8px">停利 +${Math.round((R.tp||0.3)*100)}%、停損 −${Math.round((R.sl||0.2)*100)}%、最多抱 ${R.hold||90} 天${(R.tp||0.3)>=0.5?'(10/27 起由 +30%/90 天再放寬為 +50%/120 天;之前進場的照原規則走完)':'(10/27 起由 +20%/−15%/60 天放寬;之前進場的照原規則走完)'}。回測 ${bt.range||'2016~2026'}:全市場 ${((bt.all||[])[0]||0).toLocaleString()} 次、勝率 ${(bt.all||[])[2]}%、平均 +${(bt.all||[])[1]}%${bt.pf?`、獲利因子 ${bt.pf}`:''}${bt.years?`、${bt.years} 年都正`:''}${bt.old30?`;舊門檻 −30% 只有 +${bt.old30[1]}%/勝率 ${bt.old30[2]}%(10/23 起改 −40%)`:''}。歷史資料不含已下市股票,可能偏樂觀——所以這裡用每天的實際訊號持續追蹤成績。</div>
       ${(()=>{const s4=OS.stats40,s3=OS.stats30;return s4&&s3&&(s3.closed||s3.open)?`<div style="font-size:13px;margin-bottom:6px">📊 實戰(新規則 −40%):已出場 ${s4.closed||0} 筆${s4.closed?`、勝率 ${s4.win}%、平均 ${fp(s4.avg)}`:''}・追蹤中 ${s4.open||0} 檔${(s4.closed||0)<20?`<span style="color:var(--dim)">(累積 20 筆後跟回測每筆 +${(bt.all||[])[1]||6.4}% 比較)</span>`:s4.avg<0?`<b style="color:var(--down)"> ⚠ 實戰明顯落後回測,規則需要重新檢討</b>`:s4.avg<((bt.all||[])[1]||6.4)/2?`<span style="color:var(--amber)"> 實戰低於回測一半,持續觀察</span>`:`<span style="color:var(--up)"> 實戰符合回測</span>`}<br><span style="color:var(--dim)">舊規則 −30%(10/8~10/22 進場):已出場 ${s3.closed||0} 筆${s3.closed?`、勝率 ${s3.win}%、平均 ${fp(s3.avg)}`:''}・追蹤中 ${s3.open||0} 檔,照原停損停利走完,不再新增</span></div>`:
       `<div style="font-size:13px;margin-bottom:6px">📊 實戰:已出場 ${st.closed||0} 筆${st.closed?`、勝率 ${st.win}%、平均 ${fp(st.avg)}`:''}・追蹤中 ${st.open||0} 檔${(st.closed||0)<20?`<span style="color:var(--dim)">(累積 20 筆後跟回測每筆 +${(bt.all||[])[1]||6.4}% 比較)</span>`:st.avg<0?`<b style="color:var(--down)"> ⚠ 實戰明顯落後回測,規則需要重新檢討</b>`:st.avg<((bt.all||[])[1]||6.4)/2?`<span style="color:var(--amber)"> 實戰低於回測一半,持續觀察</span>`:`<span style="color:var(--up)"> 實戰符合回測</span>`}</div>`;})()}
-      ${(()=>{const mk=(bt.mkt)||{weak:[1485,16.8,76],other:[816,-1.2,39]},sm=OS.statsMkt,sn=OS.statsNoMkt,b=OS.b60;   // r1182
+      ${(()=>{const mk=(bt.mkt)||{weak:[1390,22.5,71],other:[748,-3.4,29]},sm=OS.statsMkt,sn=OS.statsNoMkt,b=OS.b60;   // r1182
         return `<div style="font-size:13px;margin-bottom:6px;padding:7px 10px;background:var(--panel2);border-radius:8px">🌧 <b>新發現:要大盤一起跌才是真錯殺</b>。回測:訊號那天全市場站上季線的股票 <35% 時 ${mk.weak[0].toLocaleString()} 次、每筆 <b style="color:var(--up)">+${mk.weak[1]}%</b>、勝率 ${mk.weak[2]}%;其他時候 ${mk.other[0].toLocaleString()} 次、每筆 <b style="color:var(--down)">${mk.other[1]}%</b>、勝率 ${mk.other[2]}%。${b&&b[1]!=null?`${md(b[0])} 全市場 ${Math.round(b[1]*100)}% 站上季線(${b[1]<0.35?'<b style="color:var(--up)">算大盤一起跌</b>':'大盤沒有一起跌'})。`:''}實戰照舊全部追蹤${(sm&&(sm.closed||sm.open))||(sn&&(sn.closed||sn.open))?`;其中大盤一起跌那批:已出場 ${(sm&&sm.closed)||0} 筆${sm&&sm.closed?'、平均 '+fp(sm.avg):''},大盤沒跌那批:已出場 ${(sn&&sn.closed)||0} 筆${sn&&sn.closed?'、平均 '+fp(sn.avg):''}`:''}。</div>`;})()}
       ${pend?`<div style="font-size:13px;margin-bottom:6px">⏭ ${(()=>{try{const t=_isoIn('Asia/Taipei'),nx=twNextTD(t);return (nx&&(nx!==twTomorrowIso()||!twTradeDay(t)))?twTDLabel(nx)+' 9:00 開盤買':'明天開盤買';}catch(e){return '明天開盤買';}})()}:${pend}</div>`:''}
       ${open?`<details class="aip-fold"><summary>追蹤中的 ${(OS.open||[]).length} 檔</summary>${open}</details>`:''}
@@ -1143,7 +1143,8 @@ function stockProfileHTML(s,o,dates,own,cost,now=new Date()){
 function strategyDipPricePlan(s,entry,actual=false){
   entry=strategyNumber(entry);if(!(entry>0))return null;
   // r1178:台股錯殺低接出場改成和美股一樣 −20%/+30%/最多 90 日(−40% 首日:每筆 +6.4% → +10.4%、勝率 63%;高波動各類型兩期都更好),原 −15%/+20%/60 日
-  const us=s.market==='US';return {entry,stop:strategyPrice(entry*.80,us,'down'),target:strategyPrice(entry*1.30,us,'up'),hold:90,actual:!!actual};
+  // r1183:台股改 −20%/+50%/最多 120 日——只在大盤一起跌時買(r1182)之後,停利拉高兩期兩種跌深買法都更好(錯殺 −40%:+16.5/+15.6% → +25.4/+19.0%;跌 25% 止跌:+19.4/+12.9% → +28.1/+16.3%);美股不變
+  const us=s.market==='US';return {entry,stop:strategyPrice(entry*.80,us,'down'),target:strategyPrice(entry*(us?1.30:1.50),us,'up'),hold:us?90:120,actual:!!actual};
 }
 function strategyBreakPrice(level){
   level=strategyNumber(level);return level>0?strategyPrice(level+Math.max(1e-7,level*1e-10),false,'up'):null;
@@ -1250,7 +1251,7 @@ function secStrLoad(){if(SECSTR||SECSTR_P)return;SECSTR_P=(async()=>{try{const r
    兩期、逐年(9/10 年)都成立,訊號分散在 35~38 個月,去掉最多的 3 個月仍 +7.8%/+11.4%。突破買法不受影響;美股不一致(不套用)。 */
 function mktA60(){if(!SECSTR){secStrLoad();return null;}return SECSTR&&isFinite(+SECSTR.a60)?{v:+SECSTR.a60,asof:SECSTR.asof}:null;}
 function mktWeakHTML(kind,trig){const m=mktA60();if(!m)return '<div class="pbx-cond"><b>🌧 大盤有沒有一起跌</b>:<span class="pbx-sub" style="margin:0">(市場資料載入中)</span></div>';
-  const weak=m.v<0.35,pc=Math.round(m.v*100),R=kind==='k40'?{w:'+16.8%、勝率 76%',o:'−1.2%、勝率 39%'}:{w:'+15.0%、勝率 75%',o:'−3.0%、勝率 36%'};
+  const weak=m.v<0.35,pc=Math.round(m.v*100),R=kind==='k40'?{w:'+22.5%、勝率 71%',o:'−3.4%、勝率 29%'}:{w:'+16~28%、勝率 65~81%',o:'−3.0%、勝率 36%'};   // r1183:用新出場 −20%/+50%/120 日
   return `<div class="pbx-cond ${weak?'pbx-cond-good':'pbx-cond-bad'}"><b>🌧 大盤有沒有一起跌</b>:${m.asof?m.asof.slice(5).replace('-','/')+' ':''}全市場只有 <b>${pc}%</b> 的股票站在季線上 → ${weak?`<b style="color:var(--up)">大盤一起跌,這種才是錯殺,可以買</b> <span class="pbx-eff">(歷史每筆 ${R.w})</span>`:`<b style="color:var(--down)">大盤沒有一起跌,${trig?'這次不買':'現在不買'}</b> <span class="pbx-eff">(個股自己跌多半有原因;歷史每筆 ${R.o})</span>`}<div class="pbx-cond-tip">規則:要買的那天收盤,全市場站上季線的股票要 <b>少於 35%</b>(現在 ${pc}%)。2016~2026 兩期、逐年都成立</div></div>`;}
 function stockCondHTML(s,f,g,trig){
   try{
@@ -1353,16 +1354,16 @@ function stockPriceBoxHTML(s,f,opts={}){
       }else brkCol=(col('🚀 突破買法','<span class="pbx-na">目前離 52 週高太遠或剛突破過,沒有突破買點</span>',[['🛑','防守',ma,'若已用這個買法持有:連續 2 天收盤低於季線就賣','pbx-stop']],''));
       const d=f.dipHypothetical,dfirst=r.dip==='first';
       if(d&&!fitDip){skipNote=`跌下來接不列:${vol}股很少跌那麼深,跌 15%~40%(有沒有等止跌)實測也贏不了隨便哪天買,這類股票只適合等突破`;}
-      else if(d&&ty&&vol==='高波動'&&f.dipc&&!dfirst&&!(px<f.dipc.zone&&!f.dipc.inZone)){const q=f.dipc,ref=q.conf?r.close:q.inZone?q.trig:q.zone,sl=P(ref*0.80,'down'),tp2=P(ref*1.30,'up');   // r1178:−20%/+30%/90 日(高大 +8.8/+5.5、高中 +8.4/+4.9、高小 +7.9/+5.1;原 −15/+20/60 +7.1/+4.2、+5.1/+3.4、+4.5/+3.9)
+      else if(d&&ty&&vol==='高波動'&&f.dipc&&!dfirst&&!(px<f.dipc.zone&&!f.dipc.inZone)){const q=f.dipc,ref=q.conf?r.close:q.inZone?q.trig:q.zone,sl=P(ref*0.80,'down'),tp2=P(ref*1.50,'up');   // r1183:+50%/120 日   // r1178:−20%/+30%/90 日(高大 +8.8/+5.5、高中 +8.4/+4.9、高小 +7.9/+5.1;原 −15/+20/60 +7.1/+4.2、+5.1/+3.4、+4.5/+3.9)
         const mw=mktA60(),mOK=!mw||mw.v<0.35;
         const st=q.conf?(mOK?`<b class="pbx-ok">✅ ${md(r.asof)} 已跌深又止跌 → ${sgx}買</b>`:`<b style="color:var(--down)">⚠️ ${md(r.asof)} 已跌深又止跌,但大盤沒有一起跌 → 這次不買</b>`):q.inZone?`<b class="pbx-ok">已跌到買區(${q.crossAgo===0?md(r.asof):q.crossAgo+' 天前'}跌破 ${fm(q.zone)}),等止跌</b>`:'';
         const how=(q.conf?(mOK?`${sgx}直接買(開盤價)`:'大盤沒一起跌,這次不買'):q.inZone?`${cfx}收盤站上 ${fm(q.trig)}(前一天最高價)→ ${nxt}買;${q.left} 個交易日內沒站上就作廢`:`先收盤跌到這裡以下,之後收盤站上前一天最高價 → 隔天開盤買 ${gap(q.zone)}`)+(q.conf?'':';而且那天全市場站上季線的股票要少於 35%');
         dipCol=col(`🎯 跌深止跌 <span class="pbx-fit">⭐ 適合這檔</span>`,st,[
           ['🟢','買進',q.conf?r.close:q.inZone?q.trig:q.zone,how,'pbx-buy'],
           ['🛑','防守',sl,'買進價 −20%,碰到就賣','pbx-stop'],
-          ['🎯','賣出',tp2,'買進價 +30%,碰到就賣;最多抱 90 個交易日','pbx-tp']],
-          `回測(2016~2026,高波動股):大盤一起跌時(站上季線 <35%)每筆 +15.0%、勝率 75%;大盤沒跌時 −3.0%、勝率 36% → 只在大盤一起跌時買。每檔平均約 1 年一次`,mktWeakHTML('dip',q.conf)+stockCondHTML(s,f,'dip',q.conf));
-        skipNote=`更深的買點:跌到 ${fm(d.entry)}(−40%)第一天${dfirst?`(${md(r.asof)} 已發生${mOK?` → ${sgx}買,防守 ${fm(d.stop)}、賣出 ${fm(d.target)}`:',但大盤沒一起跌,這次不買'})`:''}買(防守 −20%、賣出 +30%);同樣要大盤一起跌(站上季線 <35%)才買:那時每筆 +16.8%、勝率 76%,其他時候 −1.2%`;}
+          ['🎯','賣出',tp2,'買進價 +50%,碰到就賣;最多抱 120 個交易日','pbx-tp']],
+          `回測(2016~2026,高波動股,−20%/+50%/120 日):大盤一起跌時(站上季線 <35%)每筆 +28.1% / +16.3%(前後兩期)、勝率 65~81%;大盤沒跌時買每筆 −3.0% → 只在大盤一起跌時買`,mktWeakHTML('dip',q.conf)+stockCondHTML(s,f,'dip',q.conf));
+        skipNote=`更深的買點:跌到 ${fm(d.entry)}(−40%)第一天${dfirst?`(${md(r.asof)} 已發生${mOK?` → ${sgx}買,防守 ${fm(d.stop)}、賣出 ${fm(d.target)}`:',但大盤沒一起跌,這次不買'})`:''}買(防守 −20%、賣出 +50%、最多 120 天);同樣要大盤一起跌(站上季線 <35%)才買:那時每筆 +22.5%、勝率 71%,其他時候 −3.4%`;}
       else if(d&&ty&&vol==='高波動'&&f.dipc&&!dfirst){const q=f.dipc;
         dipCol=col(`🎯 跌深止跌 <span class="pbx-fit">⭐ 適合這檔</span>`,'<span class="pbx-na">這一波已跌破 −25% 超過 10 個交易日,這次止跌訊號已過期,不追</span>',[
           ['🟢','下一次買點',d.entry,`更深的買點:收盤第一次跌到這裡(−40%)以下 → 隔天開盤買 ${gap(d.entry)};或等股價先漲回 ${fm(q.zone)} 以上、之後再跌破並止跌`,'pbx-buy']],
@@ -1370,8 +1371,8 @@ function stockPriceBoxHTML(s,f,opts={}){
       else if(d){const mw=mktA60(),mOK=!mw||mw.v<0.35;dipCol=(col(`🎯 錯殺低接${ty?' <span class="pbx-fit">⭐ 適合這檔</span>':''}`,dfirst?(mOK?`<b class="pbx-ok">✅ ${md(r.asof)} 第一天跌破 −40% → ${sgx}買</b>`:`<b style="color:var(--down)">⚠️ ${md(r.asof)} 第一天跌破 −40%,但大盤沒有一起跌 → 這次不買</b>`):r.dip==='already'?'<span class="pbx-na">已在錯殺區但不是第一天,規則不追加</span>':'',[
           ['🟢','買進',d.entry,dfirst?(mOK?`${sgx}直接買(開盤價)`:'大盤沒一起跌,這次不買'):`${cfx}收盤第一次跌到這裡以下,而且那天全市場站上季線的股票少於 35% → ${nxt}買 ${gap(d.entry)}`,'pbx-buy'],
           ['🛑','防守',d.stop,'買進價 −20%,碰到就賣','pbx-stop'],
-          ['🎯','賣出',d.target,'買進價 +30%,碰到就賣;最多抱 90 個交易日','pbx-tp']],
-          '回測(2016~2026,−20%/+30%/90 日):大盤一起跌時(站上季線 <35%)每筆 +16.8%、勝率 76%;其他時候 −1.2%、勝率 39%',mktWeakHTML('k40',dfirst)));}
+          ['🎯','賣出',d.target,'買進價 +50%,碰到就賣;最多抱 120 個交易日','pbx-tp']],
+          '回測(2016~2026,大盤一起跌時才買,−20%/+50%/120 日):1,390 次、每筆 +22.5%(前後兩期 +25.4% / +19.0%)、勝率 71%;大盤沒跌時買每筆 −3.4%',mktWeakHTML('k40',dfirst)));}
       if(ty==='高波動・小型'||(brkCol.includes('目前不適用')&&dipCol)){if(dipCol)cols.push(dipCol);if(brkCol)cols.push(brkCol);}else{if(brkCol)cols.push(brkCol);if(dipCol)cols.push(dipCol);}
     }else{
       const d=f.dipHypothetical,dfirst=r.dip==='first';
