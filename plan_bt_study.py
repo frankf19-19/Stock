@@ -528,7 +528,7 @@ if __name__ == '__main__':
                         if h != te_h or p_ != pn: continue
                         sc = sum(v_ for k_, v_ in sel.items() if F.get(k_)); B_[max(-3, min(3, sc))].append(r)
                     print(f'    第 {te_h} 半(沒用來挑條件)期 {pn}:' + '  '.join(f"{k_:+d}:{m_(B_[k_]):+.1f}%({len(B_[k_])})" for k_ in sorted(B_)), flush=True)
-    if which in ('entry2', 'brd2', 'brd4'):
+    if which in ('entry2', 'brd2', 'brd4', 'sector'):
         # r1182:①買進價格怎麼掛(隔天開盤 / 跳空太多不追 / 掛訊號日收盤 / 掛收盤−2%,5 天內沒成交就放棄)
         #        ②大盤狀態(全市場站上季線比例、全市場 20 日平均漲跌)對各買法的影響
         import collections as CC
@@ -577,6 +577,54 @@ if __name__ == '__main__':
                 return None
             return g
         m_ = lambda L: np.mean(L) * 100 if L else float('nan')
+        if which == 'sector':
+            # r1184:同一買法,不同產業有沒有穩定差別?(兩期都同方向、差 ≥2%、各期 ≥30 筆才算)
+            def gx3(ma=None, conf=2, hold=120, tp=None, sl=None):
+                def f(e, ei, px):
+                    a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; below = 0
+                    for k in range(ei, min(n, ei + hold)):
+                        if sl and L[k] <= px * (1 - sl): return k, min(O[k], px * (1 - sl)) if k > ei else px * (1 - sl), 'sl'
+                        if tp and H[k] >= px * (1 + tp): return k, max(O[k], px * (1 + tp)) if k > ei else px * (1 + tp), 'tp'
+                        if ma:
+                            below = below + 1 if (C[k] < P[ma][k] and k > ei) else 0
+                            if below >= conf: xi = k + 1 if k + 1 < n else k; return xi, (O[k+1] if k + 1 < n else C[k]), 'ma'
+                        if k == ei + hold - 1: return k, C[k], 'time'
+                    return None, None, None
+                return f
+            GG = {'突破・低波動': (G['突破・低波動'][0], G['突破・低波動'][2], gx3(sl=.15, tp=.3, hold=90), None),
+                  '突破・中波動': (G['突破・中波動'][0], G['突破・中波動'][2], gx3(ma='ma60'), None),
+                  '突破・高波動': (G['突破・高波動'][0], G['突破・高波動'][2], gx3(ma='ma60'), None),
+                  '跌25%止跌・高波動(弱市)': (G['跌25%止跌・高波動'][0], G['跌25%止跌・高波動'][2], gx3(sl=.2, tp=.5, hold=120), True),
+                  '錯殺−40%(弱市)': (G['錯殺−40%首日・全部'][0], G['錯殺−40%首日・全部'][2], gx3(sl=.2, tp=.5, hold=120), True)}
+            for gn, (ev, okv, xf, weak) in GG.items():
+                T = []
+                for sid, e in S.items():
+                    d = e['d']; a = e['a']; n = len(a); P = e['P']; last = -1
+                    for i in range(250, n - 2):
+                        if d[i] < '2016-01-01' or i <= last: continue
+                        if not (P['liq'][i] >= 2e4) or not ev(e, i) or not okv(vol_of(e, i)): continue
+                        if weak:
+                            b = BR.get(d[i])
+                            if b is None or b >= 0.35: continue
+                        px = a[i+1][0]
+                        if not px: continue
+                        xi, xp, _ = xf(e, i + 1, px)
+                        if xi is None: continue
+                        last = xi; T.append(('A' if d[i] < '2021-01-01' else 'B', e.get('sec') or '?', xp / px - 1 - 0.006, sid))
+                base = {p_: m_([r for p, _, r, _ in T if p == p_]) for p_ in 'AB'}
+                print(f'\n######## {gn}:{len(T)} 筆,全體 A {base["A"]:+.2f}% B {base["B"]:+.2f}% ########', flush=True)
+                secs = CC.defaultdict(lambda: {'A': [], 'B': [], 'ids': set()})
+                for p, sc, r, sid in T: secs[sc][p].append(r); secs[sc]['ids'].add(sid)
+                rows = []
+                for sc, v in secs.items():
+                    if len(v['A']) < 30 or len(v['B']) < 30: continue
+                    da, db = m_(v['A']) - base['A'], m_(v['B']) - base['B']
+                    flag = '✅好' if da > 2 and db > 2 else '❌差' if da < -2 and db < -2 else ''
+                    # 拿掉最好的那一檔仍成立?
+                    rows.append((min(da, db) if flag == '✅好' else -min(-da, -db) if flag else 0, sc, len(v['A']), m_(v['A']), len(v['B']), m_(v['B']), len(v['ids']), flag))
+                for _, sc, na, ma_, nb, mb, ni, flag in sorted(rows, key=lambda x: -x[3]-x[5]):
+                    print(f'  {sc:10} A {ma_:+6.2f}%({na:4}) B {mb:+6.2f}%({nb:4}) {ni:3} 檔 {flag}')
+            raise SystemExit
         if which == 'brd4':
             # r1183:①大盤一起跌時才買的跌深類,出場要不要放寬;②突破持有中,大盤寬度崩(<x%)要不要先賣
             def gx2(ma=None, conf=2, hold=120, tp=None, sl=None, brx=None):
