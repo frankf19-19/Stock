@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1170';
+const APP_BUILD='r1171';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1197,7 +1197,25 @@ function stockContextPriceNotices(s,raw,dates,now=new Date()){
  const input=stockContextNoticeInput(s,raw,dates,now);return input?StockPlanNotices.events(input):[];
 }
 
+// r1171: the primary card reads the six-model study; the old price observations stay collapsed.
+var STOCK_TRADE_PROFILES=null,STOCK_TRADE_PENDING=null,STOCK_TRADE_RETRY=0;
+function stockTradeLoad(){
+ if(STOCK_TRADE_PROFILES)return Promise.resolve(STOCK_TRADE_PROFILES);
+ if(STOCK_TRADE_PENDING)return STOCK_TRADE_PENDING;
+ if(typeof fT!=='function'||Date.now()<STOCK_TRADE_RETRY)return null;
+ STOCK_TRADE_PENDING=(async()=>{try{const r=await fT('trade_research_profiles.json?v=r1170',15000);if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();if(j.schema!==1||j.version!=='r1170'||j.research_only!==true||!j.stocks)throw Error('study schema');STOCK_TRADE_PROFILES=j;return j;}catch(e){STOCK_TRADE_RETRY=Date.now()+60000;return null;}})();
+ STOCK_TRADE_PENDING.then(j=>{STOCK_TRADE_PENDING=null;if(j&&typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);});return STOCK_TRADE_PENDING;
+}
 function stockContextHTML(s,raw,dates){
+ const legacy=stockContextLegacyHTML(s,raw,dates);
+ if(typeof StockTradeResearch==='undefined')return legacy;
+ if(!STOCK_TRADE_PROFILES)stockTradeLoad();
+ let calendar=null;try{if(typeof HOLI==='object')calendar=HOLI;}catch(e){}
+ const e=STOCK_TRADE_PROFILES&&STOCK_TRADE_PROFILES.stocks[s.market+':'+s.id];
+ const primary=StockTradeResearch.render(s,e,{check:strategyCloseCheck(s,raw,dates),calendar});
+ return primary+'<details class="plan-more legacy-context-observations"><summary>原三種情境觀察價與通知（參考）</summary><p class="dim-note">下面保留舊觀察價及其通知設定，與上方六種買法的候選分開；未通過的研究價不作買進通知。你的原通知勾選保留。</p>'+legacy+'</details>';
+}
+function stockContextLegacyHTML(s,raw,dates){
   const p=stockContextPlan(s,raw,dates),esc=x=>newsEsc(String(x)),us=s.market==='US',money=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:2})+(us?' 美元／股':' 元／股');
   if(!p)return '<section class="stock-context plain-plan-card"><h4>這檔目前適合怎麼買賣？</h4><p>完整資料、流動性或價格連續性尚未通過檢查，暫不提供新的進出場價。下方保留原策略條件。</p></section>';
   const title=p.reclaimed?'反彈已站回：不追認為新買點':{pullback:'上升趨勢：等拉回，不追高',range:'盤整整理：靠近支撐再評估',reclaim:'走勢轉弱：先等站回關鍵價'}[p.kind];
