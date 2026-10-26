@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1171';
+const APP_BUILD='r1172';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1206,13 +1206,30 @@ function stockTradeLoad(){
  STOCK_TRADE_PENDING=(async()=>{try{const r=await fT('trade_research_profiles.json?v=r1170',15000);if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();if(j.schema!==1||j.version!=='r1170'||j.research_only!==true||!j.stocks)throw Error('study schema');STOCK_TRADE_PROFILES=j;return j;}catch(e){STOCK_TRADE_RETRY=Date.now()+60000;return null;}})();
  STOCK_TRADE_PENDING.then(j=>{STOCK_TRADE_PENDING=null;if(j&&typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);});return STOCK_TRADE_PENDING;
 }
-function stockContextHTML(s,raw,dates){
+// r1172: algebraic prices for the existing first-break / two-close MA60 rules; display only.
+function stockOperationFacts(s,raw,dates,own,cost,now=new Date()){
+ const r=strategyCloseCheck(s,raw,dates,now);if(!r)return null;
+ const us=s.market==='US',b=strategyAdjustedBars(s,raw,dates).slice(0,raw.length-r.excluded),hi=a=>Math.max(...a.map(x=>+x[1]));
+ const ws=us?[]:[60,120,250].filter(w=>b.length>=Math.max(250,w+1)&&r.close<=hi(b.slice(0,-1).slice(-w)));
+ const thresholds=ws.map(w=>strategyBreakPrice(hi(b.slice(-w))));
+ const breakEntry=thresholds.length?Math.max(Math.min(...thresholds),strategyPrice(hi(b.slice(-250))*.9,false,'up')):null;
+ const signals=r.breaks.map(w=>strategyBreakPrice(hi(b.slice(0,-1).slice(-w))));
+ const signalEntry=signals.length?Math.max(Math.min(...signals),strategyPrice(hi(b.slice(-250))*.9,false,'up')):null;
+ const mean59=b.slice(-59).reduce((n,x)=>n+(+x[3]),0)/59;
+ const nextBelowPrice=us?null:strategyPrice(mean59-Math.max(1e-7,mean59*1e-10),false,'down');
+ const dipEntry=strategyPrice(hi(b.slice(-60))*(us?.65:.60),us,'down'),en=own&&strategyNumber(cost)>0?+cost:null;
+ let models=a3TiersOf(s.id,us).filter(x=>x.sl&&x.sl.st!=='pend').length;
+ if(!us&&typeof AIPK!=='undefined'&&AIPK)models+=(((AIPK.trader||{}).pv||{}).pos||[]).filter(x=>x.id===s.id).length;
+ return {check:r,breakEligible:ws,breakEntry,signalEntry,nextBelowPrice,dipEntry,dipHypothetical:strategyDipPricePlan(s,dipEntry,false),cost:en,ownDip:en?strategyDipPricePlan(s,en,true):null,models};
+}
+function stockContextHTML(s,raw,dates,own=false,cost=null){
  const legacy=stockContextLegacyHTML(s,raw,dates);
- if(typeof StockTradeResearch==='undefined')return legacy;
+ if(typeof StockTradeResearch==='undefined'&&typeof StockOperationPlan==='undefined')return legacy;
  if(!STOCK_TRADE_PROFILES)stockTradeLoad();
  let calendar=null;try{if(typeof HOLI==='object')calendar=HOLI;}catch(e){}
  const e=STOCK_TRADE_PROFILES&&STOCK_TRADE_PROFILES.stocks[s.market+':'+s.id];
- const primary=StockTradeResearch.render(s,e,{check:strategyCloseCheck(s,raw,dates),calendar});
+ const research=typeof StockTradeResearch==='undefined'?'<p>研究資料待載入。</p>':StockTradeResearch.render(s,e,{check:strategyCloseCheck(s,raw,dates),calendar});
+ const primary=typeof StockOperationPlan==='undefined'?research:StockOperationPlan.render(s,stockOperationFacts(s,raw,dates,own,cost),{calendar})+'<details class="plan-more operation-research"><summary>其他六種買法研究結果（不代表整檔股票不能買）</summary>'+research+'</details>';
  return primary+'<details class="plan-more legacy-context-observations"><summary>原三種情境觀察價與通知（參考）</summary><p class="dim-note">下面保留舊觀察價及其通知設定，與上方六種買法的候選分開；未通過的研究價不作買進通知。你的原通知勾選保留。</p>'+legacy+'</details>';
 }
 function stockContextLegacyHTML(s,raw,dates){
@@ -1260,7 +1277,7 @@ function strategyPlainHTML(s,raw,dates,own,cost){
 
   cards=`<section class="plain-plan-card direct-dip-plan"><h4>${name}：跌到多少可以買？</h4>${dipTable}<details class="plan-more"><summary>查看價格怎麼算與進出場條件</summary>${row('這個低價怎麼來',`近60日最高價為 ${money(hi60)}。這套規則要求從高點下跌${us?'35':'40'}%，所以理論門檻約 <strong>${money(dip)}</strong>，按可交易價格跳動列出的進場觀察價為 <strong>${money(trigger)}</strong>。這不是合理價、目標價，也不表示一定會跌到這裡。`)}${row('買進要等',`首次收盤符合上述跌幅，且成交金額足夠，才在下一交易日開盤進場。${r.dip==='first'?'最近這次收盤首次符合跌幅條件。':r.dip==='already'?'最近收盤已在範圍內，但不是首次，不重複當成新買點。':'最近這次收盤還沒跌到上述幅度。'}開盤成交價可能不同，停損與停利要按實際成交價重算。`)}${row('停損價',en?`若你確實採用這套買法，按你填的成本 ${money(en)}，停損為 <strong>${money(stop)}</strong>（成本下方${us?'20':'15'}%）。`:`上表停損 ${money(stop)} 是按假設買價 ${money(plan&&plan.entry)} 計算，不是把目前股價直接扣掉${us?'20':'15'}%；實際成交後重算。`)}${row('停利價',en?`同一筆交易的停利為 <strong>${money(target)}</strong>（成本上方${us?'30':'20'}%）；最長持有${us?'90':'60'}交易日。`:`上表停利 ${money(target)} 與停損使用同一假設買價；實際成交後重算，最長持有${us?'90':'60'}交易日。`)}</details></section>`;
   cards+=otherCards?`<details class="plan-more plan-breakout"><summary>另一種策略：向上創高才買（展開）</summary>${otherCards}</details>`:'';
-  return header+stockContextHTML(s,raw,dates)+`<details class="plan-more original-dip-plan"><summary>極端大跌備案：原跌深策略（不是主要買價）</summary><div class="plain-status"><strong>最近一次收盤：${esc(r.asof)}，${money(r.close)}</strong><p>${esc(status)}</p></div><div class="plain-plan-grid">${cards}</div></details>`;
+  return header+stockContextHTML(s,raw,dates,own,cost)+`<details class="plan-more original-dip-plan"><summary>極端大跌備案：原跌深策略（不是主要買價）</summary><div class="plain-status"><strong>最近一次收盤：${esc(r.asof)}，${money(r.close)}</strong><p>${esc(status)}</p></div><div class="plain-plan-grid">${cards}</div></details>`;
 }
 function ownStrategySummary(s,o,dates,own,cost){
   // 一般技術面規則和 AI 模型帳分列；不把模型持有視為使用者有持股。

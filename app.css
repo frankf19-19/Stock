@@ -2663,3 +2663,10 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .study-wait{margin:14px 0}.study-wait>div{padding:10px 0;border-bottom:1px solid var(--border,#7775)}.study-wait dt{font-size:13px;color:var(--dim)}.study-wait dd{margin:4px 0 0;line-height:1.7;font-size:15px;overflow-wrap:anywhere}
 .inline-study-scroll{overflow-x:auto;max-width:100%}.inline-study-scroll table{min-width:330px;width:100%;font-size:12px;border-collapse:collapse}.inline-study-scroll th,.inline-study-scroll td{padding:8px 5px;text-align:left;border-bottom:1px solid var(--border,#7775);font-weight:normal}.inline-study-scroll thead th{font-weight:bold}.legacy-context-observations{margin-top:12px}.inline-trade-study .plan-price-row{grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr)}
 @media(max-width:600px){.inline-trade-study .plan-price-row{grid-template-columns:1fr}}
+
+/* r1172: distinguish a new entry from management of an existing holding. */
+.operation-part{margin-top:18px;padding-top:14px;border-top:1px solid var(--border,#555)}
+.operation-part h5{font-size:1.05em;margin:0 0 12px;color:var(--text)}
+.operation-action{font-weight:700;line-height:1.8}
+.operation-model-note{padding:12px;border:1px dashed var(--border,#555);line-height:1.7}
+.operation-plan .plan-price-row dd{min-width:0;overflow-wrap:anywhere}
