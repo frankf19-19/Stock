@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1176';
+const APP_BUILD='r1177';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1248,10 +1248,19 @@ function stockPriceBoxHTML(s,f,opts={}){
        低/中波動(20 日平均波動 <4%)→ 只用突破買法(錯殺 −40% 十年幾乎沒發生:低波動 0~1 筆、中波動 52 筆,−30% 版 2021 後轉負)
        高波動・大型(日成交值 ≥1 億)→ 突破 +4.5%→+7.5%、錯殺 +4.3%→+6.9%,兩種都用
        高波動・中小型 → 錯殺 −40% 為主(+5.7%→+7.6%、勝率 66%);突破 +7.0%→+2.3% 轉弱,降為第二 */
-    const TB={'低波動・大型':[5.0,null],'中波動・大型':[5.2,null],'高波動・大型':[7.5,6.9],'低波動・中小型':[5.3,null],'中波動・中小型':[4.3,null],'高波動・中小型':[2.3,7.6]};
-    let ty=null,vol=null;if(!us&&f.atrp>0&&f.liq20>0){vol=f.atrp<0.025?'低波動':f.atrp<0.04?'中波動':'高波動';ty=vol+'・'+(f.liq20>=1e5?'大型':'中小型');}
-    const tyLine=ty?`<div class="pbx-type">這檔屬於 <b>${ty}股</b>(每天平均波動 ${(f.atrp*100).toFixed(1)}%、日成交值約 ${(f.liq20/1e5).toFixed(f.liq20>=1e6?0:1)} 億)→ 最適合:<b>${vol!=='高波動'?'🚀 突破買法':ty==='高波動・大型'?'🚀 突破買法、🎯 跌深止跌都適用':'🎯 跌深止跌(突破近年轉弱)'}</b></div>`:'';
-    const fitBreak=!ty||ty!=='高波動・中小型',fitDip=!ty||vol==='高波動';   // 突破點太遠時,下方欄位會標「目前不適用」
+    /* r1177:規模改用「市值」(cap.json 實收資本額 ÷ 面額 10 元 = 股數,× 現價):≥500 億 大型、100~500 億 中型、<100 億 小型
+       (r1175/r1176 用日成交值 ≥1 億當「大型」,六成股票都被叫大型,Frank 指出不對)。plan_bt_study.py mcap 重驗 2021~2026 每筆:
+       突破:低大 +6.3 低中 +4.3 低小 +5.0 中大 +7.9 中中 +3.7 中小 +5.6 高大 +19.1(A 期只 12 筆,卡片改用全市場 +5.1) 高中 +5.7 高小 +1.8(A 期 +8.7,轉弱)
+       跌 25% 止跌:高大 +4.7(勝 58%) 高中 +4.3(57%) 高小 +4.6(57%);低/中波動樣本少或贏不了隨機 */
+    const TB={'低波動・大型':[6.3,null],'低波動・中型':[4.3,null],'低波動・小型':[5.0,null],'中波動・大型':[7.9,null],'中波動・中型':[3.7,null],'中波動・小型':[5.6,null],'高波動・大型':[5.1,4.7],'高波動・中型':[5.7,4.3],'高波動・小型':[1.8,4.6]};
+    let ty=null,vol=null,mcap=null;
+    try{const c=typeof CAPC!=='undefined'&&CAPC&&CAPC[s.id];if(c>0&&px>0)mcap=c*1e8/10*px;}catch(e){}
+    if(!us&&f.atrp>0){vol=f.atrp<0.025?'低波動':f.atrp<0.04?'中波動':'高波動';if(mcap)ty=vol+'・'+(mcap>=5e10?'大型':mcap>=1e10?'中型':'小型');}
+    const mcTxt=mcap?(mcap>=1e12?(mcap/1e12).toFixed(1)+' 兆':Math.round(mcap/1e8).toLocaleString()+' 億'):'';
+    const best=vol?(vol!=='高波動'?'🚀 突破買法':ty==='高波動・小型'?'🎯 跌深止跌(這類股突破近年轉弱)':'🎯 跌深止跌、🚀 突破買法都適用'):'';
+    const tyLine=vol?`<div class="pbx-type">這檔屬於 <b>${ty||vol}股</b>(每天平均波動 ${(f.atrp*100).toFixed(1)}%${mcTxt?'、市值約 '+mcTxt:''})→ 最適合:<b>${best}</b></div>`:'';
+    if(!ty&&vol)ty=vol+'・中型';   // 市值資料缺(少數上櫃/新股):依波動判斷,數字用中型
+    const fitBreak=!ty||ty!=='高波動・小型',fitDip=!ty||vol==='高波動';   // 突破點太遠時,下方欄位會標「目前不適用」
     let dipCol='',brkCol='',skipNote='';
     if(!us){
       const conf=r.breaks.length>0,be=conf?f.signalEntry:f.breakEntry,ma=f.nextBelowPrice||P(r.ma60,'down');
@@ -1265,7 +1274,7 @@ function stockPriceBoxHTML(s,f,opts={}){
           ty?`同類型股票回測(2021~2026):每筆平均 +${TB[ty][0].toFixed(1)}%;勝率約 4 成,靠少數大漲賺錢`:'回測(全市場 2016~2026):每筆平均 +5.3%、11 年 10 年賺;勝率約 4 成,靠少數大漲賺錢'));
       }else brkCol=(col('🚀 突破買法','<span class="pbx-na">目前離 52 週高太遠或剛突破過,沒有突破買點</span>',[['🛑','防守',ma,'若已用這個買法持有:連續 2 天收盤低於季線就賣','pbx-stop']],''));
       const d=f.dipHypothetical,dfirst=r.dip==='first';
-      if(d&&!fitDip){skipNote=`跌下來接不列:${ty}股跌 15%~40%(有沒有等止跌都一樣)實測都沒贏過隨便哪天買,這類股票只適合等突破`;}
+      if(d&&!fitDip){skipNote=`跌下來接不列:${vol}股很少跌那麼深,跌 15%~40%(有沒有等止跌)實測也贏不了隨便哪天買,這類股票只適合等突破`;}
       else if(d&&ty&&vol==='高波動'&&f.dipc&&!dfirst&&!(px<f.dipc.zone&&!f.dipc.inZone)){const q=f.dipc,ref=q.conf?r.close:q.inZone?q.trig:q.zone,sl=P(ref*0.85,'down'),tp2=P(ref*1.20,'up');
         const st=q.conf?`<b class="pbx-ok">✅ ${md(r.asof)} 已跌深又止跌 → ${sgx}買</b>`:q.inZone?`<b class="pbx-ok">已跌到買區(${q.crossAgo===0?md(r.asof):q.crossAgo+' 天前'}跌破 ${fm(q.zone)}),等止跌</b>`:'';
         const how=q.conf?`${sgx}直接買(開盤價)`:q.inZone?`${cfx}收盤站上 ${fm(q.trig)}(前一天最高價)→ ${nxt}買;${q.left} 個交易日內沒站上就作廢`:`先收盤跌到這裡以下,之後收盤站上前一天最高價 → 隔天開盤買 ${gap(q.zone)}`;
@@ -1273,7 +1282,7 @@ function stockPriceBoxHTML(s,f,opts={}){
           ['🟢','買進',q.conf?r.close:q.inZone?q.trig:q.zone,how,'pbx-buy'],
           ['🛑','防守',sl,'買進價 −15%,碰到就賣','pbx-stop'],
           ['🎯','賣出',tp2,'買進價 +20%,碰到就賣;最多抱 60 個交易日','pbx-tp']],
-          `同類型股票回測:2016~2020 每筆 +${ty==='高波動・大型'?'4.5':'5.1'}%、2021~2026 +${ty==='高波動・大型'?'3.1':'4.8'}%,勝率約 55~59%;每檔平均約半年出現一次`);
+          `同類型股票回測(2021~2026):每筆平均 +${TB[ty][1].toFixed(1)}%、勝率約 57%;每檔平均約半年出現一次`);
         skipNote=`更深的買點:跌到 ${fm(d.entry)}(−40%)第一天${dfirst?`(${md(r.asof)} 已發生 → ${sgx}買,防守 ${fm(d.stop)}、賣出 ${fm(d.target)})`:''}買,每筆平均 +7% 左右、勝率 64~66%,但每檔約 1 年才一次`;}
       else if(d&&ty&&vol==='高波動'&&f.dipc&&!dfirst){const q=f.dipc;
         dipCol=col(`🎯 跌深止跌 <span class="pbx-fit">⭐ 適合這檔</span>`,'<span class="pbx-na">這一波已跌破 −25% 超過 10 個交易日,這次止跌訊號已過期,不追</span>',[
@@ -1284,7 +1293,7 @@ function stockPriceBoxHTML(s,f,opts={}){
           ['🛑','防守',d.stop,'買進價 −15%,碰到就賣','pbx-stop'],
           ['🎯','賣出',d.target,'買進價 +20%,碰到就賣;最多抱 60 個交易日','pbx-tp']],
           ty&&TB[ty][1]?`同類型股票回測(2021~2026):每筆平均 +${TB[ty][1].toFixed(1)}%、勝率約 65%`:'回測:每筆平均 +6.4%、勝率 63%、11 年都賺'));}
-      if(ty==='高波動・中小型'||(brkCol.includes('目前不適用')&&dipCol)){if(dipCol)cols.push(dipCol);if(brkCol)cols.push(brkCol);}else{if(brkCol)cols.push(brkCol);if(dipCol)cols.push(dipCol);}
+      if(ty==='高波動・小型'||(brkCol.includes('目前不適用')&&dipCol)){if(dipCol)cols.push(dipCol);if(brkCol)cols.push(brkCol);}else{if(brkCol)cols.push(brkCol);if(dipCol)cols.push(dipCol);}
     }else{
       const d=f.dipHypothetical,dfirst=r.dip==='first';
       if(d)cols.push(col('🎯 跌深低接',dfirst?`<b class="pbx-ok">✅ ${md(r.asof)} 第一天跌破 −35% → ${sgx}買</b>`:r.dip==='already'?'<span class="pbx-na">已在跌深區但不是第一天,規則不追加</span>':'',[

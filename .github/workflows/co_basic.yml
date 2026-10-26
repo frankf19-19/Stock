@@ -21,6 +21,7 @@ jobs:
       - name: 抓取股本
         env:
           PYTHONUNBUFFERED: "1"
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}   # r1177:上櫃股本備援(櫃買 OpenAPI 常擋 GitHub)
         run: python fetch_cap.py
       - name: 提交結果
         run: |
