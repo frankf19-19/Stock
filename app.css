@@ -2656,3 +2656,10 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 
 /* r1169: 個股計畫與最愛通知有直接入口。 */
 .plan-notice-link{border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:var(--panel);color:var(--t-gold);font-weight:700;cursor:pointer;margin:8px 0}
+
+/* r1171: concise, stock-specific study decisions in the actual favorites card. */
+.inline-trade-study .study-decision{font-size:15px;line-height:1.75;margin:10px 0;color:var(--text)}
+.inline-trade-study .study-evidence{font-size:13px;line-height:1.8;color:var(--dim);margin:12px 0}
+.study-wait{margin:14px 0}.study-wait>div{padding:10px 0;border-bottom:1px solid var(--border,#7775)}.study-wait dt{font-size:13px;color:var(--dim)}.study-wait dd{margin:4px 0 0;line-height:1.7;font-size:15px;overflow-wrap:anywhere}
+.inline-study-scroll{overflow-x:auto;max-width:100%}.inline-study-scroll table{min-width:330px;width:100%;font-size:12px;border-collapse:collapse}.inline-study-scroll th,.inline-study-scroll td{padding:8px 5px;text-align:left;border-bottom:1px solid var(--border,#7775);font-weight:normal}.inline-study-scroll thead th{font-weight:bold}.legacy-context-observations{margin-top:12px}.inline-trade-study .plan-price-row{grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr)}
+@media(max-width:600px){.inline-trade-study .plan-price-row{grid-template-columns:1fr}}
