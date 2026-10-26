@@ -278,16 +278,21 @@ if __name__ == '__main__':
             return dict(ry=r3[0], r3=None if any(x is None for x in r3) else all(x > 0 for x in r3), acc=None if r3[0] is None or r3[1] is None else r3[0] > r3[1],
                         f20=f20, t20=t20, c20=C[i] / C[i-20] - 1, dayRet=C[i] / C[i-1] - 1, volR=V[i] / max(1, V[i-20:i].mean()),
                         aboveYear=bool(P['ma240'][i]) and C[i] > P['ma240'][i], ma20gt60=P['ma20'][i] > P['ma60'][i])
-        def score(g, x):   # 與前端 stockCondHTML 同一套
-            p = m = 0; both = x['f20'] < -0.02 and x['t20'] <= 0
+        def score(g, x, nf=None):   # 與前端 stockCondHTML 同一套(r1180:每項轉 int 再加,修正 numpy bool 相加變成 OR 的錯)
+            B = lambda v: 1 if bool(v) else 0
+            nf = nf or {}
+            G_ = lambda k: B(nf.get(k))
+            both = x['f20'] < -0.02 and x['t20'] <= 0
             if g == 'low':
-                p += (x['ry'] is not None and x['ry'] > 0.20) + (x['volR'] < 1); m += both + (x['c20'] > 0.20) + (x['dayRet'] > 0.05)
+                p = B(x['ry'] is not None and x['ry'] > 0.20) + B(x['volR'] < 1) + G_('本益比<12') + G_('殖利率>5%') + G_('淨值比<1.2')
+                m = B(both) + B(x['c20'] > 0.20) + B(x['dayRet'] > 0.05) + G_('大戶4週減≥1點') + G_('股東人數4週增≥3%')
             elif g == 'mid':
-                p += (x['f20'] > 0.02) + (x['t20'] > 0.01) + (x['c20'] > 0.20); m += both + (x['volR'] < 1) + (x['dayRet'] > 0.05) + x['ma20gt60']
+                p = B(x['f20'] > 0.02) + B(x['t20'] > 0.01) + B(x['c20'] > 0.20) + G_('大戶4週減≥1點') + G_('股東人數4週減≥3%')
+                m = B(both) + B(x['volR'] < 1) + B(x['dayRet'] > 0.05) + B(x['ma20gt60']) + G_('本益比<12')
             else:
-                p += (x['f20'] > 0.02) + (x['t20'] > 0.01) + (x['c20'] < -0.10) + (x['dayRet'] > 0.05) + (x['acc'] is True)
-                m += x['aboveYear'] + x['ma20gt60'] + (x['r3'] is True)
-            return int(p) - int(m)
+                p = B(x['f20'] > 0.02) + B(x['t20'] > 0.01) + B(x['c20'] < -0.10) + B(x['dayRet'] > 0.05) + B(x['acc'] is True) + G_('本益比<12') + G_('殖利率>5%') + G_('淨值比<1.2') + G_('股東人數4週減≥3%') + G_('融資20日減>15%')
+                m = B(x['aboveYear']) + B(x['ma20gt60']) + B(x['r3'] is True) + G_('大戶4週減≥1點') + G_('本益比>40') + G_('淨值比>5') + G_('產業20日弱於大盤5%') + G_('股東人數4週增≥3%')
+            return p - m
         def nearest_before(dmap, d, look=40):
             # dmap: date->value,取 d 當天或之前最近一筆
             if d in dmap: return dmap[d]
@@ -329,12 +334,14 @@ if __name__ == '__main__':
                     v, z = vol_of(e, i), size_of(e, i, t[0])
                     if z is None or not okt(v, z): continue
                     base[pn].append(t[2])
-                    sc = max(-2, min(2, score(g, base_feats(e, i))))
+                    nf = new_feats(t[0], e, i)
+                    sc = max(-3, min(3, score(g, base_feats(e, i), nf)))
                     SC[pn][sc].append(t[2])
-                    for fn, fv in new_feats(t[0], e, i).items(): NF[fn][pn][0 if fv else 1].append(t[2])
+                    if not os.environ.get('SCORE_ONLY'):
+                        for fn, fv in nf.items(): NF[fn][pn][0 if fv else 1].append(t[2])
             print(f'\n######## {GN[g]}:全部 A {m_(base["A"]):+.2f}%({len(base["A"])}) B {m_(base["B"]):+.2f}%({len(base["B"])}) ########', flush=True)
-            print('  ① 本股條件合計分數(≤−2 … ≥+2):')
-            for sc in (-2, -1, 0, 1, 2):
+            print('  ① 本股條件合計分數(加分數 − 扣分數,≤−3 … ≥+3;含新因素):')
+            for sc in (-3, -2, -1, 0, 1, 2, 3):
                 a, b = SC['A'].get(sc, []), SC['B'].get(sc, [])
                 print(f'     {sc:+d}: A {m_(a):+6.2f}%({len(a):4d},勝{(np.array(a)>0).mean()*100 if a else 0:3.0f}%) | B {m_(b):+6.2f}%({len(b):4d},勝{(np.array(b)>0).mean()*100 if b else 0:3.0f}%)')
             print('  ② 新因素:')
