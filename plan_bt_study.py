@@ -508,6 +508,94 @@ if __name__ == '__main__':
                         if h != te_h or p_ != pn: continue
                         sc = sum(v_ for k_, v_ in sel.items() if F.get(k_)); B_[max(-3, min(3, sc))].append(r)
                     print(f'    第 {te_h} 半(沒用來挑條件)期 {pn}:' + '  '.join(f"{k_:+d}:{m_(B_[k_]):+.1f}%({len(B_[k_])})" for k_ in sorted(B_)), flush=True)
+    if which == 'entry2':
+        # r1182:①買進價格怎麼掛(隔天開盤 / 跳空太多不追 / 掛訊號日收盤 / 掛收盤−2%,5 天內沒成交就放棄)
+        #        ②大盤狀態(全市場站上季線比例、全市場 20 日平均漲跌)對各買法的影響
+        import collections as CC
+        CAP = json.load(open('/home/claude/repo2/cap.json'))['c']
+        def vol_of(e, i): a = e['P']['atr'][i] / e['a'][i][3]; return '低' if a < 0.025 else '中' if a < 0.04 else '高'
+        brd = CC.defaultdict(lambda: [0, 0]); mk = CC.defaultdict(list)
+        for sid, e in S.items():
+            C = e['a'][:, 3]; P = e['P']
+            for i in range(60, len(C)):
+                if not (P['liq'][i] >= 2e4): continue
+                d = e['d'][i]; brd[d][1] += 1; brd[d][0] += C[i] > P['ma60'][i]; mk[d].append(C[i] / C[i-20] - 1)
+        BR = {d: v[0] / v[1] for d, v in brd.items() if v[1] >= 50}; MK = {d: float(np.mean(L)) for d, L in mk.items() if len(L) >= 50}
+        print('market ready', len(BR), flush=True)
+        def gx(ma=None, conf=2, hold=120, tp=None, sl=None):
+            def f(e, ei, px):
+                a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; below = 0
+                for k in range(ei, min(n, ei + hold)):
+                    if sl and L[k] <= px * (1 - sl): return k, min(O[k], px * (1 - sl)) if k > ei else px * (1 - sl), 'sl'
+                    if tp and H[k] >= px * (1 + tp): return k, max(O[k], px * (1 + tp)) if k > ei else px * (1 + tp), 'tp'
+                    if ma:
+                        below = below + 1 if (C[k] < P[ma][k] and k > ei) else 0
+                        if below >= conf: xi = k + 1 if k + 1 < n else k; return xi, (O[k+1] if k + 1 < n else C[k]), 'ma'
+                    if k == ei + hold - 1: return k, C[k], 'time'
+                return None, None, None
+            return f
+        def dipk_conf(k):
+            def f(e, i):
+                H = e['a'][:, 1]; C = e['a'][:, 3]; P = e['P']
+                if not (C[i] / P['h60'][i] - 1 <= -k): return False
+                if not (C[i] > H[i-1] and C[i-1] <= H[i-2]): return False
+                return any(C[j] / P['h60'][j] - 1 <= -k and C[j-1] / P['h60'][j-1] - 1 > -k for j in range(i-10, i))
+            return f
+        ev250 = EV['站上 250 日高']
+        k40 = lambda e, i: e['a'][i][3] / e['P']['h60'][i] - 1 <= -0.40 and e['a'][i-1][3] / e['P']['h60'][i-1] - 1 > -0.40
+        G = {'突破・低波動': (ev250, gx(sl=0.15, tp=0.30, hold=90), lambda v: v == '低'),
+             '突破・中波動': (ev250, gx(ma='ma60'), lambda v: v == '中'),
+             '突破・高波動': (ev250, gx(ma='ma60'), lambda v: v == '高'),
+             '跌25%止跌・高波動': (dipk_conf(0.25), gx(sl=0.20, tp=0.30, hold=90), lambda v: v == '高'),
+             '錯殺−40%首日・全部': (k40, gx(sl=0.20, tp=0.30, hold=90), lambda v: True)}
+        def ent_open(e, i): return i + 1, e['a'][i+1][0]
+        def ent_lim(f_):
+            def g(e, i):
+                a = e['a']; lim = a[i][3] * f_
+                for k in range(i + 1, min(len(a), i + 6)):
+                    if a[k][2] <= lim: return k, min(a[k][0], lim)
+                return None
+            return g
+        m_ = lambda L: np.mean(L) * 100 if L else float('nan')
+        for gn, (ev, xf, okv) in G.items():
+            R = []   # per signal: period, open_ret, gap, lim0_ret, lim2_ret, breadth, mk20
+            for pn, a_, b_ in (('A', '2016-01-01', '2021-01-01'), ('B', '2021-01-01', '2099-01-01')):
+                for sid, e in S.items():
+                    d = e['d']; a = e['a']; n = len(a); P = e['P']; last = -1
+                    for i in range(250, n - 7):
+                        if d[i] < a_ or d[i] >= b_ or i <= last: continue
+                        if not (P['liq'][i] >= 2e4) or not ev(e, i) or not okv(vol_of(e, i)): continue
+                        ei, px = ent_open(e, i)
+                        if not px: continue
+                        xi, xp, _ = xf(e, ei, px)
+                        if xi is None or d[xi] >= b_: continue
+                        last = xi
+                        row = [pn, xp / px - 1 - 0.006, px / a[i][3] - 1]
+                        for ef in (ent_lim(1.0), ent_lim(0.98)):
+                            z = ef(e, i)
+                            if z is None: row.append(None); continue
+                            ki, kp = z; yi, yp, _ = xf(e, ki, kp)
+                            row.append(None if yi is None else yp / kp - 1 - 0.006)
+                        row += [BR.get(d[i]), MK.get(d[i])]
+                        R.append(row)
+            print(f'\n######## {gn} ########', flush=True)
+            for pn in ('A', 'B'):
+                rr = [r for r in R if r[0] == pn]
+                if not rr: continue
+                op = [r[1] for r in rr]
+                print(f' 期{pn}({"2016~20" if pn=="A" else "2021~26"}) 訊號 {len(rr)}:隔天開盤買 {m_(op):+.2f}%')
+                for th in (0.03, 0.05):
+                    k_ = [r[1] for r in rr if r[2] <= th]; sk = [r[1] for r in rr if r[2] > th]
+                    print(f'   跳空>{th*100:.0f}% 不買:剩 {len(k_)} 筆 {m_(k_):+.2f}%(放棄的 {len(sk)} 筆原本 {m_(sk):+.2f}%)')
+                for j, nm in ((3, '掛訊號日收盤'), (4, '掛收盤−2%')):
+                    fl = [r for r in rr if r[j] is not None]; ms = [r for r in rr if r[j] is None]
+                    print(f'   {nm}(5天內):成交 {len(fl)/len(rr)*100:.0f}%  成交的每筆 {m_([r[j] for r in fl]):+.2f}%(同批開盤買 {m_([r[1] for r in fl]):+.2f}%)  沒成交的原本 {m_([r[1] for r in ms]):+.2f}%  → 全部訊號平均(沒成交算0) {m_([r[j] if r[j] is not None else 0 for r in rr]):+.2f}%')
+                for lo, hi, nm in ((0, .35, '弱(<35%)'), (.35, .65, '中(35~65%)'), (.65, 1.01, '強(>65%)')):
+                    k_ = [r[1] for r in rr if r[5] is not None and lo <= r[5] < hi]
+                    print(f'   大盤站上季線比例 {nm}:{len(k_)} 筆 {m_(k_):+.2f}%  勝 {np.mean([x>0 for x in k_])*100 if k_ else 0:.0f}%')
+                for lo, hi, nm in ((-9, -.05, '跌>5%'), (-.05, .05, '±5%'), (.05, 9, '漲>5%')):
+                    k_ = [r[1] for r in rr if r[6] is not None and lo <= r[6] < hi]
+                    print(f'   全市場20日平均 {nm}:{len(k_)} 筆 {m_(k_):+.2f}%')
     if which == 'filt9':
         # r1179:同一買法、同一類型裡,個股條件(營收、法人、漲幅、量能、位置)能不能再分出好壞?兩期都要成立
         import collections as CC
