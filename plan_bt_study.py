@@ -203,6 +203,64 @@ if __name__ == '__main__':
             else: fresh.append(t)
             last[sid] = (t[1], t[4])
         stats(re_, '再買回(上次被季線洗出 90 天內又突破)'); stats(fresh, '其他')
+    if which == 'type':
+        # 依「股票類型」挑買法:類型 = 波動(20 日 ATR/價 三等分) × 規模(20 日均成交值 ≥1 億 / 以下)
+        # 2016~2020 決定每個類型用哪個買法,2021~2026 驗證;對照「全部用同一個買法」
+        def mk_x2(hold=120):
+            def f(e, ei):
+                a = e['a']; O, H, L, C, V = a.T; n = len(C); P = e['P']; below = 0
+                for k in range(ei, min(n, ei + hold)):
+                    below = below + 1 if (C[k] < P['ma60'][k] and k > ei) else 0
+                    if below >= 2:
+                        xi = k + 1 if k + 1 < n else k; return xi, (O[k+1] if k + 1 < n else C[k]), 'ma'
+                    if k == ei + hold - 1: return k, C[k], 'time'
+                return None, None, None
+            return f
+        def near(e, i, lim=0.10): return e['a'][i][3] / e['P']['hi250'][i] - 1 >= -lim
+        up = lambda e, i: e['P']['ma20'][i] > e['P']['ma60'][i] and e['a'][i][3] > e['P']['ma60'][i]
+        METH = {
+            '52週新高突破': (EV['站上 250 日高'], mk_x2()),
+            '近高突破60日高': (lambda e, i: EV['站上 60 日高'](e, i) and near(e, i), mk_x2()),
+            '錯殺低接−40%': (lambda e, i: e['a'][i][3] / e['P']['h60'][i] - 1 <= -0.40 and e['a'][i-1][3] / e['P']['h60'][i-1] - 1 > -0.40, mk_exit(sl=0.15, tp=0.20, hold=60)),
+            '錯殺低接−30%': (lambda e, i: e['a'][i][3] / e['P']['h60'][i] - 1 <= -0.30 and e['a'][i-1][3] / e['P']['h60'][i-1] - 1 > -0.30, mk_exit(sl=0.15, tp=0.20, hold=60)),
+            '多頭回檔到月線': (lambda e, i: up(e, i) and near(e, i, 0.15) and e['a'][i][2] <= e['P']['ma20'][i] and e['a'][i-1][2] > e['P']['ma20'][i-1] and e['a'][i][3] >= e['P']['ma20'][i] * 0.98, mk_x2()),
+            '多頭回檔到季線': (lambda e, i: e['P']['ma20'][i] > e['P']['ma60'][i] and e['a'][i][2] <= e['P']['ma60'][i] and e['a'][i-1][2] > e['P']['ma60'][i-1] and e['a'][i][3] >= e['P']['ma60'][i] * 0.98, mk_exit(sl=0.10, tp=0.20, hold=60)),
+        }
+        def typ(e, i):
+            a = e['P']['atr'][i] / e['a'][i][3]; lq = e['P']['liq'][i]
+            v = 0 if a < 0.025 else (1 if a < 0.04 else 2)
+            return ('低波動', '中波動', '高波動')[v] + ('・大型' if lq >= 1e5 else '・中小型')
+        import collections as CC
+        R = {}
+        for nm, (ev, xf) in METH.items():
+            for per, (a_, b_) in (('A', ('2016-01-01', '2021-01-01')), ('B', ('2021-01-01', None))):
+                tr = simulate(S, ev, xf, start=a_, end=b_)
+                g = CC.defaultdict(list)
+                for t in tr:
+                    e = S[t[0]]; i = e['d'].index(t[1]) - 1
+                    g[typ(e, i)].append(t[2])
+                    g['全部'].append(t[2])
+                R[(nm, per)] = g
+            print('done', nm, flush=True)
+        types = ['低波動・大型', '中波動・大型', '高波動・大型', '低波動・中小型', '中波動・中小型', '高波動・中小型', '全部']
+        st = lambda L: (np.mean(L) * 100, len(L), (np.array(L) > 0).mean() * 100) if len(L) else (np.nan, 0, np.nan)
+        print('\n類型 | 買法 | 2016~2020 每筆/筆數/勝率 | 2021~2026 每筆/筆數/勝率')
+        for ty in types:
+            for nm in METH:
+                a = st(R[(nm, 'A')].get(ty, [])); b = st(R[(nm, 'B')].get(ty, []))
+                print(f'{ty:8} {nm:10} A {a[0]:+6.2f}% {a[1]:5d} {a[2]:4.0f}% | B {b[0]:+6.2f}% {b[1]:5d} {b[2]:4.0f}%')
+            print()
+        # 依 A 期挑每個類型最好的買法(≥100 筆),看 B 期;對照全部用 A 期整體最好的單一買法
+        best_all = max(METH, key=lambda m: st(R[(m, 'A')]['全部'])[0] if st(R[(m, 'A')]['全部'])[1] >= 300 else -99)
+        tail_B = []; one_B = []
+        for ty in types[:-1]:
+            cand = [(st(R[(m, 'A')].get(ty, []))[0], m) for m in METH if st(R[(m, 'A')].get(ty, []))[1] >= 100]
+            if not cand: continue
+            bm = max(cand)[1]
+            tb = R[(bm, 'B')].get(ty, []); ob = R[(best_all, 'B')].get(ty, [])
+            tail_B += tb; one_B += ob
+            print(f'{ty}: A 期挑 {bm} → B {st(tb)[0]:+.2f}%({st(tb)[1]} 筆) | 全部用 {best_all} → B {st(ob)[0]:+.2f}%({st(ob)[1]} 筆)')
+        print(f'合計 依類型挑 B 期 {st(tail_B)[0]:+.2f}%({len(tail_B)} 筆) | 全部用 {best_all} {st(one_B)[0]:+.2f}%({len(one_B)} 筆)')
     if which == 'b6':
         ev250 = EV['站上 250 日高']
         def mk_x(buf=0.0, confirm=1, hold=120):
