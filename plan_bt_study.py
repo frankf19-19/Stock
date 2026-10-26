@@ -203,6 +203,55 @@ if __name__ == '__main__':
             else: fresh.append(t)
             last[sid] = (t[1], t[4])
         stats(re_, '再買回(上次被季線洗出 90 天內又突破)'); stats(fresh, '其他')
+    if which == 'dipt':
+        # 依類型找「比較容易等到」的跌深買點:各類型測多個門檻,出場 −15%/+20%/60 日;對照同類型隨機日買同出場
+        import collections as CC
+        def typ(e, i):
+            a = e['P']['atr'][i] / e['a'][i][3]; lq = e['P']['liq'][i]
+            v = 0 if a < 0.025 else (1 if a < 0.04 else 2)
+            return ('低波動', '中波動', '高波動')[v] + ('・大型' if lq >= 1e5 else '・中小型')
+        def dipk(k): return lambda e, i: e['a'][i][3] / e['P']['h60'][i] - 1 <= -k and e['a'][i-1][3] / e['P']['h60'][i-1] - 1 > -k
+        def dipk_conf(k):   # 跌到門檻後,第一天收盤站上前一天高點(止跌確認),且仍在門檻下 5% 內
+            def f(e, i):
+                H = e['a'][:, 1]; C = e['a'][:, 3]; P = e['P']
+                if not (C[i] / P['h60'][i] - 1 <= -k): return False
+                if not (C[i] > H[i-1] and C[i-1] <= H[i-2]): return False
+                # 近 10 天內曾首次跌破門檻
+                return any(C[j] / P['h60'][j] - 1 <= -k and C[j-1] / P['h60'][j-1] - 1 > -k for j in range(i-10, i))
+            return f
+        X = {'−15/+20/60': mk_exit(sl=0.15, tp=0.20, hold=60), '−10/+15/40': mk_exit(sl=0.10, tp=0.15, hold=40)}
+        per = (('A', '2016-01-01', '2021-01-01'), ('B', '2021-01-01', None))
+        rng = np.random.default_rng(7)
+        def run(ev, xf, rand=False):
+            out = {}
+            for pn, a_, b_ in per:
+                tr = simulate(S, ev, xf, start=a_, end=b_, sample_any=rand, rng=rng)
+                g = CC.defaultdict(list)
+                for t in tr:
+                    e = S[t[0]]; i = e['d'].index(t[1]) - 1; g[typ(e, i)].append(t[2])
+                out[pn] = g
+            return out
+        types = ['低波動・大型', '中波動・大型', '高波動・大型', '低波動・中小型', '中波動・中小型', '高波動・中小型']
+        nyears = {'A': 5, 'B': 5.8}
+        nst = CC.Counter()
+        for sid, e in S.items():
+            for i in range(250, len(e['d']), 20):
+                if e['d'][i] >= '2016-01-01' and e['P']['liq'][i] >= 2e4: nst[typ(e, i)] += 1
+        for xn, xf in X.items():
+            base = run(None, xf, rand=True)
+            print(f'\n===== 出場 {xn} =====')
+            for ty in types:
+                ba, bb = base['A'].get(ty, []), base['B'].get(ty, [])
+                print(f'{ty}: 隨機買 A {np.mean(ba)*100:+.2f}% B {np.mean(bb)*100:+.2f}%')
+            for k in (0.15, 0.20, 0.25, 0.30, 0.35, 0.40):
+                for cn, ev in ((f'首次跌 −{int(k*100)}%', dipk(k)), (f'跌 −{int(k*100)}% 後止跌確認', dipk_conf(k))):
+                    r = run(ev, xf)
+                    for ty in types:
+                        a, b = r['A'].get(ty, []), r['B'].get(ty, [])
+                        if len(a) + len(b) < 60: continue
+                        ba, bb = base['A'].get(ty, []), base['B'].get(ty, [])
+                        stock_months = nst[ty] / (len(a) + len(b) + 1e-9)   # 每檔平均多少「月」出現一次(粗估)
+                        print(f'  {cn:14} {ty:8} A {np.mean(a)*100:+6.2f}%({len(a):4d},勝{(np.array(a)>0).mean()*100:3.0f}%) 贏隨機{(np.mean(a)-np.mean(ba))*100:+5.2f} | B {np.mean(b)*100:+6.2f}%({len(b):4d},勝{(np.array(b)>0).mean()*100:3.0f}%) 贏隨機{(np.mean(b)-np.mean(bb))*100:+5.2f} | 約每檔 {stock_months*20/250:.1f} 年一次', flush=True)
     if which == 'type':
         # 依「股票類型」挑買法:類型 = 波動(20 日 ATR/價 三等分) × 規模(20 日均成交值 ≥1 億 / 以下)
         # 2016~2020 決定每個類型用哪個買法,2021~2026 驗證;對照「全部用同一個買法」
