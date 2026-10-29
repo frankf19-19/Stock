@@ -14,3 +14,5 @@ test('低波動固定出場的完整說明與價格表一致，不套季線兩�
 test('本股收盤更新後會重抓過期市場資料，節流且載入後恢復同日判斷',async()=>{const c=context();c.SECSTR={asof:'2026-10-27',a60:.1};let calls=0;c.fT=async()=>{calls++;return {ok:true,json:async()=>({asof:'2026-10-28',a60:.2})}};for(let i=0;i<10;i++)c.mktA60('2026-10-28');assert.equal(calls,1);await c.SECSTR_P;assert.equal(c.mktA60('2026-10-28').v,.2);assert.equal(c.SECSTR_P,null);});
 
 test('市場資料載入失敗會釋放等待狀態，稍後可再讀取',async()=>{const c=context();c.fT=()=>{throw Error('offline')};c.secStrLoad();await c.SECSTR_P;assert.equal(c.SECSTR_P,null);c.SECSTR_RETRY=0;c.fT=async()=>({ok:true,json:async()=>({asof:'2026-10-28',a60:.2})});c.secStrLoad();await c.SECSTR_P;assert.equal(c.mktA60('2026-10-28').v,.2);});
+
+test('主卡研究連結用原分頁，避免新視窗被瀏覽器攔住；卡片仍不接管連結',()=>{const c=context(),h=c.stockPriceBoxHTML(s,facts(),{now,calendar});const a=h.match(/<a[^>]+href="research\/r1186\/report.html#[^>]+>/)?.[0];assert.ok(a);assert.doesNotMatch(a,/target="_blank"/);assert.match(a,/event.stopPropagation/);assert.match(a,/TW%3AX/);});

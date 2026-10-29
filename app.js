@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1186';
+const APP_BUILD='r1187';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1409,7 +1409,7 @@ function stockPriceBoxHTML(s,f,opts={}){
         :vol==='低波動'?`<div class="pbx-own">💼 你的持股(成本 <b>${fm(c)}</b>,目前 <b style="color:${pl>=0?'var(--up)':'var(--down)'}">${pl>=0?'+':''}${pl.toFixed(1)}%</b>):🛑 防守 <b class="pbx-stop">${fm(P(c*0.85,'down'))}</b>(成本 −15%)・🎯 賣出 <b class="pbx-tp">${fm(P(c*1.30,'up'))}</b>(成本 +30%)・最多抱 90 個交易日 <span class="pbx-sub" style="margin:0">(低波動股固定價位出場實測較好)</span></div>`
         :`<div class="pbx-own">💼 你的持股(成本 <b>${fm(c)}</b>,目前 <b style="color:${pl>=0?'var(--up)':'var(--down)'}">${pl>=0?'+':''}${pl.toFixed(1)}%</b>):🛑 防守 <b class="pbx-stop">${fm(f.nextBelowPrice||P(r.ma60,'down'))}</b>(連 2 天收盤低於季線就賣)・🎯 賣出 <b class="pbx-tp">${fm(f.nextBelowPrice||P(r.ma60,'down'))}</b>(連 2 天收盤跌破各日季線，下一交易日開盤；不設固定停利)${r.below2?` <b style="color:var(--down)">⚠ 到 ${md(r.asof)} 已連 2 天收在季線下,依規則 ${nxt}賣</b>`:r.below?` <span style="color:var(--amber)">${md(r.asof)} 收在季線下(第 1 天,還不用賣)</span>`:''}</div>`;}
     const tyLine2=tyLine&&brkCol.includes('目前不適用')&&dipCol?tyLine.replace('</div>','<br><span class="pbx-sub" style="margin:0">這檔目前離 52 週高太遠,突破買法先不看 → 用 🎯 跌深買法</span></div>'):tyLine;
-    return `<div class="pbx" data-pbx="${s.market}:${s.id}"><div class="pbx-top pbx-asof">價格條件用 ${r.asof} 收盤算</div>${timingNote}${tyLine2}<div class="pbx-grid">${cols.join('')}</div>${skipNote?`<div class="pbx-skip">${skipNote}</div>`:''}${own}<div class="pbx-note">${cols.length>1?'兩種買法擇一用,不是兩個都要買;':''}「買進」都是看收盤、下個交易日開盤才買,盤中碰到不算。</div><p><a class="plan-notice-link" target="_blank" rel="noopener" onclick="event.stopPropagation()" href="research/r1186/report.html#${encodeURIComponent(s.market+':'+s.id)}">🔬 本股買賣壓力測試：未出場、限價與成本一起看</a></p></div>`;
+    return `<div class="pbx" data-pbx="${s.market}:${s.id}"><div class="pbx-top pbx-asof">價格條件用 ${r.asof} 收盤算</div>${timingNote}${tyLine2}<div class="pbx-grid">${cols.join('')}</div>${skipNote?`<div class="pbx-skip">${skipNote}</div>`:''}${own}<div class="pbx-note">${cols.length>1?'兩種買法擇一用,不是兩個都要買;':''}「買進」都是看收盤、下個交易日開盤才買,盤中碰到不算。</div><p><a class="plan-notice-link" onclick="event.stopPropagation()" href="research/r1186/report.html#${encodeURIComponent(s.market+':'+s.id)}">🔬 本股買賣壓力測試：未出場、限價與成本一起看</a></p></div>`;
   }catch(e){return '';}
 }
 function stockContextHTML(s,raw,dates,own=false,cost=null){
