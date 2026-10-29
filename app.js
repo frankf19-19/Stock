@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1187';
+const APP_BUILD='r1188';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1405,12 +1405,27 @@ function stockPriceBoxHTML(s,f,opts={}){
     if(!cols.length)return '';
     let own='';
     if(f.cost>0){const c=f.cost,pl=(px/c-1)*100;
-      own=us?`<div class="pbx-own">💼 你的持股(成本 <b>${fm(c)}</b>,目前 <b style="color:${pl>=0?'var(--up)':'var(--down)'}">${pl>=0?'+':''}${pl.toFixed(1)}%</b>):🛑 防守 <b class="pbx-stop">${fm(f.ownDip&&f.ownDip.stop)}</b>・🎯 賣出 <b class="pbx-tp">${fm(f.ownDip&&f.ownDip.target)}</b>(照跌深低接規則)</div>`
-        :vol==='低波動'?`<div class="pbx-own">💼 你的持股(成本 <b>${fm(c)}</b>,目前 <b style="color:${pl>=0?'var(--up)':'var(--down)'}">${pl>=0?'+':''}${pl.toFixed(1)}%</b>):🛑 防守 <b class="pbx-stop">${fm(P(c*0.85,'down'))}</b>(成本 −15%)・🎯 賣出 <b class="pbx-tp">${fm(P(c*1.30,'up'))}</b>(成本 +30%)・最多抱 90 個交易日 <span class="pbx-sub" style="margin:0">(低波動股固定價位出場實測較好)</span></div>`
-        :`<div class="pbx-own">💼 你的持股(成本 <b>${fm(c)}</b>,目前 <b style="color:${pl>=0?'var(--up)':'var(--down)'}">${pl>=0?'+':''}${pl.toFixed(1)}%</b>):🛑 防守 <b class="pbx-stop">${fm(f.nextBelowPrice||P(r.ma60,'down'))}</b>(連 2 天收盤低於季線就賣)・🎯 賣出 <b class="pbx-tp">${fm(f.nextBelowPrice||P(r.ma60,'down'))}</b>(連 2 天收盤跌破各日季線，下一交易日開盤；不設固定停利)${r.below2?` <b style="color:var(--down)">⚠ 到 ${md(r.asof)} 已連 2 天收在季線下,依規則 ${nxt}賣</b>`:r.below?` <span style="color:var(--amber)">${md(r.asof)} 收在季線下(第 1 天,還不用賣)</span>`:''}</div>`;}
+      own=us?`<div class="pbx-own">💼 你的持股(成本 <b>${fm(c)}</b>,目前 <b style="color:${pl>=0?'var(--up)':'var(--down)'}">${pl>=0?'+':''}${pl.toFixed(1)}%</b>):🛑 防守 <b class="pbx-stop">${fm(f.ownDip&&f.ownDip.stop)}</b>・🎯 賣出 <b class="pbx-tp">${fm(f.ownDip&&f.ownDip.target)}</b>(若這筆採用原跌深低接)</div>`
+        :`<div class="pbx-own">💼 你填的成本 <b>${fm(c)}</b>，目前 ${pl>=0?'+':''}${pl.toFixed(1)}%${typeof StockOperationPlan!=='undefined'&&typeof StockOperationPlan.holding==='function'?StockOperationPlan.holding(s,f,{safe:canPlan}):'<p>尚未記錄買入時採用的方案；不可依今天分類直接更換持股停損停利。</p>'}</div>`;}
+
     const tyLine2=tyLine&&brkCol.includes('目前不適用')&&dipCol?tyLine.replace('</div>','<br><span class="pbx-sub" style="margin:0">這檔目前離 52 週高太遠,突破買法先不看 → 用 🎯 跌深買法</span></div>'):tyLine;
     return `<div class="pbx" data-pbx="${s.market}:${s.id}"><div class="pbx-top pbx-asof">價格條件用 ${r.asof} 收盤算</div>${timingNote}${tyLine2}<div class="pbx-grid">${cols.join('')}</div>${skipNote?`<div class="pbx-skip">${skipNote}</div>`:''}${own}<div class="pbx-note">${cols.length>1?'兩種買法擇一用,不是兩個都要買;':''}「買進」都是看收盤、下個交易日開盤才買,盤中碰到不算。</div><p><a class="plan-notice-link" onclick="event.stopPropagation()" href="research/r1186/report.html#${encodeURIComponent(s.market+':'+s.id)}">🔬 本股買賣壓力測試：未出場、限價與成本一起看</a></p></div>`;
   }catch(e){return '';}
+}
+// r1188: immutable own-stock path evidence, loaded once; never a live strategy selector.
+var INDIVIDUAL_PROFILES=null,INDIVIDUAL_PENDING=null,INDIVIDUAL_RETRY=0;
+function stockIndividualLoad(){
+ if(INDIVIDUAL_PROFILES)return Promise.resolve(INDIVIDUAL_PROFILES);
+ if(INDIVIDUAL_PENDING)return INDIVIDUAL_PENDING;
+ if(typeof fT!=='function'||typeof StockIndividualPaths==='undefined'||Date.now()<INDIVIDUAL_RETRY)return null;
+ INDIVIDUAL_PENDING=(async()=>{try{const r=await fT('research/r1188/web.json.gz',15000);if(!r.ok)throw Error('HTTP '+r.status);const j=await StockIndividualPaths.decode(r);if(j.schema!==1||j.version!=='r1188'||j.research_only!==true||!j.stocks)throw Error('path schema');INDIVIDUAL_PROFILES=j;return j;}catch(e){INDIVIDUAL_RETRY=Date.now()+60000;return null;}})();
+ INDIVIDUAL_PENDING.then(j=>{if(j&&typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);}).finally(()=>{INDIVIDUAL_PENDING=null;});return INDIVIDUAL_PENDING;
+}
+function stockIndividualHTML(s,f){
+ if(typeof StockIndividualPaths==='undefined')return '';
+ if(!INDIVIDUAL_PROFILES)stockIndividualLoad();
+ const key=s.market+':'+s.id,e=INDIVIDUAL_PROFILES&&INDIVIDUAL_PROFILES.stocks[key];
+ return StockIndividualPaths.render(s,e?Object.assign({},e,{key}):null,f);
 }
 function stockContextHTML(s,raw,dates,own=false,cost=null){
  const legacy=stockContextLegacyHTML(s,raw,dates);
@@ -1421,7 +1436,8 @@ function stockContextHTML(s,raw,dates,own=false,cost=null){
  const research=typeof StockTradeResearch==='undefined'?'<p>研究資料待載入。</p>':StockTradeResearch.render(s,e,{check:strategyCloseCheck(s,raw,dates),calendar});
  const facts=stockOperationFacts(s,raw,dates,own,cost),box=stockPriceBoxHTML(s,facts,{calendar});
  const full=typeof StockOperationPlan==='undefined'?research:StockOperationPlan.render(s,facts,{calendar})+'<details class="plan-more operation-research"><summary>其他六種買法研究結果（不代表整檔股票不能買）</summary>'+research+'</details>';
- const primary=box?box+'<details class="plan-more pbx-full"><summary>完整條件與說明(確認時間、已持有怎麼處理、其他研究)</summary>'+full+'</details>':full;   // r1173:價格表在上,原說明全部保留在收合區
+ const personal=stockIndividualHTML(s,facts);
+ const primary=box?box+personal+'<details class="plan-more pbx-full"><summary>完整條件與說明(確認時間、已持有怎麼處理、其他研究)</summary>'+full+'</details>':full+personal;   // r1173:價格表在上,原說明全部保留在收合區
  return primary+'<details class="plan-more legacy-context-observations"><summary>原三種情境觀察價與通知（參考）</summary><p class="dim-note">下面保留舊觀察價及其通知設定，與上方六種買法的候選分開；未通過的研究價不作買進通知。你的原通知勾選保留。</p>'+legacy+'</details>';
 }
 function stockContextLegacyHTML(s,raw,dates){

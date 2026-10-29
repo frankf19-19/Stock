@@ -8,6 +8,12 @@
   const confirm=session(c.day,market,calendar,c.minute<close),order=confirm&&session(confirm,market,calendar),signalOrder=session(asof,market,calendar),missed=!!signalOrder&&(signalOrder<c.day||signalOrder===c.day&&c.minute>=open);
   return {confirm,order,signalOrder,missed,stale:!!signalOrder&&(signalOrder<c.day||signalOrder===c.day&&c.minute>=close),clock:c};
  }
+ // r1188: a cost is not an entry strategy; never switch an existing holding with today's ATR group.
+ function holding(s,f,options={}){
+  const us=s.market==='US',fmt=v=>Number.isFinite(v)&&v>0?v.toLocaleString('zh-TW',{maximumFractionDigits:2})+(us?' 美元／股':' 元／股'):'待資料核對';
+  if(us)return '';
+  return `<div class="holding-rules"><p><b>持股沿用買入時的方案，不隨今天的波動分類換法。</b>目前只知道成本，未記錄入場方案；請核對原本採用的那一列。</p><dl class="plan-prices"><div class="plan-price-row"><dt>若採低波動突破</dt><dd><strong>防守 ${esc(fmt(f.lowOwn&&f.lowOwn.stop))}／停利 ${esc(fmt(f.lowOwn&&f.lowOwn.target))}</strong><small>原成本−15%／+30%，自實際買入起最多90交易日；未填買入日不編造到期。</small></dd></div><div class="plan-price-row"><dt>若採季線突破</dt><dd><strong>${options.safe===false?'收盤資料待更新，不沿用舊防守線':'下一收盤判斷 '+esc(fmt(f.nextBelowPrice))+' 以下'}</strong><small>只用於下一完整收盤；連續兩日低於各日季線後，下一交易日開盤全出。沒有固定停利。資料未更新時先核對新收盤。</small></dd></div><div class="plan-price-row"><dt>若採跌深買法</dt><dd><strong>防守 ${esc(fmt(f.ownDip&&f.ownDip.stop))}／停利 ${esc(fmt(f.ownDip&&f.ownDip.target))}</strong><small>原成本−20%／+50%，自實際買入起最多120交易日。這三列不是同時執行，也不是現在任選一列換規則。</small></dd></div></dl></div>`;
+ }
  function render(s,f,options={}){
   const us=s.market==='US',money=v=>Number.isFinite(v)&&v>0?v.toLocaleString('zh-TW',{maximumFractionDigits:2})+(us?' 美元／股':' 元／股'):'待資料核對',row=(k,v,n='')=>`<div class="plan-price-row"><dt>${esc(k)}</dt><dd><strong>${esc(v)}</strong>${n?'<small>'+esc(n)+'</small>':''}</dd></div>`,date=(d,type)=>d?d+(us?(type==='open'?' 紐約正常開盤9:30':' 紐約正常收盤16:00後'):(type==='open'?' 台灣9:00開盤':' 台灣13:30收盤後')):'交易日曆待核對';
   if(!f||!f.check||f.check.jump||!f.check.liquid)return `<section class="plain-plan-card operation-plan"><h4>買進與持有分開看</h4><p>完整收盤、還原或成交資料待核對，暫不確認新買單或持股出場。這不表示股票不能買。</p></section>`;
@@ -28,6 +34,8 @@
   if(us){
    if(hasCost&&f.ownDip)h+=`<p class="operation-action">若這筆持股採用本站跌深承接策略，按你填的成本計算：</p><dl class="plan-prices">${row('停損賣出價',money(f.ownDip.stop),'成本下方20%；跳空可能以更低價格成交。')}${row('停利賣出價',money(f.ownDip.target),'成本上方30%；先觸及停損或停利先退出。')}${row('持有期限','自實際買入起最多90交易日','未提供實際買入日期時，不編造到期日；不是從今天重新起算。')}</dl>`;
    else h+='<p>若採用跌深承接：停損為實際成本下方20%、停利為上方30%，最多90交易日。未填成本與買入日，不能算出你這筆持股的退出價與到期日。</p>';
+  }else if(hasCost){
+   h+=holding(s,f,{safe});
   }else if(lowTW){
    h+=`<p class="operation-action">若這筆採用低波動突破買法：按實際成本下方15%防守、上方30%賣出，最多90個交易日。與中、高波動的季線買法分開。</p><dl class="plan-prices">${row('防守賣出價',money(f.lowOwn&&f.lowOwn.stop),'實際成交成本下方15%，按市場跳動取整；跳空成交價可能不同。')}${row('停利賣出價',money(f.lowOwn&&f.lowOwn.target),'實際成本上方30%；未填成本不以模型買價代替。')}${row('期限','自實際買入起最多90交易日','未提供實際買入日，不編造到期日期；不從今天重新起算。')}</dl>`;
   }else if(!safe){
@@ -40,5 +48,5 @@
   h+=`<p class="operation-model-note">🤖 ${f.models>0?'本股另有AI模型持有紀錄；模型部位各照原停損、停利與到期規則，不因「還沒買」區的等待狀態而賣出。':'AI模型帳與你的持股分開；沒有模型部位也不代表整檔股票不能買。'}模型持有不等於現在又有新買點。</p><p class="dim-note">價格條件依 ${esc(r.asof)} 完整收盤與目前還原資料；盤後更新、除權息或休市會改變判斷價與日期。上方是條件計畫，不是已送出或已成交的委託。</p></section>`;
   return h;
  }
- return {render,clock,session,schedule};
+ return {render,clock,session,schedule,holding};
 });
