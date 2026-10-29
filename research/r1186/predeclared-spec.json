@@ -1,0 +1,49 @@
+{
+  "version": "r1186",
+  "asof": "2026-10-28",
+  "data": "Permanent archive plus recent website K, recent dates take priority; factors merged by event date, no double adjustment.",
+  "policies": [
+    "baseline",
+    "only_52week",
+    "limit_close",
+    "gap3_cancel",
+    "ma60_exit",
+    "fixed_exit",
+    "trail15_exit"
+  ],
+  "groups": [
+    "break_low",
+    "break_mid",
+    "break_high",
+    "dip25_high_weak",
+    "dip40_weak",
+    "us_dip35"
+  ],
+  "periods": {
+    "development": [
+      "2016-01-01",
+      "2021-01-01"
+    ],
+    "validation": [
+      "2021-01-01",
+      "2024-01-01"
+    ],
+    "audit": [
+      "2024-01-01",
+      "2026-10-29"
+    ]
+  },
+  "fee_each_side": 0.003,
+  "stress_fee_each_side": 0.005,
+  "selection": "No per-stock best-method selection; all fixed variants reported; historical periods already examined, not a fresh holdout.",
+  "execution": "Signals on completed close, next market session only, conservative stop-first range but open observed first. End holdings marked with exit cost, not dropped. Limit same-day high never assumed after entry.",
+  "capital": "Each stock/method starts with one independent cash unit, one position maximum; aggregate is equal initial capital across current universe with no reallocation. It is not a five-position executable portfolio.",
+  "limits": [
+    "Survivorship/current-universe and revised-data biases remain",
+    "Adjusted OHLC, no intraday queue, limit lock, historical tick matching or true tax model",
+    "No current financial facts backfilled, no market-cap group based on current shares",
+    "Historical MA breadth reconstructed from liquid stocks, not known historical full membership",
+    "Calendar derived from market bars; no guarantee missing market sessions are detected",
+    "No automatic rule promotion or prediction of exact execution price"
+  ]
+}
