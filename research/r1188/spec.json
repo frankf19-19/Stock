@@ -1,0 +1,46 @@
+{
+  "version": "r1188",
+  "source_research": "r1186",
+  "source_sha256": "a8038ab0087130f907f328880ffedc5876306de558acb4657f43018a13fa5849",
+  "policies": [
+    "baseline",
+    "ma60_exit",
+    "fixed_exit",
+    "trail15_exit",
+    "tighter_stop"
+  ],
+  "periods": {
+    "development": [
+      "2016-01-01",
+      "2021-01-01"
+    ],
+    "validation": [
+      "2021-01-01",
+      "2024-01-01"
+    ],
+    "audit": [
+      "2024-01-01",
+      "2026-10-29"
+    ]
+  },
+  "post_exit_window": 20,
+  "touch_threshold_pct": [
+    5,
+    10,
+    20
+  ],
+  "method": "Same frozen baseline entry for every alternative exit; independent counterfactual events, NOT a portfolio. No parameter or per-stock winner selection.",
+  "limits": [
+    "Past periods already examined; diagnostics are not predictive probabilities",
+    "Intraday exit-day range excluded; excursions/touch timing are conservative lower bounds",
+    "20 valid symbol bars after exit; incomplete followups censored, never classified as failures",
+    "Regime at signal fixed; later changes are descriptive, never switch an existing holding automatically",
+    "Equal-entry counterfactuals may overlap and are not portfolio returns",
+    "Existing survivorship, daily bar, adjusted price and execution limits persist"
+  ],
+  "cache_sha256": {
+    "TW": "6cbf865070cffafb2064054fbad62279343941c0b46a91fd86280a2ff2c63501",
+    "US": "2173d7be8bcbc1e96d41ba593ba1b730e787286d51d508abd83b464780930a78"
+  },
+  "engine_sha256": "b11d97e0b12b5b4d9ba2b2646a1e4d63cf670c83d742904e3441d1771de55269"
+}

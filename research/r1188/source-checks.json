@@ -1,0 +1,13 @@
+{
+  "source_research": "r1186",
+  "files": {
+    "engine-used.py": "b11d97e0b12b5b4d9ba2b2646a1e4d63cf670c83d742904e3441d1771de55269",
+    "profiles.json.gz": "47a52093898ee2d1065c8f53ab242eade019ef470df7e1df7cda2abbd1e62a3d",
+    "README.md": "4dce6e1894cdb4e4d0bd35083b02c842bda5f19c1e9ad78465d44bd2f2903eec",
+    "report.html": "f9bd69441f51df9075437f57521d820d078c7d7ddc907d711a40a193cce89d10",
+    "spec.json": "83231ca8ebd113128c8a0b50e0d24825f3bfa7f66293db6f7f2015119e5973db",
+    "TW-paths.json.gz": "80b092a163fe15a38f385c0423af710fefdcd1f0f5cb301fb7280164ce7c42ab",
+    "US-paths.json.gz": "41a71c23ba2439977a2bb980742b11bb552ffd997746935c441a5e4fdb7674ae",
+    "web.json.gz": "e6b0dad469ef9468f92bd5571a827629f6220f8d2dd45ab33cf284854048f865"
+  }
+}
