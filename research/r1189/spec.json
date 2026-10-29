@@ -1,0 +1,59 @@
+{
+  "version": "r1189",
+  "source": "r1188",
+  "axes": {
+    "return20": [
+      -0.1,
+      0.1
+    ],
+    "volume_ratio": [
+      1.5
+    ],
+    "ma60_slope": [
+      0.0
+    ],
+    "extension20": [
+      0.0,
+      0.1
+    ]
+  },
+  "bucket_epsilon": 1e-12,
+  "policies": [
+    "baseline",
+    "weak20",
+    "protect10"
+  ],
+  "periods": {
+    "development": [
+      "2016-01-01",
+      "2021-01-01"
+    ],
+    "validation": [
+      "2021-01-01",
+      "2024-01-01"
+    ],
+    "audit": [
+      "2024-01-01",
+      "2026-10-29"
+    ]
+  },
+  "fee_each_side": 0.003,
+  "engine_sha256_lf": "31630d0b7b14bfb5e631354e5a17de678ca37e75b4b1397240d895b28b2ac3a3",
+  "source_sha256": {
+    "profiles.json.gz": "47a52093898ee2d1065c8f53ab242eade019ef470df7e1df7cda2abbd1e62a3d",
+    "TW-paths.json.gz": "80b092a163fe15a38f385c0423af710fefdcd1f0f5cb301fb7280164ce7c42ab",
+    "US-paths.json.gz": "41a71c23ba2439977a2bb980742b11bb552ffd997746935c441a5e4fdb7674ae"
+  },
+  "cache_sha256": {
+    "TW": "6cbf865070cffafb2064054fbad62279343941c0b46a91fd86280a2ff2c63501",
+    "US": "2173d7be8bcbc1e96d41ba593ba1b730e787286d51d508abd83b464780930a78"
+  },
+  "limits": [
+    "Descriptive own-stock cohorts; no model selection, no new orders or probability forecast",
+    "Signal-time features only; current closing conditions must be rechecked on an actual signal day",
+    "Cohorts overlap across axes; neither independent samples nor a portfolio",
+    "Existing survivorship, revised adjusted bars and intraday execution limitations remain",
+    "No financial dates imputed; historical publication timestamps incomplete",
+    "All historical periods already researched; not an untouched holdout"
+  ]
+}

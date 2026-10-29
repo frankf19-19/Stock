@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1188';
+const APP_BUILD='r1189';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1236,7 +1236,9 @@ function stockOperationFacts(s,raw,dates,own,cost,now=new Date()){
  let cond=null;try{const n=b.length,C=i=>+b[i][3],V=i=>+b[i][4]||0,avg=(w,end)=>{let z=0;for(let k=end-w+1;k<=end;k++)z+=C(k);return z/w;};
    if(n>=241)cond={c20:C(n-1)/C(n-21)-1,dayRet:C(n-1)/C(n-2)-1,volR:V(n-1)/(b.slice(-21,-1).reduce((z,x)=>z+(+x[4]||0),0)/20||1),aboveYear:C(n-1)>avg(240,n-1),ma20gt60:avg(20,n-1)>avg(60,n-1),
      dates:dates.slice(0,raw.length-r.excluded).slice(-20),vol20:b.slice(-20).reduce((z,x)=>z+(+x[4]||0),0)};}catch(e){}
- return {check:r,breakEligible:ws,breakEntry,signalEntry,nextBelowPrice,dipEntry,dipHypothetical:strategyDipPricePlan(s,dipEntry,false),cost:en,ownDip:en?strategyDipPricePlan(s,en,true):null,models,atrp,liq20,dipc,cond,lowOwn:!us&&en?{stop:strategyPrice(en*.85,false,'down'),target:strategyPrice(en*1.30,false,'up')}:null};
+ // r1189: same causal closing features as the frozen own-stock context study.
+ const context=typeof StockContextResearch!=='undefined'?StockContextResearch.features(b):null;
+ return {context,check:r,breakEligible:ws,breakEntry,signalEntry,nextBelowPrice,dipEntry,dipHypothetical:strategyDipPricePlan(s,dipEntry,false),cost:en,ownDip:en?strategyDipPricePlan(s,en,true):null,models,atrp,liq20,dipc,cond,lowOwn:!us&&en?{stop:strategyPrice(en*.85,false,'down'),target:strategyPrice(en*1.30,false,'up')}:null};
 }
 /* r1173:Frank「要很明確的買賣價格、防守價格,現在超級模糊」→ 卡片最上面一張價格表:
    每種已驗證買法各一欄,只寫 買進價 / 防守價 / 賣出價 三個數字 + 一句怎麼用;長篇條件收進下方「完整條件」(內容全保留)。
@@ -1427,6 +1429,20 @@ function stockIndividualHTML(s,f){
  const key=s.market+':'+s.id,e=INDIVIDUAL_PROFILES&&INDIVIDUAL_PROFILES.stocks[key];
  return StockIndividualPaths.render(s,e?Object.assign({},e,{key}):null,f);
 }
+// r1189: immutable own-stock context diagnostics; no changes to strategy selection.
+var OWN_CONTEXT_PROFILES=null,OWN_CONTEXT_PENDING=null,OWN_CONTEXT_RETRY=0;
+function stockOwnContextLoad(){
+ if(OWN_CONTEXT_PROFILES)return Promise.resolve(OWN_CONTEXT_PROFILES);
+ if(OWN_CONTEXT_PENDING)return OWN_CONTEXT_PENDING;
+ if(typeof fT!=='function'||typeof StockIndividualPaths==='undefined'||Date.now()<OWN_CONTEXT_RETRY)return null;
+ OWN_CONTEXT_PENDING=(async()=>{try{const r=await fT('research/r1189/web.json.gz',15000);if(!r.ok)throw Error('HTTP '+r.status);const j=await StockIndividualPaths.decode(r);if(j.schema!==1||j.version!=='r1189'||j.research_only!==true||!j.stocks)throw Error('context schema');OWN_CONTEXT_PROFILES=j;return j;}catch(e){OWN_CONTEXT_RETRY=Date.now()+60000;return null;}})();
+ OWN_CONTEXT_PENDING.then(j=>{if(j&&typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);}).finally(()=>{OWN_CONTEXT_PENDING=null;});return OWN_CONTEXT_PENDING;
+}
+function stockOwnContextHTML(s,f){
+ if(typeof StockContextResearch==='undefined')return '';
+ if(!OWN_CONTEXT_PROFILES)stockOwnContextLoad();
+ return StockContextResearch.render(s,OWN_CONTEXT_PROFILES?.stocks?.[s.market+':'+s.id],f);
+}
 function stockContextHTML(s,raw,dates,own=false,cost=null){
  const legacy=stockContextLegacyHTML(s,raw,dates);
  if(typeof StockTradeResearch==='undefined'&&typeof StockOperationPlan==='undefined')return legacy;
@@ -1436,7 +1452,7 @@ function stockContextHTML(s,raw,dates,own=false,cost=null){
  const research=typeof StockTradeResearch==='undefined'?'<p>研究資料待載入。</p>':StockTradeResearch.render(s,e,{check:strategyCloseCheck(s,raw,dates),calendar});
  const facts=stockOperationFacts(s,raw,dates,own,cost),box=stockPriceBoxHTML(s,facts,{calendar});
  const full=typeof StockOperationPlan==='undefined'?research:StockOperationPlan.render(s,facts,{calendar})+'<details class="plan-more operation-research"><summary>其他六種買法研究結果（不代表整檔股票不能買）</summary>'+research+'</details>';
- const personal=stockIndividualHTML(s,facts);
+ const personal=stockIndividualHTML(s,facts)+stockOwnContextHTML(s,facts);
  const primary=box?box+personal+'<details class="plan-more pbx-full"><summary>完整條件與說明(確認時間、已持有怎麼處理、其他研究)</summary>'+full+'</details>':full+personal;   // r1173:價格表在上,原說明全部保留在收合區
  return primary+'<details class="plan-more legacy-context-observations"><summary>原三種情境觀察價與通知（參考）</summary><p class="dim-note">下面保留舊觀察價及其通知設定，與上方六種買法的候選分開；未通過的研究價不作買進通知。你的原通知勾選保留。</p>'+legacy+'</details>';
 }
