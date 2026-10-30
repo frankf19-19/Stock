@@ -2697,3 +2697,12 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 
 /* r1180:本股條件總分 */
 .pbx-cond-bad{border:1px solid var(--down)}.pbx-cond-good{border:1px solid var(--up)}
+
+/* r1191: visible, separate stop-falling and bottom-breakout close signals. */
+.bottom-signal-box{border:1px solid var(--amber);border-radius:9px;padding:12px;margin:10px 0}
+.bottom-verdict{font-weight:800;font-size:16px;line-height:1.7;margin:0 0 10px}
+.bottom-signal-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:8px 0}
+.bottom-signal-row>strong{font-size:19px}.bottom-signal-row>small{flex-basis:100%;color:var(--dim)}
+.bottom-checks{padding-left:18px;line-height:1.8;font-size:13px;overflow-wrap:anywhere}
+.bottom-signal-badge{display:flex;gap:6px 14px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:10px}
+.bottom-signal-badge b{font-size:14px}.bottom-signal-badge small{flex-basis:100%;color:var(--dim)}
