@@ -1,0 +1,43 @@
+{
+  "version": "r1190",
+  "periods": {
+    "development": [
+      "2016-01-01",
+      "2021-01-01"
+    ],
+    "validation": [
+      "2021-01-01",
+      "2024-01-01"
+    ],
+    "audit": [
+      "2024-01-01",
+      "2026-10-29"
+    ]
+  },
+  "source": "r1186/r1188",
+  "source_sha256": "a8038ab0087130f907f328880ffedc5876306de558acb4657f43018a13fa5849",
+  "cache_sha256": {
+    "TW": "6cbf865070cffafb2064054fbad62279343941c0b46a91fd86280a2ff2c63501",
+    "US": "2173d7be8bcbc1e96d41ba593ba1b730e787286d51d508abd83b464780930a78"
+  },
+  "engine_sha256_lf": "4aa22a1afd0ea756674827a96eaa084861a42a5536772e13f5d3bd501c8a8e7e",
+  "onset": "First day at least 2 of own b20/b60/dd120 at or below preceding 750 valid observations 5th percentile (min250), and dd120<=-10%. No synthetic split from return jumps.",
+  "methods": [
+    "immediate",
+    "reclaim10",
+    "break20"
+  ],
+  "waiting_bars": 20,
+  "common_endpoint_bars": 60,
+  "entry": "Next market session open only; unavailable opening remains cash. Same initial cash per episode; no redeployment.",
+  "exit": "-20% stop; TW+50% / US+30% target; common 60th stock-bar close marked including fees; not formal 120/90-bar strategy returns.",
+  "fee_each_side": 0.003,
+  "limits": [
+    "Previously examined periods; not fresh holdout",
+    "Current universe/revised adjusted bars, no full delisted universe or queue/tax reconstruction",
+    "Same-stock episode windows do not overlap; stocks can cluster together",
+    "Missed confirmations remain zero-return cash; filled-only mean shown separately",
+    "Last incomplete episodes retained; full60 comparison separately reported",
+    "20-bar anchor failure is descriptive after the signal, not a prediction"
+  ]
+}

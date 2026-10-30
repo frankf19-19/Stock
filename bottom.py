@@ -14,7 +14,8 @@
   個股:所有流動性足夠(20日均成交值≥2000萬台幣/2000萬美元)的股票日,依「亮了幾盞」分組統計。
 三、盤中即時:價格類的燈都換算成「門檻價」(例:跌到 X 元以下會亮),前端用即時價直接判斷;法人/融資類用前一個交易日資料。
 """
-import json, os, glob, gzip, sys, time, datetime as dt
+import json, os, glob, gzip, sys, time, datetime as dt, hashlib
+from zoneinfo import ZoneInfo
 import numpy as np, pandas as pd, warnings
 warnings.filterwarnings("ignore")
 
@@ -29,9 +30,11 @@ MKT_US = {"SPX": ("SPY", "^GSPC", "S&P 500"), "NDX": ("QQQ", "^IXIC", "那斯達
 
 
 def log(*a): print(*a, flush=True)
-def ld(p): return json.loads(gzip.open(p).read())
+def ld(p):
+    with gzip.open(p) as f:return json.loads(f.read())
 def jl(p, d=None):
-    try: return json.load(open(p, encoding="utf-8"))
+    try:
+        with open(p,encoding='utf-8') as f:return json.load(f)
     except Exception: return d
 def r1(x, n=1):
     try:
@@ -43,17 +46,35 @@ def win(s, n): return s.astype(float).rolling(n, min_periods=1).max().astype(boo
 
 # ══════════════════════════ 歷史資料(archive) ══════════════════════════
 def fix_split(c, others):
-    """單日漲跌超過 ±15~18% = 分割/減資類事件(台股有漲跌幅限制)→ 之前的價格一起調整"""
-    for s in c.columns:
-        x = c[s].dropna()
-        if len(x) < 3: continue
-        r = (x / x.shift(1)).iloc[1:]
-        bad = r[(r < 0.85) | (r > 1.18)]
-        if bad.empty: continue
-        f = pd.Series(1.0, index=c.index)
-        for t, q in bad.items(): f[c.index < t] *= q
-        c[s] = c[s] * f
-        for o in others: o[s] = o[s] * f
+    """r1190: never infer corporate-action factors from a return. Preserve observed crashes.
+
+    Explicit archived action factors were already applied. Unresolved discontinuities are
+    excluded from TW stock validation via a trailing validity mask, not erased from prices.
+    """
+    return (c.pct_change(fill_method=None).abs() > .115)
+
+def explicit_adjustments(archived=None,recent=None,supplemental=None):
+    """r1190: merge dated public action records; never derive factors from observed returns."""
+    if archived is None:archived=(ld(f'{AR}/adj_tw.json.gz') or {}).get('s',{})
+    if recent is None:recent=(jl('adj1y.json',{}) or {}).get('s',{})
+    adj={sid:dict(rows) for sid,rows in archived.items()}
+    for sid,rows in recent.items():adj.setdefault(sid,{}).update(dict(rows))
+    proposals={}
+    if supplemental is None:
+        supplemental=[]
+        folder=f'{AR}/stock_research/r1161/raw'
+        for name,before,after in [('TaiwanStockSplitPrice.json','before_price','after_price'),('TaiwanStockParValueChange.json','before_close','after_ref_close'),('capital_reductions.json','ClosingPriceonTheLastTradingDay','PostReductionReferencePrice')]:
+            payload=jl(f'{folder}/{name}',{}) or {}
+            rows=[r for x in payload.get('sources',{}).values() for r in x['payload']['data']] if name=='capital_reductions.json' else payload.get('data',[])
+            for r in rows:
+                if isinstance(r.get(before),(int,float)) and isinstance(r.get(after),(int,float)) and r[before]>0 and r[after]>0:
+                    supplemental.append((str(r['stock_id']),r['date'],r[after]/r[before]))
+    for sid,day,factor in supplemental:
+        if np.isfinite(factor) and factor>0 and day<=NOW.date().isoformat():proposals.setdefault((sid,day),[]).append(factor)
+    for (sid,day),values in proposals.items():
+        if max(values)-min(values)>1e-6 or day in adj.get(sid,{}):continue
+        adj.setdefault(sid,{})[day]=values[0]
+    return {sid:sorted((d,f) for d,f in rows.items() if d<=NOW.date().isoformat() and np.isfinite(f) and f>0) for sid,rows in adj.items()}
 
 
 def load_tw(years=None):
@@ -70,7 +91,7 @@ def load_tw(years=None):
         for p in glob.glob(f"{AR}/margin/tw/{y}/*.json.gz"):
             for s, v in ld(p).items():
                 if "mb" in v: M.setdefault(s, []).append(v)
-    adj = (ld(f"{AR}/adj_tw.json.gz") or {}).get("s") or {}
+    adj = explicit_adjustments()
     def ser(parts, key, sub=None):
         d, x = [], []
         for v in parts:
@@ -90,9 +111,9 @@ def load_tw(years=None):
     for s in c.columns:                              # 除權息還原
         for ed, fac in adj.get(s, []) or []:
             c.loc[c.index < pd.Timestamp(ed), s] *= fac
-    fix_split(c, [])
+    jumps = fix_split(c, []).rolling(61,min_periods=1).max().fillna(0).astype(bool)
     W = {"c": c, "raw": raw, "v": pd.DataFrame(V).reindex(ix), "f": pd.DataFrame(F).reindex(ix),
-         "t": pd.DataFrame(T).reindex(ix), "mb": pd.DataFrame(MB).reindex(ix)}
+         "t": pd.DataFrame(T).reindex(ix), "mb": pd.DataFrame(MB).reindex(ix), "jumps": jumps}
     return W
 
 
@@ -251,13 +272,13 @@ def run_stats():
     c, raw, v, f, t, mb = W["c"], W["raw"], W["v"], W["f"], W["t"], W["mb"]
     stk = [s for s in c.columns if not s.startswith("0")]
     cs, rs = c[stk], raw[stk]
-    liq = (v.reindex(columns=stk) * rs * 1000).rolling(20).mean() >= 2e7
+    liq = ((v.reindex(columns=stk) * rs * 1000).rolling(20).mean() >= 2e7) & ~W['jumps'][stk]
     b20 = cs / cs.rolling(20).mean() - 1; b60 = cs / cs.rolling(60).mean() - 1
     q20 = b20.rolling(750, min_periods=250).quantile(0.05); q60 = b60.rolling(750, min_periods=250).quantile(0.05)
     mbs = mb.reindex(columns=stk); mbmax = mbs.rolling(20, min_periods=10).max()
     ts = t.reindex(columns=stk).fillna(0)
     newlow = cs <= cs.rolling(20).min()
-    LS = {"20": b20 <= q20, "60": b60 <= q60, "mf": win((mbs <= 0.8 * mbmax) & (mbmax >= 500), 10),
+    LS = {"20": b20 <= q20, "60": b60 <= q60, "mf": win((mbs > 0) & (mbs <= 0.8 * mbmax) & (mbmax >= 500), 10),
           "tr": win((ts > 0) & (ts.shift(1) > 0) & (ts.shift(2) > 0), 5), "up": (cs > cs.rolling(10).mean()) & ~win(newlow, 3)}
     dd = cs / cs.rolling(120, min_periods=60).max() - 1
     sk = {"TW": stock_validate(cs, LS, ["20", "60", "mf", "tr"], liq, dd)}
@@ -310,8 +331,9 @@ def run_stats():
         d = (x / x.rolling(120, min_periods=60).max() - 1).iloc[-750:].dropna()
         thr_us[s] = [round(float(a.quantile(0.05)), 4), round(float(b.quantile(0.05)), 4), round(float(d.quantile(0.05)), 4)]
     log(f"  美股完成 {time.time()-t0:.0f}s")
-    S = {"v": 1, "u": NOW.strftime("%Y-%m-%d %H:%M"), "period": f"2014~{NOW.year}", "mkt": mk, "stk": sk,
+    S = {"v": 1, "quality_version": "r1190", "u": NOW.strftime("%Y-%m-%d %H:%M"), "period": f"2014~{NOW.year}", "mkt": mk, "stk": sk,
          "thr_tw": thr_tw, "thr_us": thr_us}
+    preserve_stats(STATS)
     json.dump(S, open(STATS, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     log(f"✓ {STATS}:台股門檻 {len(thr_tw)} 檔、美股 {len(thr_us)} 檔,{time.time()-t0:.0f}s")
     return S
@@ -323,7 +345,9 @@ def thresholds(closes):
        同一天(P 取代最後一根收盤):S9/S19/S59 = 前 9/19/59 根總和、lo19 = 前 19 根最低、nl2 = 前 2 天有沒有創 20 日新低
        隔天(P 是新的一根):N9/N19/N59 = 最近 9/19/59 根總和、nlo19 = 最近 19 根最低、nl2n = 最近 2 天(含最後一根)有沒有創新低
        20日乖離 = P / ((S19+P)/20) - 1;站回 10 日線 ⇔ P > S9/9;今天破底 ⇔ P ≤ lo19"""
-    x = [float(v) for v in closes if v is not None and v == v]
+    # r1190: dropping a bad final bar would mislabel an older close with the newest date.
+    if len(closes)<62 or any(v is None or not np.isfinite(v) or v<=0 for v in closes[-62:]): return None
+    x = [float(v) for v in closes[-62:]]
     if len(x) < 62: return None
     def isnl(i):   # 第 i 根(負索引)是否 ≤ 它前 19 根的最低 → 創 20 日新低
         j = len(x) + i
@@ -339,13 +363,18 @@ def px_thr(t, q, n):
     return (1 + q) * S / (n - (1 + q))
 
 
-def k_closes(path_glob, adj=None):
+def k_closes(path_glob, adj=None, market='TW', now=None):
     """k/*.json → {sid: (dates, closes, vols)};adj = 台股除權息還原(只處理視窗內的事件)"""
     out = {}
     for p in glob.glob(path_glob):
         for s, v in (jl(p, {}) or {}).items():
             if not isinstance(v, dict) or "o" not in v: continue
             d = v["d"]; c = [r[3] for r in v["o"]]; vol = [r[4] for r in v["o"]]
+            local=(now or NOW).astimezone(ZoneInfo('America/New_York' if market=='US' else 'Asia/Taipei'))
+            today=local.date().isoformat();cut=16*60 if market=='US' else 13*60+30
+            keep=[i for i,day in enumerate(d) if day<today or (day==today and local.hour*60+local.minute>=cut)]
+            d=[d[i] for i in keep];c=[c[i] for i in keep];vol=[vol[i] for i in keep]
+            if not d:continue
             if adj and s in adj:
                 c = c[:]
                 for ed, fac in adj[s]:
@@ -355,10 +384,12 @@ def k_closes(path_glob, adj=None):
     return out
 
 
-def yext_daily(sym):
+def yext_daily(sym, now=None):
     try:
         d = (jl("yext.json", {}).get("series", {}).get(sym) or {}).get("d") or {}
-        return [(dt.datetime.fromtimestamp(t, dt.timezone.utc).date().isoformat(), float(c)) for t, c in zip(d.get("t") or [], d.get("c") or []) if c is not None]
+        rows=[(dt.datetime.fromtimestamp(t, dt.timezone.utc).date().isoformat(), float(c)) for t, c in zip(d.get("t") or [], d.get("c") or []) if c is not None]
+        market='TW' if sym=='^TWII' else 'US';local=(now or NOW).astimezone(ZoneInfo('Asia/Taipei' if market=='TW' else 'America/New_York'));today=local.date().isoformat();cut=13*60+30 if market=='TW' else 16*60
+        return [(day,c) for day,c in rows if day<today or (day==today and local.hour*60+local.minute>=cut)]
     except Exception: return []
 
 
@@ -395,16 +426,37 @@ def _pack(t):
     rd = lambda v: round(v, 2) if abs(v) >= 1 else round(v, 4)
     return [rd(t["last"]), rd(t["S9"]), rd(t["S19"]), rd(t["S59"]), rd(t["lo19"]), t["nl2"], rd(t["N9"]), rd(t["N19"]), rd(t["N59"]), rd(t["nlo19"]), t["nl2n"]]
 
+def preserve_stats(path):
+    """r1190: preserve every replaced validation version, including the legacy first one."""
+    if not os.path.exists(path):return
+    with open(path,'rb') as f:raw=f.read()
+    folder=f'{AR}/hist/bottom/stats_versions';os.makedirs(folder,exist_ok=True)
+    target=f'{folder}/{hashlib.sha256(raw).hexdigest()}.json.gz'
+    if not os.path.exists(target):
+        with open(target,'wb') as f:f.write(gzip.compress(raw,mtime=0))
 
-def run_daily(S):
-    adj = (ld(f"{AR}/adj_tw.json.gz") or {}).get("s") or {}
+def liquid_value(closes,volumes,multiplier):
+    if len(closes)<20 or len(volumes)<20:return False
+    rows=list(zip(closes[-20:],volumes[-20:]))
+    if any(c is None or v is None or not np.isfinite(c) or not np.isfinite(v) or c<=0 or v<0 for c,v in rows):return False
+    return sum(c*v*multiplier for c,v in rows)/20>=2e7
+
+def margin_washout(xs):
+    for i in range(max(0,len(xs)-10),len(xs)):
+        w=[v for v in xs[max(0,i-19):i+1] if v is not None and np.isfinite(v) and v>=0]
+        if len(w)>=10 and max(w)>=500 and xs[i] is not None and np.isfinite(xs[i]) and 0<xs[i]<=.8*max(w):return True
+    return False
+
+
+def run_daily(S, persist=True):
+    adj = explicit_adjustments()
     cut = (NOW - dt.timedelta(days=150)).date().isoformat()
     adj_recent = {s: [e for e in v if e[0] >= cut] for s, v in adj.items()}
     adj_recent = {s: v for s, v in adj_recent.items() if v}
     tw = k_closes("k/tw*.json", adj_recent)
-    us = k_closes("k/us_*.json")
+    us = k_closes("k/us_*.json",market='US')
     log(f"  K 線:台股 {len(tw)}、美股 {len(us)}")
-    out = {"v": 1, "u": NOW.strftime("%Y-%m-%d %H:%M"), "period": S.get("period"), "stats_u": S.get("u"), "mkt": {}, "stk": {}}
+    out = {"v": 1, "quality_version":S.get('quality_version'), "u": NOW.strftime("%Y-%m-%d %H:%M"), "period": S.get("period"), "stats_u": S.get("u"), "mkt": {}, "stk": {}, "stock_dates":{}}
     # 法人/融資(c/ 分片:f/t 390 天、mf 20 天)
     chips = {}
     for p in glob.glob("c/tw*.json"):
@@ -466,7 +518,7 @@ def run_daily(S):
     for s, (d, c, vol) in tw.items():
         t = thresholds(c); q = thr_tw.get(s)
         if not t or not q: continue
-        val20 = np.nanmean([a * b * 1000 for a, b in zip(c[-20:], vol[-20:]) if a and b]) if vol else 0
+        liquid=liquid_value(c,vol,1000)
         # 融資洗出:最近10天內任一天 融資 ≤ 前20日高點 × 0.8(且高點 ≥ 500 張)
         mf = 0
         ser = dict(mb_ar.get(s, {}))
@@ -476,46 +528,47 @@ def run_daily(S):
                 if x is not None: ser[dd] = x
         if ser:
             ks = sorted(ser)[-40:]; xs = [ser[k] for k in ks]
-            for i in range(max(0, len(xs) - 10), len(xs)):
-                w = [v for v in xs[max(0, i - 19):i + 1] if v is not None]
-                if len(w) >= 10 and max(w) >= 500 and xs[i] is not None and xs[i] <= 0.8 * max(w): mf = 1
+            mf=int(margin_washout(xs))
         tr = 0
         if ch and ch.get("t"):
             tt = ch["t"]
             for i in range(len(tt) - 5, len(tt)):
                 if i >= 2 and all((tt[j] or 0) > 0 for j in (i, i - 1, i - 2)): tr = 1
-        out["stk"][s] = _pack(t) + [q[0], q[1], mf, tr, 1 if val20 >= 2e7 else 0]
+        out["stk"][s] = _pack(t) + [q[0], q[1], mf, tr, int(liquid)]
+        out['stock_dates'][s]=d[-1]
         n_tw += 1
     for s, (d, c, vol) in us.items():
         t = thresholds(c); q = thr_us.get(s)
         if not t or not q: continue
         hi120 = max(x for x in c[-120:] if x is not None)
-        val20 = np.nanmean([a * b for a, b in zip(c[-20:], vol[-20:]) if a and b]) if vol else 0
-        out["stk"][s] = _pack(t) + [q[0], q[1], r1(hi120, 2), q[2], 1 if val20 >= 2e7 else 0]
+        liquid=liquid_value(c,vol,1)
+        out["stk"][s] = _pack(t) + [q[0], q[1], r1(hi120, 2), q[2], int(liquid)]
+        out['stock_dates'][s]=d[-1]
         n_us += 1
     out["asof"] = {"tw": max((v[0][-1] for v in tw.values()), default=None), "us": max((v[0][-1] for v in us.values()), default=None)}
     # 給前端的驗證摘要(不含每檔門檻)
     out["stats"] = {"mkt": S["mkt"], "stk": S["stk"]}
     json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    try:   # 永久紀錄:每天大盤燈號狀態(只增不刪)
-        os.makedirs(f"{AR}/hist/bottom", exist_ok=True)
-        fp = f"{AR}/hist/bottom/{NOW.year}.json.gz"
-        rec = json.loads(gzip.open(fp).read()) if os.path.exists(fp) else {}
-        for k, m in out["mkt"].items():
-            if not m: continue
-            P = m["last"]
-            on = dict(m.get("on") or {})
-            on["b20"] = bool(P <= m["p20"]); on["b60"] = bool(P <= m["p60"]); on["up"] = bool(P > m["pma10"] and not m["nl2"] and P > m["lo19"])
-            rec.setdefault(m["d"], {})[k] = {"last": P, "b20": m["b20"], "b60": m["b60"], "on": [x for x, v in on.items() if v and x in m["pass"]]}
-        gzip.open(fp, "wt", encoding="utf-8").write(json.dumps(rec, ensure_ascii=False, separators=(",", ":")))
-    except Exception as e:
-        log(f"  永久紀錄略過:{e}")
+    if persist:
+        try:   # 永久紀錄:每天大盤燈號狀態(只增不刪)
+            os.makedirs(f"{AR}/hist/bottom", exist_ok=True)
+            fp = f"{AR}/hist/bottom/{NOW.year}.json.gz"
+            rec = json.loads(gzip.open(fp).read()) if os.path.exists(fp) else {}
+            for k, m in out["mkt"].items():
+                if not m: continue
+                P = m["last"]
+                on = dict(m.get("on") or {})
+                on["b20"] = bool(P <= m["p20"]); on["b60"] = bool(P <= m["p60"]); on["up"] = bool(P > m["pma10"] and not m["nl2"] and P > m["lo19"])
+                rec.setdefault(m["d"], {})[k] = {"last": P, "b20": m["b20"], "b60": m["b60"], "on": [x for x, v in on.items() if v and x in m["pass"]]}
+            gzip.open(fp, "wt", encoding="utf-8").write(json.dumps(rec, ensure_ascii=False, separators=(",", ":")))
+        except Exception as e:
+            log(f"  永久紀錄略過:{e}")
     log(f"✓ {OUT}:台股 {n_tw} 檔、美股 {n_us} 檔;大盤 " + "、".join(f"{k} {v.get('b20')}%/{v.get('b60')}%" for k, v in out["mkt"].items()))
 
 
 def main():
     S = jl(STATS)
-    need = (S is None or os.environ.get("BOTTOM_STATS") == "1")
+    need = (S is None or S.get('quality_version')!='r1190' or os.environ.get("BOTTOM_STATS") == "1")
     if S and not need:
         try:
             age = (NOW - dt.datetime.strptime(S["u"], "%Y-%m-%d %H:%M").replace(tzinfo=TZ)).days
