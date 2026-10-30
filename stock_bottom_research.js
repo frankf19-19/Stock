@@ -14,15 +14,15 @@
  }
  // r1191: explicit close-condition status, not a calibrated bottom probability or new order.
  function badgeHTML(s,f){const p=f?.bottom,valid=p&&f.check&&!f.check.jump&&f.check.liquid&&!s.etf;
-  const status=on=>!valid?'待核對':p.stage==='failed'?'已失效':p.stage==='neutral'?'不判定':on?'已出現':'未出現';
+  const status=(on,isBreak=false)=>!valid?'待核對':p.stage==='failed'?(isBreak?'未出現':'已失效'):p.stage==='neutral'?'不判定':on?'已出現':'未出現';
   const up=valid&&p.recentDeep&&p.up,br=valid&&p.recentDeep&&p.break20;
-  return '<div class="bottom-signal-badge" data-bottom-badge="'+esc(s.market+':'+s.id)+'"><b>止跌訊號：'+status(up)+'</b><b>底部突破：'+status(br)+'</b><small>'+(valid?esc(p.asof)+' 完整收盤・結構參考':'資料待核對，不當成沒有訊號')+'</small></div>';
+  return '<div class="bottom-signal-badge" data-bottom-badge="'+esc(s.market+':'+s.id)+'"><b>止跌訊號：'+status(up)+'</b><b>底部突破：'+status(br,true)+'</b><small>'+(valid?esc(p.asof)+' 完整收盤・結構參考':'資料待核對，不當成沒有訊號')+'</small></div>';
  }
  function signalHTML(p,money){
   const active=p.stage!=='failed',reclaim=active&&p.recentDeep&&p.up,br=active&&p.recentDeep&&p.break20,neutral=p.stage==='neutral',failed=p.stage==='failed';
-  const status=on=>failed?'已失效':neutral?'不判定':on?'已出現':'未出現',mark=on=>on?'✓':'○';
+  const status=(on,isBreak=false)=>failed?(isBreak?'未出現':'已失效'):neutral?'不判定':on?'已出現':'未出現',mark=on=>on?'✓':'○';
   const conclusions={falling:'尚未止跌：收盤仍創低，現在不當成底部。',waiting:'尚未止跌：跌深後整理，止跌條件還沒全部成立。',reclaim:'初步止跌訊號已出現；還要核對底部突破條件。',breakout:'底部突破訊號已出現；仍可能反彈失敗。',failed:'先前止跌已失效：收盤再破固定低點。',neutral:'近期沒有跌深，不把正常走勢標成落底。'};
-  const row=(name,on,since)=>'<div class="bottom-signal-row"><span>'+name+'</span><strong style="color:'+(failed?'var(--down)':on?'var(--up)':'var(--amber)')+'">'+status(on)+'</strong>'+(on&&since?'<small>本次連續成立自 '+esc(since)+'</small>':'')+'</div>';
+  const row=(name,on,since)=>'<div class="bottom-signal-row"><span>'+name+'</span><strong style="color:'+(failed?'var(--down)':on?'var(--up)':'var(--amber)')+'">'+status(on,name==='底部突破訊號')+'</strong>'+(on&&since?'<small>本次連續成立自 '+esc(since)+'</small>':'')+'</div>';
   return '<div class="bottom-signal-box" data-bottom-stage="'+esc(p.stage)+'"><p class="bottom-verdict">'+esc(conclusions[p.stage]||'資料待核對')+'</p>'+row('止跌訊號',reclaim,p.reclaimSince)+row('底部突破訊號',br,p.breakoutSince)+'<p class="dim-note">檢查日：'+esc(p.asof)+' 完整收盤。'+(failed?'原初步止跌日：'+esc(p.anchorDay)+'；固定低點 '+money(p.anchor)+' 已失守。':'')+'</p><ul class="bottom-checks"><li>'+mark(p.recentDeep)+' 近20日曾離本股120日最高收盤跌至少10%</li><li>'+mark(p.noNewLow3)+' 連續3日未創20日最低收盤</li><li>'+mark(p.up||p.close>p.ma10)+' 收盤站上10日線</li><li>'+mark(p.break20)+' 收盤突破前20日最高價</li></ul><p class="dim-note">止跌須前3項同時成立；底部突破須第1、4項成立。這是收盤條件訊號，不代表已知最低點或自動買進。</p></div>';
  }
  function render(s,e,f){const key=s.market+':'+s.id,p=f?.bottom,link='<a class="plan-notice-link" onclick="event.stopPropagation()" href="research/r1190/report.html#'+encodeURIComponent(key)+'">🔬 本股超跌、初步止跌、底部突破的逐次結果</a>',head='<section class="plain-plan-card stock-bottom-study" data-bottom-key="'+esc(key)+'"><h4>止跌與底部訊號</h4>',tail='</details></section>';
