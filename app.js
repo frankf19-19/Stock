@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1192';
+const APP_BUILD='r1193';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1456,6 +1456,16 @@ function stockBottomLoad(){
  BOTTOM_RESEARCH_PENDING.then(j=>{if(j&&typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);}).finally(()=>{BOTTOM_RESEARCH_PENDING=null;});return BOTTOM_RESEARCH_PENDING;
 }
 function stockBottomHTML(s,f){if(typeof StockBottomResearch==='undefined')return '';if(!BOTTOM_RESEARCH)stockBottomLoad();return StockBottomResearch.render(s,BOTTOM_RESEARCH?.stocks?.[s.market+':'+s.id],f);}
+// r1193: only public balances and explicit hypothetical loan scenarios; never an account liquidation signal.
+var MARGIN_PRESSURE=null,MARGIN_PRESSURE_PENDING=null,MARGIN_PRESSURE_RETRY=0;
+function stockMarginLoad(){
+ if(MARGIN_PRESSURE)return Promise.resolve(MARGIN_PRESSURE);
+ if(MARGIN_PRESSURE_PENDING)return MARGIN_PRESSURE_PENDING;
+ if(typeof fT!=='function'||typeof StockIndividualPaths==='undefined'||Date.now()<MARGIN_PRESSURE_RETRY)return null;
+ MARGIN_PRESSURE_PENDING=(async()=>{try{const r=await fT('margin_pressure.json.gz?v='+new Date().toISOString().slice(0,10),15000);if(!r.ok)throw Error('HTTP '+r.status);const j=await StockIndividualPaths.decode(r);if(j.schema!==1||j.version!=='r1193'||j.official_account_maintenance!==false||!j.stocks)throw Error('margin schema');MARGIN_PRESSURE=j;return j;}catch(e){MARGIN_PRESSURE_RETRY=Date.now()+60000;return null;}})();
+ MARGIN_PRESSURE_PENDING.then(j=>{if(j&&typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);}).finally(()=>{MARGIN_PRESSURE_PENDING=null;});return MARGIN_PRESSURE_PENDING;
+}
+function stockMarginPressureHTML(s,f){if(s.market!=='TW'||s.etf||typeof StockMarginPressure==='undefined')return '';if(!MARGIN_PRESSURE)stockMarginLoad();return StockMarginPressure.render(s,MARGIN_PRESSURE?.stocks?.[s.id],f);}
 function stockContextHTML(s,raw,dates,own=false,cost=null){
  const legacy=stockContextLegacyHTML(s,raw,dates);
  if(typeof StockTradeResearch==='undefined'&&typeof StockOperationPlan==='undefined')return legacy;
@@ -1465,7 +1475,7 @@ function stockContextHTML(s,raw,dates,own=false,cost=null){
  const research=typeof StockTradeResearch==='undefined'?'<p>研究資料待載入。</p>':StockTradeResearch.render(s,e,{check:strategyCloseCheck(s,raw,dates),calendar});
  const facts=stockOperationFacts(s,raw,dates,own,cost),box=stockPriceBoxHTML(s,facts,{calendar});
  const full=typeof StockOperationPlan==='undefined'?research:StockOperationPlan.render(s,facts,{calendar})+'<details class="plan-more operation-research"><summary>其他六種買法研究結果（不代表整檔股票不能買）</summary>'+research+'</details>';
- const personal=stockBottomHTML(s,facts)+stockIndividualHTML(s,facts)+stockOwnContextHTML(s,facts);
+ const personal=stockBottomHTML(s,facts)+stockMarginPressureHTML(s,facts)+stockIndividualHTML(s,facts)+stockOwnContextHTML(s,facts);
  const badge=typeof StockBottomResearch!=='undefined'?StockBottomResearch.badgeHTML(s,facts):''; // r1191: explicit current close-condition status before prices.
  const primary=box?box+personal+'<details class="plan-more pbx-full"><summary>完整條件與說明(確認時間、已持有怎麼處理、其他研究)</summary>'+full+'</details>':full+personal;   // r1173:價格表在上,原說明全部保留在收合區
  return badge+primary+'<details class="plan-more legacy-context-observations"><summary>原三種情境觀察價與通知（參考）</summary><p class="dim-note">下面保留舊觀察價及其通知設定，與上方六種買法的候選分開；未通過的研究價不作買進通知。你的原通知勾選保留。</p>'+legacy+'</details>';
@@ -6416,17 +6426,14 @@ async function mtRateCard(){                 // 🧮 融資維持率估算:融�
     }
     const idxNow=dd.c[dd.c.length-1];
     if(!(sh>0&&idxNow)){box.style.display='none';return;}
-    const mt=Math.round(166*idxNow/(cost/sh));
-    window.__mtRate=mt;
-    const st=mt<130?['追繳風暴區',TONE.red,'融資戶大面積跌破維持率,斷頭賣壓隨時引爆——多殺多加速器']:
-             mt<140?['斷頭邊緣',TONE.red,'再跌一段就進入追繳潮,反彈也容易被融資賣壓壓回']:
-             mt<155?['偏低警戒',TONE.orange,'融資戶普遍套牢,大跌日留意斷頭賣壓放大跌勢']:
-             ['安全區',TONE.green,'融資戶整體有緩衝,斷頭連鎖風險低'];
+    const mt=Math.round((100/.6)*idxNow/(cost/sh));
+    window.__mtRate=null; // r1193: an index-cost scenario cannot trigger account-liquidation alerts.
+    const st=['指數成本情境',TONE.gold,'僅試算假設成本下的單筆比率；不能推斷市場融資戶維持率、斷頭潮或安全程度'];
     box.style.display='';
-    box.innerHTML=`<div class="nm">大盤融資維持率(估算)${frBadge('day')}</div>
+    box.innerHTML=`<div class="nm">指數買入成本情境（非整戶維持率）${frBadge('day')}</div>
       <div style="display:flex;align-items:baseline;gap:9px"><b style="font-size:27px;font-family:var(--mono);color:${st[1]}">${mt}%</b><b style="color:${st[1]};font-size:15px">${st[0]}</b></div>
       <div style="font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.55">${st[2]}</div>
-      <div style="font-size:10.5px;color:var(--dim);margin-top:3px">站內以「融資增量×當日指數」加權成本估算(初始166%),非官方數字,看趨勢與區間即可;130% 為追繳線。</div>`;
+      <div style="font-size:10.5px;color:var(--dim);margin-top:3px">依融資淨增日的指數加權作假設成本、借六成試算；未追蹤存續借款及抵繳品，不是市場維持率，130%只作情境參照。</div>`;
     try{renderMacroAlerts();}catch(e){}
   }catch(e){box.style.display='none';}
 }
@@ -6772,11 +6779,7 @@ const TEMP_DOC={
     <b>為什麼重要</b>:台積電佔加權指數約三成權重,是<b>指數的引擎</b>。歷史上龍頭轉弱常<u>領先大盤做頭 1~2 週</u>——指數還在高檔但 RS 已經下彎,是很典型的警訊。<br><br>
     <b>怎麼用</b>:<br>• 線往上+指數漲 → 最健康,主流資金在權值股<br>• 線往下+指數漲 → 靠中小型股撐盤,續航力較差<br>• 線往下+指數跌 → 引擎熄火,提高警戒<br><br>
     <b>小白重點</b>:不用管絕對數字,只看<b>線的方向</b>。盤中會用即時報價補上今天這一點。點卡片可直接進台積電個股頁。`],
-  mtCard:['🧮 大盤融資維持率(估算)',`
-    <b>這是什麼</b>:融資是「借錢買股」。維持率 = 股票現值 ÷ 借款金額。開戶初始約 166%,<b>跌到 130% 券商會發追繳令</b>,再不補錢就被強制賣出(斷頭)。<br><br>
-    <b>為什麼重要</b>:這是<b>崩跌的加速器</b>。大跌時融資戶被斷頭 → 被迫賣出 → 股價再跌 → 更多人被斷頭,形成「多殺多」。維持率越低,這個連鎖反應越容易引爆。<br><br>
-    <b>四個區間</b>:<br>🟢 <b>≥155% 安全區</b>——有緩衝,斷頭風險低<br>🟠 <b>140~155% 偏低警戒</b>——融資戶普遍套牢<br>🔴 <b>130~140% 斷頭邊緣</b>——再跌一段就進入追繳潮<br>🔴 <b>&lt;130% 追繳風暴區</b>——賣壓隨時引爆<br><br>
-    <b>注意</b>:這是站內用「融資增量×當日指數」加權成本法<u>估算</u>,不是官方數字(官方不公布)。看<b>趨勢與區間</b>即可,別當成精準值。`]
+  mtCard:['🧮 指數買入成本情境',`以融資淨增加日的指數加權作假設成本，並假設融資六成，算出目前指數對該成本的單筆比例。不是市場或個股融資戶實際維持率，也不代表安全程度。公開淨餘額不知道存續借款、抵繳與整戶部位；追繳採整戶管理、有通知與補繳程序，不能按這個數字預報斷頭。`]
 };
 
 
@@ -10579,15 +10582,15 @@ function marginAttrib(s,M,e,o){
     const up=f5>0,dn=f5<0,big=Math.abs(fPct)>=3;
     let who='neutral',title='融資變化平穩',tone=TONE.grey,why='5 日增減不到 3%,看不出方向';
     if(up&&big){
-      if(inst5>0&&(dbp==null||dbp>=0)){who='big';title='主力同步槓桿';tone=TONE.red;why='融資增、法人同步買超'+(dbp!=null?'、400張大戶持股週增':'')+'——多方一致,這批融資比較像主力/大戶在用';}
-      else if(dbp!=null&&dbp>0&&vr<0.85){who='big';title='鎖籌碼';tone=TONE.orange;why='融資增、400張大戶持股週增、但成交量縮——籌碼在往大戶集中,融資可能是大戶吸籌的工具';}
-      else if(inst5<0&&p5>0){who='retail';title='散戶追價・法人倒貨';tone=TONE.green;why='融資增、法人淨賣、價卻漲——接盤的是槓桿散戶,高檔換手風險';}
-      else if(inst5<0&&p5<=0){who='retail';title='散戶套牢攤平';tone=TONE.green;why='融資增、法人賣、價跌——半山腰的槓桿盤還在加碼,斷頭壓力累積';}
-      else{who='retail';title='散戶追價';tone=TONE.orange;why='融資增但法人與大戶沒有同步——多半是散戶在用槓桿';}
+      if(inst5>0&&(dbp==null||dbp>=0)){who='big';title='融資與法人同向增加';tone=TONE.red;why='融資增、法人同步買超'+(dbp!=null?'、400張大戶持股週增':'')+'——這是同期變化，不能辨認誰在使用融資';}
+      else if(dbp!=null&&dbp>0&&vr<0.85){who='big';title='融資與大戶持股同增';tone=TONE.orange;why='融資增、400張大戶持股週增、但成交量縮——籌碼在往大戶集中,這些是同期變化，不能辨認使用者';}
+      else if(inst5<0&&p5>0){who='retail';title='融資增加、法人賣超、價格上漲';tone=TONE.green;why='融資增、法人淨賣、價卻漲——無法據此辨認接盤者或實際借款';}
+      else if(inst5<0&&p5<=0){who='retail';title='融資增加、法人賣超、價格下跌';tone=TONE.green;why='融資增、法人賣、價跌——只能確認公開融資餘額增加，不能確定斷頭';}
+      else{who='retail';title='融資增加';tone=TONE.orange;why='融資增但法人與大戶沒有同步——不能辨認是散戶或大戶';}
     }else if(dn&&big){
-      if(p5>=-1){who='clean';title='籌碼洗清';tone=TONE.gold;why='融資退潮但價格沒跌——槓桿散戶離場、籌碼變乾淨,底部整理常見';}
-      else if(inst5<0){who='clean';title='多殺多・斷頭';tone=TONE.green;why='融資減、價跌、法人也賣——槓桿被強制出清,殺完常是低點但過程很痛';}
-      else{who='clean';title='融資退潮';tone=TONE.grey;why='融資減、價跌但法人沒賣——散戶自行停損,籌碼在轉手';}
+      if(p5>=-1){who='clean';title='融資減少、價格未跌';tone=TONE.gold;why='融資退潮但價格沒跌——融資餘額減少，不能辨認持有者或證明底部';}
+      else if(inst5<0){who='clean';title='融資與價格同步下降';tone=TONE.green;why='融資減、價跌、法人也賣——只能確認餘額下降，不能辨認是否強制賣出或已落底';}
+      else{who='clean';title='融資退潮';tone=TONE.grey;why='融資減、價跌但法人沒賣——不能辨認是自願還款或強制處分';}
     }
     return {who,title,tone,why,f5,fPct,inst5,dbp,p5,vr,fShare};
   }catch(x){return null;}
@@ -10607,8 +10610,8 @@ function marginCard(s,volToday,e,o){
     const chg=typeof s.chg==='number'?s.chg:0;
     const reads=[];
     if(d5!=null){
-      if(d5>=8&&(isFinite(cg5)?cg5<0:chg<0))reads.push(['⚠','融資逆勢大增(5日 +'+d5.toFixed(1)+'%)而價格偏弱——半山腰接刀的槓桿盤還在,<b>斷頭壓力未清</b>,反彈容易被解套賣壓蓋回']);
-      else if(d5<=-5&&Math.abs(isFinite(cg5)?cg5:chg)<3)reads.push(['✅','融資退潮(5日 '+d5.toFixed(1)+'%)但價格沒跌——<b>槓桿籌碼在洗清</b>,是底部整理常見的健康訊號']);
+      if(d5>=8&&(isFinite(cg5)?cg5<0:chg<0))reads.push(['⚠','融資逆勢大增(5日 +'+d5.toFixed(1)+'%)而價格偏弱——半山腰接刀的槓桿盤還在,<b>槓桿餘額仍在增加</b>,反彈容易被解套賣壓蓋回']);
+      else if(d5<=-5&&Math.abs(isFinite(cg5)?cg5:chg)<3)reads.push(['✅','融資退潮(5日 '+d5.toFixed(1)+'%)但價格沒跌——<b>融資餘額下降</b>，仍須核對價格是否止跌']);
       else if(d5>=8)reads.push(['ℹ','融資 5 日 +'+d5.toFixed(1)+'%,槓桿盤跟著行情進場——漲勢中屬正常,但回檔時這些會是追繳賣壓']);
     }
     if(qf!=null&&qf>=30)reads.push(['🔥','券資比 '+qf.toFixed(0)+'%——空單密度高,<b>帶量上攻時有軋空條件</b>;但空單多也代表有人強烈看壞,別把軋空當基本面']);
@@ -10627,12 +10630,12 @@ function marginCard(s,volToday,e,o){
         ${cells.map(([k,v])=>`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px"><div style="font-size:11px;color:var(--dim)">${k}</div><div style="font-weight:800;font-size:14px">${v}</div></div>`).join('')}
       </div>
       ${A&&A.who!=='neutral'?`<div style="border:1.5px solid ${A.tone};border-left-width:5px;border-radius:0 10px 10px 0;background:color-mix(in srgb,${A.tone} 6%,var(--panel));padding:8px 12px;margin:4px 0 8px">
-        <div style="font-weight:900;font-size:14px;color:${A.tone}">🔍 這批融資是誰在用:${A.title}</div>
+        <div style="font-weight:900;font-size:14px;color:${A.tone}">🔍 融資與價量交叉觀察:${A.title}</div>
         <div style="font-size:13px;color:var(--txt2);line-height:1.8">${A.why}</div>
         <div style="font-size:12px;color:var(--mut);margin-top:3px">依據:融資 5 日 <b>${A.f5>=0?'+':''}${A.f5.toLocaleString()} 張</b>(${A.fPct>=0?'+':''}${A.fPct.toFixed(1)}%)${A.inst5!=null?`・三大法人 5 日淨 <b>${A.inst5>=0?'+':''}${Math.round(A.inst5).toLocaleString()} 張</b>`:''}${A.dbp!=null?`・400張大戶持股週變化 <b>${A.dbp>=0?'+':''}${A.dbp.toFixed(2)}pp</b>`:'・400張大戶:無週資料'}・價 5 日 <b>${A.p5>=0?'+':''}${A.p5.toFixed(1)}%</b>・量 5日/20日 <b>${A.vr.toFixed(2)}x</b>${A.fShare!=null?`・融資日均增減佔量 ${A.fShare.toFixed(1)}%`:''}</div>
       </div>`:''}
-      ${reads.length?reads.map(([ic,t])=>`<div style="font-size:13px;line-height:1.85">・${ic} ${t}</div>`).join(''):'<div class="dim-note">槓桿指標無異常訊號——融資變化平穩、空單與當沖都在常態範圍。</div>'}
-      <div class="dim-note" style="margin-top:6px">判讀規則:融資增+價跌=斷頭壓力未清;融資降+價穩=籌碼洗清;券資比≥30%=軋空條件;當沖比≥40%=投機盤主導。<b>「誰在用融資」</b>是把融資增減跟法人買賣超、集保 400張大戶週變化、價量交叉判讀——集保是週資料、融資是日資料,對齊只到最近一週;是機率不是身分證。非投資建議。</div>
+      ${reads.length?reads.map(([ic,t])=>`<div style="font-size:13px;line-height:1.85">・${ic} ${t}</div>`).join(''):'<div class="dim-note">現有資料未觸發下列簡易條件，不能據此認定融資戶安全。</div>'}
+      <div class="dim-note" style="margin-top:6px">判讀規則:融資增+價跌=餘額增加、價格走弱;融資降+價穩=觀察到去槓桿;券資比≥30%=軋空條件;當沖比≥40%=投機盤主導。<b>多項同期資料比較</b>是把融資增減跟法人買賣超、集保 400張大戶週變化、價量交叉判讀——集保是週資料、融資是日資料,對齊只到最近一週;不是融資戶身分、斷頭機率或已驗證買訊。非投資建議。</div>
     </div>`;
   }catch(e){return '';}
 }

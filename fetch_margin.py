@@ -39,6 +39,7 @@ def main():
     out = {"updated": iso, "s": {}, "hist": {}}
     # 讀舊檔繼承歷史(跨日累積)
     old_hist = {}
+    oldj = None
     if os.path.exists("margin.json"):
         try:
             oldj = json.load(open("margin.json", encoding="utf-8"))
@@ -216,6 +217,10 @@ def main():
         log("keep_old_file", reason="本次零筆,保留既有 margin.json 不覆蓋")
         DIAG["verdict"].append("NO_DATA_KEEP_OLD(未覆蓋舊檔)")
     else:
+        # r1193: preserve every public snapshot/revision before replacing the lightweight 12-row view.
+        from build_margin_pressure import preserve_snapshot
+        preserve_snapshot(oldj)
+        preserve_snapshot(out)
         json.dump(out, open("margin.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     if not DIAG["verdict"]: DIAG["verdict"] = [f"OK({n} 檔)"]
     json.dump(DIAG, open("margin_diag.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
