@@ -1,0 +1,12 @@
+{
+  "twse-credit-collateral.pdf": {
+    "url": "https://www.twse.com.tw/staticFiles/news/news/tsecnews/ff80808183645bda01838415d7e7005c.pdf",
+    "sha256": "796c0aeb379fb62cd8a1eec6082b34ee6c3a809df9a126ba5e705755dbf3a84a",
+    "bytes": 242357
+  },
+  "twse-credit-rule54.pdf": {
+    "url": "https://twse-regulation.twse.com.tw/TW/GetFile.ashx?FileID=0000410300",
+    "sha256": "37be900b3b1c36222ed89d1b0ac5cc752a35b992b332ca9fa0433bfdc1c38303",
+    "bytes": 306932
+  }
+}
