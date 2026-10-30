@@ -1,0 +1,13 @@
+{
+  "source": "r1186/r1188",
+  "files": {
+    "engine-used.py": "4aa22a1afd0ea756674827a96eaa084861a42a5536772e13f5d3bd501c8a8e7e",
+    "profiles.json.gz": "c65cde97086315d45894ccc86b623c8adc863ff7e0049b26e7442aec22325623",
+    "README.md": "148482c979261a24f29e6b66abcb7d5c88abc1341a984da5a5b6a02c358464f6",
+    "report.html": "51e5e357e4ed985bf26f4d887c74c4fd6215b599716aa5c5fbed4ac120c57e65",
+    "spec.json": "556ec77996e203e3576f4833ef61907139d9b46ee1b8d606767f1fcf88d55e25",
+    "TW-episodes.json.gz": "49a0e582d32e8b8b48627addeb2a39597aeaf8d517db5e7974c2c88697b4d36c",
+    "US-episodes.json.gz": "46926e4427da7b4b7bf2e5d32362b39126341e6424326748c87db05017aae331",
+    "web.json.gz": "cbe626a47cfe0f948852c93102a39f2080f225be0b8d727888023676dfb795cf"
+  }
+}

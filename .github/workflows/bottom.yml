@@ -1,5 +1,8 @@
 name: 🎯 落底燈號
 on:
+  push:
+    branches: [main]
+    paths: [bottom.py, .github/workflows/bottom.yml]
   workflow_dispatch:
     inputs:
       stats:
