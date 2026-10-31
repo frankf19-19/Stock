@@ -2850,10 +2850,39 @@ html[data-stock-ui] #chapTabs button{min-height:44px}html[data-stock-ui] .sec-ti
  html[data-stock-ui] #chapSub label{display:none}.detail-wrap::after{content:'';display:table;clear:both}
 }
 @media(max-width:700px){
- html #mobNav{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:2px}
- html #mobNav button{min-height:52px!important;font-size:12px!important;min-width:0;padding:6px 2px!important}
+ html #mobNav{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:1px}
+ html #mobNav button{min-height:52px!important;font-size:11px!important;min-width:0;padding:6px 1px!important;white-space:nowrap}
  html #mobNav .mi{font-size:19px!important}html[data-stock-ui] #mobNav,body.kb-open #mobNav{display:none!important}
  #workspaceMenuBtn{min-height:40px;font-size:13px}.workspace-page-list{grid-template-columns:1fr;padding:12px}
  .workspace-page-list button{min-height:62px}.workspace-menu{max-height:86dvh}.workspace-menu-head{padding:12px}
  .workspace-menu-head h2{font-size:18px}#homeTabs{gap:5px}#homeTabs button{min-height:44px}
 }
+
+/* ===== r1200 全站大整理(Frank 10/31):先結論、細節收合;手機/電腦一致的收合樣式 ===== */
+.a3-row2 .a3-more{grid-column:1/-1;margin-top:2px}
+.a3-more>summary,.tidy-fold>summary{cursor:pointer;list-style:none;font-size:12.5px;color:var(--txt2);padding:4px 0;user-select:none}
+.a3-more>summary::-webkit-details-marker,.tidy-fold>summary::-webkit-details-marker{display:none}
+.a3-more>summary::before,.tidy-fold>summary::before{content:'▸ ';color:var(--mut)}
+.a3-more[open]>summary::before,.tidy-fold[open]>summary::before{content:'▾ '}
+.a3-more>*:not(summary){margin-top:4px}
+.a3-key{margin-top:3px}
+.a3-key .a3-lvi{font-size:12.5px;padding:3px 8px}
+@media(max-width:640px){.a3-key{display:flex}.a3-key .a3-lvi{flex:1 1 0}}
+.tidy-fold{margin:8px 0;border:1px solid var(--line);border-radius:10px;padding:4px 10px;background:color-mix(in srgb,var(--panel) 60%,transparent)}
+.tidy-fold>summary{font-weight:700;font-size:13.5px;color:var(--txt);padding:7px 0}
+.tidy-fold>summary small{font-weight:400;color:var(--mut);margin-left:6px}
+.etf-lwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tidy-more{display:block;width:100%;margin:8px 0;padding:9px;border:1px dashed var(--line);border-radius:10px;background:none;color:var(--txt2);font-size:13px;cursor:pointer}
+.tidy-more:hover{border-color:var(--amber);color:var(--amber)}
+/* r1200:手機版通用規則會把行內 grid 壓成一欄,ETF 清單要維持表格(可左右滑) */
+.etf-lwrap .etf-lgrid{grid-template-columns:minmax(110px,1fr) 72px 66px 66px 66px 74px 68px!important;min-width:560px!important}
+.src-fold{margin-top:6px}
+.src-fold>summary{cursor:pointer;list-style:none;font-size:12px;color:var(--mut);display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:999px}
+.src-fold>summary::-webkit-details-marker{display:none}
+.src-fold[open]>summary{color:var(--txt2)}
+.pt-plan{font-size:13px;line-height:1.55;color:var(--txt2);background:var(--panel);border:1px solid var(--line);border-top:1px dashed var(--line);border-radius:0 0 13px 13px;padding:8px 18px 10px;margin:0 0 10px}
+.pt-card:has(+.pt-plan){border-bottom-left-radius:0!important;border-bottom-right-radius:0!important;border-bottom:none!important;margin-bottom:0!important}
+
+@media(max-width:640px){#ptHero+div>div{min-width:calc(50% - 6px)!important;padding:10px 12px!important}#ptHero+div>div>div:last-child{font-size:20px!important}}
+.pt-plan .pt-pl1{font-size:14.5px}.pt-plan .pt-pl1 b{font-family:var(--mono);font-size:16px}
+.pt-plan .pt-pl2{font-size:12px;margin-top:3px}.pt-plan select{font-size:12px;padding:2px 4px;background:var(--panel2,var(--panel));color:var(--txt);border:1px solid var(--line);border-radius:6px}
