@@ -1,0 +1,11 @@
+const test=require('node:test'),assert=require('node:assert/strict'),S=require('../stock_card_summary.js');
+function fixture({warning='',state='',market='',conditional=false}={}){
+ const el=(text='',q={},all={},dataset={})=>({textContent:text,dataset,querySelector:k=>q[k]||null,querySelectorAll:k=>all[k]||[]});
+ const row=(label,value,how)=>el('',{'.pbx-l':el(label),'.pbx-v':el(value),'.pbx-how':el(how)}),rows=[row('買進','2,595','11/02 收盤站上這個價 → 11/03 開盤買'),row('防守','2,205','買進價 −15%,碰到就賣'),row('賣出',conditional?'2,205':'3,375',conditional?'連續 2 天收盤跌破各日季線，下一交易日開盤全數賣出':'買進價 +30%,最多抱 90 個交易日')];
+ const col=el('',{'.pbx-h':el('突破買法'),'.pbx-st':el(state)},{'.pbx-r':rows,'.pbx-cond':market?[el('大盤有沒有一起跌：'+market)]:[]}),box=el('',{'.pbx-col':col,':scope > .pbx-st':el(warning),'.pbx-asof':el('價格條件用 2026-10-30 收盤算')}),root=el('',{},{},{id:'2330',strategy:'TW'}),content=el('',{'.strategy-summary':root,'.pbx':box});return {createElement:()=>({set innerHTML(x){},content})};
+}
+test('短卡沿用原三價及收盤時間，不帶研究折疊與長表',()=>{const m=S.fromHTML('',fixture()),h=S.render(m);assert.equal(m.buy,'2,595');assert.equal(m.stop,'2,205');assert.equal(m.sell,'3,375');assert.match(h,/11\/02 收盤站上/);assert.match(h,/href="#stock\/2330"/);assert.doesNotMatch(h,/<details|<table|回測|勝率/);});
+test('資料過期或市場不符優先於已確認，不把精簡變成立刻買進',()=>{assert.match(S.fromHTML('',fixture({warning:'資料未更新',state:'✅ 已確認'})).action,/先不買/);assert.match(S.fromHTML('',fixture({market:'現在不買',state:'✅ 已確認'})).action,/先不買/);assert.match(S.fromHTML('',fixture({state:'訊號已過期，不追'})).action,/過期/);});
+test('季線退出保留條件，不把同一季線值誤稱固定停利',()=>{const m=S.fromHTML('',fixture({conditional:true}));assert.equal(m.sell,'季線條件');assert.match(m.exit,/連續2日.*下一交易日開盤/);assert.doesNotMatch(S.render(m),/賣出<\/dt><dd>2,205/);});
+test('短卡文字逃逸且連結編碼，不把來源說明當HTML執行',()=>{const h=S.render({id:'A/B',market:'US',action:'<img src=x onerror=alert(1)>',buy:'$123.45'});assert.doesNotMatch(h,/<img/);assert.match(h,/&lt;img/);assert.match(h,/#stock\/A%2FB/);assert.match(h,/\$123\.45/);});
+test('AI模型只留狀態，不混入模型買價或長篇紀錄',()=>{assert.equal(S.ai('持有中 買2420；下一交易日開盤賣出'),'AI模型：待出場，詳見個股');assert.equal(S.ai('持有中 買2420'),'AI模型：持有中，與你的持股分開');assert.equal(S.ai('沒有買進訊號'),'AI Pick：暫無買進訊號');assert.doesNotMatch(S.ai('持有中 買2420'),/2420/);});

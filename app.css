@@ -2706,3 +2706,14 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .bottom-checks{padding-left:18px;line-height:1.8;font-size:13px;overflow-wrap:anywhere}
 .bottom-signal-badge{display:flex;gap:6px 14px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:10px}
 .bottom-signal-badge b{font-size:14px}.bottom-signal-badge small{flex-basis:100%;color:var(--dim)}
+
+/* r1194: short stock cards; detailed analysis stays in the individual page. */
+.strategy-compact{padding:8px 0 0;margin-top:6px;border-top:1px solid var(--line);font-size:13px}
+.strategy-compact p{margin:6px 0;line-height:1.6}.sc-action{font-size:15px;color:var(--amber)}
+.sc-method,.sc-exit,.sc-signals,.sc-own{font-size:12px;color:var(--txt2)}
+.sc-prices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.sc-prices>div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0}
+.sc-prices dt{font-size:12px;color:var(--dim)}.sc-prices dd{margin:4px 0 0;font-size:19px;font-weight:800;overflow-wrap:anywhere}
+.sc-condition{font-size:12px;color:var(--txt)}.sc-footer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.sc-footer small{color:var(--dim);flex:1}.sc-footer a{color:var(--amber);font-weight:700}.sc-footer button{border:0;background:transparent;color:var(--dim);font:inherit;cursor:pointer;padding:3px}
+#favBox .r-card{align-self:start}#favBox .fav-st{font-size:12px}#grid .c-note{font-size:12px}
