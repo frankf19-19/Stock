@@ -2772,6 +2772,10 @@ header .toolbar{align-items:center}.header-tools{position:relative;margin:0;back
 #homeTabs button,#gmktBar button{box-shadow:none!important;border-radius:7px!important}
 .aip-summary{font-size:13px;line-height:1.7;color:var(--txt2);margin:8px 0}
 #secNav{margin:4px 0}.page-index{margin-top:8px}
+/* r1197: secondary controls and reference folds must not displace current positions. */
+.page-index{display:inline-block;max-width:100%;border:0;background:none;margin:0 0 8px}
+.page-index>summary{font-size:12px;padding:4px 0}.page-index[open]{display:block;border:1px solid var(--line);padding:8px 12px}
+.header-tools #secNav{min-width:170px;margin:8px 12px}.aip-references{margin-top:18px}
 @media(max-width:700px){
  #stockBrief{padding:13px}.brief-grid{grid-template-columns:1fr;gap:12px}.brief-grid aside{border-left:0;border-top:1px solid var(--line);padding:12px 0 0}
  #detailView #chapTabs{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
