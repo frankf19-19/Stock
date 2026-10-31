@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1205';
+const APP_BUILD='r1206';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -10101,6 +10101,8 @@ function gemBlock(s,g){
       `background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;width:${PW}px;max-height:${Math.max(240,Math.round((window.visualViewport?visualViewport.height:innerHeight)-r.bottom-16))}px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;box-shadow:0 8px 28px rgba(0,0,0,.25)`;   // r898:iPhone 的 100vh 含工具列 → 改用實際可見高度,才滑得到底
     document.body.appendChild(panel);panel.id='bellPanel';
     if(innerWidth<=640){panel.style.top=`${Math.round(r.bottom+8)}px`;panel.style.left='8px';panel.style.right='8px';panel.style.width='auto';panel.style.maxHeight=`calc(100dvh - ${Math.round(r.bottom+8)}px - 80px - env(safe-area-inset-bottom))`;}
+    if(innerWidth>640&&r.bottom>innerHeight*0.45){   // r1206:改版後鈴鐺在左側選單下方 → 面板改開在選單右邊、從畫面上緣算起,整個看得到
+      panel.style.top='16px';panel.style.right='auto';panel.style.left=`${Math.min(Math.round(r.right+12),innerWidth-PW-8)}px`;panel.style.maxHeight=`${Math.round((window.visualViewport?visualViewport.height:innerHeight)-32)}px`;}
     render();
     setTimeout(()=>{document.addEventListener('click',function h(e2){
       if(panel&&!panel.contains(e2.target)&&e2.target!==b){closePanel();document.removeEventListener('click',h);}
