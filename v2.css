@@ -130,3 +130,8 @@ html.v2 footer,html.v2 .foot{font-size:12px;opacity:.75}
 html.v2 #tp-news>div.sec-title:first-of-type{display:none!important}
 html.v2 #tp-news>div.sec-title:first-of-type+.sec-body{border:none!important;padding:0!important;background:none!important}
 @media(min-width:1024px){html.v2 #navBack{left:calc(var(--v2-side) + 16px)!important}}
+/* r1204:網站標誌跟 App 圖示同色(紅色 K 棒 + 藍色 K),不隨主題變色 */
+html.v2 h1 .lgo .lgo-wk{stroke:#D9443A!important}
+html.v2 h1 .lgo .lgo-cd{fill:#D9443A!important}
+html.v2 h1 .lgo .lgo-kk{stroke:#3D6FF2!important}
+html.v2 h1 .tri{color:inherit!important}
