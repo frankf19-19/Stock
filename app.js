@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1193';
+const APP_BUILD='r1194';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1556,6 +1556,13 @@ function ownStrategySummary(s,o,dates,own,cost){
   return `<div class="dim-block strategy-summary" onclick="strategyStopCardEvent(event)" onkeydown="strategyStopCardEvent(event)" data-strategy="${us?'US':'TW'}" data-id="${esc(s.id)}" data-history="${s.historyOnly?1:0}"><h3>🧭 買賣計畫</h3>${strategyPlainHTML(s,rawO,dates,own,cost)}<details class="plan-more plan-models"><summary>AI 模擬帳戶怎麼做？${accounts.length?'（'+accounts.length+'項紀錄）':''}</summary><p>以下是系統模擬交易的紀錄，與你的持股分開。不同模型的價格不要混成同一張買賣單。</p>${accounts.length?accounts.map(x=>'<p>'+esc(x)+'</p>').join(''):'本股目前沒有三清單或主力模型持倉紀錄；不因此推定適合或不適合買進。'}</details>${stockProfileHTML(s,rawO,dates,own,cost)}<details class="plan-more"><summary>完整規則與條件檢核（詳細資料）</summary>${row('目前狀況',esc(trend)+'<br>'+esc(holdings))}${row('收盤檢核',esc(strategyCloseText(s,rawO,dates)))}${row('買進條件',esc(buy))}${row('停損條件',esc(stop))}${row('停利條件',esc(take))}<p>價格會隨資料更新；收盤確認與下一交易日開盤成交是不同時間。日K ${n} 根${dates&&dates.length?'，截至 '+esc(dates[dates.length-1]):''}。模型帳不等於你的持股。</p></details></div>`;
 }
 
+// r1194: concise list view is derived from the full plan; no price or strategy recalculation here.
+function compactFavPlan(s,full){
+ if(typeof StockCardSummary==='undefined')return '<a href="#stock/'+encodeURIComponent(s.id)+'">查看個股與買賣計畫 ›</a>';
+ const m=StockCardSummary.fromHTML(full,document);
+ if(m.id!==s.id||m.market!==s.market)return StockCardSummary.render({id:s.id,market:s.market,action:'資料待核對，先不買',condition:'完整價格與條件請進個股核對。',bottom:'止跌資料待核對'});
+ return StockCardSummary.render(m);
+}
 function refreshStrategySummaries(force=false){
   if(document.hidden&&!force)return;
   document.querySelectorAll('.strategy-summary[data-id]').forEach(el=>{try{
@@ -1563,7 +1570,7 @@ function refreshStrategySummaries(force=false){
     const s=(DATA.stocks||[]).find(x=>x.id===el.dataset.id);if(!s)return;
     const ke=(KCACHE[shardOf(s)]||{})[s.id],k=ke&&ke.o?{ohlc:ke.o,dates:ke.d}:location.hash==='#stock/'+s.id?baseK:null;
     if(!k||!k.ohlc)return;const en=favEntryOf(s.id),so=el.dataset.history==='1'?Object.assign({},s,{historyOnly:true}):s;
-    const html=ownStrategySummary(so,k.ohlc,k.dates,!!en,en&&en.px);if(html&&el.outerHTML!==html){const t=document.createElement('template');t.innerHTML=html;const next=t.content.firstElementChild,old=el.querySelectorAll('details');next.querySelectorAll('details').forEach((x,i)=>{if(old[i])x.open=old[i].open;});el.replaceWith(next);}
+    const full=ownStrategySummary(so,k.ohlc,k.dates,!!en,en&&en.px),html=el.dataset.cardView==='compact'?compactFavPlan(so,full):full;if(html&&el.outerHTML!==html){const t=document.createElement('template');t.innerHTML=html;const next=t.content.firstElementChild,old=el.querySelectorAll('details');next.querySelectorAll('details').forEach((x,i)=>{if(old[i])x.open=old[i].open;});el.replaceWith(next);if(next.dataset.cardView==='compact'){try{if(typeof FAVST!=='undefined'&&FAVST[s.id])FAVST[s.id].plan=html;const slot=next.closest('.fav-plan-slot');if(slot)slot.dataset.p=html;}catch(e){}}}
   }catch(e){}});
 }
 setInterval(()=>{try{refreshStrategySummaries();}catch(e){}},15000);
@@ -1693,7 +1700,8 @@ async function favStateFill(){
       if(s.market==='US'){let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=usPlan(k.ohlc,s,k.dates,own,cst);}   // r1075:美股用美股自己驗證過的
       else try{await lvLoad();{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=aipTdFix(actionPlan(k.ohlc,id,s.price,own,cst,k.dates).replace(/隔天 9:00/g,'明天 9:00'));}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
-      FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:av?av.txt:'🤖 AI Pick 資料載入中',plan};
+      plan=compactFavPlan(s,plan);
+      FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:typeof StockCardSummary!=='undefined'?StockCardSummary.ai(av&&av.txt):'AI Pick：詳見個股',plan};
       favStPaint(id);
     }catch(e){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— 狀態判讀失敗,稍後自動重試',plan:null};FAVST[id].t-=4*60e3;favStPaint(id);}
     await new Promise(r=>setTimeout(r,80));
@@ -12323,16 +12331,11 @@ function render(){
       <div class="c-top">
         <div>
           <div class="c-name"><span class="fav-tg ${favHas(s.id)?'on':''}" data-fav="${s.id}" title="收藏/取消">${favHas(s.id)?'★':'☆'}</span> ${s.name} <span class="c-code">${s.id}</span>${s.lead?`<span class="tagL sm">👑</span>`:''}${s.disp?`<span class="tagW sm">⚠${s.disp.m?s.disp.m+'分':'處置'}</span>`:''}</div>
-          <div class="c-full">${s.full||''}</div>
           <span class="c-sector">${s.market==='US'?'美股':'台股'}|${s.sector}</span>
         </div>
         <div class="score-ring" style="--sc:${T}"><div class="score-in"><b>${T}</b><span>綜合</span></div></div>
       </div>
       <div class="c-price"><span class="px">${s.price??'—'}</span>${chgHtml(s.chg)}</div>
-      <div class="bars">
-        ${[['基本面',s.f.score],['籌碼面',s.c.score],['技術面',s.t.score]].map(([lb,v])=>
-          `<div class="bar-row"><span class="lb">${lb}</span><div class="bar-track"><div class="bar-fill" style="width:${v}%"></div></div><span class="vl">${v}</span></div>`).join('')}
-      </div>
       <div class="c-note">${s.thesis?s.thesis.slice(0,52)+'…點開看完整分析':'點開看 K 線、關鍵價位與三面向明細'}</div>
     </div>`;
   }).join('')+(list.length>shown.length?
@@ -26680,6 +26683,7 @@ function btmDecorate(){
   if(!BTM||!BTM.stk)return;
   try{
     document.querySelectorAll('.card[data-id],.r-card[data-id]').forEach(c=>{
+      if(c.closest('#favBox,#grid'))return; // r1194: details live on individual pages.
       const host=c.querySelector('.c-name,.r-name')||c.querySelector(':scope > div > b')||c.firstElementChild;
       if(host)btmPutTag(host,btmCardTag(c.dataset.id));
     });
@@ -26944,6 +26948,7 @@ function extCardTag(id){
 function extDecorate(){
   if(!EXT){extLoad();return;}
   document.querySelectorAll('.card[data-id],.r-card[data-id]').forEach(c=>{
+    if(c.closest('#favBox,#grid'))return; // r1194: keep stock lists concise.
     const host=c.querySelector('.c-name,.r-name')||c.querySelector(':scope > div > b')||c.firstElementChild;
     if(host)extPutTag(host,extCardTag(c.dataset.id));
   });
