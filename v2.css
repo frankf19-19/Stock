@@ -129,3 +129,4 @@ html.v2 footer,html.v2 .foot{font-size:12px;opacity:.75}
 /* 頁面大標題已在上方,分頁裡重複的第一個標題拿掉 */
 html.v2 #tp-news>div.sec-title:first-of-type{display:none!important}
 html.v2 #tp-news>div.sec-title:first-of-type+.sec-body{border:none!important;padding:0!important;background:none!important}
+@media(min-width:1024px){html.v2 #navBack{left:calc(var(--v2-side) + 16px)!important}}
