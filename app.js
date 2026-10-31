@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1195';
+const APP_BUILD='r1196';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1563,15 +1563,27 @@ function compactFavPlan(s,full){
  if(m.id!==s.id||m.market!==s.market)return StockCardSummary.render({id:s.id,market:s.market,action:'資料待核對，先不買',condition:'完整價格與條件請進個股核對。',bottom:'止跌資料待核對'});
  return StockCardSummary.render(m);
 }
+// r1196: overview and full detail share the original price calculation and model policies.
+function refreshStockBrief(s){
+ if(typeof SiteLayout==='undefined'||typeof StockCardSummary==='undefined'||!s||s.etf||location.hash!=='#stock/'+s.id)return;
+ SiteLayout.stock(document,s);
+ const k0=(KCACHE[shardOf(s)]||{})[s.id],k=k0?.o?{ohlc:k0.o,dates:k0.d}:null;
+ if(!k?.ohlc)return;
+ const en=favEntryOf(s.id),full=ownStrategySummary(s,k.ohlc,k.dates,!!en,en?.px),m=StockCardSummary.fromHTML(full,document);
+ if(m.id!==s.id||m.market!==s.market)return;
+ const html=StockCardSummary.render(m,{overview:true}),av=s.market==='US'?usPickVerdict(s.id):aiPickVerdict(s.id,!!en);
+ SiteLayout.plan(document,m,html,compactAIPick(s,av));
+}
 function refreshStrategySummaries(force=false){
   if(document.hidden&&!force)return;
-  document.querySelectorAll('.strategy-summary[data-id]').forEach(el=>{try{
+  document.querySelectorAll('.strategy-summary[data-id]:not([data-card-view="overview"])').forEach(el=>{try{
     const r=el.getBoundingClientRect();if(!force&&(!r.width||!r.height||r.bottom<0||r.top>innerHeight*1.5))return;
     const s=(DATA.stocks||[]).find(x=>x.id===el.dataset.id);if(!s)return;
     const ke=(KCACHE[shardOf(s)]||{})[s.id],k=ke&&ke.o?{ohlc:ke.o,dates:ke.d}:location.hash==='#stock/'+s.id?baseK:null;
     if(!k||!k.ohlc)return;const en=favEntryOf(s.id),so=el.dataset.history==='1'?Object.assign({},s,{historyOnly:true}):s;
     const full=ownStrategySummary(so,k.ohlc,k.dates,!!en,en&&en.px),html=el.dataset.cardView==='compact'?compactFavPlan(so,full):full;if(html&&el.outerHTML!==html){const t=document.createElement('template');t.innerHTML=html;const next=t.content.firstElementChild,old=el.querySelectorAll('details');next.querySelectorAll('details').forEach((x,i)=>{if(old[i])x.open=old[i].open;});el.replaceWith(next);if(next.dataset.cardView==='compact'){try{if(typeof FAVST!=='undefined'&&FAVST[s.id])FAVST[s.id].plan=html;const slot=next.closest('.fav-plan-slot');if(slot)slot.dataset.p=html;}catch(e){}}}
   }catch(e){}});
+  try{const s=(DATA.stocks||[]).find(x=>location.hash==='#stock/'+x.id);if(s)refreshStockBrief(s);}catch(e){}
 }
 setInterval(()=>{try{refreshStrategySummaries();}catch(e){}},15000);
 function a3PlanLine(id,us,px){
@@ -7993,7 +8005,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
       ['📈','技術與價格','現在怎麼走・在哪進出',['stk_k','stk_tp','stk_dna','stk_s']],
       ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_ae','stk_h','stk_bk','stk_cost','stk_rhythm','stk_bs','stk_c']],   // r806:分點動向歸籌碼章;r835:成本、節奏獨立成節
       ['💰','基本面與價值','值不值得・前景如何',['stk_r','stk_v','stk_div','stk_peer','stk_conf']],
-      ['🧭','綜合研判與背景','AI 總結・三力評分・市場觀點・公司背景',['stk_ai','stk_3','stk_m','stk_p','stk_e']],
+      ['🧭','綜合研判與背景','AI 總結・三力評分・市場觀點・公司背景',['stk_ai','stk_3','stk_m','stk_rpt','stk_p','stk_e']],
     ];
     const pair=k=>{
       const t=root.querySelector(`[data-sec="${k}"]`);
@@ -8031,9 +8043,9 @@ function stkReorderSections(s){                            // r501:個股頁資�
         let bar=document.getElementById('chapTabs');
         if(bar)bar.remove();
         bar=document.createElement('div');
-        bar.id='chapTabs';
-        const tabs=[['ov','🏠 總覽'],['0','📈 技術'],['1','⚖️ 籌碼'],['2','💰 基本'],['3','🧭 研判']];
-        bar.innerHTML=tabs.map(([k,lb])=>`<button data-ch="${k}">${lb}</button>`).join('');
+        bar.id='chapTabs';bar.setAttribute('role','tablist');bar.setAttribute('aria-label','個股資料分類');
+        const tabs=[['ov','買賣總覽'],['0','走勢買賣'],['1','籌碼融資'],['2','財報估值'],['3','新聞研究']];
+        bar.innerHTML=tabs.map(([k,lb])=>`<button type="button" role="tab" data-ch="${k}">${lb}</button>`).join('');
         anchor.after(bar);
         /* r1000:章節內的「快速選單」——技術/籌碼/基本/研判各章的小節一鍵跳轉(收合中會自動展開),再附全部收合/展開 */
         let sub=document.getElementById('chapSub');if(sub)sub.remove();
@@ -8058,8 +8070,8 @@ function stkReorderSections(s){                            // r501:個股頁資�
           });
           if(items.length<2||k==='ov'){sub.innerHTML='';sub.style.display='none';return;}
           sub.style.display='';sub.style.top=(bar.offsetHeight||48)+'px';
-          sub.innerHTML=items.map((it,i)=>`<button data-i="${i}" class="${it.lv===2?'cs-2':'cs-1'}">${it.nm}</button>`).join('')+'<button class="cs-x" data-x="c">⊖ 全收合</button><button class="cs-x" data-x="o">⊕ 全展開</button>';
-          sub.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{sub.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');jumpTo(items[+b.dataset.i].el);});
+          sub.innerHTML='<label>本頁內容 <select aria-label="選擇本頁區塊"><option value="">選擇要看的內容</option>'+items.filter(x=>x.lv===1).map((it,i)=>'<option value="'+items.indexOf(it)+'">'+newsEsc(it.nm)+'</option>').join('')+'</select></label><button class="cs-x" data-x="c">全部收合</button><button class="cs-x" data-x="o">全部展開</button>';
+          sub.querySelector('select').onchange=e=>{const it=items[+e.target.value];if(e.target.value!==''&&it)jumpTo(it.el);};
           sub.querySelectorAll('button[data-x]').forEach(b=>b.onclick=()=>{
             const want=b.dataset.x==='c';
             [...root.children].filter(el=>el.dataset&&el.dataset.chap===k&&el.classList.contains('sec-title')&&el.dataset.sec).forEach(t=>{
@@ -8069,7 +8081,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
         };
         const setChap=k=>{
           document.documentElement.dataset.chap=k;
-          bar.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.ch===k));
+          bar.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',b.dataset.ch===k);b.setAttribute('aria-selected',String(b.dataset.ch===k));});
           setTimeout(()=>{try{paintSub(k);}catch(x){}},60);
           setTimeout(()=>{                                   // 隱藏面板裡的 ECharts 寬度為 0,顯示後必須 resize
             try{window.dispatchEvent(new Event('resize'));}catch(x){}
@@ -8107,42 +8119,8 @@ function stkReorderSections(s){                            // r501:個股頁資�
         const keep=(window.__chapStk===s.id&&document.documentElement.dataset.chap)||'ov';   // r701:刷新不踢回總覽
         setChap(keep);
         window.__chapStk=s.id;
-        try{                                                 // r701:財報狗式桌機左側導航——章節+各節兩層選單,固定左欄
-          const old2=document.getElementById('stkSide');
-          if(old2)old2.remove();
-          const side=document.createElement('nav');
-          side.id='stkSide';
-          let html='<div class="ss-in">';
-          html+=`<button class="ss-ov on" data-sch="ov">🏠 總覽</button>`;
-          let ci2=-1;
-          [...root.children].forEach(el=>{
-            if(el.classList.contains('grp-band')){
-              ci2++;
-              html+=`<div class="ss-grp" data-sch="${ci2}">${(el.dataset.jlabel||'').replace(/^第.章・/,'')}</div>`;
-            }else if(el.classList.contains('sec-title')&&el.dataset.sec&&el.dataset.chap===String(ci2)&&ci2>=0){
-              const nm2=(el.childNodes[0]?.textContent||'').trim();
-              html+=`<button class="ss-it" data-sch="${ci2}" data-ssec="${el.dataset.sec}">${nm2}</button>`;
-            }
-          });
-          html+='</div>';
-          side.innerHTML=html;
-          root.prepend(side);
-          const go=(ch,sec)=>{
-            const tb=bar.querySelector(`[data-ch="${ch}"]`);
-            if(tb&&!tb.classList.contains('on'))tb.click();
-            side.querySelectorAll('.ss-it,.ss-ov').forEach(x=>x.classList.toggle('on',
-              sec?x.dataset.ssec===sec:x.dataset.sch===ch&&!x.dataset.ssec));
-            if(sec)setTimeout(()=>{try{document.querySelector(`.sec-title[data-sec="${sec}"]`).scrollIntoView({behavior:'smooth',block:'start'});}catch(x2){}},80);
-            else window.scrollTo({top:0,behavior:'smooth'});
-          };
-          try{                                               // r701:重建後左欄高亮跟著當前章節
-            const cc=document.documentElement.dataset.chap||'ov';
-            side.querySelectorAll('.ss-ov').forEach(x=>x.classList.toggle('on',cc==='ov'));
-          }catch(x6){}
-          side.querySelectorAll('.ss-ov').forEach(b2=>b2.onclick=()=>go('ov',null));
-          side.querySelectorAll('.ss-grp').forEach(b2=>b2.onclick=()=>go(b2.dataset.sch,null));
-          side.querySelectorAll('.ss-it').forEach(b2=>b2.onclick=()=>go(b2.dataset.sch,b2.dataset.ssec));
-        }catch(e10){}
+        // r1196: one shared chapter bar replaces the duplicate desktop sidebar.
+        document.getElementById('stkSide')?.remove();
       }
     }catch(e9){}
     root.querySelectorAll('.sec-title[data-sec]').forEach(t=>{   // 未列入者維持相對順序附於最後
@@ -8160,7 +8138,7 @@ function kpiStrip(s){                                     // r701:財報狗式�
     const cell=(lb,big,sub,col)=>`<div class="kpi-c"><div class="kpi-lb">${lb}</div><div class="kpi-big"${col?` style="color:${col}"`:''}>${big}</div><div class="kpi-sub">${sub||''}</div></div>`;
     const cards=[];
     const pct=(+s.chg||0), pctS=(pct>=0?'+':'')+pct.toFixed(2)+'%';
-    cards.push(cell('股價',`<span id="kpiPx">${s.price??'—'}</span>`,`<span id="kpiChg" style="color:${cc}">${pctS}</span>`));
+    // r1196: price and change already appear once in the stock heading.
     if(s.market==='US'){                                                   // r1091:美股四格改抓 CNBC 即時基本面(EPS/本益比/市值/52 週區間),渲染後 usKpiFill 填入
       cards.push(cell('每股盈餘 EPS','<span data-uskpi="eps">…</span>','近四季'));
       cards.push(cell('本益比 PE','<span data-uskpi="pe">…</span>','<span data-uskpi="pesub">倍</span>'));
@@ -15247,12 +15225,6 @@ async function showDetail(id){
       ${s.etf?`<div class="score-ring" style="--sc:${Math.min(100,Math.max(0,50+((s.perf||{}).q||0)*2))}"><div class="score-in"><b style="font-size:13.5px;white-space:nowrap;letter-spacing:0">${(s.perf&&s.perf.q!=null)?((s.perf.q>=0?"+":"")+(Math.abs(s.perf.q)>=10?s.perf.q.toFixed(0):s.perf.q.toFixed(1))+"%"):"—"}</b><span>近3月</span></div></div>`:`<div class="score-ring" style="--sc:${total(s)}"><div class="score-in"><b>${total(s)}</b><span>綜合</span></div></div>`}
     </div>
     ${kpiStrip(s)}
-    ${s.etf?'':`<button class="aifull-btn" id="rptFullTop" type="button">
-      <span class="aifull-ic"><svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true"><defs><linearGradient id="aifg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#f0c060"/></linearGradient></defs><path d="M24 4l3.2 8.6L36 16l-8.8 3.4L24 28l-3.2-8.6L12 16l8.8-3.4z" fill="url(#aifg)"/><path d="M36 26l1.8 4.6L42 32l-4.2 1.4L36 38l-1.8-4.6L30 32l4.2-1.4z" fill="url(#aifg)" opacity=".9"/><path d="M11 30l1.4 3.6L16 35l-3.6 1.4L11 40l-1.4-3.6L6 35l3.6-1.4z" fill="url(#aifg)" opacity=".8"/></svg></span>
-      <span class="aifull-t"><b>AI 分析師報告</b><small>像券商分析師一樣研究:評等・目標價・EPS 推估・產業・多空・操作建議</small></span>
-      <span class="aifull-go">分析 ›</span>
-    </button>
-    <div id="rptFullTopBox"></div>`}
     <div class="alert-strip" id="stkAlerts" style="display:none"></div>
 <div class="ticker" id="sTick" hidden style="margin:12px 0 2px">
       <span class="ticker-label">📰 ${s.name} 新聞</span>
@@ -15447,7 +15419,7 @@ async function showDetail(id){
   })();
   const aBtn=document.getElementById('anaAiBtn');
   if(aBtn)aBtn.onclick=()=>aiInline(aBtn,`請上網查詢並整理 ${s.name}(${s.id}) 近三個月外資與投顧研究報告的觀點(直接條列不要開場白):哪些券商出過報告或升降評、評等為何(買進/中立/賣出)、目標價各是多少、調整理由是什麼。最後一句總結市場共識與分歧點。若查不到個別報告,就整理新聞中提到的最新目標價。結尾一行:非投資建議。`,true,1600);
-  try{stkReorderSections(s);}catch(e){}                     // r501:四層決策流重排(先搬 DOM 再初始化圖表)
+  try{stkReorderSections(s);if(typeof SiteLayout!=='undefined')SiteLayout.stock(document,s);refreshStockBrief(s);}catch(e){}                     // r501:四層決策流重排(先搬 DOM 再初始化圖表)
   loadProfileDetail(s);
   try{const tb=document.getElementById('t3qBox');if(tb){tb.style.display='';tb.innerHTML='<div class="dim-note">📊 近兩年季報(營收/YoY/三率)載入中…</div>';}t3qBlock(s);}catch(e){}
   try{renderHeadStock(s);}catch(e){}
@@ -15484,7 +15456,6 @@ async function showDetail(id){
     if(!box||!(DATA.stocks||[]).some(x=>x.id===s.id))return;
     const kk=await loadK(s);const R=sblCalc(sb,kk&&(kk.ohlc||kk.o),kk&&(kk.dates||kk.d));
     box=document.getElementById('sblBox');if(R&&box){box.innerHTML=sblHTML(R,s.name);window.__sblR=R;}}catch(e14){}})();}   // r793:借券 vs 股價
-  try{const ft=document.getElementById('rptFullTop');if(ft)ft.onclick=()=>{ft.classList.add('busy');rptFullRun(s,'rptFullTopBox').finally(()=>ft.classList.remove('busy'));};}catch(e13){}   // r791:頭部大按鈕
   try{const q=document.getElementById('rptQuick'),a=document.getElementById('rptAI');   // r562:研究報告
     if(q)q.onclick=()=>rptRun(s,'quick');
     if(a)a.onclick=()=>rptRun(s,'ai');
@@ -16189,7 +16160,7 @@ function setupSections(){
   document.querySelectorAll('.sec-title[data-sec]').forEach(t=>{
     const key=t.dataset.sec,body=document.getElementById('sb-'+key);
     if(!body)return;
-    t.classList.add('tap');
+    t.classList.add('tap');t.setAttribute('role','button');t.tabIndex=0;t.setAttribute('aria-controls',body.id);t.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();t.click();}};
     if(!t.querySelector('.sec-hint')){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
@@ -16197,10 +16168,10 @@ function setupSections(){
     const OPEN0=['macro','mk_idx'];   // r727:桌機預設只展開「總經環境 + 即時走勢」(法說會改預設收合),版面回到乾淨目錄
     const closed=(key in saved)?!!saved[key]:((key==='aip3')?false:(mob||OPEN0.indexOf(key)<0));   // r744→r1094:AI 分頁只有三清單預設展開;進階區(現況總覽/持股/規則/戰績/歷史)預設收合,點開看細項且偏好會記住
     body.classList.toggle('closed',closed);
-    t.classList.toggle('closed',closed);
+    t.classList.toggle('closed',closed);t.setAttribute('aria-expanded',String(!closed));
     t.onclick=()=>{
       const c=body.classList.toggle('closed');
-      t.classList.toggle('closed',c);
+      t.classList.toggle('closed',c);t.setAttribute('aria-expanded',String(!c));
       saved[key]=c;
       try{localStorage.setItem('secState',JSON.stringify(saved));}catch(e){}
       if(!c)setTimeout(()=>{ // 重新展開後圖表重算尺寸
@@ -16215,8 +16186,8 @@ function setupSections(){
   });
 }
 function buildJumpBar(root){
-  if(!root)return;
-  [...root.children].filter(c=>c.classList&&c.classList.contains('mob-jump')).forEach(c=>c.remove());
+  if(!root||root.id==='detailView'||root.closest('#detailView'))return;
+  [...root.children].filter(c=>c.classList&&(c.classList.contains('mob-jump')||c.classList.contains('page-index'))).forEach(c=>c.remove());
   const walk=[...root.querySelectorAll('.grp-band,.sec-title[data-sec],[data-jumpname]')].filter(x=>!x.classList.contains('sec-off')&&!x.hidden);   // r1112:hidden 的區塊(例如股癌分頁下沒有的「推薦好書」)不列   // r701:依 DOM 順序走訪——章節帶變成分組標籤,分類更細更好找
   const secs=walk.filter(x=>x.classList.contains('sec-title'));
   const named=walk.filter(x=>x.dataset&&x.dataset.jumpname);
@@ -16231,7 +16202,7 @@ function buildJumpBar(root){
     const nm=(el.childNodes[0]?.textContent||'').trim();
     return `<button data-jm="${el.dataset.sec}">${nm}</button>`;
   }).join('');
-  root.prepend(bar);
+  const index=document.createElement('details');index.className='page-index layout-fold';const summary=document.createElement('summary');summary.textContent='本頁內容';index.append(summary,bar);root.prepend(index);
   bar.querySelectorAll('[data-jm]').forEach(b=>b.onclick=()=>{
     const t=root.querySelector(`.sec-title[data-sec="${b.dataset.jm}"]`);
     if(!t)return;
@@ -16259,35 +16230,7 @@ function buildJumpBar(root){
     setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),80);
   });
 }
-function buildHomeSide(){                                  // r701:首頁左欄(財報狗式)——當前分頁的所有區塊一覽,點了捲過去
-  try{
-    const old=document.getElementById('homeSide');
-    if(old)old.remove();
-    if(location.hash)return;                               // 個股/內頁不掛(個股有自己的 stkSide)
-    if(window.innerWidth<1024)return;
-    const pane=[...document.querySelectorAll('.tabPane')].find(p=>p.style.display!=='none'&&p.offsetParent!==null);
-    if(!pane)return;
-    const items=[...pane.querySelectorAll('.sec-title[data-sec],[data-jumpname]')].filter(el=>!el.classList.contains('sec-off')&&!el.hidden);   // r1112b:hidden 的區塊不列
-    if(items.length<3)return;
-    const side=document.createElement('nav');
-    side.id='homeSide';
-    side.innerHTML='<div class="ss-in">'+items.map(el=>{
-      if(el.dataset&&el.dataset.jumpname)
-        return `<button class="ss-it" data-hsn="${el.id}">${el.dataset.jumpname}</button>`;
-      const nm=(el.childNodes[0]?.textContent||'').trim();
-      return `<button class="ss-it" data-hs="${el.dataset.sec}">${nm}</button>`;
-    }).join('')+'</div>';
-    pane.prepend(side);
-    side.querySelectorAll('button').forEach(b=>b.onclick=()=>{
-      side.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
-      const t=b.dataset.hs?pane.querySelector(`.sec-title[data-sec="${b.dataset.hs}"]`):document.getElementById(b.dataset.hsn);
-      if(t){
-        try{const fb=t.nextElementSibling;if(fb&&fb.classList.contains('sec-body')&&fb.style.display==='none')t.click();}catch(x){}
-        setTimeout(()=>{try{t.scrollIntoView({behavior:'smooth',block:'start'});}catch(x){}},60);
-      }
-    });
-  }catch(e){}
-}
+function buildHomeSide(){document.getElementById('homeSide')?.remove();} // r1196: expandable contents replaces a second sidebar.
 function setupMobileNav(){
   document.querySelectorAll('.tabPane').forEach(p=>buildJumpBar(p));
   /* 底部拇指導航 */
@@ -19613,6 +19556,7 @@ async function loadCreditTrend(s,e){
 }
 /* ══ 首頁分頁籤:大盤/個股/ETF ══ */
 function setHomeTab(t){
+  try{if(typeof SiteLayout!=='undefined')SiteLayout.home(document,t);}catch(e){}
   ['macro','aipick','stocks','etf','gooaye','news','view','port'].forEach(k=>{
     const p=document.getElementById('tp-'+k);
     if(p)p.style.display=(k===t)?'':'none';
@@ -21815,17 +21759,17 @@ async function loadSeason(s){
 function wireDetailSecs(){
   let saved={};try{saved=JSON.parse(localStorage.getItem('secState')||'{}');}catch(e){}
   const mob=innerWidth<640;
-  const defClosed={stk_c:mob,stk_m:mob,stk_p:mob};
+  const defClosed={stk_k:false}; // r1196: detail sections start as a readable index; saved choices still win.
   document.querySelectorAll('#detailView .sec-title[data-sec]').forEach(t=>{
     const key=t.dataset.sec,body=document.getElementById('sb-'+key);
     if(!body)return;
-    t.classList.add('tap');
+    t.classList.add('tap');t.setAttribute('role','button');t.tabIndex=0;t.setAttribute('aria-controls',body.id);t.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();t.click();}};
     if(!t.querySelector('.sec-hint')){const hh=document.createElement('span');hh.className='sec-hint';hh.textContent='點標題收合';t.appendChild(hh);}
-    const closed=(key in saved)?!!saved[key]:!!defClosed[key];
-    body.classList.toggle('closed',closed);t.classList.toggle('closed',closed);
+    const closed=(key in saved)?!!saved[key]:(key in defClosed?!!defClosed[key]:true);
+    body.classList.toggle('closed',closed);t.classList.toggle('closed',closed);t.setAttribute('aria-expanded',String(!closed));
     t.onclick=()=>{
       const c=body.classList.toggle('closed');
-      t.classList.toggle('closed',c);
+      t.classList.toggle('closed',c);t.setAttribute('aria-expanded',String(!c));
       saved[key]=c;
       try{localStorage.setItem('secState',JSON.stringify(saved));}catch(e){}
       if(!c)setTimeout(()=>{body.querySelectorAll('div').forEach(el=>{
@@ -23669,11 +23613,12 @@ function renderAip3(){
   const tdy=aipIso(aipTpDate()),rtOn=!us&&J.rt&&J.rt.d===tdy;   // r1107:盤中記帳心跳 + 今天的成交/出場紀錄
   const evs=(J.rt_log||[]).filter(x=>String(x).startsWith(tdy)&&(/🇺🇸/.test(String(x))===us)).map(x=>String(x).slice(11));
   const evHtml=evs.length?`<details class="a3-evlog"><summary>📒 今天盤中記帳 ${evs.length} 筆・最新:${evs[evs.length-1]}</summary><ul>${evs.slice().reverse().map(x=>`<li>${x}</li>`).join('')}</ul></details>`:'';
-  const html=`<div class="dim-note" style="margin:0 0 8px">${us?'🇺🇸 美股':'🇹🇼 台股'}・更新 ${J.u||''}(K 線到 ${us?J.us_day:J.tw_day})${rtOn?`・<b style="color:var(--up)">⏱ 盤中記帳到 ${J.rt.t}</b>`:(!us&&marketOpen()?'・⏱ 盤中記帳每 5 分鐘一輪':'')}・三個清單各自獨立、各 5 檔;台股與美股中期／長期依下一交易日開盤成交，美股短期按每週模型買進條件及成交記錄,${us?'網站自己逐日記帳':'台股盤中就記帳(09:00 開盤成交、碰到停損停利當下出場),晚上再用官方日 K 核對'},不是回頭補的。${us?'<b>美股資料只有目前 S&P 500 成分股,歷史有倖存者偏差;中期、長期標示為參考。</b>':''}規則與回測:<a href="#learn/aip3" style="color:var(--t-blue)">怎麼驗證的&nbsp;→</a></div>
+  const html=`<p class="aip-summary">${us?'美股':'台股'}模型帳・更新 ${J.u||'待資料'}・與個人持股分開${us?'；中長期為參考模型':''}</p><details class="layout-fold"><summary>資料來源、記帳方式與限制</summary><div class="dim-note" style="margin:0 0 8px">${us?'🇺🇸 美股':'🇹🇼 台股'}・更新 ${J.u||''}(K 線到 ${us?J.us_day:J.tw_day})${rtOn?`・<b style="color:var(--up)">⏱ 盤中記帳到 ${J.rt.t}</b>`:(!us&&marketOpen()?'・⏱ 盤中記帳每 5 分鐘一輪':'')}・三個清單各自獨立、各 5 檔;台股與美股中期／長期依下一交易日開盤成交，美股短期按每週模型買進條件及成交記錄,${us?'網站自己逐日記帳':'台股盤中就記帳(09:00 開盤成交、碰到停損停利當下出場),晚上再用官方日 K 核對'},不是回頭補的。${us?'<b>美股資料只有目前 S&P 500 成分股,歷史有倖存者偏差;中期、長期標示為參考。</b>':''}規則與回測:<a href="#learn/aip3" style="color:var(--t-blue)">怎麼驗證的&nbsp;→</a></div></details>
     ${strategyResearchNote(us)}${evHtml}${(()=>{try{if(us)return '';const e=(KCACHE['k/tw005.json']||{})['0050'];if(!(e&&e.o&&e.o.length>=200))return '';const C=e.o.map(x=>x[3]);const m200=C.slice(-200).reduce((a,b)=>a+b,0)/200;const last=C[C.length-1];   // r1139:大盤環境提醒(實證:0050 在 200 日線下時,近高強勢訊號 20 日超額只剩 +0.67%、不顯著;規則不變,只提醒部位)
       return last<m200?`<div class="aov-warn" style="margin:0 0 8px">🌧 大盤環境:0050 收在 200 日線之下(${last.toFixed(1)} vs ${m200.toFixed(1)})——實測這種時候「近 52 週高 × 強勢訊號」的優勢變弱(20 日比大盤 +0.67%,不顯著;多頭時 +1.1~1.9%)。但把短期清單在空頭「停做」回測反而更差(年化 +10.4% vs +23.9%)、「縮半部位」是取捨(年化 +17.8%、回落 −25% vs −29%)——規則不改,要不要縮部位由你決定。</div>`:'';}catch(x){return '';}})()}<div class="a3-grid">${['short','mid','long'].map(k=>M[k]?aip3Tier(k,M[k],us):'').join('')}</div>
-    <div class="dim-note">短期、中期、長期是三種不同節奏,不是同一檔股票的三種看法;同一檔可能同時出現在兩個清單。數字是模型帳上的紀錄,非投資建議。<br>🧭 每檔下面的 <b>🛑 停損 / 🎯 停利 / ➕ 加碼 / 🔁 再買回</b>:每筆依市場與入場版本分列；台股短期−15%/+20%、中期4 ATR/+25%，美股中期舊持倉−15%/+20%/60日、新持倉−20%/+30%/90日。長期價格僅觀察，模型仍按季度檢視；加碼和買回價保留但不觸發買進通知。細節:<a href="#learn/aip3">看說明</a>。</div>`;
-  if(box.__h!==html){box.innerHTML=html;box.__h=html;}
+    <details class="layout-fold"><summary>三種清單與價位用途說明</summary><div class="dim-note">短期、中期、長期是三種不同節奏,不是同一檔股票的三種看法;同一檔可能同時出現在兩個清單。數字是模型帳上的紀錄,非投資建議。<br>🧭 每檔下面的 <b>🛑 停損 / 🎯 停利 / ➕ 加碼 / 🔁 再買回</b>:每筆依市場與入場版本分列；台股短期−15%/+20%、中期4 ATR/+25%，美股中期舊持倉−15%/+20%/60日、新持倉−20%/+30%/90日。長期價格僅觀察，模型仍按季度檢視；加碼和買回價保留但不觸發買進通知。細節:<a href="#learn/aip3">看說明</a>。</div></details>`;
+  if(box.__h!==html){if(typeof SiteLayout!=='undefined')SiteLayout.remember(box);box.innerHTML=html;box.__h=html;}
+  if(typeof SiteLayout!=='undefined')SiteLayout.aip(box,us?'US':'TW');
 }
 lazyRun('#aip3Box',()=>{aip3Load().then(()=>aip3LiveLoad(true)).then(()=>{try{if(window.GMKT!=='US'&&!(KCACHE['k/tw005.json']||{})['0050'])loadShard(KCACHE,'k/tw005.json').then(()=>renderAip3());}catch(e){}renderAip3();});},10*60*1000);
 setInterval(()=>{try{const b=document.getElementById('aip3Box');if(!b||document.hidden||!AIP3)return;const r=b.getBoundingClientRect();if(r.bottom<-200||r.top>innerHeight*1.5)return;
@@ -23821,7 +23766,8 @@ async function vBox(s){
     await lvLoad();try{await Promise.all([aip3Load(),s.market==='US'?aipLoadUS():aipLoad()]);}catch(e){}if(location.hash!=='#stock/'+s.id)return;const h=lvHTML(k.ohlc,s.id,s.price,true)||'<div class="dim-note">此標的尚無股性統計</div>';let box=document.getElementById('vBox');
     if(!box){const sb=document.getElementById('sb-stk_k');if(!sb)return;box=document.createElement('div');box.id='vBox';box.dataset.jumpname='📋 買賣計畫';const inline=document.querySelector('#kwrap .strategy-summary');if(inline)inline.replaceWith(box);else sb.prepend(box);}
     let ap='',pp='';try{const en=favEntryOf(s.id);ap=ownStrategySummary(s,k.ohlc,k.dates,!!en,en&&en.px);}catch(e){}
-    box.innerHTML=`<div class="dim-block" style="border-left:4px solid var(--amber)"><div style="font-weight:900;margin-bottom:4px">📋 買賣計畫(驗證過的規則)</div>${ap}${pp}<details class="aip-fold"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔自己的歷史表現(股性參考)</summary>${h}</details></div>`;
+    box.innerHTML=`<details class="layout-fold full-plan"><summary>完整買賣計畫與逐股研究</summary>${ap}${pp}<details class="aip-fold"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔自己的歷史表現(股性參考)</summary>${h}</details></details>`;
+    try{refreshStockBrief(s);}catch(e){}
   }catch(e){}
 }
 async function defBox(s){
