@@ -1,0 +1,131 @@
+/* r1203 K研所 v2 版面。只放在最後一層覆蓋,顏色沿用使用者選的主題變數。 */
+html.v2{--v2-side:232px;--v2-r:14px;--v2-gap:14px}
+html.v2 body{font-size:15px;line-height:1.6;letter-spacing:.005em}
+html.v2 .v2-hide{display:none!important}
+
+/* ── 頁首:變成細工具列 ── */
+html.v2 header.v2-top{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+html.v2 header.v2-top .head-in{max-width:1180px;padding:10px 20px!important;align-items:center;gap:12px}
+html.v2 header.v2-top .sub{display:none}
+html.v2 header.v2-top h1{font-size:20px;margin:0}
+html.v2 header.v2-top .toolbar{gap:8px;flex-wrap:nowrap}
+html.v2 header.v2-top .qs-wrap{min-width:260px}
+html.v2 header.v2-top #qSearch{height:38px;border-radius:10px}
+html.v2 header.v2-top .statline{font-size:11.5px;opacity:.85}
+
+/* ── 電腦:左側導覽 ── */
+#v2side{display:none}
+@media(min-width:1024px){
+  html.v2 #v2side{display:flex;flex-direction:column;position:fixed;inset:0 auto 0 0;width:var(--v2-side);z-index:45;
+    background:var(--panel);border-right:1px solid var(--line);padding:18px 12px 14px;overflow-y:auto}
+  html.v2 body{padding-left:var(--v2-side)}
+  html.v2 header.v2-top h1{display:none}
+  html.v2 header.v2-top .head-in{justify-content:flex-end}
+  html.v2 #homeTabs,html.v2 .gmkt-bar:not(#v2side .gmkt-bar){display:none!important}
+  html.v2 #mobNav{display:none!important}
+  html.v2 #workspaceMenuBtn{display:none!important}
+  html.v2 header.v2-top .toolbar>.btn-ghost,html.v2 header.v2-top .toolbar>.btn-upd{display:none}
+  html.v2 header.v2-top .header-tools{display:none!important}
+}
+#v2side .v2-logo{display:block;text-decoration:none;color:inherit;padding:2px 8px 14px}
+#v2side .v2-logo h1{font-size:22px;margin:0;display:flex;align-items:center;gap:6px}
+#v2side .v2-mkt .gmkt-bar{display:flex!important;gap:4px;margin:0 0 14px;padding:3px;background:var(--bg);border:1px solid var(--line);border-radius:11px}
+#v2side .v2-mkt .gmkt-bar button{flex:1;padding:7px 0;border-radius:8px;font-size:13.5px;border:none;background:none;color:var(--txt2);cursor:pointer}
+#v2side .v2-mkt .gmkt-bar button.on{background:var(--panel2,var(--line));color:var(--txt);font-weight:800}
+#v2side .v2-nav{display:flex;flex-direction:column;gap:2px}
+#v2side .v2-nav button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:none;border-radius:10px;
+  background:none;color:var(--txt2);font-size:15px;font-weight:600;text-align:left;cursor:pointer}
+#v2side .v2-nav button:hover{background:color-mix(in srgb,var(--txt) 6%,transparent);color:var(--txt)}
+#v2side .v2-nav button.on{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--txt);font-weight:800}
+#v2side .v2-nav button.on .v2-ic{transform:scale(1.08)}
+#v2side .v2-ic{width:22px;text-align:center;font-size:17px}
+#v2side .v2-sep{margin:14px 12px 4px;font-size:11.5px;color:var(--mut);letter-spacing:.08em}
+#v2side .v2-foot{margin-top:auto;display:flex;flex-wrap:wrap;gap:6px;padding-top:14px;border-top:1px solid var(--line)}
+#v2side .v2-foot .btn-ghost,#v2side .v2-foot button{flex:1 1 calc(50% - 6px);padding:8px 6px;font-size:13px;border-radius:9px}
+#v2side .v2-foot select{flex:1 1 100%;padding:7px 8px;border-radius:9px;font-size:13px;background:var(--bg);color:var(--txt);border:1px solid var(--line)}
+
+/* ── 平板:上方橫向分頁(可左右滑) ── */
+@media(min-width:641px) and (max-width:1023px){
+  html.v2 #homeTabs{display:flex!important;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:4px 0 10px;scrollbar-width:none}
+  html.v2 #homeTabs button{flex:0 0 auto;padding:8px 14px;border-radius:999px;font-size:14px}
+}
+
+/* ── 內容區:統一寬度、間距 ── */
+html.v2 .wrap{max-width:1180px;padding:0 20px 40px}
+@media(min-width:1500px){html.v2 .wrap{max-width:1280px}}
+html.v2 #homeIntro{margin:18px 0 6px}
+html.v2 #homeIntro h2{font-size:26px;font-weight:900;margin:0;letter-spacing:.01em}
+html.v2 #homeIntro p{margin:4px 0 0;color:var(--mut);font-size:14px}
+html.v2 .page-index{margin:6px 0 4px}
+html.v2 .page-index>summary{font-size:13px;color:var(--mut)}
+
+/* ── 區塊標題:乾淨的標題列(去掉色條、底色) ── */
+html.v2 .sec-title{border:none!important;background:none!important;box-shadow:none!important;padding:0!important;
+  margin:26px 0 10px!important;font-size:19px!important;font-weight:800!important;letter-spacing:.01em!important;color:var(--txt)!important;
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+html.v2 .sec-title>span:not(.sec-hint){font-size:13px!important;font-weight:400!important;color:var(--mut)!important}
+html.v2 .sec-title.tap{cursor:pointer;padding:12px 14px!important;margin:10px 0 0!important;border:1px solid var(--line)!important;border-radius:var(--v2-r)!important;background:var(--panel)!important;font-size:16px!important}
+html.v2 .sec-title.tap:not(.closed){border-bottom-left-radius:0!important;border-bottom-right-radius:0!important}
+html.v2 .sec-title.tap+.sec-body:not(.closed){border:1px solid var(--line);border-top:none;border-radius:0 0 var(--v2-r) var(--v2-r);padding:14px;background:color-mix(in srgb,var(--panel) 55%,transparent)}
+html.v2 .sec-title .sec-hint{margin-left:auto;font-size:12px!important;color:var(--mut)!important}
+
+/* ── 卡片:統一圓角、邊框、留白,拿掉陰影與左側色條 ── */
+html.v2 .news-card,html.v2 .news-top,html.v2 .dim-block,html.v2 .chart-box,html.v2 .a3-card,html.v2 .pt-card,
+html.v2 .r-card,html.v2 .idx-card,html.v2 .vw-lv,html.v2 .vw-sc,html.v2 .tidy-fold{
+  border-radius:var(--v2-r)!important;box-shadow:none!important}
+html.v2 .news-card,html.v2 .news-top,html.v2 .dim-block{border:1px solid var(--line)!important;border-left-width:1px!important;background:var(--panel)!important;padding:16px 18px!important;margin:0 0 12px!important}
+html.v2 .news-card{border-left:3px solid var(--line)!important}
+html.v2 .news-top{padding:20px 22px!important;background:linear-gradient(180deg,color-mix(in srgb,var(--amber) 9%,var(--panel)) 0%,var(--panel) 100%)!important}
+html.v2 .news-mood{font-size:18px!important;font-weight:800;line-height:1.55}
+html.v2 .news-ttl{font-size:16.5px}
+html.v2 .news-what{font-size:14.5px;line-height:1.7;color:var(--txt2)}
+html.v2 .news-why{border-radius:10px!important;font-size:14px}
+html.v2 .r-card:hover,html.v2 .card:hover{transform:none!important}
+
+/* ── 收合區 ── */
+html.v2 .tidy-fold,html.v2 .layout-fold{border:1px solid var(--line);border-radius:var(--v2-r);background:var(--panel);padding:2px 16px;margin:10px 0}
+html.v2 .tidy-fold>summary,html.v2 .layout-fold>summary{font-size:15px;font-weight:700;padding:12px 0;cursor:pointer}
+html.v2 .page-index.layout-fold{border:none;background:none;padding:0}
+
+/* ── 日期列 ── */
+html.v2 .news-dates{gap:6px;margin:6px 0 14px}
+html.v2 .news-dbtn{border-radius:999px!important;padding:6px 14px!important;font-size:13.5px!important}
+
+/* ── AI Pick 三欄 ── */
+html.v2 .a3-grid{gap:16px!important}
+html.v2 .a3-card{border:1px solid var(--line)!important;border-top:3px solid var(--a3c,var(--amber))!important;background:var(--panel)!important;padding:16px!important}
+html.v2 .a3-row{padding:12px 0!important}
+html.v2 .a3-nm a{font-size:16px;font-weight:800}
+
+/* ── 今日盤勢(在大盤頁最上面) ── */
+html.v2 .v2-today{margin-bottom:22px}
+html.v2 .v2-today .sec-body{border:none!important;background:none!important;padding:0!important}
+
+/* ── 頁尾 ── */
+html.v2 footer,html.v2 .foot{font-size:12px;opacity:.75}
+
+/* ── 手機 ── */
+@media(max-width:640px){
+  html.v2 body{font-size:15px}
+  html.v2 header.v2-top .head-in{padding:8px 12px!important;flex-wrap:wrap}
+  html.v2 header.v2-top .qs-wrap{min-width:0;flex:1}
+  html.v2 header.v2-top .statline{display:none}
+  html.v2 .wrap{padding:0 12px 90px}
+  html.v2 #homeIntro h2{font-size:22px}
+  html.v2 #homeIntro p{font-size:13px}
+  html.v2 .gmkt-bar{margin:10px 0 0}
+  html.v2 .sec-title{font-size:17px!important;margin:20px 0 8px!important}
+  html.v2 .sec-title.tap{font-size:15px!important;padding:11px 12px!important}
+  html.v2 .news-card,html.v2 .dim-block{padding:14px!important}
+  html.v2 .news-top{padding:16px!important}
+  html.v2 .news-mood{font-size:16.5px!important}
+  html.v2 .tidy-fold,html.v2 .layout-fold{padding:2px 12px}
+  html.v2 #mobNav{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important}
+  html.v2 #mobNav button{min-height:54px!important;font-size:11px!important;min-width:0;padding:6px 0!important;white-space:nowrap}
+  html.v2 #mobNav button.on{color:var(--amber)!important}
+}
+
+/* 頁面大標題已在上方,分頁裡重複的第一個標題拿掉 */
+html.v2 #tp-news>div.sec-title:first-of-type{display:none!important}
+html.v2 #tp-news>div.sec-title:first-of-type+.sec-body{border:none!important;padding:0!important;background:none!important}

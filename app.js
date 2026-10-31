@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1202';
+const APP_BUILD='r1203';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -16236,14 +16236,14 @@ function setupMobileNav(){
   if(!document.getElementById('mobNav')){
     const nav=document.createElement('div');
     nav.id='mobNav';
-    const items=[['port','💼','持股'],['stocks','📈','個股'],['aipick','🤖','AI Pick'],['view','🧭','盤勢']];   // r1200:依 Frank 常用順序:持股、個股、AI Pick、盤勢;最愛、更多在後
+    const items=[['news','📰','早報'],['macro','📊','大盤'],['aipick','🤖','AI Pick'],['port','💼','持股']];   // r1203   // r1200:依 Frank 常用順序:持股、個股、AI Pick、盤勢;最愛、更多在後
     nav.innerHTML=items.map(([k,ic,lb])=>`<button data-mn="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('')
       +`<button data-mn="__fav"><span class="mi">⭐</span>最愛</button><button data-mn="__more" aria-haspopup="dialog"><span class="mi">☰</span>更多</button>`;
     document.body.appendChild(nav);
     const sync=()=>{
       const onFav=location.hash==='#fav';
       const cur=document.querySelector('#homeTabs button.on');
-      const raw=cur?cur.dataset.tab:'view',k=onFav?'__fav':['port','stocks','aipick','view'].includes(raw)?raw:'__more';
+      const raw=cur?cur.dataset.tab:'news',k=onFav?'__fav':['news','macro','aipick','port'].includes(raw)?raw:'__more';
       nav.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.mn===k));
     };
     nav.querySelectorAll('[data-mn]').forEach(b=>b.onclick=()=>{
@@ -21156,7 +21156,7 @@ function renderEtf(){
   });
   const qi=document.getElementById('etfQ');
   if(qi)qi.oninput=()=>{try{renderEtf();}catch(e){}};
-  let t=(()=>{try{return (portGet()||[]).length?'port':'view';}catch(e){return 'view';}})();   // r1200:Frank 10/31 大整理——有持股先開「我的持股」,沒有就開「今日盤勢」(原 r1072 早報當首頁)
+  let t='news';   // r1203:Frank 10/31 晚:順序 早報、大盤、AI Pick、持股、我的最愛 → 開站先看早報   // r1200:Frank 10/31 大整理——有持股先開「我的持股」,沒有就開「今日盤勢」(原 r1072 早報當首頁)
   if(0)t='news';   // r1072:📰 產業早報當首頁——每次打開網站(電腦/手機)都先看早報;之後切到哪個分頁照常   // r950:手機冷開一律從「大盤」開始(底部導覽也亮大盤)——之前還原上次分頁,畫面是 AI Pick 卻亮著大盤
   setHomeTab(t);
 })();
