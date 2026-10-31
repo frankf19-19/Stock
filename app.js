@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1207';
+const APP_BUILD='r1208';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -12848,8 +12848,10 @@ async function renderConfHome(){   // 📣 首頁重要法說快報:近5天已�
     });
   }catch(e){}
 }
-setTimeout(renderConfHome,2200);
-setInterval(renderConfHome,600000);
+/* r1208:conf_ai.json 有 4.8MB,原本每次開站都下載 → 只在打開「選股」頁(法說快報在那裡)或個股的法說區時才載入 */
+window.__confHomeIfVisible=()=>{try{const p=document.getElementById('tp-stocks');if(p&&p.style.display!=='none'&&!location.hash)renderConfHome();}catch(e){}};
+setTimeout(window.__confHomeIfVisible,2200);
+setInterval(window.__confHomeIfVisible,600000);
 function toastLite(msg){   // 頁內淡入提示(取代 alert,不打斷操作)
   let el=document.getElementById('__toast');
   if(!el){el=document.createElement('div');el.id='__toast';
@@ -13151,7 +13153,7 @@ async function irSectionRefresh(s){   // 📣 法說會專區:ir 檔到位後整
     if(!parts.length)parts.push('<div class="dim-note" style="padding:14px 4px">這檔近期還沒有財報新聞稿的 AI 整理(每天早上自動從 SEC 8-K 抓最新財報);季報數字請看上方「近兩年季報」。</div>');
     b.innerHTML=parts.join('');return;
   }
-  const [j,e,financialHistory]=await Promise.all([irLoad(s.id),loadChips(s).catch(()=>null),twFinancialLoad(s.id)]);
+  const [j,e,financialHistory]=await Promise.all([irLoad(s.id),loadChips(s).catch(()=>null),twFinancialLoad(s.id),s.conf&&s.conf.d?confAI().catch(()=>null):null]);   // r1208:法說 AI 分析改成需要時才載入
   if(location.hash!==requestHash||document.getElementById('sb-stk_conf')!==b)return;
   const latest=irLatest(j);
   const parts=[];
@@ -19572,6 +19574,7 @@ function setHomeTab(t){
     try{aipLoad().then(()=>{try{renderAIPick();}catch(e){}});}catch(e){}
     try{setTimeout(aipSweep,600);}catch(e){}},0);}
   if(t==='etf'){try{renderEtf();}catch(e){}}
+  if(t==='stocks'){setTimeout(()=>{try{window.__confHomeIfVisible&&window.__confHomeIfVisible();}catch(e){}},300);}
   if(t==='news'){setTimeout(()=>{try{newsLoad();}catch(e){}},0);}
   if(t==='view'){setTimeout(()=>{try{viewLoad();}catch(e){}},0);}   // r1129:🧭 盤勢解讀   // r1071:📰 產業早報
   if(t==='port'){try{renderPort();}catch(e){}try{setTimeout(portHeadRisk,500);}catch(e){}}
