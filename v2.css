@@ -157,3 +157,37 @@ html.v2 h1 .tri{color:inherit!important}
 html.v2 .strategy-summary.strategy-compact{padding-left:12px!important}
 /* r1205:手機頁首不黏在上方(太佔畫面),捲動時跟著內容走 */
 @media(max-width:1023px){html.v2 header.v2-top{position:static!important;backdrop-filter:none;-webkit-backdrop-filter:none}}
+
+/* r1207 全站檢查修正 */
+/* 手機/平板頁首:標誌和按鈕同一行,搜尋在第二行(原本三行) */
+@media(max-width:1023px){
+  html.v2 header.v2-top .head-in{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:8px!important}
+  html.v2 header.v2-top .head-in>div:first-child{order:0;flex:0 0 auto}
+  html.v2 header.v2-top .meta,html.v2 header.v2-top .toolbar{display:contents!important}
+  html.v2 header.v2-top .toolbar>*:not(.qs-wrap){order:1}
+  html.v2 header.v2-top .toolbar>*:not(.qs-wrap):not([hidden]):not(.v2-hide):first-of-type{margin-left:auto}
+  html.v2 header.v2-top .header-tools{order:1;margin-left:auto}
+  html.v2 header.v2-top .header-tools>summary{padding:6px 10px!important;font-size:13px!important}
+  html.v2 header.v2-top .qs-wrap{order:2;flex:0 0 100%!important;min-width:0!important}
+  html.v2 header.v2-top .statline{order:3;flex:0 0 100%;display:none}
+  html.v2 header.v2-top #authBtn,html.v2 header.v2-top #alertBtn{padding:6px 10px!important;font-size:13px!important}
+}
+@media(min-width:641px) and (max-width:1023px){html.v2 header.v2-top .statline{display:flex!important;justify-content:flex-end}}
+/* 我的最愛「提醒:開」按鈕不要斷成三行 */
+html.v2 #favAlTg{white-space:nowrap}
+/* AI Pick 欄位標籤太長時換行,不撐破版面 */
+html.v2 .a3-h{flex-wrap:wrap}
+html.v2 .a3-tag{white-space:normal!important;min-width:0}
+html.v2 .a3-card{min-width:0}
+@media(max-width:1023px){
+  html.v2 header.v2-top .head-in>div:first-child{flex:0 0 auto!important;width:auto!important;min-width:0!important}
+  html.v2 header.v2-top .header-tools>summary{font-size:0!important;padding:6px 10px!important}
+  html.v2 header.v2-top .header-tools>summary::after{content:'⚙ 工具';font-size:13px}
+}
+html.v2 header .header-tools{position:relative}
+html.v2 header .header-tools .ht-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:70;width:230px;display:flex;flex-direction:column;gap:8px;
+  padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.35)}
+html.v2 header .header-tools .ht-pop>*{width:100%!important;margin:0!important}
+html.v2 header .header-tools[open]{border:none!important;background:none!important;padding:0!important}
+@media(max-width:1023px){html.v2 header.v2-top #qSearch{width:100%!important;max-width:none!important}}
+@media(min-width:641px) and (max-width:1023px){html.v2 #workspaceMenuBtn{display:none!important}}

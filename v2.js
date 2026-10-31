@@ -64,6 +64,11 @@
     const head=doc.querySelector('header');if(!head||head.dataset.v2)return;head.dataset.v2='1';
     head.classList.add('v2-top');
     const fav=doc.getElementById('favBtn');if(fav)fav.classList.add('v2-hide');   // 最愛已在主選單
+    /* r1207:「工具」打開時改成浮出的小面板,不再把頁首撐開 */
+    const ht=head.querySelector('.header-tools');
+    if(ht&&!ht.querySelector('.ht-pop')){const pop=doc.createElement('div');pop.className='ht-pop';[...ht.children].forEach(c=>{if(c.tagName!=='SUMMARY')pop.append(c);});ht.append(pop);
+      doc.addEventListener('click',e=>{if(ht.open&&!ht.contains(e.target))ht.open=false;});
+      new MutationObserver(()=>{[...ht.children].forEach(c=>{if(c.tagName!=='SUMMARY'&&c!==pop)pop.append(c);});}).observe(ht,{childList:true});}
   }
   /* ── 手機底部導覽:重建成 早報/大盤/AI Pick/持股/最愛/更多 ── */
   function mobileNav(){
@@ -78,7 +83,10 @@
     doc.querySelectorAll('#v2side [data-v2],#mobNav [data-v2]').forEach(b=>{const on=b.dataset.v2===k&&!b.classList.contains('v2-logo');b.classList.toggle('on',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
     root.classList.toggle('v2-detail',!!location.hash&&location.hash!=='#fav');
   }
+  /* r1207:App(加到主畫面)上方狀態列顏色跟著目前主題的底色,不再是紅色 */
+  function themeColor(){try{const bg=getComputedStyle(doc.body).backgroundColor;if(!bg)return;doc.querySelectorAll('meta[name="theme-color"]').forEach(m=>m.setAttribute('content',bg));}catch(e){}}
   function init(){
+    themeColor();try{new MutationObserver(()=>setTimeout(themeColor,50)).observe(root,{attributes:true,attributeFilter:['data-theme','class']});}catch(e){}
     try{mergeView();}catch(e){}
     try{patchTabs();}catch(e){}
     try{sidebar();}catch(e){}
