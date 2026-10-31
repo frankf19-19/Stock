@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1204';
+const APP_BUILD='r1205';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1858,7 +1858,7 @@ function favQuickBar(box,ids,byId){
   q.querySelectorAll('.fq-chip').forEach(b=>b.onclick=()=>{
     const c=box.querySelector(`.r-card[data-id="${b.dataset.fq}"]`);if(!c)return;
     if(c.style.display==='none'){inp.value='';filt('');}
-    const y=c.getBoundingClientRect().top+window.scrollY-(side()?16:q.offsetHeight+12);
+    const y=c.getBoundingClientRect().top+window.scrollY-(side()?16:q.offsetHeight+12)-((document.querySelector('header.v2-top')&&getComputedStyle(document.querySelector('header.v2-top')).position==='sticky')?document.querySelector('header.v2-top').offsetHeight:0);   // r1205:扣掉黏在上方的頁首
     window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
     c.classList.remove('fq-hit');void c.offsetWidth;c.classList.add('fq-hit');setTimeout(()=>c.classList.remove('fq-hit'),1600);
   });

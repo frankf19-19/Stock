@@ -135,3 +135,25 @@ html.v2 h1 .lgo .lgo-wk{stroke:#D9443A!important}
 html.v2 h1 .lgo .lgo-cd{fill:#D9443A!important}
 html.v2 h1 .lgo .lgo-kk{stroke:#3D6FF2!important}
 html.v2 h1 .tri{color:inherit!important}
+
+/* r1205:電腦版頁首更矮(搜尋與資料時間同一行) */
+@media(min-width:1024px){
+  html.v2 header.v2-top .head-in{flex-wrap:nowrap!important;padding:8px 20px!important;max-width:none}
+  html.v2 header.v2-top .meta{display:flex;align-items:center;gap:12px;flex-direction:row-reverse}
+  html.v2 header.v2-top .statline{margin:0}
+}
+/* r1205:最愛快選原本固定在畫面最左邊,改版後會蓋到內容 → 改成頁面上方一列(搜尋 + 各檔按鈕可左右滑),捲動時黏在頁首下面 */
+@media (min-width:1024px){
+  html.v2 #favQuick{position:sticky!important;top:54px!important;left:auto!important;width:auto!important;max-height:none!important;
+    display:block!important;margin:8px 0 0!important;padding:8px 0!important;border:none!important;border-bottom:1px solid var(--line)!important;
+    border-radius:0!important;background:var(--bg)!important;box-shadow:none!important;z-index:30}
+  html.v2 #favQuick .fq-tt{display:none!important}
+  html.v2 #favQuick #favQ{max-width:320px}
+  html.v2 #favQuick .fq-row{flex-direction:row!important;flex-wrap:nowrap!important;overflow-x:auto!important;overflow-y:hidden!important;gap:6px!important;padding:6px 0 4px!important}
+  html.v2 #favQuick .fq-chip{width:auto!important;flex:0 0 auto;border:1px solid var(--line)!important;border-radius:999px!important;padding:5px 12px!important;background:var(--panel)!important}
+  html.v2 #favQuick .fq-chip.fq-on{border-color:var(--amber)!important}
+}
+/* r1205:最愛卡片裡的買賣摘要,左側色條和文字之間留空 */
+html.v2 .strategy-summary.strategy-compact{padding-left:12px!important}
+/* r1205:手機頁首不黏在上方(太佔畫面),捲動時跟著內容走 */
+@media(max-width:1023px){html.v2 header.v2-top{position:static!important;backdrop-filter:none;-webkit-backdrop-filter:none}}
