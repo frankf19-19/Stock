@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1200';
+const APP_BUILD='r1201';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -15927,14 +15927,14 @@ function renderRadar(){
   show.sort((a,b)=>(order[a.g.type]??9)-(order[b.g.type]??9)||total(b.s)-total(a.s));
   if(curStrat==='all'){
     const c2={};
-    show=show.filter(({g})=>{c2[g.type]=(c2[g.type]||0)+1;return c2[g.type]<=6;});
+    show=show.filter(({g})=>{c2[g.type]=(c2[g.type]||0)+1;return c2[g.type]<=2;});   // r1200:「全部」每策略先 2 檔(原 6),點策略看完整
   }else show=show.slice(0,36);
   box.innerHTML=show.length?show.map(({s,g})=>
     `<div class="r-card" data-id="${s.id}" tabindex="0" role="button">
        <span class="r-tag tg-${g.type}">${g.label}</span>
        <span class="r-name">${s.name} <span class="c-code">${s.id}</span> <b class="rpx">${s.price??'—'}</b> <span style="font-family:var(--mono);font-size:13px">${chgHtml(s.chg)}</span><span class="mini-candle" data-candle="${s.id}"></span></span>
        <span class="r-desc">${g.desc}${radarPos(s,g)}</span></div>`).join('')
-    +(curStrat==='all'&&items.length>show.length?`<div class="r-empty">「全部」模式每策略顯示前 6 檔;點上方策略看完整清單(共 ${items.length} 個訊號)。</div>`:'')
+    +(curStrat==='all'&&items.length>show.length?`<div class="r-empty">「全部」模式每策略先顯示 2 檔;點上方策略看完整清單(共 ${items.length} 個訊號)。</div>`:'')
     :'<div class="r-empty">此策略今日沒有符合的個股 —— 沒有訊號也是一種訊號。</div>';
   box.querySelectorAll('.r-card').forEach(c=>{
     c.onclick=()=>{location.hash='#stock/'+c.dataset.id;};
@@ -16162,8 +16162,8 @@ function setupSections(){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
     }
     // 全站預設收合(2026-07-19 定案):除「總經環境」外一律先收合成乾淨目錄;點開看細項且偏好會記住
-    const OPEN0=['macro','mk_idx'];   // r727:桌機預設只展開「總經環境 + 即時走勢」(法說會改預設收合),版面回到乾淨目錄
-    const closed=(key in saved)?!!saved[key]:((key==='aip3')?false:(mob||OPEN0.indexOf(key)<0));   // r744→r1094:AI 分頁只有三清單預設展開;進階區(現況總覽/持股/規則/戰績/歷史)預設收合,點開看細項且偏好會記住
+    const OPEN0=mob?['macro','radar','gaEps']:['macro','mk_idx','radar','list'];   // r1200:每頁主要內容預設打開(大盤懶人包、選股的機會雷達/清單);其餘照舊收合   // r727:桌機預設只展開「總經環境 + 即時走勢」(法說會改預設收合),版面回到乾淨目錄
+    const closed=(key in saved)?!!saved[key]:((key==='aip3')?false:(OPEN0.indexOf(key)<0));   // r1200:OPEN0 已分手機/電腦   // r744→r1094:AI 分頁只有三清單預設展開;進階區(現況總覽/持股/規則/戰績/歷史)預設收合,點開看細項且偏好會記住
     body.classList.toggle('closed',closed);
     t.classList.toggle('closed',closed);t.setAttribute('aria-expanded',String(!closed));if(t.querySelector('.sec-hint'))t.querySelector('.sec-hint').textContent=closed?'展開 ＋':'收合 −';
     t.onclick=()=>{
@@ -20846,7 +20846,7 @@ function renderEtf(){
     ?DATA.stocks.filter(s=>s.sub==='active'&&s.act&&(s.hold||{}).aum)
        .sort((a,b)=>b.hold.aum-a.hold.aum).slice(0,10):[];
   const _actAll=(sub==='tw'||sub==='active')?DATA.stocks.filter(s=>s.sub==='active'&&s.hold):[];
-  const aefV=window.__aefView||'card';
+  const aefV=window.__aefView||'list';   // r1200:預設精簡列表(一行一檔),卡片可切換
   const aefRows=s=>{                                    // 供列表模式使用的整備資料
     const a=s.act||{};
     const rows=(a.mv||[]).map(r=>{const[sym,nm,w,adj,dsh,damt]=r;

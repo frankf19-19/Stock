@@ -2886,3 +2886,6 @@ html[data-stock-ui] #chapTabs button{min-height:44px}html[data-stock-ui] .sec-ti
 @media(max-width:640px){#ptHero+div>div{min-width:calc(50% - 6px)!important;padding:10px 12px!important}#ptHero+div>div>div:last-child{font-size:20px!important}}
 .pt-plan .pt-pl1{font-size:14.5px}.pt-plan .pt-pl1 b{font-family:var(--mono);font-size:16px}
 .pt-plan .pt-pl2{font-size:12px;margin-top:3px}.pt-plan select{font-size:12px;padding:2px 4px;background:var(--panel2,var(--panel));color:var(--txt);border:1px solid var(--line);border-radius:6px}
+
+/* r1200:手機頂部——「功能選單」與底部「更多」重複,手機只留底部那個 */
+@media(max-width:640px){#workspaceMenuBtn{display:none!important}}
