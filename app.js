@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1197';
+const APP_BUILD='r1198';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -8081,7 +8081,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
         };
         const setChap=k=>{
           document.documentElement.dataset.chap=k;
-          bar.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',b.dataset.ch===k);b.setAttribute('aria-selected',String(b.dataset.ch===k));});
+          bar.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',b.dataset.ch===k);b.setAttribute('aria-selected',String(b.dataset.ch===k));b.tabIndex=b.dataset.ch===k?0:-1;});
           setTimeout(()=>{try{paintSub(k);}catch(x){}},60);
           setTimeout(()=>{                                   // 隱藏面板裡的 ECharts 寬度為 0,顯示後必須 resize
             try{window.dispatchEvent(new Event('resize'));}catch(x){}
@@ -8101,16 +8101,12 @@ function stkReorderSections(s){                            // r501:個股頁資�
         /* r930:手機更好操作——① 左右滑動內容就換章節(避開圖表/表格)② 每章最下面有「上一章/下一章」 */
         try{
           const order=tabs.map(t=>t[0]);
-          const go=d=>{const i=order.indexOf(document.documentElement.dataset.chap||'ov');const n=order[i+d];if(n){setChap(n);try{bar.scrollIntoView({behavior:'smooth',block:'start'});}catch(x){}}};
+          const go=d=>{const i=order.indexOf(document.documentElement.dataset.chap||'ov');const n=order[i+d];if(n){if(typeof StockNavigation!=='undefined'&&StockNavigation.go(document,{chapter:n}))return;setChap(n);try{bar.scrollIntoView({behavior:'smooth',block:'start'});}catch(x){}}};
           window.__chapGo=go;
-          const dv=document.getElementById('detailView');
-          if(dv&&!dv.__swipe){dv.__swipe=1;let sx=0,sy=0,ok=false;
-            const hScroll=el=>{for(let n=el;n&&n!==dv;n=n.parentElement){try{const ox=getComputedStyle(n).overflowX;if((ox==='auto'||ox==='scroll')&&n.scrollWidth>n.clientWidth+2)return true;}catch(x){}}return false;};   // r1065:可左右捲動的列(章節小分類等)滑動時不換章
-            dv.addEventListener('touchstart',e=>{const t=e.touches[0];sx=t.clientX;sy=t.clientY;ok=!e.target.closest('canvas,.chart-box,[_echarts_instance_],table,.ait-tw,.kseg-row,.chips,.mob-jump,.toolbar,pre,#chapTabs,#chapSub,input,select,textarea')&&!hScroll(e.target);},{passive:true});
-            dv.addEventListener('touchend',e=>{if(!ok)return;const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;if(Math.abs(dx)>70&&Math.abs(dy)<45&&Math.abs(dx)>Math.abs(dy)*2)go(dx<0?1:-1);},{passive:true});}
+          const dv=document.getElementById('detailView'); // r1198: explicit navigation, no whole-page swipe switch.
           const foot=document.getElementById('chapFoot')||document.createElement('div');foot.id='chapFoot';
           const nm=Object.fromEntries(tabs);
-          const paintFoot=()=>{const i=order.indexOf(document.documentElement.dataset.chap||'ov');foot.innerHTML=`<button class="btn-ghost" ${i<=0?'disabled':''} onclick="window.__chapGo(-1)">‹ ${i>0?nm[order[i-1]]:''}</button><span class="dim">${i+1} / ${order.length}・左右滑動也可以換章</span><button class="btn-ghost" ${i>=order.length-1?'disabled':''} onclick="window.__chapGo(1)">${i<order.length-1?nm[order[i+1]]:''} ›</button>`;};
+          const paintFoot=()=>{const i=order.indexOf(document.documentElement.dataset.chap||'ov');foot.innerHTML=`<button class="btn-ghost" ${i<=0?'disabled':''} onclick="window.__chapGo(-1)">‹ ${i>0?nm[order[i-1]]:''}</button><span class="dim">${i+1} / ${order.length}・使用上方分類或內容目錄</span><button class="btn-ghost" ${i>=order.length-1?'disabled':''} onclick="window.__chapGo(1)">${i<order.length-1?nm[order[i+1]]:''} ›</button>`;};
           if(!foot.parentNode&&dv)dv.appendChild(foot);
           const _set=setChap;paintFoot();
           bar.addEventListener('click',()=>setTimeout(paintFoot,0));
@@ -8119,6 +8115,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
         const keep=(window.__chapStk===s.id&&document.documentElement.dataset.chap)||'ov';   // r701:刷新不踢回總覽
         setChap(keep);
         window.__chapStk=s.id;
+        if(typeof StockNavigation!=='undefined')StockNavigation.bind(document,s,{setChapter:setChap});
         // r1196: one shared chapter bar replaces the duplicate desktop sidebar.
         document.getElementById('stkSide')?.remove();
       }
@@ -16168,10 +16165,10 @@ function setupSections(){
     const OPEN0=['macro','mk_idx'];   // r727:桌機預設只展開「總經環境 + 即時走勢」(法說會改預設收合),版面回到乾淨目錄
     const closed=(key in saved)?!!saved[key]:((key==='aip3')?false:(mob||OPEN0.indexOf(key)<0));   // r744→r1094:AI 分頁只有三清單預設展開;進階區(現況總覽/持股/規則/戰績/歷史)預設收合,點開看細項且偏好會記住
     body.classList.toggle('closed',closed);
-    t.classList.toggle('closed',closed);t.setAttribute('aria-expanded',String(!closed));
+    t.classList.toggle('closed',closed);t.setAttribute('aria-expanded',String(!closed));if(t.querySelector('.sec-hint'))t.querySelector('.sec-hint').textContent=closed?'展開 ＋':'收合 −';
     t.onclick=()=>{
       const c=body.classList.toggle('closed');
-      t.classList.toggle('closed',c);t.setAttribute('aria-expanded',String(!c));
+      t.classList.toggle('closed',c);t.setAttribute('aria-expanded',String(!c));if(t.querySelector('.sec-hint'))t.querySelector('.sec-hint').textContent=c?'展開 ＋':'收合 −';
       saved[key]=c;
       try{localStorage.setItem('secState',JSON.stringify(saved));}catch(e){}
       if(!c)setTimeout(()=>{ // 重新展開後圖表重算尺寸
@@ -16289,7 +16286,7 @@ setTimeout(setupSections,400);
   try{
     const vv=window.visualViewport;if(!vv)return;
     let dy=0,raf=0,flip=false,endT=0;
-    const bars=()=>['mobNav','mobIdxBar'].map(id=>document.getElementById(id)).filter(e=>e&&e.getClientRects().length);
+    const bars=()=>['mobNav','mobIdxBar','stockDock'].map(id=>document.getElementById(id)).filter(e=>e&&e.getClientRects().length);
     const apply=(eps)=>bars().forEach(e=>{const v=dy+(eps||0);e.style.transform=Math.abs(v)>0.001?`translate3d(0,${v}px,0)`:'';});
     const fix=()=>{raf=0;try{
       if(document.body.classList.contains('kb-open'))return;
@@ -21766,10 +21763,10 @@ function wireDetailSecs(){
     t.classList.add('tap');t.setAttribute('role','button');t.tabIndex=0;t.setAttribute('aria-controls',body.id);t.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();t.click();}};
     if(!t.querySelector('.sec-hint')){const hh=document.createElement('span');hh.className='sec-hint';hh.textContent='點標題收合';t.appendChild(hh);}
     const closed=(key in saved)?!!saved[key]:(key in defClosed?!!defClosed[key]:true);
-    body.classList.toggle('closed',closed);t.classList.toggle('closed',closed);t.setAttribute('aria-expanded',String(!closed));
+    body.classList.toggle('closed',closed);t.classList.toggle('closed',closed);t.setAttribute('aria-expanded',String(!closed));if(t.querySelector('.sec-hint'))t.querySelector('.sec-hint').textContent=closed?'展開 ＋':'收合 −';
     t.onclick=()=>{
       const c=body.classList.toggle('closed');
-      t.classList.toggle('closed',c);t.setAttribute('aria-expanded',String(!c));
+      t.classList.toggle('closed',c);t.setAttribute('aria-expanded',String(!c));if(t.querySelector('.sec-hint'))t.querySelector('.sec-hint').textContent=c?'展開 ＋':'收合 −';
       saved[key]=c;
       try{localStorage.setItem('secState',JSON.stringify(saved));}catch(e){}
       if(!c)setTimeout(()=>{body.querySelectorAll('div').forEach(el=>{
