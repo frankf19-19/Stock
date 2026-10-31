@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1201';
+const APP_BUILD='r1202';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -7900,8 +7900,10 @@ function renderMacroAlerts(){
   const news=(window.__glbAlerts||[]).map(x=>
     `<a class="alert-pill alert-${x.lv}" href="${x.l}" target="_blank" rel="noopener"><span class="ico">${x.lv==='red'?'🚨':'📰'}</span><span>${x.lv==='red'?'重大外電:':'外電訊號:'}${x.t}${x.tags.length?` <b>→ ${x.tags.join('/')}</b>`:''}<span style="color:var(--dim);font-weight:600"> · ${x.ago} ↗</span></span></a>`).join('');
   el.style.display='';
+  try{const tl=document.getElementById('tldrBox');if(tl&&el.parentNode===tl.parentNode&&el.compareDocumentPosition(tl)&Node.DOCUMENT_POSITION_FOLLOWING)el.parentNode.insertBefore(tl,el);}catch(e){}   // r1200:懶人包(結論)放在提醒列前面
+  A.sort((x,y)=>(x.lv==='red'?0:x.lv==='amb'?1:2)-(y.lv==='red'?0:y.lv==='amb'?1:2));   // r1200:紅色警示排前面
   el.innerHTML=(A.length||news)
-    ?A.map(a=>{const hd=false;   /* r1051:首頁頭部七腳印區已隱藏,提醒列不再連過去 */return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).join('')+news
+    ?A.map(a=>{const hd=false;   /* r1051:首頁頭部七腳印區已隱藏,提醒列不再連過去 */return `<span class="alert-pill alert-${a.lv}${hd?' hd-pill':''}"${hd?' onclick="window.__openHead&&window.__openHead()" title="點開看完整頭部七腳印/轉折分析"':''}><span class="ico">${a.ico}</span><span>${a.txt}</span>${hd?'<span class="hd-more">詳細 ›</span>':''}</span>`;}).slice(0,3).join('')+((A.length>3||news)?`<details class="tidy-fold alert-more"><summary>其他提醒 ${Math.max(0,A.length-3)+(window.__glbAlerts||[]).length} 則<small>技術面轉折、外電…</small></summary>${A.slice(3).map(a=>`<span class="alert-pill alert-${a.lv}"><span class="ico">${a.ico}</span><span>${a.txt}</span></span>`).join('')}${news}</details>`:'')
     :'<span class="alert-pill alert-ok"><span class="ico">✅</span><span>風險溫度計與外電目前無特別警示</span></span>';
 }
 setTimeout(()=>{try{renderMacroAlerts();}catch(e){}},4500);
