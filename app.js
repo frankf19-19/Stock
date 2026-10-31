@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1194';
+const APP_BUILD='r1195';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1628,6 +1628,13 @@ function aiPickVerdict(id,own){
   const w=(T.watch||[]).find(x=>x.id===id);if(w)return {cls:'fst-gem',txt:`<span>🤖 AI Pick:關注中・勝算 ${pc(w.p)}(${w.st||'觀察中'})</span>`,act:''};
   return {cls:'fst-wait',txt:'<span>🤖 AI Pick:沒有買進訊號</span>',act:ln('下次收盤評分後會顯示這檔的勝算與名次')};
 }
+// r1195: reuse each actual model position's original policy; do not borrow personal cost or the new-entry plan.
+function compactAIPick(s,av){
+ const us=s.market==='US',f=v=>v>0?(us?'$':'')+v.toLocaleString('zh-TW',{maximumFractionDigits:2}):'待資料',names={short:'短期',mid:'中期',long:'長期'};
+ const plans=a3TiersOf(s.id,us).map(({k,sl})=>{const c=aipSlotPolicy(sl,k,us),state=sl.x_open?'下一交易日開盤出場':c.pending?'等待開盤成交':'模型續抱';return names[k]+'：'+state+'｜'+(c.model?'停損 ':'風險觀察 ')+f(c.sl)+'／'+(c.model?'停利 ':'獲利觀察 ')+f(c.tp)+'；'+c.rule+(c.remaining!=null?'；剩'+c.remaining+'交易日':'')+(c.pending?'；未成交價位仍須重算':'');});
+ if(!us){const pv=typeof AIPK!=='undefined'&&AIPK?.trader?.pv,p=(pv?.pos||[]).find(x=>x.id===s.id),q=(pv?.pend||[]).find(x=>x.id===s.id);if(p)plans.push('主力20檔：'+(q?.act==='sell'?'下一交易日開盤出場':'模型續抱')+'｜'+(p.stop===null&&pv.rules?.stop_atr===null?'不設固定價停損':'停損 '+f(p.stop))+'／停利 '+f(p.tp)+'；'+(pv.rules?.sell_rank>0?'排名跌出前'+pv.rules.sell_rank+'名，依排單隔日開盤出場':'依模型轉弱記錄出場'));else if(q)plans.push('主力20檔：下一交易日開盤'+(q.act==='buy'?'買進；尚未成交':'出場'));}
+ return newsEsc(StockCardSummary.ai(av?.txt,plans));
+}
 function favKbSplit(html,id){   // r1017:關鍵分點拿出摺疊區,直接顯示在卡片上
   const i=(html||'').indexOf('<div class="fav-kb" data-favkb=');
   const kb=`<div class="fav-kb" data-favkb="${id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])||''}</div>`;
@@ -1701,7 +1708,7 @@ async function favStateFill(){
       else try{await lvLoad();{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=aipTdFix(actionPlan(k.ohlc,id,s.price,own,cst,k.dates).replace(/隔天 9:00/g,'明天 9:00'));}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
       plan=compactFavPlan(s,plan);
-      FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:typeof StockCardSummary!=='undefined'?StockCardSummary.ai(av&&av.txt):'AI Pick：詳見個股',plan};
+      FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:typeof StockCardSummary!=='undefined'?compactAIPick(s,av):'AI Pick：詳見個股',plan};
       favStPaint(id);
     }catch(e){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— 狀態判讀失敗,稍後自動重試',plan:null};FAVST[id].t-=4*60e3;favStPaint(id);}
     await new Promise(r=>setTimeout(r,80));

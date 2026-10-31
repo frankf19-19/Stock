@@ -2717,3 +2717,9 @@ html[data-theme="light"] #navBack,html[data-theme="pearl"] #navBack{background:r
 .sc-condition{font-size:12px;color:var(--txt)}.sc-footer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
 .sc-footer small{color:var(--dim);flex:1}.sc-footer a{color:var(--amber);font-weight:700}.sc-footer button{border:0;background:transparent;color:var(--dim);font:inherit;cursor:pointer;padding:3px}
 #favBox .r-card{align-self:start}#favBox .fav-st{font-size:12px}#grid .c-note{font-size:12px}
+
+/* r1195: concise model strategy and existing stock structure, no long research tables. */
+#favBox .fav-st{white-space:pre-line;line-height:1.65}
+.sc-insights{margin:8px 0;padding:8px 0;border-top:1px solid var(--line);font-size:12px;line-height:1.65}
+.sc-insights>div{display:grid;grid-template-columns:5.5em minmax(0,1fr);gap:6px;margin:5px 0}
+.sc-insights dt{color:var(--dim)}.sc-insights dd{margin:0;overflow-wrap:anywhere;color:var(--txt2)}
