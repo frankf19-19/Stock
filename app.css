@@ -2818,3 +2818,42 @@ html[data-stock-ui] #chapTabs button{min-height:44px}html[data-stock-ui] .sec-ti
  #detailView .kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}#briefPlan .sc-prices dd{font-size:20px}
  .layout-fold>summary{padding:11px 12px}.layout-fold> :not(summary){margin-left:12px;margin-right:12px}
 }
+
+/* r1199: one site-wide menu, five mobile destinations, comfortable desktop workspace. */
+#workspaceMenuBtn{min-height:40px;white-space:nowrap;font-weight:700}
+.workspace-menu{width:min(640px,calc(100vw - 24px));max-height:88dvh;padding:0;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:15px;overscroll-behavior:contain}
+.workspace-menu::backdrop{background:#0009;backdrop-filter:blur(3px)}
+.workspace-menu-open{overflow:hidden}
+.workspace-menu-head{position:sticky;top:0;z-index:1;display:flex;justify-content:space-between;gap:12px;align-items:center;padding:16px;background:var(--bg);border-bottom:1px solid var(--line)}
+.workspace-menu-head h2{font-size:20px;margin:0}.workspace-menu-head p{font-size:12px;color:var(--dim);margin:4px 0 0}
+.workspace-menu button{font:inherit;color:var(--txt);cursor:pointer;border:1px solid var(--line);border-radius:9px;background:var(--panel);min-height:44px;padding:11px 12px}
+.workspace-menu-head button{white-space:nowrap;font-size:13px}.workspace-page-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:16px}
+.workspace-page-list button{text-align:left;display:flex;flex-direction:column;gap:5px}.workspace-page-list small{color:var(--dim);font-size:12px}.workspace-page-list [aria-current="page"]{border-color:var(--amber);background:color-mix(in srgb,var(--amber) 9%,var(--panel))}
+#stockDesktopOutline{display:none}
+@media(min-width:1024px){
+ .wrap{max-width:1440px;padding-left:28px;padding-right:28px}.detail-wrap{max-width:1280px}
+ #detailView .m-head{margin:12px 0 16px;align-items:center}#detailView .c-price{margin-top:7px}
+ #stockBrief{padding:22px}.brief-grid{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:30px}
+ #briefPlan .sc-prices dd{font-size:30px}#briefAI{font-size:14px;line-height:1.9}
+ #detailView .dim-note,.a3-rule,.a3-val{font-size:13px;line-height:1.8}.tabPane{min-width:0}
+ #homeTabs button{min-height:42px;padding-left:18px;padding-right:18px}.r-card{line-height:1.65}
+}
+@media(min-width:1100px){
+ html[data-stock-ui]:not([data-chap="ov"]) .detail-wrap>.sec-title,
+ html[data-stock-ui]:not([data-chap="ov"]) .detail-wrap>.sec-body,
+ html[data-stock-ui]:not([data-chap="ov"]) .detail-wrap>.grp-band,
+ html[data-stock-ui]:not([data-chap="ov"]) #chapSub{width:calc(100% - 240px);box-sizing:border-box}
+ #stockDesktopOutline:not([hidden]){display:block;position:sticky;top:118px;float:right;width:216px;box-sizing:border-box;max-height:calc(100vh - 142px);overflow:auto;margin:12px 0 12px 24px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+ #stockDesktopOutline h4{font-size:14px;margin:0 0 5px}#stockDesktopOutline p{font-size:11px;color:var(--dim);margin:0 0 10px}
+ #stockDesktopOutline button{display:block;width:100%;min-height:40px;margin:4px 0;padding:8px;text-align:left;line-height:1.6;background:transparent;border:0;border-radius:7px;color:var(--txt2);font-size:12px;cursor:pointer}
+ #stockDesktopOutline button:hover,#stockDesktopOutline button.on{color:var(--amber);background:var(--panel2)}
+ html[data-stock-ui] #chapSub label{display:none}.detail-wrap::after{content:'';display:table;clear:both}
+}
+@media(max-width:700px){
+ html #mobNav{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:2px}
+ html #mobNav button{min-height:52px!important;font-size:12px!important;min-width:0;padding:6px 2px!important}
+ html #mobNav .mi{font-size:19px!important}html[data-stock-ui] #mobNav,body.kb-open #mobNav{display:none!important}
+ #workspaceMenuBtn{min-height:40px;font-size:13px}.workspace-page-list{grid-template-columns:1fr;padding:12px}
+ .workspace-page-list button{min-height:62px}.workspace-menu{max-height:86dvh}.workspace-menu-head{padding:12px}
+ .workspace-menu-head h2{font-size:18px}#homeTabs{gap:5px}#homeTabs button{min-height:44px}
+}

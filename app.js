@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1198';
+const APP_BUILD='r1199';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -16234,17 +16234,18 @@ function setupMobileNav(){
   if(!document.getElementById('mobNav')){
     const nav=document.createElement('div');
     nav.id='mobNav';
-    const items=[['news','📰','早報'],['view','🧭','盤勢'],['macro','📊','大盤'],['aipick','🤖','AI'],['stocks','📈','個股'],['etf','🧺','ETF'],['gooaye','🎙','節目'],['port','💼','持股']];   // r1072:早報=首頁,排第一
+    const items=[['news','⌂','首頁'],['stocks','📈','選股'],['aipick','🤖','AI Pick']];   // r1072:早報=首頁,排第一
     nav.innerHTML=items.map(([k,ic,lb])=>`<button data-mn="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('')
-      +`<button data-mn="__fav"><span class="mi">⭐</span>最愛</button>`;
+      +`<button data-mn="__fav"><span class="mi">⭐</span>最愛</button><button data-mn="__more" aria-haspopup="dialog"><span class="mi">☰</span>更多</button>`;
     document.body.appendChild(nav);
     const sync=()=>{
       const onFav=location.hash==='#fav';
       const cur=document.querySelector('#homeTabs button.on');
-      const k=onFav?'__fav':(cur?cur.dataset.tab:'macro');
+      const raw=cur?cur.dataset.tab:'news',k=onFav?'__fav':['news','stocks','aipick'].includes(raw)?raw:'__more';
       nav.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.mn===k));
     };
     nav.querySelectorAll('[data-mn]').forEach(b=>b.onclick=()=>{
+      if(b.dataset.mn==='__more'){if(typeof WorkspaceNavigation!=='undefined')WorkspaceNavigation.open(document);return;}
       if(b.dataset.mn==='__fav'){
         location.hash='#fav';
         setTimeout(sync,0);
@@ -16277,6 +16278,7 @@ function setupMobileNav(){
 }
 window.addEventListener('resize',()=>{chipCharts.forEach(c=>{try{c.resize()}catch(e){}});try{window.__t3Chart&&window.__t3Chart.resize();}catch(e){}});
 window.addEventListener('resize',setupSections);
+if(typeof WorkspaceNavigation!=='undefined')WorkspaceNavigation.bind(document,{selectPage:setHomeTab});
 setupMobileNav();
 setTimeout(setupSections,400);
 /* r1079:iPhone「底下那條(大盤指數+分頁鈕)跑到畫面中間」——Safari/主畫面 App 的「版面高度」和「實際看得到的高度」偶爾對不上
