@@ -1,0 +1,18 @@
+/* r1199: consistent navigation across home, research and detail pages. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.WorkspaceNavigation=factory();})(typeof globalThis!=='undefined'?globalThis:this,function(){
+ 'use strict';const states=new WeakMap(),pages=[['news','首頁・產業早報','每天的重要產業資訊'],['stocks','選股','搜尋、篩選與個股分析'],['aipick','AI Pick','模型部位與買賣策略'],['fav','我的最愛','追蹤關注股票與提醒'],['macro','大盤','指數、資金與市場風險'],['view','盤勢解讀','盤勢重點與歷史紀錄'],['etf','ETF','基金、成分與配息'],['gooaye','節目整理','節目重點與來源'],['port','我的持股','依實際成本查看持股']];
+ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function target(key){return pages.some(p=>p[0]===key)?key==='fav'?{hash:'#fav'}:{hash:'',tab:key}:null;}
+ function available(doc){return pages.filter(p=>{if(p[0]==='fav')return true;const b=doc.querySelector('#homeTabs [data-tab="'+p[0]+'"]');return b&&!b.hidden&&b.style.display!=='none'&&!b.classList.contains('gm-hide');});}
+ function current(doc){if(doc.defaultView.location.hash==='#fav')return 'fav';if(doc.defaultView.location.hash)return '';return doc.querySelector('#homeTabs .on')?.dataset.tab||'news';}
+ function go(doc,key){const st=states.get(doc),to=target(key);if(!st||!to||!available(doc).some(p=>p[0]===key))return false;if(st.dialog.open)st.dialog.close();if(doc.defaultView.location.hash!==to.hash)doc.defaultView.location.hash=to.hash;if(to.tab)st.selectPage(to.tab);doc.defaultView.scrollTo({top:0,behavior:'auto'});return true;}
+ function open(doc){const st=states.get(doc);if(!st)return;const selected=current(doc);st.dialog.innerHTML='<div class="workspace-menu-head"><div><h2>前往哪個功能？</h2><p>桌機與手機共用相同入口</p></div><button type="button" data-close aria-label="關閉功能選單">關閉 ✕</button></div><div class="workspace-page-list">'+available(doc).map(([key,name,note])=>'<button type="button" data-page="'+key+'"'+(selected===key?' aria-current="page"':'')+'><strong>'+esc(name)+'</strong><small>'+esc(note)+'</small></button>').join('')+'</div>';
+  st.dialog.querySelector('[data-close]').onclick=()=>st.dialog.close();st.dialog.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(doc,b.dataset.page));if(!st.dialog.open)st.dialog.showModal();doc.documentElement.classList.add('workspace-menu-open');st.dialog.querySelector('[data-close]').focus({preventScroll:true});
+ }
+ function bind(doc,options){if(states.has(doc))return;const dialog=doc.createElement('dialog');dialog.className='workspace-menu';dialog.setAttribute('aria-label','全站功能選單');doc.body.append(dialog);dialog.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();dialog.close();}});dialog.addEventListener('cancel',e=>{e.preventDefault();dialog.close();});
+  dialog.addEventListener('close',()=>doc.documentElement.classList.remove('workspace-menu-open'));const btn=doc.createElement('button');btn.type='button';btn.id='workspaceMenuBtn';btn.textContent='功能選單';btn.setAttribute('aria-haspopup','dialog');btn.onclick=()=>open(doc);const anchor=doc.querySelector('.header-tools');if(anchor)anchor.before(btn);else doc.querySelector('.toolbar')?.append(btn);
+  states.set(doc,{dialog,selectPage:options.selectPage});const search=doc.getElementById('qSearch');if(search){search.setAttribute('aria-keyshortcuts','/');search.title='搜尋股票；也可按 /';}
+  doc.addEventListener('keydown',e=>{if(e.key==='/'&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.target.closest('input,textarea,select,[contenteditable="true"]')&&!doc.querySelector('dialog[open]')){e.preventDefault();search?.focus();}});
+ }
+ return {bind,open,go,target,current,pages,available};
+});
