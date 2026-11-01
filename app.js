@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1209';
+const APP_BUILD='r1210';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1573,6 +1573,10 @@ function refreshStockBrief(s){
  if(m.id!==s.id||m.market!==s.market)return;
  const html=StockCardSummary.render(m,{overview:true}),av=s.market==='US'?usPickVerdict(s.id):aiPickVerdict(s.id,!!en);
  SiteLayout.plan(document,m,html,compactAIPick(s,av));
+ /* r1210:個股「買賣總覽」也顯示重要分點(關鍵分點大買大賣、連買連賣、近期吃貨) */
+ try{if(s.market!=='US'){let kb=document.getElementById('briefKb');const grid=document.querySelector('#stockBrief .brief-grid');
+   if(!kb&&grid){kb=document.createElement('div');kb.id='briefKb';kb.className='fav-kb brief-kb';grid.after(kb);}
+   if(kb&&kb.dataset.favkb!==s.id){kb.dataset.favkb=s.id;kb.innerHTML=(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[s.id])||'';try{favKbFill(document.getElementById('stockBrief'));}catch(e){}}}}catch(e){}
 }
 function refreshStrategySummaries(force=false){
   if(document.hidden&&!force)return;
@@ -1719,7 +1723,7 @@ async function favStateFill(){
       if(s.market==='US'){let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=usPlan(k.ohlc,s,k.dates,own,cst);}   // r1075:美股用美股自己驗證過的
       else try{await lvLoad();{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=aipTdFix(actionPlan(k.ohlc,id,s.price,own,cst,k.dates).replace(/隔天 9:00/g,'明天 9:00'));}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
-      plan=compactFavPlan(s,plan);
+      plan=compactFavPlan(s,plan)+(s.market!=='US'?`<div class="fav-kb" data-favkb="${id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])||''}</div>`:'');   // r1210:卡片精簡(r1194)把關鍵分點一起拿掉了 → 加回來
       FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:typeof StockCardSummary!=='undefined'?compactAIPick(s,av):'AI Pick：詳見個股',plan};
       favStPaint(id);
     }catch(e){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— 狀態判讀失敗,稍後自動重試',plan:null};FAVST[id].t-=4*60e3;favStPaint(id);}

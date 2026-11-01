@@ -191,3 +191,7 @@ html.v2 header .header-tools .ht-pop>*{width:100%!important;margin:0!important}
 html.v2 header .header-tools[open]{border:none!important;background:none!important;padding:0!important}
 @media(max-width:1023px){html.v2 header.v2-top #qSearch{width:100%!important;max-width:none!important}}
 @media(min-width:641px) and (max-width:1023px){html.v2 #workspaceMenuBtn{display:none!important}}
+/* r1210:重要分點區(最愛卡片、個股買賣總覽) */
+html.v2 .fav-kb:not(:empty){margin:10px 0 2px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 70%,transparent)}
+html.v2 .fav-kb:not(:empty)::before{content:'🏦 重要分點';display:block;width:100%;font-size:12.5px;font-weight:800;color:var(--txt2);margin-bottom:4px}
+html.v2 .brief-kb:not(:empty){margin:12px 0 0}
