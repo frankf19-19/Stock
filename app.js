@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1212';
+const APP_BUILD='r1213';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -19571,7 +19571,7 @@ async function loadCreditTrend(s,e){
 /* ══ 首頁分頁籤:大盤/個股/ETF ══ */
 function setHomeTab(t){
   try{if(typeof SiteLayout!=='undefined')SiteLayout.home(document,t);}catch(e){}
-  ['macro','aipick','stocks','etf','gooaye','news','view','port'].forEach(k=>{
+  ['home','macro','aipick','stocks','etf','gooaye','news','view','port'].forEach(k=>{
     const p=document.getElementById('tp-'+k);
     if(p)p.style.display=(k===t)?'':'none';
     const b=document.querySelector('#homeTabs [data-tab="'+k+'"]');
@@ -19582,6 +19582,7 @@ function setHomeTab(t){
   if(t==='aipick'){setTimeout(()=>{   // r745:延到本輪腳本跑完再碰 AIPK(啟動時還原分頁會早於 AIPK 宣告 → TDZ)
     try{aipLoad().then(()=>{try{renderAIPick();}catch(e){}});}catch(e){}
     try{setTimeout(aipSweep,600);}catch(e){}},0);}
+  if(t==='home'){try{if(typeof HomeView!=='undefined')HomeView.render(true);}catch(e){}}   // r1213:總覽
   if(t==='etf'){try{renderEtf();}catch(e){}}
   if(t==='stocks'){setTimeout(()=>{try{window.__confHomeIfVisible&&window.__confHomeIfVisible();}catch(e){}},300);}
   if(t==='news'){setTimeout(()=>{try{newsLoad();}catch(e){}},0);}
@@ -20640,6 +20641,7 @@ function advPlan(){
 }
 async function portPlanFill(box){
   const L=[...box.querySelectorAll('.pt-plan[data-plan]')];
+  try{if(typeof lvLoad==='function')await lvLoad();}catch(e){}   // r1213:手機上還原因子(ADJ1)常還沒載入 → 價位會被誤判成「待核對」
   for(const el of L){
     try{const s=(DATA.stocks||[]).find(x=>x.id===el.dataset.plan);if(!s)continue;const cost=+el.dataset.cost;
       const k=await loadK(s);if(!k||!k.ohlc){el.innerHTML='<span class="dim">走勢資料載入失敗,點卡片看個股頁</span>';continue;}
@@ -21170,7 +21172,8 @@ function renderEtf(){
   });
   const qi=document.getElementById('etfQ');
   if(qi)qi.oninput=()=>{try{renderEtf();}catch(e){}};
-  let t='news';   // r1203:Frank 10/31 晚:順序 早報、大盤、AI Pick、持股、我的最愛 → 開站先看早報   // r1200:Frank 10/31 大整理——有持股先開「我的持股」,沒有就開「今日盤勢」(原 r1072 早報當首頁)
+  let t='home';   // r1213:Frank 11/2「找不到東西」→ 開站先看「總覽」一頁看完(原 r1203 早報)
+  if(0)t='news';   // r1203:Frank 10/31 晚:順序 早報、大盤、AI Pick、持股、我的最愛 → 開站先看早報   // r1200:Frank 10/31 大整理——有持股先開「我的持股」,沒有就開「今日盤勢」(原 r1072 早報當首頁)
   if(0)t='news';   // r1072:📰 產業早報當首頁——每次打開網站(電腦/手機)都先看早報;之後切到哪個分頁照常   // r950:手機冷開一律從「大盤」開始(底部導覽也亮大盤)——之前還原上次分頁,畫面是 AI Pick 卻亮著大盤
   setHomeTab(t);
 })();

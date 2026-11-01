@@ -8,7 +8,7 @@
   'use strict';
   const doc=document,root=doc.documentElement;
   root.classList.add('v2');
-  const NAV=[['news','📰','產業早報'],['macro','📊','大盤'],['aipick','🤖','AI Pick'],['port','💼','我的持股'],['fav','⭐','我的最愛']];
+  const NAV=[['home','🏠','總覽'],['news','📰','產業早報'],['macro','📊','大盤'],['aipick','🤖','AI Pick'],['port','💼','我的持股'],['fav','⭐','我的最愛']];
   const NAV2=[['stocks','📈','選股'],['etf','🧺','ETF'],['gooaye','🎙️','節目']];
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -38,7 +38,7 @@
   function current(){
     if(location.hash==='#fav')return 'fav';
     if(/^#stock\//.test(location.hash))return '';
-    const b=doc.querySelector('#homeTabs button.on');return b?b.dataset.tab==='view'?'macro':b.dataset.tab:'news';
+    const b=doc.querySelector('#homeTabs button.on');return b?b.dataset.tab==='view'?'macro':b.dataset.tab:'home';
   }
   /* ── 電腦左側導覽 ── */
   function sidebar(){
@@ -46,7 +46,7 @@
     const side=doc.createElement('aside');side.id='v2side';side.setAttribute('aria-label','主選單');
     const logo=doc.querySelector('header h1');
     const item=([k,ic,lb])=>`<button type="button" data-v2="${k}"><span class="v2-ic">${ic}</span><span>${esc(lb)}</span></button>`;
-    side.innerHTML=`<a class="v2-logo" href="#" data-v2="news"></a><div class="v2-mkt"></div><nav class="v2-nav">${NAV.map(item).join('')}<div class="v2-sep">更多</div>${NAV2.map(item).join('')}</nav><div class="v2-foot"></div>`;
+    side.innerHTML=`<a class="v2-logo" href="#" data-v2="home"></a><div class="v2-mkt"></div><nav class="v2-nav">${NAV.map(item).join('')}<div class="v2-sep">更多</div>${NAV2.map(item).join('')}</nav><div class="v2-foot"></div>`;
     if(logo)side.querySelector('.v2-logo').append(logo.cloneNode(true));
     side.addEventListener('click',e=>{const b=e.target.closest('[data-v2]');if(!b)return;e.preventDefault();go(b.dataset.v2);});
     doc.body.prepend(side);
@@ -73,7 +73,7 @@
   /* ── 手機底部導覽:重建成 早報/大盤/AI Pick/持股/最愛/更多 ── */
   function mobileNav(){
     const nav=doc.getElementById('mobNav');if(!nav||nav.dataset.v2)return;nav.dataset.v2='1';
-    const items=[['news','📰','早報'],['macro','📊','大盤'],['aipick','🤖','AI Pick'],['port','💼','持股'],['fav','⭐','最愛']];
+    const items=[['home','🏠','總覽'],['macro','📊','大盤'],['aipick','🤖','AI Pick'],['port','💼','持股'],['fav','⭐','最愛']];   // r1213:早報在總覽與更多
     nav.innerHTML=items.map(([k,ic,lb])=>`<button type="button" data-v2="${k}"><span class="mi">${ic}</span>${lb}</button>`).join('')+`<button type="button" data-v2="__more" aria-haspopup="dialog"><span class="mi">☰</span>更多</button>`;
     nav.onclick=e=>{const b=e.target.closest('[data-v2]');if(!b)return;if(b.dataset.v2==='__more'){if(typeof WorkspaceNavigation!=='undefined')WorkspaceNavigation.open(doc);return;}go(b.dataset.v2);};
     window.__mobNavSync=sync;
@@ -98,6 +98,7 @@
     setTimeout(()=>{try{mobileNav();sync();}catch(e){}},1500);
     /* 開站若停在已併入的「今日盤勢」,轉到大盤 */
     const cur=doc.querySelector('#homeTabs button.on');if(cur&&cur.dataset.tab==='view')window.setHomeTab('macro');
+    if(cur&&cur.dataset.tab==='home'&&!location.hash)window.setHomeTab('home');   // r1213:總覽在 app.js 啟動時還沒建好,補一次
     if(cur&&cur.dataset.tab==='macro'){try{viewLoad();}catch(e){}}
   }
   if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',init);else init();
