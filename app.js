@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1211';
+const APP_BUILD='r1212';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1574,6 +1574,9 @@ function refreshStockBrief(s){
  const html=StockCardSummary.render(m,{overview:true}),av=s.market==='US'?usPickVerdict(s.id):aiPickVerdict(s.id,!!en);
  SiteLayout.plan(document,m,html,compactAIPick(s,av));
  /* r1210:個股「買賣總覽」也顯示重要分點(關鍵分點大買大賣、連買連賣、近期吃貨) */
+ try{let ins=document.getElementById('briefIns');const g0=document.querySelector('#stockBrief .brief-grid');
+   if(!ins&&g0){ins=document.createElement('div');ins.id='briefIns';ins.className='fav-ins brief-ins';g0.after(ins);}
+   if(ins&&ins.dataset.favins!==s.id){ins.dataset.favins=s.id;ins.innerHTML=insCardHTML(s);insFill(document.getElementById('stockBrief'));}}catch(e){}   // r1212:內部人
  try{if(s.market!=='US'){let kb=document.getElementById('briefKb');const grid=document.querySelector('#stockBrief .brief-grid');
    if(!kb&&grid){kb=document.createElement('div');kb.id='briefKb';kb.className='fav-kb brief-kb';grid.after(kb);}
    if(kb&&kb.dataset.favkb!==s.id){kb.dataset.favkb=s.id;kb.innerHTML=(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[s.id])||'';try{favKbFill(document.getElementById('stockBrief'));}catch(e){}}}}catch(e){}
@@ -1724,12 +1727,13 @@ async function favStateFill(){
       else try{await lvLoad();{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=aipTdFix(actionPlan(k.ohlc,id,s.price,own,cst,k.dates).replace(/隔天 9:00/g,'明天 9:00'));}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
       const fullPlan=plan.replace(/<div class="fav-kb" data-favkb="[^"]*">[\s\S]*?<\/div>/,'');   // r1210b:精簡卡片以外的內容(股性統計、位置與量價觀察、完整計畫)收進「完整計畫與參考」,不再整段消失
-      plan=compactFavPlan(s,plan)+`<details class="aip-fold fav-full" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📋 完整計畫與股性統計(參考)</summary>${fullPlan}</details>`+(s.market!=='US'?`<div class="fav-kb" data-favkb="${id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])||''}</div>`:'');   // r1210:卡片精簡(r1194)把關鍵分點一起拿掉了 → 加回來
+      plan=compactFavPlan(s,plan)+`<details class="aip-fold fav-full" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📋 完整計畫與股性統計(參考)</summary>${fullPlan}</details>`+`<div class="fav-ins" data-favins="${id}">${insCardHTML(s)}</div>`+(s.market!=='US'?`<div class="fav-kb" data-favkb="${id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])||''}</div>`:'');   // r1212 內部人;r1210:卡片精簡(r1194)把關鍵分點一起拿掉了 → 加回來
       FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:typeof StockCardSummary!=='undefined'?compactAIPick(s,av):'AI Pick：詳見個股',plan};
       favStPaint(id);
     }catch(e){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— 狀態判讀失敗,稍後自動重試',plan:null};FAVST[id].t-=4*60e3;favStPaint(id);}
     await new Promise(r=>setTimeout(r,80));
   }}finally{window.__favStRun=0;
+    try{insFill(document);}catch(e){}   // r1212
     try{favKbFill(document);}catch(e){}                                  // r1062:卡片計畫區建好後補上關鍵分點
     if(needRetry&&!window.__favRetryT)window.__favRetryT=setTimeout(()=>{window.__favRetryT=0;try{favStateFill();}catch(e){}},15000);}
 }
@@ -26874,6 +26878,31 @@ function extMacRender(){
   box.innerHTML=`<div class="ex-grid">${extBizCard(EXT.biz)}${extFredCard(EXT.fred)}${extOptCard(EXT.opt)}</div>`;
 }
 lazyRun('#extMacBox',()=>{extLoad().then(()=>extMacRender());},0);
+/* r1212:卡片上的「👔 內部人」一行(最愛卡片、個股買賣總覽)——資料同個股頁內部人區(ext.json,近 120 天) */
+function insCardHTML(s){
+  try{if(!EXT||!s||s.etf||/^0/.test(s.id))return '';const us=!/^\d/.test(s.id),md=d=>String(d||'').slice(5).replace('-','/');
+    if(!us){const I=EXT.insider_tw||{},L=(I.recent||{})[s.id]||[],St=I.stats||{};
+      if(!L.length)return `<span class="fins fins-none">👔 內部人:近 120 天沒有申報轉讓</span>`;
+      const sale=L.filter(x=>extIsSale(x.how)),gift=L.filter(x=>/贈與|信託/.test(x.how||'')),other=L.length-sale.length-gift.length,px=+s.price||0;
+      const shs=sale.reduce((t,x)=>t+(+x.sh||0),0),last=sale[0]||L[0];
+      const who=x=>`${extE(x.role||'')}${x.who?' '+extE(x.who):''}`;
+      const parts=[];
+      if(sale.length)parts.push(`<span class="fins fins-s">👔 內部人<b>市場賣出 ${sale.length} 筆</b>・共 ${(shs/1000).toLocaleString('en-US',{maximumFractionDigits:0})} 張${px?`(約 ${(shs*px/1e8).toFixed(1)} 億)`:''}・最近 ${md(last.d)} ${who(last)} <small>參考:台股內部人賣出 2012~2026 回測之後沒有明顯較差</small></span>`);
+      if(gift.length)parts.push(`<span class="fins fins-b">👔 內部人<b>贈與/信託 ${gift.length} 筆</b>・最近 ${md(gift[0].d)} ${who(gift[0])} <small>${St.gift&&St.gift.pass?`回測有效(偏多):之後 60 天上漲機率 ${St.gift.w60}%、對照 ${St.gift.bw60}%`:'參考'}</small></span>`);
+      if(other>0)parts.push(`<span class="fins">👔 其他轉讓 ${other} 筆(洽特定人等)・最近 ${md((L.find(x=>!extIsSale(x.how)&&!/贈與|信託/.test(x.how||''))||{}).d)}</span>`);
+      return parts.join('');}
+    const F=EXT.form4||{},L=(F.recent||{})[s.id]||[],St=F.stats||{};
+    const buys=L.filter(x=>x.c==='P'),sells=L.filter(x=>x.c==='S');
+    if(!buys.length&&!sells.length)return `<span class="fins fins-none">👔 內部人:近 120 天沒有公開市場買賣</span>`;
+    const val=a=>a.reduce((t,x)=>t+(+x.v||0),0),fv=v=>v>=1e6?'$'+(v/1e6).toFixed(1)+'M':'$'+(v/1e3).toFixed(0)+'K';
+    const out=[];
+    if(buys.length)out.push(`<span class="fins fins-b">👔 內部人<b>市場買進 ${buys.length} 筆</b>・${fv(val(buys))}・最近 ${md(buys[0].fd)} ${extE(buys[0].role||'')} <small>${St.buy&&St.buy.pass?`回測有效(偏多):之後 60 天上漲機率 ${St.buy.w60}%、對照 ${St.buy.bw60}%`:'參考'}</small></span>`);
+    if(sells.length)out.push(`<span class="fins fins-s">👔 內部人市場賣出 ${sells.length} 筆・${fv(val(sells))} <small>參考:美股高管賣股多為例行,回測沒有明顯較差</small></span>`);
+    return out.join('');
+  }catch(e){return '';}
+}
+async function insFill(root){const els=[...(root||document).querySelectorAll('[data-favins]')];if(!els.length)return;await extLoad();
+  els.forEach(el=>{const s=(DATA.stocks||[]).find(x=>x.id===el.dataset.favins);el.innerHTML=s?insCardHTML(s):'';});}
 /* 個股頁:台股內部人申報 / 美股 Form 4 + 空單 */
 function extIsSale(h){return /一般交易|鉅額|盤後|拍賣/.test(h||'');}
 function extStatLine(o,good){

@@ -195,3 +195,15 @@ html.v2 header .header-tools[open]{border:none!important;background:none!importa
 html.v2 .fav-kb:not(:empty){margin:10px 0 2px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 70%,transparent)}
 html.v2 .fav-kb:not(:empty)::before{content:'🏦 重要分點';display:block;width:100%;font-size:12.5px;font-weight:800;color:var(--txt2);margin-bottom:4px}
 html.v2 .brief-kb:not(:empty){margin:12px 0 0}
+/* r1212:卡片上的內部人一行 */
+.fav-ins:empty{display:none}
+.fav-ins{display:flex;flex-direction:column;gap:5px;margin:10px 0 2px}
+.fins{display:block;font-size:12.5px;line-height:1.55;padding:7px 10px;border:1px solid var(--line);border-radius:10px;color:var(--txt2)}
+.fins b{color:var(--txt)}
+.fins small{display:block;color:var(--mut);font-size:11.5px}
+.fins-s{border-color:color-mix(in srgb,var(--down) 55%,var(--line));background:color-mix(in srgb,var(--down) 7%,transparent)}
+.fins-s b{color:var(--down)}
+.fins-b{border-color:color-mix(in srgb,var(--up) 55%,var(--line));background:color-mix(in srgb,var(--up) 7%,transparent)}
+.fins-b b{color:var(--up)}
+.fins-none{opacity:.7}
+.brief-ins:not(:empty){margin:12px 0 0}
