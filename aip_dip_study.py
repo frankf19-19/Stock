@@ -41,7 +41,7 @@ def run(S, cal, BR, v):
         nxt = cal[k+1] if k+1 < len(cal) else None
         if nxt is None or dt.date.fromisoformat(nxt).isocalendar()[1] != dt.date.fromisoformat(d).isocalendar()[1]: wl.add(d)
     trades = []; open_pos = []; daily = collections.defaultdict(float)
-    dip = v.get('dip'); th = v.get('th', 0.35)
+    dip = v.get('dip'); th = v.get('th', 0.35); cap = (dip or {}).get('cap', K)
     for d in cal:
         still = []
         for p in open_pos:
@@ -59,7 +59,7 @@ def run(S, cal, BR, v):
         open_pos = still
         held = {p['sid'] for p in open_pos}
         # 跌深補位(每天):大盤一起跌、有空位
-        if dip and len(open_pos) < K and BR.get(d, 1) < th:
+        if dip is not None and len(open_pos) < K and BR.get(d, 1) < th and sum(p['kind'] == 'dip' for p in open_pos) < cap:
             c = []
             for sid, e in S.items():
                 if sid in held: continue
@@ -69,7 +69,7 @@ def run(S, cal, BR, v):
                 if s and (dip.get('kinds') is None or s[0] in dip['kinds']): c.append((s[0] != 'k40', e['F']['atr'][k] / e['a'][k][3], sid, k))
             c.sort()
             for _, _, sid, k in c:
-                if len(open_pos) >= K: break
+                if len(open_pos) >= K or sum(p['kind'] == 'dip' for p in open_pos) >= cap: break
                 e = S[sid]; px0 = e['a'][k+1][0]
                 if not px0: continue
                 open_pos.append(dict(sid=sid, ei=k+1, px=px0, sec=e['sec'], size=1.0 / K, tp=dip.get('tp', 0.5), sl=dip.get('sl', 0.2), hold=dip.get('hold', 120), kind='dip')); held.add(sid)
@@ -111,7 +111,10 @@ if __name__ == '__main__':
          '+錯殺補位(只用 −40%)': dict(dip=dict(kinds=['k40'])),
          '+錯殺補位(門檻 <30%)': dict(dip={}, th=0.30),
          '+錯殺補位(門檻 <45%)': dict(dip={}, th=0.45),
-         '+錯殺補位,大盤弱時短期清單暫停': dict(dip={}, mom_off_weak=1)}
+         '+錯殺補位,大盤弱時短期清單暫停': dict(dip={}, mom_off_weak=1),
+         '+錯殺最多 2 格(−20/+50/120)': dict(dip=dict(cap=2)),
+         '+錯殺最多 2 格(−20/+30/90)': dict(dip=dict(cap=2, tp=0.3, hold=90)),
+         '+錯殺最多 1 格(−20/+50/120)': dict(dip=dict(cap=1))}
     for nm in (sys.argv[1:] or V):
         r = run(S, cal, BR, V[nm])
         print(f"{nm:34} 年化 {r['cagr']*100:+6.1f}%  回落 {r['mdd']*100:6.1f}%  最差年 {r['worst']*100:+6.1f}%  正年 {r['pos']}/{r['ny']}  {r['kinds']}", flush=True)
