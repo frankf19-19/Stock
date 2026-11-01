@@ -40,7 +40,7 @@ def run(S, cal, BR, v):
     for k, d in enumerate(cal):
         nxt = cal[k+1] if k+1 < len(cal) else None
         if nxt is None or dt.date.fromisoformat(nxt).isocalendar()[1] != dt.date.fromisoformat(d).isocalendar()[1]: wl.add(d)
-    trades = []; open_pos = []; daily = collections.defaultdict(float)
+    trades = []; open_pos = []; daily = collections.defaultdict(float); CI = {d: k for k, d in enumerate(cal)}
     dip = v.get('dip'); th = v.get('th', 0.35); cap = (dip or {}).get('cap', K)
     for d in cal:
         still = []
@@ -74,7 +74,12 @@ def run(S, cal, BR, v):
                 if not px0: continue
                 open_pos.append(dict(sid=sid, ei=k+1, px=px0, sec=e['sec'], size=1.0 / K, tp=dip.get('tp', 0.5), sl=dip.get('sl', 0.2), hold=dip.get('hold', 120), kind='dip')); held.add(sid)
         # 短期清單(每週)
-        if d in wl and not (v.get('mom_off_weak') and BR.get(d, 1) < th):
+        drop_ok = True
+        if v.get('drop'):
+            k0 = cal.index(d) if False else None
+        if v.get('drop') and d in CI and CI[d] >= v.get('lb',5) and BR.get(d) is not None and BR.get(cal[CI[d]-v.get('lb',5)]) is not None and BR[cal[CI[d]-v.get('lb',5)]] - BR[d] > v['drop']: drop_ok = False
+        if v.get('hot') and BR.get(d, 0) > v['hot']: drop_ok = False
+        if d in wl and drop_ok and not v.get('no_mom') and not (v.get('mom_off_weak') and BR.get(d, 1) < th):
             secs = collections.Counter(p['sec'] for p in open_pos); cands = []
             for sid, e in S.items():
                 if sid in held: continue
@@ -98,8 +103,26 @@ def run(S, cal, BR, v):
     cagr = eq ** (245 / len(cal)) - 1
     kinds = collections.defaultdict(list)
     for t in trades: kinds[t['kind']].append(t['r'])
-    return dict(cagr=cagr, mdd=mdd, worst=min(yr.values()), pos=sum(1 for x in yr.values() if x > 0), ny=len(yr), yrs={k: round(x*100, 1) for k, x in sorted(yr.items())},
+    return dict(daily=daily, cagr=cagr, mdd=mdd, worst=min(yr.values()), pos=sum(1 for x in yr.values() if x > 0), ny=len(yr), yrs={k: round(x*100, 1) for k, x in sorted(yr.items())},
                 kinds={k: (len(x), round(float(np.mean(x))*100, 2), round(float(np.mean([r > 0 for r in x]))*100)) for k, x in kinds.items()})
+
+def combo(cal, d1, d2, w):
+    eq = 1.0; peak = 1.0; mdd = 0.0; yr = collections.defaultdict(lambda: 1.0)
+    for d in cal:
+        r = w * d1.get(d, 0.0) + (1 - w) * d2.get(d, 0.0); eq *= 1 + r; peak = max(peak, eq); mdd = min(mdd, eq / peak - 1); yr[d[:4]] *= 1 + r
+    return eq ** (245 / len(cal)) - 1, mdd, {k: round((x - 1) * 100, 1) for k, x in sorted(yr.items())}
+
+if __name__ == '__main__' and os.environ.get('COMBO'):
+    S = SB.load_all(); SB.features(S); prep_dip(S)
+    cal = [d for d in sorted(set(d for e in S.values() for d in e['d'])) if d >= '2016-01-01']; BR = breadth(S)
+    m = run(S, cal, BR, {}); 
+    for nm, dv in (('錯殺 −20/+50/120', {}), ('錯殺 −20/+30/90', dict(tp=0.3, hold=90))):
+        dp = run(S, cal, BR, dict(dip=dv, no_mom=1))
+        print(f"錯殺獨立 5 格({nm}):年化 {dp['cagr']*100:+.1f}% 回落 {dp['mdd']*100:.1f}% 最差年 {dp['worst']*100:+.1f}% {dp['kinds']}  逐年 {dp['yrs']}", flush=True)
+        for w in (1.0, 0.8, 0.7, 0.6, 0.5):
+            c, md, yr = combo(cal, m['daily'], dp['daily'], w)
+            print(f"   資金 短期 {w*100:.0f}% / 錯殺 {100-w*100:.0f}%:年化 {c*100:+.1f}% 回落 {md*100:.1f}% 最差年 {min(yr.values()):+.1f}% 正年 {sum(1 for x in yr.values() if x>0)}/{len(yr)}  逐年 {yr}", flush=True)
+    sys.exit()
 
 if __name__ == '__main__':
     t0 = time.time(); S = SB.load_all(); SB.features(S); prep_dip(S)
@@ -114,7 +137,19 @@ if __name__ == '__main__':
          '+錯殺補位,大盤弱時短期清單暫停': dict(dip={}, mom_off_weak=1),
          '+錯殺最多 2 格(−20/+50/120)': dict(dip=dict(cap=2)),
          '+錯殺最多 2 格(−20/+30/90)': dict(dip=dict(cap=2, tp=0.3, hold=90)),
-         '+錯殺最多 1 格(−20/+50/120)': dict(dip=dict(cap=1))}
+         '+錯殺最多 1 格(−20/+50/120)': dict(dip=dict(cap=1)),
+         '大盤弱(<35%)時不買新短期': dict(mom_off_weak=1),
+         '大盤弱(<45%)時不買新短期': dict(mom_off_weak=1, th=0.45),
+         '大盤弱(<25%)時不買新短期': dict(mom_off_weak=1, th=0.25),
+         '寬度 5 日掉 >15 點時不買': dict(drop=0.15),
+         '寬度 5 日掉 >25 點時不買': dict(drop=0.25),
+         '過熱(>80%)時不買': dict(hot=0.80),
+         '過熱(>85%)時不買': dict(hot=0.85),
+         '寬度 5 日掉 >20 點時不買': dict(drop=0.20),
+         '寬度 5 日掉 >30 點時不買': dict(drop=0.30),
+         '寬度 3 日掉 >25 點時不買': dict(drop=0.25, lb=3),
+         '寬度 10 日掉 >25 點時不買': dict(drop=0.25, lb=10),
+         '寬度 10 日掉 >30 點時不買': dict(drop=0.30, lb=10)}
     for nm in (sys.argv[1:] or V):
         r = run(S, cal, BR, V[nm])
         print(f"{nm:34} 年化 {r['cagr']*100:+6.1f}%  回落 {r['mdd']*100:6.1f}%  最差年 {r['worst']*100:+6.1f}%  正年 {r['pos']}/{r['ny']}  {r['kinds']}", flush=True)
