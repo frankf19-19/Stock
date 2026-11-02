@@ -13,4 +13,4 @@ test('百分比、每股元、日期和沒有明確幣別不當金額衝突',()=
 test('缺資料不生成通過驗證徽章，也不憑空補數字',()=>{const c=ctx();assert.equal(c.irAiUnitIssues({}).length,0);assert.equal(c.irAiUnitAuditHTML({}), '');});
 test('提示轉義來源文字，不能插入HTML',()=>{const c=ctx(),a=facts('營收為美元46.72億元',[{k:'<script>營收(美元十億元)</script>',v:'46.72'}]);assert.doesNotMatch(c.irAiUnitAuditHTML(a),/<script>/);assert.match(c.irAiUnitAuditHTML(a),/&lt;script&gt;/);});
 test('正面與成長動能用紅色，保守與風險用綠色',()=>{const c=ctx();assert.match(c.irToneBadge('正面'),/var\(--up\)/);assert.match(c.irToneBadge('保守'),/var\(--down\)/);const h=c.irAiHTML({ai:{drivers:['需求改善'],risks:['匯率風險']}},{});assert.match(h,/color:var\(--up\)">🚀 成長動能/);assert.match(h,/color:var\(--down\)">⚠️ 風險/);});
-test('有單位差異時仍保留完整摘要、表格與全文',()=>{const c=ctx(),a=tsmc(),h=c.irAiHTML({d:'2026-10-15',ai:a},{});assert.ok(h.includes(c.irEsc(a.summary)));assert.match(h,/簡報關鍵數字/);assert.match(h,/深度分析全文/);assert.match(h,/金額單位需核對/);});
+test('有單位差異時仍保留完整摘要、表格與全文',()=>{const c=ctx(),a=tsmc(),h=c.irAiHTML({d:'2026-10-15',ai:a},{});assert.ok(h.includes(c.irEsc(a.summary)));assert.match(h,/簡報關鍵數字/);assert.match(h,/深度分析全文/);assert.match(h,/金額單位需核對|已更正的地方/);});

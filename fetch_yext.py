@@ -347,6 +347,21 @@ def main():
                 except Exception as e:
                     print(f"  {sym} Yahoo 備援失敗: {e}", file=sys.stderr)
             time.sleep(0.4)
+    # r1221:FRED 的 S&P/那斯達克常慢 1~2 天(11/02 早上 S&P 還停在 10/28)→ 用 Nasdaq 官方日線補上比較新的幾根
+    for sym, code in (("^GSPC", "SPX"), ("^IXIC", "COMP"), ("^DJI", "DJIA")):
+        try:
+            cur = (series.get(sym) or {}).get("d")
+            nd = nasdaq_daily(code, days=20)
+            if not nd: continue
+            if not cur:
+                series[sym] = {"d": nd, "src": "nasdaq"}; continue
+            last_day = _tp_day(cur["t"][-1]) if cur.get("t") else None
+            add = [(t, c) for t, c in zip(nd["t"], nd["c"]) if last_day is None or _tp_day(t) > last_day]
+            if add:
+                cur["t"] = (cur["t"] + [t for t, _ in add])[-140:]; cur["c"] = (cur["c"] + [c for _, c in add])[-140:]
+                print(f"  {sym} ← Nasdaq 補上 FRED 還沒有的 {len(add)} 天")
+        except Exception as e:
+            print(f"  {sym} Nasdaq 補日線失敗: {e}", file=sys.stderr)
     # 費城半導體:FRED 無此系列 → Nasdaq 官方端點(指數擁有者;零 Yahoo)
     got_sox = nasdaq_daily("SOX")
     if got_sox:

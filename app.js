@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1220';
+const APP_BUILD='r1221';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1289,7 +1289,7 @@ function stockCondHTML(s,f,g,trig){
     const P=[],M=[],add=(ok,arr,txt,eff)=>{if(ok)arr.push(`${txt} <span class="pbx-eff">(${eff})</span>`);};
     const both=f20!=null&&t20!=null&&f20<-0.02&&t20<=0;
     /* r1180:新因素(plan_bt_study.py filt9b):估值、籌碼集中度、融資、產業強弱 */
-    const splitRecent=(()=>{try{const L=(ADJ1&&ADJ1[s.id])||[],cut=new Date(Date.now()-180*864e5).toISOString().slice(0,10);return L.some(x=>x[0]>=cut&&(x[1]<0.7||x[1]>1.4));}catch(e){return false;}})();   // r1218:半年內有分割/減資,本益比與殖利率可能還是舊股數算的(例:緯穎 9/2 一拆三)→ 不當條件
+    const splitRecent=(()=>{try{const L=(ADJ1&&ADJ1[s.id])||[],cut=new Date(Date.now()-180*864e5).toISOString().slice(0,10);return L.some(x=>x[0]>=cut&&(x[1]<0.7||x[1]>1.4))&&!(s.spl&&!s.spl.mix);}catch(e){return false;}})();   // r1218:半年內有分割/減資,本益比與殖利率可能還是舊股數算的(例:緯穎 9/2 一拆三)→ 不當條件
     const pe=!splitRecent&&+s.pe>0?+s.pe:null,pb=!splitRecent&&+s.pb>0?+s.pb:null,dy=!splitRecent&&s.dv&&+s.dv.y>0&&!s.dv.chk&&!(s.dv.est&&+s.dv.y>10)?+s.dv.y:null;   // r1181:推估(est)殖利率 >10% 多半是特別股利被年化放大,不當條件
     let big4=null,hold4=null,mf20=null,secRel=null;
     if(ch){const bp=(ch.bp||[]).map(Number);if(bp.length>=5&&isFinite(bp[bp.length-1])&&isFinite(bp[bp.length-5]))big4=bp[bp.length-1]-bp[bp.length-5];
@@ -1545,7 +1545,8 @@ function ownStrategySummary(s,o,dates,own,cost){
   if(s.historyOnly){buy='近期報價／日K尚未對齊，暫不提供可執行買點';stop='先核對最新完整交易日資料；歷史圖不作即時出場判斷';take='近期資料待補，暫不推定停利';}
   else if(s.etf){buy='ETF尚未完成個別策略回測；不套用一般個股突破或跌深買點';stop=entry?'你已填入成本 '+price(entry)+'；ETF風險線須依自行設定規則':'尚未填實際成本；不推定停損價';take='ETF未建立固定停利規則，幾何價位僅供觀察';}
   else if(us){buy=trig?`跌深觀察 ${price(trig)}：第一天「收盤」離60日高跌35%以上，下一交易日開盤才可執行；盤中到價未確認`:'至少需要60根日K';stop=entry?`${price(strategyPrice(entry*.8,true,'down'))}（採跌深策略時，成本−20%）`:'若採跌深策略，實際成交成本−20%';take=entry?`${price(strategyPrice(entry*1.3,true,'up'))}（採跌深策略時，成本+30%），或最多90交易日`:'若採跌深策略，實際成交成本+30%，或最多90交易日';}
-  else if(hi250&&m60){const near=px>=hi250*.9,breakout=near&&n>=120?Math.min(...[Math.max(...high.slice(-60)),Math.max(...high.slice(-120)),hi250].filter(x=>x>=px),hi250):hi250;
+  else if(hi250&&m60){let near=px>=hi250*.9,breakout=near&&n>=120?Math.min(...[Math.max(...high.slice(-60)),Math.max(...high.slice(-120)),hi250].filter(x=>x>=px),hi250):hi250;
+    try{const F0=stockOperationFacts(s,rawO,dates,own,cost),be=F0&&(F0.check.breaks.length?F0.signalEntry:F0.breakEntry);if(be>0){breakout=be;near=F0.check.close>=hi250*.9;}}catch(e){}   // r1221:跟買賣總覽用同一個突破價(收盤破 60/120/250 日高,且不低於 52 週高的 9 成),不再出現兩個價
     buy=`技術突破觀察 ${price(breakout)}：收盤確認創高後，下一交易日開盤執行；不是碰價即買${!near?'（目前離52週高超過10%，不把60／120日突破當買點）':''}。錯殺低接另看 ${price(trig)}（第一天收盤跌深40%）`;
     stop=`技術突破：季線目前 ${price(m60)}，連續2個完整交易日收盤跌破各日季線，下一交易日開盤出場；單次盤中跌破未確認。錯殺低接：${entry?price(strategyPrice(entry*.80,false,'down'))+'（成本−20%）':'成交後以成本−20%計算'}`;   // r1178
     take+=`。錯殺低接：${entry?price(strategyPrice(entry*1.5,false,'up'))+'（成本+50%）':'成交後以成本+50%計算'}，或最多120交易日`;   // r1178
@@ -8178,7 +8179,16 @@ async function usKpiFill(id){                              // r1091:美股個股
   const set=(k,v)=>{document.querySelectorAll(`[data-uskpi="${k}"]`).forEach(el=>{el.innerHTML=v;});};
   let q=null;try{const m=await cnbcStocks([id]);q=m[id];}catch(e){}
   if(!document.querySelector('[data-uskpi]'))return;
-  if(!q){['eps','pe','mcap','rng'].forEach(k=>set(k,'—'));set('pesub','CNBC 暫時抓不到');return;}
+  if(!q||q.eps==null||q.lo52==null){   // r1221(q 不完整也補):CNBC 抓不到時,改用 SEC 財報(連續四季才加總)與 K 線算 52 週區間,不再整排「—」
+    const st=(DATA.stocks||[]).find(x=>x.id===id),px=st&&+st.price;let eps=null,mcap=null,lo=null,hi=null;
+    try{const U=await usfData(),e=U&&(U.s||U)[id];if(e&&Array.isArray(e.eps)&&Array.isArray(e.q)&&e.q.length>=4){const qq=e.q.slice(-4),ok=qq.every((x,i)=>{if(!i)return true;const p=qq[i-1],y0=+p.slice(0,2),q0=+p.slice(-1),y1=+x.slice(0,2),q1=+x.slice(-1);return (y1*4+q1)-(y0*4+q0)===1;});const v=e.eps.slice(-4);if(ok&&v.every(x=>x!=null))eps=v.reduce((a,b)=>a+b,0);}
+      if(e&&e.sh&&px)mcap=px*e.sh*1e6;}catch(x){}
+    try{const k=await loadK(st);const o=k&&k.ohlc?k.ohlc.slice(-250):[];if(o.length>=200){lo=Math.min(...o.map(b=>+b[2]));hi=Math.max(...o.map(b=>+b[1]));}}catch(x){}
+    const fm=v=>v>=1e12?'$'+(v/1e12).toFixed(2)+'T':v>=1e9?'$'+(v/1e9).toFixed(1)+'B':'$'+(v/1e6).toFixed(0)+'M';
+    set('eps',eps!=null?eps.toFixed(2):'—');set('pe',eps>0&&px?(px/eps).toFixed(1):'—');set('pesub',eps!=null?'倍・SEC 近四季':'財報季度不連續,暫不計算');
+    set('mcap',mcap?fm(mcap):'—');set('rng',lo&&hi?`${lo.toLocaleString(undefined,{maximumFractionDigits:2})} ~ ${hi.toLocaleString(undefined,{maximumFractionDigits:2})}`:'—');
+    if(lo&&hi&&px)set('rngsub',`現價在區間 ${Math.max(0,Math.min(100,Math.round((px-lo)/(hi-lo)*100)))}% 處・K 線計算`);
+    return;}
   set('eps',q.eps!=null?(+q.eps).toFixed(2):'—');set('pe',q.pe!=null?q.pe.toFixed(1):'—');set('pesub',q.fpe?`倍・預估 ${q.fpe.toFixed(1)}`:(q.eps!=null&&q.eps<0?'虧損不適用':'倍'));
   set('mcap',q.mcap||'—');set('rng',(q.lo52&&q.hi52)?`${q.lo52.toLocaleString()} ~ ${q.hi52.toLocaleString()}`:'—');
   if(q.lo52&&q.hi52&&q.c){const pos=Math.round((q.c-q.lo52)/(q.hi52-q.lo52)*100);set('rngsub',`現價在區間 ${Math.max(0,Math.min(100,pos))}% 處`);}
@@ -13046,8 +13056,16 @@ function irAiUnitAuditHTML(a){
   return `<details open class="ir-unit-audit" style="border:1px solid var(--amber);border-radius:7px;padding:8px 10px;margin:8px 0"><summary style="cursor:pointer;font-weight:700;color:var(--amber)">金額單位需核對：AI文字與表格有 ${issues.length} 處不一致</summary><ul style="margin:6px 0;padding-left:20px">${issues.map(x=>`<li>${irEsc(x.field)}「${irEsc(x.text)}」；同頁「${irEsc(x.label)}」列 ${irEsc(x.tableValue)} ${irEsc(x.tableUnit)}，單位不同。</li>`).join('')}</ul><div style="font-size:12px;color:var(--dim)">這是同頁一致性檢查，尚未核對原始簡報；AI原文與表格完整保留，請以原始資料確認。</div></details>`;
 }
 
+function irAiUnitFix(a0){   // r1221:AI 把「十億」寫成「億」(差 10 倍)時,依同頁表格自動更正,並在下方註明
+  const issues=irAiUnitIssues(a0);if(!issues.length)return {a:a0,n:0};
+  const a=JSON.parse(JSON.stringify(a0));let n=0;
+  const fmt=v=>v>=10000?(v/10000).toLocaleString('zh-TW',{maximumFractionDigits:3})+' 兆':v.toLocaleString('zh-TW',{maximumFractionDigits:2})+' 億';
+  const fix=t=>{if(!t)return t;let out=String(t);issues.forEach(x=>{if(!(x.ratio>0)||x.ratio>=1)return;const amt=x.tableValue/x.ratio;const num=String(x.tableValue);const rx=new RegExp('(^|[^\\d.,])('+num.replace('.','\\.').replace(/\B(?=(\d{3})+(?!\d))/g,',?')+')\\s*億','g');out=out.replace(rx,(m,p1)=>{n++;return p1+fmt(amt);});});return out;};
+  a.head=fix(a.head);a.summary=fix(a.summary);a.deep=fix(a.deep);if(Array.isArray(a.guidance))a.guidance=a.guidance.map(fix);
+  return {a,n};
+}
 function irAiHTML(c,s){
-  const a=c.ai||{};
+  const fx=irAiUnitFix(c.ai||{}),a=fx.a,raw=c.ai||{};
   const li=arr=>(arr||[]).filter(Boolean).map(x=>`<li>${irEsc(x)}</li>`).join('');
   const nums=(a.numbers||[]).filter(x=>x&&x.k).map(x=>`<tr><td>${irEsc(x.k)}</td><td style="text-align:right"><b>${irEsc(x.v||'')}</b></td><td style="text-align:right;color:var(--dim)">${irEsc(x.chg||'')}</td></tr>`).join('');
   const fmtT=t=>{if(!t)return '';const dg=String(t).replace(/[^\d]/g,'');return dg.length>=4?dg.slice(0,2)+':'+dg.slice(2,4):String(t).slice(0,5);};
@@ -13055,7 +13073,7 @@ function irAiHTML(c,s){
   return `<div class="dim-note" style="font-size:14px;line-height:1.75;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:11px 14px">
     <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><b>${us?'🎧 AI 讀完財報新聞稿(SEC 8-K)':'🎧 AI 讀完公司簡報'}</b> ${irToneBadge(a.tone)} <span class="c-code">${irEsc(c.d)}${c.t?' '+fmtT(c.t):''}</span>${a.period?`<span class="c-code">期間 ${irEsc(a.period)}</span>`:''}${c.src==='pptx'?'<span class="c-code">pptx</span>':''}</div>
     ${a.head?`<div style="font-size:16px;font-weight:800;margin:6px 0 4px">${irEsc(a.head)}</div>`:''}
-    ${irAiUnitAuditHTML(a)}
+    ${fx.n?`<div class="dim-note" style="color:var(--amber);font-size:12.5px;margin:6px 0">✏️ AI 原文有 ${fx.n} 處把「十億」寫成「億」(差 10 倍),上面已依公司表格更正。</div>`:''}${fx.n?irAiUnitAuditHTML(raw).replace('<details open','<details').replace(/金額單位需核對：AI文字與表格有 (\d+) 處不一致/,'已更正的地方：AI 原文與公司表格對照 $1 處'):irAiUnitAuditHTML(raw)}${fx.n&&raw.summary?`<details style="font-size:12.5px;color:var(--dim)"><summary>看 AI 原文(未更正)</summary>${irEsc(raw.summary)}</details>`:''}
     ${a.summary?`<p style="margin:4px 0">${irEsc(a.summary)}</p>`:''}
     ${nums?`<details open style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">📊 簡報關鍵數字</summary><table class="mini-tbl" style="width:100%;font-size:13px;margin-top:4px">${nums}</table></details>`:''}
     ${(a.guidance||[]).length?`<div style="margin-top:6px"><b>🧭 公司指引/展望</b><ul class="ai-ul">${li(a.guidance)}</ul></div>`:''}
@@ -26789,7 +26807,7 @@ function vwCheck(c,period){
 }
 /* r1200:新聞來源預設收起來,只留「📎 來源 N 則」 */
 function tidySrc(src){const L=(src||[]);if(!L.length)return '';return `<details class="src-fold"><summary>📎 來源 ${L.length} 則</summary><div class="news-src">${L.map(s=>`<div>📎 ${newsSrcHtml(s)}</div>`).join('')}</div></details>`;}
-function viewRender(j){
+function viewRender(j){window.__vwJ=j;
   const box=document.getElementById('viewBox');if(!box)return;
   const F=j.facts||{},dates=window.__viewDates||j.dates||[],ck=`${j.date}_${j.slot}`;
   const sl=s=>s==='am'?'早':'晚';
@@ -26797,12 +26815,13 @@ function viewRender(j){
   const chips=dates.slice(0,NC).map(x=>`<button class="news-dbtn${x.d+'_'+x.s===ck?' on':''}" data-vk="${x.d}_${x.s}">${newsDay(x.d)} ${sl(x.s)}</button>`).join('')
     +(dates.length>NC?`<select id="viewMore" class="news-dsel"><option value="">更早 ▾</option>${dates.slice(NC).map(x=>`<option value="${x.d}_${x.s}">${newsDay(x.d)} ${sl(x.s)} ${x.d.slice(0,4)}</option>`).join('')}</select>`:'');
   const latest=dates[0]&&dates[0].d+'_'+dates[0].s===ck;
-  const idx=(F.idx||[]).map(x=>`<tr><td><b>${vwE(x.name)}</b></td><td class="r">${vwN(x.last,x.k!=='OTC'&&x.last>=1000)}<div class="dim" style="font-size:11px">${(x.d||'').slice(5).replace('-','/')}</div></td><td class="r c1">${vwP(x.chg1,2)}</td><td class="r">${vwP(x.dd)}</td>
+  try{if(latest&&typeof BIAS!=='undefined'&&BIAS&&Array.isArray(BIAS.idx))(F.idx||[]).forEach(x=>{const b=BIAS.idx.find(y=>y.name===x.name);if(!b||!(b.last>0)||!b.as_of||b.as_of<(x.d||'')||Math.abs(b.last/x.last-1)<1e-4)return;const w=(b.ma||{})['20']||{};x.last=b.last;x.d=b.as_of;if(x.hi)x.dd=+((b.last/x.hi-1)*100).toFixed(1);if(w.bias!=null){x.wb=w.bias;x.wpct=Math.round(w.pct);}x.upd=1;});else if(latest&&typeof biasLoad==='function'&&!window.__vwBiasTry){window.__vwBiasTry=1;biasLoad().then(()=>{try{if(window.__vwJ)viewRender(window.__vwJ);}catch(e){}});}}catch(e){}   // r1221:盤勢解讀是當時的快照;收盤數字後來更新了就換成最新的,避免和落底燈不一致
+  const idx=(F.idx||[]).map(x=>`<tr><td><b>${vwE(x.name)}</b></td><td class="r">${vwN(x.last,x.k!=='OTC'&&x.last>=1000)}<div class="dim" style="font-size:11px">${(x.d||'').slice(5).replace('-','/')}${x.upd?'・已更新':''}</div></td><td class="r c1">${vwP(x.chg1,2)}</td><td class="r">${vwP(x.dd)}</td>
     <td class="r">${vwP(x.wb)}<div class="dim" style="font-size:11px">只有 ${x.wpct??'—'}% 的時候更低</div></td><td><span class="vw-zone" style="color:${VW_ZONE[x.zone]||'var(--txt2)'};border-color:${VW_ZONE[x.zone]||'var(--line)'}">${vwE(x.zone||'—')}</span></td></tr>`).join('');
   const bt=(F.idx||[]).filter(x=>x.bt).map(x=>{const b=x.bt,base=x.base||{};
     return `<div class="vw-bt"><b>${vwE(x.name)}跌進 20 週乖離「${vwE(x.zone)}」區</b>,歷史上之後的表現(共 ${b['4']?.n??'—'} 次):
       ${['4','8','26'].filter(h=>b[h]).map(h=>`<div>・${h} 週後:上漲機率 <b>${b[h].win}%</b>、中位 ${b[h].med>=0?'+':''}${b[h].med}%、最差 ${b[h].worst}%<span class="dim">(平常 ${base[h]?.win??'—'}%、${base[h]?.med>=0?'+':''}${base[h]?.med??'—'}%)</span></div>`).join('')}</div>`;}).join('');
-  const lights=Object.entries(F.lights||{}).map(([k,v])=>`<a class="vw-lt${v.nLow?' on':''}" href="javascript:void 0" data-btm="${k}"><b>${vwE(v.name)}</b> 落底燈 <b>${v.nLow}/${(v.low||[]).length}</b>・止跌 ${v.nStop}/${(v.stop||[]).length}</a>`).join('');
+  const lights=Object.entries(F.lights||{}).map(([k,v])=>{const nb=typeof BTM!=='undefined'&&BTM&&BTM.mkt&&BTM.mkt[k]&&BTM.mkt[k].d,old=latest&&nb&&v.d&&nb>v.d;return `<a class="vw-lt${v.nLow&&!old?' on':''}" href="javascript:void 0" data-btm="${k}"${old?' style="opacity:.6"':''}><b>${vwE(v.name)}</b> 落底燈 <b>${v.nLow}/${(v.low||[]).length}</b>・止跌 ${v.nStop}/${(v.stop||[]).length}${old?` <small>(${String(v.d).slice(5).replace('-','/')} 的燈;最新的看「落底燈號」卡)</small>`:''}</a>`;}).join('');   // r1221
   const facts=vwFactRows(F).map(r=>`<tr><td><b>${r[0]}</b></td><td class="r">${r[1]}</td><td>${r[2]}<span class="dim" style="font-size:11px"> ${r[3]?String(r[3]).slice(5).replace('-','/'):''}</span></td></tr>`).join('');
   const causes=(j.causes||[]).map((c,i)=>`<div class="news-card" style="border-left-color:${i===0?'#8E7CC3':'var(--line)'}">
       <div class="news-head"><span class="news-cat" style="color:var(--txt2);border-color:var(--line)">${i+1}</span><b class="news-ttl">${vwE(c.t)}</b></div>

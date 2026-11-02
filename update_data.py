@@ -4042,6 +4042,35 @@ def _adj1():
         except Exception: _ADJ1 = {}
     return _ADJ1
 
+def split_fix(stocks):
+    """r1221:近一年有分割/減資(還原因子 <0.7 或 >1.4,例:緯穎 2026-09-02 一拆三)時,
+    官方本益比、EPS、股利還是用舊股數算的 → 分割後 135 天內(近四季財報都還是舊股數)用因子換算;
+    135~365 天新舊股數混在一起,不換算、改標 chk 讓前端不拿來當條件。"""
+    A = _adj1(); today = dt.date.today(); n = 0
+    for s in stocks:
+        if s.get("market") != "TW" or s.get("spl"): continue
+        L = [x for x in (A.get(s["id"]) or []) if (x[1] < 0.7 or x[1] > 1.4)]
+        if not L: continue
+        d0, f = L[-1][0], L[-1][1]
+        try: age = (today - dt.date.fromisoformat(d0)).days
+        except Exception: continue
+        if age < 0 or age > 365: continue
+        if age <= 135:
+            if s.get("pe"): s["pe"] = round(s["pe"] / f, 1)
+            if s.get("eps"): s["eps"] = round(s["eps"] * f, 2)
+            if s.get("fpe"): s["fpe"] = round(s["fpe"] / f, 1)
+            dv = s.get("dv")
+            if isinstance(dv, dict) and dv.get("c"):
+                dv["c"] = round(dv["c"] * f, 2)
+                if s.get("price"): dv["y"] = round(dv["c"] / s["price"] * 100, 2)
+            s["spl"] = {"d": d0, "f": f}
+        else:
+            s.pop("pe", None); s.pop("fpe", None)
+            if isinstance(s.get("dv"), dict): s["dv"]["chk"] = 1
+            s["spl"] = {"d": d0, "f": f, "mix": 1}
+        n += 1
+    if n: print(f"  分割/減資換算:{n} 檔")
+
 def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
     sid, is_tw = c["id"], c["market"] == "TW"
     o = bars["o"]; closes = [x[3] for x in o]; vols = [x[4] for x in o]
@@ -4088,7 +4117,7 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
     elif not is_tw:
         f_kv["財報"] = "點下方外部連結查閱"
     out["f"] = {"score": clamp(f), "kv": f_kv or {"月營收": "—"},
-                "note": "營收動能強勁。" if f >= 70 else "營收平穩。" if f >= 50 else "營收轉弱。"}
+                "note": ("美股沒有月營收,這裡不評營收(看個股頁的財報資料)。" if not is_tw else "營收動能強勁。" if f >= 70 else "營收平穩。" if f >= 50 else "營收轉弱。")}   # r1221:美股原本一律寫「營收平穩」
 
     # 籌碼面
     cs, c_kv, c_raw = 50, {}, {}
@@ -5063,6 +5092,8 @@ def main():
         _macro["futtab"] = build_fut_table()
     except Exception as e:
         print(f"  [warn] 期貨籌碼表跳過: {e}")
+    try: split_fix(stocks)
+    except Exception as e: print(f"  [warn] 分割換算: {e}")
     out = {"updated": taipei, "source": "live", "breadth": _br,
            "macro": _macro, "news": _news, "indpe": _indpe, "divcal": _divcal,
            "health": build_health(hist, chips, comps,
