@@ -4250,14 +4250,14 @@ def fred_last2(series):
                  params={"series_id": series, "api_key": key, "file_type": "json",
                          "observation_start": d1.isoformat(),
                          "observation_end": d2.isoformat()}, timeout=30)
-    vals = []
+    vals = []; dts = []
     for o in (j or {}).get("observations", []):
         v = numf(o.get("value"))
         if v is not None:
-            vals.append(v)
+            vals.append(v); dts.append(o.get("date"))
     if len(vals) < 2:
         return None
-    return round(vals[-1], 2), round(pct(vals[-1], vals[-2]), 2)
+    return round(vals[-1], 2), round(pct(vals[-1], vals[-2]), 2), dts[-1]   # r1218:多回傳資料日期,前端標「幾月幾日收盤」
 
 def _roc_iso(x):
     t = "".join(ch for ch in str(x) if ch.isdigit())
@@ -4607,7 +4607,7 @@ def fetch_macro():
         try:
             r2 = fred_last2(sid)
             if r2:
-                idx.append({"name": name, "val": r2[0], "chg": r2[1]})
+                idx.append({"name": name, "val": r2[0], "chg": r2[1], "d": r2[2]})
                 print(f"  {name} ← FRED:{sid}")
         except Exception as e:
             print(f"  [warn] 指數 FRED {sid}: {e}")
@@ -4620,15 +4620,22 @@ def fetch_macro():
             with open("yext.json", encoding="utf-8") as f:
                 d = ((json.load(f).get("series") or {}).get(sym) or {}).get("d") or {}
             c = [v for v in (d.get("c") or []) if v is not None]
-            if len(c) >= 2: return round(c[-1], 2), round(pct(c[-1], c[-2]), 2)
+            tt = [t for t, v in zip(d.get("t") or [], d.get("c") or []) if v is not None]
+            ld = dt.datetime.utcfromtimestamp(tt[-1]).date().isoformat() if len(tt) == len(c) and tt else None
+            if len(c) >= 2: return round(c[-1], 2), round(pct(c[-1], c[-2]), 2), ld
         except Exception:
             pass
         return None
     for name, sym in [("S&P 500", "^GSPC"), ("那斯達克", "^IXIC"), ("道瓊工業", "^DJI"), ("VIX 恐慌指數", "^VIX")]:
+        old = next((i for i in idx if i["name"] == name), None)
+        if old and old.get("d"):   # r1218:FRED 常慢 1~2 天;yext 比較新就換掉
+            r2 = _yext_last2(sym)
+            if r2 and r2[2] and r2[2] > old["d"]:
+                old.update({"val": r2[0], "chg": r2[1], "d": r2[2]}); print(f"  {name} ← yext 較新({r2[2]})")
         if not any(i["name"] == name for i in idx):
             r2 = _yext_last2(sym)
             if r2:
-                idx.append({"name": name, "val": r2[0], "chg": r2[1]}); print(f"  {name} ← yext.json 日線備援({r2[0]})")
+                idx.append({"name": name, "val": r2[0], "chg": r2[1], "d": r2[2]}); print(f"  {name} ← yext.json 日線備援({r2[0]})")
     # r707:VIX 恐慌指數 + 美債 10Y-2Y 利差(FRED 官方;利差的 chg 為絕對變化)
     try:
         r2 = fred_last2("VIXCLS") if not any(i["name"] == "VIX 恐慌指數" for i in idx) else None

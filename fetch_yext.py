@@ -612,7 +612,7 @@ def main():
                         r3 = [str(x).replace(",", "") for x in row]
                         dd3 = r3[0].split("/")
                         ot_t.append(f"{int(dd3[0])+1911}-{int(dd3[1]):02d}-{int(dd3[2]):02d}")
-                        ot_a.append(round(float(r3[1]) / 1e5, 1))   # 千元 → 億
+                        ot_a.append(round(float(r3[2]) / 1e5, 1))   # r1218:欄位 [1] 是成交股數(千股),[2] 才是金額(千元)→ 億元
                     except Exception:
                         continue
             except Exception as _e3:
@@ -621,7 +621,7 @@ def main():
         if len(ot_a) >= 10:
             series["TPEXVOL"] = {"d": ot_t[-45:], "amt": ot_a[-45:]}
             print(f"  櫃買成交金額 ← st41({len(ot_a[-45:])} 日,最新 {ot_a[-1]} 億)")
-        elif (old_series.get("TPEXVOL") or {}).get("amt"):
+        elif (old_series.get("TPEXVOL") or {}).get("amt") and min(old_series["TPEXVOL"]["amt"][-5:]) > 100:
             series["TPEXVOL"] = old_series["TPEXVOL"]
             print("  櫃買成交金額:沿用前檔")
     except Exception as e:
