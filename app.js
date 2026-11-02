@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1219';
+const APP_BUILD='r1220';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -541,7 +541,7 @@ async function boot(){
     let j0=null;try{if(window.__DATA_P){j0=await window.__DATA_P;window.__DATA_P=null;}}catch(e0){}   // r1076:index.html 一開頭就開始下載
     if(j0&&j0.stocks){DATA=j0;DATA.source='live';}
     else{const r=await fetch('data.json',{cache:'no-cache'});        // r900:改用 ETag 重新驗證——沒更新就回 304、不再每次重抓 2.6MB
-    if(r.ok){ DATA=await r.json(); DATA.source='live'; }}
+    if(r.ok){ DATA=await r.json(); DATA.source='live'; dropStaleSig(DATA); }}
   }catch(e){}
   if(!DATA) DATA=DEMO;
   window.DATA=DATA;                                              // r927:DATA 是 let,mobile.js 與開機看門狗要用 window.DATA(之前永遠拿不到 → 指數列永遠「載入中」、看門狗誤報)
@@ -800,6 +800,7 @@ function tvStatTable(r){
    RSI≥70 +1.75 / −0.12 / −2.22;K≥80 +1.73 / −0.01 / −0.77;價漲量增 +1.40 / −0.18 / −1.49;OBV 創 60 日新高 +1.49 / −0.08 / −1.54
    (大型股、60 天也都成立)。限制:大盤空頭(0050 在 200 日線下)時效果變弱;歷史不含已下市股票。
    AI Pick 不加這個濾網:回測加了「只買近高」年化從 39% 掉到 23%(模型已經把位置算進去,它挑的低位置股 20 天仍 +1.6%)。══ */
+function dropStaleSig(D){try{const cut=new Date(Date.now()-16*864e5),y=cut.getFullYear();(D.stocks||[]).forEach(s=>{if(!Array.isArray(s.sig))return;s.sig=s.sig.filter(g=>{if(g.type!=='whale')return true;const m=String(g.desc||'').match(/集保 (\d{2})\/(\d{2})/);if(!m)return true;let d=new Date(y,+m[1]-1,+m[2]);if(d-Date.now()>60*864e5)d=new Date(y-1,+m[1]-1,+m[2]);return d>=cut;});});}catch(e){}}   // r1218:集保資料超過 2 週的「大戶進場」不當今天的訊號
 let ADJ1=null,ADJ1_P=null;
 function adj1Load(){if(ADJ1)return Promise.resolve(ADJ1);if(!ADJ1_P)ADJ1_P=fT('adj1y.json?v='+kv(),15000).then(r=>r&&r.ok?r.json():null).then(j=>{ADJ1=(j&&j.s)||{};return ADJ1;}).catch(()=>{ADJ1={};return ADJ1;});return ADJ1_P;}
 function posCalc(o,dates,id,px){
@@ -1288,7 +1289,8 @@ function stockCondHTML(s,f,g,trig){
     const P=[],M=[],add=(ok,arr,txt,eff)=>{if(ok)arr.push(`${txt} <span class="pbx-eff">(${eff})</span>`);};
     const both=f20!=null&&t20!=null&&f20<-0.02&&t20<=0;
     /* r1180:新因素(plan_bt_study.py filt9b):估值、籌碼集中度、融資、產業強弱 */
-    const pe=+s.pe>0?+s.pe:null,pb=+s.pb>0?+s.pb:null,dy=s.dv&&+s.dv.y>0&&!s.dv.chk&&!(s.dv.est&&+s.dv.y>10)?+s.dv.y:null;   // r1181:推估(est)殖利率 >10% 多半是特別股利被年化放大,不當條件
+    const splitRecent=(()=>{try{const L=(ADJ1&&ADJ1[s.id])||[],cut=new Date(Date.now()-180*864e5).toISOString().slice(0,10);return L.some(x=>x[0]>=cut&&(x[1]<0.7||x[1]>1.4));}catch(e){return false;}})();   // r1218:半年內有分割/減資,本益比與殖利率可能還是舊股數算的(例:緯穎 9/2 一拆三)→ 不當條件
+    const pe=!splitRecent&&+s.pe>0?+s.pe:null,pb=!splitRecent&&+s.pb>0?+s.pb:null,dy=!splitRecent&&s.dv&&+s.dv.y>0&&!s.dv.chk&&!(s.dv.est&&+s.dv.y>10)?+s.dv.y:null;   // r1181:推估(est)殖利率 >10% 多半是特別股利被年化放大,不當條件
     let big4=null,hold4=null,mf20=null,secRel=null;
     if(ch){const bp=(ch.bp||[]).map(Number);if(bp.length>=5&&isFinite(bp[bp.length-1])&&isFinite(bp[bp.length-5]))big4=bp[bp.length-1]-bp[bp.length-5];
       const H=(ch.hdn||[]).filter(x=>x&&x.n>0);if(H.length>=2){const last=H[H.length-1],t0=Date.parse(String(last.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'));const old=[...H].reverse().find(x=>t0-Date.parse(String(x.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'))>=25*864e5);if(old&&t0-Date.parse(String(old.d).replace(/(\d{4})(\d{2})(\d{2})/,'$1-$2-$3'))<=40*864e5&&old.n>=200&&last.n>=200&&last.n/old.n<3&&last.n/old.n>1/3)hold4=last.n/old.n-1;}   // r1185:集保偶有股東人數記成 1 的錯(東訊 1→14,007、嘉鋼 2,231→1),兩邊 ≥200 人且 4 週變化在 3 倍內才採用
@@ -2966,7 +2968,7 @@ async function refreshLive(auto,skipData){   // r1076:skipData = 剛開機才抓
   const diag=[];
   if(skipData&&DATA&&DATA.stocks)diag.push(`<span class="ok">✓</span> 資料 ${DATA.updated||''}`);
   else try{const r=await fetch('data.json',{cache:'no-cache'});         // r907:盤中每分鐘的重整改用 ETag 驗證——資料沒變就 304,不再每分鐘重抓 2.6MB
-      if(r.ok){DATA=await r.json();DATA.source='live';window.DATA=DATA;
+      if(r.ok){DATA=await r.json();DATA.source='live';dropStaleSig(DATA);window.DATA=DATA;
         try{snapLoad();}catch(e){}
         try{applyRTQ();}catch(e){}                        // 立刻蓋回最新即時價,不閃舊資料
         window.__sweepForce=Date.now()+20e3;              // 更新後強制再掃一輪矯正(r1076:原本 5 分鐘,收盤/假日也每 6 秒打一次證交所 → 改成約 3 輪)
@@ -7962,8 +7964,8 @@ async function grpSummarize(s){                            // r701:章節摘要�
         bits.push('投信5日 '+(t5>=0?up('+'+t5.toLocaleString()+' 張'):dn(t5.toLocaleString()+' 張')));}
     }
     if(e&&Array.isArray(e.bp)&&e.bp.length>=2){
-      const bL=+e.bp[e.bp.length-1],d2=bL-+e.bp[0];
-      bits.push(`400張大戶 ${nm2(bL.toFixed(1)+'%')}(${d2>=0?'+':''}${d2.toFixed(1)}pp)`);
+      const n4=Math.min(4,e.bp.length-1),bL=+e.bp[e.bp.length-1],d2=bL-+e.bp[e.bp.length-1-n4];   // r1218:原本是整段歷史累計、沒寫期間,改成近 4 週
+      bits.push(`400張大戶 ${nm2(bL.toFixed(1)+'%')}(近 ${n4} 週 ${d2>=0?'+':''}${d2.toFixed(2)}pp)`);
     }
     if(s.mg&&s.mg.f>0&&s.mg.s!=null)bits.push(`券資比 ${(s.mg.s/s.mg.f*100).toFixed(1)}%`);
     if(s.c&&s.c.score!=null)bits.push(`籌碼分 ${nm2(s.c.score)}`);
@@ -10984,7 +10986,7 @@ function bkHTML(R,s){
       <div><dt>5 日 / 20 日累計</dt><dd>${f(R.c5)} / ${f(R.c20)} 張</dd></div>
       <div><dt>買賣家數差</dt><dd style="color:${R.nd>=0?'var(--up)':'var(--down)'}">${f(R.nd)}<small class="dim"> (${L.nb} 買 / ${L.ns} 賣)</small></dd></div>
       <div><dt>集中度(前 15 大|淨額|÷成交)</dt><dd>${L.conc!=null?L.conc+'%':'—'}</dd></div>
-      <div><dt>買方均價 / 賣方均價</dt><dd class="mono">${L.bp??'—'} / ${L.sp??'—'}</dd></div>
+      ${L.bp!=null&&L.bp===L.sp?`<div><dt>今日成交均價</dt><dd class="mono">${L.bp}</dd></div>`:`<div><dt>買方均價 / 賣方均價</dt><dd class="mono">${L.bp??'—'} / ${L.sp??'—'}</dd></div>`}   <!-- r1218:兩個數字相同時(全部成交加權)只顯示一個 -->
       <div><dt>20 日主力累計走勢</dt><dd>${spark}</dd></div>
     </div>
     ${R.hit.filter(h=>h.big&&!h.flip).length?`<div style="border:1.5px solid var(--t-gold);border-radius:10px;padding:8px 12px;margin:6px 0;background:color-mix(in srgb,var(--t-gold) 8%,var(--panel));font-size:13px;line-height:1.7"><b style="color:var(--t-gold)">🎯 ${R.d.slice(5).replace('-','/')} 關鍵分點達標動作</b>:${R.hit.filter(h=>h.big&&!h.flip).map(h=>`<b>${h.name}</b> ${h.big?(h.side==='b'?'<b style="color:var(--up)">大買</b>':'<b style="color:var(--down)">大賣</b>'):(h.side==='b'?'小量買':'小量賣')} ${Math.abs(h.lots).toLocaleString()} 張 @${h.px}(佔成交 ${h.share}%${h.med!=null?`,它平常 ${h.med}%`:''})——它過去 ${h.big?h.nb+' 次大'+(h.side==='b'?'買':'賣'):h.n+' 次'}後 10 日平均 <b style="color:${h.side==='b'?'var(--up)':'var(--down)'}">${(h.a10>=0?'+':'')+h.a10}%</b>、${h.side==='b'?'上漲':'下跌'}機率 ${h.w10}%`).join(';')}</div>`:''}

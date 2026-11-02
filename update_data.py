@@ -4180,7 +4180,9 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
             bw4, pw4 = c_raw.get("bw4"), c_raw.get("pw4")
             #   🐋 大戶進場(籌碼集中):近 4 週 400 張大戶 +1 個百分點以上、股東人數減 3% 以上、離 52 週高 ≤10%
             #      → +2.10%(訓練 +1.48 / 驗證 +2.28,12/12 年;60 天 +5.27%)。舊版只看大戶週增 +0.41% 沒效果
-            if liq_ok and bw4 is not None and pw4 is not None and bw4 >= 1 and pw4 <= -3 and pth >= 0.9:
+            _tdw = str(c_raw.get('tdw', ''))
+            _tdw_fresh = bool(_tdw) and (dt.date.today() - dt.date.fromisoformat(_tdw[:10])).days <= 14 if len(_tdw) >= 10 else False   # r1218:集保資料超過 2 週就不當今天的訊號
+            if liq_ok and _tdw_fresh and bw4 is not None and pw4 is not None and bw4 >= 1 and pw4 <= -3 and pth >= 0.9:
                 sig.append({"type": "whale", "label": "大戶進場",
                     "desc": f"集保 {str(c_raw.get('tdw',''))[5:].replace('-','/')}:近 4 週 400 張大戶 +{bw4:.1f} 個百分點、股東人數 {pw4:+.1f}%(籌碼集中)・離 52 週高 {(pth-1)*100:.1f}%"
                             + "——實測之後 20 天平均比大盤 +2.10%(12/12 年;約一半個股會輸大盤,宜分散)"})
