@@ -16,10 +16,10 @@
     if(!p){p=doc.createElement('div');p.className='tabPane';p.id='tp-home';p.style.display='none';
       p.innerHTML=`<div class="hm" id="hmBox">
         <section class="hm-sec" id="hmMkt"></section>
+        <section class="hm-sec" id="hmNews"><div class="hm-h"><h3>📰 今日早報重點</h3><a href="javascript:void 0" data-go="news">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmPort"><div class="hm-h"><h3>💼 我的持股</h3><a href="javascript:void 0" data-go="port">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmFav"><div class="hm-h"><h3>⭐ 我的最愛</h3><a href="javascript:void 0" data-go="fav">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmAip"><div class="hm-h"><h3>🤖 AI Pick 模型持股</h3><a href="javascript:void 0" data-go="aipick">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
-        <section class="hm-sec" id="hmNews"><div class="hm-h"><h3>📰 今日早報重點</h3><a href="javascript:void 0" data-go="news">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
       </div>`;
       const first=doc.getElementById('tp-news')||doc.querySelector('.tabPane');first.parentNode.insertBefore(p,first);
       p.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){e.preventDefault();go(g.dataset.go);return;}

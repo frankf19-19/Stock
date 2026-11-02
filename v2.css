@@ -209,9 +209,9 @@ html.v2 .brief-kb:not(:empty){margin:12px 0 0}
 .brief-ins:not(:empty){margin:12px 0 0}
 
 /* ===== r1213 🏠 總覽(一頁看完) ===== */
-.hm{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+.hm{display:grid;grid-template-columns:1fr;gap:16px;margin-top:6px}
 .hm-sec{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;min-width:0}
-#hmMkt,#hmFav,#hmPort{grid-column:1/-1}
+#hmMkt,#hmFav,#hmPort,#hmNews{grid-column:1/-1}
 #hmMkt{background:linear-gradient(180deg,color-mix(in srgb,var(--amber) 8%,var(--panel)),var(--panel))}
 .hm-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
 .hm-h h3{margin:0;font-size:17px;font-weight:800}
@@ -255,3 +255,26 @@ html.v2 .brief-kb:not(:empty){margin:12px 0 0}
   .hm-idx b{font-size:19px}
 }
 .hm-more>summary{cursor:pointer;font-size:13px;color:var(--amber);padding:8px;font-weight:700}
+
+/* ===== r1214 個股頁改版 ===== */
+/* 章節分頁黏在上方、像分段按鈕 */
+html.v2 #chapTabs{position:sticky;top:0;z-index:35;background:var(--bg);padding:8px 0;margin:0 0 6px;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+@media(min-width:1024px){html.v2 #chapTabs{top:54px}}
+html.v2 #chapTabs button{border-radius:10px!important;padding:10px 4px!important;font-size:14.5px!important;font-weight:700}
+@media(max-width:640px){html.v2 #chapTabs button{font-size:12.5px!important;padding:9px 2px!important}}
+/* 右側重複的章節目錄拿掉,內容用整個寬度 */
+html.v2 #stockDesktopOutline{display:none!important}
+html.v2 #detailView .detail-wrap,html.v2 #detailView [data-chap]{max-width:none}
+html.v2 #chapSub{position:static!important}
+/* 區塊標題:收合時也看得出是可點的 */
+html.v2 #detailView .sec-title.tap.closed{opacity:.92}
+html.v2 #detailView .sec-title.tap:hover{border-color:var(--amber)!important}
+/* r1214:個股頁改版——右側大綱已收起,內容改滿版;「本頁內容」下拉在電腦也顯示;浮動返回鈕在電腦移到側欄右邊,不壓到登入鈕 */
+@media(min-width:1100px){
+ html.v2[data-stock-ui]:not([data-chap="ov"]) .detail-wrap>.sec-title,
+ html.v2[data-stock-ui]:not([data-chap="ov"]) .detail-wrap>.sec-body,
+ html.v2[data-stock-ui]:not([data-chap="ov"]) .detail-wrap>.grp-band,
+ html.v2[data-stock-ui]:not([data-chap="ov"]) #chapSub{width:auto}
+ html.v2[data-stock-ui] #chapSub label{display:inline-flex}
+}
+@media(min-width:1024px){html.v2 #navBack{left:252px!important;bottom:20px!important}}

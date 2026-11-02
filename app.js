@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1213';
+const APP_BUILD='r1214';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -16172,6 +16172,7 @@ function setupSections(){
   document.querySelectorAll('.sec-title[data-sec]').forEach(t=>{
     const key=t.dataset.sec,body=document.getElementById('sb-'+key);
     if(!body)return;
+    if(t.closest('#detailView'))return;   // r1214:個股頁區塊由 wireDetailSecs 管;原本視窗一縮放(手機捲動時網址列伸縮也算)就被這裡重設成全部收合
     t.classList.add('tap');t.setAttribute('role','button');t.tabIndex=0;t.setAttribute('aria-controls',body.id);t.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();t.click();}};
     if(!t.querySelector('.sec-hint')){
       const h=document.createElement('span');h.className='sec-hint';h.textContent='點標題收合';t.appendChild(h);
@@ -21798,9 +21799,9 @@ async function loadSeason(s){
 }
 /* 個股頁收合:沿用首頁 sec-title 機制;手機預設收合圖表/新聞/公司區,展開後重算圖表尺寸 */
 function wireDetailSecs(){
-  let saved={};try{saved=JSON.parse(localStorage.getItem('secState')||'{}');}catch(e){}
+  let saved={};try{saved=JSON.parse(localStorage.getItem('secStateStk2')||'{}');}catch(e){}
   const mob=innerWidth<640;
-  const defClosed={stk_k:false}; // r1196: detail sections start as a readable index; saved choices still win.
+  const defClosed={stk_k:false,stk_bk:false,stk_h:false,stk_r:false,stk_conf:false,stk_m:false,stk_ai:false};   // r1214:個股頁改版——每章主要區塊預設打開(走勢價位、分點、大戶、營收、法說、新聞、AI 研判);改用新的記憶 key,舊的收合狀態不再沿用 // r1196: detail sections start as a readable index; saved choices still win.
   document.querySelectorAll('#detailView .sec-title[data-sec]').forEach(t=>{
     const key=t.dataset.sec,body=document.getElementById('sb-'+key);
     if(!body)return;
@@ -21812,7 +21813,7 @@ function wireDetailSecs(){
       const c=body.classList.toggle('closed');
       t.classList.toggle('closed',c);t.setAttribute('aria-expanded',String(!c));if(t.querySelector('.sec-hint'))t.querySelector('.sec-hint').textContent=c?'展開 ＋':'收合 −';
       saved[key]=c;
-      try{localStorage.setItem('secState',JSON.stringify(saved));}catch(e){}
+      try{localStorage.setItem('secStateStk2',JSON.stringify(saved));}catch(e){}
       if(!c)setTimeout(()=>{body.querySelectorAll('div').forEach(el=>{
         try{const ch=window.echarts&&echarts.getInstanceByDom(el);if(ch)ch.resize();}catch(e){}});},90);
     };
