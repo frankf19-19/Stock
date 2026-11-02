@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1215';
+const APP_BUILD='r1216';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1267,8 +1267,8 @@ function mktA60(day){
  const v=+value;return Number.isFinite(v)&&v>=0&&v<=1?{v,asof}:null;
 }
 function mktWeakHTML(kind,trig,day){const m=mktA60(day);if(!m)return '<div class="pbx-cond"><b>🌧 大盤有沒有一起跌</b>:<span class="pbx-sub" style="margin:0">市場資料尚未對齊本股收盤；暫不掛買單</span></div>';
-  const weak=m.v<0.35,pc=Math.round(m.v*100),R=kind==='k40'?{w:'+22.5%、勝率 71%',o:'−3.4%、勝率 29%'}:{w:'+16~28%、勝率 65~81%',o:'−3.0%、勝率 36%'};   // r1183:用新出場 −20%/+50%/120 日
-  return `<div class="pbx-cond ${weak?'pbx-cond-good':'pbx-cond-bad'}"><b>🌧 大盤有沒有一起跌</b>:${m.asof?m.asof.slice(5).replace('-','/')+' ':''}全市場只有 <b>${pc}%</b> 的股票站在季線上 → ${weak?`<b style="color:var(--up)">市場條件符合，仍須本股完成收盤條件</b> <span class="pbx-eff">(歷史每筆 ${R.w})</span>`:`<b style="color:var(--down)">大盤沒有一起跌,${trig?'這次不買':'現在不買'}</b> <span class="pbx-eff">(個股自己跌多半有原因;歷史每筆 ${R.o})</span>`}<div class="pbx-cond-tip">規則:要買的那天收盤,全市場站上季線的股票要 <b>少於 35%</b>(現在 ${pc}%)。2016~2026 兩期、逐年都成立</div></div>`;}
+  const weak=m.v<0.35,pc=Math.round(m.v*100)===35?(m.v*100).toFixed(1):Math.round(m.v*100),R=kind==='k40'?{w:'+22.5%、71% ',o:'−3.4%、只有 29% '}:{w:'+16~28%、65~81% ',o:'−3.0%、只有 36% '};   // r1183:用新出場 −20%/+50%/120 日
+  return `<div class="pbx-cond ${weak?'pbx-cond-good':'pbx-cond-bad'}" data-mkt-pc="${pc}"><b>🌧 大盤有沒有一起大跌</b>:${m.asof?m.asof.slice(5).replace('-','/')+' ':''}全市場有 <b>${pc}%</b> 的股票還在近 3 個月平均價(季線)之上 → ${weak?`<b style="color:var(--up)">大盤夠弱了,可以等這檔自己收盤到買點</b> <span class="pbx-eff">(過去這樣買,平均每筆 ${R.w}賺錢)</span>`:`<b style="color:var(--down)">大盤還沒一起大跌,${trig?'這次不買':'現在不買'}</b> <span class="pbx-eff">(大盤沒跌、只有它自己跌,通常是公司本身出問題;過去這樣買平均每筆 ${R.o}賺錢)</span>`}<div class="pbx-cond-tip">規則:「跌深再買」只在大盤一起大跌時才划算——買的那天,全市場要 <b>少於 35%</b> 的股票在季線之上(現在 ${pc}%)。2016~2026 每一年都驗證過</div></div>`;}   // r1215 白話
 /* r1184:產業差異(plan_bt_study.py sector):同買法下,兩期都差 ≥2%、且股票隨機分兩半也同方向才列;測了 13~15 個產業,仍可能有巧合 → 標「參考」 */
 function secNoteHTML(s,g){const sc=s&&s.sector;if(!sc||s.market!=='TW')return '';
   const T={low:{'半導體業':['good','+6.7% / +9.6%','+3.5% / +6.1%'],'生技醫療業':['zero','+0.2% / +1.8%','+3.5% / +6.1%']},

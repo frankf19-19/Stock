@@ -38,7 +38,7 @@
     const chips=[['加權','加權'],['櫃買','櫃買']].map(([k,lb])=>{const it=pick(k);if(!it)return '';return `<span class="hm-idx"><small>${lb}</small><b>${fmt(it.val)}</b><em style="color:${col(it.chg)}">${pct(it.chg)}</em></span>`;}).join('');
     let head='',br='';
     try{const j=await viewFetch();if(j&&j.head)head=j.head;}catch(e){}
-    try{if(typeof SECSTR==='undefined'||!SECSTR){if(typeof secStrLoad==='function')secStrLoad();}const a=SECSTR&&+SECSTR.a60;if(a>0){const pc=Math.round(a*100);br=`<span class="hm-br">全市場${a<0.5?'只有':''} <b>${pc}%</b> 的股票比近 3 個月平均價高・${a<0.35?'<b style="color:var(--up)">大盤很弱,跌深的好股票反而可以撿</b>':a<0.6?'大盤普通':'大盤強'}</span>`;};}catch(e){}
+    try{if(typeof SECSTR==='undefined'||!SECSTR){if(typeof secStrLoad==='function')secStrLoad();}const a=SECSTR&&+SECSTR.a60;if(a>0){const pc=Math.round(a*100)===35?(a*100).toFixed(1):Math.round(a*100);br=`<span class="hm-br">全市場${a<0.5?'只有':''} <b>${pc}%</b> 的股票比近 3 個月平均價高・${a<0.35?'<b style="color:var(--up)">大盤很弱,跌深的好股票反而可以撿</b>':a<0.6?'大盤普通':'大盤強'}</span>`;};}catch(e){}
     box.innerHTML=`<div class="hm-mkt"><div class="hm-idxs">${chips||'<span class="dim">指數載入中…</span>'}${br}</div>
       ${head?`<div class="hm-head">🧭 ${esc(head)}</div>`:''}
       <div class="hm-links"><a href="javascript:void 0" data-go="macro">大盤與今日盤勢 ›</a><a href="javascript:void 0" data-go="news">產業早報 ›</a></div></div>`;
