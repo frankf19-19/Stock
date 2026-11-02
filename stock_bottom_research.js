@@ -16,7 +16,7 @@
  function badgeHTML(s,f){const p=f?.bottom,valid=p&&f.check&&!f.check.jump&&f.check.liquid&&!s.etf;
   const status=(on,isBreak=false)=>!valid?'待核對':p.stage==='failed'?(isBreak?'未出現':'已失效'):p.stage==='neutral'?'不判定':on?'已出現':'未出現';
   const up=valid&&p.recentDeep&&p.up,br=valid&&p.recentDeep&&p.break20;
-  return '<div class="bottom-signal-badge" data-bottom-badge="'+esc(s.market+':'+s.id)+'"><b>止跌訊號：'+status(up)+'</b><b>底部突破：'+status(br,true)+'</b><small>'+(valid?esc(p.asof)+' 完整收盤・結構參考':'資料待核對，不當成沒有訊號')+'</small></div>';
+  return '<div class="bottom-signal-badge" data-bottom-badge="'+esc(s.market+':'+s.id)+'"><b>止跌訊號：'+status(up)+'</b><b>止跌後往上突破：'+status(br,true)+'</b><small>'+(valid?esc(p.asof)+' 完整收盤・結構參考':'資料待核對，不當成沒有訊號')+'</small></div>';
  }
  function signalHTML(p,money){
   const active=p.stage!=='failed',reclaim=active&&p.recentDeep&&p.up,br=active&&p.recentDeep&&p.break20,neutral=p.stage==='neutral',failed=p.stage==='failed';

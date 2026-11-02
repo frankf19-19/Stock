@@ -278,3 +278,8 @@ html.v2 #detailView .sec-title.tap:hover{border-color:var(--amber)!important}
  html.v2[data-stock-ui] #chapSub label{display:inline-flex}
 }
 @media(min-width:1024px){html.v2 #navBack{left:252px!important;bottom:20px!important}}
+/* r1215 白話小辭典:專有名詞虛線底線,點一下看解釋 */
+.gl{border-bottom:1px dashed color-mix(in srgb,var(--gold,#E8B44A) 70%,transparent);cursor:help;text-decoration:none}
+.gl:hover,.gl:focus{background:color-mix(in srgb,var(--gold,#E8B44A) 14%,transparent);outline:none;border-radius:2px}
+.gl-pop{position:fixed;z-index:3000;display:none;padding:10px 12px;border-radius:10px;background:var(--panel,#1b1f27);color:var(--txt,#eee);border:1px solid var(--gold,#E8B44A);box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:13.5px;line-height:1.6;font-weight:400;letter-spacing:0;text-align:left;white-space:normal}
+.gl-pop b{display:block;color:var(--gold,#E8B44A);font-size:14px;margin-bottom:2px}

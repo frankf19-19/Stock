@@ -19,7 +19,7 @@
         <section class="hm-sec" id="hmNews"><div class="hm-h"><h3>📰 今日早報重點</h3><a href="javascript:void 0" data-go="news">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmPort"><div class="hm-h"><h3>💼 我的持股</h3><a href="javascript:void 0" data-go="port">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmFav"><div class="hm-h"><h3>⭐ 我的最愛</h3><a href="javascript:void 0" data-go="fav">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
-        <section class="hm-sec" id="hmAip"><div class="hm-h"><h3>🤖 AI Pick 模型持股</h3><a href="javascript:void 0" data-go="aipick">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
+        <section class="hm-sec" id="hmAip"><div class="hm-h"><h3>🤖 AI Pick 目前買了哪些</h3><a href="javascript:void 0" data-go="aipick">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
       </div>`;
       const first=doc.getElementById('tp-news')||doc.querySelector('.tabPane');first.parentNode.insertBefore(p,first);
       p.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){e.preventDefault();go(g.dataset.go);return;}
@@ -38,7 +38,7 @@
     const chips=[['加權','加權'],['櫃買','櫃買']].map(([k,lb])=>{const it=pick(k);if(!it)return '';return `<span class="hm-idx"><small>${lb}</small><b>${fmt(it.val)}</b><em style="color:${col(it.chg)}">${pct(it.chg)}</em></span>`;}).join('');
     let head='',br='';
     try{const j=await viewFetch();if(j&&j.head)head=j.head;}catch(e){}
-    try{if(typeof SECSTR==='undefined'||!SECSTR){if(typeof secStrLoad==='function')secStrLoad();}const a=SECSTR&&+SECSTR.a60;if(a>0)br=`<span class="hm-br">全市場 <b>${Math.round(a*100)}%</b> 股票站在季線上${a<0.35?'・<b style="color:var(--up)">大盤一起跌,錯殺股可以買</b>':''}</span>`;}catch(e){}
+    try{if(typeof SECSTR==='undefined'||!SECSTR){if(typeof secStrLoad==='function')secStrLoad();}const a=SECSTR&&+SECSTR.a60;if(a>0){const pc=Math.round(a*100);br=`<span class="hm-br">全市場${a<0.5?'只有':''} <b>${pc}%</b> 的股票比近 3 個月平均價高・${a<0.35?'<b style="color:var(--up)">大盤很弱,跌深的好股票反而可以撿</b>':a<0.6?'大盤普通':'大盤強'}</span>`;};}catch(e){}
     box.innerHTML=`<div class="hm-mkt"><div class="hm-idxs">${chips||'<span class="dim">指數載入中…</span>'}${br}</div>
       ${head?`<div class="hm-head">🧭 ${esc(head)}</div>`:''}
       <div class="hm-links"><a href="javascript:void 0" data-go="macro">大盤與今日盤勢 ›</a><a href="javascript:void 0" data-go="news">產業早報 ›</a></div></div>`;
@@ -48,7 +48,7 @@
   async function port(){
     const body=doc.querySelector('#hmPort .hm-body');if(!body)return;
     const arr=(typeof portGet==='function'?portGet():[])||[];
-    if(!arr.length){body.innerHTML=`<div class="hm-empty">還沒有持股紀錄。<a href="javascript:void 0" data-go="port">＋ 新增持股</a>,之後這裡會直接告訴你每檔的防守價和停利價。</div>`;return;}
+    if(!arr.length){body.innerHTML=`<div class="hm-empty">還沒有持股紀錄。<a href="javascript:void 0" data-go="port">＋ 新增持股</a>,之後這裡會直接告訴你每檔跌到多少該賣、漲到多少可以賣。</div>`;return;}
     const out=[];
     for(const p of arr){
       const s=stock(p.id);if(!s)continue;const us=s.market==='US',px=num(s.price),cost=num(p.cost),pl=px&&cost?(px/cost-1)*100:null;
@@ -58,23 +58,23 @@
           const m=p.m||(us?'dip':f.atrp>0&&f.atrp<0.025?'low':'ma');
           if(m==='low'){stop=fmt(f.lowOwn&&f.lowOwn.stop,us);tp=fmt(f.lowOwn&&f.lowOwn.target,us);}
           else if(m==='dip'){stop=fmt(f.ownDip&&f.ownDip.stop,us);tp=fmt(f.ownDip&&f.ownDip.target,us);}
-          else{stop=fmt(f.nextBelowPrice,us)+'↓';tp='季線出場';}
-          const sv=num(String(stop).replace(/[^\d.]/g,''));if(px&&sv&&px<=sv)note='<span class="hm-tag hm-sell">已到防守</span>';
+          else{stop=fmt(f.nextBelowPrice,us);tp='跌破季線才賣';}
+          const sv=num(String(stop).replace(/[^\d.]/g,''));if(px&&sv&&px<=sv)note='<span class="hm-tag hm-sell">已跌破,照計畫該賣</span>';
         }else note='<span class="hm-tag">價位待核對</span>';
       }catch(e){}
       out.push(row(s.id,`<span class="hm-nm"><b>${esc(s.name)}</b><small>${esc(s.id)}</small></span>
         <span class="hm-px"><b>${fmt(px,us)}</b><small style="color:${col(s.chg)}">${pct(s.chg)}</small></span>
         <span class="hm-pl" style="color:${col(pl)}">${pl==null?'—':(pl>0?'+':'')+pl.toFixed(1)+'%'}<small>成本 ${fmt(cost,us)}</small></span>
-        <span class="hm-lv"><span>🛑 ${stop}</span><span>🎯 ${tp}</span></span>`,note));
+        <span class="hm-lv"><span>🛑 跌破 ${stop} 賣</span><span>🎯 ${/季線/.test(tp)?tp:'目標 '+tp}</span></span>`,note));
     }
-    body.innerHTML=`<div class="hm-thead"><span>股票</span><span>現價</span><span>損益</span><span>防守 / 停利</span></div>`+out.join('');
+    body.innerHTML=`<div class="hm-thead"><span>股票</span><span>現價</span><span>賺賠</span><span>什麼時候賣</span></div>`+out.join('');
   }
 
   /* ── 最愛:每檔一行(該做什麼、買進/防守/賣出);可買的排前面 ── */
   async function fav(){
     const body=doc.querySelector('#hmFav .hm-body');if(!body)return;
     const ids=(typeof favList==='function'?favList():[])||[];
-    if(!ids.length){body.innerHTML=`<div class="hm-empty">${typeof SB_USER!=='undefined'&&!SB_USER?'登入後才看得到你的最愛。':'還沒有最愛。'}在個股頁點名稱旁的 ☆ 就能加入,這裡會列出每檔「現在能不能買、買在哪、防守在哪」。</div>`;return;}
+    if(!ids.length){body.innerHTML=`<div class="hm-empty">${typeof SB_USER!=='undefined'&&!SB_USER?'登入後才看得到你的最愛。':'還沒有最愛。'}在個股頁點名稱旁的 ☆ 就能加入,這裡會列出每檔「現在能不能買、買在多少、跌到多少要賣」。</div>`;return;}
     const rows=[];
     for(const id of ids){
       const s=stock(id);if(!s||s.etf)continue;const us=s.market==='US';
@@ -84,10 +84,10 @@
       rows.push({ready,html:row(s.id,`<span class="hm-nm"><b>${esc(s.name)}</b><small>${esc(s.id)}</small></span>
         <span class="hm-px"><b>${fmt(s.price,us)}</b><small style="color:${col(s.chg)}">${pct(s.chg)}</small></span>
         <span class="hm-act ${ready?'go':blocked?'no':''}">${esc(act)}</span>
-        <span class="hm-lv"><span>買 ${esc(m?m.buy:'—')}</span><span>🛑 ${esc(m?m.stop:'—')}</span><span>🎯 ${esc(m?m.sell:'—')}</span></span>`)});
+        <span class="hm-lv"><span>買點 ${esc(m?m.buy:'—')}</span><span>🛑 跌破 ${esc(m?m.stop:'—')} 賣</span><span>🎯 ${m&&/季線/.test(m.sell)?esc(m.sell):'目標 '+esc(m?m.sell:'—')}</span></span>`)});
     }
     rows.sort((a,b)=>b.ready-a.ready);
-    body.innerHTML=`<div class="hm-thead"><span>股票</span><span>現價</span><span>現在該做什麼</span><span>買進 / 防守 / 賣出</span></div>`+rows.map(r=>r.html).join('');
+    body.innerHTML=`<div class="hm-thead"><span>股票</span><span>現價</span><span>現在該做什麼</span><span>買點 / 跌破就賣 / 目標</span></div>`+rows.map(r=>r.html).join('');
   }
 
   /* ── AI Pick:三清單目前持有與待買 ── */
@@ -101,13 +101,13 @@
       if(p.st==='done')return;
       const q=typeof aip3Px==='function'?aip3Px(p.cur||p.id,us):{px:null};const px=q.px||p.last;const ret=p.entry&&px?(px/p.entry-1)*100:null;
       let sl='—',tp='—';try{const c=aipSlotPolicy(p,k,us);sl=fmt(c.sl,us);tp=fmt(c.tp,us);}catch(e){}
-      const st=p.st==='pend'?'<span class="hm-tag hm-buy">待買</span>':`<span class="hm-tag">持有 ${p.days||0} 天</span>`;
+      const st=p.st==='pend'?'<span class="hm-tag hm-buy">下個交易日開盤買</span>':`<span class="hm-tag">持有 ${p.days||0} 天</span>`;
       out.push(row(p.cur||p.id,`<span class="hm-nm"><b>${esc(p.name||p.id)}</b><small>${nm[k]}・${esc(p.cur||p.id)}</small></span>
-        <span class="hm-px"><b>${fmt(px,us)}</b><small>${p.entry?'進場 '+fmt(p.entry,us):'選股日 '+fmt(p.sel_px,us)}</small></span>
+        <span class="hm-px"><b>${fmt(px,us)}</b><small>${p.entry?'買在 '+fmt(p.entry,us):'選到時 '+fmt(p.sel_px,us)}</small></span>
         <span class="hm-pl" style="color:${col(ret)}">${ret==null?'—':(ret>0?'+':'')+ret.toFixed(1)+'%'}</span>
-        <span class="hm-lv"><span>🛑 ${sl}</span><span>🎯 ${tp}</span></span>`,st));});});
-    const pause=M.short&&M.short.pause&&M.short.pause.d===M.short.sel_d?`<div class="hm-note">⏸ ${esc(M.short.pause.msg)}——短期清單這週不追新股</div>`:'';
-    body.innerHTML=pause+(out.length?`<div class="hm-thead"><span>股票</span><span>現價</span><span>報酬</span><span>停損 / 停利</span></div>`+out.slice(0,6).join('')+(out.length>6?`<details class="hm-more"><summary>其餘 ${out.length-6} 檔</summary>${out.slice(6).join('')}</details>`:''):'<div class="hm-empty">三個清單目前都沒有持股。</div>');
+        <span class="hm-lv"><span>🛑 跌破 ${sl} 賣</span><span>🎯 目標 ${tp}</span></span>`,st));});});
+    const pause=M.short&&M.short.pause&&M.short.pause.d===M.short.sel_d?`<div class="hm-note">⏸ ${esc(M.short.pause.msg)}——短期清單這週先不買新股</div>`:'';
+    body.innerHTML=pause+(out.length?`<div class="hm-thead"><span>股票</span><span>現價</span><span>賺賠</span><span>什麼時候賣</span></div>`+out.slice(0,6).join('')+(out.length>6?`<details class="hm-more"><summary>其餘 ${out.length-6} 檔</summary>${out.slice(6).join('')}</details>`:''):'<div class="hm-empty">三個清單目前都沒有持股。</div>');
   }
 
   /* ── 早報前 3 則 ── */
