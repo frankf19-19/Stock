@@ -35,10 +35,10 @@
     const box=doc.getElementById('hmMkt');if(!box)return;
     let idx=[];try{idx=((DATA.macro||{}).idx)||[];}catch(e){}
     const pick=k=>{const rt=window.RTIDX&&window.RTIDX[k];const it=idx.find(x=>String(x.name||'').includes(k));return rt&&rt.val?rt:it;};
-    const chips=[['加權','加權'],['櫃買','櫃買']].map(([k,lb])=>{const it=pick(k);if(!it)return '';return `<span class="hm-idx"><small>${lb}</small><b>${fmt(it.val)}</b><em style="color:${col(it.chg)}">${pct(it.chg)}</em></span>`;}).join('');
+    const usM=window.GMKT==='US';const chips=(usM?[['S&P','S&P 500'],['那斯達克','那斯達克']]:[['加權','加權'],['櫃買','櫃買']]).map(([k,lb])=>{const it=pick(k);if(!it)return '';return `<span class="hm-idx"><small>${lb}</small><b>${fmt(it.val)}</b><em style="color:${col(it.chg)}">${pct(it.chg)}</em>${it.d?`<small>${String(it.d).slice(5).replace('-','/')} 收盤</small>`:''}</span>`;}).join('');
     let head='',br='';
     let vtag='';try{const j=await viewFetch();if(j&&j.head){head=j.head;if(j.date)vtag=`${String(j.date).slice(5).replace('-','/')} ${j.slot==='pm'?'晚上':'早上'}版`;}}catch(e){}
-    try{if(typeof SECSTR==='undefined'||!SECSTR){if(typeof secStrLoad==='function')secStrLoad();}const a=SECSTR&&+SECSTR.a60;if(a>0){const pc=Math.round(a*100)===35?(a*100).toFixed(1):Math.round(a*100);br=`<span class="hm-br">有成交量的股票${a<0.5?'只有':''} <b>${pc}%</b> 在近 3 個月平均價之上${SECSTR.asof?'('+String(SECSTR.asof).slice(5).replace('-','/')+')':''}・${a<0.35?'<b style="color:var(--up)">大盤一起大跌,跌深的好股票可以撿</b>':a<0.45?'大盤偏弱,接近跌深買點門檻 35%':a<0.6?'大盤普通':'大盤強'}</span>`;};}catch(e){}
+    if(!usM)try{if(typeof SECSTR==='undefined'||!SECSTR){if(typeof secStrLoad==='function')secStrLoad();}const a=SECSTR&&+SECSTR.a60;if(a>0){const pc=Math.round(a*100)===35?(a*100).toFixed(1):Math.round(a*100);br=`<span class="hm-br">有成交量的股票${a<0.5?'只有':''} <b>${pc}%</b> 在近 3 個月平均價之上${SECSTR.asof?'('+String(SECSTR.asof).slice(5).replace('-','/')+')':''}・${a<0.35?'<b style="color:var(--up)">大盤一起大跌,跌深的好股票可以撿</b>':a<0.45?'大盤偏弱,接近跌深買點門檻 35%':a<0.6?'大盤普通':'大盤強'}</span>`;};}catch(e){}
     box.innerHTML=`<div class="hm-mkt"><div class="hm-idxs">${chips||'<span class="dim">指數載入中…</span>'}${br}</div>
       ${head?`<div class="hm-head">🧭 ${esc(head)}${vtag?` <small class="dim" style="font-weight:400;font-size:12px">(盤勢解讀 ${vtag})</small>`:''}</div>`:''}
       <div class="hm-links"><a href="javascript:void 0" data-go="macro">大盤與今日盤勢 ›</a><a href="javascript:void 0" data-go="news">產業早報 ›</a></div></div>`;
@@ -59,8 +59,11 @@
           if(m==='low'){stop=fmt(f.lowOwn&&f.lowOwn.stop,us);tp=fmt(f.lowOwn&&f.lowOwn.target,us);}
           else if(m==='dip'){stop=fmt(f.ownDip&&f.ownDip.stop,us);tp=fmt(f.ownDip&&f.ownDip.target,us);}
           else{stop=fmt(f.nextBelowPrice,us);tp='跌破季線才賣';}
-          const sv=num(String(stop).replace(/[^\d.]/g,''));if(px&&sv&&px<=sv)note='<span class="hm-tag hm-sell">已跌破,照計畫該賣</span>';
-        }else note='<span class="hm-tag">價位待核對</span>';
+          const sv=num(String(stop).replace(/[^\d.]/g,'')),tv=num(String(tp).replace(/[^\d.]/g,''));
+          if(m==='ma'){if(f.check.below2)note='<span class="hm-tag hm-sell">連 2 天跌破季線,照計畫該賣</span>';else if(f.check.below)note='<span class="hm-tag">已跌破季線 1 天</span>';}
+          else if(px&&sv&&px<=sv)note='<span class="hm-tag hm-sell">已跌破,照計畫該賣</span>';
+          else if(px&&tv&&px>=tv)note='<span class="hm-tag">已超過目標價,照計畫應已賣</span>';   // r1218
+        }else if(s.etf)note='<span class="hm-tag">ETF 不套用買賣規則</span>';else note='<span class="hm-tag">價位待核對</span>';
       }catch(e){}
       out.push(row(s.id,`<span class="hm-nm"><b>${esc(s.name)}</b><small>${esc(s.id)}</small></span>
         <span class="hm-px"><b>${fmt(px,us)}</b><small style="color:${col(s.chg)}">${pct(s.chg)}</small></span>
