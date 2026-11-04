@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1226';
+const APP_BUILD='r1227';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -26499,8 +26499,11 @@ function trendEvidence(t){
   const med=yo.length?yo.slice().sort((a,b)=>a-b)[Math.floor(yo.length/2)]:null;
   return {n:S.length,yoN:yo.length,yoMed:med,yoPos:yo.filter(v=>v>0).length,bull,above,rel,secs,ai};
 }
+let TPERF=null;
+async function trendPerfLoad(){if(TPERF)return TPERF;try{const r=await fT('trends_perf.json?'+Math.floor(Date.now()/18e5),9000);if(r&&r.ok)TPERF=await r.json();}catch(e){}return TPERF;}
 function trendsPage(T){
   const box=document.getElementById('trendPage');if(!box)return;
+  if(!TPERF&&!window.__tperfTry){window.__tperfTry=1;trendPerfLoad().then(()=>{try{trendsPage(T);}catch(e){}});}
   if(!T||!(T.trends||[]).length){box.innerHTML='<div class="dim-note">趨勢還沒產生(每天早上跟著早報更新),稍後再看。</div>';return;}
   try{if(typeof aip3Load==='function'&&(typeof AIP3==='undefined'||!AIP3))aip3Load().then(()=>{try{trendsPage(T);}catch(e){}});}catch(e){}
   try{if(typeof SECSTR!=='undefined'&&!SECSTR&&typeof secStrLoad==='function')secStrLoad();}catch(e){}
@@ -26509,13 +26512,16 @@ function trendsPage(T){
   const live=id=>{const s=((window.DATA&&DATA.stocks)||[]).find(x=>x.id===id);return s&&s.price>0?{px:s.price,chg:s.chg}:null;};
   const chip=x=>{const q=live(x.id)||{px:x.px,chg:x.chg};const fl=(x.flags||[]).map(f=>`<span class="tr-flag">${esc(f)}</span>`).join('');
     return `<a class="tr-stk" href="#stock/${encodeURIComponent(x.id)}" title="${esc(x.why||'')}"><b>${esc(x.n||x.id)}</b> <span class="c-code">${esc(x.id)}</span>${q&&q.px!=null?` <span>${(+q.px).toLocaleString()}</span> <span style="color:${q.chg>=0?'var(--up)':'var(--down)'}">${q.chg>=0?'+':''}${(+q.chg||0).toFixed(2)}%</span>`:''}${x.yoy?` <span class="dim">營收 ${esc(x.yoy)}</span>`:''}${fl}</a>`;};
+  const perf=t=>{const P=TPERF&&TPERF.trends&&TPERF.trends[t.key];if(!P||P.avg==null)return '';const d=P.avg-(P.mk||0);
+    return `<div class="tr-perf">📈 <b>趨勢績效</b>:從第一次收錄(${esc(String(P.first).slice(5).replace('-','/'))})到現在 ${P.days} 天,${P.n} 檔相關台股平均 <b style="color:${P.avg>=0?'var(--up)':'var(--down)'}">${P.avg>=0?'+':''}${P.avg}%</b>、${P.win}% 上漲;同期大盤(0050) ${P.mk>=0?'+':''}${P.mk}% → <b style="color:${d>=0?'var(--up)':'var(--down)'}">${d>=0?'贏':'輸'}大盤 ${Math.abs(d).toFixed(1)}%</b><span class="dim">(首日價格只寫一次、不事後修改)</span></div>`;};
   const ev=t=>{const e=trendEvidence(t);if(!e.n)return '';const parts=[];
+    try{const S=TPERF&&TPERF.scores||{};(t.tw||[]).forEach(x=>{if(!e.ai.some(a=>a.id===x.id)&&S[x.id]&&S[x.id].ai!=null)e.ai.push({id:x.id,n:S[x.id].n||x.n||x.id,ai:+S[x.id].ai});});}catch(x){}
     if(e.yoN)parts.push(`營收年增中位數 <b style="color:${e.yoMed>=0?'var(--up)':'var(--down)'}">${e.yoMed>=0?'+':''}${e.yoMed.toFixed(0)}%</b>(${e.yoPos}/${e.yoN} 檔成長)`);
     parts.push(`${e.bull}/${e.n} 檔均線多頭、${e.above}/${e.n} 檔站上月線`);
     if(e.rel!=null)parts.push(`所屬產業近 20 日比大盤 <b style="color:${e.rel>=0?'var(--up)':'var(--down)'}">${e.rel>=0?'+':''}${e.rel.toFixed(1)}%</b>`);
-    const aiH=e.ai.length?`<div class="tr-ai">🔮 AI 未來性評分(1~10,AI Pick 長期清單每月評):${e.ai.sort((a,b)=>b.ai-a.ai).map(x=>`<span><b>${esc(x.n)}</b> ${x.ai}</span>`).join('')}</div>`:'';
+    const aiH=e.ai.length?`<div class="tr-ai">🔮 AI 未來性評分(1~10,跟 AI Pick 長期清單同一套,每 45 天重評):${e.ai.sort((a,b)=>b.ai-a.ai).map(x=>`<span><b>${esc(x.n)}</b> ${x.ai}</span>`).join('')}</div>`:'';
     const verdict=e.yoN&&e.yoMed>=15&&e.bull>=e.n/2?'<b style="color:var(--up)">數據跟得上:營收和股價都在走</b>':e.yoN&&e.yoMed>=15?'<b style="color:var(--amber)">營收有了,股價還沒走(或剛回檔)</b>':e.bull>=e.n/2?'<b style="color:var(--amber)">股價先走,營收還沒看到</b>':'<b class="dim">數據還看不太到,先當故事聽</b>';
-    return `<div class="tr-ev"><div class="ld-k">站內數據檢查(${e.n} 檔相關台股)</div><div>${parts.join('・')}</div><div style="margin-top:3px">${verdict}</div>${aiH}</div>`;};
+    return `<div class="tr-ev"><div class="ld-k">站內數據檢查(${e.n} 檔相關台股)</div><div>${parts.join('・')}</div><div style="margin-top:3px">${verdict}</div>${aiH}</div>`+perf(t);};
   const card=t=>`<div class="news-card tr-card" style="border-left-color:${stC[t.stage]||'var(--line)'}">
       <div class="news-head"><span class="news-cat" style="color:${stC[t.stage]||'var(--txt2)'};border-color:${stC[t.stage]||'var(--line)'}" title="${esc(stTip[t.stage]||'')}">${esc(t.stage)}</span><b class="news-ttl">${esc(t.name)}</b><span class="dim" style="font-size:12.5px">看 ${esc(t.horizon||'1~3 年')}</span></div>
       <div class="dim" style="font-size:12px;margin:-2px 0 6px">${esc(stTip[t.stage]||'')}・${esc(trendHistoryLabel(t,T))}</div>
@@ -26535,6 +26541,7 @@ function trendsPage(T){
     ${L.map(card).join('')}
     <div class="dim-note" style="margin-top:12px">歷史:每天的趨勢都永久存在 trends/ 資料夾;上面「首次記錄、累計天數」就是從那裡算的。</div>`;
   if(!document.getElementById('trCss2')){const st=document.createElement('style');st.id='trCss2';st.textContent=`.tr-ev{margin:8px 0 4px;padding:8px 10px;border-radius:9px;background:var(--panel2);font-size:13px;line-height:1.7}
+    .tr-perf{margin:4px 0 6px;padding:8px 10px;border-radius:9px;border:1px dashed var(--line);font-size:13px;line-height:1.7}
     .tr-ai{margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}.tr-ai span{border:1px solid var(--line);border-radius:999px;padding:1px 8px;font-size:12.5px}
     .tr-legend{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;align-items:center;font-size:12.5px;margin:0 0 10px}.tr-legend span{border:1px solid;border-radius:6px;padding:0 6px;font-weight:800;justify-self:start}.tr-legend small{color:var(--dim)}
     #trendPage .tr-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;font-size:13px}
