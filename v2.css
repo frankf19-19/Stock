@@ -287,7 +287,7 @@ html.v2 #detailView .sec-title.tap:hover{border-color:var(--amber)!important}
 @media(max-width:640px){
   /* 頁首一列:標誌・搜尋・鈴鐺;登入/工具搬到「更多」 */
   html.v2 header.v2-top .head-in{display:flex!important;flex-wrap:nowrap!important;align-items:center!important;gap:8px!important;padding:6px 10px!important;min-height:0}
-  html.v2 header.v2-top .head-in>div:first-child{flex:0 0 auto}
+  html.v2 header.v2-top .head-in>div:has(>h1){flex:0 0 auto}
   html.v2 header.v2-top h1{font-size:19px!important;margin:0!important}
   html.v2 header.v2-top .sub{display:none!important}
   html.v2 header.v2-top .qs-wrap{flex:1 1 auto!important;min-width:0!important;margin:0!important;order:2}
@@ -355,4 +355,50 @@ html.v2 .a3-lvi em{white-space:nowrap}
   html.v2 .v2-scfold{margin:6px 0;border:1px dashed var(--line);border-radius:8px;padding:2px 10px}
   html.v2 .v2-scfold>summary{cursor:pointer;font-size:12.5px;color:var(--amber);padding:6px 0}
   html.v2 .v2-scfold .sc-insights{margin-top:4px}
+}
+/* ===== r1224 更像 App(手機) ===== */
+#v2top{display:none}
+@media(max-width:640px){
+  html.v2 *{-webkit-tap-highlight-color:transparent}
+  html.v2 body{overscroll-behavior-y:none}
+  html.v2 #mobNav,html.v2 #v2top,html.v2 #stockDock,html.v2 #chapTabs{user-select:none;-webkit-user-select:none}
+  /* 頂列 */
+  html.v2 #v2top{display:flex!important;align-items:center;gap:8px;width:100%;min-height:48px;padding:4px 0}
+  html.v2 #v2top .v2t-l{display:flex;align-items:center;gap:6px;min-width:0;flex:1 1 auto}
+  html.v2 #v2top .v2t-logo svg{width:22px;height:22px;display:block}
+  html.v2 #v2top .v2t-title{font-size:19px;font-weight:900;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  html.v2 #v2top .v2t-mkt .gmkt-bar{margin:0!important;gap:0!important;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--panel)}
+  html.v2 #v2top .v2t-mkt .gmkt-bar button{padding:3px 9px!important;font-size:12px!important;min-height:26px!important;border-radius:999px!important;border:none!important}
+  html.v2 #v2top .v2t-search{flex:0 0 auto;width:38px;height:38px;border:1px solid var(--line);border-radius:12px;background:var(--panel);font-size:17px;display:flex;align-items:center;justify-content:center}
+  html.v2 #v2top .v2t-bell #alertBtn{height:38px!important;width:38px;padding:0!important;margin:0!important;border-radius:12px!important;display:flex;align-items:center;justify-content:center}
+  html.v2.v2-search #v2top .v2t-search{background:var(--amber);color:#111;border-color:var(--amber)}
+  /* 原本的標誌與搜尋框:標誌藏起來,搜尋框點了才展開成第二列 */
+  html.v2 header.v2-top .head-in{flex-wrap:wrap!important;padding:4px 12px 6px!important;gap:0 8px!important}
+  html.v2 header.v2-top .head-in>div:has(>h1){display:none!important}
+  html.v2 header.v2-top .qs-wrap{display:none!important;flex:1 1 100%!important;order:9}
+  html.v2.v2-search header.v2-top .qs-wrap{display:block!important;margin:2px 0 4px!important}
+  html.v2 header.v2-top .qs-drop{top:98px!important}
+  html.v2 header.v2-top{position:sticky;top:0;z-index:60;border-bottom:1px solid var(--line)}
+  /* 頁名已在頂列,頁面裡的大標題不再重複;台股/美股也已在頂列 */
+  html.v2 #homeIntro{display:none!important}
+  html.v2 #homeView>.gmkt-bar,html.v2 .wrap>.gmkt-bar{display:none!important}
+  html.v2 #detailView .m-head h2{display:none!important}
+  html.v2 .wrap{padding-top:8px!important}
+  /* 總覽頁不重複顯示底部指數列 */
+  html.v2.v2-home #mobIdxBar{display:none!important}
+  html.v2 #mobIdxBar{border-top:1px solid var(--line)}
+  /* 頁尾說明收小 */
+  html.v2 .foot{font-size:11px!important;line-height:1.5!important;padding:10px 0 6px!important}
+  html.v2 .foot:not(.legal){display:none!important}
+  /* 觸控回饋與切頁淡入 */
+  html.v2 .r-card:active,html.v2 .hm-row:active,html.v2 .pt-card:active,html.v2 .a3-row:active{transform:scale(.985);transition:transform .08s}
+  html.v2 #mobNav button:active .mi{transform:scale(.88)}
+  html.v2 .tabPane{animation:v2fade .18s ease-out}
+  @keyframes v2fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  /* 底部導覽:更像 App 的分頁列 */
+  html.v2 #mobNav{padding:4px 2px calc(4px + env(safe-area-inset-bottom))!important;border-top:1px solid var(--line)!important;box-shadow:none!important;background:color-mix(in srgb,var(--panel) 92%,transparent)!important;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+  html.v2 #mobNav button{min-height:50px!important;font-size:10.5px!important;gap:1px!important}
+  html.v2 #mobNav button .mi{font-size:22px!important}
+  html.v2 #mobNav button.on{background:none!important}
+  html.v2 #mobNav button.on .mi{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--amber) 60%,transparent))}
 }

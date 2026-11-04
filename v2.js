@@ -122,10 +122,39 @@
       const parts=['.sc-signals','.sc-insights'].map(q=>sc.querySelector(q)).filter(Boolean);if(!parts.length)return;sc.dataset.v2fold='1';
       const d=doc.createElement('details');d.className='v2-scfold';d.innerHTML='<summary>止跌進度與細節</summary>';parts[0].before(d);parts.forEach(p=>d.append(p));});
   }
+  /* r1224 更像 App:手機頂列 = 頁名・台股/美股・搜尋鈕・鈴鐺;搜尋框點了才展開;頁名跟著目前頁面 */
+  const TITLE={home:'總覽',news:'產業早報',macro:'大盤',aipick:'AI Pick',port:'我的持股',fav:'我的最愛',stocks:'選股',etf:'ETF',gooaye:'節目',view:'大盤'};
+  function appBar(){
+    const head=doc.querySelector('header .head-in');if(!head||doc.getElementById('v2top'))return;
+    const bar=doc.createElement('div');bar.id='v2top';
+    bar.innerHTML='<div class="v2t-l"><span class="v2t-logo"></span><b class="v2t-title">總覽</b></div><div class="v2t-mkt"></div><button type="button" class="v2t-search" aria-label="搜尋股票">🔍</button><div class="v2t-bell"></div>';
+    const logo=doc.querySelector('header h1 .lgo');if(logo)bar.querySelector('.v2t-logo').append(logo.cloneNode(true));
+    head.prepend(bar);
+    const homes={};const ids=['gmktBar','alertBtn'];
+    ids.forEach(id=>{const el=doc.getElementById(id);if(el)homes[id]={el,p:el.parentNode,n:el.nextSibling};});
+    const place=()=>{ids.forEach(id=>{const h=homes[id];if(!h)return;const dest=id==='gmktBar'?bar.querySelector('.v2t-mkt'):bar.querySelector('.v2t-bell');
+      if(mqM.matches){if(h.el.parentNode!==dest)dest.append(h.el);}
+      else if(h.el.parentNode===dest){if(h.n&&h.n.parentNode===h.p)h.p.insertBefore(h.el,h.n);else h.p.append(h.el);}});
+      if(!mqM.matches)root.classList.remove('v2-search');};
+    place();try{mqM.addEventListener('change',place);}catch(e){mqM.addListener(place);}
+    bar.querySelector('.v2t-search').onclick=()=>{const on=root.classList.toggle('v2-search');if(on)setTimeout(()=>{const q=doc.getElementById('qSearch');if(q)q.focus();},30);else{const q=doc.getElementById('qSearch');if(q){q.value='';q.dispatchEvent(new Event('input'));}}};
+    doc.addEventListener('click',e=>{if(!root.classList.contains('v2-search'))return;if(e.target.closest('#v2top,.qs-wrap,.qs-drop'))return;root.classList.remove('v2-search');},true);
+    doc.addEventListener('keydown',e=>{if(e.key==='Escape'&&root.classList.contains('v2-search'))root.classList.remove('v2-search');});
+  }
+  function syncTitle(){
+    const t=doc.querySelector('#v2top .v2t-title');if(!t)return;
+    let k=current(),txt=TITLE[k]||'';
+    if(/^#stock\//.test(location.hash)){const id=decodeURIComponent(location.hash.slice(7));const s=(window.DATA&&DATA.stocks||[]).find(x=>x.id===id);txt=s?s.name:'個股';}
+    else if(!k&&location.hash==='#learn')txt='小學堂';else if(!k&&location.hash)txt=(doc.querySelector('#detailView .m-head h2')||{}).textContent||'';
+    t.textContent=txt||'K研所';
+    if(/^#stock\//.test(location.hash))root.classList.remove('v2-search');
+    root.classList.toggle('v2-home',k==='home'&&!location.hash);
+  }
   function sync(){
     const k=current();
     doc.querySelectorAll('#v2side [data-v2],#mobNav [data-v2]').forEach(b=>{const on=b.dataset.v2===k&&!b.classList.contains('v2-logo');b.classList.toggle('on',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
     root.classList.toggle('v2-detail',!!location.hash&&location.hash!=='#fav');
+    try{syncTitle();}catch(e){}
   }
   /* r1207:App(加到主畫面)上方狀態列顏色跟著目前主題的底色,不再是紅色 */
   function themeColor(){try{const bg=getComputedStyle(doc.body).backgroundColor;if(!bg)return;doc.querySelectorAll('meta[name="theme-color"]').forEach(m=>m.setAttribute('content',bg));}catch(e){}}
@@ -137,10 +166,11 @@
     try{topbar();}catch(e){}
     try{mobileNav();}catch(e){}
     try{mobileCompact();}catch(e){}
+    try{appBar();}catch(e){}
     try{patchMenu();}catch(e){}
     sync();
     window.addEventListener('hashchange',()=>setTimeout(sync,0));
-    try{new MutationObserver(()=>{clearTimeout(window.__v2t);window.__v2t=setTimeout(()=>{try{stockCtx();favFold();}catch(e){}},250);}).observe(doc.getElementById('detailView')||doc.body,{childList:true,subtree:true});}catch(e){}
+    try{new MutationObserver(()=>{clearTimeout(window.__v2t);window.__v2t=setTimeout(()=>{try{stockCtx();favFold();syncTitle();}catch(e){}},250);}).observe(doc.getElementById('detailView')||doc.body,{childList:true,subtree:true});}catch(e){}
     /* 有些模組晚一點才建好手機導覽,再補一次 */
     setTimeout(()=>{try{mobileNav();patchMenu();sync();}catch(e){}},1500);
     /* 開站若停在已併入的「今日盤勢」,轉到大盤 */
