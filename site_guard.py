@@ -161,7 +161,10 @@ def check_files():
     check_file("aipick_us", "AI", "AI Pick(美股)", "aipick_us.json", "updated", expect_us(1, "12:00"), expect_us(2, "12:00"), sec="aipick")
     check_file("brain", "AI", "大腦學習", "brain.json", "u", expect_tw("23:30"), expect_tw("23:59") - dt.timedelta(days=1))
     # 國際行情:台股盤中或美股盤中 1 小時內要更新;其他時間 30 小時
-    win = in_tw_market() or (TODAY.weekday() < 5 and (NOW.hour >= 22 or NOW.hour < 5)) or (TODAY.weekday() == 5 and NOW.hour < 5)
+    # 10/26 巡檢:週一凌晨 00:00~05:00 不算美股時段——美股期貨週日 18:00(美東)才開,等於台北週一 06:00;yext.yml 這段也沒排班。
+    #   之前把週一凌晨也當美股盤中,每週一 00:xx 與 03:xx 都誤判紅燈(10/12、10/19、10/26、11/02 連四週),半夜推播兩次、白白重啟排程。
+    #   凌晨時段只認週二~週六(對應美東週一~週五的夜盤)。
+    win = in_tw_market() or (TODAY.weekday() < 5 and NOW.hour >= 22) or (1 <= TODAY.weekday() <= 5 and NOW.hour < 5)
     if win: check_age("yext", "每日資料", "國際行情", "yext.json", "updated", 1.2, 2.5, fix="yext.yml")
     else: check_age("yext", "每日資料", "國際行情", "yext.json", "updated", 72, 100, fix="yext.yml")
     check_file("usf", "每日資料", "美股財報", "usf.json", "updated", expect_us(2, "12:00"), expect_us(4, "12:00"), fix="usf.yml")

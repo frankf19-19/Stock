@@ -26,5 +26,11 @@ jobs:
           git config user.email "actions@github.com"
           git add etf_hold.json e/ etf_rev.json || true
           if [ -f etf_edge.json ]; then git add etf_edge.json; fi                # r748:e/ 是每日持股快照歷史,漏加就永遠不會進版控
-          git diff --cached --quiet || git commit -m "ETF 持股更新 [CI Skip]"
-          git push || true
+          if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
+          git commit -m "ETF 持股更新 [CI Skip]"
+          # 10/29 巡檢:原本只 git push 一次、被拒也當成功(跟 margin.yml r1193 之前同一種毛病);改成拉下最新再推、重試 5 次
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash -X theirs origin main && git push && exit 0
+            git rebase --abort 2>/dev/null || true; sleep $((i*7))
+          done
+          echo "::error::推送失敗 5 次,ETF 持股資料沒進版控"; exit 1

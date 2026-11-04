@@ -217,10 +217,12 @@ def main():
     except Exception as e:
         print(f"  [warn] 新聞: {e}")
 
+    # r1149:颱風假/臨時休市自動偵測。10/24 巡檢:原本放在 data.json 寫完之後,data["closed_today"] 從來沒落地,
+    #       下一輪讀 data.json 永遠看不到 ct → 「誤判撤銷」那段永遠不會啟動;移到寫檔之前才算真的記下來。
+    closed = unscheduled_closure(data, now, n, stale_n[0])
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     print(f"盤中更新:{n} 檔(MIS官方{'+Worker備援' if PROXY else ''}),台北 {data['intraday']}")
-    closed = unscheduled_closure(data, now, n, stale_n[0])   # r1149:颱風假/臨時休市自動偵測
     if n < 100 and not closed:
         print("::warning::報價取得偏少,MIS 直連與 Worker 皆可能受阻,請檢查")
 
