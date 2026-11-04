@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1221';
+const APP_BUILD='r1222';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -622,10 +622,9 @@ function showFavPage(){
     <div class="m-head"><div>
       <h2 style="font-size:24px;font-weight:900">⭐ 我的最愛</h2>
       ${!SB_USER?`<div class="c-full" style="margin:6px 0 10px;padding:10px 14px;border:1px solid var(--t-gold);border-radius:10px;font-size:13.5px">🔐 最愛、持股、提醒都存在<b>你的帳號</b>裡,不留在瀏覽器。<a href="#" onclick="sbModal();return false" style="color:var(--t-gold);font-weight:800;margin-left:6px">登入 / 註冊 ›</a></div>`:''}
-      <div class="c-full" style="margin-top:4px">在個股頁點名稱旁的 ☆、或在選股清單卡片點星星即可收藏;收藏存在你的帳號裡,換裝置登入就在。</div>
     </div>
     <button class="btn-ghost" id="favAlTg" style="margin-left:auto;padding:7px 14px;font-weight:800"></button></div>
-    <div class="dim-note" style="margin-top:6px">🔔 最愛提醒:每檔最愛到 <b>價格觀察區</b>(均線帶／近期高低價)、<b>模型買價</b>或<b>自設停利／停損</b>(只用你的自設／持股成本，不拿AI模型成本代替)時,會跳頁內提醒+瀏覽器通知,並列在首頁頂端;每檔每種一天一次。</div>
+    <details class="layout-fold" style="margin-top:6px"><summary>怎麼加入最愛・提醒怎麼運作</summary><div class="dim-note">在個股頁點名稱旁的 ☆、或在選股清單卡片點星星即可收藏;收藏存在你的帳號裡,換裝置登入就在。<br>🔔 最愛提醒:每檔最愛到 <b>價格觀察區</b>(均線帶／近期高低價)、<b>模型買價</b>或<b>自設停利／停損</b>(只用你的自設／持股成本，不拿AI模型成本代替)時,會跳頁內提醒+瀏覽器通知,並列在首頁頂端;每檔每種一天一次。</div></details>
     <div class="favAlertBar fal-bar" id="favAlertBar2" hidden style="margin-top:10px"></div>
     <div class="radar" id="favBox" style="margin-top:14px"></div>
   </div>`;
@@ -20720,7 +20719,7 @@ function renderPort(){
       <div style="font-size:13px;color:var(--mut);font-weight:800;letter-spacing:.05em">${lb}</div>
       <div style="font-family:var(--mono);font-weight:900;font-size:26px;margin-top:4px;color:${c||'var(--txt)'}">${val}</div></div>`;
     html+=`<div id="ptHero" data-jumpname="💼 資產總覽" style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;font-size:12.5px;color:var(--dim)">
-      <span>🟢 自動即時——報價、健檢隨行情與庫存增減立即重算</span>
+      <span>🟢 即時報價,損益自動重算</span>
       <span style="margin-left:auto;font-family:var(--mono)">更新 ${ts}</span></div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       ${hero(__gmUS?'美股總市值(US$)':'台股總市值',fmt(mv))}${hero('未實現損益',(pnl>=0?'+':'-')+fmt(Math.abs(pnl)),col)}

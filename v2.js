@@ -78,6 +78,38 @@
     nav.onclick=e=>{const b=e.target.closest('[data-v2]');if(!b)return;if(b.dataset.v2==='__more'){if(typeof WorkspaceNavigation!=='undefined')WorkspaceNavigation.open(doc);return;}go(b.dataset.v2);};
     window.__mobNavSync=sync;
   }
+  /* ── r1222 手機:頁首縮成一列(標誌・搜尋・鈴鐺),登入/工具搬到「更多」;底部「更多」只列底部導覽沒有的頁 + 帳號與設定 ── */
+  const mqM=window.matchMedia('(max-width:640px)');
+  function mobileCompact(){
+    const head=doc.querySelector('header .head-in');if(!head||head.dataset.v2m)return;head.dataset.v2m='1';
+    const hold=doc.createElement('div');hold.id='v2hold';hold.hidden=true;doc.body.append(hold);
+    const ids=['authBtn','header-tools'];const homes={};
+    const get=id=>id==='header-tools'?head.querySelector('.header-tools'):doc.getElementById(id);
+    ids.forEach(id=>{const el=get(id);if(el)homes[id]={el,p:el.parentNode,n:el.nextSibling};});
+    const place=()=>{Object.values(homes).forEach(h=>{if(!h.el)return;
+      if(mqM.matches){if(h.el.parentNode!==hold&&!h.el.closest('.workspace-menu'))hold.append(h.el);}
+      else if(h.el.parentNode!==h.p){if(h.n&&h.n.parentNode===h.p)h.p.insertBefore(h.el,h.n);else h.p.append(h.el);}});};
+    place();try{mqM.addEventListener('change',place);}catch(e){mqM.addListener(place);}
+    window.__v2moveBack=()=>{Object.values(homes).forEach(h=>{if(mqM.matches&&h.el.parentNode!==hold)hold.append(h.el);});};
+  }
+  function patchMenu(){
+    if(typeof window.WorkspaceNavigation==='undefined'||WorkspaceNavigation.__v2)return;
+    const orig=WorkspaceNavigation.open;
+    WorkspaceNavigation.open=function(d){const r=orig.call(this,d);try{const dlg=doc.querySelector('dialog.workspace-menu');if(!dlg||!mqM.matches)return r;
+      const inNav=new Set([...doc.querySelectorAll('#mobNav [data-v2]')].map(b=>b.dataset.v2));
+      dlg.querySelectorAll('.workspace-page-list [data-page]').forEach(b=>{if(inNav.has(b.dataset.page))b.remove();});
+      const h=dlg.querySelector('.workspace-menu-head h2');if(h)h.textContent='更多';const sub=dlg.querySelector('.workspace-menu-head p');if(sub)sub.textContent='其他頁面、帳號與設定';
+      const sec=doc.createElement('div');sec.className='v2-acct';sec.innerHTML='<div class="v2-sep">帳號與設定</div><div class="v2-acct-row"></div>';
+      const row=sec.querySelector('.v2-acct-row');const hold=doc.getElementById('v2hold');
+      const auth=doc.getElementById('authBtn');if(auth)row.append(auth);
+      const ht=hold&&hold.querySelector('.header-tools');if(ht){const pop=ht.querySelector('.ht-pop');[...(pop||ht).children].forEach(c=>{if(c.tagName!=='SUMMARY'&&c.id!=='favBtn'&&c.id!=='secNav'&&!c.matches('nav'))row.append(c);});sec.dataset.ht='1';}
+      const bell=doc.createElement('button');bell.type='button';bell.className='btn-ghost';bell.textContent='🔔 通知設定';bell.onclick=()=>{dlg.close();setTimeout(()=>{const b=doc.getElementById('alertBtn');if(b)b.click();},50);};row.append(bell);
+      row.addEventListener('click',e=>{const t=e.target.closest('button,a');if(t&&t!==bell)setTimeout(()=>{try{dlg.close();}catch(x){}},80);});
+      dlg.append(sec);
+      dlg.addEventListener('close',()=>{try{const ht2=hold&&hold.querySelector('.header-tools');const pop=ht2&&(ht2.querySelector('.ht-pop')||ht2);[...row.children].forEach(c=>{if(c.id==='authBtn')hold.append(c);else if(c!==bell&&pop)pop.append(c);});sec.remove();}catch(e){}},{once:true});
+    }catch(e){}return r;};
+    WorkspaceNavigation.__v2=true;
+  }
   function sync(){
     const k=current();
     doc.querySelectorAll('#v2side [data-v2],#mobNav [data-v2]').forEach(b=>{const on=b.dataset.v2===k&&!b.classList.contains('v2-logo');b.classList.toggle('on',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
@@ -92,10 +124,12 @@
     try{sidebar();}catch(e){}
     try{topbar();}catch(e){}
     try{mobileNav();}catch(e){}
+    try{mobileCompact();}catch(e){}
+    try{patchMenu();}catch(e){}
     sync();
     window.addEventListener('hashchange',()=>setTimeout(sync,0));
     /* 有些模組晚一點才建好手機導覽,再補一次 */
-    setTimeout(()=>{try{mobileNav();sync();}catch(e){}},1500);
+    setTimeout(()=>{try{mobileNav();patchMenu();sync();}catch(e){}},1500);
     /* 開站若停在已併入的「今日盤勢」,轉到大盤 */
     const cur=doc.querySelector('#homeTabs button.on');if(cur&&cur.dataset.tab==='view')window.setHomeTab('macro');
     if(cur&&cur.dataset.tab==='home'&&!location.hash)window.setHomeTab('home');   // r1213:總覽在 app.js 啟動時還沒建好,補一次

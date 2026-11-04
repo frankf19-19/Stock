@@ -283,3 +283,60 @@ html.v2 #detailView .sec-title.tap:hover{border-color:var(--amber)!important}
 .gl:hover,.gl:focus{background:color-mix(in srgb,var(--gold,#E8B44A) 14%,transparent);outline:none;border-radius:2px}
 .gl-pop{position:fixed;z-index:3000;display:none;padding:10px 12px;border-radius:10px;background:var(--panel,#1b1f27);color:var(--txt,#eee);border:1px solid var(--gold,#E8B44A);box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:13.5px;line-height:1.6;font-weight:400;letter-spacing:0;text-align:left;white-space:normal}
 .gl-pop b{display:block;color:var(--gold,#E8B44A);font-size:14px;margin-bottom:2px}
+/* ===== r1222 手機操作簡化(Frank 11/04:「操作介面真的都好難用、很亂」) ===== */
+@media(max-width:640px){
+  /* 頁首一列:標誌・搜尋・鈴鐺;登入/工具搬到「更多」 */
+  html.v2 header.v2-top .head-in{display:flex!important;flex-wrap:nowrap!important;align-items:center!important;gap:8px!important;padding:6px 10px!important;min-height:0}
+  html.v2 header.v2-top .head-in>div:first-child{flex:0 0 auto}
+  html.v2 header.v2-top h1{font-size:19px!important;margin:0!important}
+  html.v2 header.v2-top .sub{display:none!important}
+  html.v2 header.v2-top .qs-wrap{flex:1 1 auto!important;min-width:0!important;margin:0!important;order:2}
+  html.v2 header.v2-top #qSearch{height:36px!important;font-size:14px!important;padding:0 10px!important;width:100%!important}
+  html.v2 header.v2-top #alertBtn{order:3;flex:0 0 auto;height:36px!important;padding:0 10px!important;margin:0!important}
+  html.v2 header.v2-top .meta,html.v2 header.v2-top .toolbar{display:contents!important}
+  html.v2 header.v2-top #updBtn,html.v2 header.v2-top #favBtn,html.v2 header.v2-top #workspaceMenuBtn,html.v2 header.v2-top .statline{display:none!important}
+  html.v2 header.v2-top{height:auto!important;min-height:0!important}
+  /* 台股/美股 切換:小一點、貼著頁首 */
+  html.v2 .gmkt-bar{margin:6px 0 2px!important;max-width:none!important;justify-content:flex-start!important}
+  html.v2 .gmkt-bar button{padding:5px 12px!important;font-size:13px!important;min-height:30px!important}
+  /* 頁名一行、去掉說明句;「本頁內容」在手機不顯示 */
+  html.v2 #homeIntro{display:flex;align-items:baseline;gap:8px;margin:6px 0 2px!important}
+  html.v2 #homeIntro h2{font-size:19px!important;margin:0!important}
+  html.v2 #homeIntro p{display:none!important}
+  html.v2 .page-index{display:none!important}
+  /* 底部指數列薄一點 */
+  html.v2 #mobIdxBar{padding:3px 10px!important;font-size:12px!important;line-height:1.4!important}
+  /* 持股頁:四格資產數字縮成一列小字,持股卡先看到 */
+  html.v2 #tp-port .sec-title:first-of-type{display:none!important}
+  html.v2 #tp-port>.sec-body{padding:0!important;border:none!important;background:none!important}
+  html.v2 #ptForm{margin:4px 0 8px!important}
+  html.v2 #ptHero{font-size:11.5px!important}
+  html.v2 #ptHero+div{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important;margin-bottom:10px!important}
+  html.v2 #ptHero+div>div{min-width:0!important;padding:8px 6px!important;border-radius:10px!important;text-align:center}
+  html.v2 #ptHero+div>div>div:first-child{font-size:11px!important;letter-spacing:0!important}
+  html.v2 #ptHero+div>div>div:last-child{font-size:15px!important}
+  /* 最愛頁:回儀表板鈕不需要(底部有導覽);AI Pick 狀態放到卡片最後、不再排成三欄 */
+  html.v2 #favBox .fav-st{display:block!important;order:9;white-space:pre-line;font-size:12px!important;font-weight:600!important;margin-top:8px!important}
+  html.v2 #favBox .r-card{display:flex;flex-direction:column}
+  html.v2 #detailView #backBtn{display:none!important}
+  /* AI Pick:跌到就賣/漲到就賣 兩格各一行,不再被切掉 */
+  html.v2 .a3-lv.a3-key{flex-wrap:wrap}
+  html.v2 .a3-lv.a3-key .a3-lvi{flex:1 1 100%!important;justify-content:space-between}
+  /* 「更多」清單:帳號與設定 */
+  html.v2 .v2-acct{padding:4px 16px 16px}
+  html.v2 .v2-acct .v2-sep{font-size:12px;color:var(--dim);margin:8px 0 6px}
+  html.v2 .v2-acct-row{display:flex;flex-wrap:wrap;gap:8px}
+  html.v2 .v2-acct-row>*{min-height:40px;font-size:14px;padding:6px 12px}
+}
+/* 最愛卡的 AI Pick 狀態在電腦也不要排成多欄 */
+html.v2 #favBox .fav-st{display:block;order:9;margin-top:8px}html.v2 #favBox .r-card{display:flex;flex-direction:column}
+/* 平板 1024:AI Pick 選入理由標籤太長時換行 */
+html.v2 .a3-why span{white-space:normal!important}
+@media(max-width:640px){
+  html.v2 .v2-acct-row #themeSel{display:block!important;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--txt)}
+  html.v2 dialog.workspace-menu{max-height:88vh;overflow:auto}
+}
+@media(max-width:640px){html.v2 header.v2-top .qs-drop{position:fixed!important;left:10px!important;right:10px!important;top:54px!important;width:auto!important;max-height:60vh;overflow:auto}}
+/* 平板/中寬:AI Pick 價位標籤太長就換行,不撐破版面 */
+html.v2 .a3-lvi{white-space:normal!important;max-width:100%;min-width:0;flex-wrap:wrap}
+html.v2 .a3-lvi em{white-space:nowrap}
