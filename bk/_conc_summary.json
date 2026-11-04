@@ -1,17 +1,17 @@
 {
- "updated": "2026-11-04 04:00",
+ "updated": "2026-11-04 07:19",
  "stocks": 1925,
  "types": {
   "順勢型": {
    "n": 138,
-   "passed": 29
+   "passed": 31
   },
   "反指標型": {
-   "n": 426,
-   "passed": 137
+   "n": 412,
+   "passed": 135
   },
   "不敏感": {
-   "n": 1361,
+   "n": 1375,
    "passed": 0
   },
   "資料不足": {
@@ -19,7 +19,7 @@
    "passed": 0
   }
  },
- "test_hit_avg": 50.6,
- "null_pass_rate": 7.2,
+ "test_hit_avg": 50.5,
+ "null_pass_rate": 7.3,
  "real_pass_rate": 8.6
 }
