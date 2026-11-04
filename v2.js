@@ -9,7 +9,7 @@
   const doc=document,root=doc.documentElement;
   root.classList.add('v2');
   const NAV=[['home','🏠','總覽'],['news','📰','產業早報'],['macro','📊','大盤'],['aipick','🤖','AI Pick'],['port','💼','我的持股'],['fav','⭐','我的最愛']];
-  const NAV2=[['stocks','📈','選股'],['etf','🧺','ETF'],['gooaye','🎙️','節目']];
+  const NAV2=[['trend','🔭','未來產業'],['stocks','📈','選股'],['etf','🧺','ETF'],['gooaye','🎙️','節目']];
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   /* ── 今日盤勢併入大盤 ── */
@@ -123,7 +123,7 @@
       const d=doc.createElement('details');d.className='v2-scfold';d.innerHTML='<summary>止跌進度與細節</summary>';parts[0].before(d);parts.forEach(p=>d.append(p));});
   }
   /* r1224 更像 App:手機頂列 = 頁名・台股/美股・搜尋鈕・鈴鐺;搜尋框點了才展開;頁名跟著目前頁面 */
-  const TITLE={home:'總覽',news:'產業早報',macro:'大盤',aipick:'AI Pick',port:'我的持股',fav:'我的最愛',stocks:'選股',etf:'ETF',gooaye:'節目',view:'大盤'};
+  const TITLE={home:'總覽',news:'產業早報',macro:'大盤',aipick:'AI Pick',port:'我的持股',fav:'我的最愛',stocks:'選股',etf:'ETF',gooaye:'節目',view:'大盤',trend:'未來產業'};
   function appBar(){
     const head=doc.querySelector('header .head-in');if(!head||doc.getElementById('v2top'))return;
     const bar=doc.createElement('div');bar.id='v2top';

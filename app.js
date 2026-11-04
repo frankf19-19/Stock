@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1225';
+const APP_BUILD='r1226';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -19625,7 +19625,7 @@ async function loadCreditTrend(s,e){
 /* ══ 首頁分頁籤:大盤/個股/ETF ══ */
 function setHomeTab(t){
   try{if(typeof SiteLayout!=='undefined')SiteLayout.home(document,t);}catch(e){}
-  ['home','macro','aipick','stocks','etf','gooaye','news','view','port'].forEach(k=>{
+  ['home','macro','aipick','stocks','etf','gooaye','news','view','port','trend'].forEach(k=>{
     const p=document.getElementById('tp-'+k);
     if(p)p.style.display=(k===t)?'':'none';
     const b=document.querySelector('#homeTabs [data-tab="'+k+'"]');
@@ -19638,6 +19638,7 @@ function setHomeTab(t){
     try{setTimeout(aipSweep,600);}catch(e){}},0);}
   if(t==='home'){try{if(typeof HomeView!=='undefined')HomeView.render(true);}catch(e){}}   // r1213:總覽
   if(t==='etf'){try{renderEtf();}catch(e){}}
+  if(t==='trend'){try{trendsLoad().then(T=>trendsPage(T));}catch(e){}}   // r1226:🔭 未來產業
   if(t==='stocks'){setTimeout(()=>{try{window.__confHomeIfVisible&&window.__confHomeIfVisible();}catch(e){}},300);}
   if(t==='news'){setTimeout(()=>{try{newsLoad();}catch(e){}},0);}
   if(t==='view'){setTimeout(()=>{try{viewLoad();}catch(e){}},0);}   // r1129:🧭 盤勢解讀   // r1071:📰 產業早報
@@ -26485,6 +26486,60 @@ function trendsRender(T){
     .tr-stk{display:inline-flex;flex-wrap:wrap;gap:3px 5px;align-items:center;padding:3px 9px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);color:var(--txt);text-decoration:none;font-size:13px}.tr-stk b,.tr-stk span{white-space:nowrap}
     .tr-stk:hover{border-color:var(--amber)}.tr-flag{font-size:10.5px;font-weight:800;color:var(--amber);border:1px solid var(--amber);border-radius:6px;padding:0 4px;white-space:nowrap}
     .tr-why{font-size:13px;color:var(--txt2);line-height:1.7;margin-top:6px}`;document.head.appendChild(st);}
+}
+/* r1226:🔭 未來產業頁——趨勢卡 + 站內數據檢查(營收、均線、產業近 20 日 vs 大盤、AI Pick 未來性評分),永久歷史在 trends/ */
+function trendEvidence(t){
+  const D=(window.DATA&&DATA.stocks)||[],byId={};D.forEach(x=>byId[x.id]=x);
+  const ids=(t.tw||[]).map(x=>x.id),S=ids.map(i=>byId[i]).filter(Boolean);
+  const yo=S.map(x=>{const v=x.t3&&x.t3.ry!=null?+x.t3.ry:parseFloat(String(((x.f&&x.f.kv)||{})['月營收YoY']||'').replace(/[+%,]/g,''));return isFinite(v)?v:null;}).filter(v=>v!=null);
+  const bull=S.filter(x=>((x.t&&x.t.kv)||{})['20/60MA']==='多頭排列').length,above=S.filter(x=>((x.t&&x.t.kv)||{})['站上20MA']==='是').length;
+  const secs=[...new Set(S.map(x=>x.sector).filter(Boolean))];let rel=null;
+  try{if(typeof SECSTR!=='undefined'&&SECSTR&&SECSTR.s&&isFinite(SECSTR.mkt)){const v=secs.map(k=>SECSTR.s[k]).filter(Boolean).map(z=>z.r20-SECSTR.mkt);if(v.length)rel=v.reduce((a,b)=>a+b,0)/v.length*100;}}catch(e){}
+  let ai=[];try{const M=typeof AIP3!=='undefined'&&AIP3&&AIP3.tw;const L=M&&M.long;const pool=[...((L&&L.pool)||[]),...((L&&L.slots)||[])];ids.forEach(i=>{const q=pool.find(x=>x.id===i&&x.ai!=null);if(q)ai.push({id:i,n:q.name||byId[i]&&byId[i].name||i,ai:+q.ai});});}catch(e){}
+  const med=yo.length?yo.slice().sort((a,b)=>a-b)[Math.floor(yo.length/2)]:null;
+  return {n:S.length,yoN:yo.length,yoMed:med,yoPos:yo.filter(v=>v>0).length,bull,above,rel,secs,ai};
+}
+function trendsPage(T){
+  const box=document.getElementById('trendPage');if(!box)return;
+  if(!T||!(T.trends||[]).length){box.innerHTML='<div class="dim-note">趨勢還沒產生(每天早上跟著早報更新),稍後再看。</div>';return;}
+  try{if(typeof aip3Load==='function'&&(typeof AIP3==='undefined'||!AIP3))aip3Load().then(()=>{try{trendsPage(T);}catch(e){}});}catch(e){}
+  try{if(typeof SECSTR!=='undefined'&&!SECSTR&&typeof secStrLoad==='function')secStrLoad();}catch(e){}
+  const esc=newsEsc,stC={'萌芽':'var(--t-blue)','成形':'var(--up)','主流':'var(--amber)','過熱':'var(--down)'};
+  const stTip={'萌芽':'剛開始被討論,還沒反映在營收','成形':'訂單與營收開始看得到,還在擴大','主流':'大家都知道了,股價多半已反映一大段','過熱':'新聞天天講、股價漲很多,要小心'};
+  const live=id=>{const s=((window.DATA&&DATA.stocks)||[]).find(x=>x.id===id);return s&&s.price>0?{px:s.price,chg:s.chg}:null;};
+  const chip=x=>{const q=live(x.id)||{px:x.px,chg:x.chg};const fl=(x.flags||[]).map(f=>`<span class="tr-flag">${esc(f)}</span>`).join('');
+    return `<a class="tr-stk" href="#stock/${encodeURIComponent(x.id)}" title="${esc(x.why||'')}"><b>${esc(x.n||x.id)}</b> <span class="c-code">${esc(x.id)}</span>${q&&q.px!=null?` <span>${(+q.px).toLocaleString()}</span> <span style="color:${q.chg>=0?'var(--up)':'var(--down)'}">${q.chg>=0?'+':''}${(+q.chg||0).toFixed(2)}%</span>`:''}${x.yoy?` <span class="dim">營收 ${esc(x.yoy)}</span>`:''}${fl}</a>`;};
+  const ev=t=>{const e=trendEvidence(t);if(!e.n)return '';const parts=[];
+    if(e.yoN)parts.push(`營收年增中位數 <b style="color:${e.yoMed>=0?'var(--up)':'var(--down)'}">${e.yoMed>=0?'+':''}${e.yoMed.toFixed(0)}%</b>(${e.yoPos}/${e.yoN} 檔成長)`);
+    parts.push(`${e.bull}/${e.n} 檔均線多頭、${e.above}/${e.n} 檔站上月線`);
+    if(e.rel!=null)parts.push(`所屬產業近 20 日比大盤 <b style="color:${e.rel>=0?'var(--up)':'var(--down)'}">${e.rel>=0?'+':''}${e.rel.toFixed(1)}%</b>`);
+    const aiH=e.ai.length?`<div class="tr-ai">🔮 AI 未來性評分(1~10,AI Pick 長期清單每月評):${e.ai.sort((a,b)=>b.ai-a.ai).map(x=>`<span><b>${esc(x.n)}</b> ${x.ai}</span>`).join('')}</div>`:'';
+    const verdict=e.yoN&&e.yoMed>=15&&e.bull>=e.n/2?'<b style="color:var(--up)">數據跟得上:營收和股價都在走</b>':e.yoN&&e.yoMed>=15?'<b style="color:var(--amber)">營收有了,股價還沒走(或剛回檔)</b>':e.bull>=e.n/2?'<b style="color:var(--amber)">股價先走,營收還沒看到</b>':'<b class="dim">數據還看不太到,先當故事聽</b>';
+    return `<div class="tr-ev"><div class="ld-k">站內數據檢查(${e.n} 檔相關台股)</div><div>${parts.join('・')}</div><div style="margin-top:3px">${verdict}</div>${aiH}</div>`;};
+  const card=t=>`<div class="news-card tr-card" style="border-left-color:${stC[t.stage]||'var(--line)'}">
+      <div class="news-head"><span class="news-cat" style="color:${stC[t.stage]||'var(--txt2)'};border-color:${stC[t.stage]||'var(--line)'}" title="${esc(stTip[t.stage]||'')}">${esc(t.stage)}</span><b class="news-ttl">${esc(t.name)}</b><span class="dim" style="font-size:12.5px">看 ${esc(t.horizon||'1~3 年')}</span></div>
+      <div class="dim" style="font-size:12px;margin:-2px 0 6px">${esc(stTip[t.stage]||'')}・${esc(trendHistoryLabel(t,T))}</div>
+      <div class="news-what">${esc(t.thesis)}</div>
+      ${(t.chain||[]).length?`<div class="news-tags">${t.chain.map(c=>`<span class="news-grp">${esc(c)}</span>`).join('')}</div>`:''}
+      ${ev(t)}
+      ${(t.tw||[]).length?`<div class="tr-row"><span class="dim">🇹🇼 相關台股</span>${t.tw.map(chip).join('')}</div>`:''}
+      ${(t.us||[]).length?`<div class="tr-row"><span class="dim">🇺🇸 相關美股</span>${t.us.map(chip).join('')}</div>`:''}
+      ${(t.tw||[]).some(x=>x.why)?`<details class="src-fold"><summary>每一檔為什麼相關</summary><div class="tr-why">${t.tw.filter(x=>x.why).map(x=>`<div>▸ <b>${esc(x.n||x.id)}</b>:${esc(x.why)}</div>`).join('')}</div></details>`:''}
+      ${t.risk?`<div class="news-why"><b>⚠️ 最大風險</b>${esc(t.risk)}</div>`:''}
+      <details class="src-fold"><summary>📎 來源 ${(t.src||[]).length} 則</summary><div class="news-src">${(t.src||[]).map(x=>`<div>📎 ${esc(String(x.d||'').slice(5).replace('-','/'))} ${x.l?`<a href="${esc(x.l)}" target="_blank" rel="noopener" style="color:var(--txt2);text-decoration:none;border-bottom:1px dotted var(--line)">${esc(x.t)}</a>`:esc(x.t)}${x.s?` <span class="dim">— ${esc(x.s)}</span>`:''}</div>`).join('')}</div></details>
+    </div>`;
+  const gen=(T.gen||'').slice(5,16).replace('T',' ');
+  const order={'過熱':0,'主流':1,'成形':2,'萌芽':3};const L=T.trends.slice().sort((a,b)=>(order[a.stage]??9)-(order[b.stage]??9));
+  box.innerHTML=`<div class="dim-note" style="margin:0 0 10px">每天早上跟著早報更新(${esc(gen)} 產生)。AI 讀近 14 天的早報歸納出 1~3 年的產業趨勢;下面每一個趨勢都配「站內數據檢查」——營收有沒有跟上、股價有沒有走、AI 未來性評分——讓你分得出哪些是真的在發生、哪些還只是故事。相關個股只列站內有資料的;標籤是已進站內名單的。全部參考,不是投資建議。</div>
+    <div class="tr-legend">${['萌芽','成形','主流','過熱'].map(k=>`<span style="color:${stC[k]};border-color:${stC[k]}">${k}</span><small>${esc(stTip[k])}</small>`).join('')}</div>
+    ${L.map(card).join('')}
+    <div class="dim-note" style="margin-top:12px">歷史:每天的趨勢都永久存在 trends/ 資料夾;上面「首次記錄、累計天數」就是從那裡算的。</div>`;
+  if(!document.getElementById('trCss2')){const st=document.createElement('style');st.id='trCss2';st.textContent=`.tr-ev{margin:8px 0 4px;padding:8px 10px;border-radius:9px;background:var(--panel2);font-size:13px;line-height:1.7}
+    .tr-ai{margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}.tr-ai span{border:1px solid var(--line);border-radius:999px;padding:1px 8px;font-size:12.5px}
+    .tr-legend{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;align-items:center;font-size:12.5px;margin:0 0 10px}.tr-legend span{border:1px solid;border-radius:6px;padding:0 6px;font-weight:800;justify-self:start}.tr-legend small{color:var(--dim)}
+    #trendPage .tr-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;font-size:13px}
+    #trendPage .tr-stk{display:inline-flex;flex-wrap:wrap;gap:3px 5px;align-items:center;padding:3px 9px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);color:var(--txt);text-decoration:none;font-size:13px}#trendPage .tr-flag{font-size:10.5px;font-weight:800;color:var(--amber);border:1px solid var(--amber);border-radius:6px;padding:0 4px}
+    #trendPage .tr-why{font-size:13px;color:var(--txt2);line-height:1.7;margin-top:4px}`;document.head.appendChild(st);}
 }
 async function newsLoad(date){
   const box=document.getElementById('newsBox');if(!box)return;

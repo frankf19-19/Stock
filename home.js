@@ -20,6 +20,7 @@
         <section class="hm-sec" id="hmPort"><div class="hm-h"><h3>💼 我的持股</h3><a href="javascript:void 0" data-go="port">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmFav"><div class="hm-h"><h3>⭐ 我的最愛</h3><a href="javascript:void 0" data-go="fav">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmAip"><div class="hm-h"><h3>🤖 AI Pick 目前買了哪些</h3><a href="javascript:void 0" data-go="aipick">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
+        <section class="hm-sec" id="hmTrend"><div class="hm-h"><h3>🔭 未來產業</h3><a href="javascript:void 0" data-go="trend">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmLearn"><div class="hm-h"><h3>📚 每天學一點</h3><a href="javascript:void 0" data-go="learn">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
       </div>`;
       const first=doc.getElementById('tp-news')||doc.querySelector('.tabPane');first.parentNode.insertBefore(p,first);
@@ -139,11 +140,19 @@
     const groups=(d.groups||[]).slice(0,8).map(g=>`<span class="ld-chip" data-go="news">${esc(g.g)} <b>${g.n}</b></span>`).join('');
     body.innerHTML=lesson+`<div class="ld-grid">${book}${shows}</div>`+(groups?`<div class="ld-k" style="margin-top:8px">今天產業新聞</div><div class="ld-chips">${groups}</div>`:'');
   }
+  /* ── 未來產業:趨勢一行一個(階段・名稱・幾檔相關台股) ── */
+  async function trend(){
+    const body=doc.querySelector('#hmTrend .hm-body');if(!body)return;
+    let T=null;try{T=typeof trendsLoad==='function'?await trendsLoad():null;}catch(e){}
+    if(!T||!(T.trends||[]).length){body.innerHTML='<div class="hm-empty">每天早上跟著早報產生。</div>';return;}
+    const stC={'萌芽':'var(--t-blue)','成形':'var(--up)','主流':'var(--amber)','過熱':'var(--down)'};
+    body.innerHTML=T.trends.slice(0,6).map(t=>`<div class="hm-row hm-trend" data-go="trend" role="link" tabindex="0"><span class="news-cat" style="color:${stC[t.stage]||'var(--txt2)'};border-color:${stC[t.stage]||'var(--line)'}">${esc(t.stage)}</span><span class="hm-nm"><b>${esc(t.name)}</b><small>${esc(t.horizon||'1~3 年')}・${(t.tw||[]).length} 檔相關台股${t.current_streak_days>1?'・連續 '+t.current_streak_days+' 天':''}</small></span><span class="dim" style="font-size:12.5px;line-height:1.5">${esc(String(t.thesis||'').slice(0,42))}…</span></div>`).join('');
+  }
   async function render(force){
     if(busy||(!force&&Date.now()-lastRun<60e3))return;busy=true;lastRun=Date.now();
     pane();
     for(let i=0;i<60&&!((window.DATA&&DATA.stocks||[]).length);i++)await new Promise(r=>setTimeout(r,250));   // 主資料還沒到先等
-    try{await Promise.all([mkt(),news(),aip(),learn()]);}catch(e){}
+    try{await Promise.all([mkt(),news(),aip(),learn(),trend()]);}catch(e){}
     try{if(typeof lvLoad==='function')await lvLoad();}catch(e){}   // 還原因子(ADJ1)沒載入時價位算不出來(手機上常見)
     try{await port();}catch(e){}
     try{await fav();}catch(e){}

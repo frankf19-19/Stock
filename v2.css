@@ -414,3 +414,6 @@ html.v2 .a3-lvi em{white-space:nowrap}
 .ld-day{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin:8px 0}
 .ld-day summary{cursor:pointer;font-weight:800;font-size:15px}.ld-day summary small{color:var(--dim);font-weight:400;margin-right:8px}
 .ld-day p{margin:6px 0;font-size:13.5px;line-height:1.7}
+/* r1226 總覽的未來產業列 */
+.hm-trend{grid-template-columns:auto minmax(0,1fr)!important;grid-template-areas:"st nm" "st ds"!important;gap:2px 10px!important;cursor:pointer}
+.hm-trend .news-cat{grid-area:st;align-self:start;font-size:11.5px}.hm-trend .hm-nm{grid-area:nm}.hm-trend>.dim{grid-area:ds}
