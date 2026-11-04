@@ -110,6 +110,18 @@
     }catch(e){}return r;};
     WorkspaceNavigation.__v2=true;
   }
+  /* r1223 手機個股頁:名稱/價格的黏頂列只在大標題捲出畫面後才出現;最愛卡細節收摺 */
+  function stockCtx(){
+    if(!mqM.matches){root.classList.remove('ctx-show');return;}
+    const head=doc.querySelector('#detailView .m-head');if(!head||head.dataset.v2io)return;head.dataset.v2io='1';
+    try{const io=new IntersectionObserver(es=>{es.forEach(e=>root.classList.toggle('ctx-show',!e.isIntersecting&&e.boundingClientRect.top<0));},{threshold:0});io.observe(head);}catch(e){}
+  }
+  function favFold(){
+    if(!mqM.matches)return;
+    doc.querySelectorAll('#favBox .strategy-summary').forEach(sc=>{if(sc.dataset.v2fold)return;
+      const parts=['.sc-signals','.sc-insights'].map(q=>sc.querySelector(q)).filter(Boolean);if(!parts.length)return;sc.dataset.v2fold='1';
+      const d=doc.createElement('details');d.className='v2-scfold';d.innerHTML='<summary>止跌進度與細節</summary>';parts[0].before(d);parts.forEach(p=>d.append(p));});
+  }
   function sync(){
     const k=current();
     doc.querySelectorAll('#v2side [data-v2],#mobNav [data-v2]').forEach(b=>{const on=b.dataset.v2===k&&!b.classList.contains('v2-logo');b.classList.toggle('on',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
@@ -128,6 +140,7 @@
     try{patchMenu();}catch(e){}
     sync();
     window.addEventListener('hashchange',()=>setTimeout(sync,0));
+    try{new MutationObserver(()=>{clearTimeout(window.__v2t);window.__v2t=setTimeout(()=>{try{stockCtx();favFold();}catch(e){}},250);}).observe(doc.getElementById('detailView')||doc.body,{childList:true,subtree:true});}catch(e){}
     /* 有些模組晚一點才建好手機導覽,再補一次 */
     setTimeout(()=>{try{mobileNav();patchMenu();sync();}catch(e){}},1500);
     /* 開站若停在已併入的「今日盤勢」,轉到大盤 */

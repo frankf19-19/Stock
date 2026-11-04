@@ -340,3 +340,19 @@ html.v2 .a3-why span{white-space:normal!important}
 /* 平板/中寬:AI Pick 價位標籤太長就換行,不撐破版面 */
 html.v2 .a3-lvi{white-space:normal!important;max-width:100%;min-width:0;flex-wrap:wrap}
 html.v2 .a3-lvi em{white-space:nowrap}
+/* r1223 手機個股頁:黏頂的名稱/價格列變薄、只在捲過大標題後出現;內容目錄鈕只留底部 */
+@media(max-width:640px){
+  html.v2 #stockContext{display:none!important;height:34px!important;padding:0 10px!important}
+  html.v2.ctx-show #stockContext{display:flex!important}
+  html.v2 #stockContext button[data-catalog]{display:none!important}
+  html.v2 #stockContextName{font-size:12.5px}html.v2 #stockContextPrice{font-size:14px}
+  html.v2 #chapTabs{top:0!important;padding:6px 0!important}
+  html.v2.ctx-show #chapTabs{top:34px!important}
+  html.v2 #chapTabs button{min-height:38px!important;padding:6px 2px!important;font-size:12.5px!important}
+  html.v2 #detailView .m-head{margin-bottom:6px!important}
+  html.v2 #detailView .c-price{font-size:26px!important}
+  /* 最愛卡:細節收摺 */
+  html.v2 .v2-scfold{margin:6px 0;border:1px dashed var(--line);border-radius:8px;padding:2px 10px}
+  html.v2 .v2-scfold>summary{cursor:pointer;font-size:12.5px;color:var(--amber);padding:6px 0}
+  html.v2 .v2-scfold .sc-insights{margin-top:4px}
+}
