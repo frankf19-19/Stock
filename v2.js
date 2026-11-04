@@ -99,10 +99,13 @@
       const inNav=new Set([...doc.querySelectorAll('#mobNav [data-v2]')].map(b=>b.dataset.v2));
       dlg.querySelectorAll('.workspace-page-list [data-page]').forEach(b=>{if(inNav.has(b.dataset.page))b.remove();});
       const h=dlg.querySelector('.workspace-menu-head h2');if(h)h.textContent='更多';const sub=dlg.querySelector('.workspace-menu-head p');if(sub)sub.textContent='其他頁面、帳號與設定';
+      const grid=dlg.querySelector('.workspace-page-list');const lb=doc.getElementById('learnBtn');
+      if(grid&&lb){const b=doc.createElement('button');b.type='button';b.dataset.v2learn='1';b.innerHTML='<strong>📚 小學堂</strong><small>每天學一點・白話課</small>';b.onclick=()=>{dlg.close();setTimeout(()=>lb.click(),50);};grid.append(b);}
+      if(!dlg.dataset.v2bd){dlg.dataset.v2bd='1';dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close();});}
       const sec=doc.createElement('div');sec.className='v2-acct';sec.innerHTML='<div class="v2-sep">帳號與設定</div><div class="v2-acct-row"></div>';
       const row=sec.querySelector('.v2-acct-row');const hold=doc.getElementById('v2hold');
       const auth=doc.getElementById('authBtn');if(auth)row.append(auth);
-      const ht=hold&&hold.querySelector('.header-tools');if(ht){const pop=ht.querySelector('.ht-pop');[...(pop||ht).children].forEach(c=>{if(c.tagName!=='SUMMARY'&&c.id!=='favBtn'&&c.id!=='secNav'&&!c.matches('nav'))row.append(c);});sec.dataset.ht='1';}
+      const ht=hold&&hold.querySelector('.header-tools');if(ht){const pop=ht.querySelector('.ht-pop');[...(pop||ht).children].forEach(c=>{if(c.tagName!=='SUMMARY'&&c.id!=='favBtn'&&c.id!=='secNav'&&c.id!=='learnBtn'&&!c.matches('nav'))row.append(c);});sec.dataset.ht='1';}
       const bell=doc.createElement('button');bell.type='button';bell.className='btn-ghost';bell.textContent='🔔 通知設定';bell.onclick=()=>{dlg.close();setTimeout(()=>{const b=doc.getElementById('alertBtn');if(b)b.click();},50);};row.append(bell);
       row.addEventListener('click',e=>{const t=e.target.closest('button,a');if(t&&t!==bell)setTimeout(()=>{try{dlg.close();}catch(x){}},80);});
       dlg.append(sec);

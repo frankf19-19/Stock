@@ -417,3 +417,19 @@ html.v2 .a3-lvi em{white-space:nowrap}
 /* r1226 總覽的未來產業列 */
 .hm-trend{grid-template-columns:auto minmax(0,1fr)!important;grid-template-areas:"st nm" "st ds"!important;gap:2px 10px!important;cursor:pointer}
 .hm-trend .news-cat{grid-area:st;align-self:start;font-size:11.5px}.hm-trend .hm-nm{grid-area:nm}.hm-trend>.dim{grid-area:ds}
+/* r1229 手機「更多」改成底部抽屜:小格子、一眼看完、點外面就關 */
+@media(max-width:640px){
+  html.v2 dialog.workspace-menu{position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;width:100%!important;max-width:none!important;margin:0!important;max-height:80dvh!important;border-radius:18px 18px 0 0!important;border:none!important;border-top:1px solid var(--line)!important;padding:0 0 calc(10px + env(safe-area-inset-bottom))!important;transform:none!important}
+  html.v2 dialog.workspace-menu::backdrop{background:rgba(0,0,0,.45)}
+  html.v2 .workspace-menu-head{padding:10px 14px 4px!important;display:flex;align-items:center;justify-content:space-between}
+  html.v2 .workspace-menu-head h2{font-size:16px!important;margin:0!important}
+  html.v2 .workspace-menu-head p{display:none!important}
+  html.v2 .workspace-menu-head [data-close]{min-height:32px!important;padding:4px 10px!important;font-size:13px!important;border-width:1px!important;border-radius:9px!important}
+  html.v2 .workspace-page-list{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;padding:8px 12px!important}
+  html.v2 .workspace-page-list button{min-height:64px!important;padding:8px 6px!important;align-items:center!important;justify-content:center;text-align:center!important;gap:2px!important;border-radius:12px!important}
+  html.v2 .workspace-page-list button strong{font-size:13.5px;line-height:1.3}
+  html.v2 .workspace-page-list button small{display:none!important}
+  html.v2 .v2-acct{padding:4px 12px 6px}
+  html.v2 .v2-acct .v2-sep{margin:4px 0 6px}
+  html.v2 .v2-acct-row>*{min-height:38px;font-size:13.5px;padding:5px 11px;border-radius:10px}
+}
