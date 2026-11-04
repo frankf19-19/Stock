@@ -284,6 +284,16 @@ def pick_div(cands, n, held_secs=None, cap=2):
     return out
 
 
+def vol_weights(cands, lo=0.67, hi=1.5):
+    """r1228:短期清單依波動配資金——每檔金額 ∝ 1/ATR%,同一批平均 1 倍,夾在 0.67~1.5 倍。
+    回測(aip_v3_study,2016~2026,含急殺週不買):等權 年化 +31.4%/回落 −25.2%/最差年 +2.5% → 配資金 +32.0%/−24.0%/+5.1%,11 年全正;
+    0.5~2 倍 +32.1%/−23.5%/+4.1%。波動小的多買、波動大的少買=每檔承擔差不多的風險。"""
+    inv = [1.0 / max(float(c.get("atrp") or 0) / 100.0, 1e-4) for c in cands]
+    if not inv: return []
+    m = sum(inv) / len(inv)
+    return [round(min(hi, max(lo, x / m)), 2) for x in inv]
+
+
 def us_long_candidates(day):
     rows = []
     for sid, s in STK.items():
@@ -718,8 +728,9 @@ def provisional(T, day, us):
 
 def perf(T):
     H = T["hist"]; r = [h["ret"] for h in H if h.get("ret") is not None]
-    T["perf"] = {"n": len(r), "win": round(100 * sum(1 for x in r if x > 0) / len(r)) if r else None, "avg": round(sum(r) / len(r), 2) if r else None,
-                 "sum": round(sum(r), 2) if r else None, "open": len(T["slots"]), "open_avg": (lambda v: round(sum(v) / len(v), 2) if v else None)([p["ret"] for p in T["slots"] if p.get("ret") is not None])}
+    wavg = lambda L: (round(sum(x["ret"] * (x.get("w") or 1) for x in L) / sum((x.get("w") or 1) for x in L), 2) if L else None)   # r1228:有配資金的照權重算
+    T["perf"] = {"n": len(r), "win": round(100 * sum(1 for x in r if x > 0) / len(r)) if r else None, "avg": wavg([h for h in H if h.get("ret") is not None]),
+                 "sum": round(sum(r), 2) if r else None, "open": len(T["slots"]), "open_avg": wavg([p for p in T["slots"] if p.get("ret") is not None])}
 
 
 def main():
@@ -736,9 +747,9 @@ def main():
                        note="⚠ 強勢股集中,波動大於中期")
     # r1209:上面舊的 update 把 r1141「同分低波動優先」的說明蓋掉了 → 這裡補回,並加上「大盤急殺週不買新股」
     tw["short"]["rule"] = ("每週最後一個交易日收盤,用量與技術線選 5 檔(離 52 週高 10% 內 × 創新高/帶量突破 20・55 日高/爆量長紅/OBV 新高/KD・RSI 高檔/均線多頭/投信外資買超);"
-                           "同分時波動低者優先;大盤急殺週(全市場站上季線的股票 5 個交易日掉超過 25 個百分點)不買新股;下個交易日開盤買,最多持 15 個交易日;停利 +20%、停損 −15%(盤中碰到就出)")
+                           "同分時波動低者優先;大盤急殺週(全市場站上季線的股票 5 個交易日掉超過 25 個百分點)不買新股;下個交易日開盤買,最多持 15 個交易日;停利 +20%、停損 −15%(盤中碰到就出);每檔金額依波動配(波動小的買 1.5 倍、大的 0.67 倍,平均 10 萬)")
     tw["short"]["val"] = ("同一回測器(2016~2026 含成本 0.6%、5 檔等權):原規則年化 +23.9%、回落 −29%、最差年 −3.4% → r1141 同分低波動優先 +28.2% / −25% / +2.2%、11 年全正 → "
-                          "r1209 加大盤急殺週不買 +31.4% / −25% / +2.5%、11 年全正(門檻 20 點 +32.8%、30 點 +30.6%,都更好)。試過但更差:空頭(0050<200 日線)不進場、全市場站上季線 <35% 時不買、過熱(>80%)不買、大盤一起跌時改買錯殺股")
+                          "r1209 加大盤急殺週不買 +31.4% / −25% / +2.5%、11 年全正(門檻 20 點 +32.8%、30 點 +30.6%,都更好)→ r1228 依波動配資金 +32.0% / −24% / +5.1%、11 年全正(三項同時更好;0.5~2 倍 +32.1%/−23.5%/+4.1%)。11/04 再試過但沒更好:只買產業強於大盤、同分先挑產業強、停損後 20/40 天不買同一檔、同產業最多 3 檔、寬度 5 日掉 10 點就不買。試過但更差:空頭(0050<200 日線)不進場、全市場站上季線 <35% 時不買、過熱(>80%)不買、大盤一起跌時改買錯殺股")
     tw.setdefault("mid", new_tier("", ""))
     tw["mid"].update(rule="量價籌碼模型前 5 名補進空位,下個交易日開盤買;掉出前 200 名 → 隔天開盤賣;停損 = 進場價 − 4 ATR(依每檔波動不同,約 −5% ~ −20%)、停利 +25%(盤中碰到就出)",
                      val="回測 2016~2026 含成本:4 ATR 停損 + 停利 +25% 年化 +41.5%、最大回落 −39%、最差年 −4%;只停損不停利 +38.5% / −37% / +10%;緊停損(≤2.5 ATR 或 ≤10%)年化掉到 +20~37%",
@@ -770,7 +781,8 @@ def main():
             secs = {}
             for p in T["slots"]: secs[p.get("sector") or ""] = secs.get(p.get("sector") or "", 0) + 1
             add = pick_div(cand, K - len(T["slots"]), secs)
-            for c in add: T["slots"].append(slot(c, twd))
+            ws = vol_weights(add)                                        # r1228:依波動配資金(0.67~1.5 倍)
+            for c, w in zip(add, ws): T["slots"].append(slot(c, twd, {"w": w}))
             log(f"  短期:候選 {len(cand)},補進 {len(add)} 檔(同產業最多 2 檔)")
         T["sel_d"] = twd
     # ── 台股 中期 ──

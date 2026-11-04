@@ -108,7 +108,7 @@
       let sl='—',tp='—';try{const c=aipSlotPolicy(p,k,us);sl=fmt(c.sl,us);tp=fmt(c.tp,us);}catch(e){}
       const st=p.st==='pend'?'<span class="hm-tag hm-buy">下個交易日開盤買</span>':`<span class="hm-tag">持有 ${p.days||0} 天</span>`;
       out.push(row(p.cur||p.id,`<span class="hm-nm"><b>${esc(p.name||p.id)}</b><small>${nm[k]}・${esc(p.cur||p.id)}</small></span>
-        <span class="hm-px"><b>${fmt(px,us)}</b><small>${p.entry?'買在 '+fmt(p.entry,us):'選到時 '+fmt(p.sel_px,us)}</small></span>
+        <span class="hm-px"><b>${fmt(px,us)}</b><small>${p.entry?'買在 '+fmt(p.entry,us):'選到時 '+fmt(p.sel_px,us)}${p.w&&p.w!==1?'・'+(+p.w).toFixed(2)+'×':''}</small></span>
         <span class="hm-pl" style="color:${col(ret)}">${ret==null?'—':(ret>0?'+':'')+ret.toFixed(1)+'%'}</span>
         <span class="hm-lv"><span>🛑 跌破 ${sl} 賣</span><span>🎯 目標 ${tp}</span></span>`,st));});});
     const pause=M.short&&M.short.pause&&M.short.pause.d===M.short.sel_d?`<div class="hm-note">⏸ ${esc(M.short.pause.msg)}——短期清單這週先不買新股</div>`:'';
