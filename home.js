@@ -20,6 +20,7 @@
         <section class="hm-sec" id="hmPort"><div class="hm-h"><h3>💼 我的持股</h3><a href="javascript:void 0" data-go="port">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmFav"><div class="hm-h"><h3>⭐ 我的最愛</h3><a href="javascript:void 0" data-go="fav">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmAip"><div class="hm-h"><h3>🤖 AI Pick 目前買了哪些</h3><a href="javascript:void 0" data-go="aipick">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
+        <section class="hm-sec" id="hmLearn"><div class="hm-h"><h3>📚 每天學一點</h3><a href="javascript:void 0" data-go="learn">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
       </div>`;
       const first=doc.getElementById('tp-news')||doc.querySelector('.tabPane');first.parentNode.insertBefore(p,first);
       p.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){e.preventDefault();go(g.dataset.go);return;}
@@ -27,7 +28,7 @@
     }
     return p;
   }
-  function go(k){if(k==='fav'){location.hash='#fav';return;}if(location.hash)location.hash='';if(typeof setHomeTab==='function')setHomeTab(k);window.scrollTo({top:0});}
+  function go(k){if(k==='fav'){location.hash='#fav';return;}if(k==='learn'){location.hash='#learn';return;}if(location.hash)location.hash='';if(typeof setHomeTab==='function')setHomeTab(k);window.scrollTo({top:0});}
   const row=(sid,cells,tag)=>`<div class="hm-row" data-sid="${esc(sid)}" role="link" tabindex="0">${cells}${tag||''}</div>`;
 
   /* ── 大盤一行 + 今日盤勢一句 ── */
@@ -121,11 +122,28 @@
     }catch(e){body.innerHTML='<div class="hm-empty">早報載入失敗,點「看全部」重試。</div>';}
   }
 
+  /* ── 每天學一點:今日一課・今日好書・節目重點・產業新聞(learn_daily.py,永久累積) ── */
+  let LD=null;
+  async function learnLoad(){if(LD)return LD;try{const r=await fetch('learn_daily.json?v='+Math.floor(Date.now()/600e3));if(r.ok)LD=await r.json();}catch(e){}return LD;}
+  window.__learnLoad=learnLoad;
+  async function learn(){
+    const body=doc.querySelector('#hmLearn .hm-body');if(!body)return;
+    const D=await learnLoad();const d=D&&D.days&&D.days[(D.dates||[]).slice(-1)[0]];
+    if(!d){body.innerHTML='<div class="hm-empty">每天早上 6:35 早報之後產生,第一天還沒到。</div>';return;}
+    const L=d.lesson,md=x=>String(x||'').slice(5).replace('-','/');
+    const lesson=L?`<div class="ld-lesson"><div class="ld-k">今日一課 <small>${md(d.d)}</small></div><b class="ld-t">${esc(L.title)}</b><div class="ld-one">${esc(d.one_line||L.what)}</div>
+      <details class="ld-more"><summary>看整課</summary><p><b>是什麼</b>:${esc(L.what)}</p><p><b>今天為什麼重要</b>:${esc(L.why_today)}</p><p><b>下次怎麼用</b>:${esc(L.how)}</p></details></div>`
+      :`<div class="ld-lesson"><div class="ld-k">今日一課</div><div class="dim">今天的課還在產生(早報之後),先看下面的好書與節目。</div></div>`;
+    const B=d.book,book=B?`<div class="ld-book"><div class="ld-k">今日好書</div><b>《${esc(B.title)}》</b>${B.author?` <small>${esc(B.author)}</small>`:''}<div class="dim">${esc(B.pick_why||B.why||'')}</div>${B.url?`<a href="${esc(B.url)}" target="_blank" rel="noopener">看這本書 ›</a>`:''}</div>`:'';
+    const shows=(d.shows||[]).filter(s=>s.pts&&s.pts.length).map(s=>`<div class="ld-show"><div class="ld-k">${esc(s.name)} <small>${md(s.dt)}</small></div><div>${esc(s.pts[0])}</div>${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener">聽這集 ›</a>`:''}</div>`).join('');
+    const groups=(d.groups||[]).slice(0,8).map(g=>`<span class="ld-chip" data-go="news">${esc(g.g)} <b>${g.n}</b></span>`).join('');
+    body.innerHTML=lesson+`<div class="ld-grid">${book}${shows}</div>`+(groups?`<div class="ld-k" style="margin-top:8px">今天產業新聞</div><div class="ld-chips">${groups}</div>`:'');
+  }
   async function render(force){
     if(busy||(!force&&Date.now()-lastRun<60e3))return;busy=true;lastRun=Date.now();
     pane();
     for(let i=0;i<60&&!((window.DATA&&DATA.stocks||[]).length);i++)await new Promise(r=>setTimeout(r,250));   // 主資料還沒到先等
-    try{await Promise.all([mkt(),news(),aip()]);}catch(e){}
+    try{await Promise.all([mkt(),news(),aip(),learn()]);}catch(e){}
     try{if(typeof lvLoad==='function')await lvLoad();}catch(e){}   // 還原因子(ADJ1)沒載入時價位算不出來(手機上常見)
     try{await port();}catch(e){}
     try{await fav();}catch(e){}

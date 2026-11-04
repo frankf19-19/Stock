@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1224';
+const APP_BUILD='r1225';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -17417,15 +17417,34 @@ function showLearnIndex(){
       <h2 style="font-size:24px;font-weight:900">📚 產業小學堂</h2>
       <div class="c-full" style="margin-top:4px">五大分類、四十多堂白話課:投資基礎 → 籌碼與市場機制 → ETF → 半導體供應鏈 → 各產業。新手從「K線與均線」開始按分類順讀;每堂都有比喻、用法與「新手最常犯的錯」,看不懂就按課末的 AI 按鈕換個比喻再講一次。</div>
     </div></div>
+    <div class="sec-title" style="margin-top:14px">📅 每天學一點 <span style="font-weight:400;font-size:13px;letter-spacing:0">每天早上從早報與節目挑一個觀念,永久累積、不重複</span></div>
+    <div id="learnDaily" class="dim-note">載入中…</div>
     ${learnNav()}
     <div class="idx-row" style="margin-top:10px">${learnCards()}</div>
     <div class="dim-note" style="margin-top:14px">內容為產業知識教學,非投資建議。想加新主題(被動元件、重電、無人機…)歡迎提出。</div>
   </div>`;
   document.getElementById('backBtn').onclick=()=>{navBackHome();};
+  learnDailyFill();
   dv.querySelectorAll('[data-lk]').forEach(c=>c.onclick=()=>{location.hash='#learn/'+c.dataset.lk;});
   dv.querySelectorAll('[data-lnav]').forEach(a=>a.onclick=()=>{
     const el=document.getElementById('lsec'+a.dataset.lnav);
     if(el)el.scrollIntoView({behavior:'smooth',block:'start'});});
+}
+/* r1225:每天學一點(learn_daily.json)——小學堂頁最上面列出每一天的課,最新在前,全部保留 */
+async function learnDailyFill(){
+  const box=document.getElementById('learnDaily');if(!box)return;
+  let D=null;try{D=typeof window.__learnLoad==='function'?await window.__learnLoad():await (await fetch('learn_daily.json?v='+Math.floor(Date.now()/600e3))).json();}catch(e){}
+  if(!D||!(D.dates||[]).length){box.innerHTML='每天早上 6:35 早報之後產生,第一天還沒到。';return;}
+  const E=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),md=x=>String(x||'').slice(5).replace('-','/');
+  const days=D.dates.slice().reverse();
+  box.className='';
+  box.innerHTML=days.map((d,i)=>{const x=D.days[d]||{},L=x.lesson,B=x.book;
+    return `<details class="ld-day"${i===0?' open':''}><summary><small>${md(d)}</small>${L?E(L.title):'(這天沒有產生課程)'}${x.one_line?` <span class="dim" style="font-weight:400;font-size:13px">— ${E(x.one_line)}</span>`:''}</summary>
+      ${L?`<p><b>是什麼</b>:${E(L.what)}</p><p><b>那天為什麼重要</b>:${E(L.why_today)}</p><p><b>下次怎麼用</b>:${E(L.how)}</p>${(L.terms||[]).length?`<p class="dim">關鍵字:${L.terms.map(E).join('、')}</p>`:''}`:''}
+      ${B?`<p>📖 <b>《${E(B.title)}》</b>${B.author?' '+E(B.author):''}:${E(B.pick_why||B.why||'')}${B.url?` <a href="${E(B.url)}" target="_blank" rel="noopener">看這本書 ›</a>`:''}</p>`:''}
+      ${(x.shows||[]).filter(s=>s.pts&&s.pts.length).map(s=>`<p>🎙 <b>${E(s.name)}</b> ${md(s.dt)}:${E(s.pts[0])}${s.url?` <a href="${E(s.url)}" target="_blank" rel="noopener">聽這集 ›</a>`:''}</p>`).join('')}
+      ${(x.groups||[]).length?`<p class="dim">產業新聞:${x.groups.slice(0,8).map(g=>E(g.g)+' '+g.n).join('・')}</p>`:''}
+    </details>`;}).join('')+`<div class="dim-note">共 ${D.dates.length} 天・書單來源:節目推薦過的 ${D.n_books||0} 本</div>`;
 }
 function showLearnDetail(key){
   const t=LEARN[key];

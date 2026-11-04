@@ -39,11 +39,17 @@ jobs:
           FORCE: ${{ github.event.inputs.force }}
           PYTHONUNBUFFERED: "1"
         run: timeout 600 python fetch_trends.py || echo "::warning::趨勢歸納失敗"
+      - name: 📚 每天學一點(今日一課・好書・節目重點)
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          FORCE: ${{ github.event.inputs.force }}
+          PYTHONUNBUFFERED: "1"
+        run: timeout 600 python learn_daily.py || echo "::warning::每天學一點失敗"
       - name: 提交結果
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
-          git add news.json news/ trends.json trends/ 2>/dev/null || true
+          git add news.json news/ trends.json trends/ learn_daily.json 2>/dev/null || true
           git commit -m "產業早報更新 [CI Skip]" || { echo "無變更"; exit 0; }
           for i in 1 2 3 4 5; do
             git pull --rebase origin main && git push && break

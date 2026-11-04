@@ -402,3 +402,15 @@ html.v2 .a3-lvi em{white-space:nowrap}
   html.v2 #mobNav button.on{background:none!important}
   html.v2 #mobNav button.on .mi{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--amber) 60%,transparent))}
 }
+/* r1225 每天學一點 */
+.ld-k{font-size:12px;color:var(--dim);font-weight:700;margin-bottom:2px}.ld-k small{font-weight:400}
+.ld-lesson{padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--amber) 8%,var(--panel));border:1px solid color-mix(in srgb,var(--amber) 35%,var(--line));margin-bottom:10px}
+.ld-t{display:block;font-size:17px;margin:2px 0 4px}.ld-one{font-size:14px;line-height:1.6}
+.ld-more{margin-top:6px}.ld-more>summary{cursor:pointer;font-size:12.5px;color:var(--amber);font-weight:700}.ld-more p{margin:6px 0;font-size:13.5px;line-height:1.7}
+.ld-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
+.ld-book,.ld-show{padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:13.5px;line-height:1.6}
+.ld-book a,.ld-show a{display:inline-block;margin-top:4px;color:var(--amber);font-size:12.5px;font-weight:700;text-decoration:none}
+.ld-chips{display:flex;flex-wrap:wrap;gap:6px}.ld-chip{font-size:12.5px;padding:3px 9px;border:1px solid var(--line);border-radius:999px;cursor:pointer}.ld-chip b{color:var(--amber)}
+.ld-day{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin:8px 0}
+.ld-day summary{cursor:pointer;font-weight:800;font-size:15px}.ld-day summary small{color:var(--dim);font-weight:400;margin-right:8px}
+.ld-day p{margin:6px 0;font-size:13.5px;line-height:1.7}
