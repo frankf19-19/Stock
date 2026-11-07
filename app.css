@@ -2895,3 +2895,21 @@ html[data-stock-ui] #chapTabs button{min-height:44px}html[data-stock-ui] .sec-ti
 .bvol-card{border:1px solid rgba(232,90,79,.45);background:rgba(232,90,79,.07);border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:14px;line-height:1.55}
 .bvol-card.bvol-ref{border-color:var(--line,rgba(127,127,127,.35));background:transparent}
 .bvol-card .bvol-sub{font-size:13px;margin-top:4px}
+/* r1231 個股頁:我的最愛上一檔/下一檔 */
+.fav-nav{display:flex;align-items:center;gap:6px;min-width:0}
+.fav-nav button{flex:0 1 auto;min-height:36px!important;max-width:150px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border:1px solid var(--line,rgba(127,127,127,.3))!important;border-radius:8px;padding:6px 10px!important;background:var(--panel);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer}
+.fav-nav button:hover{border-color:var(--amber)!important;color:var(--amber)}
+.fav-nav .fn-sel{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--amber);white-space:nowrap}
+.fav-nav select{max-width:150px;min-height:36px;border:1px solid var(--line,rgba(127,127,127,.3));border-radius:8px;background:var(--panel);color:var(--txt);font-size:13px;padding:4px 6px}
+.fav-nav .fn-pos{font-size:12px;color:var(--dim);font-family:var(--mono)}
+#stockContext .fav-nav{margin-left:auto}
+.fav-nav-m{display:none}
+@media(max-width:640px){
+  #stockContext .fav-nav-d{gap:4px}#stockContext .fav-nav-d .fn-nm,#stockContext .fav-nav-d select{display:none}
+  #stockContext .fav-nav-d button{min-height:28px!important;padding:2px 10px!important;font-size:14px}
+  #stockContext .fav-nav-d .fn-pos{display:inline}
+  .fav-nav-m{display:flex;margin:4px 0 8px;justify-content:space-between}
+  .fav-nav-m button{flex:1 1 0;max-width:none;font-size:12.5px}
+  .fav-nav-m select{max-width:118px}
+  .fav-nav-m .fn-pos{display:none}
+}

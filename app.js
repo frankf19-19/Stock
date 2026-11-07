@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1230';
+const APP_BUILD='r1231';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -592,6 +592,36 @@ function setBadges(extra){
   document.getElementById('updBadge').textContent='資料更新 '+_upd+lc+tail+intr+(extra||'');   // r1218:原本寫「盤後資料:今天」,其實是執行日不是收盤日
   const sb=document.getElementById('srcBadge');
   if(DATA.source==='live'){ const op=(typeof marketOpen==='function')&&marketOpen(); sb.textContent=op?'● 報價即時':'● 收盤資料'; sb.className='badge live'; }   // r1116:休市時不要寫「報價即時」
+}
+/* r1231 個股頁快速切換「我的最愛」:上一檔/下一檔、下拉直接選、鍵盤 ← →;換股時停在同一個分類(例如都看籌碼融資) */
+function favNavList(s){const mk=s&&s.market;const by={};(DATA&&DATA.stocks||[]).forEach(x=>by[x.id]=x);
+  return favList().map(id=>by[id]).filter(x=>x&&x.market===mk);}
+function favNavGo(id){if(!id)return;const cur=(location.hash.match(/^#stock\/(.+)$/)||[])[1];if(id===cur)return;
+  window.__chapStk=id;   // 換到下一檔時保留目前分類
+  window.__favNavScroll=(document.documentElement.dataset.chap||'ov')!=='ov'||scrollY>300;
+  location.hash='#stock/'+encodeURIComponent(id);}
+function favNavStep(d){const cur=decodeURIComponent((location.hash.match(/^#stock\/(.+)$/)||[])[1]||'');const s=(DATA.stocks||[]).find(x=>x.id===cur);if(!s)return;
+  const L=favNavList(s);if(!L.length)return;let i=L.findIndex(x=>x.id===cur);i=i<0?(d>0?0:L.length-1):(i+d+L.length)%L.length;favNavGo(L[i].id);}
+function favNavHTML(s){const L=favNavList(s);if(!L.length)return '';const i=L.findIndex(x=>x.id===s.id),n=L.length;
+  const nm=x=>x?`${x.name}`:'';const prev=i<0?L[n-1]:L[(i-1+n)%n],next=i<0?L[0]:L[(i+1)%n];
+  const opt=L.map((x,k)=>`<option value="${x.id}"${x.id===s.id?' selected':''}>${k+1}. ${newsEsc(x.name)} ${x.id}${x.chg!=null?`  ${x.chg>0?'▲':x.chg<0?'▼':''}${Math.abs(+x.chg).toFixed(2)}%`:''}</option>`).join('');
+  return `<button type="button" class="fn-prev" data-fn="-1" title="上一檔(鍵盤 ←)" aria-label="上一檔最愛:${newsEsc(nm(prev))}">‹ <span class="fn-nm">${newsEsc(nm(prev))}</span></button>
+    <label class="fn-sel" title="直接選最愛的股票">⭐ <select aria-label="選我的最愛股票">${i<0?'<option value="" selected>不在最愛・選一檔</option>':''}${opt}</select><span class="fn-pos">${i<0?'—':i+1}/${n}</span></label>
+    <button type="button" class="fn-next" data-fn="1" title="下一檔(鍵盤 →)" aria-label="下一檔最愛:${newsEsc(nm(next))}"><span class="fn-nm">${newsEsc(nm(next))}</span> ›</button>`;}
+function favNavMount(s){
+  document.querySelectorAll('.fav-nav').forEach(e=>e.remove());
+  if(!s||s.etf&&!favList().includes(s.id))return;
+  const h=favNavHTML(s);if(!h)return;
+  const mk=cls=>{const e=document.createElement('div');e.className='fav-nav '+cls;e.innerHTML=h;
+    e.querySelectorAll('[data-fn]').forEach(b=>b.onclick=()=>favNavStep(+b.dataset.fn));
+    e.querySelector('select').onchange=ev=>favNavGo(ev.target.value);return e;};
+  const ctx=document.getElementById('stockContext');if(ctx){const btn=ctx.querySelector('[data-catalog]');btn?btn.before(mk('fav-nav-d')):ctx.append(mk('fav-nav-d'));}
+  const head=document.querySelector('#detailView .m-head');if(head)head.after(mk('fav-nav-m'));
+  if(window.__favNavScroll){window.__favNavScroll=false;setTimeout(()=>{try{const c=document.documentElement.dataset.chap||'ov';if(typeof StockNavigation!=='undefined')StockNavigation.go(document,{chapter:c,restore:false});}catch(e){}},400);}   // 換股後停在同一分類開頭
+  if(!window.__favNavKey){window.__favNavKey=1;document.addEventListener('keydown',e=>{
+    if(!/^#stock\//.test(location.hash)||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
+    const t=e.target;if(t&&(t.closest&&t.closest('input,textarea,select,[contenteditable="true"],#chapTabs,dialog')))return;if(document.querySelector('dialog[open]'))return;
+    if(!document.querySelector('.fav-nav'))return;e.preventDefault();favNavStep(e.key==='ArrowRight'?1:-1);});}
 }
 function favList(){try{if(!SB_USER&&!Object.keys(localStorage).some(k=>/^sb-.*-auth-token$/.test(k)))return[];}catch(e){}try{const a=JSON.parse(localStorage.getItem('fav_ids')||'[]');return Array.isArray(a)?a:[];}catch(e){return[];}}   // r861:沒有登入 session 一律空
 function favHas(id){return favList().includes(id);}
@@ -8183,6 +8213,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
         setChap(keep);
         window.__chapStk=s.id;
         if(typeof StockNavigation!=='undefined')StockNavigation.bind(document,s,{setChapter:setChap});
+        try{favNavMount(s);}catch(e){}   // r1231:我的最愛上一檔/下一檔
         // r1196: one shared chapter bar replaces the duplicate desktop sidebar.
         document.getElementById('stkSide')?.remove();
       }
