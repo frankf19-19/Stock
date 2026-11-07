@@ -2890,3 +2890,8 @@ html[data-stock-ui] #chapTabs button{min-height:44px}html[data-stock-ui] .sec-ti
 /* r1200:手機頂部——「功能選單」與底部「更多」重複,手機只留底部那個 */
 @media(max-width:640px){#workspaceMenuBtn{display:none!important}}
 .alert-more{flex-basis:100%;width:100%}.alert-more>.alert-pill{margin:3px 4px 3px 0}
+/* r1230 🌋 底部爆量長紅 */
+.tg-bvol{background:rgba(232,90,79,.12);color:var(--up);border:1px solid rgba(232,90,79,.4)}
+.bvol-card{border:1px solid rgba(232,90,79,.45);background:rgba(232,90,79,.07);border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:14px;line-height:1.55}
+.bvol-card.bvol-ref{border-color:var(--line,rgba(127,127,127,.35));background:transparent}
+.bvol-card .bvol-sub{font-size:13px;margin-top:4px}

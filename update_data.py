@@ -4219,6 +4219,16 @@ def score_stock(c, bars, rev_bulk, inst, tdcc, tdcc_date, prev, chips=None):
                 sig.append({"type": "dip", "label": "回檔機會",
                     "desc": f"強勢股回到月線 {ma20:.1f}(乖離 {b20:+.1f}%)・離 52 週高 {(pth-1)*100:.1f}%・營收年增 {yoy_:+.0f}%"
                             + "——實測之後 20 天平均比大盤 +1.04%(14/14 年;約一半個股會輸大盤,宜分散)"})
+            # r1230 🌋 底部爆量長紅:跌很久(離 120 日高 ≥30%、季線下彎、價在季線下)+ 在底部(離 60 日低 ≤10%)+ 量 ≥2 倍 20 日均量 + 收紅 ≥3%
+            #   回測 2016~2026(bottom_vol_study):大盤一起大跌(流動股站上季線 <35%)時 60 天平均 +16.8%、勝率 73%(216 次),
+            #   同樣在底部但沒爆量長紅的 +9.0%/62%;兩段期間、逐年都正。大盤沒跌夠時 −1.0%/39%,跟沒訊號一樣 → 前端依當天寬度標有效/參考
+            hi120 = max(o[i][1] * fa(i) for i in range(n - 120, n)); lo60 = min(o[i][2] * fa(i) for i in range(n - 60, n))
+            cA_ = [closes[i] * fa(i) for i in range(n - 80, n)]; ma60a = avg(cA_[-60:]); ma60p20 = avg(cA_[:60]); vr_ = vols[-1] / max(avg(vols[-21:-1]), 1); up_ = closes[-1] / closes[-2] - 1 if closes[-2] else 0
+            if liq_ok and hi120 and last <= hi120 * 0.70 and last < ma60a < ma60p20 and last <= lo60 * 1.10 and vr_ >= 2 and up_ >= 0.03:
+                sig.append({"type": "bvol", "label": "底部爆量長紅",
+                    "desc": f"離 120 日高 {(last/hi120-1)*100:.0f}%、在近 60 日低點附近,今天量 {vr_:.1f} 倍、收紅 {up_*100:+.1f}%"
+                            + "——實測只在大盤一起大跌時有效:之後 60 天平均 +16.8%、73% 上漲(沒爆量的底部 +9.0%);大盤沒跌夠時跟沒訊號一樣",
+                    "vr": round(vr_, 1), "up": round(up_ * 100, 1)})
         except Exception:
             pass
     if sig: out["sig"] = sig
