@@ -201,6 +201,23 @@
     window.addEventListener('scroll',()=>{if(!tick)tick=requestAnimationFrame(run);},{passive:true});
     window.addEventListener('hashchange',()=>{JSIG='';root.classList.remove('v2-jump','v2-sd');setTimeout(run,300);});
   }
+  /* r1234 iPhone 加到主畫面的 App 沒有重新整理鈕 → 在最上面往下拉就重新整理(Android 的 App 本來就有,不重複做) */
+  function pullRefresh(){
+    let ios=false;try{ios=window.navigator.standalone===true;}catch(e){}
+    if(!ios&&!window.__v2ptrTest)return;
+    const tip=doc.createElement('div');tip.id='v2ptr';tip.textContent='↓ 往下拉重新整理';doc.body.append(tip);
+    let y0=null,x0=0,dy=0,ok=false;
+    const reset=()=>{y0=null;dy=0;ok=false;tip.style.transform='';tip.classList.remove('on','go');};
+    doc.addEventListener('touchstart',e=>{reset();if(e.touches.length!==1||window.scrollY>0)return;
+      if(doc.querySelector('dialog[open]')||e.target.closest('canvas,input,textarea,select,[contenteditable="true"],#v2jump,#mobNav,.echarts,[_echarts_instance_]'))return;
+      let a=e.target;while(a&&a!==doc.body){if(a.scrollTop>0)return;a=a.parentElement;}
+      y0=e.touches[0].clientY;x0=e.touches[0].clientX;},{passive:true});
+    doc.addEventListener('touchmove',e=>{if(y0==null)return;const t=e.touches[0];dy=t.clientY-y0;
+      if(dy<0||Math.abs(t.clientX-x0)>60||window.scrollY>0){reset();return;}
+      if(dy>24){tip.classList.add('on');tip.style.transform='translate(-50%,'+Math.min(70,dy/2.2)+'px)';ok=dy>130;tip.textContent=ok?'↑ 放開就重新整理':'↓ 往下拉重新整理';}},{passive:true});
+    doc.addEventListener('touchend',()=>{if(y0!=null&&ok){tip.textContent='重新整理中…';tip.classList.add('go');setTimeout(()=>location.reload(),150);y0=null;return;}reset();},{passive:true});
+    doc.addEventListener('touchcancel',reset,{passive:true});
+  }
   function init(){
     themeColor();try{new MutationObserver(()=>setTimeout(themeColor,50)).observe(root,{attributes:true,attributeFilter:['data-theme','class']});}catch(e){}
     try{mergeView();}catch(e){}
@@ -212,6 +229,7 @@
     try{appBar();}catch(e){}
     try{patchMenu();}catch(e){}
     try{jumpInit();}catch(e){}
+    try{pullRefresh();}catch(e){}
     sync();
     window.addEventListener('hashchange',()=>setTimeout(sync,0));
     try{new MutationObserver(()=>{clearTimeout(window.__v2t);window.__v2t=setTimeout(()=>{try{stockCtx();favFold();syncTitle();}catch(e){}},250);}).observe(doc.getElementById('detailView')||doc.body,{childList:true,subtree:true});}catch(e){}

@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1233';
+const APP_BUILD='r1234';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -539,7 +539,7 @@ async function boot(){
   if(MINI){const w=setInterval(()=>{if(DATA&&DATA.stocks){clearInterval(w);miniStart();}},500);}   // r866
   try{
     let j0=null;try{if(window.__DATA_P){j0=await window.__DATA_P;window.__DATA_P=null;}}catch(e0){}   // r1076:index.html 一開頭就開始下載
-    if(j0&&j0.stocks){DATA=j0;DATA.source='live';}
+    if(j0&&j0.stocks){DATA=j0;DATA.source='live';try{dropStaleSig(DATA);}catch(e1){}}   // r1234:預先下載的這條路原本漏了清過期訊號
     else{const r=await fetch('data.json',{cache:'no-cache'});        // r900:改用 ETag 重新驗證——沒更新就回 304、不再每次重抓 2.6MB
     if(r.ok){ DATA=await r.json(); DATA.source='live'; dropStaleSig(DATA); }}
   }catch(e){}

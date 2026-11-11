@@ -2918,3 +2918,12 @@ html[data-stock-ui] #chapTabs button{min-height:44px}html[data-stock-ui] .sec-ti
 .a3-strip button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:64px;padding:8px 10px;border:1px solid var(--line,rgba(127,127,127,.3));border-radius:12px;background:var(--panel);color:var(--txt);cursor:pointer;text-align:left}
 .a3-strip button b{font-size:14px}.a3-strip button span{font-size:12px;color:var(--txt2)}.a3-strip button em{font-style:normal;font-size:13px;font-weight:800;font-family:var(--mono,monospace)}
 .a3-strip button:active{transform:scale(.97)}
+/* r1234 我的持股:輸入框原本是瀏覽器預設的灰框、字被切掉 → 套站內樣式;手機一欄一個、好點 */
+#ptForm input{min-height:40px;box-sizing:border-box;padding:8px 12px;border:1px solid var(--line,rgba(127,127,127,.35));border-radius:9px;background:var(--bg);color:var(--txt);font-size:15px;font-family:inherit}
+#ptForm input:focus{outline:none;border-color:var(--amber)}
+#ptForm input::placeholder{color:var(--dim)}
+#ptForm #ptAdd{min-height:40px}
+@media(max-width:640px){
+  #ptForm input{width:100%!important;min-height:46px;font-size:16px}
+  #ptForm #ptAdd{width:100%;min-height:46px;font-size:15px;text-align:center;justify-content:center;background:var(--amber);color:#1a1205;border-color:var(--amber)}
+}

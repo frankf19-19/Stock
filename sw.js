@@ -5,10 +5,15 @@
      • 只清自己的舊快取(stock-pwa-*),不動同網域其他專案的快取
      • 超過 8MB 的回應不進快取 */
 const CACHE = 'stock-pwa-v3';
+/* r1234:帶版本號的程式檔(app.js?v=r1234、*.css?v=…)改「先用本機的、背景再更新」——
+   這些檔案每次改版網址就換(index.html 仍是網路優先,一定拿得到新版號),所以本機有同網址的就直接用,
+   第二次以後開站不用再等 800KB 的主程式下載;背景仍會跟伺服器核對一次,萬一檔案改了但版號沒換,下次開就會是新的。
+   同一個檔案只留最新版號那一份。 */
+const STATIC = 'stock-pwa-static-v1';
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks =>
-    Promise.all(ks.filter(k => k.startsWith('stock-pwa-') && k !== CACHE).map(k => caches.delete(k)))
+    Promise.all(ks.filter(k => k.startsWith('stock-pwa-') && k !== CACHE && k !== STATIC).map(k => caches.delete(k)))
   ).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
@@ -17,6 +22,25 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;      // 外部資源(CDN/代理/TV)不攔
   if (!url.pathname.startsWith('/Stock/')) return; // 同網域其他專案不攔
+  if (/^\?v=r\d+$/.test(url.search) && /\.(?:js|css)$/.test(url.pathname) && !/\/sw\.js$/.test(url.pathname)) {
+    e.respondWith((async () => {
+      let c = null, hit = null;
+      try { c = await caches.open(STATIC); hit = await c.match(req.url); } catch (err) {}
+      const net = fetch(req).then(async r => {
+        try {
+          if (c && r.ok && r.type === 'basic') {
+            await c.put(req.url, r.clone());
+            const ks = await c.keys();
+            await Promise.all(ks.filter(k => k.url !== req.url && new URL(k.url).pathname === url.pathname).map(k => c.delete(k)));
+          }
+        } catch (err) {}
+        return r;
+      });
+      if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
+      return net;
+    })());
+    return;
+  }
   const key = url.origin + url.pathname;            // 去掉查詢字串:每個檔案只留一份
   // r925:仍是網路優先,但網路 5 秒沒回應且本機有快取 → 先用快取把畫面開起來(背景照樣更新快取),
   //      不再「開起來就卡在載入中」;網路失敗也回快取

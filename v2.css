@@ -452,3 +452,6 @@ html.v2 .a3-lvi em{white-space:nowrap}
   html.v2 .a3-row{flex-wrap:wrap;min-width:0}
   html.v2 .tr-about{margin-bottom:10px}
 }
+/* r1234 iPhone App 下拉重新整理的提示 */
+#v2ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 4px);transform:translate(-50%,-60px);z-index:90;padding:7px 14px;border-radius:18px;background:var(--panel);border:1px solid var(--line);color:var(--txt);font-size:13px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#v2ptr.on{opacity:1}#v2ptr.go{color:var(--amber);border-color:var(--amber)}
