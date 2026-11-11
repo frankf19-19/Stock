@@ -211,7 +211,7 @@ html.v2 .brief-kb:not(:empty){margin:12px 0 0}
 /* ===== r1213 🏠 總覽(一頁看完) ===== */
 .hm{display:grid;grid-template-columns:1fr;gap:16px;margin-top:6px}
 .hm-sec{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;min-width:0}
-#hmMkt,#hmFav,#hmPort,#hmNews{grid-column:1/-1}
+#hmMkt,#hmInd,#hmFav,#hmPort,#hmNews{grid-column:1/-1}
 #hmMkt{background:linear-gradient(180deg,color-mix(in srgb,var(--amber) 8%,var(--panel)),var(--panel))}
 .hm-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
 .hm-h h3{margin:0;font-size:17px;font-weight:800}
@@ -455,3 +455,14 @@ html.v2 .a3-lvi em{white-space:nowrap}
 /* r1234 iPhone App 下拉重新整理的提示 */
 #v2ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 4px);transform:translate(-50%,-60px);z-index:90;padding:7px 14px;border-radius:18px;background:var(--panel);border:1px solid var(--line);color:var(--txt);font-size:13px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #v2ptr.on{opacity:1}#v2ptr.go{color:var(--amber);border-color:var(--amber)}
+
+/* r1235 總覽:大盤重要指標 */
+.hm-indg{margin:0 0 14px}.hm-indg:last-of-type{margin-bottom:6px}
+.hm-indt{font-size:14px;font-weight:800;margin:0 0 6px}.hm-indt small{font-weight:400;color:var(--mut);font-size:12px}
+.hm-inds{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.hm-ind{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);min-width:0}
+.hm-ind small{font-size:12.5px;color:var(--txt2)}
+.hm-ind b{font-size:19px;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hm-ind span{font-size:12px;color:var(--txt2);line-height:1.4}.hm-ind span em{font-style:normal;font-weight:800;font-family:var(--mono)}
+.hm-indhelp{margin-top:4px}
+@media(max-width:640px){.hm-inds{grid-template-columns:repeat(2,minmax(0,1fr))}.hm-ind{padding:9px 10px}.hm-ind b{font-size:17px}}

@@ -1,6 +1,6 @@
 /* r1199: consistent navigation across home, research and detail pages. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.WorkspaceNavigation=factory();})(typeof globalThis!=='undefined'?globalThis:this,function(){
- 'use strict';const states=new WeakMap(),pages=[['home','🏠 總覽','持股、最愛、AI Pick、大盤一頁看完'],['news','📰 產業早報','每天的重要產業資訊'],['macro','📊 大盤','今日盤勢、指數與市場風險'],['aipick','🤖 AI Pick','短中長期三清單'],['port','💼 我的持股','依你的成本看損益與防守/停利'],['fav','⭐ 我的最愛','關注股票的買賣價與提醒'],['stocks','📈 選股','搜尋、篩選與個股買賣價'],['etf','🧺 ETF','基金、成分與配息'],['gooaye','🎙️ 節目整理','節目重點與來源'],['trend','🔭 未來產業','1~3 年的產業趨勢、相關個股與未來性']];
+ 'use strict';const states=new WeakMap(),pages=[['home','🏠 總覽','大盤指標、早報、AI Pick 一頁看完'],['news','📰 產業早報','每天的重要產業資訊'],['macro','📊 大盤','今日盤勢、指數與市場風險'],['aipick','🤖 AI Pick','短中長期三清單'],['port','💼 我的持股','依你的成本看損益與防守/停利'],['fav','⭐ 我的最愛','關注股票的買賣價與提醒'],['stocks','📈 選股','搜尋、篩選與個股買賣價'],['etf','🧺 ETF','基金、成分與配息'],['gooaye','🎙️ 節目整理','節目重點與來源'],['trend','🔭 未來產業','1~3 年的產業趨勢、相關個股與未來性']];
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function target(key){return pages.some(p=>p[0]===key)?key==='fav'?{hash:'#fav'}:{hash:'',tab:key}:null;}
  function available(doc){return pages.filter(p=>{if(p[0]==='fav')return true;const b=doc.querySelector('#homeTabs [data-tab="'+p[0]+'"]');return b&&!b.hidden&&b.style.display!=='none'&&!b.classList.contains('gm-hide');});}

@@ -1,4 +1,5 @@
 /* r1213 🏠 總覽(Frank 11/2:「找不到東西在哪、操作很不人性化」;常做的四件事:持股該不該賣、最愛哪檔到買點、AI Pick 買什麼、今天大盤和新聞)
+   r1235(Frank 11/12):總覽拿掉持股與最愛,改放大盤重要指標(三大法人、期貨選擇權、融資、成交值、匯率、美股)
    一頁看完:每檔一行(現價、該做什麼、關鍵價格),點一行就進個股;每區右上「看全部 ›」到原本的分頁。
    只讀既有資料與既有計算(stockOperationFacts / ownStrategySummary / StockCardSummary / AIP3 / 早報 / 盤勢),不新增任何交易規則。 */
 (function(){
@@ -16,9 +17,8 @@
     if(!p){p=doc.createElement('div');p.className='tabPane';p.id='tp-home';p.style.display='none';
       p.innerHTML=`<div class="hm" id="hmBox">
         <section class="hm-sec" id="hmMkt"></section>
+        <section class="hm-sec" id="hmInd"><div class="hm-h"><h3>📊 大盤重要指標</h3><a href="javascript:void 0" data-go="macro">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmNews"><div class="hm-h"><h3>📰 今日早報重點</h3><a href="javascript:void 0" data-go="news">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
-        <section class="hm-sec" id="hmPort"><div class="hm-h"><h3>💼 我的持股</h3><a href="javascript:void 0" data-go="port">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
-        <section class="hm-sec" id="hmFav"><div class="hm-h"><h3>⭐ 我的最愛</h3><a href="javascript:void 0" data-go="fav">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmAip"><div class="hm-h"><h3>🤖 AI Pick 目前買了哪些</h3><a href="javascript:void 0" data-go="aipick">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmTrend"><div class="hm-h"><h3>🔭 未來產業</h3><a href="javascript:void 0" data-go="trend">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
         <section class="hm-sec" id="hmLearn"><div class="hm-h"><h3>📚 每天學一點</h3><a href="javascript:void 0" data-go="learn">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
@@ -44,6 +44,58 @@
     box.innerHTML=`<div class="hm-mkt"><div class="hm-idxs">${chips||'<span class="dim">指數載入中…</span>'}${br}</div>
       ${head?`<div class="hm-head">🧭 ${esc(head)}${vtag?` <small class="dim" style="font-weight:400;font-size:12px">(盤勢解讀 ${vtag})</small>`:''}</div>`:''}
       <div class="hm-links"><a href="javascript:void 0" data-go="macro">大盤與今日盤勢 ›</a><a href="javascript:void 0" data-go="news">產業早報 ›</a></div></div>`;
+  }
+
+  /* ── r1235 大盤重要指標(Frank 11/12:總覽不放持股/最愛,改放三大法人、期貨、融資這些)
+        全部讀既有資料(DATA.macro.futtab / credit / idx / fx),只陳述事實(今天多少、連幾天、比昨天增減),不下買賣判斷 ── */
+  function ind(){
+    const body=doc.querySelector('#hmInd .hm-body');if(!body)return;
+    const M=(window.DATA&&DATA.macro)||{},idx=M.idx||[],fx=M.fx||{};
+    const md=d=>d?String(d).replace(/\//g,'-').slice(5).replace('-','/'):'';
+    const sg=(v,dec=1,unit='')=>{v=num(v);return v==null?'—':(v>0?'+':'')+v.toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec})+unit;};
+    const tile=(lb,val,c,sub)=>`<div class="hm-ind"><small>${lb}</small><b style="color:${c||'var(--txt)'}">${val}</b><span>${sub||''}</span></div>`;
+    const grp=(t,d,tiles)=>{tiles=tiles.filter(Boolean);return tiles.length?`<div class="hm-indg"><div class="hm-indt">${t}${d?` <small>${d}</small>`:''}</div><div class="hm-inds">${tiles.join('')}</div></div>`:'';};
+    const ix=k=>idx.find(x=>String(x.name||'').includes(k));
+    const ixT=(k,lb,dec=2)=>{const it=ix(k);if(!it||num(it.val)==null)return '';return tile(lb,fmt(it.val),'',`<em style="color:${col(it.chg)}">${pct(it.chg)}</em>${it.d?' '+md(it.d):''}`);};
+    if(window.GMKT==='US'){
+      const vx=ix('VIX'),sp=ix('利差');
+      body.innerHTML=grp('🇺🇸 美股指數','',[ixT('S&P','S&P 500'),ixT('那斯達克','那斯達克'),ixT('道瓊','道瓊')])
+        +grp('🌡 風險與資金','',[vx&&num(vx.val)!=null?tile('VIX 恐慌指數',fmt(vx.val),'',`<em style="color:${col(vx.chg)}">${pct(vx.chg)}</em>・${vx.val>=30?'市場很緊張':vx.val>=20?'市場偏緊張':'市場平靜'}`):'',
+          sp&&num(sp.val)!=null?tile('美債 10 年 − 2 年利差',sg(sp.val,2,'%'),'',sp.val<0?'短率高於長率(倒掛)':'長率高於短率(正常)'):'',
+          num(fx.DXY)!=null?tile('美元指數',fmt(fx.DXY),'','數字越大=美元越強'):''])||'<div class="hm-empty">指標資料還沒到,稍後自動更新。</div>';
+      return;
+    }
+    const T=(M.futtab||[]).filter(r=>r&&r.d),R=T[T.length-1],P=T[T.length-2],C=M.credit||null;
+    const streak=k=>{let n=0,dir=0;for(let i=T.length-1;i>=0;i--){const v=num(T[i][k]);if(v==null||v===0)break;const d=v>0?1:-1;if(!dir)dir=d;if(d!==dir)break;n++;}return n>=2?`連 ${n} 天${n>=T.length?'以上':''}${dir>0?'買超':'賣超'}`:(dir>0?'今天買超':dir<0?'今天賣超':'');};
+    const flow=(k,lb)=>R&&num(R[k])!=null?tile(lb,sg(R[k],1,' 億'),col(R[k]),streak(k)):'';
+    const dlt=(k,unit,dec=0)=>P&&num(R[k])!=null&&num(P[k])!=null?`比前一天 ${sg(R[k]-P[k],dec,unit)}`:'';
+    let h='';
+    if(R){
+      const tot=['f','t','dl'].reduce((a,k)=>a+(num(R[k])||0),0);
+      h+=grp('🏦 三大法人今天買賣超',md(R.d),[flow('f','外資'),flow('t','投信'),flow('dl','自營商'),tile('三大法人合計',sg(tot,1,' 億'),col(tot),tot>0?'合計買超':'合計賣超')]);
+      const a5=T.slice(-6,-1).map(r=>num(r.amt)).filter(v=>v>0),av=a5.length?a5.reduce((a,b)=>a+b,0)/a5.length:null;
+      h+=grp('📈 期貨與選擇權(收盤後公布)',md(R.d),[
+        num(R.txf)!=null?tile('外資台指期淨部位',sg(R.txf,0,' 口'),col(R.txf),`${R.txf<0?'淨空單':'淨多單'}・${dlt('txf',' 口')}`):'',
+        num(R.t10)!=null?tile('前十大交易人淨部位',sg(R.t10,0,' 口'),col(R.t10),`${R.t10<0?'淨空單':'淨多單'}・${dlt('t10',' 口')}`):'',
+        num(R.leek)!=null?tile('散戶多空比',sg(R.leek,1,'%'),'',`${R.leek>0?'散戶偏多':'散戶偏空'}・${dlt('leek',' 點',1)}`):'',
+        num(R.pcr)!=null?tile('選擇權 賣權/買權 比',fmt(R.pcr),'',`${R.pcr>=100?'賣權未平倉比買權多':'買權未平倉比賣權多'}・${dlt('pcr','',1)}`):'']);
+      const cs=[num(R.amt)!=null?tile('今天成交金額',fmt(Math.round(R.amt))+' 億','',av?`近 5 天平均 ${fmt(Math.round(av))} 億・${R.amt>=av?'比平常多':'比平常少'} ${Math.abs((R.amt/av-1)*100).toFixed(0)}%`:''):''];
+      if(C&&num(C.fin)!=null){const H=C.h&&C.h.fin||[],f5=H.length>=6?C.fin-H[H.length-6]:null;
+        cs.push(tile('融資餘額',fmt(C.fin)+' 億','',`借錢買股票的總額・${md(C.d)} 比前一天 <em style="color:${col(C.finD)}">${sg(C.finD,1,' 億')}</em>${f5!=null?`・近 5 天 ${sg(f5,1,' 億')}`:''}`));}
+      if(num(fx.USDTWD)!=null)cs.push(tile('美元兌台幣',fmt(fx.USDTWD),'','數字變大=台幣變弱(外資匯出時常見)'));
+      h+=grp('💰 資金',' ',cs);
+    }
+    const vx=ix('VIX');
+    h+=grp('🌙 美股昨晚','',[ixT('S&P','S&P 500'),ixT('那斯達克','那斯達克'),vx&&num(vx.val)!=null?tile('VIX 恐慌指數',fmt(vx.val),'',`<em style="color:${col(vx.chg)}">${pct(vx.chg)}</em>・${vx.val>=30?'市場很緊張':vx.val>=20?'市場偏緊張':'市場平靜'}`):'']);
+    body.innerHTML=h?h+`<details class="tidy-fold hm-indhelp"><summary>這些數字怎麼看(白話)</summary><div class="dim-note">
+      <b>三大法人</b>:外資、投信(基金公司)、自營商(券商自己的錢)今天在股票上買的比賣的多多少;紅色=買超、綠色=賣超。<br>
+      <b>外資台指期淨部位</b>:外資在期貨上「看漲的單 − 看跌的單」。負的不一定是看壞,外資常用空單替手上的股票保險;重點看空單是變多還是變少。<br>
+      <b>前十大交易人</b>:期貨市場最大的 10 個戶頭合起來偏多還是偏空。<br>
+      <b>散戶多空比</b>:小額交易人偏多還是偏空;正的=散戶偏多。<br>
+      <b>賣權/買權比</b>:高於 100 表示押跌(或買保險)的未平倉比押漲的多。<br>
+      <b>融資餘額</b>:大家借錢買股票的總金額;大跌時如果明顯減少,代表借錢買的人被洗出去了。<br>
+      這裡只列事實(今天多少、連幾天、比昨天增減),不是買賣訊號;各指標的歷史表格與驗證過的用法在「大盤」分頁。</div></details>`
+      :'<div class="hm-empty">指標資料還沒到,稍後自動更新。</div>';
   }
 
   /* ── 持股:每檔一行(現價、損益、防守、停利) ── */
@@ -152,10 +204,10 @@
     if(busy||(!force&&Date.now()-lastRun<60e3))return;busy=true;lastRun=Date.now();
     pane();
     for(let i=0;i<60&&!((window.DATA&&DATA.stocks||[]).length);i++)await new Promise(r=>setTimeout(r,250));   // 主資料還沒到先等
+    try{ind();}catch(e){}
     try{await Promise.all([mkt(),news(),aip(),learn(),trend()]);}catch(e){}
     try{if(typeof lvLoad==='function')await lvLoad();}catch(e){}   // 還原因子(ADJ1)沒載入時價位算不出來(手機上常見)
-    try{await port();}catch(e){}
-    try{await fav();}catch(e){}
+    /* r1235:總覽不再放持股、最愛(各自有分頁,底部列一按就到);port()/fav() 保留但不呼叫 */
     busy=false;
   }
   window.HomeView={render,pane};
