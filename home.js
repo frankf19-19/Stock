@@ -24,7 +24,9 @@
         <section class="hm-sec" id="hmLearn"><div class="hm-h"><h3>📚 每天學一點</h3><a href="javascript:void 0" data-go="learn">看全部 ›</a></div><div class="hm-body">載入中…</div></section>
       </div>`;
       const first=doc.getElementById('tp-news')||doc.querySelector('.tabPane');first.parentNode.insertBefore(p,first);
-      p.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){e.preventDefault();go(g.dataset.go);return;}
+      p.addEventListener('click',e=>{const gs=e.target.closest('[data-gosec]');if(gs){e.preventDefault();go('macro');const k=gs.dataset.gosec;   // r1236:直接跳到大盤頁的那一段(會自動展開)
+          let n=0;const tryGo=()=>{const t=doc.querySelector('#tp-macro .sec-title[data-sec="'+k+'"]');if(t&&t.offsetParent){const b=doc.getElementById('sb-'+k);if(b&&b.classList.contains('closed'))t.click();if(typeof jumpToEl==='function')jumpToEl(t);}else if(n++<20)setTimeout(tryGo,200);};setTimeout(tryGo,150);return;}
+        const g=e.target.closest('[data-go]');if(g){e.preventDefault();go(g.dataset.go);return;}
         const r=e.target.closest('[data-sid]');if(r){location.hash='#stock/'+encodeURIComponent(r.dataset.sid);}});
     }
     return p;
@@ -48,18 +50,30 @@
 
   /* ── r1235 大盤重要指標(Frank 11/12:總覽不放持股/最愛,改放三大法人、期貨、融資這些)
         全部讀既有資料(DATA.macro.futtab / credit / idx / fx),只陳述事實(今天多少、連幾天、比昨天增減),不下買賣判斷 ── */
-  function ind(){
+  async function ind(){
     const body=doc.querySelector('#hmInd .hm-body');if(!body)return;
+    let Y=null,ME=null;try{if(typeof yextData==='function')Y=await yextData();}catch(e){}
+    try{if(typeof marginEstLoad==='function')ME=await marginEstLoad();}catch(e){}
     const M=(window.DATA&&DATA.macro)||{},idx=M.idx||[],fx=M.fx||{};
     const md=d=>d?String(d).replace(/\//g,'-').slice(5).replace('-','/'):'';
     const sg=(v,dec=1,unit='')=>{v=num(v);return v==null?'—':(v>0?'+':'')+v.toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec})+unit;};
     const tile=(lb,val,c,sub)=>`<div class="hm-ind"><small>${lb}</small><b style="color:${c||'var(--txt)'}">${val}</b><span>${sub||''}</span></div>`;
-    const grp=(t,d,tiles)=>{tiles=tiles.filter(Boolean);return tiles.length?`<div class="hm-indg"><div class="hm-indt">${t}${d?` <small>${d}</small>`:''}</div><div class="hm-inds">${tiles.join('')}</div></div>`:'';};
+    const grp=(t,d,tiles,sec)=>{tiles=tiles.filter(Boolean);return tiles.length?`<div class="hm-indg"><div class="hm-indt">${t}${d?` <small>${d}</small>`:''}${sec?`<a href="javascript:void 0" data-gosec="${sec}">完整表格 ›</a>`:''}</div><div class="hm-inds">${tiles.join('')}</div></div>`:'';};
     const ix=k=>idx.find(x=>String(x.name||'').includes(k));
     const ixT=(k,lb,dec=2)=>{const it=ix(k);if(!it||num(it.val)==null)return '';return tile(lb,fmt(it.val),'',`<em style="color:${col(it.chg)}">${pct(it.chg)}</em>${it.d?' '+md(it.d):''}`);};
+    /* r1236:費半(yext ^SOX)、台積電 ADR(站內美股 TSM;1 張 ADR = 5 股台積電)、大盤融資維持率(margin_est.json) */
+    const soxT=()=>{try{const E=Y&&Y.series&&Y.series['^SOX'];if(!E)return '';let v=null,pv=null,ts=null;
+      const m=E.m;if(m&&m.c&&m.c.length&&m.prev>0){v=m.c[m.c.length-1];pv=m.prev;ts=m.t&&m.t[m.t.length-1];}   // 日線序列會慢一兩天,優先用分鐘資料(最新價 vs 前一天收盤)
+      else{const d=E.d,c=d&&d.c,n=c&&c.length;if(n>=2){v=c[n-1];pv=c[n-2];ts=d.t[n-1];}}
+      if(!(v>0&&pv>0))return '';const ch=(v/pv-1)*100;let dt='';
+      try{if(ts){const D=new Date(ts*1000),live=Date.now()-ts*1000<25*60e3;dt=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',month:'2-digit',day:'2-digit'}).format(D).replace('-','/')+(live?' 盤中':' 美東');}}catch(e){}
+      return tile('費城半導體指數',fmt(v),'',`<em style="color:${col(ch)}">${pct(ch)}</em> ${dt}・台股電子股常跟著它走`);}catch(e){return '';}};
+    const adrT=()=>{try{const t=stock('TSM'),w=stock('2330');if(!t||!(num(t.price)>0))return '';let sub=`<em style="color:${col(t.chg)}">${pct(t.chg)}</em>`;
+      if(w&&num(w.price)>0&&num(fx.USDTWD)>0){const eq=t.price*fx.USDTWD/5,pm=(eq/w.price-1)*100;sub+=`・換算約 ${fmt(Math.round(eq))} 元,比台股台積電 ${fmt(w.price)} ${pm>=0?'貴':'便宜'} ${Math.abs(pm).toFixed(1)}%`;}
+      return tile('台積電 ADR(美股)','$'+fmt(t.price),'',sub);}catch(e){return '';}};
     if(window.GMKT==='US'){
       const vx=ix('VIX'),sp=ix('利差');
-      body.innerHTML=grp('🇺🇸 美股指數','',[ixT('S&P','S&P 500'),ixT('那斯達克','那斯達克'),ixT('道瓊','道瓊')])
+      body.innerHTML=grp('🇺🇸 美股指數','',[ixT('S&P','S&P 500'),ixT('那斯達克','那斯達克'),ixT('道瓊','道瓊'),soxT(),adrT()])
         +grp('🌡 風險與資金','',[vx&&num(vx.val)!=null?tile('VIX 恐慌指數',fmt(vx.val),'',`<em style="color:${col(vx.chg)}">${pct(vx.chg)}</em>・${vx.val>=30?'市場很緊張':vx.val>=20?'市場偏緊張':'市場平靜'}`):'',
           sp&&num(sp.val)!=null?tile('美債 10 年 − 2 年利差',sg(sp.val,2,'%'),'',sp.val<0?'短率高於長率(倒掛)':'長率高於短率(正常)'):'',
           num(fx.DXY)!=null?tile('美元指數',fmt(fx.DXY),'','數字越大=美元越強'):''])||'<div class="hm-empty">指標資料還沒到,稍後自動更新。</div>';
@@ -72,21 +86,23 @@
     let h='';
     if(R){
       const tot=['f','t','dl'].reduce((a,k)=>a+(num(R[k])||0),0);
-      h+=grp('🏦 三大法人今天買賣超',md(R.d),[flow('f','外資'),flow('t','投信'),flow('dl','自營商'),tile('三大法人合計',sg(tot,1,' 億'),col(tot),tot>0?'合計買超':'合計賣超')]);
+      h+=grp('🏦 三大法人今天買賣超',md(R.d),[flow('f','外資'),flow('t','投信'),flow('dl','自營商'),tile('三大法人合計',sg(tot,1,' 億'),col(tot),tot>0?'合計買超':'合計賣超')],'mk_fut');
       const a5=T.slice(-6,-1).map(r=>num(r.amt)).filter(v=>v>0),av=a5.length?a5.reduce((a,b)=>a+b,0)/a5.length:null;
       h+=grp('📈 期貨與選擇權(收盤後公布)',md(R.d),[
         num(R.txf)!=null?tile('外資台指期淨部位',sg(R.txf,0,' 口'),col(R.txf),`${R.txf<0?'淨空單':'淨多單'}・${dlt('txf',' 口')}`):'',
         num(R.t10)!=null?tile('前十大交易人淨部位',sg(R.t10,0,' 口'),col(R.t10),`${R.t10<0?'淨空單':'淨多單'}・${dlt('t10',' 口')}`):'',
         num(R.leek)!=null?tile('散戶多空比',sg(R.leek,1,'%'),'',`${R.leek>0?'散戶偏多':'散戶偏空'}・${dlt('leek',' 點',1)}`):'',
-        num(R.pcr)!=null?tile('選擇權 賣權/買權 比',fmt(R.pcr),'',`${R.pcr>=100?'賣權未平倉比買權多':'買權未平倉比賣權多'}・${dlt('pcr','',1)}`):'']);
+        num(R.pcr)!=null?tile('選擇權 賣權/買權 比',fmt(R.pcr),'',`${R.pcr>=100?'賣權未平倉比買權多':'買權未平倉比賣權多'}・${dlt('pcr','',1)}`):''],'mk_fut');
       const cs=[num(R.amt)!=null?tile('今天成交金額',fmt(Math.round(R.amt))+' 億','',av?`近 5 天平均 ${fmt(Math.round(av))} 億・${R.amt>=av?'比平常多':'比平常少'} ${Math.abs((R.amt/av-1)*100).toFixed(0)}%`:''):''];
       if(C&&num(C.fin)!=null){const H=C.h&&C.h.fin||[],f5=H.length>=6?C.fin-H[H.length-6]:null;
         cs.push(tile('融資餘額',fmt(C.fin)+' 億','',`借錢買股票的總額・${md(C.d)} 比前一天 <em style="color:${col(C.finD)}">${sg(C.finD,1,' 億')}</em>${f5!=null?`・近 5 天 ${sg(f5,1,' 億')}`:''}`));}
+      try{const K=ME&&ME.mkt;if(K&&K.r>0&&typeof marginLevel==='function'){const lv=marginLevel(K.r),H=(K.h||[]).map(x=>x[1]),p5=H.length>5?H[H.length-6]:null;
+        cs.push(tile('大盤融資維持率(上市)',`${K.r.toFixed(1)}%`,lv.c,`<em style="color:${lv.c}">${lv.k}</em>・${lv.t.split(';')[0]}${p5!=null?`・比 5 天前 ${(K.r-p5>=0?'+':'')+(K.r-p5).toFixed(1)} 點`:''}・${md(K.d)}`));}}catch(e){}
       if(num(fx.USDTWD)!=null)cs.push(tile('美元兌台幣',fmt(fx.USDTWD),'','數字變大=台幣變弱(外資匯出時常見)'));
       h+=grp('💰 資金',' ',cs);
     }
     const vx=ix('VIX');
-    h+=grp('🌙 美股昨晚','',[ixT('S&P','S&P 500'),ixT('那斯達克','那斯達克'),vx&&num(vx.val)!=null?tile('VIX 恐慌指數',fmt(vx.val),'',`<em style="color:${col(vx.chg)}">${pct(vx.chg)}</em>・${vx.val>=30?'市場很緊張':vx.val>=20?'市場偏緊張':'市場平靜'}`):'']);
+    h+=grp('🌙 美股昨晚','',[ixT('S&P','S&P 500'),ixT('那斯達克','那斯達克'),soxT(),adrT(),vx&&num(vx.val)!=null?tile('VIX 恐慌指數',fmt(vx.val),'',`<em style="color:${col(vx.chg)}">${pct(vx.chg)}</em>・${vx.val>=30?'市場很緊張':vx.val>=20?'市場偏緊張':'市場平靜'}`):'']);
     body.innerHTML=h?h+`<details class="tidy-fold hm-indhelp"><summary>這些數字怎麼看(白話)</summary><div class="dim-note">
       <b>三大法人</b>:外資、投信(基金公司)、自營商(券商自己的錢)今天在股票上買的比賣的多多少;紅色=買超、綠色=賣超。<br>
       <b>外資台指期淨部位</b>:外資在期貨上「看漲的單 − 看跌的單」。負的不一定是看壞,外資常用空單替手上的股票保險;重點看空單是變多還是變少。<br>
@@ -94,6 +110,9 @@
       <b>散戶多空比</b>:小額交易人偏多還是偏空;正的=散戶偏多。<br>
       <b>賣權/買權比</b>:高於 100 表示押跌(或買保險)的未平倉比押漲的多。<br>
       <b>融資餘額</b>:大家借錢買股票的總金額;大跌時如果明顯減少,代表借錢買的人被洗出去了。<br>
+      <b>大盤融資維持率</b>:借錢買的股票現在值多少 ÷ 借了多少錢。剛買進大約 166.7%;掉到 130% 以下券商會要求補錢,不補就會被賣掉。數字越低=借錢買的人壓力越大。<br>
+      <b>費城半導體指數</b>:美國半導體股的指數;台積電和台股電子股常跟著它的方向走。<br>
+      <b>台積電 ADR</b>:台積電在美國掛牌的股票,台股開盤前可以先看它昨晚漲跌;「貴/便宜」是換算回台幣後跟台股台積電比。<br>
       這裡只列事實(今天多少、連幾天、比昨天增減),不是買賣訊號;各指標的歷史表格與驗證過的用法在「大盤」分頁。</div></details>`
       :'<div class="hm-empty">指標資料還沒到,稍後自動更新。</div>';
   }
@@ -204,7 +223,7 @@
     if(busy||(!force&&Date.now()-lastRun<60e3))return;busy=true;lastRun=Date.now();
     pane();
     for(let i=0;i<60&&!((window.DATA&&DATA.stocks||[]).length);i++)await new Promise(r=>setTimeout(r,250));   // 主資料還沒到先等
-    try{ind();}catch(e){}
+    try{ind().catch(()=>{});}catch(e){}
     try{await Promise.all([mkt(),news(),aip(),learn(),trend()]);}catch(e){}
     try{if(typeof lvLoad==='function')await lvLoad();}catch(e){}   // 還原因子(ADJ1)沒載入時價位算不出來(手機上常見)
     /* r1235:總覽不再放持股、最愛(各自有分頁,底部列一按就到);port()/fav() 保留但不呼叫 */

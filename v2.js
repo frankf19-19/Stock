@@ -180,15 +180,21 @@
         if(b.dataset.top){window.scrollTo({top:0,behavior:'smooth'});return;}
         const it=JI[+b.dataset.i];if(!it||!it.el.isConnected)return;
         try{const sec=it.el.dataset&&it.el.dataset.sec,body=sec&&doc.getElementById('sb-'+sec);if(body&&body.classList.contains('closed'))it.el.click();}catch(x){}
-        const off=(doc.querySelector('header')||{}).offsetHeight||52;
-        setTimeout(()=>window.scrollTo({top:Math.max(0,it.el.getBoundingClientRect().top+window.scrollY-off-bar.offsetHeight-6),behavior:'smooth'}),30);});}
+        /* r1236:Frank 回報「點了沒有跳到那一段」——路上的區塊邊捲邊載入、高度一直變,平滑捲動會停在舊位置。
+           改成:距離遠就直接跳(不慢慢捲過一堆還沒載入的區塊),之後 3 秒內位置跑掉就再對準;使用者自己動手捲就停止校正 */
+        const want=()=>{const hd=doc.querySelector('header'),off=hd?Math.max(0,hd.getBoundingClientRect().bottom):0;return it.el.getBoundingClientRect().top-(off+bar.offsetHeight+6);};
+        const tk=(window.__v2jt=(window.__v2jt||0)+1);let stop=false;const kill=()=>{stop=true;};
+        ['touchstart','wheel','keydown'].forEach(ev=>window.addEventListener(ev,kill,{passive:true,once:true}));
+        const fix=first=>{if(stop||tk!==window.__v2jt||!it.el.isConnected)return;const d=want();if(Math.abs(d)<8)return;
+          window.scrollTo({top:Math.max(0,window.scrollY+d),behavior:first&&Math.abs(d)<window.innerHeight*1.5?'smooth':'auto'});};
+        setTimeout(()=>fix(true),30);[450,900,1500,2200,3000].forEach(t=>setTimeout(()=>fix(false),t));});}
     JI=jumpItems();const sig=current()+'|'+JI.map(x=>x.t).join('|');
     if(sig!==JSIG){JSIG=sig;bar.innerHTML=JI.length?'<button type="button" data-top="1" aria-label="回到最上面">⬆ 頂端</button>'+JI.map((x,i)=>'<button type="button" data-i="'+i+'">'+x.t.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</button>').join(''):'';}
     return bar;
   }
   function jumpInit(){
     let lastY=window.scrollY,tick=0,lastBuild=0;
-    const run=()=>{tick=0;const y=window.scrollY,hd=doc.querySelector('header'),off=(hd&&hd.offsetHeight)||52;
+    const run=()=>{tick=0;const y=window.scrollY,hd=doc.querySelector('header'),off=hd?Math.max(0,Math.round(hd.getBoundingClientRect().bottom)):0;   // r1236:頂列捲走後,跳段列要貼到最上面(原本固定留 52px,上面會露出內容)
       if(!mqM.matches){root.classList.remove('v2-jump','v2-sd');return;}
       root.style.setProperty('--v2jt',off+'px');
       if(Math.abs(y-lastY)>6){root.classList.toggle('v2-sd',y>lastY&&y>120);lastY=y;}

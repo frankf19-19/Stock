@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1235';
+const APP_BUILD='r1236';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1545,6 +1545,47 @@ function stockMarginLoad(){
  MARGIN_PRESSURE_PENDING.then(j=>{if(j&&typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);}).finally(()=>{MARGIN_PRESSURE_PENDING=null;});return MARGIN_PRESSURE_PENDING;
 }
 function stockMarginPressureHTML(s,f){if(s.market!=='TW'||s.etf||typeof StockMarginPressure==='undefined')return '';if(!MARGIN_PRESSURE)stockMarginLoad();return StockMarginPressure.render(s,MARGIN_PRESSURE?.stocks?.[s.id],f);}
+/* r1236 融資維持率「估算」(build_margin_est.py → margin_est.json;大盤=公開數字直接算,個股=依每天融資增減推算平均成本) */
+var MARGIN_EST=null,MARGIN_EST_P=null,MARGIN_EST_T=0;
+function marginEstLoad(){
+  if(MARGIN_EST&&Date.now()-MARGIN_EST_T<30*60e3)return Promise.resolve(MARGIN_EST);
+  if(MARGIN_EST_P)return MARGIN_EST_P;
+  MARGIN_EST_P=(async()=>{try{const r=await fT('margin_est.json?v='+Math.floor(Date.now()/18e5),15000);if(r&&r.ok){const j=await r.json();if(j&&j.s&&j.est===true){const first=!MARGIN_EST;MARGIN_EST=j;MARGIN_EST_T=Date.now();
+      if(first){try{if(typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);}catch(e){}try{const s=(DATA.stocks||[]).find(x=>location.hash==='#stock/'+x.id);if(s)refreshStockBrief(s);}catch(e){}try{mtRateCard();}catch(e){}try{window.HomeView&&HomeView.render(true);}catch(e){}}}}}catch(e){}
+    MARGIN_EST_P=null;return MARGIN_EST;})();
+  return MARGIN_EST_P;
+}
+function marginLevel(m){   // 位置描述(不是買賣訊號):融資買進時約 166.7%,130% 以下會被券商追繳
+  return m>=180?{k:'高',c:'var(--txt)',t:'融資戶平均賺不少,短期沒有被追繳的壓力'}
+    :m>=166.7?{k:'正常',c:'var(--txt)',t:'融資戶平均小賺或打平'}
+    :m>=150?{k:'偏低',c:'var(--amber)',t:'融資戶平均已經賠錢;再跌下去,買在高點的人會先被追繳'}
+    :m>=140?{k:'低',c:'var(--amber)',t:'離追繳線(130%)不遠,再跌會有比較多人被迫補錢或賣出'}
+    :{k:'很低',c:'var(--amber)',t:'已經貼近追繳線(130%);被迫賣出的壓力最大,但也代表該賣的可能快賣完了(兩種情況都有,要搭配止跌訊號看)'};
+}
+function stockMarginEst(s){
+  if(!s||s.market!=='TW'||s.etf)return null;if(!MARGIN_EST){marginEstLoad();return null;}
+  const e=MARGIN_EST.s[s.id];if(!e||!(e.c>0))return null;
+  const px=+s.price>0?+s.price:null,m=px?px/(e.c*.6)*100:e.m;if(!(m>0))return null;
+  const line=e.c*.78;return {e,px,m,line,toLine:px?(line/px-1)*100:null,vsCost:px?(px/e.c-1)*100:null,lv:marginLevel(m),low:e.q>0.35||e.n<120};
+}
+function stockMarginEstHTML(s,brief){
+  const x=stockMarginEst(s);if(!x)return '';const e=x.e,f=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:2}),f1=v=>(+v).toFixed(1);
+  const pos=e.rk<=20?'近一年偏低的位置':e.rk>=80?'近一年偏高的位置':'近一年中間的位置';
+  if(brief)return `<div class="mest-line">💳 <b>融資維持率(估算)${f1(x.m)}%・<span style="color:${x.lv.c}">${x.lv.k}</span></b>・${x.lv.t.split(';')[0]}${x.toLine!=null&&x.toLine<0?`・再跌 ${f1(-x.toLine)}% 到追繳線`:''}${x.low?'・資料較少,可信度低':''}</div>`;
+  return `<section class="plain-plan-card mest-card"><h4>💳 融資維持率(估算):現在是高還是低?</h4>
+    <div class="mest-top"><b class="mest-num" style="color:${x.lv.c}">${f1(x.m)}%</b><b class="mest-lv" style="color:${x.lv.c}">${x.lv.k}</b><span>${x.lv.t}</span></div>
+    <div class="mest-bar"><i style="left:${Math.max(0,Math.min(100,(x.m-130)/(200-130)*100)).toFixed(1)}%"></i><em style="left:0">130% 追繳</em><em style="left:${((166.7-130)/70*100).toFixed(1)}%">166.7% 剛買進</em><em style="right:0">200%</em></div>
+    <dl class="plan-prices">
+      <div class="plan-price-row"><dt>融資戶平均成本(估算)</dt><dd><strong>${f(e.c)} 元</strong><small>${x.vsCost!=null?`現價 ${f(x.px)} 元,比平均成本${x.vsCost>=0?'高':'低'} ${f1(Math.abs(x.vsCost))}% → 融資戶平均${x.vsCost>=0?'賺錢':'賠錢'}(借錢買,賺賠會放大約 2.5 倍)`:'現價待更新'}</small></dd></div>
+      <div class="plan-price-row"><dt>平均追繳價(維持率 130%)</dt><dd><strong>約 ${f(strategyPrice(x.line,false,'down')||x.line)} 元</strong><small>${x.toLine==null?'':x.toLine<0?`現價再跌 ${f1(-x.toLine)}% 會到;這是「平均」,買在更高的人會更早被追繳`:'現價已在這個價位附近或以下'}</small></dd></div>
+      <div class="plan-price-row"><dt>跟自己比</dt><dd><strong>${pos}</strong><small>近 60 個交易日在 ${f1(e.lo)}% ~ ${f1(e.hi)}% 之間;現在比近一年 ${e.rk}% 的日子高</small></dd></div>
+      <div class="plan-price-row"><dt>融資餘額</dt><dd><strong>${(+e.b).toLocaleString()} 張</strong><small>資料日 ${String(e.d).slice(5).replace('-','/')}${MARGIN_EST.mkt?`;同一天大盤(上市)融資維持率 ${f1(MARGIN_EST.mkt.r)}%`:''}</small></dd></div>
+    </dl>
+    ${x.low?'<p class="dim-note">⚠ 這檔的融資紀錄較短,或一開始就有的舊部位佔比高(成本只能用起算日價格代替),估算可信度較低。</p>':''}
+    <details class="plan-more"><summary>這個數字怎麼估的、可以信到什麼程度</summary><p>交易所只公布每檔股票「融資餘額有幾張」,沒有公布大家是用多少錢買的,所以個股的融資維持率<b>只能估算</b>:融資餘額增加的那天,把增加的張數用當天收盤價記成新的一批;減少時,一半照比例還、一半從最舊的先還,而且已經跌破 130% 的那幾批最先消失(被追繳或自己賣掉)。維持率 = 現價 ÷(平均成本 × 60%)。</p>
+    <p>校驗:把全部上市股票的估算加起來,跟用公開數字直接算出的大盤融資維持率比,近 60 個交易日平均差約 2 個百分點、最大差約 5 個百分點。單一個股的誤差會比這個大,請當作「大概位置」。</p>
+    <p>沒算進去的:融資利息、現金股利、不同的融資成數(一律用 6 成)、同一個人帳戶裡的其他股票(券商追繳是看整個帳戶)。所以這不是追繳通知,也不是買賣訊號。</p></details></section>`;
+}
 function stockContextHTML(s,raw,dates,own=false,cost=null){
  const legacy=stockContextLegacyHTML(s,raw,dates);
  if(typeof StockTradeResearch==='undefined'&&typeof StockOperationPlan==='undefined')return legacy;
@@ -1554,7 +1595,7 @@ function stockContextHTML(s,raw,dates,own=false,cost=null){
  const research=typeof StockTradeResearch==='undefined'?'<p>研究資料待載入。</p>':StockTradeResearch.render(s,e,{check:strategyCloseCheck(s,raw,dates),calendar});
  const facts=stockOperationFacts(s,raw,dates,own,cost),box=stockPriceBoxHTML(s,facts,{calendar});
  const full=typeof StockOperationPlan==='undefined'?research:StockOperationPlan.render(s,facts,{calendar})+'<details class="plan-more operation-research"><summary>其他六種買法研究結果（不代表整檔股票不能買）</summary>'+research+'</details>';
- const personal=stockBottomHTML(s,facts)+stockMarginPressureHTML(s,facts)+stockIndividualHTML(s,facts)+stockOwnContextHTML(s,facts);
+ const personal=stockBottomHTML(s,facts)+stockMarginEstHTML(s)+stockMarginPressureHTML(s,facts)+stockIndividualHTML(s,facts)+stockOwnContextHTML(s,facts);
  const badge=typeof StockBottomResearch!=='undefined'?StockBottomResearch.badgeHTML(s,facts):''; // r1191: explicit current close-condition status before prices.
  const primary=box?box+personal+'<details class="plan-more pbx-full"><summary>完整條件與說明(確認時間、已持有怎麼處理、其他研究)</summary>'+full+'</details>':full+personal;   // r1173:價格表在上,原說明全部保留在收合區
  return stockBvolHTML(s,raw,dates)+badge+primary+'<details class="plan-more legacy-context-observations"><summary>原三種情境觀察價與通知（參考）</summary><p class="dim-note">下面保留舊觀察價及其通知設定，與上方六種買法的候選分開；未通過的研究價不作買進通知。你的原通知勾選保留。</p>'+legacy+'</details>';
@@ -1655,7 +1696,7 @@ function refreshStockBrief(s){
  SiteLayout.plan(document,m,html,compactAIPick(s,av));
  try{let bx=document.getElementById('briefBvol');const sb=document.getElementById('stockBrief');   // r1230:🌋 底部爆量長紅放買賣總覽最上面
    if(!bx&&sb){bx=document.createElement('div');bx.id='briefBvol';const hd=sb.querySelector('.brief-heading');hd?hd.after(bx):sb.prepend(bx);}
-   if(bx){const h=stockBvolHTML(s,k.ohlc,k.dates);if(bx._h!==h){bx._h=h;bx.innerHTML=h;}}}catch(e){}
+   if(bx){const h=stockBvolHTML(s,k.ohlc,k.dates)+stockMarginEstHTML(s,true);if(bx._h!==h){bx._h=h;bx.innerHTML=h;}}}catch(e){}   // r1236:融資維持率一行
  /* r1210:個股「買賣總覽」也顯示重要分點(關鍵分點大買大賣、連買連賣、近期吃貨) */
  try{let ins=document.getElementById('briefIns');const g0=document.querySelector('#stockBrief .brief-grid');
    if(!ins&&g0){ins=document.createElement('div');ins.id='briefIns';ins.className='fav-ins brief-ins';g0.after(ins);}
@@ -2385,7 +2426,8 @@ function renderFutTab(){
     `<span class="${v>0?'pos':v<0?'neg':''}">${v>0?'+':''}${(+v).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec})}</span>`;
   const plain=(v,dec=0,suf='')=>v==null?'<span style="color:var(--dim)">—</span>':((+v).toLocaleString(undefined,{maximumFractionDigits:dec})+suf);
   const H=['日期','成交值(億)','外資','投信','自營','外資期OI','前五大留倉','前十大留倉','選PCR','外(選)千元','韭菜%','大台總OI'];
-  const hd=H.map(t=>`<div style="color:var(--mut);font-size:12px;padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap">${t}</div>`).join('');
+  const stick='position:sticky;left:0;z-index:1;';   // r1236:手機左右滑時日期欄固定,才知道在看哪一天
+  const hd=H.map((t,i)=>`<div style="color:var(--mut);font-size:12px;padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;${i?'':stick+'background:var(--panel);text-align:left;'}">${t}</div>`).join('');
   const body=rows.map((r,i)=>{
     const last=i===rows.length-1;
     const bg=last?'background:var(--panel2);':'';
@@ -2393,7 +2435,7 @@ function renderFutTab(){
       `<b style="color:${r.leek>=15?'var(--amber)':r.leek<=0?'var(--dim)':'inherit'}">${r.leek.toFixed(1)}%</b>`;
     const pcr=r.pcr==null?'<span style="color:var(--dim)">—</span>':
       `<b style="color:${r.pcr>=120?'var(--amber)':'inherit'}">${r.pcr.toFixed(1)}</b>`;
-    return `<div style="${mono};${bg}text-align:left;color:var(--txt2)">${r.d.slice(5).replace('-','/')}${last?' ★':''}</div>
+    return `<div style="${mono};${stick}background:var(--panel${last?'2':''});text-align:left;color:var(--txt2)">${r.d.slice(5).replace('-','/')}${last?' ★':''}</div>
       <div style="${mono};${bg}">${plain(r.amt,0)}</div>
       <div style="${mono};${bg}">${num(r.f,1)}</div>
       <div style="${mono};${bg}">${num(r.t,1)}</div>
@@ -2407,7 +2449,7 @@ function renderFutTab(){
       <div style="${mono};${bg}">${plain(r.oi)}</div>`;
   }).join('');
   el.innerHTML=`<div style="background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 12px">
-    <div style="font-size:13.5px;font-weight:900;color:var(--amber);letter-spacing:.05em;margin-bottom:6px">📊 期貨籌碼先行指標 <span style="font-weight:400;color:var(--dim);font-size:12px">近 ${rows.length} 個交易日・盤後資料</span></div>
+    <div style="font-size:13.5px;font-weight:900;color:var(--amber);letter-spacing:.05em;margin-bottom:6px">📊 期貨籌碼先行指標 <span style="font-weight:400;color:var(--dim);font-size:12px">近 ${rows.length} 個交易日・盤後資料・★ 最新一天${innerWidth<=640?'・往左滑看更多欄位':''}</span></div>
     <div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat(12,minmax(68px,auto));min-width:920px;font-size:13px">${hd}${body}</div></div>
     <div class="dim-note" style="margin-top:8px">現貨買賣超單位:億元;期OI/留倉:口(正=淨多、負=淨空);<b>外(選)</b>=外資選擇權未平倉淨契約金額(千元,買方−賣方)——外資慣做選擇權賣方收權利金,此值常態為負,重點看「增減方向」:負值快速擴大=避險/壓空加重;<b>前五大/前十大留倉</b>=買方最大5/10家合計−賣方最大5/10家合計(全月份・全部交易人)——市場最大咖的淨方向,常比外資總部位更早轉向;<b>選PCR</b> >100 通常偏多氛圍;<b>韭菜%</b>=小台散戶淨多單佔總未平倉比例——散戶越樂觀(數字越高)行情反轉風險越常抬頭,慣用作反指標。期交所盤後 15:00~16:30 陸續公布,本站每日排程自動抓,★=最新;「—」=該欄當日尚未公布或該來源尚在累積(隔日排程會自動補)。</div>
   </div>`;
@@ -6532,6 +6574,12 @@ async function renderHeadStock(s){
 async function mtRateCard(){                 // 🧮 融資維持率估算:融資增量加權成本法(非官方,趨勢參考)
   const box=document.getElementById('mtCard');
   if(!box)return;
+  try{if(!MARGIN_EST)marginEstLoad();const K=MARGIN_EST&&MARGIN_EST.mkt;   // r1236:有公開數字算出的大盤融資維持率就顯示它
+    if(K&&K.r>0){const lv=marginLevel(K.r),H=(K.h||[]).map(x=>x[1]),lo=Math.min(...H),hi=Math.max(...H),p5=H.length>5?H[H.length-6]:null;window.__mtRate=null;
+      box.style.display='';box.innerHTML=`<div class="nm">大盤融資維持率(上市)${frBadge('day')}</div>
+        <div style="display:flex;align-items:baseline;gap:9px"><b style="font-size:27px;font-family:var(--mono);color:${lv.c}">${K.r.toFixed(1)}%</b><b style="color:${lv.c};font-size:15px">${lv.k}</b></div>
+        <div style="font-size:12px;color:var(--txt2);margin-top:4px;line-height:1.55">${lv.t}。${String(K.d).slice(5).replace('-','/')}・近 ${H.length} 個交易日在 ${lo.toFixed(1)}% ~ ${hi.toFixed(1)}% 之間${p5!=null?`・比 5 天前 ${(K.r-p5>=0?'+':'')+(K.r-p5).toFixed(1)} 點`:''}</div>
+        <div style="font-size:10.5px;color:var(--dim);margin-top:3px">算法:上市個股融資餘額張數 × 收盤價的總和 ÷ 上市融資餘額金額(都是公開數字);只含站內有收錄的股票,會略偏低。剛買進約 166.7%,130% 以下會被追繳。位置描述,不是買賣訊號。</div>`;return;}}catch(e){}
   try{
     const cr=(DATA.macro||{}).credit;
     const y=await yextData();
@@ -16314,6 +16362,19 @@ function setupSections(){
     };
   });
 }
+/* r1236:「本頁內容」的跳轉(Frank:點「期貨籌碼先行指標」沒有跳到那裡)——原本只捲一次、沒扣掉上方黏住的列,
+   而且目標上面的區塊邊捲邊載入、高度一直變,最後會停在別的地方或被頂列蓋住。
+   改成:扣掉黏頂列高度;距離遠就直接跳;之後 3 秒內位置跑掉就再對準(使用者自己捲就停止) */
+function jumpToEl(el){
+  if(!el)return;
+  const offs=()=>{let o=0;try{document.querySelectorAll('header,#v2jump,#chapTabs,#stockContext').forEach(x=>{const cs=getComputedStyle(x);if((cs.position==='sticky'||cs.position==='fixed')&&cs.visibility!=='hidden'&&x.offsetHeight&&x.getBoundingClientRect().top<=60&&x.getBoundingClientRect().bottom>0&&x.getBoundingClientRect().bottom<innerHeight/2)o=Math.max(o,x.getBoundingClientRect().bottom);});}catch(e){}
+    try{const j=document.getElementById('v2jump');if(j&&!o&&getComputedStyle(j).display!=='none'&&j.children.length&&innerWidth<=640)o=j.offsetHeight;}catch(e){}return o+8;};
+  const tk=(window.__jmpTk=(window.__jmpTk||0)+1);let stop=false;const kill=()=>{stop=true;};
+  ['touchstart','wheel','keydown','mousedown'].forEach(ev=>window.addEventListener(ev,kill,{passive:true,once:true}));
+  const fix=first=>{if(stop||tk!==window.__jmpTk||!el.isConnected)return;const d=el.getBoundingClientRect().top-offs();if(Math.abs(d)<8)return;
+    window.scrollTo({top:Math.max(0,scrollY+d),behavior:first&&Math.abs(d)<innerHeight*1.5?'smooth':'auto'});};
+  setTimeout(()=>fix(true),60);[450,900,1500,2200,3000].forEach(t=>setTimeout(()=>fix(false),t));
+}
 function buildJumpBar(root){
   if(!root||root.id==='detailView'||root.closest('#detailView'))return;
   [...root.children].filter(c=>c.classList&&(c.classList.contains('mob-jump')||c.classList.contains('page-index'))).forEach(c=>c.remove());
@@ -16342,7 +16403,7 @@ function buildJumpBar(root){
     }
     const body=document.getElementById('sb-'+b.dataset.jm);
     if(body&&body.classList.contains('closed'))t.click();     // 收合中→展開(沿用原機制含記憶與圖表重算)
-    setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),60);
+    jumpToEl(t);
   });
   bar.querySelectorAll('[data-jmn]').forEach(b=>b.onclick=()=>{
     const el=document.getElementById(b.dataset.jmn);
@@ -16356,7 +16417,7 @@ function buildJumpBar(root){
     el.classList.remove('closed');
     try{const fb=el.querySelector&&el.querySelector('.fold-body');
       if(fb&&fb.style.display==='none'){const h=el.querySelector('h3');if(h)h.click();}}catch(e){}
-    setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),80);
+    jumpToEl(el);
   });
 }
 function buildHomeSide(){document.getElementById('homeSide')?.remove();} // r1196: expandable contents replaces a second sidebar.
