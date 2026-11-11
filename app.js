@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1232';
+const APP_BUILD='r1233';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1049,7 +1049,9 @@ function aipSlotPolicy(p,key,us){
   p=p||{};const L=p.lv||{},E=p.execution||{};
   const entry=strategyNumber(p.entry),anchor=entry>0?entry:strategyNumber(p.sel_px),n=v=>strategyNumber(v),positive=v=>n(v)>0?n(v):null;
   let sl=null,tp=null,hold=null,model=key!=='long',rule='',source='成交規則';
-  if(key==='short'&&!us){sl=anchor>0?strategyPrice(anchor*.85,false,'down'):null;tp=anchor>0?strategyPrice(anchor*1.2,false,'up'):null;hold=15;rule='盤中碰到跌到就賣或漲到就賣的價位就賣，最多抱15個交易日；不加碼';}
+  if(key==='short'&&!us){sl=anchor>0?strategyPrice(anchor*.85,false,'down'):null;tp=anchor>0?strategyPrice(anchor*1.2,false,'up'):null;hold=15;rule='盤中碰到跌到就賣或漲到就賣的價位就賣，最多抱15個交易日；不加碼';
+    try{const s2=positive(p.sl2_px);if(s2&&p.sl2_d){let td='';try{td=aipIso(aipTpDate());}catch(e){}const on=!td||td>p.sl2_d,t2=strategyPrice(s2,false,'down');   // r1233:持有中遇大盤急殺 → 停損收緊到進場價 −7%
+      if(on&&(!sl||t2>sl))sl=t2;rule+=`；${String(p.sl2_d).slice(5).replace('-','/')} 大盤急殺,${on?'停損已收緊':'下個交易日起停損收緊'}到進場價 −7%(${t2})`;}}catch(e){}}
   else if(key==='mid'&&!us){sl=strategyPrice(p.sl_px,false,'down');tp=anchor>0?strategyPrice(anchor*1.25,false,'up'):null;rule='跌到買進時算好的停損價就賣、漲25%就賣；AI 判斷轉弱也會隔天開盤賣';}
   else if(key==='mid'&&us){const sr=positive(p.sl_r)||.20,tr=positive(p.tp_r)||.30;hold=positive(p.hold_r)||90;sl=anchor>0?strategyPrice(anchor*(1-sr),true,'down'):null;tp=anchor>0?strategyPrice(anchor*(1+tr),true,'up'):null;rule=`本筆停損−${Math.round(sr*100)}%／停利+${Math.round(tr*100)}%，最長${hold}交易日；新舊持倉各照入場規則`;
   }else if(key==='short'&&us){sl=positive(E.sl);tp=positive(E.tp);model=!!(sl&&tp);source=model?'每週模型實際持倉':'結構觀察價（待每週模型同步）';rule='依每週模型實際持倉停損／目標與換股記錄，不套用台股15日規則';}

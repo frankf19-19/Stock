@@ -162,6 +162,25 @@ def breadth_crash(day, lb=5, th=0.25):
         return None
     return None
 
+CRASH_TIGHT = 0.07
+def apply_crash_tight(T, lb=5, th=0.25, tight=CRASH_TIGHT):
+    """r1233:短期清單「大盤急殺 → 持股停損收緊」。持有期間只要出現急殺日(同 breadth_crash:站上季線比例 5 個交易日掉超過 25 個百分點),
+    從下一個交易日起,這檔的停損由進場價 −15% 改成 −7%(已經低於 −7% 的,隔天開盤就出)。只標一次,之後不放寬。
+    回測(aip_exit_study.py,2016~2026、含成本、等權 5 檔、已含急殺週不買):年化 +31.0% → +32.8%、最大回落 −25.2% → −20.8%、最差年 +2.5% → +3.8%、
+    前後兩段都更好;門檻 20/25/30 點 × 收緊到 5/7/10% × 回看 4/7/10 日共 12 組,11 組年化不輸、11 組回落變小(挑中間的 25 點/7%,不是挑最漂亮的)。
+    沒更好的:急殺就全出(門檻一變就不穩)、賺 8~12% 後停損移到成本(年化掉到 +18~24%)、3~5 天沒賺就走(回落變 −34~−42%)。"""
+    try:
+        H = json.load(open("sector_str.json", encoding="utf-8")).get("a60h") or []
+    except Exception:
+        return
+    cd = [H[k][0] for k in range(lb, len(H)) if H[k - lb][1] - H[k][1] > th]
+    for p in T.get("slots") or []:
+        if not p.get("fill_d") or not p.get("entry") or p.get("sl2_px"): continue
+        c = next((d for d in cd if d >= p["fill_d"]), None)
+        if c:
+            p["sl2_px"] = round(p["entry"] * (1 - tight), 2); p["sl2_d"] = c
+            log(f"  短期:{p['name']}({p['id']}) {c} 大盤急殺 → 下個交易日起停損收緊到 {p['sl2_px']}(進場價 −{tight*100:.0f}%)")
+
 def tw_short_candidates(day):
     """近 52 週高 × 強勢訊號綜合分(與回測 h3_short3 相同)"""
     out = []
@@ -671,7 +690,7 @@ def fill_and_track(T, us, tp=None, sl=None, hold_max=None, exit_close_on=None, s
         for n, (d, o) in enumerate(held, 1):
             p["hi"] = max(p["hi"] or 0, o[1]); p["lo"] = min(p["lo"] or 1e18, o[2])
             # r1157:已知開盤先成交；開盤未觸價時，日K雙觸價才採停損優先。
-            stops = ([p["entry"] * (1 - sl)] if sl else []) + ([p["sl_px"]] if p.get("sl_px") else [])
+            stops = ([p["entry"] * (1 - sl)] if sl else []) + ([p["sl_px"]] if p.get("sl_px") else []) + ([p["sl2_px"]] if p.get("sl2_px") and d > p.get("sl2_d", "9") else [])   # r1233
             stop = max(stops) if stops else None
             target = p["entry"] * (1 + tp) if tp else None
             if p.get("x_open") and d > p["x_open"]: xd, xp, xw = d, round(o[0], 2), p.get("x_why", "rank"); break
@@ -747,9 +766,9 @@ def main():
                        note="⚠ 強勢股集中,波動大於中期")
     # r1209:上面舊的 update 把 r1141「同分低波動優先」的說明蓋掉了 → 這裡補回,並加上「大盤急殺週不買新股」
     tw["short"]["rule"] = ("每週最後一個交易日收盤,用量與技術線選 5 檔(離 52 週高 10% 內 × 創新高/帶量突破 20・55 日高/爆量長紅/OBV 新高/KD・RSI 高檔/均線多頭/投信外資買超);"
-                           "同分時波動低者優先;大盤急殺週(全市場站上季線的股票 5 個交易日掉超過 25 個百分點)不買新股;下個交易日開盤買,最多持 15 個交易日;停利 +20%、停損 −15%(盤中碰到就出);每檔金額依波動配(波動小的買 1.5 倍、大的 0.67 倍,平均 10 萬)")
+                           "同分時波動低者優先;大盤急殺週(全市場站上季線的股票 5 個交易日掉超過 25 個百分點)不買新股;下個交易日開盤買,最多持 15 個交易日;停利 +20%、停損 −15%(盤中碰到就出);持有期間遇到大盤急殺,下個交易日起停損收緊到 −7%;每檔金額依波動配(波動小的買 1.5 倍、大的 0.67 倍,平均 10 萬)")
     tw["short"]["val"] = ("同一回測器(2016~2026 含成本 0.6%、5 檔等權):原規則年化 +23.9%、回落 −29%、最差年 −3.4% → r1141 同分低波動優先 +28.2% / −25% / +2.2%、11 年全正 → "
-                          "r1209 加大盤急殺週不買 +31.4% / −25% / +2.5%、11 年全正(門檻 20 點 +32.8%、30 點 +30.6%,都更好)→ r1228 依波動配資金 +32.0% / −24% / +5.1%、11 年全正(三項同時更好;0.5~2 倍 +32.1%/−23.5%/+4.1%)。11/04 再試過但沒更好:只買產業強於大盤、同分先挑產業強、停損後 20/40 天不買同一檔、同產業最多 3 檔、寬度 5 日掉 10 點就不買。試過但更差:空頭(0050<200 日線)不進場、全市場站上季線 <35% 時不買、過熱(>80%)不買、大盤一起跌時改買錯殺股")
+                          "r1209 加大盤急殺週不買 +31.4% / −25% / +2.5%、11 年全正(門檻 20 點 +32.8%、30 點 +30.6%,都更好)→ r1228 依波動配資金 +32.0% / −24% / +5.1%、11 年全正(三項同時更好;0.5~2 倍 +32.1%/−23.5%/+4.1%)。r1233 持有中遇大盤急殺就把停損收緊到 −7%(等權版 +31.0% → +32.8%、回落 −25.2% → −20.8%、最差年 +2.5% → +3.8%;12 組門檻有 11 組更好)。11/11 試過但更差:急殺就全賣、賺 10% 後停損移到成本、3~5 天沒賺就走、大盤弱時用底部爆量股補空位(結果隨參數大幅變動,不穩)。11/04 再試過但沒更好:只買產業強於大盤、同分先挑產業強、停損後 20/40 天不買同一檔、同產業最多 3 檔、寬度 5 日掉 10 點就不買。試過但更差:空頭(0050<200 日線)不進場、全市場站上季線 <35% 時不買、過熱(>80%)不買、大盤一起跌時改買錯殺股")
     tw.setdefault("mid", new_tier("", ""))
     tw["mid"].update(rule="量價籌碼模型前 5 名補進空位,下個交易日開盤買;掉出前 200 名 → 隔天開盤賣;停損 = 進場價 − 4 ATR(依每檔波動不同,約 −5% ~ −20%)、停利 +25%(盤中碰到就出)",
                      val="回測 2016~2026 含成本:4 ATR 停損 + 停利 +25% 年化 +41.5%、最大回落 −39%、最差年 −4%;只停損不停利 +38.5% / −37% / +10%;緊停損(≤2.5 ATR 或 ≤10%)年化掉到 +20~37%",
@@ -770,6 +789,7 @@ def main():
     log(f"aip3:台股最後交易日 {twd}、美股 {usd}")
     # ── 台股 短期 ──
     T = tw["short"]
+    apply_crash_tight(T)                                                # r1233:持有期間遇大盤急殺 → 停損收緊到 −7%
     fill_and_track(T, False, **TIER_RULES["short"])                     # r1098:停利 +20% / 停損 −15%(回測 +34.2%、回落 −34%、最差年 −10%)
     if twd and (week_last(twd) or not T["sel_d"]) and T["sel_d"] != twd:
         held = {p["id"] for p in T["slots"]}
@@ -1011,6 +1031,7 @@ def run_intraday():
             xp = xw = xt = None
             if R.get("sl") and l <= e * (1 - R["sl"]): xp, xw, xt = _tk(min(op, e * (1 - R["sl"])), False, "down"), "sl", hhmm
             elif p.get("sl_px") and l <= p["sl_px"]: xp, xw, xt = _tk(min(op, p["sl_px"]), False, "down"), "sl", hhmm
+            elif p.get("sl2_px") and today > p.get("sl2_d", "9") and l <= p["sl2_px"]: xp, xw, xt = _tk(min(op, p["sl2_px"]), False, "down"), "sl", hhmm   # r1233:急殺後收緊的停損
             elif R.get("tp") and h >= e * (1 + R["tp"]): xp, xw, xt = _tk(max(op, e * (1 + R["tp"])), False, "up"), "tp", hhmm
             elif p.get("x_open") and today > p["x_open"]: xp, xw, xt = round(op, 2), p.get("x_why", "rank"), "09:00"
             if xp:
