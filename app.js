@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1231';
+const APP_BUILD='r1232';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -23809,11 +23809,15 @@ function renderAip3(){
   const tdy=aipIso(aipTpDate()),rtOn=!us&&J.rt&&J.rt.d===tdy;   // r1107:盤中記帳心跳 + 今天的成交/出場紀錄
   const evs=(J.rt_log||[]).filter(x=>String(x).startsWith(tdy)&&(/🇺🇸/.test(String(x))===us)).map(x=>String(x).slice(11));
   const evHtml=evs.length?`<details class="a3-evlog"><summary>📒 今天盤中記帳 ${evs.length} 筆・最新:${evs[evs.length-1]}</summary><ul>${evs.slice().reverse().map(x=>`<li>${x}</li>`).join('')}</ul></details>`:'';
-  const html=`<p class="aip-summary">${us?'美股':'台股'} AI 模擬帳戶・更新 ${J.u||'待資料'}・跟你自己的持股無關${us?'；中長期為參考模型':''}</p><details class="layout-fold"><summary>資料來源、記帳方式與限制</summary><div class="dim-note" style="margin:0 0 8px">${us?'🇺🇸 美股':'🇹🇼 台股'}・更新 ${J.u||''}(K 線到 ${us?J.us_day:J.tw_day})${rtOn?`・<b style="color:var(--up)">⏱ 盤中記帳到 ${J.rt.t}</b>`:(!us&&marketOpen()?'・⏱ 盤中記帳每 5 分鐘一輪':'')}・三個清單各自獨立、各 5 檔;台股與美股中期／長期依下一交易日開盤成交，美股短期按每週模型買進條件及成交記錄,${us?'網站自己逐日記帳':'台股盤中就記帳(09:00 開盤成交、碰到停損停利當下出場),晚上再用官方日 K 核對'},不是回頭補的。${us?'<b>美股資料只有目前 S&P 500 成分股,歷史有倖存者偏差;中期、長期標示為參考。</b>':''}規則與回測:<a href="#learn/aip3" style="color:var(--t-blue)">怎麼驗證的&nbsp;→</a></div></details>
+  const strip=`<div class="a3-strip">${['short','mid','long'].map((k,i)=>{const T=M[k];if(!T)return '';const pf=T.perf||{},oa=pf.open_avg,n=pf.open??(T.slots||[]).length;   // r1232:三清單一眼看 + 點了跳過去
+    return `<button type="button" data-a3jump="${i}"><b>${({short:'🏃 短期',mid:'🌊 中期',long:'🏦 長期'})[k]}</b><span>持有 ${n} 檔</span>${n&&oa!=null?`<em style="color:${oa>0?'var(--up)':oa<0?'var(--down)':'var(--txt2)'}">平均 ${oa>0?'+':''}${(+oa).toFixed(1)}%</em>`:'<em class="dim">—</em>'}</button>`;}).join('')}</div>`;
+  const html=`<p class="aip-summary">${us?'美股':'台股'} AI 模擬帳戶・更新 ${J.u||'待資料'}・跟你自己的持股無關${us?'；中長期為參考模型':''}</p>${strip}<details class="layout-fold"><summary>資料來源、記帳方式與限制</summary><div class="dim-note" style="margin:0 0 8px">${us?'🇺🇸 美股':'🇹🇼 台股'}・更新 ${J.u||''}(K 線到 ${us?J.us_day:J.tw_day})${rtOn?`・<b style="color:var(--up)">⏱ 盤中記帳到 ${J.rt.t}</b>`:(!us&&marketOpen()?'・⏱ 盤中記帳每 5 分鐘一輪':'')}・三個清單各自獨立、各 5 檔;台股與美股中期／長期依下一交易日開盤成交，美股短期按每週模型買進條件及成交記錄,${us?'網站自己逐日記帳':'台股盤中就記帳(09:00 開盤成交、碰到停損停利當下出場),晚上再用官方日 K 核對'},不是回頭補的。${us?'<b>美股資料只有目前 S&P 500 成分股,歷史有倖存者偏差;中期、長期標示為參考。</b>':''}規則與回測:<a href="#learn/aip3" style="color:var(--t-blue)">怎麼驗證的&nbsp;→</a></div></details>
     ${strategyResearchNote(us)}${evHtml}${(()=>{try{if(us)return '';const e=(KCACHE['k/tw005.json']||{})['0050'];if(!(e&&e.o&&e.o.length>=200))return '';const C=e.o.map(x=>x[3]);const m200=C.slice(-200).reduce((a,b)=>a+b,0)/200;const last=C[C.length-1];   // r1139:大盤環境提醒(實證:0050 在 200 日線下時,近高強勢訊號 20 日超額只剩 +0.67%、不顯著;規則不變,只提醒部位)
       return last<m200?`<div class="aov-warn" style="margin:0 0 8px">🌧 大盤環境:0050 收在 200 日線之下(${last.toFixed(1)} vs ${m200.toFixed(1)})——實測這種時候「近 52 週高 × 強勢訊號」的優勢變弱(20 日比大盤 +0.67%,不顯著;多頭時 +1.1~1.9%)。但把短期清單在空頭「停做」回測反而更差(年化 +10.4% vs +23.9%)、「縮半部位」是取捨(年化 +17.8%、回落 −25% vs −29%)——規則不改,要不要縮部位由你決定。</div>`:'';}catch(x){return '';}})()}<div class="a3-grid">${['short','mid','long'].map(k=>M[k]?aip3Tier(k,M[k],us):'').join('')}</div>
     <details class="layout-fold"><summary>三種清單與價位用途說明</summary><div class="dim-note">短期、中期、長期是三種不同節奏,不是同一檔股票的三種看法;同一檔可能同時出現在兩個清單。數字是模型帳上的紀錄,非投資建議。<br>🧭 每檔下面的 <b>🛑 停損 / 🎯 停利 / ➕ 加碼 / 🔁 再買回</b>:每筆依市場與入場版本分列；台股短期−15%/+20%、中期4 ATR/+25%，美股中期舊持倉−15%/+20%/60日、新持倉−20%/+30%/90日。長期價格僅觀察，模型仍按季度檢視；加碼和買回價保留但不觸發買進通知。細節:<a href="#learn/aip3">看說明</a>。</div></details>`;
   if(box.__h!==html){if(typeof SiteLayout!=='undefined')SiteLayout.remember(box);box.innerHTML=html;box.__h=html;}
+  if(!box.__jmp){box.__jmp=1;box.addEventListener('click',e=>{const b=e.target.closest('[data-a3jump]');if(!b)return;const c=box.querySelectorAll('.a3-card')[+b.dataset.a3jump];if(!c)return;
+    const off=(document.querySelector('header')||{}).offsetHeight||0;window.scrollTo({top:Math.max(0,c.getBoundingClientRect().top+scrollY-off-56),behavior:'smooth'});});}
   if(typeof SiteLayout!=='undefined')SiteLayout.aip(box,us?'US':'TW');
 }
 lazyRun('#aip3Box',()=>{aip3Load().then(()=>aip3LiveLoad(true)).then(()=>{try{if(window.GMKT!=='US'&&!(KCACHE['k/tw005.json']||{})['0050'])loadShard(KCACHE,'k/tw005.json').then(()=>renderAip3());}catch(e){}renderAip3();});},10*60*1000);
@@ -26618,8 +26622,8 @@ function trendsPage(T){
     </div>`;
   const gen=(T.gen||'').slice(5,16).replace('T',' ');
   const order={'過熱':0,'主流':1,'成形':2,'萌芽':3};const L=T.trends.slice().sort((a,b)=>(order[a.stage]??9)-(order[b.stage]??9));
-  box.innerHTML=`<div class="dim-note" style="margin:0 0 10px">每天早上跟著早報更新(${esc(gen)} 產生)。AI 讀近 14 天的早報歸納出 1~3 年的產業趨勢;下面每一個趨勢都配「站內數據檢查」——營收有沒有跟上、股價有沒有走、AI 未來性評分——讓你分得出哪些是真的在發生、哪些還只是故事。相關個股只列站內有資料的;標籤是已進站內名單的。全部參考,不是投資建議。</div>
-    <div class="tr-legend">${['萌芽','成形','主流','過熱'].map(k=>`<span style="color:${stC[k]};border-color:${stC[k]}">${k}</span><small>${esc(stTip[k])}</small>`).join('')}</div>
+  box.innerHTML=`<details class="tidy-fold tr-about" ${innerWidth>640?'open':''}><summary>ℹ️ 這一頁怎麼看・標籤說明</summary><div class="dim-note" style="margin:0 0 10px">每天早上跟著早報更新(${esc(gen)} 產生)。AI 讀近 14 天的早報歸納出 1~3 年的產業趨勢;下面每一個趨勢都配「站內數據檢查」——營收有沒有跟上、股價有沒有走、AI 未來性評分——讓你分得出哪些是真的在發生、哪些還只是故事。相關個股只列站內有資料的;標籤是已進站內名單的。全部參考,不是投資建議。</div>
+    <div class="tr-legend">${['萌芽','成形','主流','過熱'].map(k=>`<span style="color:${stC[k]};border-color:${stC[k]}">${k}</span><small>${esc(stTip[k])}</small>`).join('')}</div></details>
     ${L.map(card).join('')}
     <div class="dim-note" style="margin-top:12px">歷史:每天的趨勢都永久存在 trends/ 資料夾;上面「首次記錄、累計天數」就是從那裡算的。</div>`;
   if(!document.getElementById('trCss2')){const st=document.createElement('style');st.id='trCss2';st.textContent=`.tr-ev{margin:8px 0 4px;padding:8px 10px;border-radius:9px;background:var(--panel2);font-size:13px;line-height:1.7}

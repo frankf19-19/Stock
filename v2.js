@@ -161,6 +161,46 @@
   }
   /* r1207:App(加到主畫面)上方狀態列顏色跟著目前主題的底色,不再是紅色 */
   function themeColor(){try{const bg=getComputedStyle(doc.body).backgroundColor;if(!bg)return;doc.querySelectorAll('meta[name="theme-color"]').forEach(m=>m.setAttribute('content',bg));}catch(e){}}
+  /* r1232 手機:長頁面上方的「快速跳段」列(往下滑才出現)+ 往下滑時收起底部指數列,往上滑再出現 */
+  function jumpItems(){
+    if(location.hash||!mqM.matches)return [];
+    const k=current(),pane=doc.getElementById('tp-'+k);if(!pane||!pane.offsetParent)return [];
+    const out=[],clean=t=>String(t||'').replace(/^[\s▸▾▶▼►]+/,'').replace(/[|｜].*$/,'').trim();
+    if(k==='trend')pane.querySelectorAll('.tr-card').forEach(e=>{const b=e.querySelector('b');const t=clean(b&&b.textContent);if(t)out.push({el:e,t:t.length>9?t.slice(0,9)+'…':t});});
+    else pane.querySelectorAll('.sec-title,.a3-card>.a3-h').forEach(e=>{if(!e.offsetParent)return;
+      let t=e.classList.contains('a3-h')?clean((e.querySelector('b')||e).textContent):clean(e.childNodes[0]&&e.childNodes[0].textContent);
+      if(!t)t=clean(e.textContent);if(!t)return;out.push({el:e,t:t.length>10?t.slice(0,10)+'…':t});});
+    return out.length>=3?out:[];
+  }
+  let JI=[],JSIG='';
+  function jumpPaint(){
+    let bar=doc.getElementById('v2jump');
+    if(!bar){bar=doc.createElement('nav');bar.id='v2jump';bar.setAttribute('aria-label','快速跳到這一頁的某一段');doc.body.append(bar);
+      bar.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+        if(b.dataset.top){window.scrollTo({top:0,behavior:'smooth'});return;}
+        const it=JI[+b.dataset.i];if(!it||!it.el.isConnected)return;
+        try{const sec=it.el.dataset&&it.el.dataset.sec,body=sec&&doc.getElementById('sb-'+sec);if(body&&body.classList.contains('closed'))it.el.click();}catch(x){}
+        const off=(doc.querySelector('header')||{}).offsetHeight||52;
+        setTimeout(()=>window.scrollTo({top:Math.max(0,it.el.getBoundingClientRect().top+window.scrollY-off-bar.offsetHeight-6),behavior:'smooth'}),30);});}
+    JI=jumpItems();const sig=current()+'|'+JI.map(x=>x.t).join('|');
+    if(sig!==JSIG){JSIG=sig;bar.innerHTML=JI.length?'<button type="button" data-top="1" aria-label="回到最上面">⬆ 頂端</button>'+JI.map((x,i)=>'<button type="button" data-i="'+i+'">'+x.t.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</button>').join(''):'';}
+    return bar;
+  }
+  function jumpInit(){
+    let lastY=window.scrollY,tick=0,lastBuild=0;
+    const run=()=>{tick=0;const y=window.scrollY,hd=doc.querySelector('header'),off=(hd&&hd.offsetHeight)||52;
+      if(!mqM.matches){root.classList.remove('v2-jump','v2-sd');return;}
+      root.style.setProperty('--v2jt',off+'px');
+      if(Math.abs(y-lastY)>6){root.classList.toggle('v2-sd',y>lastY&&y>120);lastY=y;}
+      const now=Date.now();let bar=doc.getElementById('v2jump');
+      if(!bar||now-lastBuild>700){lastBuild=now;bar=jumpPaint();}
+      const show=JI.length>0&&y>260&&!location.hash;root.classList.toggle('v2-jump',show);
+      if(show){let on=-1;const lim=off+bar.offsetHeight+24;for(let i=0;i<JI.length;i++){if(JI[i].el.isConnected&&JI[i].el.getBoundingClientRect().top<=lim)on=i;}
+        bar.querySelectorAll('button[data-i]').forEach(b=>{const o=+b.dataset.i===on;if(o!==b.classList.contains('on')){b.classList.toggle('on',o);if(o)try{bar.scrollTo({left:Math.max(0,b.offsetLeft-80),behavior:'smooth'});}catch(e){}}});}
+    };
+    window.addEventListener('scroll',()=>{if(!tick)tick=requestAnimationFrame(run);},{passive:true});
+    window.addEventListener('hashchange',()=>{JSIG='';root.classList.remove('v2-jump','v2-sd');setTimeout(run,300);});
+  }
   function init(){
     themeColor();try{new MutationObserver(()=>setTimeout(themeColor,50)).observe(root,{attributes:true,attributeFilter:['data-theme','class']});}catch(e){}
     try{mergeView();}catch(e){}
@@ -171,6 +211,7 @@
     try{mobileCompact();}catch(e){}
     try{appBar();}catch(e){}
     try{patchMenu();}catch(e){}
+    try{jumpInit();}catch(e){}
     sync();
     window.addEventListener('hashchange',()=>setTimeout(sync,0));
     try{new MutationObserver(()=>{clearTimeout(window.__v2t);window.__v2t=setTimeout(()=>{try{stockCtx();favFold();syncTitle();}catch(e){}},250);}).observe(doc.getElementById('detailView')||doc.body,{childList:true,subtree:true});}catch(e){}

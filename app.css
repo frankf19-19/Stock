@@ -2913,3 +2913,8 @@ html[data-stock-ui] #chapTabs button{min-height:44px}html[data-stock-ui] .sec-ti
   .fav-nav-m select{max-width:118px}
   .fav-nav-m .fn-pos{display:none}
 }
+/* r1232 AI Pick 三清單一眼看 */
+.a3-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.a3-strip button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:64px;padding:8px 10px;border:1px solid var(--line,rgba(127,127,127,.3));border-radius:12px;background:var(--panel);color:var(--txt);cursor:pointer;text-align:left}
+.a3-strip button b{font-size:14px}.a3-strip button span{font-size:12px;color:var(--txt2)}.a3-strip button em{font-style:normal;font-size:13px;font-weight:800;font-family:var(--mono,monospace)}
+.a3-strip button:active{transform:scale(.97)}

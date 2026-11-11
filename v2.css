@@ -433,3 +433,22 @@ html.v2 .a3-lvi em{white-space:nowrap}
   html.v2 .v2-acct .v2-sep{margin:4px 0 6px}
   html.v2 .v2-acct-row>*{min-height:38px;font-size:13.5px;padding:5px 11px;border-radius:10px}
 }
+/* ===== r1232 手機大整理:快速跳段列、底部列不透明、往下滑收起指數列、AI Pick 少一層框 ===== */
+#v2jump{display:none}
+@media(max-width:640px){
+  html.v2 #v2jump{display:flex;position:fixed;left:0;right:0;top:var(--v2jt,52px);z-index:39;gap:6px;padding:6px 10px;overflow-x:auto;background:var(--bg);border-bottom:1px solid var(--line);visibility:hidden;opacity:0;transform:translateY(-8px);transition:opacity .16s,transform .16s;scrollbar-width:none;-webkit-overflow-scrolling:touch;user-select:none;-webkit-user-select:none}
+  html.v2 #v2jump::-webkit-scrollbar{display:none}
+  html.v2.v2-jump #v2jump{visibility:visible;opacity:1;transform:none}
+  html.v2 #v2jump button{flex:0 0 auto;min-height:34px;padding:4px 12px;border-radius:17px;border:1px solid var(--line);background:var(--panel);color:var(--txt2);font-size:13px;font-weight:700;white-space:nowrap}
+  html.v2 #v2jump button.on{color:var(--amber);border-color:var(--amber)}
+  html.v2 #v2jump button[data-top]{color:var(--txt)}
+  html.v2 #mobNav{background:var(--panel)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  html.v2 #mobIdxBar{background:var(--bg)!important;transition:transform .2s,opacity .2s}
+  html.v2.v2-sd #mobIdxBar{transform:translateY(120%)!important;opacity:0;pointer-events:none}
+  /* AI Pick:三清單外面那層框拿掉,卡片貼齊螢幕,字不被擠 */
+  html.v2 #sb-aip3{padding:8px 0 0!important;border:0!important;background:none!important;box-shadow:none!important}
+  html.v2 #sb-aip3 .a3-card{padding:12px 12px!important;margin-left:0!important;margin-right:0!important}
+  html.v2 .a3-re{min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal!important}
+  html.v2 .a3-row{flex-wrap:wrap;min-width:0}
+  html.v2 .tr-about{margin-bottom:10px}
+}
