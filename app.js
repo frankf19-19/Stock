@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1237';
+const APP_BUILD='r1238';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1568,21 +1568,39 @@ function stockMarginEst(s){
   const px=+s.price>0?+s.price:null,m=px?px/(e.c*.6)*100:e.m;if(!(m>0))return null;
   const line=e.c*.78;return {e,px,m,line,toLine:px?(line/px-1)*100:null,vsCost:px?(px/e.c-1)*100:null,lv:marginLevel(m),low:e.q>0.35||e.n<120};
 }
+function mestPaint(s){const box=document.getElementById('mestBox');if(!box)return;
+  if(!MARGIN_EST){marginEstLoad();return;}
+  const h=stockMarginEstHTML(s)||'<div class="dim-note">這檔目前沒有融資維持率估算:可能是不能融資、融資餘額為 0,或融資紀錄不到 60 個交易日。</div>';
+  if(box._h!==h){box._h=h;box.innerHTML=h;}}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-mestgo]');if(!a)return;e.preventDefault();try{StockNavigation.go(document,{section:'stk_mr',focus:true});}catch(x){}});
 function stockMarginEstHTML(s,brief){
-  const x=stockMarginEst(s);if(!x)return '';const e=x.e,f=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:2}),f1=v=>(+v).toFixed(1);
+  const x=stockMarginEst(s);if(!x)return '';const e=x.e,f=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:2}),f1=v=>(+v).toFixed(1),sg=v=>(v>0?'+':'')+f1(v)+'%';
   const pos=e.rk<=20?'近一年偏低的位置':e.rk>=80?'近一年偏高的位置':'近一年中間的位置';
-  if(brief)return `<div class="mest-line">💳 <b>融資維持率(估算)${f1(x.m)}%・<span style="color:${x.lv.c}">${x.lv.k}</span></b>・${x.lv.t.split(';')[0]}${x.toLine!=null&&x.toLine<0?`・再跌 ${f1(-x.toLine)}% 到追繳線`:''}${x.low?'・資料較少,可信度低':''}</div>`;
+  if(brief)return `<div class="mest-line" data-mestgo="1" role="link" tabindex="0" style="cursor:pointer">💳 <b>融資維持率(估算)${f1(x.m)}%・<span style="color:${x.lv.c}">${x.lv.k}</span></b>・${x.lv.t.split(';')[0]}${x.toLine!=null&&x.toLine<0?`・再跌 ${f1(-x.toLine)}% 到追繳線`:''}${x.low?'・資料較少,可信度低':''} <span style="color:var(--amber);font-weight:800;white-space:nowrap">完整評估 ›</span></div>`;
+  const K=MARGIN_EST.mkt,dm=K?x.m-K.r:null;
+  /* 綜合判讀:只把幾個事實放在一起講,不下買賣結論 */
+  const pts=[];
+  pts.push(`維持率 <b>${f1(x.m)}%</b>,屬於「<b style="color:${x.lv.c}">${x.lv.k}</b>」:${x.lv.t}。`);
+  if(dm!=null)pts.push(`跟大盤比:大盤(上市)是 ${f1(K.r)}%,這檔${Math.abs(dm)<5?'差不多':dm<0?`<b>低 ${f1(-dm)} 點</b>,融資戶比整體市場更吃緊`:`<b>高 ${f1(dm)} 點</b>,融資戶比整體市場輕鬆`}。`);
+  pts.push(`跟自己比:在${pos}(比近一年 ${e.rk}% 的日子高);近 60 個交易日在 ${f1(e.lo)}%~${f1(e.hi)}% 之間。`);
+  if(e.u!=null)pts.push(`融資部位裡約 <b>${e.u}%</b> 的張數成本高於現價(套牢)${e.k>0?`,約 <b style="color:var(--amber)">${e.k}%</b> 的張數維持率已低於 140%(離追繳線很近)`:',目前沒有明顯貼近追繳線的部位'}。`);
+  if(e.b5!=null&&e.p5!=null){const b=e.b5,p=e.p5;
+    pts.push(`近 5 天:融資餘額 ${sg(b)}、股價 ${sg(p)} → ${Math.abs(b)<1?'融資沒什麼變化':b<0?(p<0?'<b>融資減、股價跌</b>:借錢買的人在認賠或被迫賣出,賣壓還在消化':'<b>融資減、股價沒跌</b>:槓桿在退、籌碼變輕,通常是比較健康的狀態'):(p<0?'<b>融資增、股價跌</b>:有人借錢往下攤平,之後再跌壓力會更大':'<b>融資增、股價漲</b>:散戶借錢追價,漲勢中常見,但回檔時賣壓也會比較重')}。${e.b20!=null?`近 20 天融資餘額 ${sg(e.b20)}、股價 ${sg(e.p20)}。`:''}`);}
+  const H=e.h||[];let spark='';
+  if(H.length>3){const W=300,Hh=54,mn=Math.min(...H,130),mx=Math.max(...H,170),X=i=>4+(W-8)*i/(H.length-1),Y=v=>4+(Hh-8)*(1-(v-mn)/(mx-mn||1));
+    spark=`<svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="none" class="mest-spark" role="img" aria-label="近 ${H.length} 個交易日融資維持率走勢">${mn<=166.7&&mx>=166.7?`<line x1="0" x2="${W}" y1="${Y(166.7)}" y2="${Y(166.7)}" stroke="var(--txt2)" stroke-dasharray="4 4" opacity=".6"/>`:''}${mn<=130?`<line x1="0" x2="${W}" y1="${Y(130)}" y2="${Y(130)}" stroke="var(--amber)" stroke-dasharray="4 4" opacity=".8"/>`:''}<polyline fill="none" stroke="var(--amber)" stroke-width="2" points="${H.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ')}"/><circle cx="${X(H.length-1)}" cy="${Y(H[H.length-1])}" r="3.5" fill="var(--amber)"/></svg><div class="mest-sparkcap">近 ${H.length} 個交易日的走勢(虛線:166.7% 剛買進${mn<=130?'、130% 追繳線':''})</div>`;}
   return `<section class="plain-plan-card mest-card"><h4>💳 融資維持率(估算):現在是高還是低?</h4>
     <div class="mest-top"><b class="mest-num" style="color:${x.lv.c}">${f1(x.m)}%</b><b class="mest-lv" style="color:${x.lv.c}">${x.lv.k}</b><span>${x.lv.t}</span></div>
     <div class="mest-bar"><i style="left:${Math.max(0,Math.min(100,(x.m-130)/(200-130)*100)).toFixed(1)}%"></i><em style="left:0">130% 追繳</em><em style="left:${((166.7-130)/70*100).toFixed(1)}%">166.7% 剛買進</em><em style="right:0">200%</em></div>
+    ${spark}
+    <div class="mest-sum"><b>完整評估</b><ul>${pts.map(t=>`<li>${t}</li>`).join('')}</ul></div>
     <dl class="plan-prices">
       <div class="plan-price-row"><dt>融資戶平均成本(估算)</dt><dd><strong>${f(e.c)} 元</strong><small>${x.vsCost!=null?`現價 ${f(x.px)} 元,比平均成本${x.vsCost>=0?'高':'低'} ${f1(Math.abs(x.vsCost))}% → 融資戶平均${x.vsCost>=0?'賺錢':'賠錢'}(借錢買,賺賠會放大約 2.5 倍)`:'現價待更新'}</small></dd></div>
       <div class="plan-price-row"><dt>平均追繳價(維持率 130%)</dt><dd><strong>約 ${f(strategyPrice(x.line,false,'down')||x.line)} 元</strong><small>${x.toLine==null?'':x.toLine<0?`現價再跌 ${f1(-x.toLine)}% 會到;這是「平均」,買在更高的人會更早被追繳`:'現價已在這個價位附近或以下'}</small></dd></div>
-      <div class="plan-price-row"><dt>跟自己比</dt><dd><strong>${pos}</strong><small>近 60 個交易日在 ${f1(e.lo)}% ~ ${f1(e.hi)}% 之間;現在比近一年 ${e.rk}% 的日子高</small></dd></div>
-      <div class="plan-price-row"><dt>融資餘額</dt><dd><strong>${(+e.b).toLocaleString()} 張</strong><small>資料日 ${String(e.d).slice(5).replace('-','/')}${MARGIN_EST.mkt?`;同一天大盤(上市)融資維持率 ${f1(MARGIN_EST.mkt.r)}%`:''}</small></dd></div>
+      <div class="plan-price-row"><dt>融資餘額</dt><dd><strong>${(+e.b).toLocaleString()} 張</strong><small>資料日 ${String(e.d).slice(5).replace('-','/')}${e.b5!=null?`;近 5 天 ${sg(e.b5)}`:''}${e.b20!=null?`、近 20 天 ${sg(e.b20)}`:''}</small></dd></div>
     </dl>
     ${x.low?'<p class="dim-note">⚠ 這檔的融資紀錄較短,或一開始就有的舊部位佔比高(成本只能用起算日價格代替),估算可信度較低。</p>':''}
-    <details class="plan-more"><summary>這個數字怎麼估的、可以信到什麼程度</summary><p>交易所只公布每檔股票「融資餘額有幾張」,沒有公布大家是用多少錢買的,所以個股的融資維持率<b>只能估算</b>:融資餘額增加的那天,把增加的張數用當天收盤價記成新的一批;減少時,一半照比例還、一半從最舊的先還,而且已經跌破 130% 的那幾批最先消失(被追繳或自己賣掉)。維持率 = 現價 ÷(平均成本 × 60%)。</p>
+    <details class="plan-more"><summary>這個數字怎麼估的、可以信到什麼程度</summary><p>交易所只公布每檔股票「融資餘額有幾張」,沒有公布大家是用多少錢買的,所以個股的融資維持率<b>只能估算</b>:融資餘額增加的那天,把增加的張數用當天收盤價記成新的一批;減少時,一半照比例還、一半從最舊的先還,而且已經跌破 130% 的那幾批最先消失(被追繳或自己賣掉)。維持率 = 現價 ÷(平均成本 × 60%)。「套牢比例」「貼近追繳線的比例」也是從這些估算的批次算出來的。</p>
     <p>校驗:把全部上市股票的估算加起來,跟用公開數字直接算出的大盤融資維持率比,近 60 個交易日平均差約 2 個百分點、最大差約 5 個百分點。單一個股的誤差會比這個大,請當作「大概位置」。</p>
     <p>沒算進去的:融資利息、現金股利、不同的融資成數(一律用 6 成)、同一個人帳戶裡的其他股票(券商追繳是看整個帳戶)。所以這不是追繳通知,也不是買賣訊號。</p></details></section>`;
 }
@@ -1595,7 +1613,7 @@ function stockContextHTML(s,raw,dates,own=false,cost=null){
  const research=typeof StockTradeResearch==='undefined'?'<p>研究資料待載入。</p>':StockTradeResearch.render(s,e,{check:strategyCloseCheck(s,raw,dates),calendar});
  const facts=stockOperationFacts(s,raw,dates,own,cost),box=stockPriceBoxHTML(s,facts,{calendar});
  const full=typeof StockOperationPlan==='undefined'?research:StockOperationPlan.render(s,facts,{calendar})+'<details class="plan-more operation-research"><summary>其他六種買法研究結果（不代表整檔股票不能買）</summary>'+research+'</details>';
- const personal=stockBottomHTML(s,facts)+stockMarginEstHTML(s)+stockMarginPressureHTML(s,facts)+stockIndividualHTML(s,facts)+stockOwnContextHTML(s,facts);
+ const personal=stockBottomHTML(s,facts)+stockMarginPressureHTML(s,facts)+stockIndividualHTML(s,facts)+stockOwnContextHTML(s,facts);
  const badge=typeof StockBottomResearch!=='undefined'?StockBottomResearch.badgeHTML(s,facts):''; // r1191: explicit current close-condition status before prices.
  const primary=box?box+personal+'<details class="plan-more pbx-full"><summary>完整條件與說明(確認時間、已持有怎麼處理、其他研究)</summary>'+full+'</details>':full+personal;   // r1173:價格表在上,原說明全部保留在收合區
  return stockBvolHTML(s,raw,dates)+badge+primary+'<details class="plan-more legacy-context-observations"><summary>原三種情境觀察價與通知（參考）</summary><p class="dim-note">下面保留舊觀察價及其通知設定，與上方六種買法的候選分開；未通過的研究價不作買進通知。你的原通知勾選保留。</p>'+legacy+'</details>';
@@ -1697,6 +1715,7 @@ function refreshStockBrief(s){
  try{let bx=document.getElementById('briefBvol');const sb=document.getElementById('stockBrief');   // r1230:🌋 底部爆量長紅放買賣總覽最上面
    if(!bx&&sb){bx=document.createElement('div');bx.id='briefBvol';const hd=sb.querySelector('.brief-heading');hd?hd.after(bx):sb.prepend(bx);}
    if(bx){const h=stockBvolHTML(s,k.ohlc,k.dates)+stockMarginEstHTML(s,true);if(bx._h!==h){bx._h=h;bx.innerHTML=h;}}}catch(e){}   // r1236:融資維持率一行
+ try{mestPaint(s);}catch(e){}
  /* r1210:個股「買賣總覽」也顯示重要分點(關鍵分點大買大賣、連買連賣、近期吃貨) */
  try{let ins=document.getElementById('briefIns');const g0=document.querySelector('#stockBrief .brief-grid');
    if(!ins&&g0){ins=document.createElement('div');ins.id='briefIns';ins.className='fav-ins brief-ins';g0.after(ins);}
@@ -8150,7 +8169,7 @@ function stkReorderSections(s){                            // r501:個股頁資�
     }catch(e){}
     const GROUPS=[
       ['📈','技術與價格','現在怎麼走・在哪進出',['stk_k','stk_tp','stk_dna','stk_s']],
-      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_f','stk_ae','stk_h','stk_bk','stk_cost','stk_rhythm','stk_bs','stk_c']],   // r806:分點動向歸籌碼章;r835:成本、節奏獨立成節
+      ['⚖️','籌碼動向','誰在買、誰在賣',['stk_mr','stk_f','stk_ae','stk_h','stk_bk','stk_cost','stk_rhythm','stk_bs','stk_c']],   // r806:分點動向歸籌碼章;r835:成本、節奏獨立成節
       ['💰','基本面與價值','值不值得・前景如何',['stk_r','stk_v','stk_div','stk_peer','stk_conf']],
       ['🧭','綜合研判與背景','AI 總結・三力評分・市場觀點・公司背景',['stk_ai','stk_3','stk_m','stk_rpt','stk_p','stk_e']],
     ];
@@ -15472,6 +15491,7 @@ async function showDetail(id){
     ${dimBlock('籌碼面|法人・大戶・主力(權重35%)',cAug)}
     <div id="t3TechCard">${dimBlock('技術線型(權重25%)',t3Live(s))}</div>
     </div>
+    ${s.market==='US'||s.etf?'':`<div class="sec-title" data-sec="stk_mr">💳 融資維持率 <span style="font-weight:400;font-size:13px;letter-spacing:0">估算・現在是高還是低、離追繳多遠</span></div><div class="sec-body" id="sb-stk_mr"><div id="mestBox"><div class="dim-note">融資維持率估算載入中…(每天晚上融資資料更新後重算)</div></div></div>`}
     ${s.market==='US'?'':`<div class="sec-title" data-sec="stk_c">📊 籌碼圖表 <span style="font-weight:400;font-size:13px;letter-spacing:0">法人買賣超・大戶・信用交易(6個月)</span></div><div class="sec-body" id="sb-stk_c">
     <div id="chipwrap"></div>
     </div>`}

@@ -6,7 +6,8 @@
                減少的那天,視為各批等比例還掉(平均成本不變)。價格單日跳動 >25% 當成除權/分割,成本同比例調整。
                起算日(SEED_FROM)原有的餘額沒有成本資料,先用當天收盤價代替;它佔現在餘額的比例寫在 q,太高(>35%)就標「可信度低」。
                沒算利息、現金股利、不同融資成數(一律 60%)。
-輸出 margin_est.json:{d, mkt:{d,r,h:[[日期,維持率]...]}, s:{代號:{c 平均成本, m 維持率%, lo/hi 近 60 日最低/最高, rk 近 250 日排名百分位, q 起算殘留比例, n 天數}}}
+輸出 margin_est.json:{d, mkt:{d,r,h:[[日期,維持率]...]}, s:{代號:{c 平均成本, m 維持率%, lo/hi 近 60 日最低/最高, rk 近 250 日排名百分位, q 起算殘留比例, n 天數,
+     u 套牢張數比例%, k 維持率<140% 的張數比例%, b5/b20 融資餘額近 5/20 日變化%, p5/p20 股價近 5/20 日變化%, h 近 30 日維持率}}}
 """
 import json, gzip, glob, os, datetime
 ROOT = os.path.dirname(os.path.abspath(__file__)); os.chdir(ROOT)
@@ -87,8 +88,17 @@ def main():
             if info[sid].get('ex') == 'tse': AGG[d][0] += b * p; AGG[d][1] += b * cost * 0.6
         if not series or q <= 0 or cost is None or series[-1][0] != ds[-1]: continue
         last = series[-1][1]; w60 = [v for _, v in series[-60:]]; w250 = [v for _, v in series[-250:]]
+        pN = P[ds[-1]]; tq = sum(L[1] for L in lots) or 1
+        under = sum(L[1] for L in lots if L[0] > pN) / tq                      # 成本高於現價(套牢)的張數比例
+        near = sum(L[1] for L in lots if pN / (L[0] * 0.6) < 1.4) / tq          # 維持率 <140%(離追繳線近)的張數比例
+        def chg(D, n):
+            if len(ds) <= n: return None
+            a = D.get(ds[-1 - n]); b = D.get(ds[-1])
+            return round((b / a - 1) * 100, 1) if a and b is not None else None
         out[sid] = {'c': round(cost, 2), 'm': round(last, 1), 'd': ds[-1], 'lo': round(min(w60), 1), 'hi': round(max(w60), 1),
-                    'rk': round(sum(v <= last for v in w250) / len(w250) * 100), 'q': round(seed / q, 2), 'n': len(series), 'b': int(q)}
+                    'rk': round(sum(v <= last for v in w250) / len(w250) * 100), 'q': round(seed / q, 2), 'n': len(series), 'b': int(q),
+                    'u': round(under * 100), 'k': round(near * 100), 'b5': chg(B, 5), 'b20': chg(B, 20), 'p5': chg(P, 5), 'p20': chg(P, 20),
+                    'h': [round(v) for _, v in series[-30:]]}
     # 大盤(上市)
     cr = (data.get('macro') or {}).get('credit') or {}; H = cr.get('h') or {}; mk = []
     for d, fin in zip(H.get('d') or [], H.get('fin') or []):
