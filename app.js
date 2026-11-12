@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1236';
+const APP_BUILD='r1237';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -16375,6 +16375,16 @@ function jumpToEl(el){
     window.scrollTo({top:Math.max(0,scrollY+d),behavior:first&&Math.abs(d)<innerHeight*1.5?'smooth':'auto'});};
   setTimeout(()=>fix(true),60);[450,900,1500,2200,3000].forEach(t=>setTimeout(()=>fix(false),t));
 }
+/* r1237(Frank:所有卡片都要能點進去):補上原本點不動的卡——
+   大盤頁的美股指數/匯率卡(原本只有上面 24px 一條能點)、美債利差卡;個股買賣總覽的「買點/跌破就賣/漲到可賣」三格(點了到完整買賣計畫) */
+document.addEventListener('click',e=>{try{
+  if(e.target.closest('a,button,summary,select,input,.gl,iframe'))return;
+  const c=e.target.closest('.idx-card');
+  if(c&&!c.dataset.mk&&!c.id){const g=c.querySelector('[data-fxgo]');if(g&&!e.target.closest('[data-fxgo]')){g.click();return;}
+    if(/利差/.test((c.querySelector('.nm')||c).textContent||'')){location.hash='#macro/y10';return;}}
+  const t=e.target.closest('#stockBrief .sc-prices>div');
+  if(t&&typeof StockNavigation!=='undefined'){StockNavigation.go(document,{section:'stk_k',full:true,focus:true});}
+}catch(x){}});
 function buildJumpBar(root){
   if(!root||root.id==='detailView'||root.closest('#detailView'))return;
   [...root.children].filter(c=>c.classList&&(c.classList.contains('mob-jump')||c.classList.contains('page-index'))).forEach(c=>c.remove());
