@@ -1572,7 +1572,7 @@ function mestPaint(s){const box=document.getElementById('mestBox');if(!box)retur
   if(!MARGIN_EST){marginEstLoad();return;}
   const h=stockMarginEstHTML(s)||'<div class="dim-note">這檔目前沒有融資維持率估算:可能是不能融資、融資餘額為 0,或融資紀錄不到 60 個交易日。</div>';
   if(box._h!==h){box._h=h;box.innerHTML=h;}}
-document.addEventListener('click',e=>{const a=e.target.closest('[data-mestgo]');if(!a)return;e.preventDefault();try{StockNavigation.go(document,{section:'stk_mr',focus:true});}catch(x){}});
+if(typeof document!=='undefined'&&document.addEventListener)document.addEventListener('click',e=>{const a=e.target.closest('[data-mestgo]');if(!a)return;e.preventDefault();try{StockNavigation.go(document,{section:'stk_mr',focus:true});}catch(x){}});
 function stockMarginEstHTML(s,brief){
   const x=stockMarginEst(s);if(!x)return '';const e=x.e,f=v=>(+v).toLocaleString(undefined,{maximumFractionDigits:2}),f1=v=>(+v).toFixed(1),sg=v=>(v>0?'+':'')+f1(v)+'%';
   const pos=e.rk<=20?'近一年偏低的位置':e.rk>=80?'近一年偏高的位置':'近一年中間的位置';
