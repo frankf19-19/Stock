@@ -494,7 +494,7 @@ if(MINI){const shell=()=>{try{document.body.classList.add('mini');if(!document.g
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',shell);else shell();}
 function miniStart(){if(!MINI)return;try{window.__sweepForce=Date.now()+3600e3*24;}catch(e){} miniPaint();setInterval(miniPaint,3000);let rt=null;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(miniPaint,80);});try{document.title='K研所 庫存即時';}catch(e){}}
 /* r925:開機保險——① 25 秒還沒載到資料就顯示「重新載入」② index.html 與 app.js 版本不一致(快取混到)就自動修一次 ③ 開機例外顯示在畫面上 */
-const APP_BUILD='r1238';
+const APP_BUILD='r1239';
 (function(){try{
   const want=(document.querySelector('meta[name="build"]')||{}).content;
   if(want&&want!==APP_BUILD&&!sessionStorage.getItem('__vfix')){sessionStorage.setItem('__vfix','1');
@@ -1551,7 +1551,7 @@ function marginEstLoad(){
   if(MARGIN_EST&&Date.now()-MARGIN_EST_T<30*60e3)return Promise.resolve(MARGIN_EST);
   if(MARGIN_EST_P)return MARGIN_EST_P;
   MARGIN_EST_P=(async()=>{try{const r=await fT('margin_est.json?v='+Math.floor(Date.now()/18e5),15000);if(r&&r.ok){const j=await r.json();if(j&&j.s&&j.est===true){const first=!MARGIN_EST;MARGIN_EST=j;MARGIN_EST_T=Date.now();
-      if(first){try{if(typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);}catch(e){}try{const s=(DATA.stocks||[]).find(x=>location.hash==='#stock/'+x.id);if(s)refreshStockBrief(s);}catch(e){}try{mtRateCard();}catch(e){}try{window.HomeView&&HomeView.render(true);}catch(e){}}}}}catch(e){}
+      if(first){try{if(typeof refreshStrategySummaries==='function')refreshStrategySummaries(true);}catch(e){}try{const s=(DATA.stocks||[]).find(x=>location.hash==='#stock/'+x.id);if(s)refreshStockBrief(s);}catch(e){}try{mtRateCard();}catch(e){}try{window.HomeView&&HomeView.render(true);}catch(e){}try{chipFill();}catch(e){}}}}}catch(e){}
     MARGIN_EST_P=null;return MARGIN_EST;})();
   return MARGIN_EST_P;
 }
@@ -1567,6 +1567,41 @@ function stockMarginEst(s){
   const e=MARGIN_EST.s[s.id];if(!e||!(e.c>0))return null;
   const px=+s.price>0?+s.price:null,m=px?px/(e.c*.6)*100:e.m;if(!(m>0))return null;
   const line=e.c*.78;return {e,px,m,line,toLine:px?(line/px-1)*100:null,vsCost:px?(px/e.c-1)*100:null,lv:marginLevel(m),low:e.q>0.35||e.n<120};
+}
+/* r1239 卡片上的籌碼兩行(Frank:卡片要顯示融資維持率狀況、大戶買賣跟散戶比)——
+   ① 融資維持率(估算,margin_est.json)② 集保:千張大戶 % 與散戶(<100 張)% 的比例,加上週、近 4 週增減(tdcc.json,每週六更新)。只陳述事實,不是買賣訊號 */
+let TDCC_P=null;
+function tdccLoad(){
+  if(window.__tdcc)return Promise.resolve(window.__tdcc);if(TDCC_P)return TDCC_P;
+  TDCC_P=(async()=>{try{const r=await fT('tdcc.json?'+Math.floor(Date.now()/36e5),12000);if(r&&r.ok){const j=await r.json();if(j&&j.v===2&&j.s)window.__tdcc=j;}}catch(e){}TDCC_P=null;if(window.__tdcc)try{chipFill();}catch(e){}return window.__tdcc||null;})();
+  return TDCC_P;
+}
+function tdccOf(s){
+  const J=window.__tdcc;if(!s||s.market!=='TW'||s.etf)return null;if(!J){tdccLoad();return null;}
+  const a=J.s[s.id];if(!Array.isArray(a))return null;
+  const pts=[];for(let i=0;i<J.d.length;i++){const g=a[i];if(Array.isArray(g)&&g.length>=9&&g.every(v=>typeof v==='number'))pts.push({d:J.d[i],big:g[0],b400:g[0]+g[1]+g[2]+g[3],ret:g[6]+g[7]+g[8]});}
+  if(!pts.length)return null;const L=pts[pts.length-1],W1=pts[pts.length-2]||null,W4=pts[Math.max(0,pts.length-5)];
+  const r2=v=>Math.round(v*100)/100;
+  return {d:L.d,big:r2(L.big),ret:r2(L.ret),b400:r2(L.b400),big1:W1?r2(L.big-W1.big):null,ret1:W1?r2(L.ret-W1.ret):null,
+    big4:pts.length>=2?r2(L.big-W4.big):null,ret4:pts.length>=2?r2(L.ret-W4.ret):null,ratio:L.ret>0?L.big/L.ret:null,weeks:Math.min(4,pts.length-1)};
+}
+function chipCardHTML(s){
+  if(!s||s.market!=='TW'||s.etf)return '';
+  const out=[],pp=v=>v==null?'—':(v>0?'+':'')+(+v).toFixed(2);
+  try{const x=stockMarginEst(s);
+    if(x)out.push(`<div class="cc-row"><span class="cc-k">💳 融資維持率</span><span class="cc-v"><b style="color:${x.lv.c}">${x.m.toFixed(1)}%・${x.lv.k}</b>${x.toLine!=null&&x.toLine<0?`<small>再跌 ${(-x.toLine).toFixed(1)}% 到追繳線</small>`:x.toLine!=null?'<small>已在追繳線附近</small>':''}${x.e.u!=null?`<small>${x.e.u}% 張數套牢</small>`:''}${x.low?'<small>估算可信度低</small>':''}</span></div>`);
+    else if(MARGIN_EST)out.push(`<div class="cc-row"><span class="cc-k">💳 融資維持率</span><span class="cc-v"><small>沒有估算(融資很少或紀錄不足)</small></span></div>`);
+  }catch(e){}
+  try{const t=tdccOf(s);
+    if(t){const col=v=>v==null||Math.abs(v)<0.05?'var(--txt2)':v>0?'var(--up)':'var(--down)';
+      const flow=t.big4==null?'':t.big4>=0.5&&t.ret4<=0?'<b style="color:var(--up)">大戶在買、散戶在賣(籌碼變集中)</b>':t.big4<=-0.5&&t.ret4>=0?'<b style="color:var(--down)">大戶在賣、散戶在接(籌碼變分散)</b>':'大戶、散戶變化不大';
+      out.push(`<div class="cc-row"><span class="cc-k">👑 大戶 vs 散戶</span><span class="cc-v"><span class="cc-pair"><b>千張大戶 ${t.big.toFixed(2)}%</b> <em style="color:${col(t.big4)}">${t.weeks}週${pp(t.big4)}</em></span><span class="cc-pair"><b>散戶(&lt;100張) ${t.ret.toFixed(2)}%</b> <em style="color:${col(-t.ret4)}">${t.weeks}週${pp(t.ret4)}</em></span>
+        <small>${flow}${t.ratio?`・大戶是散戶的 ${t.ratio>=10?Math.round(t.ratio):t.ratio.toFixed(1)} 倍`:''}・上週大戶 ${pp(t.big1)}・集保 ${String(t.d).slice(5).replace('-','/')}</small></span></div>`);}
+  }catch(e){}
+  return out.length?out.join(''):'';
+}
+function chipFill(root){
+  (root||document).querySelectorAll('[data-chipcard]').forEach(el=>{const s=(DATA.stocks||[]).find(x=>x.id===el.dataset.chipcard);const h=s?chipCardHTML(s):'';if(el._h!==h){el._h=h;el.innerHTML=h;}});
 }
 function mestPaint(s){const box=document.getElementById('mestBox');if(!box)return;
   if(!MARGIN_EST){marginEstLoad();return;}
@@ -1714,7 +1749,8 @@ function refreshStockBrief(s){
  SiteLayout.plan(document,m,html,compactAIPick(s,av));
  try{let bx=document.getElementById('briefBvol');const sb=document.getElementById('stockBrief');   // r1230:🌋 底部爆量長紅放買賣總覽最上面
    if(!bx&&sb){bx=document.createElement('div');bx.id='briefBvol';const hd=sb.querySelector('.brief-heading');hd?hd.after(bx):sb.prepend(bx);}
-   if(bx){const h=stockBvolHTML(s,k.ohlc,k.dates)+stockMarginEstHTML(s,true);if(bx._h!==h){bx._h=h;bx.innerHTML=h;}}}catch(e){}   // r1236:融資維持率一行
+   if(!window.__tdcc)tdccLoad().then(()=>{try{refreshStockBrief(s);}catch(e){}});
+   if(bx){const cc=chipCardHTML(s),h=stockBvolHTML(s,k.ohlc,k.dates)+(cc?`<div class="chip-card chip-brief" data-mestgo="1" role="link" tabindex="0" title="點開看完整的融資與大戶評估">${cc}<span class="cc-more">完整評估 ›</span></div>`:'');if(bx._h!==h){bx._h=h;bx.innerHTML=h;}}}catch(e){}   // r1236:融資維持率一行
  try{mestPaint(s);}catch(e){}
  /* r1210:個股「買賣總覽」也顯示重要分點(關鍵分點大買大賣、連買連賣、近期吃貨) */
  try{let ins=document.getElementById('briefIns');const g0=document.querySelector('#stockBrief .brief-grid');
@@ -1872,13 +1908,14 @@ async function favStateFill(){
       else try{await lvLoad();{let cst=null;try{const P0=favPlanOf(s,k.ohlc,k.dates);cst=own&&P0?P0.entry:null;}catch(e){}plan+=aipTdFix(actionPlan(k.ohlc,id,s.price,own,cst,k.dates).replace(/隔天 9:00/g,'明天 9:00'));}const lh=lvHTML(k.ohlc,id,s.price,false);if(lh)plan+=`<details class="aip-fold" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📊 這檔的股性統計(參考)</summary>${lh}</details>`;}catch(e){}   // r1027:行動計畫在前,股性統計收合
       plan+=`<span class="fpl fpl-set" data-fset="${s.id}" style="font-size:12px;opacity:.75;cursor:pointer">✎ ${own?'修改持股成本':'設定持股成本'}</span>`;
       const fullPlan=plan.replace(/<div class="fav-kb" data-favkb="[^"]*">[\s\S]*?<\/div>/,'');   // r1210b:精簡卡片以外的內容(股性統計、位置與量價觀察、完整計畫)收進「完整計畫與參考」,不再整段消失
-      plan=(s.market==='TW'?bvolLineHTML(s,k.ohlc,k.dates):'')+compactFavPlan(s,plan)+`<details class="aip-fold fav-full" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📋 完整計畫與股性統計(參考)</summary>${fullPlan}</details>`+`<div class="fav-ins" data-favins="${id}">${insCardHTML(s)}</div>`+(s.market!=='US'?`<div class="fav-kb" data-favkb="${id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])||''}</div>`:'');   // r1212 內部人;r1210:卡片精簡(r1194)把關鍵分點一起拿掉了 → 加回來
+      plan=(s.market==='TW'?bvolLineHTML(s,k.ohlc,k.dates)+`<div class="chip-card" data-chipcard="${id}">${chipCardHTML(s)}</div>`:'')+compactFavPlan(s,plan)+`<details class="aip-fold fav-full" onclick="event.stopPropagation()"><summary style="cursor:pointer;color:var(--dim);font-size:12.5px">📋 完整計畫與股性統計(參考)</summary>${fullPlan}</details>`+`<div class="fav-ins" data-favins="${id}">${insCardHTML(s)}</div>`+(s.market!=='US'?`<div class="fav-kb" data-favkb="${id}">${(typeof FAVKB_HTML!=='undefined'&&FAVKB_HTML[id])||''}</div>`:'');   // r1212 內部人;r1210:卡片精簡(r1194)把關鍵分點一起拿掉了 → 加回來
       FAVST[id]={t:Date.now(),cls:av?av.cls:'fst-wait',html:typeof StockCardSummary!=='undefined'?compactAIPick(s,av):'AI Pick：詳見個股',plan};
       favStPaint(id);
     }catch(e){FAVST[id]={t:Date.now(),cls:'fst-wait',html:'— 狀態判讀失敗,稍後自動重試',plan:null};FAVST[id].t-=4*60e3;favStPaint(id);}
     await new Promise(r=>setTimeout(r,80));
   }}finally{window.__favStRun=0;
     try{insFill(document);}catch(e){}   // r1212
+    try{Promise.all([marginEstLoad(),tdccLoad()]).then(()=>chipFill(document));}catch(e){}   // r1239
     try{favKbFill(document);}catch(e){}                                  // r1062:卡片計畫區建好後補上關鍵分點
     if(needRetry&&!window.__favRetryT)window.__favRetryT=setTimeout(()=>{window.__favRetryT=0;try{favStateFill();}catch(e){}},15000);}
 }

@@ -2942,3 +2942,14 @@ html[data-stock-ui] #chapTabs button{min-height:44px}html[data-stock-ui] .sec-ti
 .mest-spark{width:100%;height:54px;display:block;margin:0 0 2px}.mest-sparkcap{font-size:11.5px;color:var(--dim);margin:0 0 10px}
 .mest-sum{border:1px solid var(--line,rgba(127,127,127,.3));border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px;line-height:1.65}
 .mest-sum ul{margin:6px 0 0;padding-left:1.15em}.mest-sum li{margin:3px 0}
+/* r1239 卡片籌碼兩行:融資維持率、大戶 vs 散戶 */
+.chip-card:not(:empty){display:flex;flex-direction:column;gap:6px;margin:6px 0 8px;padding:8px 10px;border:1px solid var(--line,rgba(127,127,127,.3));border-radius:10px;font-size:13px;line-height:1.5}
+.cc-row{display:grid;grid-template-columns:7.2em minmax(0,1fr);gap:8px;align-items:baseline}
+.cc-k{color:var(--txt2);font-size:12.5px;white-space:nowrap}
+.cc-v b{font-weight:800}.cc-v em{font-style:normal;font-weight:800;font-family:var(--mono,monospace);font-size:12.5px}
+.cc-v small{display:inline-block;margin-left:6px;color:var(--txt2);font-size:12px}
+.cc-row:last-child .cc-v small{display:block;margin-left:0}
+.chip-brief{cursor:pointer;position:relative}.chip-brief:hover{border-color:var(--amber)}
+.cc-more{align-self:flex-end;font-size:12.5px;color:var(--amber);font-weight:800}
+@media(max-width:640px){.cc-row{grid-template-columns:1fr;gap:0}.cc-v small{display:block;margin-left:0}}
+.cc-pair{display:inline-block;white-space:nowrap;margin-right:12px}
