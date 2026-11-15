@@ -2953,3 +2953,11 @@ html[data-stock-ui] #chapTabs button{min-height:44px}html[data-stock-ui] .sec-ti
 .cc-more{align-self:flex-end;font-size:12.5px;color:var(--amber);font-weight:800}
 @media(max-width:640px){.cc-row{grid-template-columns:1fr;gap:0}.cc-v small{display:block;margin-left:0}}
 .cc-pair{display:inline-block;white-space:nowrap;margin-right:12px}
+/* r1240 卡片籌碼區:桌機最愛卡片很窄,數字被切掉 → 標題自己一行、數字可以換行,不再超出卡片 */
+.chip-card{min-width:0;overflow:hidden}
+.chip-card .cc-row{grid-template-columns:minmax(0,1fr);gap:2px}
+.chip-card .cc-k{font-size:12px}
+.chip-card .cc-v{min-width:0;overflow-wrap:anywhere}
+.chip-card .cc-pair{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;white-space:normal;margin-right:12px;max-width:100%}
+.chip-card .cc-pair b,.chip-card .cc-pair em{white-space:nowrap}
+.chip-card .cc-v small{display:block;margin-left:0}
