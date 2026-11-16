@@ -1,233 +1,233 @@
 {
- "updated": "2026-11-16 04:08",
+ "updated": "2026-11-16 07:28",
  "stocks": 1925,
  "hz": {
   "1": {
    "buy": {
-    "brokers": 43259,
-    "events": 153427,
+    "brokers": 43487,
+    "events": 155022,
     "excess_avg": 0.0,
     "excess_wavg": 0.01,
-    "excess_med": -0.04,
-    "hit_avg": 43.8,
-    "pos_share": 48.6
+    "excess_med": -0.03,
+    "hit_avg": 43.3,
+    "pos_share": 48.8
    },
    "ctl_b": {
-    "brokers": 231615,
-    "events": 1304521,
+    "brokers": 232579,
+    "events": 1318752,
     "excess_avg": -0.01,
     "excess_wavg": 0.01,
-    "excess_med": -0.02,
-    "hit_avg": 41.9,
-    "pos_share": 48.6
+    "excess_med": -0.01,
+    "hit_avg": 41.5,
+    "pos_share": 48.9
    },
    "sell": {
-    "brokers": 58181,
-    "events": 178724,
-    "excess_avg": -0.01,
+    "brokers": 58525,
+    "events": 180963,
+    "excess_avg": -0.02,
     "excess_wavg": -0.01,
-    "excess_med": -0.05,
-    "hit_avg": 50.7,
-    "pos_share": 48.1
+    "excess_med": -0.04,
+    "hit_avg": 51.2,
+    "pos_share": 48.4
    },
    "ctl_s": {
-    "brokers": 242154,
-    "events": 1192459,
-    "excess_avg": 0.02,
+    "brokers": 243223,
+    "events": 1205037,
+    "excess_avg": 0.01,
     "excess_wavg": -0.0,
     "excess_med": -0.02,
-    "hit_avg": 49.6,
-    "pos_share": 48.6
+    "hit_avg": 50.1,
+    "pos_share": 48.9
    }
   },
   "3": {
    "buy": {
-    "brokers": 44014,
-    "events": 169311,
-    "excess_avg": 0.04,
+    "brokers": 44192,
+    "events": 170966,
+    "excess_avg": 0.03,
     "excess_wavg": 0.06,
     "excess_med": -0.05,
-    "hit_avg": 43.8,
+    "hit_avg": 43.5,
     "pos_share": 49.0
    },
    "ctl_b": {
-    "brokers": 225574,
-    "events": 1243754,
+    "brokers": 226617,
+    "events": 1257663,
     "excess_avg": 0.02,
     "excess_wavg": 0.03,
     "excess_med": -0.02,
-    "hit_avg": 42.1,
-    "pos_share": 49.3
+    "hit_avg": 41.8,
+    "pos_share": 49.2
    },
    "sell": {
-    "brokers": 56802,
-    "events": 174814,
+    "brokers": 57111,
+    "events": 176635,
     "excess_avg": 0.04,
     "excess_wavg": 0.01,
     "excess_med": -0.08,
-    "hit_avg": 54.6,
-    "pos_share": 48.1
+    "hit_avg": 54.9,
+    "pos_share": 48.3
    },
    "ctl_s": {
-    "brokers": 237318,
-    "events": 1152954,
-    "excess_avg": 0.06,
+    "brokers": 238369,
+    "events": 1165848,
+    "excess_avg": 0.05,
     "excess_wavg": 0.01,
     "excess_med": -0.04,
-    "hit_avg": 53.7,
+    "hit_avg": 53.9,
     "pos_share": 48.8
    }
   },
   "5": {
    "buy": {
-    "brokers": 42578,
-    "events": 165910,
-    "excess_avg": 0.05,
-    "excess_wavg": 0.09,
-    "excess_med": -0.06,
-    "hit_avg": 43.3,
-    "pos_share": 49.2
+    "brokers": 42814,
+    "events": 167670,
+    "excess_avg": 0.04,
+    "excess_wavg": 0.08,
+    "excess_med": -0.07,
+    "hit_avg": 43.0,
+    "pos_share": 49.1
    },
    "ctl_b": {
-    "brokers": 221569,
-    "events": 1202175,
+    "brokers": 222656,
+    "events": 1216058,
     "excess_avg": 0.03,
     "excess_wavg": 0.05,
     "excess_med": -0.01,
-    "hit_avg": 41.2,
+    "hit_avg": 41.1,
     "pos_share": 49.6
    },
    "sell": {
-    "brokers": 49824,
-    "events": 148101,
+    "brokers": 50115,
+    "events": 149907,
     "excess_avg": -0.0,
     "excess_wavg": -0.01,
     "excess_med": -0.12,
-    "hit_avg": 56.7,
+    "hit_avg": 56.8,
     "pos_share": 48.0
    },
    "ctl_s": {
-    "brokers": 238323,
-    "events": 1135949,
+    "brokers": 239446,
+    "events": 1149779,
     "excess_avg": 0.05,
     "excess_wavg": 0.01,
-    "excess_med": -0.04,
-    "hit_avg": 55.4,
-    "pos_share": 49.0
+    "excess_med": -0.05,
+    "hit_avg": 55.5,
+    "pos_share": 48.9
    }
   },
   "10": {
    "buy": {
-    "brokers": 42959,
-    "events": 167909,
+    "brokers": 43164,
+    "events": 169956,
     "excess_avg": 0.08,
     "excess_wavg": 0.16,
-    "excess_med": -0.09,
-    "hit_avg": 42.6,
-    "pos_share": 49.1
+    "excess_med": -0.07,
+    "hit_avg": 42.3,
+    "pos_share": 49.3
    },
    "ctl_b": {
-    "brokers": 208321,
-    "events": 1086582,
-    "excess_avg": 0.0,
-    "excess_wavg": 0.02,
-    "excess_med": -0.02,
-    "hit_avg": 40.1,
-    "pos_share": 49.6
+    "brokers": 209276,
+    "events": 1099593,
+    "excess_avg": 0.01,
+    "excess_wavg": 0.03,
+    "excess_med": -0.01,
+    "hit_avg": 39.8,
+    "pos_share": 49.7
    },
    "sell": {
-    "brokers": 44385,
-    "events": 127824,
-    "excess_avg": -0.09,
-    "excess_wavg": -0.1,
-    "excess_med": -0.23,
-    "hit_avg": 59.0,
-    "pos_share": 47.3
+    "brokers": 44641,
+    "events": 129350,
+    "excess_avg": -0.08,
+    "excess_wavg": -0.09,
+    "excess_med": -0.21,
+    "hit_avg": 59.3,
+    "pos_share": 47.5
    },
    "ctl_s": {
-    "brokers": 228118,
-    "events": 1052029,
+    "brokers": 229345,
+    "events": 1064323,
     "excess_avg": -0.02,
-    "excess_wavg": -0.01,
-    "excess_med": -0.09,
-    "hit_avg": 57.5,
-    "pos_share": 48.5
+    "excess_wavg": -0.0,
+    "excess_med": -0.08,
+    "hit_avg": 57.8,
+    "pos_share": 48.6
    }
   },
   "20": {
    "buy": {
-    "brokers": 41339,
-    "events": 156936,
-    "excess_avg": 0.19,
-    "excess_wavg": 0.19,
-    "excess_med": 0.16,
-    "hit_avg": 45.7,
-    "pos_share": 51.1
+    "brokers": 41585,
+    "events": 159186,
+    "excess_avg": 0.18,
+    "excess_wavg": 0.18,
+    "excess_med": 0.17,
+    "hit_avg": 45.2,
+    "pos_share": 51.2
    },
    "ctl_b": {
-    "brokers": 182984,
-    "events": 885216,
+    "brokers": 183973,
+    "events": 898104,
     "excess_avg": -0.02,
     "excess_wavg": 0.02,
-    "excess_med": 0.02,
-    "hit_avg": 41.0,
-    "pos_share": 50.2
+    "excess_med": 0.03,
+    "hit_avg": 40.6,
+    "pos_share": 50.3
    },
    "sell": {
-    "brokers": 34525,
-    "events": 95167,
-    "excess_avg": -0.27,
-    "excess_wavg": -0.23,
-    "excess_med": -0.26,
-    "hit_avg": 59.9,
-    "pos_share": 47.5
+    "brokers": 34810,
+    "events": 96590,
+    "excess_avg": -0.26,
+    "excess_wavg": -0.21,
+    "excess_med": -0.25,
+    "hit_avg": 60.3,
+    "pos_share": 47.6
    },
    "ctl_s": {
-    "brokers": 206806,
-    "events": 883217,
+    "brokers": 208189,
+    "events": 896504,
     "excess_avg": -0.14,
-    "excess_wavg": -0.02,
+    "excess_wavg": -0.03,
     "excess_med": -0.06,
-    "hit_avg": 56.7,
-    "pos_share": 49.2
+    "hit_avg": 57.2,
+    "pos_share": 49.3
    }
   }
  },
  "起漲分點(驗證期)": {
-  "brokers": 42959,
-  "events": 167909,
+  "brokers": 43164,
+  "events": 169956,
   "excess_avg": 0.08,
   "excess_wavg": 0.16,
-  "excess_med": -0.09,
-  "hit_avg": 42.6,
-  "pos_share": 49.1
+  "excess_med": -0.07,
+  "hit_avg": 42.3,
+  "pos_share": 49.3
  },
  "對照:一般買方券商": {
-  "brokers": 208321,
-  "events": 1086582,
-  "excess_avg": 0.0,
-  "excess_wavg": 0.02,
-  "excess_med": -0.02,
-  "hit_avg": 40.1,
-  "pos_share": 49.6
+  "brokers": 209276,
+  "events": 1099593,
+  "excess_avg": 0.01,
+  "excess_wavg": 0.03,
+  "excess_med": -0.01,
+  "hit_avg": 39.8,
+  "pos_share": 49.7
  },
  "出貨分點(驗證期)": {
-  "brokers": 44385,
-  "events": 127824,
-  "excess_avg": -0.09,
-  "excess_wavg": -0.1,
-  "excess_med": -0.23,
-  "hit_avg": 59.0,
-  "pos_share": 47.3
+  "brokers": 44641,
+  "events": 129350,
+  "excess_avg": -0.08,
+  "excess_wavg": -0.09,
+  "excess_med": -0.21,
+  "hit_avg": 59.3,
+  "pos_share": 47.5
  },
  "對照:一般賣方券商": {
-  "brokers": 228118,
-  "events": 1052029,
+  "brokers": 229345,
+  "events": 1064323,
   "excess_avg": -0.02,
-  "excess_wavg": -0.01,
-  "excess_med": -0.09,
-  "hit_avg": 57.5,
-  "pos_share": 48.5
+  "excess_wavg": -0.0,
+  "excess_med": -0.08,
+  "hit_avg": 57.8,
+  "pos_share": 48.6
  },
  "說明": "excess=驗證期該券商出手後 h 日報酬 − 該檔驗證期任意日 h 日報酬;起漲分點應 >0 且高於對照,出貨分點應 <0 且低於對照"
 }
