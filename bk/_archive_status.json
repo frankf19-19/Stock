@@ -1,19 +1,20 @@
 {
- "t": "2026-11-21 00:05",
+ "t": "2026-11-22 09:57",
  "bk15": {
-  "days": 286,
+  "days": 287,
   "from": "2025-09-12",
-  "to": "2026-11-19",
-  "stocks_last": 1893
+  "to": "2026-11-20",
+  "stocks_last": 1899
  },
  "delta": 1,
  "bkall_days": [
-  "2026-11-13",
   "2026-11-16",
   "2026-11-17",
   "2026-11-18",
-  "2026-11-19"
+  "2026-11-19",
+  "2026-11-20"
  ],
+ "backup_err": "gh release upload bkall-backup: HTTP 422: Validation Failed (https://uploads.github.com/repos/frankf19-19/Stock/releases/408643049/assets?label=&name=bkall_24.tar)\nsize must be less than 2147483648\n",
  "backup": {
   "at": "2026-11-21 00:15",
   "files": 11256
